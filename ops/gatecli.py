@@ -419,6 +419,39 @@ def cmd_dispatch_next(args) -> int:
     return cmd_instruct(ns)
 
 
+def cmd_question_append(args) -> int:
+    """Open a provisional decision. Work continues; gate exit does not.
+
+    This is how "no human in the loop" survives contact with a question nobody
+    present can answer: the loop records what it decided and why, keeps going,
+    and the debt is collected at a gate boundary in daylight instead of stalling
+    at 3am.
+    """
+    existing = V.read_jsonl(G.QUESTIONS_JSONL)
+    nid = f"OQ-{len(existing) + 1:03d}"
+    line = {
+        "ts": G.now_utc(),
+        "id": nid,
+        "card": args.card,
+        "question": args.question,
+        "provisional_decision": args.decision,
+        "rationale": args.rationale,
+        "status": "OPEN",
+        "consumed_by": args.consumed_by.split(","),
+    }
+    errs = G.schema_errors(G.load_schema(SCHEMA_FOR["question"]), line)
+    if errs:
+        for e in errs:
+            print(f"FAIL {e}")
+        return G.EXIT_FAIL
+    G.QUESTIONS_JSONL.parent.mkdir(parents=True, exist_ok=True)
+    with G.QUESTIONS_JSONL.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(line) + "\n")
+    G.STATE_FILE.write_text(G.dump_yaml(V.rebuild_state()), encoding="utf-8")
+    print(f"opened {nid} (blocks gate exit for {line['consumed_by']}, blocks no work)")
+    return G.EXIT_OK
+
+
 def cmd_review(args) -> int:
     """The supervisor's whole per-card action: verify, then accept or reject.
 
@@ -810,6 +843,13 @@ def build_parser():
     sub.add_parser("tick", help="the supervisor's bounded per-iteration brief")
     sub.add_parser("worker-tick", help="the worker loop's single decision point: WORK / WAIT / DONE")
 
+    sp = sub.add_parser("question-append", help="open a provisional decision; blocks gate exit only")
+    sp.add_argument("--card", required=True)
+    sp.add_argument("--question", required=True)
+    sp.add_argument("--decision", required=True)
+    sp.add_argument("--rationale", required=True)
+    sp.add_argument("--consumed-by", required=True)
+
     sp = sub.add_parser("dispatch-next", help="supervisor: dispatch the deterministic next card")
     sp.add_argument("--card")
     sp.add_argument("--kind", default="dispatch")
@@ -875,6 +915,7 @@ HANDLERS = {
     "tick": cmd_tick,
     "worker-tick": cmd_worker_tick,
     "dispatch-next": cmd_dispatch_next,
+    "question-append": cmd_question_append,
     "doctor": cmd_doctor,
     "resume-brief": cmd_resume_brief,
 }
