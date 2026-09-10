@@ -1,0 +1,72 @@
+
+===== CLEAN RUN 1 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/extraction/test_claim_id_bridge.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zss22knh\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/extraction/test_claim_id_bridge.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zss22knh\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/claim_id_bridge.py, ?? .junit-0.xml
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/extraction/test_claim_id_bridge.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zss22knh\.junit-0.xml"
+--- stdout ---
+.FFFF.                                                                   [100%]
+================================== FAILURES ===================================
+________________ test_a_renamed_or_removed_api_is_unsupported _________________
+
+    def test_a_renamed_or_removed_api_is_unsupported() -> None:
+        index = _index()
+>       assert anchor_resolves("Widget.LongGone", index) is False
+E       AssertionError: assert True is False
+E        +  where True = anchor_resolves('Widget.LongGone', <foss_mcp.extraction.claim_id_bridge.SymbolIndex object at 0x000002176AAE2350>)
+
+tests\extraction\test_claim_id_bridge.py:35: AssertionError
+_ test_an_anchor_matching_two_overloads_is_partially_supported_never_a_guess __
+
+    def test_an_anchor_matching_two_overloads_is_partially_supported_never_a_guess() -> None:
+        index = _index()
+>       assert anchor_resolves("Widget.GetStyle", index) is False
+E       AssertionError: assert True is False
+E        +  where True = anchor_resolves('Widget.GetStyle', <foss_mcp.extraction.claim_id_bridge.SymbolIndex object at 0x000002176AAE2AD0>)
+
+tests\extraction\test_claim_id_bridge.py:43: AssertionError
+____________ test_an_opaque_claim_id_is_never_used_as_a_lookup_key ____________
+
+    def test_an_opaque_claim_id_is_never_used_as_a_lookup_key() -> None:
+        """Even when an index coincidentally has an entry keyed by the literal opaque id string,
+        the bridge must not treat it as a semantic anchor."""
+        index = SymbolIndex([Declaration("CLM-deadbeef"), Declaration("ERC-000123")])
+        for opaque in ("CLM-deadbeef", "ERC-000123", "clm-deadbeef"):
+>           assert anchor_resolves(opaque, index) is False
+E           AssertionError: assert True is False
+E            +  where True = anchor_resolves('CLM-deadbeef', <foss_mcp.extraction.claim_id_bridge.SymbolIndex object at 0x000002176C328510>)
+
+tests\extraction\test_claim_id_bridge.py:54: AssertionError
+_______ test_resolve_anchor_and_anchor_resolves_agree_on_every_verdict ________
+
+    def test_resolve_anchor_and_anchor_resolves_agree_on_every_verdict() -> None:
+        index = _index()
+        for anchor in ("Widget.Save", "Widget.GetStyle", "Widget.LongGone", "CLM-xyz"):
+            supported = resolve_anchor(anchor, index).semantic_support_verdict == "supported"
+>           assert anchor_resolves(anchor, index) == supported
+E           AssertionError: assert True == False
+E            +  where True = anchor_resolves('CLM-xyz', <foss_mcp.extraction.claim_id_bridge.SymbolIndex object at 0x000002176C3289D0>)
+
+tests\extraction\test_claim_id_bridge.py:62: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_claim_id_bridge.py::test_a_renamed_or_removed_api_is_unsupported
+FAILED tests/extraction/test_claim_id_bridge.py::test_an_anchor_matching_two_overloads_is_partially_supported_never_a_guess
+FAILED tests/extraction/test_claim_id_bridge.py::test_an_opaque_claim_id_is_never_used_as_a_lookup_key
+FAILED tests/extraction/test_claim_id_bridge.py::test_resolve_anchor_and_anchor_resolves_agree_on_every_verdict
+
+--- stderr ---
+
