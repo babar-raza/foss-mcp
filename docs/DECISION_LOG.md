@@ -26,3 +26,11 @@ Observation, recorded rather than asserted: the plan documents `get_parser("c_sh
 parser. The failure may still be real on a cold grammar cache or without network. Production must
 still use the pack's own spelling `"csharp"`, and TC-010 carries a test pinning the spelling
 actually used, which protects us either way.
+
+## 2026-09-11 — TC-011 fixture independently authenticated (supervisor)
+The mechanical checks cannot tell real extraction from a fabricated fixture, so this was verified
+by hand against upstream. source_commit b717287 is a real commit (Release v26.9.0, 2026-09-01) and
+the current head of main. The fixture's first entry cites src/Collections/FileSpecificationDeps.cs
+line 7; that exact file at that exact commit has `public enum AFRelationship` on line 7, with the
+doc summary matching verbatim including the PDF 2.0 SS7.11.3 citation and the enum members in the
+same order. 300 types carry 1,724 methods, 3,026 properties, 523 enum members. Genuine extraction.
