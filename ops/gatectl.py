@@ -257,19 +257,48 @@ def all_cards():
 # --------------------------------------------------------------------------
 # scope
 # --------------------------------------------------------------------------
-def changed_paths(base: str, head: str):
-    """Union of paths touched by EVERY commit in base..head.
+def commit_subject(rev: str) -> str:
+    return git("log", "-1", "--format=%s", rev)[1]
 
-    An endpoint diff (`git diff base..head`) hides touch-and-revert: a worker
-    can modify ops/gatectl.py in commit 1 and revert it in commit 3, and the
-    endpoint diff is clean while the history contains the change. So we walk
-    each commit. --no-renames because rename detection prints only the
-    destination, hiding the source path entirely.
+
+def commit_body(rev: str) -> str:
+    return git("log", "-1", "--format=%b", rev)[1]
+
+
+def changed_paths(base: str, head: str, card_id: str | None = None, gate: str | None = None):
+    """Union of paths touched by every commit in base..head that belongs to this card.
+
+    An endpoint diff (`git diff base..head`) hides touch-and-revert: a worker can
+    modify ops/gatectl.py in commit 1 and revert it in commit 3, and the endpoint
+    diff is clean while the history contains the change. So we walk each commit.
+    --no-renames because rename detection prints only the destination, hiding the
+    source path entirely.
+
+    Why the card filter: the supervisor commits governance while a card is in
+    flight, so base..head legitimately contains commits the worker never made.
+    Blaming those on the worker produced a spurious scope violation three times.
+    The commit convention already identifies ownership - `(<GATE>/<CARD>)` in the
+    subject - so scope is judged on the worker's own commits. Commits that claim
+    neither this card nor the supervisor trailer are reported separately rather
+    than silently ignored, so an untagged worker commit cannot hide here.
     """
     rc, out, err = git("rev-list", "--reverse", f"{base}..{head}")
     if rc != 0:
         die(f"rev-list failed: {err}")
     revs = [r for r in out.splitlines() if r.strip()]
+
+    unattributed = []
+    if card_id:
+        tag = f"({gate}/{card_id})" if gate else f"/{card_id})"
+        mine, others = [], []
+        for r in revs:
+            if tag in commit_subject(r):
+                mine.append(r)
+            elif "Claude Opus 5" in commit_body(r):
+                others.append(r)  # supervisor governance, legitimately out of scope
+            else:
+                unattributed.append(r)
+        revs = mine + unattributed
     touched, per_commit = set(), {}
     for r in revs:
         rc, out, _ = git("diff-tree", "--no-commit-id", "--no-renames", "-r", "--name-status", r)
@@ -285,7 +314,7 @@ def changed_paths(base: str, head: str):
                         paths.append(norm_path(pth))
         per_commit[r] = paths
         touched.update(paths)
-    return revs, sorted(touched), per_commit
+    return revs, sorted(touched), per_commit, unattributed
 
 
 def risky_modes(base: str, head: str):
@@ -309,11 +338,18 @@ def risky_modes(base: str, head: str):
 def check_scope(card, base: str, head: str):
     """Returns (ok, changed, violations)."""
     write_paths = card.get("write_paths", [])
-    revs, changed, _ = changed_paths(base, head)
+    revs, changed, _, unattributed = changed_paths(base, head, card.get("id"), card.get("gate"))
     violations = []
 
     if not revs:
-        violations.append("no commits between base and head")
+        violations.append(
+            f"no commit in {base[:12]}..{head[:12]} is tagged for this card - the commit "
+            f"subject must end with ({card.get('gate')}/{card.get('id')})"
+        )
+    for r in unattributed:
+        violations.append(
+            f"commit {r[:12]} claims neither this card nor the supervisor: {commit_subject(r)[:70]!r}"
+        )
 
     for p in changed:
         if matches_any(p, GLOBAL_DENY):
