@@ -1,0 +1,43 @@
+
+===== CLEAN RUN 1 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/config -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-nkt1k5c5\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/config -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-nkt1k5c5\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/config -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-nkt1k5c5\.junit-0.xml"
+--- stdout ---
+.....F                                                                   [100%]
+================================== FAILURES ===================================
+______________ test_storage_topology_is_decided_not_placeholder _______________
+
+    def test_storage_topology_is_decided_not_placeholder():
+        """TC-003a: the previous version of this test pinned the transient
+        bootstrap value 'undecided_pending_TC-004', asserting a moment rather
+        than a contract. TC-004 legitimately decided storage_topology (see
+        docs/DECISION_LOG.md), so that placeholder assertion was removed. The
+        real contract is that storage_topology is a real, non-empty decision -
+        do not reintroduce the placeholder-literal assertion here."""
+        manifest = _load_manifest()
+        storage_topology = manifest["storage_topology"]
+        assert isinstance(storage_topology, str) and storage_topology.strip()
+>       assert storage_topology != "undecided_pending_TC-004"
+E       AssertionError: assert 'undecided_pending_TC-004' != 'undecided_pending_TC-004'
+
+tests\config\test_product_manifests.py:81: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/config/test_product_manifests.py::test_storage_topology_is_decided_not_placeholder
+
+--- stderr ---
+
