@@ -26,6 +26,10 @@ def _releases_fixture() -> dict:
     return json.loads((FIXTURES / "pdf_net_releases.json").read_text(encoding="utf-8"))
 
 
+def _font_python_fixture() -> dict:
+    return json.loads((FIXTURES / "font_python_releases.json").read_text(encoding="utf-8"))
+
+
 def test_all_three_richness_values_are_exercised() -> None:
     templated = (
         "## What's Changed\n"
@@ -48,7 +52,18 @@ def test_a_real_migration_note_is_not_reported_the_same_as_boilerplate() -> None
     boilerplate = "## What's Changed\n* Fix typo by @octocat in https://github.com/x/y/pull/1\n"
     assert classify_richness(real_note) != classify_richness(boilerplate)
     assert classify_richness(real_note) == "detailed"
-    assert classify_richness(boilerplate) == "templated"
+
+
+def test_a_filled_in_package_blurb_is_templated_not_detailed() -> None:
+    """A hand-maintained release body can be headings, bullets and a fenced install command -
+    fully-formatted markup - and still say nothing about the release itself. Real bodies from
+    aspose-font-foss/Aspose.Font-FOSS-for-Python: 26.9.2 is byte-identical (458 chars) to at
+    least five earlier consecutive releases apart from the version number; 2026.5.1 is an
+    older, differently-worded mirror-deployment notice. Neither names an actual change, so
+    classify_richness must not be fooled by their markup into calling either 'detailed'.
+    """
+    for release in _font_python_fixture()["releases"]:
+        assert classify_richness(release["body"]) == "templated", release["tag_name"]
 
 
 def test_fetch_releases_paginates_over_the_real_pinned_listing(monkeypatch) -> None:

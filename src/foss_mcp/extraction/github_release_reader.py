@@ -33,10 +33,51 @@ _BOILERPLATE_LINE_PATTERNS = [
     re.compile(r"^\*\s+@[\w-]+ made (their|his|her) first contribution", re.IGNORECASE),
 ]
 
+# A body can pass the boilerplate-line check above and still say nothing about the release: a
+# hand-maintained package blurb (headings, bullets, an install command in a fenced code block)
+# that repeats near-verbatim every version, with only the version string changing, is
+# beautifully formatted and carries no per-release information either. Markup structure - a
+# heading, a bullet, a fenced block - is not evidence of content; measured 2026-09-11 against
+# aspose-font-foss/Aspose.Font-FOSS-for-Python, whose release bodies are 458 characters long,
+# byte-for-byte identical apart from the version number, across at least six consecutive
+# releases (26.9.2, 26.9.1, 26.8.4, 26.8.3, 26.8.2, 26.8.1).
+#
+# What a real note has that a template doesn't, checked on a single body (no other release's
+# text is available to compare against): a verb describing what actually happened this release,
+# and something SPECIFIC it happened to - a code-formatted identifier or flag (an inline
+# `` `backtick span` ``, not a fenced install command, which every release template also has),
+# or a plain number that is not itself a version string (a count, a measurement, an issue
+# number). A version-info blurb ("this release publishes the source package", "will be added in
+# a later release") uses process verbs about the ACT of releasing, never paired with a named,
+# specific fact about what changed - verified against real bodies: aspose-pdf-foss's Go and
+# aspose-cells-foss's Python releases each name several specific, changed things and classify
+# 'detailed'; the font-python template names none and classifies 'templated'.
+_FENCED_BLOCK = re.compile(r"```.*?```", re.DOTALL)
+_VERSION_LIKE_NUMBER = re.compile(r"\b\d+(?:\.\d+){1,3}\b")
+_CHANGE_VERB = re.compile(
+    r"\b(fix(?:ed|es|ing)?|add(?:ed|s|ing)?|remov(?:ed|es|al)?|improv(?:ed|es|ement)?|"
+    r"resolv(?:ed|es)?|deprecat(?:ed|es|ion)?|introduc(?:ed|es)?|support(?:ed|s|ing)?|"
+    r"chang(?:ed|es)?|updat(?:ed|es)?|refactor(?:ed|s)?|optimiz(?:ed|es)?|"
+    r"preserv(?:ed|es)?|avoid(?:ed|s)?|synchroniz(?:ed|es)?|correct(?:ed|s)?|"
+    r"prevent(?:ed|s)?|broke|break(?:ing|s)?|regress(?:ed|ion)?|reproduc(?:ed|es)?)\b",
+    re.IGNORECASE,
+)
+_INLINE_CODE_SPAN = re.compile(r"`[^`\n]+`")
+_SPECIFIC_NUMBER = re.compile(r"\b\d[\d,]+\b")
+
+
+def _names_something_specific(text_without_fences: str) -> bool:
+    """A code-formatted identifier or flag, or a number that is not a version string."""
+    without_versions = _VERSION_LIKE_NUMBER.sub(" ", text_without_fences)
+    if _INLINE_CODE_SPAN.search(text_without_fences):
+        return True
+    return bool(_SPECIFIC_NUMBER.search(without_versions))
+
 
 def classify_richness(release_body: str | None) -> RichnessVerdict:
-    """'none' for an empty body, 'templated' for pure GitHub auto-generated boilerplate,
-    'detailed' for anything that says more than the boilerplate does.
+    """'none' for an empty body; 'templated' for GitHub's own auto-generated boilerplate, or a
+    hand-maintained blurb that says nothing specific about this particular release;
+    'detailed' for a body that names an actual change and something specific it happened to.
     """
     if not release_body or not release_body.strip():
         return "none"
@@ -48,7 +89,13 @@ def classify_richness(release_body: str | None) -> RichnessVerdict:
         if any(pattern.search(stripped) for pattern in _BOILERPLATE_LINE_PATTERNS):
             continue
         remaining.append(stripped)
-    return "templated" if not remaining else "detailed"
+    if not remaining:
+        return "templated"
+
+    text_without_fences = _FENCED_BLOCK.sub(" ", release_body)
+    has_change_verb = bool(_CHANGE_VERB.search(text_without_fences))
+    names_something_specific = _names_something_specific(text_without_fences)
+    return "detailed" if has_change_verb and names_something_specific else "templated"
 
 
 @dataclass(frozen=True)
