@@ -1,0 +1,62 @@
+id: TC-019
+gate: G1
+lane: verification
+purpose: Make health probes prove usefulness, and emit the structured telemetry contract.
+depends_on:
+- TC-017a
+- TC-017b
+- TC-017c
+write_paths:
+- src/foss_mcp/mcp/health.py
+- src/foss_mcp/telemetry/usage_recorder.py
+- tests/mcp/test_health.py
+- tests/telemetry/test_usage_recorder.py
+satisfies: &id001
+- REQ-G1-013
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.3 Health probes'
+  sha256: 497b82aca6241684b8d747a953da99c04bfe5e1038c712c14baf3a5a73967a13
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 18.8 Telemetry'
+  sha256: 37fe172e79e6c42c807a577d7913bf684b47153e808340510309fcab2df870cb
+inputs:
+- 'Readiness must read the ACTUAL active generation pointer. TCP reachability is the
+  reference system''s defect: it reports ready while serving nothing.'
+- 'Required public API: is_ready(store) -> bool.'
+- 'Telemetry event fields: event_id, request_correlation_id, deployment_id, generation_id,
+  tool_name, outcome, latency_ms, result_count, citation_count, cache_status, query_shape_category.'
+- symbol_fqn and raw query text are NEVER metric labels - unbounded cardinality. They
+  belong only in the event stream.
+- Delivery is a bounded queue with an explicit drop counter, never unbounded growth
+  and never blocking the serving path.
+- Nested calls are separate correlated records under one correlation id, not flattened.
+actions:
+- Implement health.py with liveness, readiness and a real round-trip check.
+- Implement usage_recorder.py with the event contract and a bounded queue.
+- 'Test: readiness is FALSE with no active generation and TRUE with one; a dropped
+  event increments the drop counter; symbol_fqn never appears as a label; nested calls
+  stay correlated and separate.'
+checks:
+- command: '{python} -m pytest tests/mcp/test_health.py tests/telemetry/test_usage_recorder.py
+    -q'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves: *id001
+min_tests: 6
+network: false
+negative_control:
+  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/mcp/health.py'');p.write_text(p.read_text()
+    + chr(10) + ''is_ready = lambda store: True'' + chr(10))"'
+  rationale: Making readiness unconditionally true must break the suite. Reporting
+    ready while serving no generation is the precise reference-system defect this
+    card replaces.
+evidence:
+- evidence/build/G1/TC-019/receipt.json
+closeout:
+- Readiness reflects the real active generation.
+- Telemetry carries every contract field.
+- High-cardinality values never become labels.
+- Forcing readiness true fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

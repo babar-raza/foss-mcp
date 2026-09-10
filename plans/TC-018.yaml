@@ -1,0 +1,64 @@
+id: TC-018
+gate: G1
+lane: transport-deployment
+purpose: Containerize with one reproducible build path per image, deployable locally
+  via Compose.
+depends_on:
+- TC-017a
+- TC-017b
+- TC-017c
+write_paths:
+- Dockerfile.serving
+- Dockerfile.ingestion
+- docker-compose.yml
+- infra/**
+- tests/test_container_build.py
+satisfies: &id001
+- REQ-G1-012
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 11.3 Concrete repository structure'
+  sha256: bf89f34b8bc9bc8ff145f8e199719e1ed66c4fca159b027dd17f6ba38666f4ed
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.3 Gate G1'
+  sha256: a344c6f36b3a9bf9f2d4ea462369e9c6636e642c40d78bea2f6798575b16e1de
+inputs:
+- 'Two images only: serving and ingestion. Do NOT create a third build path - an unreferenced
+  alternate Dockerfile is a confirmed crash-loop trap in the reference system and
+  it is still sitting in its tree, unused.'
+- 'Both images: hash-verified installs from requirements.lock (--require-hashes),
+  a non-root user, and a HEALTHCHECK.'
+- '''ingestion'' is deliberately not called ''worker'': there is no message broker
+  in this architecture. Ingestion is a plain CLI entry point.'
+- The Helm chart keeps networkPolicy enabled unconditionally - the reference overlay
+  disabled it, which is a defect to reverse, not copy.
+- Docker is available locally. A real build must succeed.
+actions:
+- Write both Dockerfiles with the discipline above.
+- Write docker-compose.yml bringing up the serving container for pdf/net.
+- Add the Helm chart skeleton under infra/helm/foss-mcp/ with networkPolicy enabled.
+- 'Test: both Dockerfiles declare --require-hashes, a non-root USER and a HEALTHCHECK;
+  exactly two Dockerfiles exist; the chart does not disable networkPolicy; a real
+  docker build of the serving image succeeds.'
+checks:
+- command: '{python} -m pytest tests/test_container_build.py -q'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves: *id001
+min_tests: 5
+network: true
+negative_control:
+  mutate: python -c "import pathlib;p=pathlib.Path('Dockerfile.serving');p.write_text(p.read_text().replace('--require-hashes',
+    ''))"
+  rationale: Removing hash verification from the serving image must break the suite.
+    A weaker install path that nothing checks is exactly the unreferenced trap this
+    card exists to avoid reproducing.
+evidence:
+- evidence/build/G1/TC-018/receipt.json
+closeout:
+- Exactly two build paths exist.
+- Both enforce hash-verified installs, non-root and HEALTHCHECK.
+- networkPolicy stays enabled.
+- Removing --require-hashes fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

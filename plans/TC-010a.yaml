@@ -1,0 +1,53 @@
+id: TC-010a
+gate: G1
+lane: extraction
+purpose: Resolve furnished-content citations by semantic anchor against foss-mcp's
+  own extraction, never by aspose.org's unreproducible id hash space.
+depends_on:
+- TC-010
+write_paths:
+- src/foss_mcp/extraction/claim_id_bridge.py
+- tests/extraction/test_claim_id_bridge.py
+satisfies: &id001
+- REQ-G1-002
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7a The claim-ID bridge'
+  sha256: 3a1414bca1be107ef3c141fc47d65fd8c4d860e6201cad723dd40c468ace9185
+inputs:
+- aspose.org mints claim ids by hashing an anchor string plus a kind tag, using a
+  private regex. That is an internal implementation detail, not a published contract
+  - their own team broke citation continuity once by changing it on their own code.
+  An independent extractor cannot reproduce those ids and must not try.
+- The bridge matches on the SEMANTIC ANCHOR ('ClassName.MemberName' / symbol_fqn),
+  which both systems derive independently from the same source.
+- 'Required public API: anchor_resolves(anchor: str, index) -> bool, and resolve_anchor(anchor:
+  str, index) -> Resolution carrying a semantic_support_verdict of supported | partially_supported
+  | unsupported.'
+- 'Ambiguity rule: where an anchor matches MULTIPLE overloads in foss-mcp''s own extraction,
+  the verdict is partially_supported - never a guess at which overload was meant.'
+actions:
+- Implement claim_id_bridge.py with the API above, over an in-memory symbol index.
+- 'Test: a resolvable anchor is supported; a renamed or removed API is unsupported;
+  an anchor matching two overloads is partially_supported; an opaque CLM-*/ERC-* id
+  is never used as a lookup key.'
+checks:
+- command: '{python} -m pytest tests/extraction/test_claim_id_bridge.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves: *id001
+min_tests: 5
+network: false
+negative_control:
+  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/extraction/claim_id_bridge.py'');p.write_text(p.read_text()
+    + chr(10) + ''anchor_resolves = lambda anchor, index: True'' + chr(10))"'
+  rationale: Making every anchor resolve must break the unsupported and partially_supported
+    tests. If it does not, the bridge is not being exercised.
+evidence:
+- evidence/build/G1/TC-010a/receipt.json
+closeout:
+- Unresolvable anchors are unsupported.
+- Ambiguous anchors are partially_supported, never guessed.
+- Forcing anchor_resolves true fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

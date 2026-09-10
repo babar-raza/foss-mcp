@@ -1,0 +1,25 @@
+# Owner items: things only an authorised human can grant.
+#
+# `consumed_by` is load-bearing. An owner item hard-blocks ONLY the cards or
+# gates it names, and is re-checked every iteration. That is what lets the loop
+# run with no human inside it: an unmet decision stalls one card, never the
+# whole queue.
+
+owner_items:
+  - id: OWNER-01
+    status: OPEN
+    summary: >-
+      TC-013 needs credentialed read access to the PRIVATE Aspose/aspose.org repository to produce
+      a real furnished-content export. Verified private: anonymous fetch 404s. This session's own
+      git/gh credentials may already satisfy it.
+    resume_predicate: >-
+      `gh api repos/aspose/aspose.org` returns 200 from this machine; then TC-013's live export
+      step can run. Until then TC-013 builds the tool and parser against a committed fixture and
+      reports the live export step blocked - it does NOT stall.
+    consumed_by:
+      - TC-013
+    recorded_at: "2026-09-10T00:00:00Z"
+    note: >-
+      Production and customer self-hosting cannot depend on these credentials at all. The real fix
+      is a public export bundle produced by Aspose's own CI, which is an organisational ask this
+      project cannot make unilaterally.

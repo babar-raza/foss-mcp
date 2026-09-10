@@ -1,0 +1,54 @@
+id: TC-011
+gate: G1
+lane: extraction
+purpose: Run the extractor against pdf/net's real public repository and pin the result
+  as a reproducible fixture.
+depends_on:
+- TC-010
+- TC-003
+write_paths:
+- src/foss_mcp/extraction/run_extraction.py
+- tests/extraction/test_pdf_net_extraction.py
+- tests/fixtures/pdf_net/**
+satisfies: &id001
+- REQ-G1-003
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.3 Gate G1'
+  sha256: a344c6f36b3a9bf9f2d4ea462369e9c6636e642c40d78bea2f6798575b16e1de
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Repository, pinned exactly: aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET (public, default
+  branch main). Read it from config/products/pdf/net.yaml - do not hardcode.'
+- Clone shallowly into a temporary directory. Never write into the clone, and never
+  push to it.
+- Record the exact commit SHA extracted; the fixture is meaningless without it.
+- Commit a REDUCED fixture (a representative subset), not the whole surface - the
+  point is a reproducible offline test, not a data dump. Keep it under about 2 MB.
+actions:
+- 'Implement run_extraction.py: clone at a pinned revision, run the engine, emit an
+  api_surface-equivalent JSON artifact recording source repo and commit SHA.'
+- Run it for real against pdf/net; save a reduced fixture under tests/fixtures/pdf_net/.
+- 'Test offline against the fixture: it parses, records the source commit, contains
+  real .NET type names, and is non-empty.'
+checks:
+- command: '{python} -m pytest tests/extraction/test_pdf_net_extraction.py -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves: *id001
+min_tests: 4
+network: true
+negative_control:
+  mutate: python -c "import pathlib;p=pathlib.Path('tests/fixtures/pdf_net/api_surface.json');p.write_text('{}')"
+  rationale: Emptying the pinned fixture must break the suite. A test that passes
+    against an empty artifact is asserting the file exists, not that extraction worked.
+evidence:
+- evidence/build/G1/TC-011/receipt.json
+closeout:
+- A real extraction ran against the real public repo.
+- The fixture records the exact source commit.
+- Emptying the fixture fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

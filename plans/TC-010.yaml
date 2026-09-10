@@ -1,0 +1,59 @@
+id: TC-010
+gate: G1
+lane: extraction
+purpose: Port the tree-sitter extraction engine from repository-presenter's vendored
+  copy, with its test suite, keeping Python on the independent pure-AST reader.
+depends_on:
+- TC-004
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/**
+- tests/extraction/tree_sitter_engine/**
+satisfies: &id001
+- REQ-G1-001
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 11.3 Concrete repository structure'
+  sha256: bf89f34b8bc9bc8ff145f8e199719e1ed66c4fca159b027dd17f6ba38666f4ed
+inputs:
+- 'SOURCE (read-only, never modify): D:/Users/prora/OneDrive/Documents/GitHub/repository-presenter/src/repository_presenter/components/readme/extractors/surface/_vendor/aspose_extraction/
+  - an already-vendored, already-tested copy of the engine, with its own test suite.
+  Port from THIS, not from aspose.org.'
+- 'Required module names (plan 11.3): api_surface.py, tree_helpers.py, package_manifest.py,
+  package_root.py, python_surface.py, and lang/{cpp,csharp,go,java,rust,typescript}.py.'
+- Python is NOT handled by tree-sitter in production - port the independent pure-AST
+  reader as python_surface.py. The tree-sitter Python path is a parity oracle only.
+- tree-sitter 0.26.0, tree-sitter-c-sharp 0.23.5 and tree-sitter-language-pack 1.16.1
+  are already installed and pinned. Do not change requirements.*.
+- 'Carry the provenance forward: record source repo, exact commit, and the import-path
+  patch you applied, in a module docstring.'
+actions:
+- Port the engine's modules under src/foss_mcp/extraction/tree_sitter_engine/, adapting
+  only import paths.
+- Port its accompanying tests under tests/extraction/tree_sitter_engine/.
+- Add a test pinning the language-pack spelling actually used for C# (production uses
+  'csharp'); assert get_parser succeeds with that exact spelling.
+- Add a test asserting Python extraction goes through python_surface.py and NOT through
+  tree-sitter.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves: *id001
+min_tests: 15
+network: false
+negative_control:
+  mutate: python -c "import pathlib;pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/lang/csharp.py').unlink()"
+  rationale: Removing one language module must break the suite. If the tests still
+    pass they are exercising the facade rather than the extractors underneath it.
+evidence:
+- evidence/build/G1/TC-010/receipt.json
+closeout:
+- Every required module exists.
+- The C# spelling actually used is pinned by a test.
+- Python extraction is proven not to use tree-sitter.
+- Deleting a language module fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

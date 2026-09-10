@@ -1,0 +1,59 @@
+id: TC-017c
+gate: G1
+lane: transport-deployment
+purpose: 'Implement the three consumer-facing tools: get_product_reference, list_recent_changes,
+  report_index_freshness.'
+depends_on:
+- TC-012
+- TC-015
+- TC-016
+write_paths:
+- src/foss_mcp/mcp/tools/get_product_reference.py
+- src/foss_mcp/mcp/tools/list_recent_changes.py
+- src/foss_mcp/mcp/tools/report_index_freshness.py
+- tests/mcp/tools/test_consumer_tools.py
+satisfies: &id001
+- REQ-G1-010
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.2 Common tools'
+  sha256: fcc5e91a552d272bd617369066de6c312007c25806671af9c1ccbbfd6f574453
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.6 New ingestion source'
+  sha256: 3ffc905bc422c49676e488f41ef71e7ebdd8ac18a2eeb18b1ed83a27578c7fc3
+inputs:
+- 'get_product_reference takes a section selector: install, formats, limitations,
+  compatibility, license, support, contributing, agent_guidance.'
+- compatibility comes from the repo's OWN manifest - for pdf/net a .csproj - and must
+  not be flattened across products.
+- contributing and agent_guidance must return an explicit not-present for repos that
+  lack them, never a fabricated summary. Most repos lack them.
+- list_recent_changes returns a typed richness field from TC-012's classifier.
+- report_index_freshness reports source and index revisions and staleness.
+actions:
+- Implement the three tools over TC-012's readers and the published generation.
+- 'Test: each section selector returns real content or an explicit absence; compatibility
+  surfaces pdf/net''s real TargetFramework; richness is carried through honestly;
+  freshness reports the real indexed revision.'
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_consumer_tools.py -q'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves: *id001
+min_tests: 6
+network: false
+negative_control:
+  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/mcp/tools/get_product_reference.py'');p.write_text(p.read_text()
+    + chr(10) + ''get_product_reference = lambda *a, **k: {chr(116)+chr(120): chr(121)}''
+    + chr(10))"'
+  rationale: Making get_product_reference always return content must break the explicit-absence
+    tests. Fabricating a summary for a missing CONTRIBUTING.md is exactly the dishonest
+    degradation this tool must not do.
+evidence:
+- evidence/build/G1/TC-017c/receipt.json
+closeout:
+- Every section selector is exercised.
+- Absence is explicit, never fabricated.
+- Forcing content fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

@@ -1,0 +1,59 @@
+id: TC-017a
+gate: G1
+lane: transport-deployment
+purpose: 'Implement the three retrieval tools: lookup, search_docs, search_symbols.'
+depends_on:
+- TC-015
+- TC-016
+write_paths:
+- src/foss_mcp/mcp/tools/lookup.py
+- src/foss_mcp/mcp/tools/search_docs.py
+- src/foss_mcp/mcp/tools/search_symbols.py
+- tests/mcp/tools/test_retrieval_tools.py
+satisfies: &id001
+- REQ-G1-010
+- REQ-G1-011
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.2 Common tools'
+  sha256: fcc5e91a552d272bd617369066de6c312007c25806671af9c1ccbbfd6f574453
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.8 Transport & routing'
+  sha256: e8e3578aa0e28d3425d2dfe3723879924ef86844620c3781e6f0bc2d60a779d7
+inputs:
+- search_docs is ONE tool with a content_type filter (getting_started|developer_guide|troubleshooting|faq),
+  not four tools.
+- lookup is a forgiving entry point that dispatches to the others.
+- 'CRITICAL - do not inherit this defect: the reference system silently retries without
+  the language filter EVEN WHEN language was explicitly provided, and substitutes
+  the active version for a requested one. This project does the opposite. A miss returns
+  a miss. No tool may ever return a different language, version or product than routing
+  fixed.'
+- Read the published generation from TC-015.
+actions:
+- Implement the three tools against the published pdf/net generation.
+- 'Test: a query with no match returns an explicit miss and NOT a widened result;
+  content_type filters actually partition results; lookup dispatches correctly; results
+  never carry a scope other than the one routing fixed.'
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_retrieval_tools.py -q'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves: *id001
+min_tests: 6
+network: false
+negative_control:
+  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/mcp/tools/search_docs.py'');p.write_text(p.read_text()
+    + chr(10) + ''search_docs = lambda *a, **k: [{chr(39)+chr(105)+chr(100)+chr(39):
+    1}]'' + chr(10))"'
+  rationale: Making search_docs always return a result must break the miss test. 'Always
+    return something' is the reference system's philosophy and the single deepest
+    lesson of the whole review; a suite that tolerates it has not learned it.
+evidence:
+- evidence/build/G1/TC-017a/receipt.json
+closeout:
+- A miss returns a miss, never a widened result.
+- content_type genuinely partitions.
+- Forcing a non-empty result fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

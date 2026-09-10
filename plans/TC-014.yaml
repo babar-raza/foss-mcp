@@ -1,0 +1,65 @@
+id: TC-014
+gate: G1
+lane: storage-retrieval
+purpose: Normalize all three sources into one versioned document schema with section-granularity
+  chunking and enforced citation resolution.
+depends_on:
+- TC-010a
+- TC-011
+- TC-012
+- TC-013
+write_paths:
+- src/foss_mcp/normalization/**
+- tests/normalization/**
+satisfies: &id001
+- REQ-G1-006
+- REQ-G1-007
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.9 Normalized document schema'
+  sha256: 138349d96db696b055efab492ac8a95b98afe51007c518521af07bbe4a92ac1c
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.10 Insufficient-evidence behavior'
+  sha256: 100e949e350e7fc443a2b1cd331fc6e7043f4f26ce200f9db7dcde61bfbd7b4e
+inputs:
+- 'Modules (plan 11.3): document_schema.py, chunker.py, citation.py.'
+- 'Required fields: source_kind, content_type, provenance, evidence_refs[], validation.'
+- 'Chunking is SECTION-granularity. Page-level chunking is explicitly rejected: it
+  cannot catch the class of defect where one fabricated sentence sits inside an otherwise
+  correct page.'
+- 'Required public API: chunk_document(doc) -> list of chunks.'
+- 'Citation rule: a sentence whose citation does not resolve against foss-mcp''s own
+  extraction (via TC-010a''s bridge) is excluded or explicitly qualified - never silently
+  retained.'
+- Citation resolution proves TRACEABILITY, not correctness. Do not let a resolved
+  citation be treated as a fact check.
+- 'Trust tiers differ by source and must be preserved: self-extracted is highest,
+  furnished content is medium and independently re-verified, repo-native manifests
+  are high but release notes are variable.'
+actions:
+- Implement the three modules.
+- 'Test: the envelope round-trips with every required field; a document is chunked
+  into multiple SECTIONS rather than one page-sized chunk; a chunk whose citation
+  does not resolve is excluded or qualified; trust tier is carried through normalization.'
+checks:
+- command: '{python} -m pytest tests/normalization -q'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves: *id001
+min_tests: 8
+network: false
+negative_control:
+  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/normalization/chunker.py'');p.write_text(p.read_text()
+    + chr(10) + ''chunk_document = lambda doc: [doc]'' + chr(10))"'
+  rationale: Collapsing chunking back to one chunk per document must break the suite.
+    That is precisely the page-level behaviour the design rejects, so a suite that
+    tolerates it is not testing section granularity.
+evidence:
+- evidence/build/G1/TC-014/receipt.json
+closeout:
+- Every schema field round-trips.
+- Chunking is section-level, proven by a multi-section document.
+- An unresolvable citation is excluded or qualified.
+- Collapsing chunking fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

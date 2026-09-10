@@ -1,0 +1,64 @@
+id: TC-015
+gate: G1
+lane: storage-retrieval
+purpose: Publish pdf/net's first real generation through the CAS manifest path, with
+  generation-qualified index identity.
+depends_on:
+- TC-005
+- TC-014
+write_paths:
+- src/foss_mcp/indexing/publisher.py
+- src/foss_mcp/indexing/vector_index_writer.py
+- src/foss_mcp/indexing/lexical_index_writer.py
+- src/foss_mcp/indexing/embedding_provider.py
+- tests/indexing/test_publisher.py
+- tests/indexing/test_index_writers.py
+satisfies: &id001
+- REQ-G1-008
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 11.3 Concrete repository structure'
+  sha256: bf89f34b8bc9bc8ff145f8e199719e1ed66c4fca159b027dd17f6ba38666f4ed
+inputs:
+- Build on TC-005's generation_manifest.py - do not reimplement CAS or leasing.
+- 'Index identity MUST be generation-qualified. Required public API: point_id(generation_id,
+  chunk_id) -> str. A content-only id is the confirmed defect that made rollback self-admittedly
+  broken in the reference system.'
+- Use the embedded topology decided in TC-004 and recorded in DECISION_LOG.
+- The embedding provider must be deterministic and offline for tests. Port the deterministic
+  provider into tests/ only - never importable from src/ production paths.
+- 'Regression test the plan names explicitly: republishing byte-identical content
+  must produce a NEW generation identity and a working rollback.'
+actions:
+- Implement the publisher and the two index writers over the chosen topology.
+- Implement an offline deterministic embedding provider for tests.
+- Publish pdf/net's first generation from TC-011's fixture through the CAS path.
+- 'Test: point ids differ across generations for identical content; rollback restores
+  the prior generation; a republish of unchanged content still yields a new generation
+  id.'
+checks:
+- command: '{python} -m pytest tests/indexing/test_publisher.py tests/indexing/test_index_writers.py
+    -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves: *id001
+min_tests: 6
+network: false
+negative_control:
+  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/indexing/vector_index_writer.py'');p.write_text(p.read_text()
+    + chr(10) + ''point_id = lambda generation_id, chunk_id: chunk_id'' + chr(10))"'
+  rationale: Stripping the generation out of the point id must break the suite. That
+    exact content-only scheme is what made rollback broken in the reference system,
+    so a suite that tolerates it is not testing generation identity.
+evidence:
+- evidence/build/G1/TC-015/receipt.json
+closeout:
+- A real generation is published through the CAS path.
+- Point ids are generation-qualified.
+- Rollback works and a byte-identical republish still gets a new identity.
+- Collapsing point_id fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

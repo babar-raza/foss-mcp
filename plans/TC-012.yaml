@@ -1,0 +1,63 @@
+id: TC-012
+gate: G1
+lane: extraction
+purpose: Read the FOSS repo's own GitHub presence - Releases, packaging manifest,
+  AGENTS.md/CONTRIBUTING.md - and degrade honestly about release richness.
+depends_on:
+- TC-003
+write_paths:
+- src/foss_mcp/extraction/github_release_reader.py
+- src/foss_mcp/extraction/manifest_reader.py
+- src/foss_mcp/extraction/repo_native_reader.py
+- tests/extraction/test_repo_native.py
+- tests/fixtures/repo_native/**
+satisfies: &id001
+- REQ-G1-004
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.6 New ingestion source'
+  sha256: 3ffc905bc422c49676e488f41ef71e7ebdd8ac18a2eeb18b1ed83a27578c7fc3
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.3 Gate G1'
+  sha256: a344c6f36b3a9bf9f2d4ea462369e9c6636e642c40d78bea2f6798575b16e1de
+inputs:
+- Sources are the product's OWN public repo - no aspose.org dependency at all.
+- 'Required public API: classify_richness(release_body: str) -> str returning exactly
+  one of ''detailed'', ''templated'', ''none''.'
+- 'Honest degradation is the whole point: a real migration note and auto-generated
+  boilerplate must NOT be reported as the same quality.'
+- pdf/net's manifest is a .csproj; assert its real TargetFramework rather than flattening
+  it into a generic answer.
+- Absence is a first-class result. A repo with no CONTRIBUTING.md returns an explicit
+  not-present, never a fabricated summary.
+- Use the GitHub API unauthenticated where possible; pin responses as fixtures so
+  tests run offline.
+actions:
+- Implement the three readers with conditional reads and pagination handling.
+- Capture fixtures from the real pdf/net repo under tests/fixtures/repo_native/.
+- 'Test offline: richness classification across all three values; the real TargetFramework
+  is surfaced; a missing CONTRIBUTING.md yields an explicit not-present result rather
+  than a summary.'
+checks:
+- command: '{python} -m pytest tests/extraction/test_repo_native.py -q'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves: *id001
+min_tests: 6
+network: true
+negative_control:
+  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/extraction/github_release_reader.py'');p.write_text(p.read_text()
+    + chr(10) + ''classify_richness = lambda body: chr(100)+chr(101)+chr(116)+chr(97)+chr(105)+chr(108)+chr(101)+chr(100)''
+    + chr(10))"'
+  rationale: Forcing every release to classify as 'detailed' must break the suite.
+    Honest degradation is the requirement; a test that cannot tell boilerplate from
+    a real migration note is not testing it.
+evidence:
+- evidence/build/G1/TC-012/receipt.json
+closeout:
+- All three richness values are exercised.
+- The real TargetFramework is surfaced, not flattened.
+- Absence returns an explicit not-present result.
+- Forcing 'detailed' fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

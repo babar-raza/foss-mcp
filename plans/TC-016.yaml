@@ -1,0 +1,67 @@
+id: TC-016
+gate: G1
+lane: transport-deployment
+purpose: Stand up the MCP server on a maintained SDK, with scope resolved from deployment
+  identity alone.
+depends_on:
+- TC-006
+write_paths:
+- src/foss_mcp/mcp/server.py
+- src/foss_mcp/mcp/routing.py
+- src/foss_mcp/mcp/revision_negotiation.py
+- tests/mcp/test_routing.py
+- tests/mcp/test_revision_negotiation.py
+satisfies: &id001
+- REQ-G1-009
+- REQ-G1-011
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.8 Transport & routing'
+  sha256: e8e3578aa0e28d3425d2dfe3723879924ef86844620c3781e6f0bc2d60a779d7
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 11.3 Concrete repository structure'
+  sha256: bf89f34b8bc9bc8ff145f8e199719e1ed66c4fca159b027dd17f6ba38666f4ed
+inputs:
+- Use a maintained MCP SDK. Do NOT hand-roll a second custom envelope - the reference
+  system's is confirmed non-conformant, and its transport files are shape reference
+  only.
+- 'Required public API: resolve_scope(deployment_config, request) -> Scope. It MUST
+  ignore the request entirely. Product identity comes from deployment/routing identity,
+  never a tool argument and never a client header - a client-controlled scope header
+  is a confirmed defect in the reference system.'
+- Port the nearest-supported-or-min revision negotiation ALGORITHM only, and make
+  this project's own explicit decision about a missing protocol version rather than
+  inheriting the reference system's permissiveness silently. Record the decision in
+  DECISION_LOG via your report.
+- initialize requires a client protocol version.
+actions:
+- Implement routing.py with resolve_scope as specified.
+- Port revision_negotiation.py's algorithm and add the explicit missing-revision policy.
+- Bootstrap the SDK server in server.py, wiring transports and an empty tool registry.
+- 'Test: a hostile scope supplied in the request is IGNORED; scope comes only from
+  deployment config; negotiation picks nearest-supported-or-min; a missing protocol
+  version is handled per the recorded decision.'
+checks:
+- command: '{python} -m pytest tests/mcp/test_routing.py tests/mcp/test_revision_negotiation.py
+    -q'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves: *id001
+min_tests: 6
+network: false
+negative_control:
+  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/mcp/routing.py'');p.write_text(p.read_text()
+    + chr(10) + ''resolve_scope = lambda deployment_config, request=None: (request
+    or deployment_config)'' + chr(10))"'
+  rationale: Making resolve_scope honour a request-supplied value must break the suite.
+    A client-controlled scope is the exact isolation defect this project exists to
+    avoid inheriting.
+evidence:
+- evidence/build/G1/TC-016/receipt.json
+closeout:
+- A request-supplied scope is provably ignored.
+- Negotiation is nearest-supported-or-min.
+- The missing-revision policy is an explicit decision, not inherited.
+- Making scope client-controllable fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

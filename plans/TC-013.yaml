@@ -1,0 +1,53 @@
+id: TC-013
+gate: G1
+lane: extraction
+purpose: Provide the pilot's interim furnished-content export, explicitly labelled
+  non-production in its own output.
+depends_on:
+- TC-002
+write_paths:
+- scripts/pilot_manual_export.py
+- tests/test_pilot_export.py
+- tests/fixtures/furnished/**
+satisfies: &id001
+- REQ-G1-005
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- This stands in for a public export bundle that Aspose's own CI must eventually produce.
+  It is a PILOT workaround and must say so in its own output - a banner containing
+  the literal token NON-PRODUCTION.
+- The real export needs credentialed access to the private Aspose/aspose.org repo.
+  If that access is unavailable, build the tool and its parser against a small hand-written
+  fixture and report blocked for the live export step only. Do NOT stall the card.
+- Every exported page must carry the source commit it was exported from.
+- The bundle must be checksum-verifiable before ingestion.
+actions:
+- 'Implement scripts/pilot_manual_export.py: export the needed content subtree at
+  a pinned commit, emit a manifest with per-file checksums and the source commit,
+  and print a NON-PRODUCTION banner.'
+- Create a small furnished-content fixture under tests/fixtures/furnished/.
+- 'Test offline: the banner is present; the manifest checksums verify; a tampered
+  file fails verification; a page missing its source commit is rejected.'
+checks:
+- command: '{python} -m pytest tests/test_pilot_export.py -q'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves: *id001
+min_tests: 4
+network: true
+negative_control:
+  mutate: python -c "import pathlib;p=pathlib.Path('scripts/pilot_manual_export.py');p.write_text(p.read_text().replace('NON-PRODUCTION',
+    'production'))"
+  rationale: Removing the non-production label must break the suite. A pilot workaround
+    that does not announce itself is exactly how one gets mistaken for the real thing.
+evidence:
+- evidence/build/G1/TC-013/receipt.json
+closeout:
+- The tool announces itself as non-production.
+- Checksums verify and a tampered file is rejected.
+- Removing the label fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

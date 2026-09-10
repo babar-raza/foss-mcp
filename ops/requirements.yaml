@@ -1,82 +1,143 @@
 schema_version: 1
-derived_from: 'C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md'
-
-# Stable ids for the mission plan's in-scope requirements. The plan is read-only
-# and is never edited to carry ids, so this index is derived from it instead.
-#
-# This is the OMISSION control. A per-card review can only ever inspect cards
-# that exist; it structurally cannot notice a card that was never written. Here,
-# a requirement no card claims is a hard gate-exit failure.
-
+derived_from: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
 requirements:
-  - id: REQ-G0-001
-    gate: G0
-    anchor: '### 11.3 Concrete repository structure'
-    text: >-
-      The repository layout matches SS11.3 exactly - src/foss_mcp with the mcp,
-      extraction, furnished_content, normalization, indexing, retrieval,
-      telemetry and config packages, and a tests/ tree mirroring it.
-
-  - id: REQ-G0-002
-    gate: G0
-    anchor: '### 19.4 Governance adoption map'
-    text: >-
-      docs/REPOSITORY_LAYOUT.md exists and owns where a file lives, forked from
-      repository-presenter's convention rather than copied verbatim.
-
-  - id: REQ-G0-003
-    gate: G0
-    anchor: '### 19.2 Gate G0'
-    text: >-
-      A product-manifest schema exists in which `schedule` is REQUIRED; a
-      manifest omitting it is rejected. SS19.2 names this as TC-003's negative
-      control explicitly.
-
-  - id: REQ-G0-004
-    gate: G0
-    anchor: '### 19.2 Gate G0'
-    text: >-
-      A reuse-manifest schema exists carrying the mission's own 8-value
-      disposition enum, not repository-presenter's 6-value one.
-
-  - id: REQ-G0-005
-    gate: G0
-    anchor: '### 19.2 Gate G0'
-    text: >-
-      config/products/pdf/net.yaml validates against the product-manifest
-      schema and pins the EXACT upstream repository name
-      (aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET), never a name derived from a
-      pattern - 2 of the 7 pilot repos use an irregular form.
-
-  - id: REQ-G0-006
-    gate: G0
-    anchor: '### 18.1 Storage topology'
-    text: >-
-      The storage-topology decision is measured on a real fixture corpus and
-      recorded in docs/DECISION_LOG.md, and the chosen profile is written back
-      into the product manifest.
-
-  - id: REQ-G0-007
-    gate: G0
-    anchor: '### 7.1 Snapshot/generation model'
-    text: >-
-      A generation is an immutable manifest published by a compare-and-swap on a
-      single active pointer. Generation identity covers the full addressable
-      unit, and activation never precedes write-and-validate completion.
-
-  - id: REQ-G0-008
-    gate: G0
-    anchor: '### 18.3 Publication authority'
-    text: >-
-      Publication is guarded by a lease with a monotonic fencing token. A write
-      carrying a stale token is rejected, and ROLLBACK travels the identical
-      authority path - a late worker is fenced out whether the last action was a
-      promotion or a rollback.
-
-  - id: REQ-G0-009
-    gate: G0
-    anchor: '### 19.4 Governance adoption map'
-    text: >-
-      The pre-push gate fails CLOSED. Pushing to a remote that does not match
-      this project must still run the gate rather than exiting 0, which git
-      reports as success and which is the confirmed defect in the forked hook.
+- id: REQ-G0-001
+  gate: G0
+  anchor: '### 11.3 Concrete repository structure'
+  text: The repository layout matches SS11.3 exactly - src/foss_mcp with the mcp,
+    extraction, furnished_content, normalization, indexing, retrieval, telemetry and
+    config packages, and a tests/ tree mirroring it.
+- id: REQ-G0-002
+  gate: G0
+  anchor: '### 19.4 Governance adoption map'
+  text: docs/REPOSITORY_LAYOUT.md exists and owns where a file lives, forked from
+    repository-presenter's convention rather than copied verbatim.
+- id: REQ-G0-003
+  gate: G0
+  anchor: '### 19.2 Gate G0'
+  text: A product-manifest schema exists in which `schedule` is REQUIRED; a manifest
+    omitting it is rejected. SS19.2 names this as TC-003's negative control explicitly.
+- id: REQ-G0-004
+  gate: G0
+  anchor: '### 19.2 Gate G0'
+  text: A reuse-manifest schema exists carrying the mission's own 8-value disposition
+    enum, not repository-presenter's 6-value one.
+- id: REQ-G0-005
+  gate: G0
+  anchor: '### 19.2 Gate G0'
+  text: config/products/pdf/net.yaml validates against the product-manifest schema
+    and pins the EXACT upstream repository name (aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET),
+    never a name derived from a pattern - 2 of the 7 pilot repos use an irregular
+    form.
+- id: REQ-G0-006
+  gate: G0
+  anchor: '### 18.1 Storage topology'
+  text: The storage-topology decision is measured on a real fixture corpus and recorded
+    in docs/DECISION_LOG.md, and the chosen profile is written back into the product
+    manifest.
+- id: REQ-G0-007
+  gate: G0
+  anchor: '### 7.1 Snapshot/generation model'
+  text: A generation is an immutable manifest published by a compare-and-swap on a
+    single active pointer. Generation identity covers the full addressable unit, and
+    activation never precedes write-and-validate completion.
+- id: REQ-G0-008
+  gate: G0
+  anchor: '### 18.3 Publication authority'
+  text: Publication is guarded by a lease with a monotonic fencing token. A write
+    carrying a stale token is rejected, and ROLLBACK travels the identical authority
+    path - a late worker is fenced out whether the last action was a promotion or
+    a rollback.
+- id: REQ-G0-009
+  gate: G0
+  anchor: '### 19.4 Governance adoption map'
+  text: The pre-push gate fails CLOSED. Pushing to a remote that does not match this
+    project must still run the gate rather than exiting 0, which git reports as success
+    and which is the confirmed defect in the forked hook.
+- id: REQ-G1-001
+  gate: G1
+  anchor: '### 4.7 Redesign'
+  text: The tree-sitter extraction engine is ported from repository-presenter's already-vendored,
+    already-tested copy - not freshly from aspose.org - carrying its exact three-package
+    dependency pin. Python uses the independent pure-AST reader in production, NOT
+    the tree-sitter path, which exists only as a parity oracle.
+- id: REQ-G1-002
+  gate: G1
+  anchor: '### 4.7a The claim-ID bridge'
+  text: Furnished-content citations resolve by SEMANTIC ANCHOR against foss-mcp's
+    own extraction. aspose.org's opaque CLM-*/ERC-* ids are never looked up directly
+    - an independent extractor cannot reproduce that hash space, and their own team
+    broke it once on their own code.
+- id: REQ-G1-003
+  gate: G1
+  anchor: '### 19.3 Gate G1'
+  text: The extractor runs against pdf/net's real public repository and produces a
+    validated api_surface-equivalent artifact, pinned as a fixture so tests are reproducible
+    offline.
+- id: REQ-G1-004
+  gate: G1
+  anchor: '### 8.6 New ingestion source'
+  text: 'The repo-native reader parses GitHub Releases, the packaging manifest, and
+    AGENTS.md/CONTRIBUTING.md, and degrades HONESTLY: release richness is typed detailed|templated|none
+    rather than presented as uniform quality.'
+- id: REQ-G1-005
+  gate: G1
+  anchor: '### 4.7 Redesign'
+  text: The furnished-content pilot export is explicitly labelled non-production in
+    its own output, standing in for the public export bundle that Aspose's own CI
+    must produce for production.
+- id: REQ-G1-006
+  gate: G1
+  anchor: '### 8.9 Normalized document schema'
+  text: The normalized document schema carries source_kind, content_type, provenance,
+    evidence_refs and validation, and chunking is SECTION-granularity, not page-level
+    - page-level chunking cannot catch the class of defect the fabricated-version
+    incident represents.
+- id: REQ-G1-007
+  gate: G1
+  anchor: '### 8.10 Insufficient-evidence behavior'
+  text: A sentence whose citation does not resolve against foss-mcp's own extraction
+    is excluded or explicitly qualified. It is never silently retained, and citation
+    resolution proves traceability, not correctness.
+- id: REQ-G1-008
+  gate: G1
+  anchor: '### 7.1 Snapshot/generation model'
+  text: pdf/net's first real generation is published through the immutable-manifest
+    CAS path, with generation-qualified index identity so a rollback is real rather
+    than self-admittedly broken.
+- id: REQ-G1-009
+  gate: G1
+  anchor: '### 8.8 Transport & routing'
+  text: The MCP server is built on a maintained SDK, and routing resolves (family,
+    platform) from DEPLOYMENT identity alone. Product identity is never a tool argument
+    and never a client header.
+- id: REQ-G1-010
+  gate: G1
+  anchor: '### 8.2 Common tools'
+  text: 'All nine tools from the authoritative registry are implemented: lookup, search_docs,
+    search_symbols, get_symbol, list_members, find_examples, get_product_reference,
+    list_recent_changes, report_index_freshness.'
+- id: REQ-G1-011
+  gate: G1
+  anchor: '### 8.8 Transport & routing'
+  text: 'No tool ever substitutes a different language, version or product than routing
+    fixed. The reference system''s deliberate scope-widening-on-miss behaviour is
+    not inherited: a miss returns a miss.'
+- id: REQ-G1-012
+  gate: G1
+  anchor: '### 11.3 Concrete repository structure'
+  text: 'One reproducible build path per image: Dockerfile.serving and Dockerfile.ingestion
+    with hash-verified installs, a non-root user and a HEALTHCHECK. No unused third
+    build path.'
+- id: REQ-G1-013
+  gate: G1
+  anchor: '### 7.3 Health probes'
+  text: Health probes prove usefulness rather than TCP reachability - readiness reads
+    the actual active generation pointer - and structured usage events are emitted
+    per the telemetry contract.
+- id: REQ-G1-014
+  gate: G1
+  anchor: '### 19.3 Gate G1'
+  text: A real MCP client completes a full session against the locally-running pdf/net
+    container, including tools/list discovery and rejection of an invalid Origin and
+    protocol version.

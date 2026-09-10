@@ -1,0 +1,52 @@
+id: TC-017b
+gate: G1
+lane: transport-deployment
+purpose: 'Implement the three deterministic symbol tools: get_symbol, list_members,
+  find_examples.'
+depends_on:
+- TC-015
+- TC-016
+write_paths:
+- src/foss_mcp/mcp/tools/get_symbol.py
+- src/foss_mcp/mcp/tools/list_members.py
+- src/foss_mcp/mcp/tools/find_examples.py
+- tests/mcp/tools/test_symbol_tools.py
+satisfies: &id001
+- REQ-G1-010
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.2 Common tools'
+  sha256: fcc5e91a552d272bd617369066de6c312007c25806671af9c1ccbbfd6f574453
+inputs:
+- These are DETERMINISTIC tools. get_symbol returns an exact signature for one FQN
+  and 404s on a miss - it never guesses and never returns a near match.
+- list_members reads the class graph; find_examples is exact-match first with a semantic
+  fallback, over verified snippets only.
+- No snippet is ever executed inside the serving process.
+actions:
+- Implement the three tools against the published generation.
+- 'Test: a known FQN returns its real signature; an absent FQN returns an explicit
+  not-found rather than a nearest match; list_members returns real children; find_examples
+  prefers an exact match; no snippet is executed at query time.'
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_symbol_tools.py -q'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves: *id001
+min_tests: 6
+network: false
+negative_control:
+  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/mcp/tools/get_symbol.py'');p.write_text(p.read_text()
+    + chr(10) + ''get_symbol = lambda *a, **k: {chr(115)+chr(105)+chr(103): chr(120)}''
+    + chr(10))"'
+  rationale: Making get_symbol always return a fabricated signature must break the
+    not-found test. Hallucinating on an absent symbol is the failure this tool's determinism
+    exists to prevent.
+evidence:
+- evidence/build/G1/TC-017b/receipt.json
+closeout:
+- An absent FQN is an explicit miss.
+- Exact-match examples are preferred.
+- Fabricating a signature fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

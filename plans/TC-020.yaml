@@ -1,0 +1,56 @@
+id: TC-020
+gate: G1
+lane: verification
+purpose: Prove a real MCP client completes a full session against the running pdf/net
+  container, including protocol-level rejections.
+depends_on:
+- TC-018
+- TC-019
+write_paths:
+- tests/e2e/**
+satisfies: &id001
+- REQ-G1-014
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.3 Gate G1'
+  sha256: a344c6f36b3a9bf9f2d4ea462369e9c6636e642c40d78bea2f6798575b16e1de
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.8 Transport & routing'
+  sha256: e8e3578aa0e28d3425d2dfe3723879924ef86844620c3781e6f0bc2d60a779d7
+inputs:
+- 'This is the gate''s whole point: a REAL client against a REAL running container.
+  Unit tests do not substitute.'
+- Bring the container up via docker-compose, wait for readiness, run the session,
+  tear it down - even on failure.
+- 'Must cover: tools/list discovery returns all nine tools; at least one call per
+  tool; an invalid Origin is REJECTED; a missing or invalid MCP-Protocol-Version is
+  rejected with 400.'
+- Protocol-level errors and tool-domain errors are distinguishable - do not collapse
+  them into one shape.
+actions:
+- Write the E2E harness under tests/e2e/ managing container lifecycle.
+- Drive a real MCP client session through discovery and all nine tools.
+- Assert the invalid-Origin and invalid-protocol-version rejections.
+- Assert protocol errors are distinguishable from tool-domain errors.
+checks:
+- command: '{python} -m pytest tests/e2e -q'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves: *id001
+min_tests: 5
+network: true
+negative_control:
+  mutate: python -c "import pathlib;p=pathlib.Path('docker-compose.yml');p.write_text(p.read_text().replace(chr(56)+chr(48)+chr(56)+chr(48),
+    chr(57)+chr(57)+chr(57)+chr(57)))"
+  rationale: Breaking the published port must make the E2E session fail. A suite that
+    still passes when nothing is listening is not talking to the container at all
+    - the single most likely way an E2E test becomes theatre.
+evidence:
+- evidence/build/G1/TC-020/receipt.json
+closeout:
+- A real client completed a full session against the container.
+- All nine tools were exercised.
+- Invalid Origin and protocol version are rejected.
+- Breaking the port fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
