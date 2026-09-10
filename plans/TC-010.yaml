@@ -46,9 +46,14 @@ checks:
 min_tests: 15
 network: false
 negative_control:
-  mutate: python -c "import pathlib;pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/lang/csharp.py').unlink()"
-  rationale: Removing one language module must break the suite. If the tests still
-    pass they are exercising the facade rather than the extractors underneath it.
+  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/extraction/tree_sitter_engine/api_surface.py'');p.write_text(p.read_text()
+    + chr(10) + ''extract_api_surface = lambda *a, **k: {}'' + chr(10))"'
+  rationale: 'SEMANTIC falsifier: the real entry point returns an empty surface. The
+    previous falsifier deleted a language module, which the worker itself pointed
+    out breaks test COLLECTION because lang/__init__.py imports every adapter eagerly
+    - so it proved a file exists, not that extraction works. Any structural falsifier
+    against an eagerly-importing package has this weakness. Breaking the function
+    the tests actually call is the only version that asks the real question.'
 evidence:
 - evidence/build/G1/TC-010/receipt.json
 closeout:
