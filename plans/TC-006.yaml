@@ -34,11 +34,13 @@ checks:
   - REQ-G0-009
 min_tests: 3
 negative_control:
-  mutate: python -c "import pathlib;pathlib.Path('.githooks/pre-push').write_text('#!/usr/bin/env
-    bash\nexit 0\n')"
-  rationale: Replacing the hook with the fail-OPEN version must break the suite. This
-    is the exact regression the card exists to prevent, so if the tests still pass
-    they are worthless.
+  mutate: python -c "import pathlib;pathlib.Path('.githooks/pre-push').write_bytes(bytes([101,120,105,116,32,48,10]))"
+  rationale: 'Replaces the hook with a bare fail-OPEN ''exit 0'' - the exact defect
+    in the hook this project forked, which exited 0 on an unrecognised remote so git
+    reported the gate as passing while it never ran. The tests must then fail. Written
+    as raw bytes with no backslashes: two earlier falsifiers in this project were
+    silently defeated by escaping, and one wrote a CRLF file whose ''exit 0'' bash
+    rejected, so the fail-open hook still exited non-zero and the suite still passed.'
 evidence:
 - evidence/build/G0/TC-006/receipt.json
 closeout:
