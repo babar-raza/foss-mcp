@@ -13,6 +13,21 @@ is that fail-open and fail-closed hooks can look identical on paper (both are
 short scripts with an `exit` in them) while behaving oppositely at the only
 interface that matters: the exit code git reads.
 
+CAUTION - a previous attempt at this file invoked the hook with an *absolute*
+path (`str(HOOK_PATH)`, e.g. `D:\\Users\\...\\pre-push`). Git Bash mangles a
+Windows-style absolute path like that into garbage
+(`DUsers...githookspre-push`) and returns exit code 127 ("command not
+found") - which is non-zero, so a bare `result.returncode != 0` assertion
+passed even though the hook itself never ran. A hook hard-coded to `exit 0`
+still made that suite report 4 passed. Every test below therefore:
+
+  1. invokes the hook by a path RELATIVE to `cwd=REPO_ROOT`
+     (`bash .githooks/pre-push ...`), which Git Bash resolves correctly, and
+  2. asserts on more than "nonzero" - either the hook's own refusal text on
+     stderr, or an explicit rejection of the 127 fail-open-by-accident case -
+     so a hook that silently fails to execute cannot be mistaken for a hook
+     that ran and refused.
+
 Deliberately NOT exercised here: pushing with this repo's own ("*foss-mcp*")
 remote URL. That path runs the full scripts/ci_check.sh suite, which is slow
 and is not this card's concern - this card only proves the refusal paths.
@@ -25,11 +40,21 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HOOK_PATH = REPO_ROOT / ".githooks" / "pre-push"
+HOOK_RELATIVE = ".githooks/pre-push"
 
 
 def _run_hook(remote_name: str, remote_url: str) -> subprocess.CompletedProcess:
+    """Invoke the hook by a path RELATIVE to cwd=REPO_ROOT.
+
+    Do not pass an absolute path here (e.g. str(HOOK_PATH)) - on Windows,
+    Git Bash mangles an absolute Windows-style path (drive letter, backslashes)
+    into something that does not resolve, and bash exits 127 ("command not
+    found") without ever reading the hook's contents. A relative path resolved
+    against `cwd` is what git itself uses to invoke hooks, and it is what
+    actually executes this file.
+    """
     return subprocess.run(
-        ["bash", str(HOOK_PATH), remote_name, remote_url],
+        ["bash", HOOK_RELATIVE, remote_name, remote_url],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -42,26 +67,66 @@ def test_hook_file_exists_and_is_not_empty():
     assert HOOK_PATH.stat().st_size > 0, f"{HOOK_PATH} is empty"
 
 
-def test_nonmatching_remote_url_exits_nonzero():
-    """A remote that is plainly not this project must BLOCK the push.
+def test_hook_is_actually_executed_by_bash_not_a_mangled_path():
+    """Guard against the historical false-pass: invoking the hook via an
+    absolute Windows path makes Git Bash return 127 (command not found)
+    without ever running the script, and a bare `!= 0` assertion would wrongly
+    treat that as "the hook blocked the push". This test proves bash can
+    actually locate and execute `.githooks/pre-push` at all.
 
-    This is the exact defect being guarded against: the forked original
-    exited 0 here, which git reports as the hook PASSING.
+    Uses this project's own remote *name* ("origin") together with a URL that
+    deliberately does NOT contain "foss-mcp", so the fast refusal path is
+    taken rather than the slow scripts/ci_check.sh path.
     """
     result = _run_hook("origin", "https://github.com/someone/unrelated.git")
-    assert result.returncode != 0, (
-        "pre-push exited 0 for a non-matching remote URL - this is the fail-"
-        f"open regression the card exists to prevent.\nstdout={result.stdout}\n"
+    assert result.returncode != 127, (
+        "hook invocation returned 127 (command not found) - bash could not "
+        "find/execute .githooks/pre-push at all (e.g. an absolute path being "
+        f"mangled by Git Bash), so nothing about the hook's own logic was "
+        f"actually tested.\nstdout={result.stdout}\nstderr={result.stderr}"
+    )
+    assert "refusing" in result.stderr, (
+        "expected the hook's own refusal message on stderr, proving the "
+        f"script ran (not just 'exited nonzero').\nstdout={result.stdout}\n"
         f"stderr={result.stderr}"
     )
 
 
-def test_empty_remote_url_exits_nonzero():
+def test_nonmatching_remote_url_exits_nonzero_and_refuses():
+    """A remote that is plainly not this project must BLOCK the push.
+
+    This is the exact defect being guarded against: the forked original
+    exited 0 here, which git reports as the hook PASSING. Asserting only
+    `returncode != 0` is not enough on its own - bash returns 127 for a
+    mangled/unresolvable path, which is also nonzero but means the hook
+    never ran. So this also pins the exit code away from 127 and checks the
+    hook's own refusal text landed on stderr.
+    """
+    result = _run_hook("origin", "https://github.com/someone/unrelated.git")
+    assert result.returncode not in (0, 127), (
+        "pre-push exited 0 (fail-open regression) or 127 (hook never actually "
+        f"ran) for a non-matching remote URL.\nstdout={result.stdout}\n"
+        f"stderr={result.stderr}"
+    )
+    assert "refusing" in result.stderr, (
+        "hook blocked the push but did not print its expected refusal "
+        f"message - cannot confirm it refused for the right reason.\n"
+        f"stdout={result.stdout}\nstderr={result.stderr}"
+    )
+
+
+def test_empty_remote_url_exits_nonzero_and_refuses():
     """No remote URL supplied must BLOCK rather than assume safety."""
     result = _run_hook("origin", "")
-    assert result.returncode != 0, (
-        "pre-push exited 0 for an empty remote URL - it must refuse rather "
-        f"than assume safe.\nstdout={result.stdout}\nstderr={result.stderr}"
+    assert result.returncode not in (0, 127), (
+        "pre-push exited 0 (fail-open regression) or 127 (hook never actually "
+        f"ran) for an empty remote URL.\nstdout={result.stdout}\n"
+        f"stderr={result.stderr}"
+    )
+    assert "refusing" in result.stderr, (
+        "hook blocked the push but did not print its expected refusal "
+        f"message - cannot confirm it refused for the right reason.\n"
+        f"stdout={result.stdout}\nstderr={result.stderr}"
     )
 
 
