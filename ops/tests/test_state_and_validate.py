@@ -313,3 +313,36 @@ def test_overlap_is_still_flagged_for_independent_cards(sandbox):
     write_card(sandbox, "TC-001", paths=["src/pkg/**"])
     write_card(sandbox, "TC-002", paths=["src/pkg/indexing/**"])
     assert any("overlapping" in p for p in C._overlap_problems(G.all_cards()))
+
+
+def test_as_if_unstarted_restores_the_pre_dispatch_queue(sandbox):
+    """`accept` must compare against the queue as it was BEFORE the card ran.
+
+    Regression: once a receipt exists the card reads ACCEPTED and `next` has
+    moved to its successor, so a naive comparison always refuses. Ignoring only
+    the receipt is not enough either - the dispatch marker still leaves it
+    IN_PROGRESS, which is not READY.
+    """
+    write_card(sandbox, "TC-001")
+    write_card(sandbox, "TC-002", deps=["TC-001"])
+    write_receipt(sandbox, "TC-001")
+    G.INSTRUCTIONS_JSONL.write_text(
+        json.dumps(
+            {
+                "ts": "2026-09-10T12:00:00Z",
+                "target_card": "TC-001",
+                "kind": "dispatch",
+                "instruction": "go",
+                "card_sha256": "0" * 64,
+                "issue_rev": "0" * 40,
+                "attempt": 1,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert V.next_card(V.rebuild_state()) == "TC-002", "the live queue has moved on"
+    assert V.next_card(V.rebuild_state(as_if_unstarted="TC-001")) == "TC-001", (
+        "as_if_unstarted must ignore BOTH the receipt and the dispatch marker"
+    )

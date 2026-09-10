@@ -331,8 +331,10 @@ def cmd_verify(args) -> int:
 
 def cmd_accept(args) -> int:
     """Pure table lookup. No judgement, no prose, no discretion."""
-    state = V.rebuild_state()
-    expected = V.next_card(state)
+    # Ask what `next` WOULD have said before this card was verified: once a
+    # receipt exists the card reads as ACCEPTED and next has moved on, so
+    # comparing against the current queue would always refuse.
+    expected = V.next_card(V.rebuild_state(as_if_unstarted=args.card))
     r = V.load_receipt(_gate_of(args.card), args.card)
     conditions = {
         "receipt exists": r is not None,

@@ -1,20 +1,66 @@
 
 ===== CLEAN RUN 1 =====
-$ .venv/Scripts/python -m pytest tests/test_layout.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0loa0eti\.junit-0.xml"
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/test_layout.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6xevh7ad\.junit-0.xml"
 --- stdout ---
+.....                                                                    [100%]
 
 --- stderr ---
-'.venv' is not recognized as an internal or external command,
-operable program or batch file.
 
 
 ===== CLEAN RUN 2 =====
-$ .venv/Scripts/python -m pytest tests/test_layout.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0loa0eti\.junit-0.xml"
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/test_layout.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6xevh7ad\.junit-0.xml"
 --- stdout ---
+.....                                                                    [100%]
 
 --- stderr ---
-'.venv' is not recognized as an internal or external command,
-operable program or batch file.
 
 
-!! clean runs failed; falsifier skipped (it would prove nothing)
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/test_layout.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6xevh7ad\.junit-0.xml"
+--- stdout ---
+FF...                                                                    [100%]
+================================== FAILURES ===================================
+___________________ test_every_package_has_a_real_init_file ___________________
+
+    def test_every_package_has_a_real_init_file():
+        """Every package's __init__.py must exist as an actual file on disk."""
+        missing = []
+        root_init = SRC_ROOT / "__init__.py"
+        if not root_init.is_file():
+            missing.append(str(root_init))
+        for rel in SUBPACKAGES:
+            init_path = SRC_ROOT / Path(rel) / "__init__.py"
+            if not init_path.is_file():
+                missing.append(str(init_path))
+>       assert not missing, f"missing __init__.py for: {missing}"
+E       AssertionError: missing __init__.py for: ['D:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\wt-6xevh7ad\\src\\foss_mcp\\indexing\\__init__.py']
+E       assert not ['D:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\wt-6xevh7ad\\src\\foss_mcp\\indexing\\__init__.py']
+
+tests\test_layout.py:59: AssertionError
+_____________ test_every_package_is_importable_as_a_real_package ______________
+
+    def test_every_package_is_importable_as_a_real_package():
+        """Every package must import cleanly and be a real package (not a
+        namespace-package stand-in for a missing __init__.py)."""
+        failures = []
+        for name in ALL_DOTTED_NAMES:
+            try:
+                module = importlib.import_module(name)
+            except ImportError as exc:
+                failures.append(f"{name}: import failed: {exc}")
+                continue
+            # A namespace package (no __init__.py) still "imports" under PEP 420
+            # but has __file__ is None. Require a real file-backed package.
+            if getattr(module, "__file__", None) is None:
+                failures.append(f"{name}: imported as a namespace package (no __init__.py present)")
+>       assert not failures, "\n".join(failures)
+E       AssertionError: foss_mcp.indexing: imported as a namespace package (no __init__.py present)
+E       assert not ['foss_mcp.indexing: imported as a namespace package (no __init__.py present)']
+
+tests\test_layout.py:76: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_layout.py::test_every_package_has_a_real_init_file - Assert...
+FAILED tests/test_layout.py::test_every_package_is_importable_as_a_real_package
+
+--- stderr ---
+

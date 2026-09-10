@@ -254,12 +254,18 @@ def load_owner_items():
     return data.get("owner_items", []) if isinstance(data, dict) else []
 
 
-def rebuild_state():
+def rebuild_state(as_if_unstarted: str | None = None):
     """project/state.yaml is a FUNCTION of primary evidence, never a narration.
 
     Inputs: the cards on disk, the receipts gatectl wrote, and the dispatch log.
     `validate` asserts the committed file equals this rebuild, so drift in the
     status authority is impossible rather than merely discouraged.
+
+    `as_if_unstarted` answers "what did the queue look like BEFORE this card was
+    started?" - it ignores both the card's receipt and its dispatch marker.
+    `accept` needs this: by the time there is a receipt the card already reads as
+    ACCEPTED and `next` has moved on, and merely ignoring the receipt would leave
+    it IN_PROGRESS, which is not READY either.
     """
     cards = all_cards()
     instructions = read_jsonl(INSTRUCTIONS_JSONL)
@@ -277,7 +283,7 @@ def rebuild_state():
     rows, accepted_ids = [], set()
     for cid in sorted(cards):
         c = cards[cid]
-        r = load_receipt(c["gate"], cid)
+        r = None if cid == as_if_unstarted else load_receipt(c["gate"], cid)
         row = {
             "id": cid,
             "gate": c["gate"],
@@ -301,7 +307,7 @@ def rebuild_state():
                 }
             else:
                 row["status"] = "IN_PROGRESS"
-        elif cid in dispatched:
+        elif cid in dispatched and cid != as_if_unstarted:
             row["status"] = "IN_PROGRESS"
         rows.append(row)
 
