@@ -279,6 +279,44 @@ def _budget_problems():
     return out
 
 
+def _dispatch_rev_for(card_id: str):
+    """The revision this card was last dispatched at.
+
+    The supervisor should not have to remember a base SHA per card - getting it
+    wrong produced two spurious verdicts already (an attempt-1 base reused for
+    attempt 2 swept the supervisor's own governance commits into the diff and
+    reported a scope violation that was not the worker's). The dispatch log
+    already records it, so read it from there.
+    """
+    rev = None
+    for ins in V.read_jsonl(G.INSTRUCTIONS_JSONL):
+        if ins.get("target_card") == card_id and ins.get("kind") in ("dispatch", "rework"):
+            rev = ins.get("issue_rev")
+    return rev if rev and rev != "NONE" else None
+
+
+def _resolve_base_and_issue(args):
+    """Fill --base / --issue-rev from the dispatch log when not given."""
+    base = getattr(args, "base", None)
+    issue = getattr(args, "issue_rev", None)
+    logged = _dispatch_rev_for(args.card)
+    if not base:
+        if not logged:
+            G.die(f"no dispatch recorded for {args.card}; pass --base explicitly")
+        base = logged
+    if not issue:
+        # Read the card as it stands on the current branch tip, which is where
+        # a supervisor correction to the card itself would live.
+        rc, head, _ = G.git("rev-parse", "HEAD")
+        issue = _last_rev_touching(f"plans/{args.card}.yaml") or head
+    return base, issue
+
+
+def _last_rev_touching(path: str):
+    rc, out, _ = G.git("log", "-1", "--format=%H", "--", path)
+    return out.strip() or None
+
+
 def cmd_review(args) -> int:
     """The supervisor's whole per-card action: verify, then accept or reject.
 
@@ -287,8 +325,10 @@ def cmd_review(args) -> int:
     few minutes, so the review surface is a short program output rather than a
     reasoning task over raw logs.
     """
-    r = V.do_verify(args.card, args.base, args.head, args.issue_rev)
+    base, issue = _resolve_base_and_issue(args)
+    r = V.do_verify(args.card, base, args.head, issue)
     print(f"--- {args.card} ---")
+    print(f"base         : {base[:12]}   card as of: {issue[:12]}")
     print(
         f"scope        : {'ok' if r['scope']['ok'] else 'VIOLATION'} "
         f"({len(r['scope']['changed_paths'])} paths)"
@@ -311,6 +351,85 @@ def cmd_review(args) -> int:
         return G.EXIT_FAIL
     args_accept = argparse.Namespace(card=args.card, force_order=args.force_order)
     return cmd_accept(args_accept)
+
+
+def cmd_gate_exit(args) -> int:
+    """Re-verify EVERY card in the gate from scratch, ignoring stored receipts.
+
+    Receipts are a cache, and this is where the cache is invalidated. The whole
+    trust model otherwise rests on the supervisor - the same class of pressured
+    executor that fabricates elsewhere - having actually run what it says it
+    ran. There are only a handful of gates, so the cost is small and the
+    property it buys is the one the design claims to have.
+
+    It also catches cross-card damage that per-card verification cannot: a later
+    card breaking an earlier card's checks looks green card-by-card and red
+    here. That happened for real in G0.
+    """
+    cards = {k: v for k, v in G.all_cards().items() if v["gate"] == args.gate}
+    if not cards:
+        G.die(f"no cards in gate {args.gate}")
+
+    questions = V.read_jsonl(G.QUESTIONS_JSONL)
+    open_q = [
+        q["id"] for q in questions if q.get("status") == "OPEN" and args.gate in q.get("consumed_by", [])
+    ]
+
+    rc, head, _ = G.git("rev-parse", "HEAD")
+    results, failures = {}, []
+    for cid in sorted(cards):
+        base = _dispatch_rev_for(cid)
+        if not base:
+            failures.append(f"{cid}: never dispatched")
+            continue
+        issue = _last_rev_touching(f"plans/{cid}.yaml") or head
+        print(f"re-verifying {cid} at HEAD ...", flush=True)
+        r = V.do_verify(cid, base, head, issue)
+        results[cid] = r
+        if not r["accepted"]:
+            failures.append(f"{cid}: {r['reason']}")
+
+    print()
+    print(f"=== GATE {args.gate} EXIT ===")
+    for cid in sorted(results):
+        r = results[cid]
+        mark = "PASS" if r["accepted"] else "FAIL"
+        print(f"  [{mark}] {cid}")
+    for f in failures:
+        print(f"  ! {f}")
+    if open_q:
+        print(f"  ! unresolved open questions consumed by {args.gate}: {open_q}")
+
+    if failures or open_q:
+        print(f"GATE {args.gate} NOT MET")
+        return G.EXIT_FAIL
+
+    outdir = G.EVIDENCE / "build" / args.gate
+    outdir.mkdir(parents=True, exist_ok=True)
+    manifest = {
+        "schema_version": 1,
+        "gate": args.gate,
+        "gate_status": "ACCEPTED",
+        "generated_by": "gatectl",
+        "recorded_at": G.now_utc(),
+        "control_revision": head,
+        "method": "every card re-verified from scratch at this revision; stored receipts ignored",
+        "fingerprint": G.fingerprint(),
+        "cards": {
+            cid: {
+                "accepted": r["accepted"],
+                "head_rev": r["head_rev"],
+                "tests": r["runs"][0]["checks"][0].get("tests"),
+                "falsifier_made_checks_fail": r["negative_control"]["patch_applied_failed"],
+                "receipt": f"evidence/build/{args.gate}/{cid}/receipt.json",
+            }
+            for cid, r in sorted(results.items())
+        },
+    }
+    (outdir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    G.STATE_FILE.write_text(G.dump_yaml(V.rebuild_state()), encoding="utf-8")
+    print(f"GATE {args.gate} MET - evidence/build/{args.gate}/manifest.json")
+    return G.EXIT_OK
 
 
 # --------------------------------------------------------------------------
@@ -597,9 +716,12 @@ def build_parser():
     sp.add_argument("--head", default="HEAD")
     sp.add_argument("--issue-rev")
 
+    sp = sub.add_parser("gate-exit", help="re-verify every card in a gate from scratch")
+    sp.add_argument("gate")
+
     sp = sub.add_parser("review", help="verify then accept - the supervisor's whole per-card action")
     sp.add_argument("card")
-    sp.add_argument("--base", required=True)
+    sp.add_argument("--base")
     sp.add_argument("--head", default="HEAD")
     sp.add_argument("--issue-rev")
     sp.add_argument("--force-order", action="store_true")
@@ -633,6 +755,7 @@ HANDLERS = {
     "verify": cmd_verify,
     "accept": cmd_accept,
     "review": cmd_review,
+    "gate-exit": cmd_gate_exit,
     "status-append": cmd_status_append,
     "instruct": cmd_instruct,
     "tick": cmd_tick,

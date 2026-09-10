@@ -1,25 +1,104 @@
 
 ===== CLEAN RUN 1 =====
-$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/test_githooks.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-r8wdpea1\.junit-0.xml"
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/test_githooks.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-s3j8_7a8\.junit-0.xml"
 --- stdout ---
-....                                                                     [100%]
+.....                                                                    [100%]
 
 --- stderr ---
 
 
 ===== CLEAN RUN 2 =====
-$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/test_githooks.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-r8wdpea1\.junit-0.xml"
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/test_githooks.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-s3j8_7a8\.junit-0.xml"
 --- stdout ---
-....                                                                     [100%]
+.....                                                                    [100%]
 
 --- stderr ---
 
 
 ===== NEGATIVE CONTROL (checks MUST now fail) =====
 mutated: M .githooks/pre-push, ?? .junit-0.xml
-$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/test_githooks.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-r8wdpea1\.junit-0.xml"
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/test_githooks.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-s3j8_7a8\.junit-0.xml"
 --- stdout ---
-....                                                                     [100%]
+.FFF.                                                                    [100%]
+================================== FAILURES ===================================
+__________ test_hook_is_actually_executed_by_bash_not_a_mangled_path __________
+
+    def test_hook_is_actually_executed_by_bash_not_a_mangled_path():
+        """Guard against the historical false-pass: invoking the hook via an
+        absolute Windows path makes Git Bash return 127 (command not found)
+        without ever running the script, and a bare `!= 0` assertion would wrongly
+        treat that as "the hook blocked the push". This test proves bash can
+        actually locate and execute `.githooks/pre-push` at all.
+    
+        Uses this project's own remote *name* ("origin") together with a URL that
+        deliberately does NOT contain "foss-mcp", so the fast refusal path is
+        taken rather than the slow scripts/ci_check.sh path.
+        """
+        result = _run_hook("origin", "https://github.com/someone/unrelated.git")
+        assert result.returncode != 127, (
+            "hook invocation returned 127 (command not found) - bash could not "
+            "find/execute .githooks/pre-push at all (e.g. an absolute path being "
+            f"mangled by Git Bash), so nothing about the hook's own logic was "
+            f"actually tested.\nstdout={result.stdout}\nstderr={result.stderr}"
+        )
+>       assert "refusing" in result.stderr, (
+            "expected the hook's own refusal message on stderr, proving the "
+            f"script ran (not just 'exited nonzero').\nstdout={result.stdout}\n"
+            f"stderr={result.stderr}"
+        )
+E       AssertionError: expected the hook's own refusal message on stderr, proving the script ran (not just 'exited nonzero').
+E         stdout=
+E         stderr=
+E       assert 'refusing' in ''
+E        +  where '' = CompletedProcess(args=['bash', '.githooks/pre-push', 'origin', 'https://github.com/someone/unrelated.git'], returncode=0, stdout='', stderr='').stderr
+
+tests\test_githooks.py:88: AssertionError
+____________ test_nonmatching_remote_url_exits_nonzero_and_refuses ____________
+
+    def test_nonmatching_remote_url_exits_nonzero_and_refuses():
+        """A remote that is plainly not this project must BLOCK the push.
+    
+        This is the exact defect being guarded against: the forked original
+        exited 0 here, which git reports as the hook PASSING. Asserting only
+        `returncode != 0` is not enough on its own - bash returns 127 for a
+        mangled/unresolvable path, which is also nonzero but means the hook
+        never ran. So this also pins the exit code away from 127 and checks the
+        hook's own refusal text landed on stderr.
+        """
+        result = _run_hook("origin", "https://github.com/someone/unrelated.git")
+>       assert result.returncode not in (0, 127), (
+            "pre-push exited 0 (fail-open regression) or 127 (hook never actually "
+            f"ran) for a non-matching remote URL.\nstdout={result.stdout}\n"
+            f"stderr={result.stderr}"
+        )
+E       AssertionError: pre-push exited 0 (fail-open regression) or 127 (hook never actually ran) for a non-matching remote URL.
+E         stdout=
+E         stderr=
+E       assert 0 not in (0, 127)
+E        +  where 0 = CompletedProcess(args=['bash', '.githooks/pre-push', 'origin', 'https://github.com/someone/unrelated.git'], returncode=0, stdout='', stderr='').returncode
+
+tests\test_githooks.py:106: AssertionError
+_______________ test_empty_remote_url_exits_nonzero_and_refuses _______________
+
+    def test_empty_remote_url_exits_nonzero_and_refuses():
+        """No remote URL supplied must BLOCK rather than assume safety."""
+        result = _run_hook("origin", "")
+>       assert result.returncode not in (0, 127), (
+            "pre-push exited 0 (fail-open regression) or 127 (hook never actually "
+            f"ran) for an empty remote URL.\nstdout={result.stdout}\n"
+            f"stderr={result.stderr}"
+        )
+E       AssertionError: pre-push exited 0 (fail-open regression) or 127 (hook never actually ran) for an empty remote URL.
+E         stdout=
+E         stderr=
+E       assert 0 not in (0, 127)
+E        +  where 0 = CompletedProcess(args=['bash', '.githooks/pre-push', 'origin', ''], returncode=0, stdout='', stderr='').returncode
+
+tests\test_githooks.py:121: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_githooks.py::test_hook_is_actually_executed_by_bash_not_a_mangled_path
+FAILED tests/test_githooks.py::test_nonmatching_remote_url_exits_nonzero_and_refuses
+FAILED tests/test_githooks.py::test_empty_remote_url_exits_nonzero_and_refuses
 
 --- stderr ---
 
