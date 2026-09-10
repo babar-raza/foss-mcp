@@ -317,6 +317,92 @@ def _last_rev_touching(path: str):
     return out.strip() or None
 
 
+# --------------------------------------------------------------------------
+# the worker loop's single decision point
+# --------------------------------------------------------------------------
+def _open_dispatch():
+    """The dispatch the worker still owes work for, if any.
+
+    A dispatch is OPEN when the latest dispatch/rework instruction for a card
+    has no matching `committed` status line at that same attempt. This is the
+    whole handshake: two append-only files, one writer each, and no shared
+    mutable state to race over.
+    """
+    latest = {}
+    for ins in V.read_jsonl(G.INSTRUCTIONS_JSONL):
+        if ins.get("kind") in ("dispatch", "rework") and ins.get("target_card") != "ALL":
+            latest[ins["target_card"]] = ins
+    if not latest:
+        return None
+    ins = max(latest.values(), key=lambda i: i["ts"])
+
+    done = any(
+        st.get("card") == ins["target_card"]
+        and st.get("attempt") == ins["attempt"]
+        and st.get("phase") in ("committed", "blocked")
+        for st in V.read_jsonl(G.STATUS_JSONL)
+    )
+    return None if done else ins
+
+
+def cmd_worker_tick(args) -> int:
+    """Print exactly one instruction for the worker loop, then exit.
+
+    The worker never decides what to work on, never verifies, and never
+    accepts. It does the work named here and stops. Verification authority
+    stays with the supervisor - a loop that graded its own homework would
+    forfeit the one property this design rests on.
+    """
+    state = V.rebuild_state()
+    cards = state["cards"]
+
+    if cards and all(c["status"] == "ACCEPTED" for c in cards) and not state["open_questions"]["open"]:
+        print("DONE")
+        print("Every card is ACCEPTED and no open question remains. Stop the loop.")
+        return G.EXIT_OK
+
+    ins = _open_dispatch()
+    if ins is None:
+        print("WAIT")
+        blocked = [c["id"] for c in cards if c["status"] in ("FAILED_INTERNAL", "BLOCKED_EXTERNAL")]
+        if blocked:
+            print(f"No open dispatch. Cards needing supervisor attention: {blocked}")
+        else:
+            print("No open dispatch. Your last commit is awaiting supervisor verification,")
+            print("or the supervisor has not dispatched the next card yet. Do no work.")
+        return G.EXIT_OK
+
+    card_id = ins["target_card"]
+    print(f"WORK {card_id} attempt={ins['attempt']}")
+    print(f"card file    : plans/{card_id}.yaml")
+    print(f"card_sha256  : {ins['card_sha256'][:16]}")
+    print(f"dispatched at: {ins['issue_rev'][:12]}")
+    print()
+    print("SUPERVISOR INSTRUCTION:")
+    print(f"  {ins['instruction']}")
+    return G.EXIT_OK
+
+
+def cmd_dispatch_next(args) -> int:
+    """Supervisor: dispatch the deterministic next card in one step."""
+    state = V.rebuild_state()
+    card_id = args.card or V.next_card(state)
+    if not card_id:
+        print("no READY card to dispatch")
+        return G.EXIT_FAIL
+    ns = argparse.Namespace(
+        target=card_id,
+        kind=args.kind,
+        instruction=args.instruction
+        or (
+            f"Execute plans/{card_id}.yaml exactly. Write only inside its write_paths. "
+            "You do not decide whether your card passed."
+        ),
+        attempt=args.attempt,
+    )
+    return cmd_instruct(ns)
+
+
 def cmd_review(args) -> int:
     """The supervisor's whole per-card action: verify, then accept or reject.
 
@@ -701,6 +787,13 @@ def build_parser():
 
     sub.add_parser("next", help="print exactly one card id to dispatch")
     sub.add_parser("tick", help="the supervisor's bounded per-iteration brief")
+    sub.add_parser("worker-tick", help="the worker loop's single decision point: WORK / WAIT / DONE")
+
+    sp = sub.add_parser("dispatch-next", help="supervisor: dispatch the deterministic next card")
+    sp.add_argument("--card")
+    sp.add_argument("--kind", default="dispatch")
+    sp.add_argument("--instruction")
+    sp.add_argument("--attempt", type=int, default=1)
     sub.add_parser("doctor", help="out-of-repo drift and liveness flags")
     sub.add_parser("resume-brief", help="cold-start brief")
 
@@ -759,6 +852,8 @@ HANDLERS = {
     "status-append": cmd_status_append,
     "instruct": cmd_instruct,
     "tick": cmd_tick,
+    "worker-tick": cmd_worker_tick,
+    "dispatch-next": cmd_dispatch_next,
     "doctor": cmd_doctor,
     "resume-brief": cmd_resume_brief,
 }

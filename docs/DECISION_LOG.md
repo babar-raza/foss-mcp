@@ -16,3 +16,13 @@ This is the "checks quietly stop running" failure mode the design cites (RC5/S5)
 Applied now: `ruff check --fix` + `ruff format` — tool-applied, no semantic change; 117 tests
 pass before and after. Structural fix for G1: repo-wide lint/format joins the gate-exit criteria
 rather than relying on any card to remember it.
+
+## 2026-09-10 — tree-sitter dependency surface pinned (supervisor, pre-TC-010)
+Pinned exactly per the plan: tree-sitter==0.26.0, tree-sitter-c-sharp==0.23.5,
+tree-sitter-language-pack==1.16.1. Lockfiles are coordinator-owned, so this is a
+supervisor action rather than a card.
+Observation, recorded rather than asserted: the plan documents `get_parser("c_sharp")`
+(underscored) raising DownloadError. It did NOT reproduce in this environment — it returned a
+parser. The failure may still be real on a cold grammar cache or without network. Production must
+still use the pack's own spelling `"csharp"`, and TC-010 carries a test pinning the spelling
+actually used, which protects us either way.

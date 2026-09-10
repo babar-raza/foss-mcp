@@ -1,4 +1,4 @@
-# Control-plane and product dev dependencies for foss-mcp.
+# Control-plane and product dependencies for foss-mcp.
 # Compiled to requirements.lock with hashes:
 #   .venv/Scripts/python -m piptools compile --generate-hashes -o requirements.lock requirements.in
 PyYAML
@@ -6,3 +6,12 @@ jsonschema
 pytest
 ruff
 mypy
+
+# Extraction engine. These three versions are pinned EXACTLY, carrying forward a
+# landmine documented by the project this engine is ported from: calling
+# tree_sitter_language_pack.get_parser("c_sharp") (underscored) triggers a
+# DownloadError against a 371-language manifest. Production routes every
+# ecosystem through the pack's own spelling, "csharp", which works offline.
+tree-sitter==0.26.0
+tree-sitter-c-sharp==0.23.5
+tree-sitter-language-pack==1.16.1
