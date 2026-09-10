@@ -148,19 +148,27 @@ QUERIES: list[LabelledQuery] = [
     LabelledQuery("exposing registered tools over a protocol transport", "mcp_server"),
     LabelledQuery("translating a protocol request into extraction and retrieval calls", "mcp_tools"),
     LabelledQuery("shaping the reply payload of an MCP tool handler", "mcp_tools"),
-    LabelledQuery("decorating normalized facts with cross references and worked examples", "furnished_content"),
+    LabelledQuery(
+        "decorating normalized facts with cross references and worked examples", "furnished_content"
+    ),
     LabelledQuery("assembling context a downstream reader needs from normalized facts", "furnished_content"),
     LabelledQuery("recording structured logs counters and distributed traces", "telemetry"),
     LabelledQuery("diagnosing a slow or failing ingestion run afterward", "telemetry"),
-    LabelledQuery("validating a product manifest against its json schema before exposing settings", "config_loader"),
+    LabelledQuery(
+        "validating a product manifest against its json schema before exposing settings", "config_loader"
+    ),
     LabelledQuery("loading typed configuration settings for product code", "config_loader"),
-    LabelledQuery("keeping data structures inside the host process memory with no network hop", "embedded_profile"),
+    LabelledQuery(
+        "keeping data structures inside the host process memory with no network hop", "embedded_profile"
+    ),
     LabelledQuery("an index with no separate service to deploy or operate", "embedded_profile"),
     LabelledQuery("a client and server boundary paying a request serialization cost", "service_profile"),
     LabelledQuery("network round trip cost on every single query answered", "service_profile"),
     LabelledQuery("checking out one pinned revision in an isolated throwaway worktree", "git_worktree"),
     LabelledQuery("verification only ever seeing committed content not local changes", "git_worktree"),
-    LabelledQuery("checking a manifest shape and required fields against its schema document", "schema_validation"),
+    LabelledQuery(
+        "checking a manifest shape and required fields against its schema document", "schema_validation"
+    ),
     LabelledQuery("why the manifest must be trusted only after schema validation", "schema_validation"),
     LabelledQuery("recording why a choice was made and the numbers that supported it", "decision_log"),
     LabelledQuery("a record of the rule applied so reasoning outlives its author", "decision_log"),

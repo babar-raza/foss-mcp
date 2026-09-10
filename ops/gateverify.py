@@ -107,7 +107,7 @@ def structural_gate(card, checks):
 # --------------------------------------------------------------------------
 # verify
 # --------------------------------------------------------------------------
-def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None):
+def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None, evaluate_scope: bool = True):
     """Run a card's checks for real and write the receipt.
 
     Order matters: clean run twice (flake detection), structural gate, then the
@@ -121,7 +121,12 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None):
     outdir = receipt_dir(gate, card_id)
     outdir.mkdir(parents=True, exist_ok=True)
 
-    ok_scope, changed, violations = check_scope(card, base, head)
+    if evaluate_scope:
+        ok_scope, changed, violations = check_scope(card, base, head)
+    else:
+        # Gate exit re-proves that the checks still pass and the falsifiers still
+        # bite at the integrated revision. Scope was settled at acceptance.
+        ok_scope, changed, violations = True, [], []
     py = ensure_shared_venv()
     log_lines: list[str] = []
     runs: list[dict] = []
@@ -230,7 +235,12 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None):
         "head_rev": head,
         "card_sha256": card_sha,
         "fingerprint": fingerprint(),
-        "scope": {"ok": ok_scope, "changed_paths": changed, "violations": violations},
+        "scope": {
+            "ok": ok_scope,
+            "changed_paths": changed,
+            "violations": violations,
+            "evaluated": evaluate_scope,
+        },
         "runs": runs,
         "negative_control": negctl,
         "accepted": len(reasons) == 0,

@@ -61,7 +61,7 @@ import json
 import os
 import tempfile
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -221,7 +221,7 @@ class Lease:
 
 
 def _iso_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _iso_plus(start_iso: str, ttl_seconds: float) -> str:
@@ -329,7 +329,10 @@ class GenerationManifestStore:
         if doc is None or doc.get("generation_id") != generation_id:
             raise UnknownGenerationError(f"no generation {generation_id!r} written for scope {scope!r}")
         key = GenerationKey(
-            family=doc["family"], platform=doc["platform"], source_kind=doc["source_kind"], version=doc["version"]
+            family=doc["family"],
+            platform=doc["platform"],
+            source_kind=doc["source_kind"],
+            version=doc["version"],
         )
         return GenerationManifest(key=key, payload=doc["payload"])
 
@@ -448,7 +451,8 @@ def publish(
     expected_active: str | None,
     generation: GenerationManifest,
     lease: Lease,
-): return store.cas_activate(scope, expected_active, store.write_and_validate(generation), lease)
+):
+    return store.cas_activate(scope, expected_active, store.write_and_validate(generation), lease)
 
 
 def rollback(

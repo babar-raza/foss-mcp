@@ -384,7 +384,7 @@ def cmd_gate_exit(args) -> int:
             continue
         issue = _last_rev_touching(f"plans/{cid}.yaml") or head
         print(f"re-verifying {cid} at HEAD ...", flush=True)
-        r = V.do_verify(cid, base, head, issue)
+        r = V.do_verify(cid, base, head, issue, evaluate_scope=False)
         results[cid] = r
         if not r["accepted"]:
             failures.append(f"{cid}: {r['reason']}")

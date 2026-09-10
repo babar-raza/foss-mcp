@@ -78,7 +78,7 @@ class _TfidfIndex:
     doc_ids: list[str]
 
     @classmethod
-    def build(cls, corpus: dict[str, str]) -> "_TfidfIndex":
+    def build(cls, corpus: dict[str, str]) -> _TfidfIndex:
         doc_tokens = {doc_id: tokenize(text) for doc_id, text in corpus.items()}
         doc_freq: Counter = Counter()
         for tokens in doc_tokens.values():
