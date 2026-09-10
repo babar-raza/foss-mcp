@@ -257,6 +257,22 @@ def all_cards():
 # --------------------------------------------------------------------------
 # scope
 # --------------------------------------------------------------------------
+
+
+def resolve_rev(rev: str) -> str:
+    """Expand any revision to a full 40-hex SHA.
+
+    A supervisor typing an abbreviated SHA on the command line put a 12-char
+    value straight into a receipt, which the schema requires to be 40 hex - so
+    the receipt failed validation after the work was already verified. Normalise
+    at the boundary rather than trusting whatever was typed.
+    """
+    rc, out, err = git("rev-parse", "--verify", f"{rev}^{{commit}}")
+    if rc != 0 or len(out) != 40:
+        die(f"cannot resolve revision {rev!r}: {err or out}")
+    return out
+
+
 def commit_subject(rev: str) -> str:
     return git("log", "-1", "--format=%s", rev)[1]
 

@@ -28,6 +28,7 @@ from gatectl import (
     make_worktree,
     now_utc,
     parse_junit,
+    resolve_rev,
     run,
     sha256_bytes,
     sha256_file,
@@ -115,7 +116,9 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None, 
     pass with the falsifier applied they prove nothing, and the card is rejected
     however green it looked.
     """
-    issue_rev = issue_rev or head
+    base = resolve_rev(base)
+    head = resolve_rev(head)
+    issue_rev = resolve_rev(issue_rev or head)
     card, card_sha = load_card_at_rev(card_id, issue_rev)
     gate = card["gate"]
     outdir = receipt_dir(gate, card_id)
