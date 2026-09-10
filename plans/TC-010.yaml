@@ -46,14 +46,17 @@ checks:
 min_tests: 15
 network: false
 negative_control:
-  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/extraction/tree_sitter_engine/api_surface.py'');p.write_text(p.read_text()
-    + chr(10) + ''extract_api_surface = lambda *a, **k: {}'' + chr(10))"'
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/extraction/tree_sitter_engine/api_surface.py'');p.write_text(p.read_text(encoding=''utf-8'')
+    + chr(10) + ''extract_api_surface = lambda *a, **k: {}'' + chr(10), encoding=''utf-8'')"'
   rationale: 'SEMANTIC falsifier: the real entry point returns an empty surface. The
     previous falsifier deleted a language module, which the worker itself pointed
     out breaks test COLLECTION because lang/__init__.py imports every adapter eagerly
     - so it proved a file exists, not that extraction works. Any structural falsifier
     against an eagerly-importing package has this weakness. Breaking the function
-    the tests actually call is the only version that asks the real question.'
+    the tests actually call is the only version that asks the real question. Encoding
+    is explicit: the first attempt died with UnicodeDecodeError because the ported
+    file carries non-ASCII and Windows defaults to cp1252 - the exact failure class
+    this project''s own escalation rule names, hit here by the supervisor''s own falsifier.'
 evidence:
 - evidence/build/G1/TC-010/receipt.json
 closeout:
