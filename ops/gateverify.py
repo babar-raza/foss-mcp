@@ -189,7 +189,13 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None):
     if not ok_scope:
         reasons.append("scope violation: " + "; ".join(violations[:5]))
     if not clean_passed:
-        reasons.append("clean checks did not pass identically twice")
+        if runs and runs[0]["all_passed"] != runs[1]["all_passed"]:
+            reasons.append("FLAKY: the two clean runs disagreed")
+        elif runs and not runs[0]["all_passed"]:
+            failed = [c["command"] for c in runs[0]["checks"] if c["exit_code"] != 0]
+            reasons.append("checks failed: " + "; ".join(failed))
+        else:
+            reasons.append("clean checks did not pass identically twice")
     if structural:
         reasons.append("structural gate: " + "; ".join(structural))
     if not negctl["applied"]:
