@@ -1,6 +1,6 @@
 
 ===== CLEAN RUN 1 =====
-$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lj8wvt95\.junit-0.xml"
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-t1vgd6s8\.junit-0.xml"
 --- stdout ---
 ......................................                                   [100%]
 
@@ -8,25 +8,216 @@ $ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5
 
 
 ===== CLEAN RUN 2 =====
-$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lj8wvt95\.junit-0.xml"
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-t1vgd6s8\.junit-0.xml"
 --- stdout ---
 ......................................                                   [100%]
 
 --- stderr ---
 
 
-!! falsifier did not apply (mutate): Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');p.write_text(p.read_text() + chr(10) + 'extract_api_surface = lambda *a, **k: {}' + chr(10))
-                                                                                                            ~~~~~~~~~~~^^
-  File "C:\Python313\Lib\pathlib\_local.py", line 546, in read_text
-    return PathBase.read_text(self, encoding, errors, newline)
-           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Python313\Lib\pathlib\_abc.py", line 633, in read_text
-    return f.read()
-           ~~~~~~^^
-  File "C:\Python313\Lib\encodings\cp1252.py", line 23, in decode
-    return codecs.charmap_decode(input,self.errors,decoding_table)[0]
-           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 429: character maps to <undefined>
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/api_surface.py, ?? .junit-0.xml
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-t1vgd6s8\.junit-0.xml"
+--- stdout ---
+FFFFFFFFF.............................                                   [100%]
+================================== FAILURES ===================================
+___________ test_a_public_class_carries_its_doc_and_public_members ____________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_a_public_class_carries_it0')
+
+    def test_a_public_class_carries_its_doc_and_public_members(tmp_path: Path) -> None:
+        package = _package(tmp_path, "Widget.cs", CSHARP)
+>       types = _extract(package, tmp_path)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\tree_sitter_engine\test_api_surface_csharp.py:59: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+package = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_a_public_class_carries_it0/src/Aspose.Widget')
+root = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_a_public_class_carries_it0')
+family = 'widget'
+
+    def _extract(package: Path, root: Path, family: str = "widget") -> list[dict]:
+>       types, *_ = api_surface.extract_api_surface(get_parser("csharp"), "csharp", package, root, family)
+        ^^^^^^^^^
+E       ValueError: not enough values to unpack (expected at least 1, got 0)
+
+tests\extraction\tree_sitter_engine\test_api_surface_csharp.py:53: ValueError
+______________ test_a_private_method_is_not_in_the_class_members ______________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_a_private_method_is_not_i0')
+
+    def test_a_private_method_is_not_in_the_class_members(tmp_path: Path) -> None:
+        package = _package(tmp_path, "Widget.cs", CSHARP)
+>       types = _extract(package, tmp_path)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\tree_sitter_engine\test_api_surface_csharp.py:71: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+package = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_a_private_method_is_not_i0/src/Aspose.Widget')
+root = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_a_private_method_is_not_i0')
+family = 'widget'
+
+    def _extract(package: Path, root: Path, family: str = "widget") -> list[dict]:
+>       types, *_ = api_surface.extract_api_surface(get_parser("csharp"), "csharp", package, root, family)
+        ^^^^^^^^^
+E       ValueError: not enough values to unpack (expected at least 1, got 0)
+
+tests\extraction\tree_sitter_engine\test_api_surface_csharp.py:53: ValueError
+_________ test_an_internal_top_level_class_is_absent_from_the_output __________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_an_internal_top_level_cla0')
+
+    def test_an_internal_top_level_class_is_absent_from_the_output(tmp_path: Path) -> None:
+        package = _package(tmp_path, "Widget.cs", CSHARP)
+>       types = _extract(package, tmp_path)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\tree_sitter_engine\test_api_surface_csharp.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+package = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_an_internal_top_level_cla0/src/Aspose.Widget')
+root = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_an_internal_top_level_cla0')
+family = 'widget'
+
+    def _extract(package: Path, root: Path, family: str = "widget") -> list[dict]:
+>       types, *_ = api_surface.extract_api_surface(get_parser("csharp"), "csharp", package, root, family)
+        ^^^^^^^^^
+E       ValueError: not enough values to unpack (expected at least 1, got 0)
+
+tests\extraction\tree_sitter_engine\test_api_surface_csharp.py:53: ValueError
+_________________ test_an_enum_is_extracted_with_its_members __________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_an_enum_is_extracted_with0')
+
+    def test_an_enum_is_extracted_with_its_members(tmp_path: Path) -> None:
+        package = _package(tmp_path, "Widget.cs", CSHARP)
+>       types = _extract(package, tmp_path)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\tree_sitter_engine\test_api_surface_csharp.py:84: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+package = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_an_enum_is_extracted_with0/src/Aspose.Widget')
+root = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_an_enum_is_extracted_with0')
+family = 'widget'
+
+    def _extract(package: Path, root: Path, family: str = "widget") -> list[dict]:
+>       types, *_ = api_surface.extract_api_surface(get_parser("csharp"), "csharp", package, root, family)
+        ^^^^^^^^^
+E       ValueError: not enough values to unpack (expected at least 1, got 0)
+
+tests\extraction\tree_sitter_engine\test_api_surface_csharp.py:53: ValueError
+_____________ test_every_type_carries_its_declaring_file_and_line _____________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_every_type_carries_its_de0')
+
+    def test_every_type_carries_its_declaring_file_and_line(tmp_path: Path) -> None:
+        package = _package(tmp_path, "Widget.cs", CSHARP)
+>       types = _extract(package, tmp_path)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\tree_sitter_engine\test_api_surface_csharp.py:92: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+package = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_every_type_carries_its_de0/src/Aspose.Widget')
+root = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_every_type_carries_its_de0')
+family = 'widget'
+
+    def _extract(package: Path, root: Path, family: str = "widget") -> list[dict]:
+>       types, *_ = api_surface.extract_api_surface(get_parser("csharp"), "csharp", package, root, family)
+        ^^^^^^^^^
+E       ValueError: not enough values to unpack (expected at least 1, got 0)
+
+tests\extraction\tree_sitter_engine\test_api_surface_csharp.py:53: ValueError
+________ test_overloaded_methods_are_each_reported_as_their_own_entry _________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_overloaded_methods_are_ea0')
+
+    def test_overloaded_methods_are_each_reported_as_their_own_entry(tmp_path: Path) -> None:
+        """The engine reports both raw declarations; overload de-duplication is a caller's concern."""
+        package = _package(tmp_path, "Cell.cs", OVERLOADED)
+>       types = _extract(package, tmp_path, family="p")
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\tree_sitter_engine\test_api_surface_csharp.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+package = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_overloaded_methods_are_ea0/src/Aspose.Widget')
+root = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_overloaded_methods_are_ea0')
+family = 'p'
+
+    def _extract(package: Path, root: Path, family: str = "widget") -> list[dict]:
+>       types, *_ = api_surface.extract_api_surface(get_parser("csharp"), "csharp", package, root, family)
+        ^^^^^^^^^
+E       ValueError: not enough values to unpack (expected at least 1, got 0)
+
+tests\extraction\tree_sitter_engine\test_api_surface_csharp.py:53: ValueError
+_ test_go_names_a_top_level_type_type_spec_and_a_function_literally_function __
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_go_names_a_top_level_type0')
+
+    def test_go_names_a_top_level_type_type_spec_and_a_function_literally_function(
+        tmp_path: Path,
+    ) -> None:
+        (tmp_path / "go.mod").write_text("module example.com/widget\n\ngo 1.21\n", encoding="utf-8")
+        package = tmp_path / "widget"
+        package.mkdir()
+        (package / "widget.go").write_text(GO, encoding="utf-8")
+>       types, *_ = api_surface.extract_api_surface(get_parser("go"), "go", package, tmp_path, "widget")
+        ^^^^^^^^^
+E       ValueError: not enough values to unpack (expected at least 1, got 0)
+
+tests\extraction\tree_sitter_engine\test_api_surface_other_languages.py:46: ValueError
+________ test_rust_names_a_top_level_free_function_literally_function _________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_rust_names_a_top_level_fr0')
+
+    def test_rust_names_a_top_level_free_function_literally_function(tmp_path: Path) -> None:
+        (tmp_path / "Cargo.toml").write_text(
+            '[package]\nname = "widget"\nversion = "0.1.0"\n', encoding="utf-8"
+        )
+        package = tmp_path / "src"
+        package.mkdir()
+        (package / "lib.rs").write_text(RUST, encoding="utf-8")
+>       types, *_ = api_surface.extract_api_surface(get_parser("rust"), "rust", package, tmp_path, "widget")
+        ^^^^^^^^^
+E       ValueError: not enough values to unpack (expected at least 1, got 0)
+
+tests\extraction\tree_sitter_engine\test_api_surface_other_languages.py:59: ValueError
+_________ test_the_two_readers_agree_on_every_public_class_and_method _________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_the_two_readers_agree_on_0')
+
+    def test_the_two_readers_agree_on_every_public_class_and_method(tmp_path: Path) -> None:
+        """Both read the same tree; only their scopes differ."""
+        package = _package(tmp_path)
+>       from_oracle = _oracle_names(package, tmp_path)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\tree_sitter_engine\test_lang_python_parity.py:69: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+package = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_the_two_readers_agree_on_0/aspose/threed')
+root = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-426/test_the_two_readers_agree_on_0')
+
+    def _oracle_names(package: Path, root: Path) -> set[str]:
+>       types, *_ = api_surface.extract_api_surface(get_parser("python"), "python", package, root, "threed")
+        ^^^^^^^^^
+E       ValueError: not enough values to unpack (expected at least 1, got 0)
+
+tests\extraction\tree_sitter_engine\test_lang_python_parity.py:58: ValueError
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_api_surface_csharp.py::test_a_public_class_carries_its_doc_and_public_members
+FAILED tests/extraction/tree_sitter_engine/test_api_surface_csharp.py::test_a_private_method_is_not_in_the_class_members
+FAILED tests/extraction/tree_sitter_engine/test_api_surface_csharp.py::test_an_internal_top_level_class_is_absent_from_the_output
+FAILED tests/extraction/tree_sitter_engine/test_api_surface_csharp.py::test_an_enum_is_extracted_with_its_members
+FAILED tests/extraction/tree_sitter_engine/test_api_surface_csharp.py::test_every_type_carries_its_declaring_file_and_line
+FAILED tests/extraction/tree_sitter_engine/test_api_surface_csharp.py::test_overloaded_methods_are_each_reported_as_their_own_entry
+FAILED tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py::test_go_names_a_top_level_type_type_spec_and_a_function_literally_function
+FAILED tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py::test_rust_names_a_top_level_free_function_literally_function
+FAILED tests/extraction/tree_sitter_engine/test_lang_python_parity.py::test_the_two_readers_agree_on_every_public_class_and_method
+
+--- stderr ---
 

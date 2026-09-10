@@ -49,8 +49,9 @@ checks:
 min_tests: 6
 network: false
 negative_control:
-  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/indexing/vector_index_writer.py'');p.write_text(p.read_text()
-    + chr(10) + ''point_id = lambda generation_id, chunk_id: chunk_id'' + chr(10))"'
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/indexing/vector_index_writer.py'');p.write_text(p.read_text(encoding=''utf-8'')
+    + chr(10) + ''point_id = lambda generation_id, chunk_id: chunk_id'' + chr(10),
+    encoding=''utf-8'')"'
   rationale: Stripping the generation out of the point id must break the suite. That
     exact content-only scheme is what made rollback broken in the reference system,
     so a suite that tolerates it is not testing generation identity.

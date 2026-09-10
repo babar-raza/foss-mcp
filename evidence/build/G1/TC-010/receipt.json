@@ -3,10 +3,10 @@
   "card": "TC-010",
   "gate": "G1",
   "generated_by": "gatectl",
-  "generated_at": "2026-09-10T23:05:11Z",
+  "generated_at": "2026-09-10T23:05:37Z",
   "base_rev": "fe75a9f4d0cff8a52f27513835199395ad158106",
   "head_rev": "eedaa0b8fd88",
-  "card_sha256": "82dae55cea28b7a75d2c8fd47fde9c0fc54f7b6c52520a056271af760262d2c0",
+  "card_sha256": "bd8770cc3841a01aaff3c9ffdb672e50dcd45e3a2e0a6f1c81cdb77b73243098",
   "fingerprint": {
     "python": "3.13.2",
     "platform": "Windows-11-10.0.26200-SP0",
@@ -58,7 +58,7 @@
         {
           "command": "{python} -m pytest tests/extraction/tree_sitter_engine -q",
           "exit_code": 0,
-          "duration_s": 1.387,
+          "duration_s": 0.948,
           "stdout_sha256": "8e0dd3e259f68c193f05e3e04acef6407a9ed36e5124438d9f9a04fbd0db33db",
           "tests": 38,
           "skipped": 0,
@@ -74,7 +74,7 @@
         {
           "command": "{python} -m pytest tests/extraction/tree_sitter_engine -q",
           "exit_code": 0,
-          "duration_s": 0.915,
+          "duration_s": 0.923,
           "stdout_sha256": "8e0dd3e259f68c193f05e3e04acef6407a9ed36e5124438d9f9a04fbd0db33db",
           "tests": 38,
           "skipped": 0,
@@ -87,12 +87,18 @@
   ],
   "negative_control": {
     "kind": "mutate",
-    "patch": "python -c \"import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');p.write_text(p.read_text() + chr(10) + 'extract_api_surface = lambda *a, **k: {}' + chr(10))\"",
-    "patch_sha256": "b0e7d95d6a283eceaa25fff709e300030fb0aa8111277f2c91fd8168c262854d",
-    "applied": false,
-    "patch_applied_failed": false,
-    "exit_codes": []
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');p.write_text(p.read_text(encoding='utf-8') + chr(10) + 'extract_api_surface = lambda *a, **k: {}' + chr(10), encoding='utf-8')\"",
+    "patch_sha256": "4ff4fe36858c11ae30aea30d4fbcb2d6cd6118002128808f9e127d1e048bf50e",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/tree_sitter_engine/api_surface.py",
+      "?? .junit-0.xml"
+    ]
   },
-  "accepted": false,
-  "reason": "negative-control patch did not apply"
+  "accepted": true,
+  "reason": "all gates passed"
 }

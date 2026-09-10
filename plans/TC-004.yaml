@@ -45,8 +45,9 @@ checks:
   - REQ-G0-006
 min_tests: 3
 negative_control:
-  mutate: 'python -c "import pathlib;p=pathlib.Path(''config/products/pdf/net.yaml'');import
-    re;p.write_text(re.sub(r''storage_topology:.*'',''storage_topology: undecided_pending_TC-004'',p.read_text()))"'
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''config/products/pdf/net.yaml'');import
+    re;p.write_text(re.sub(r''storage_topology:.*'',''storage_topology: undecided_pending_TC-004'',p.read_text(encoding=''utf-8'')),
+    encoding=''utf-8'')"'
   rationale: Reverting the manifest to 'undecided' must break the suite. Otherwise
     the test is not actually checking that the decision was written back, and a spike
     could 'pass' having changed nothing.

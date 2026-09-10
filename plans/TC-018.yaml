@@ -49,8 +49,8 @@ checks:
 min_tests: 5
 network: true
 negative_control:
-  mutate: python -c "import pathlib;p=pathlib.Path('Dockerfile.serving');p.write_text(p.read_text().replace('--require-hashes',
-    ''))"
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('Dockerfile.serving');p.write_text(p.read_text(encoding='utf-8').replace('--require-hashes',
+    ''), encoding='utf-8')"
   rationale: Removing hash verification from the serving image must break the suite.
     A weaker install path that nothing checks is exactly the unreferenced trap this
     card exists to avoid reproducing.

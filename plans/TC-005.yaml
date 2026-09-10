@@ -43,9 +43,9 @@ checks:
   - REQ-G0-008
 min_tests: 5
 negative_control:
-  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/indexing/generation_manifest.py'');p.write_text(p.read_text()
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/indexing/generation_manifest.py'');p.write_text(p.read_text(encoding=''utf-8'')
     + chr(10) + ''GenerationManifestStore.cas_activate = lambda self, scope, expected_active,
-    generation_id, lease: generation_id'' + chr(10))"'
+    generation_id, lease: generation_id'' + chr(10), encoding=''utf-8'')"'
   rationale: 'Neuters the single authority path by rebinding cas_activate to a lambda
     that always succeeds, so both the fencing check and the CAS compare are gone.
     Every guard test must fail. Written with no backslashes at all: the previous regex

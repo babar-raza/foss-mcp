@@ -41,8 +41,8 @@ checks:
 min_tests: 5
 network: true
 negative_control:
-  mutate: python -c "import pathlib;p=pathlib.Path('docker-compose.yml');p.write_text(p.read_text().replace(chr(56)+chr(48)+chr(56)+chr(48),
-    chr(57)+chr(57)+chr(57)+chr(57)))"
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('docker-compose.yml');p.write_text(p.read_text(encoding='utf-8').replace(chr(56)+chr(48)+chr(56)+chr(48),
+    chr(57)+chr(57)+chr(57)+chr(57)), encoding='utf-8')"
   rationale: Breaking the published port must make the E2E session fail. A suite that
     still passes when nothing is listening is not talking to the container at all
     - the single most likely way an E2E test becomes theatre.

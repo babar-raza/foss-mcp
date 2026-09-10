@@ -44,9 +44,9 @@ checks:
 min_tests: 6
 network: false
 negative_control:
-  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/mcp/tools/search_docs.py'');p.write_text(p.read_text()
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/mcp/tools/search_docs.py'');p.write_text(p.read_text(encoding=''utf-8'')
     + chr(10) + ''search_docs = lambda *a, **k: [{chr(39)+chr(105)+chr(100)+chr(39):
-    1}]'' + chr(10))"'
+    1}]'' + chr(10), encoding=''utf-8'')"'
   rationale: Making search_docs always return a result must break the miss test. 'Always
     return something' is the reference system's philosophy and the single deepest
     lesson of the whole review; a suite that tolerates it has not learned it.

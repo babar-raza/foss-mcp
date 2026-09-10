@@ -44,9 +44,9 @@ checks:
 min_tests: 6
 network: false
 negative_control:
-  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/mcp/tools/get_product_reference.py'');p.write_text(p.read_text()
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/mcp/tools/get_product_reference.py'');p.write_text(p.read_text(encoding=''utf-8'')
     + chr(10) + ''get_product_reference = lambda *a, **k: {chr(116)+chr(120): chr(121)}''
-    + chr(10))"'
+    + chr(10), encoding=''utf-8'')"'
   rationale: Making get_product_reference always return content must break the explicit-absence
     tests. Fabricating a summary for a missing CONTRIBUTING.md is exactly the dishonest
     degradation this tool must not do.

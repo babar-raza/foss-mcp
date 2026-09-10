@@ -51,9 +51,9 @@ checks:
 min_tests: 6
 network: false
 negative_control:
-  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/mcp/routing.py'');p.write_text(p.read_text()
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/mcp/routing.py'');p.write_text(p.read_text(encoding=''utf-8'')
     + chr(10) + ''resolve_scope = lambda deployment_config, request=None: (request
-    or deployment_config)'' + chr(10))"'
+    or deployment_config)'' + chr(10), encoding=''utf-8'')"'
   rationale: Making resolve_scope honour a request-supplied value must break the suite.
     A client-controlled scope is the exact isolation defect this project exists to
     avoid inheriting.

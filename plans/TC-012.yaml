@@ -47,9 +47,9 @@ checks:
 min_tests: 6
 network: true
 negative_control:
-  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/extraction/github_release_reader.py'');p.write_text(p.read_text()
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/extraction/github_release_reader.py'');p.write_text(p.read_text(encoding=''utf-8'')
     + chr(10) + ''classify_richness = lambda body: chr(100)+chr(101)+chr(116)+chr(97)+chr(105)+chr(108)+chr(101)+chr(100)''
-    + chr(10))"'
+    + chr(10), encoding=''utf-8'')"'
   rationale: Forcing every release to classify as 'detailed' must break the suite.
     Honest degradation is the requirement; a test that cannot tell boilerplate from
     a real migration note is not testing it.

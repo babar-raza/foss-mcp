@@ -40,8 +40,8 @@ checks:
 min_tests: 5
 network: false
 negative_control:
-  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/extraction/claim_id_bridge.py'');p.write_text(p.read_text()
-    + chr(10) + ''anchor_resolves = lambda anchor, index: True'' + chr(10))"'
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/extraction/claim_id_bridge.py'');p.write_text(p.read_text(encoding=''utf-8'')
+    + chr(10) + ''anchor_resolves = lambda anchor, index: True'' + chr(10), encoding=''utf-8'')"'
   rationale: Making every anchor resolve must break the unsupported and partially_supported
     tests. If it does not, the bridge is not being exercised.
 evidence:

@@ -37,9 +37,9 @@ checks:
 min_tests: 6
 network: false
 negative_control:
-  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/mcp/tools/get_symbol.py'');p.write_text(p.read_text()
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/mcp/tools/get_symbol.py'');p.write_text(p.read_text(encoding=''utf-8'')
     + chr(10) + ''get_symbol = lambda *a, **k: {chr(115)+chr(105)+chr(103): chr(120)}''
-    + chr(10))"'
+    + chr(10), encoding=''utf-8'')"'
   rationale: Making get_symbol always return a fabricated signature must break the
     not-found test. Hallucinating on an absent symbol is the failure this tool's determinism
     exists to prevent.

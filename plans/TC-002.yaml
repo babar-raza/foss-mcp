@@ -43,8 +43,9 @@ checks:
   - REQ-G0-004
 min_tests: 4
 negative_control:
-  mutate: python -c "import json,pathlib;p=pathlib.Path('schemas/product/product-manifest.schema.json');d=json.loads(p.read_text());d['required']=[r
-    for r in d['required'] if r!='schedule'];p.write_text(json.dumps(d,indent=2))"
+  mutate: python -X utf8 -c "import json,pathlib;p=pathlib.Path('schemas/product/product-manifest.schema.json');d=json.loads(p.read_text(encoding='utf-8'));d['required']=[r
+    for r in d['required'] if r!='schedule'];p.write_text(json.dumps(d,indent=2),
+    encoding='utf-8')"
   rationale: 'Plan 19.2 names this exact negative control for TC-003: a manifest missing
     `schedule` must be rejected. Dropping `schedule` from the schema''s required list
     must therefore break the suite. If it does not, the test is asserting nothing.'

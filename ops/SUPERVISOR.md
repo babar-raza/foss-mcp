@@ -82,6 +82,14 @@ falsifiers in this project were silently defeated before the guard was added:
 - `verify` now fails a falsifier that leaves the tree byte-identical, but that
   catches only the crudest case. A falsifier that changes the wrong thing still
   looks applied.
+- Force UTF-8 explicitly: `python -X utf8 -c "...read_text(encoding='utf-8')
+  ...write_text(..., encoding='utf-8')"`. A falsifier runs against real source
+  files, real source files are not ASCII, and this machine defaults to cp1252 - a
+  UnicodeDecodeError there reads as "falsifier did not apply" and rejects a card
+  that was fine.
+- Prefer breaking the function the tests actually CALL. A structural falsifier
+  against an eagerly-importing package breaks test *collection*, which proves a
+  file exists rather than that the code works.
 - Ask the only question that matters: **does the suite still pass when the
   thing it tests is broken?**
 

@@ -35,7 +35,8 @@ checks:
   - REQ-G0-005
 min_tests: 2
 negative_control:
-  mutate: python -c "import pathlib;p=pathlib.Path('config/products/pdf/net.yaml');p.write_text(p.read_text().replace('Aspose.PDF-FOSS-for-.NET','Aspose-PDF-FOSS-for-NET'))"
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('config/products/pdf/net.yaml');p.write_text(p.read_text(encoding='utf-8').replace('Aspose.PDF-FOSS-for-.NET','Aspose-PDF-FOSS-for-NET'),
+    encoding='utf-8')"
   rationale: Swapping the exact repo name for a plausible pattern-derived one must
     break the suite. This is the specific error the irregular naming invites.
 evidence:

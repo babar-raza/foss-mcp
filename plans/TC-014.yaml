@@ -50,8 +50,8 @@ checks:
 min_tests: 8
 network: false
 negative_control:
-  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/normalization/chunker.py'');p.write_text(p.read_text()
-    + chr(10) + ''chunk_document = lambda doc: [doc]'' + chr(10))"'
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/normalization/chunker.py'');p.write_text(p.read_text(encoding=''utf-8'')
+    + chr(10) + ''chunk_document = lambda doc: [doc]'' + chr(10), encoding=''utf-8'')"'
   rationale: Collapsing chunking back to one chunk per document must break the suite.
     That is precisely the page-level behaviour the design rejects, so a suite that
     tolerates it is not testing section granularity.
