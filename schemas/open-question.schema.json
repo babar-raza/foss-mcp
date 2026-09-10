@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/babar-raza/foss-mcp/schemas/open-question.schema.json",
+  "title": "foss-mcp open question",
+  "description": "One line of ops/open_questions.jsonl. The provisional-decision channel: a question the loop cannot answer becomes a recorded decision plus this entry, and work CONTINUES. gate-exit fails while any entry is unresolved.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ts", "id", "card", "question", "provisional_decision", "rationale", "status", "consumed_by"],
+  "properties": {
+    "ts":       {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+    "id":       {"type": "string", "pattern": "^OQ-[0-9]{3}$"},
+    "card":     {"type": "string", "pattern": "^TC-[0-9]{3}[a-z]?$"},
+    "question": {"type": "string", "minLength": 1},
+    "provisional_decision": {"type": "string", "minLength": 1},
+    "rationale":{"type": "string", "minLength": 1},
+    "status":   {"enum": ["OPEN", "RESOLVED", "OVERRIDDEN"]},
+    "consumed_by": {
+      "description": "The gate(s) this blocks. An open question hard-blocks ONLY what it names - never the whole loop.",
+      "type": "array", "minItems": 1,
+      "items": {"type": "string", "pattern": "^(G[0-5]|NONE)$"}
+    },
+    "resolved_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"}
+  }
+}

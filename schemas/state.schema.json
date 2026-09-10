@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/babar-raza/foss-mcp/schemas/state.schema.json",
+  "title": "foss-mcp implementation cursor (DERIVED)",
+  "description": "Shape of project/state.yaml. This file is NEVER hand-written. gatectl derives it from plans/, evidence/build/**/receipt.json, ops/instructions.jsonl and git; `gatectl validate` asserts the committed copy equals a fresh rebuild. A blocked card must carry a blocker with an exact resume predicate; a non-blocked card must not.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project", "generated_by", "generated_at",
+               "current_gate", "accepted_gates", "cards", "owner_items",
+               "open_questions", "execution_limits"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project":        {"const": "foss-mcp"},
+    "generated_by":   {"const": "gatectl"},
+    "generated_at":   {"$ref": "#/$defs/timestamp"},
+    "current_gate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "status"],
+      "properties": {"id": {"$ref": "#/$defs/gate_id"},
+                     "status": {"enum": ["READY", "IN_PROGRESS", "VERIFYING", "ACCEPTED", "BLOCKED_EXTERNAL", "FAILED_INTERNAL"]}}
+    },
+    "accepted_gates": {"type": "array", "items": {"$ref": "#/$defs/gate_id"}, "uniqueItems": true, "maxItems": 6},
+    "cards": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "gate", "status", "attempt", "blocker"],
+        "properties": {
+          "id":      {"type": "string", "pattern": "^TC-[0-9]{3}[a-z]?$"},
+          "gate":    {"$ref": "#/$defs/gate_id"},
+          "status":  {"enum": ["PENDING", "READY", "IN_PROGRESS", "VERIFYING",
+                                "ACCEPTED", "FAILED_INTERNAL", "BLOCKED_EXTERNAL", "DEFERRED"]},
+          "attempt": {"type": "integer", "minimum": 0, "maximum": 3},
+          "commit":  {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+          "receipt": {"type": "string", "minLength": 1},
+          "blocker": {"$ref": "#/$defs/blocker"}
+        },
+        "allOf": [{
+          "if":   {"properties": {"status": {"enum": ["BLOCKED_EXTERNAL", "FAILED_INTERNAL"]}}},
+          "then": {"properties": {"blocker": {"type": "object"}}},
+          "else": {"properties": {"blocker": {"type": "null"}}}
+        }]
+      }
+    },
+    "owner_items": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "status", "summary", "resume_predicate", "consumed_by", "recorded_at"],
+        "properties": {
+          "id":      {"type": "string", "pattern": "^OWNER-[0-9]{2}$"},
+          "status":  {"enum": ["OPEN", "SATISFIED", "OVERRIDDEN", "DEFAULT_APPLIED"]},
+          "summary": {"$ref": "#/$defs/text"},
+          "resume_predicate": {"$ref": "#/$defs/text"},
+          "consumed_by": {"type": "array", "minItems": 1,
+                          "items": {"type": "string", "pattern": "^(G[0-5]|TC-[0-9]{3}[a-z]?|NONE)$"}},
+          "recorded_at": {"$ref": "#/$defs/timestamp"},
+          "last_checked_at": {"$ref": "#/$defs/timestamp"},
+          "note": {"$ref": "#/$defs/text"}
+        }
+      }
+    },
+    "open_questions": {
+      "type": "object", "additionalProperties": false,
+      "required": ["open", "ids"],
+      "properties": {"open": {"type": "integer", "minimum": 0},
+                     "ids": {"type": "array", "items": {"type": "string", "pattern": "^OQ-[0-9]{3}$"}}}
+    },
+    "execution_limits": {
+      "description": "const-pinned so an agent cannot relax a limit without a visibly different kind of diff.",
+      "type": "object", "additionalProperties": false,
+      "required": ["workers_in_flight", "max_attempts_per_card", "supervisor_writes_product_code", "worker_issues_verdicts"],
+      "properties": {
+        "workers_in_flight":              {"const": 1},
+        "max_attempts_per_card":          {"const": 3},
+        "supervisor_writes_product_code": {"const": false},
+        "worker_issues_verdicts":         {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "text":      {"type": "string", "minLength": 1},
+    "gate_id":   {"type": "string", "pattern": "^G[0-5]$"},
+    "timestamp": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+    "blocker": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "object", "additionalProperties": false,
+         "required": ["class", "summary", "resume_predicate", "recorded_at"],
+         "properties": {
+           "class":   {"enum": ["BLOCKED_EXTERNAL", "FAILED_INTERNAL"]},
+           "summary": {"$ref": "#/$defs/text"},
+           "resume_predicate": {"$ref": "#/$defs/text"},
+           "recorded_at": {"$ref": "#/$defs/timestamp"}
+         }}
+      ]
+    }
+  }
+}

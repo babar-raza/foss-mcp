@@ -1,0 +1,28 @@
+[project]
+name = "foss-mcp"
+version = "0.0.0"
+description = "MCP servers for the Aspose FOSS product line"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+
+[tool.ruff]
+# Rule selection is PINNED. An unpinned rule set changes with the ruff version
+# and turns a green check red without a code change - a determinism leak.
+line-length = 110
+target-version = "py313"
+exclude = [".venv", ".gatectl-worktrees", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.13"
+files = ["ops"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+exclude = '(^|/)([.]venv|[.]gatectl-worktrees)/'
+
+[tool.pytest.ini_options]
+testpaths = ["ops/tests", "tests"]
+addopts = "-q"
