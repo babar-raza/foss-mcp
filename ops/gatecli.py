@@ -380,6 +380,22 @@ def cmd_worker_tick(args) -> int:
     print()
     print("SUPERVISOR INSTRUCTION:")
     print(f"  {ins['instruction']}")
+
+    # Corrections issued AFTER the dispatch must reach the worker too. Without
+    # this only dispatch/rework lines were ever surfaced, so a mid-flight
+    # root_cause - a card defect the supervisor found before it bit - would sit
+    # in the channel unread until the card had already failed once.
+    later = [
+        i
+        for i in V.read_jsonl(G.INSTRUCTIONS_JSONL)
+        if i["ts"] > ins["ts"]
+        and i.get("kind") in ("root_cause", "stop")
+        and i.get("target_card") in (card_id, "ALL")
+    ]
+    for i in later:
+        print()
+        print(f"LATER {i['kind'].upper()} ({i['ts']}):")
+        print(f"  {i['instruction']}")
     return G.EXIT_OK
 
 
