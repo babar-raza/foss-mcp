@@ -1,0 +1,57 @@
+
+===== CLEAN RUN 1 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/extraction/test_repo_native.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0goevq2f\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/extraction/test_repo_native.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0goevq2f\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/github_release_reader.py, ?? .junit-0.xml
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/extraction/test_repo_native.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0goevq2f\.junit-0.xml"
+--- stdout ---
+FF.....                                                                  [100%]
+================================== FAILURES ===================================
+________________ test_all_three_richness_values_are_exercised _________________
+
+    def test_all_three_richness_values_are_exercised() -> None:
+        templated = (
+            "## What's Changed\n"
+            "* Bump lodash from 4.17.20 to 4.17.21 by @dependabot in "
+            "https://github.com/acme/widget/pull/123\n\n"
+            "**Full Changelog**: https://github.com/acme/widget/compare/v1.0.0...v1.1.0\n"
+        )
+>       assert classify_richness(templated) == "templated"
+E       AssertionError: assert 'detailed' == 'templated'
+E         
+E         - templated
+E         + detailed
+
+tests\extraction\test_repo_native.py:36: AssertionError
+_____ test_a_real_migration_note_is_not_reported_the_same_as_boilerplate ______
+
+    def test_a_real_migration_note_is_not_reported_the_same_as_boilerplate() -> None:
+        """Honest degradation: the distinction the classifier exists for, checked directly."""
+        real_note = _releases_fixture()["releases"][0]["body"]
+        boilerplate = "## What's Changed\n* Fix typo by @octocat in https://github.com/x/y/pull/1\n"
+>       assert classify_richness(real_note) != classify_richness(boilerplate)
+E       assert 'detailed' != 'detailed'
+E        +  where 'detailed' = classify_richness('# Aspose.PDF FOSS for .NET v26.9.0\n\nA rendering and cross-platform release: the software renderer closes the remain...sion 26.9.0\n```\n\nLicensed under MIT. Some features are incomplete and the public API may change between releases.\n')
+E        +  and   'detailed' = classify_richness("## What's Changed\n* Fix typo by @octocat in https://github.com/x/y/pull/1\n")
+
+tests\extraction\test_repo_native.py:49: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_repo_native.py::test_all_three_richness_values_are_exercised
+FAILED tests/extraction/test_repo_native.py::test_a_real_migration_note_is_not_reported_the_same_as_boilerplate
+
+--- stderr ---
+

@@ -105,6 +105,44 @@ def structural_gate(card, checks):
     return problems
 
 
+def run_holdout(card_id: str, wt: Path, py: Path, log_lines):
+    """Run supervisor-authored checks the card never names.
+
+    A card's own suite is written by the same worker as the code, so the two can
+    agree on a wrong idea and every declared check still passes. TC-012 did
+    exactly that: it classified auto-generated boilerplate as a detailed release
+    note, its falsifier bit, and it was accepted while failing the requirement it
+    existed to satisfy.
+
+    Holdout tests live under evidence/holdout/<card>/, which is globally denied to
+    every card, so a worker cannot read them, tune to them, or edit them. They are
+    copied into the throwaway worktree at verification time.
+
+    Returns (ran, passed, detail).
+    """
+    import os
+    import shutil
+
+    from gatectl import CANONICAL_ENV, EVIDENCE
+
+    src = EVIDENCE / "holdout" / card_id
+    if not src.is_dir() or not any(src.glob("test_*.py")):
+        return False, True, "no holdout for this card"
+
+    dest = wt / ".gatectl-holdout"
+    shutil.rmtree(dest, ignore_errors=True)
+    shutil.copytree(src, dest)
+
+    env = dict(CANONICAL_ENV)
+    env["PATH"] = str(py.parent) + os.pathsep + os.environ.get("PATH", "")
+    cmd = f'"{py}" -m pytest .gatectl-holdout -q -p no:cacheprovider'
+    rc, out, err = run(cmd, cwd=wt, env=env, timeout=600)
+    log_lines.append("\n===== HOLDOUT (supervisor-authored, not named by the card) =====\n")
+    log_lines.append(f"$ {cmd}\n--- stdout ---\n{out}\n--- stderr ---\n{err}\n")
+    tail = [ln for ln in (out or "").splitlines() if ln.strip()][-3:]
+    return True, rc == 0, " | ".join(tail) or (err or "")[:200]
+
+
 # --------------------------------------------------------------------------
 # verify
 # --------------------------------------------------------------------------
@@ -145,6 +183,7 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None, 
     }
     structural: list[str] = []
     clean_passed = False
+    holdout_ran, holdout_passed, holdout_detail = False, True, ""
 
     wt = make_worktree(head)
     try:
@@ -153,6 +192,7 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None, 
             checks, passed = run_checks(card, wt, py, log_lines)
             runs.append({"run": i, "checks": checks, "all_passed": passed})
         structural = structural_gate(card, runs[0]["checks"])
+        holdout_ran, holdout_passed, holdout_detail = run_holdout(card_id, wt, py, log_lines)
 
         codes1 = [c["exit_code"] for c in runs[0]["checks"]]
         codes2 = [c["exit_code"] for c in runs[1]["checks"]]
@@ -211,6 +251,8 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None, 
     (outdir / "stdout.log").write_text("".join(log_lines), encoding="utf-8")
 
     reasons = []
+    if holdout_ran and not holdout_passed:
+        reasons.append(f"HOLDOUT FAILED (checks the card does not name): {holdout_detail}")
     if not ok_scope:
         reasons.append("scope violation: " + "; ".join(violations[:5]))
     if not clean_passed:
@@ -246,6 +288,7 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None, 
         },
         "runs": runs,
         "negative_control": negctl,
+        "holdout": {"ran": holdout_ran, "passed": holdout_passed, "detail": holdout_detail},
         "accepted": len(reasons) == 0,
         "reason": "; ".join(reasons) if reasons else "all gates passed",
     }

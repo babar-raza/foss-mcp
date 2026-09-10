@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-012",
+  "gate": "G1",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-10T23:31:18Z",
+  "base_rev": "1d409079c693d461bd7faa7add15fac6b23bc8ff",
+  "head_rev": "4ff73aacc77313db223fcf1f641523747be2186f",
+  "card_sha256": "f09b6993374a30c974a0745a45f7ca4a3f4f42bdb82b325e090d4fcf97c70df1",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "2ce5d8dd7b5f3acfd4e8508f47f8d6a76df706306c6b0931fc58c1b9b33fe7ca",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/extraction/github_release_reader.py",
+      "src/foss_mcp/extraction/manifest_reader.py",
+      "src/foss_mcp/extraction/repo_native_reader.py",
+      "tests/extraction/test_repo_native.py",
+      "tests/fixtures/repo_native/pdf_net.csproj",
+      "tests/fixtures/repo_native/pdf_net_agents_404.json",
+      "tests/fixtures/repo_native/pdf_net_contributing_404.json",
+      "tests/fixtures/repo_native/pdf_net_readme_present.json",
+      "tests/fixtures/repo_native/pdf_net_releases.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_repo_native.py -q",
+          "exit_code": 0,
+          "duration_s": 0.624,
+          "stdout_sha256": "83a1593c5b5783693fe3006d1f6597bcb4f3a5968f23b59481ee09a0477f910a",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_repo_native.py -q",
+          "exit_code": 0,
+          "duration_s": 0.524,
+          "stdout_sha256": "83a1593c5b5783693fe3006d1f6597bcb4f3a5968f23b59481ee09a0477f910a",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/extraction/github_release_reader.py');p.write_text(p.read_text(encoding='utf-8') + chr(10) + 'classify_richness = lambda body: chr(100)+chr(101)+chr(116)+chr(97)+chr(105)+chr(108)+chr(101)+chr(100)' + chr(10), encoding='utf-8')\"",
+    "patch_sha256": "07afc47037b4623d1a4780687763a956280325f01836f41ec66dbf3e44497a6e",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/github_release_reader.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
