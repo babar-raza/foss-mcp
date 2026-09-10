@@ -94,6 +94,27 @@ This is your iteration.
 
 ---
 
+## 2.5 Supervisor messages
+
+A message beginning `Supervisor:` carries the operator's authority. Apply it in
+the current iteration, add nothing to any status file about it, **never answer
+it, and never wait for one**. It is not a conversation — it is a correction, and
+the loop continues regardless.
+
+Two things reach you this way and both are normal:
+
+- A **card defect** the supervisor found before it bit you. No attempt has been
+  consumed; keep working the same card with the correction applied.
+- A **root cause** after a failed attempt. The supervisor reproduced the failure
+  independently. Act on it literally rather than re-deriving it — that is the
+  whole reason it was sent.
+
+`worker-tick` also prints any `LATER ROOT_CAUSE` or `LATER STOP` block issued
+after your dispatch, so a correction reaches you even if you never saw the
+message. Read those every iteration.
+
+---
+
 ## 3. Hard rules
 
 - **You never issue a verdict.** You do not run `gatectl verify`, `review`,
