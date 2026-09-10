@@ -68,8 +68,14 @@ def test_manifest_has_a_real_schedule_with_cron():
     assert isinstance(schedule.get("cron"), str) and len(schedule["cron"]) >= 9
 
 
-def test_storage_topology_starts_undecided_pending_tc_004():
-    """plan 18.1: storage_topology is a later card's decision (TC-004), so
-    this manifest must carry the literal placeholder, not a guessed value."""
+def test_storage_topology_is_decided_not_placeholder():
+    """TC-003a: the previous version of this test pinned the transient
+    bootstrap value 'undecided_pending_TC-004', asserting a moment rather
+    than a contract. TC-004 legitimately decided storage_topology (see
+    docs/DECISION_LOG.md), so that placeholder assertion was removed. The
+    real contract is that storage_topology is a real, non-empty decision -
+    do not reintroduce the placeholder-literal assertion here."""
     manifest = _load_manifest()
-    assert manifest["storage_topology"] == "undecided_pending_TC-004"
+    storage_topology = manifest["storage_topology"]
+    assert isinstance(storage_topology, str) and storage_topology.strip()
+    assert storage_topology != "undecided_pending_TC-004"
