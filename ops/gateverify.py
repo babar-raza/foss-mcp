@@ -170,9 +170,26 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None):
                 rc, out, err = run(cmd, cwd=wt, timeout=120)
                 applied, why = rc == 0, (err or out)
 
+            # A falsifier that exits 0 while changing NOTHING is the worst
+            # possible outcome: it silently converts the strongest control in
+            # the system into a rubber stamp. Exit status is not evidence that
+            # a mutation happened - the tree is.
+            if applied:
+                _, dirty, _ = run(["git", "status", "--porcelain"], cwd=wt)
+                if not dirty.strip():
+                    applied = False
+                    why = (
+                        "command exited 0 but left the tree byte-identical - it mutated "
+                        "nothing (a regex that matched no lines, a no-op edit, a typo in a "
+                        "path). This is NOT a passing falsifier."
+                    )
+                else:
+                    negctl["tree_changed"] = [ln.strip() for ln in dirty.strip().splitlines()]
+
             if applied:
                 negctl["applied"] = True
                 log_lines.append("\n===== NEGATIVE CONTROL (checks MUST now fail) =====\n")
+                log_lines.append("mutated: " + ", ".join(negctl.get("tree_changed", [])) + "\n")
                 nchecks, npassed = run_checks(card, wt, py, log_lines)
                 negctl["exit_codes"] = [c["exit_code"] for c in nchecks]
                 negctl["patch_applied_failed"] = not npassed

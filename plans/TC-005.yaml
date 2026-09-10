@@ -43,11 +43,14 @@ checks:
   - REQ-G0-008
 min_tests: 5
 negative_control:
-  mutate: 'python -c "import pathlib,re;p=pathlib.Path(''src/foss_mcp/indexing/generation_manifest.py'');s=p.read_text();s=re.sub(r''(def
-    [a-z_]*publish[a-z_]*\\([^)]*\\):)'',r''\\1\\n    pass  # falsifier: fencing check
-    removed'',s,count=1);p.write_text(s)"'
-  rationale: Short-circuiting the publish path must break the fencing tests. If they
-    still pass, they are not exercising the guard they claim to.
+  mutate: 'python -c "import pathlib;p=pathlib.Path(''src/foss_mcp/indexing/generation_manifest.py'');p.write_text(p.read_text()
+    + chr(10) + ''GenerationManifestStore.cas_activate = lambda self, scope, expected_active,
+    generation_id, lease: generation_id'' + chr(10))"'
+  rationale: 'Neuters the single authority path by rebinding cas_activate to a lambda
+    that always succeeds, so both the fencing check and the CAS compare are gone.
+    Every guard test must fail. Written with no backslashes at all: the previous regex
+    falsifier was silently defeated by shell/YAML escaping, matched nothing, exited
+    0, and was recorded as applied - a falsifier that cannot fail is worse than none.'
 evidence:
 - evidence/build/G0/TC-005/receipt.json
 closeout:
