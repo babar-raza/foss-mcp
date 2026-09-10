@@ -273,6 +273,35 @@ def resolve_rev(rev: str) -> str:
     return out
 
 
+def commits_recorded_for(card_id: str) -> set:
+    """Commits the worker recorded against this card via `gatectl status-append`.
+
+    This is a SECOND attribution path, and it is not a loophole: status-append
+    fills the commit hash from `git rev-parse HEAD` itself, so the worker cannot
+    name a commit it did not just make. A commit that is neither tagged nor
+    recorded remains a violation.
+
+    The subject tag stays the convention - it is readable in `git log` without
+    tooling - but a missing tag on otherwise-attributable work is a slip, and
+    burning one of three attempts on a commit message would push good work
+    toward FAILED_INTERNAL for no safety gain.
+    """
+    out = set()
+    if not STATUS_JSONL.exists():
+        return out
+    for line in STATUS_JSONL.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if d.get("card") == card_id and isinstance(d.get("commit"), str):
+            out.add(d["commit"])
+    return out
+
+
 def commit_subject(rev: str) -> str:
     return git("log", "-1", "--format=%s", rev)[1]
 
@@ -306,9 +335,10 @@ def changed_paths(base: str, head: str, card_id: str | None = None, gate: str | 
     unattributed = []
     if card_id:
         tag = f"({gate}/{card_id})" if gate else f"/{card_id})"
+        recorded = commits_recorded_for(card_id)
         mine, others = [], []
         for r in revs:
-            if tag in commit_subject(r):
+            if tag in commit_subject(r) or r in recorded:
                 mine.append(r)
             elif "Claude Opus 5" in commit_body(r):
                 others.append(r)  # supervisor governance, legitimately out of scope

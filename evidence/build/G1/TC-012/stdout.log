@@ -1,16 +1,16 @@
 
 ===== CLEAN RUN 1 =====
-$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/extraction/test_repo_native.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-54xx0prn\.junit-0.xml"
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/extraction/test_repo_native.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ixsykp14\.junit-0.xml"
 --- stdout ---
-.......                                                                  [100%]
+........                                                                 [100%]
 
 --- stderr ---
 
 
 ===== CLEAN RUN 2 =====
-$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/extraction/test_repo_native.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-54xx0prn\.junit-0.xml"
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/extraction/test_repo_native.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ixsykp14\.junit-0.xml"
 --- stdout ---
-.......                                                                  [100%]
+........                                                                 [100%]
 
 --- stderr ---
 
@@ -18,119 +18,16 @@ $ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5
 ===== HOLDOUT (supervisor-authored, not named by the card) =====
 $ "D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe" -m pytest .gatectl-holdout -q -p no:cacheprovider
 --- stdout ---
-..FF.FF                                                                  [100%]
-================================== FAILURES ===================================
-__ test_richness_reflects_information_not_formatting[font-python-templated] ___
-
-sample = 'font-python', expected = 'templated'
-
-    @pytest.mark.parametrize(
-        ("sample", "expected"),
-        [
-            # Real per-release engineering content: an overview naming what changed,
-            # and in pdf-go's case a single named fix with a stated audience.
-            ("cells-python", "detailed"),
-            ("pdf-go", "detailed"),
-            # Filled-in template. Well-formatted, structurally rich, and carrying no
-            # information about THIS release beyond its version number.
-            ("font-python", "templated"),
-            ("font-python-older", "templated"),
-            # No release body at all.
-            ("barcode-python", "none"),
-        ],
-    )
-    def test_richness_reflects_information_not_formatting(sample, expected):
-        got = classify_richness(body(sample))
->       assert got == expected, (
-            f"{sample}: expected {expected!r}, got {got!r}. A client has to be able to tell a real "
-            f"migration note from boilerplate; that is the whole point of typing this field."
-        )
-E       AssertionError: font-python: expected 'templated', got 'detailed'. A client has to be able to tell a real migration note from boilerplate; that is the whole point of typing this field.
-E       assert 'detailed' == 'templated'
-E         
-E         - templated
-E         + detailed
-
-.gatectl-holdout\test_richness_oracle.py:59: AssertionError
-_ test_richness_reflects_information_not_formatting[font-python-older-templated] _
-
-sample = 'font-python-older', expected = 'templated'
-
-    @pytest.mark.parametrize(
-        ("sample", "expected"),
-        [
-            # Real per-release engineering content: an overview naming what changed,
-            # and in pdf-go's case a single named fix with a stated audience.
-            ("cells-python", "detailed"),
-            ("pdf-go", "detailed"),
-            # Filled-in template. Well-formatted, structurally rich, and carrying no
-            # information about THIS release beyond its version number.
-            ("font-python", "templated"),
-            ("font-python-older", "templated"),
-            # No release body at all.
-            ("barcode-python", "none"),
-        ],
-    )
-    def test_richness_reflects_information_not_formatting(sample, expected):
-        got = classify_richness(body(sample))
->       assert got == expected, (
-            f"{sample}: expected {expected!r}, got {got!r}. A client has to be able to tell a real "
-            f"migration note from boilerplate; that is the whole point of typing this field."
-        )
-E       AssertionError: font-python-older: expected 'templated', got 'detailed'. A client has to be able to tell a real migration note from boilerplate; that is the whole point of typing this field.
-E       assert 'detailed' == 'templated'
-E         
-E         - templated
-E         + detailed
-
-.gatectl-holdout\test_richness_oracle.py:59: AssertionError
-______ test_two_template_instances_are_not_reported_as_distinct_quality _______
-
-    def test_two_template_instances_are_not_reported_as_distinct_quality():
-        """The strongest signal available, and the one no formatting heuristic sees.
-    
-        Two different versions of the same template carry the same information about
-        their own release: none. They must therefore classify identically, and they
-        must not classify as `detailed`.
-        """
-        a = classify_richness(body("font-python"))
-        b = classify_richness(body("font-python-older"))
-        assert a == b, f"two instances of one template classified differently: {a!r} vs {b!r}"
->       assert a != "detailed", (
-            "six consecutive releases of this repo have byte-identical body length and differ only in "
-            "the version string; calling that `detailed` is precisely the dishonest degradation this "
-            "requirement forbids"
-        )
-E       AssertionError: six consecutive releases of this repo have byte-identical body length and differ only in the version string; calling that `detailed` is precisely the dishonest degradation this requirement forbids
-E       assert 'detailed' != 'detailed'
-
-.gatectl-holdout\test_richness_oracle.py:75: AssertionError
-____________________ test_a_real_note_outranks_a_template _____________________
-
-    def test_a_real_note_outranks_a_template():
-        """Ordering, not just labels: substance must never rank below boilerplate."""
-        order = {"none": 0, "templated": 1, "detailed": 2}
-        real = order[classify_richness(body("cells-python"))]
-        template = order[classify_richness(body("font-python"))]
->       assert real > template, "a real migration note must outrank a filled-in template"
-E       AssertionError: a real migration note must outrank a filled-in template
-E       assert 2 > 2
-
-.gatectl-holdout\test_richness_oracle.py:87: AssertionError
-=========================== short test summary info ===========================
-FAILED .gatectl-holdout/test_richness_oracle.py::test_richness_reflects_information_not_formatting[font-python-templated]
-FAILED .gatectl-holdout/test_richness_oracle.py::test_richness_reflects_information_not_formatting[font-python-older-templated]
-FAILED .gatectl-holdout/test_richness_oracle.py::test_two_template_instances_are_not_reported_as_distinct_quality
-FAILED .gatectl-holdout/test_richness_oracle.py::test_a_real_note_outranks_a_template
+.......                                                                  [100%]
 
 --- stderr ---
 
 
 ===== NEGATIVE CONTROL (checks MUST now fail) =====
 mutated: M src/foss_mcp/extraction/github_release_reader.py, ?? .gatectl-holdout/, ?? .junit-0.xml
-$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/extraction/test_repo_native.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-54xx0prn\.junit-0.xml"
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/extraction/test_repo_native.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ixsykp14\.junit-0.xml"
 --- stdout ---
-FF.....                                                                  [100%]
+FFF.....                                                                 [100%]
 ================================== FAILURES ===================================
 ________________ test_all_three_richness_values_are_exercised _________________
 
@@ -147,7 +44,7 @@ E
 E         - templated
 E         + detailed
 
-tests\extraction\test_repo_native.py:36: AssertionError
+tests\extraction\test_repo_native.py:40: AssertionError
 _____ test_a_real_migration_note_is_not_reported_the_same_as_boilerplate ______
 
     def test_a_real_migration_note_is_not_reported_the_same_as_boilerplate() -> None:
@@ -159,10 +56,30 @@ E       assert 'detailed' != 'detailed'
 E        +  where 'detailed' = classify_richness('# Aspose.PDF FOSS for .NET v26.9.0\n\nA rendering and cross-platform release: the software renderer closes the remain...sion 26.9.0\n```\n\nLicensed under MIT. Some features are incomplete and the public API may change between releases.\n')
 E        +  and   'detailed' = classify_richness("## What's Changed\n* Fix typo by @octocat in https://github.com/x/y/pull/1\n")
 
-tests\extraction\test_repo_native.py:49: AssertionError
+tests\extraction\test_repo_native.py:53: AssertionError
+__________ test_a_filled_in_package_blurb_is_templated_not_detailed ___________
+
+    def test_a_filled_in_package_blurb_is_templated_not_detailed() -> None:
+        """A hand-maintained release body can be headings, bullets and a fenced install command -
+        fully-formatted markup - and still say nothing about the release itself. Real bodies from
+        aspose-font-foss/Aspose.Font-FOSS-for-Python: 26.9.2 is byte-identical (458 chars) to at
+        least five earlier consecutive releases apart from the version number; 2026.5.1 is an
+        older, differently-worded mirror-deployment notice. Neither names an actual change, so
+        classify_richness must not be fooled by their markup into calling either 'detailed'.
+        """
+        for release in _font_python_fixture()["releases"]:
+>           assert classify_richness(release["body"]) == "templated", release["tag_name"]
+E           AssertionError: 26.9.2
+E           assert 'detailed' == 'templated'
+E             
+E             - templated
+E             + detailed
+
+tests\extraction\test_repo_native.py:66: AssertionError
 =========================== short test summary info ===========================
 FAILED tests/extraction/test_repo_native.py::test_all_three_richness_values_are_exercised
 FAILED tests/extraction/test_repo_native.py::test_a_real_migration_note_is_not_reported_the_same_as_boilerplate
+FAILED tests/extraction/test_repo_native.py::test_a_filled_in_package_blurb_is_templated_not_detailed
 
 --- stderr ---
 

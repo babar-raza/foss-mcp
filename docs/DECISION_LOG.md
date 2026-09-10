@@ -34,3 +34,16 @@ the current head of main. The fixture's first entry cites src/Collections/FileSp
 line 7; that exact file at that exact commit has `public enum AFRelationship` on line 7, with the
 doc summary matching verbatim including the PDF 2.0 SS7.11.3 citation and the enum members in the
 same order. 300 types carry 1,724 methods, 3,026 properties, 523 enum members. Genuine extraction.
+
+## 2026-09-11 — Holdout checks introduced after TC-012 passed while failing its requirement
+TC-012 was accepted, then revoked. Its 8 tests passed twice, its falsifier bit, scope was clean -
+and classify_richness called auto-generated boilerplate 'detailed', because it measured formatting
+rather than information. Invisible from inside the card: the fixtures and the classifier came from
+one worker and agreed with each other.
+Control added: supervisor-authored holdout tests under evidence/holdout/<card>/, globally denied to
+every card, injected into the throwaway worktree at verification. Falsifiers prove a suite
+exercises its code; only holdouts prove the code is right.
+Attempt 2 fixed it on principle (change-verb AND a specific referent, fenced blocks stripped), with
+no repo names in the logic. Verified independently on four repos neither side used: 3d-java's bare
+"Full Changelog" link -> templated, cells-rust -> detailed, empty pdf-ts -> none, slides-py ->
+detailed. Generalises; not tuned to the oracle.
