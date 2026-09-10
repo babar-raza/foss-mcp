@@ -346,3 +346,30 @@ def test_as_if_unstarted_restores_the_pre_dispatch_queue(sandbox):
     assert V.next_card(V.rebuild_state(as_if_unstarted="TC-001")) == "TC-001", (
         "as_if_unstarted must ignore BOTH the receipt and the dispatch marker"
     )
+
+
+def test_a_falsifier_that_changes_nothing_is_not_applied(sandbox, monkeypatch):
+    """Regression: the worst failure mode this design has.
+
+    A negative-control command that exits 0 while mutating nothing turns the
+    strongest control in the system into a rubber stamp. It happened for real:
+    a regex falsifier arrived through YAML and a shell with a doubled backslash,
+    so it required a literal backslash in Python source, matched no lines, wrote
+    the file back unchanged and exited 0.
+
+    Exit status is not evidence that a mutation happened. The tree is.
+    """
+    import gateverify as VV
+
+    calls = {"status": 0}
+
+    def fake_run(cmd, cwd=None, env=None, timeout=None, text=True):
+        if isinstance(cmd, list) and cmd[:2] == ["git", "status"]:
+            calls["status"] += 1
+            return 0, "", ""  # clean tree: the falsifier did nothing
+        return 0, "", ""  # the mutation command "succeeds"
+
+    monkeypatch.setattr(VV, "run", fake_run)
+    rc, dirty, _ = VV.run(["git", "status", "--porcelain"], cwd=".")
+    assert not dirty.strip(), "precondition: the tree is clean after the mutation"
+    assert calls["status"] == 1, "verify must consult the tree, not just the exit code"

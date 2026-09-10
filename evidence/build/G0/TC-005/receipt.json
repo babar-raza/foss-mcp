@@ -3,10 +3,10 @@
   "card": "TC-005",
   "gate": "G0",
   "generated_by": "gatectl",
-  "generated_at": "2026-09-10T16:13:48Z",
+  "generated_at": "2026-09-10T16:16:20Z",
   "base_rev": "17e0bc1e446f02cbba3ce7f26348040b9553fef6",
   "head_rev": "f194c55e1c0b3ec20586d3293a08afa858b956ef",
-  "card_sha256": "339350a0fdd4d15d492e49f670eb4e02467411201a894322189d7a1961401a63",
+  "card_sha256": "3d06dbd1b9d0cc3591c6fd8fc01790fb86978cd09fc4c2e24943ef31a9c0ca95",
   "fingerprint": {
     "python": "3.13.2",
     "platform": "Windows-11-10.0.26200-SP0",
@@ -36,7 +36,7 @@
         {
           "command": "{python} -m pytest tests/indexing/test_generation_manifest.py -q",
           "exit_code": 0,
-          "duration_s": 9.243,
+          "duration_s": 20.779,
           "stdout_sha256": "eb27a136c18598aedc0e4f11e6893b614a04335a9faf3ec03433325d777e2663",
           "tests": 12,
           "skipped": 0,
@@ -52,7 +52,7 @@
         {
           "command": "{python} -m pytest tests/indexing/test_generation_manifest.py -q",
           "exit_code": 0,
-          "duration_s": 0.931,
+          "duration_s": 1.283,
           "stdout_sha256": "eb27a136c18598aedc0e4f11e6893b614a04335a9faf3ec03433325d777e2663",
           "tests": 12,
           "skipped": 0,
@@ -65,14 +65,18 @@
   ],
   "negative_control": {
     "kind": "mutate",
-    "patch": "python -c \"import pathlib,re;p=pathlib.Path('src/foss_mcp/indexing/generation_manifest.py');s=p.read_text();s=re.sub(r'(def [a-z_]*publish[a-z_]*\\\\([^)]*\\\\):)',r'\\\\1\\\\n    pass  # falsifier: fencing check removed',s,count=1);p.write_text(s)\"",
-    "patch_sha256": "c2c1c9a920f36811a636ade38175bf8dd6d974fe3590ff30c2dec8833e440ad7",
+    "patch": "python -c \"import pathlib;p=pathlib.Path('src/foss_mcp/indexing/generation_manifest.py');p.write_text(p.read_text() + chr(10) + 'GenerationManifestStore.cas_activate = lambda self, scope, expected_active, generation_id, lease: generation_id' + chr(10))\"",
+    "patch_sha256": "de5d974d17f50c137d8888d8885041323d311be474a5767ae3835b35cea451fd",
     "applied": true,
-    "patch_applied_failed": false,
+    "patch_applied_failed": true,
     "exit_codes": [
-      0
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/indexing/generation_manifest.py",
+      "?? .junit-0.xml"
     ]
   },
-  "accepted": false,
-  "reason": "VACUOUS CHECKS: the suite still passed with the falsifier applied"
+  "accepted": true,
+  "reason": "all gates passed"
 }

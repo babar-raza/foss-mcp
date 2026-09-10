@@ -1,6 +1,6 @@
 
 ===== CLEAN RUN 1 =====
-$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kjwrl7fh\.junit-0.xml"
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-p6yjeyee\.junit-0.xml"
 --- stdout ---
 ............                                                             [100%]
 
@@ -8,7 +8,7 @@ $ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e34
 
 
 ===== CLEAN RUN 2 =====
-$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kjwrl7fh\.junit-0.xml"
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-p6yjeyee\.junit-0.xml"
 --- stdout ---
 ............                                                             [100%]
 
@@ -16,9 +16,258 @@ $ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e34
 
 
 ===== NEGATIVE CONTROL (checks MUST now fail) =====
-$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kjwrl7fh\.junit-0.xml"
+mutated: M src/foss_mcp/indexing/generation_manifest.py, ?? .junit-0.xml
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-p6yjeyee\.junit-0.xml"
 --- stdout ---
-............                                                             [100%]
+..FFFFFFFFFF                                                             [100%]
+================================== FAILURES ===================================
+________________ test_build_publish_and_read_active_round_trip ________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-238/test_build_publish_and_read_ac0')
+
+    def test_build_publish_and_read_active_round_trip(tmp_path):
+        store = _store(tmp_path)
+        gen = build_manifest("pdf", "net", "api-reference", "1", payload={"pages": 10})
+        lease = store.acquire_lease(gen.scope, "worker-1", gen.generation_id)
+    
+        result = publish(store, gen.scope, None, gen, lease)
+    
+        assert result == gen.generation_id
+>       assert store.read_active(gen.scope) == gen.generation_id
+E       AssertionError: assert None == 'pdf::net::api-reference::1'
+E        +  where None = read_active('pdf::net::api-reference')
+E        +    where read_active = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000002255E8E0D70>.read_active
+E        +    and   'pdf::net::api-reference' = GenerationManifest(key=GenerationKey(family='pdf', platform='net', source_kind='api-reference', version='1'), payload={'pages': 10}).scope
+E        +  and   'pdf::net::api-reference::1' = GenerationManifest(key=GenerationKey(family='pdf', platform='net', source_kind='api-reference', version='1'), payload={'pages': 10}).generation_id
+
+tests\indexing\test_generation_manifest.py:96: AssertionError
+___________ test_publish_requires_the_current_expected_active_value ___________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-238/test_publish_requires_the_curr0')
+
+    def test_publish_requires_the_current_expected_active_value(tmp_path):
+        """A genuine CAS compare failure (current, valid token; wrong
+        ``expected_active``) is a distinct, differently-typed failure from
+        fencing -- callers must be able to tell "someone else already moved
+        this pointer" apart from "my lease is stale."""
+        store = _store(tmp_path)
+        gen1 = build_manifest("pdf", "net", "api-reference", "1")
+        gen2 = build_manifest("pdf", "net", "api-reference", "2")
+        lease = store.acquire_lease(gen1.scope, "worker-1", gen1.generation_id)
+        publish(store, gen1.scope, None, gen1, lease)
+    
+        lease2 = store.acquire_lease(gen1.scope, "worker-1", gen2.generation_id)
+>       with pytest.raises(ActivePointerConflictError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ActivePointerConflictError
+
+tests\indexing\test_generation_manifest.py:113: Failed
+_________________ test_stale_fencing_token_write_is_rejected __________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-238/test_stale_fencing_token_write0')
+
+    def test_stale_fencing_token_write_is_rejected(tmp_path):
+        """Re-acquiring a lease for the same scope issues a NEW token; a write
+        carrying the OLD token must be rejected by the publish path, and must
+        leave the active pointer completely untouched."""
+        store = _store(tmp_path)
+        gen1 = build_manifest("pdf", "net", "api-reference", "1")
+        gen2 = build_manifest("pdf", "net", "api-reference", "2")
+    
+        stale_lease = store.acquire_lease(gen1.scope, "worker-1", gen1.generation_id)
+        # Renewal: the SAME holder re-acquires, which still mints a strictly
+        # newer token and immediately stales out the one above.
+        store.acquire_lease(gen1.scope, "worker-1", gen1.generation_id)
+    
+>       with pytest.raises(StaleFencingTokenError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE StaleFencingTokenError
+
+tests\indexing\test_generation_manifest.py:136: Failed
+____________________ test_second_acquirer_fences_out_first ____________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-238/test_second_acquirer_fences_ou0')
+
+    def test_second_acquirer_fences_out_first(tmp_path):
+        """A DIFFERENT acquirer taking the lease for a scope fences out
+        whoever held it before, regardless of identity -- the write that
+        matters is the token, not who is holding it."""
+        store = _store(tmp_path)
+        gen = build_manifest("pdf", "net", "api-reference", "1")
+    
+        first = store.acquire_lease(gen.scope, "worker-A", gen.generation_id)
+        second = store.acquire_lease(gen.scope, "worker-B", gen.generation_id)
+        assert second.fencing_token > first.fencing_token
+    
+>       with pytest.raises(StaleFencingTokenError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE StaleFencingTokenError
+
+tests\indexing\test_generation_manifest.py:158: Failed
+________________ test_late_publish_after_rollback_is_rejected _________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-238/test_late_publish_after_rollba0')
+
+    def test_late_publish_after_rollback_is_rejected(tmp_path):
+        """Rollback travels the identical authority path as publish, so a
+        stale worker's late publish must be fenced out whether the most
+        recently accepted action ahead of it was a promotion OR a rollback."""
+        store = _store(tmp_path)
+        gen_a = build_manifest("pdf", "net", "api-reference", "1")
+        gen_b = build_manifest("pdf", "net", "api-reference", "2")
+        scope = gen_a.scope
+    
+        slow_worker_lease = store.acquire_lease(scope, "worker-slow", gen_a.generation_id)
+        publish(store, scope, None, gen_a, slow_worker_lease)  # active = gen_a
+    
+        fast_worker_lease = store.acquire_lease(scope, "worker-fast", gen_b.generation_id)
+        publish(store, scope, gen_a.generation_id, gen_b, fast_worker_lease)  # active = gen_b
+    
+        rollback_lease = store.acquire_lease(scope, "worker-ops", gen_a.generation_id)
+        rollback(store, scope, gen_b.generation_id, gen_a.generation_id, rollback_lease)  # active = gen_a again
+>       assert store.read_active(scope) == gen_a.generation_id
+E       AssertionError: assert None == 'pdf::net::api-reference::1'
+E        +  where None = read_active('pdf::net::api-reference')
+E        +    where read_active = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000002255E929BA0>.read_active
+E        +  and   'pdf::net::api-reference::1' = GenerationManifest(key=GenerationKey(family='pdf', platform='net', source_kind='api-reference', version='1'), payload={}).generation_id
+
+tests\indexing\test_generation_manifest.py:190: AssertionError
+_______________ test_rollback_to_unknown_generation_is_rejected _______________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-238/test_rollback_to_unknown_gener0')
+
+    def test_rollback_to_unknown_generation_is_rejected(tmp_path):
+        store = _store(tmp_path)
+        gen = build_manifest("pdf", "net", "api-reference", "1")
+        lease = store.acquire_lease(gen.scope, "worker-1", gen.generation_id)
+        publish(store, gen.scope, None, gen, lease)
+    
+        lease2 = store.acquire_lease(gen.scope, "worker-1", gen.generation_id)
+        with pytest.raises(UnknownGenerationError):
+            rollback(store, gen.scope, gen.generation_id, "pdf::net::api-reference::never-published", lease2)
+>       assert store.read_active(gen.scope) == gen.generation_id
+E       AssertionError: assert None == 'pdf::net::api-reference::1'
+E        +  where None = read_active('pdf::net::api-reference')
+E        +    where read_active = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000002255D1072F0>.read_active
+E        +    and   'pdf::net::api-reference' = GenerationManifest(key=GenerationKey(family='pdf', platform='net', source_kind='api-reference', version='1'), payload={}).scope
+E        +  and   'pdf::net::api-reference::1' = GenerationManifest(key=GenerationKey(family='pdf', platform='net', source_kind='api-reference', version='1'), payload={}).generation_id
+
+tests\indexing\test_generation_manifest.py:212: AssertionError
+__________________ test_published_manifest_cannot_be_mutated __________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-238/test_published_manifest_cannot0')
+
+    def test_published_manifest_cannot_be_mutated(tmp_path):
+        store = _store(tmp_path)
+        gen_v1 = build_manifest("pdf", "net", "api-reference", "1", payload={"checksum": "aaa"})
+        lease = store.acquire_lease(gen_v1.scope, "worker-1", gen_v1.generation_id)
+        publish(store, gen_v1.scope, None, gen_v1, lease)
+    
+        # Same identity (same generation_id), DIFFERENT content.
+        mutated = build_manifest("pdf", "net", "api-reference", "1", payload={"checksum": "bbb"})
+        lease2 = store.acquire_lease(gen_v1.scope, "worker-1", gen_v1.generation_id)
+        with pytest.raises(ManifestImmutableError):
+            publish(store, mutated.scope, gen_v1.generation_id, mutated, lease2)
+    
+        # The originally published content is untouched.
+        on_disk = store.read_generation(gen_v1.scope, gen_v1.generation_id)
+        assert on_disk.payload == {"checksum": "aaa"}
+>       assert store.read_active(gen_v1.scope) == gen_v1.generation_id
+E       AssertionError: assert None == 'pdf::net::api-reference::1'
+E        +  where None = read_active('pdf::net::api-reference')
+E        +    where read_active = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000002255E940C00>.read_active
+E        +    and   'pdf::net::api-reference' = GenerationManifest(key=GenerationKey(family='pdf', platform='net', source_kind='api-reference', version='1'), payload={'checksum': 'aaa'}).scope
+E        +  and   'pdf::net::api-reference::1' = GenerationManifest(key=GenerationKey(family='pdf', platform='net', source_kind='api-reference', version='1'), payload={'checksum': 'aaa'}).generation_id
+
+tests\indexing\test_generation_manifest.py:235: AssertionError
+_______ test_republishing_identical_content_is_idempotent_not_an_error ________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-238/test_republishing_identical_co0')
+
+    def test_republishing_identical_content_is_idempotent_not_an_error(tmp_path):
+        """Rollback relies on this: re-publishing byte-identical content under
+        the same generation_id is a harmless no-op, not a mutation."""
+        store = _store(tmp_path)
+        gen = build_manifest("pdf", "net", "api-reference", "1", payload={"x": 1})
+        lease1 = store.acquire_lease(gen.scope, "worker-1", gen.generation_id)
+        publish(store, gen.scope, None, gen, lease1)
+    
+        same_content_again = build_manifest("pdf", "net", "api-reference", "1", payload={"x": 1})
+        lease2 = store.acquire_lease(gen.scope, "worker-1", gen.generation_id)
+        # expected_active is already gen.generation_id, so this is a genuine
+        # CAS no-op re-publish of identical content -- must not raise.
+        publish(store, gen.scope, gen.generation_id, same_content_again, lease2)
+>       assert store.read_active(gen.scope) == gen.generation_id
+E       AssertionError: assert None == 'pdf::net::api-reference::1'
+E        +  where None = read_active('pdf::net::api-reference')
+E        +    where read_active = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000002255E9409E0>.read_active
+E        +    and   'pdf::net::api-reference' = GenerationManifest(key=GenerationKey(family='pdf', platform='net', source_kind='api-reference', version='1'), payload={'x': 1}).scope
+E        +  and   'pdf::net::api-reference::1' = GenerationManifest(key=GenerationKey(family='pdf', platform='net', source_kind='api-reference', version='1'), payload={'x': 1}).generation_id
+
+tests\indexing\test_generation_manifest.py:251: AssertionError
+______ test_active_pointer_does_not_advance_if_validation_fails_partway _______
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-238/test_active_pointer_does_not_a0')
+
+    def test_active_pointer_does_not_advance_if_validation_fails_partway(tmp_path):
+        store = _store(tmp_path)
+        key = GenerationKey(family="pdf", platform="net", source_kind="api-reference", version="1")
+        # Bypass build_manifest (which always coerces payload to a dict) to
+        # construct a manifest that fails structural validation.
+        invalid = GenerationManifest(key=key, payload=["not", "a", "dict"])  # type: ignore[arg-type]
+        lease = store.acquire_lease(key.scope, "worker-1", key.generation_id)
+    
+        with pytest.raises(ManifestValidationError):
+            publish(store, key.scope, None, invalid, lease)
+    
+        assert store.read_active(key.scope) is None
+        with pytest.raises(UnknownGenerationError):
+            store.read_generation(key.scope, key.generation_id)
+    
+        # A subsequent, VALID publish for the same identity must still work
+        # cleanly -- the failed attempt left no partial state behind.
+        valid = build_manifest("pdf", "net", "api-reference", "1", payload={"ok": True})
+        lease2 = store.acquire_lease(key.scope, "worker-1", key.generation_id)
+        publish(store, key.scope, None, valid, lease2)
+>       assert store.read_active(key.scope) == key.generation_id
+E       AssertionError: assert None == 'pdf::net::api-reference::1'
+E        +  where None = read_active('pdf::net::api-reference')
+E        +    where read_active = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000002255E8C2550>.read_active
+E        +    and   'pdf::net::api-reference' = GenerationKey(family='pdf', platform='net', source_kind='api-reference', version='1').scope
+E        +  and   'pdf::net::api-reference::1' = GenerationKey(family='pdf', platform='net', source_kind='api-reference', version='1').generation_id
+
+tests\indexing\test_generation_manifest.py:280: AssertionError
+_________ test_publishing_one_source_kind_does_not_deactivate_another _________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-238/test_publishing_one_source_kin0')
+
+    def test_publishing_one_source_kind_does_not_deactivate_another(tmp_path):
+        store = _store(tmp_path)
+        api = build_manifest("pdf", "net", "api-reference", "24.9", payload={"kind": "api"})
+        cookbook = build_manifest("pdf", "net", "cookbook", "24.9", payload={"kind": "cookbook"})
+        assert api.scope != cookbook.scope  # same family/platform/version, different source_kind
+    
+        api_lease = store.acquire_lease(api.scope, "worker-api", api.generation_id)
+        publish(store, api.scope, None, api, api_lease)
+>       assert store.read_active(api.scope) == api.generation_id
+E       AssertionError: assert None == 'pdf::net::api-reference::24.9'
+E        +  where None = read_active('pdf::net::api-reference')
+E        +    where read_active = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000002255E8C2C50>.read_active
+E        +    and   'pdf::net::api-reference' = GenerationManifest(key=GenerationKey(family='pdf', platform='net', source_kind='api-reference', version='24.9'), payload={'kind': 'api'}).scope
+E        +  and   'pdf::net::api-reference::24.9' = GenerationManifest(key=GenerationKey(family='pdf', platform='net', source_kind='api-reference', version='24.9'), payload={'kind': 'api'}).generation_id
+
+tests\indexing\test_generation_manifest.py:297: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_generation_manifest.py::test_build_publish_and_read_active_round_trip
+FAILED tests/indexing/test_generation_manifest.py::test_publish_requires_the_current_expected_active_value
+FAILED tests/indexing/test_generation_manifest.py::test_stale_fencing_token_write_is_rejected
+FAILED tests/indexing/test_generation_manifest.py::test_second_acquirer_fences_out_first
+FAILED tests/indexing/test_generation_manifest.py::test_late_publish_after_rollback_is_rejected
+FAILED tests/indexing/test_generation_manifest.py::test_rollback_to_unknown_generation_is_rejected
+FAILED tests/indexing/test_generation_manifest.py::test_published_manifest_cannot_be_mutated
+FAILED tests/indexing/test_generation_manifest.py::test_republishing_identical_content_is_idempotent_not_an_error
+FAILED tests/indexing/test_generation_manifest.py::test_active_pointer_does_not_advance_if_validation_fails_partway
+FAILED tests/indexing/test_generation_manifest.py::test_publishing_one_source_kind_does_not_deactivate_another
 
 --- stderr ---
 
