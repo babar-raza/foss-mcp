@@ -1,0 +1,42 @@
+
+===== CLEAN RUN 1 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/schemas -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-73fhfhxr\.junit-0.xml"
+--- stdout ---
+....................                                                     [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/schemas -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-73fhfhxr\.junit-0.xml"
+--- stdout ---
+....................                                                     [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/schemas -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-73fhfhxr\.junit-0.xml"
+--- stdout ---
+..F.................                                                     [100%]
+================================== FAILURES ===================================
+__________ test_product_manifest_rejects_a_document_missing_schedule __________
+
+    def test_product_manifest_rejects_a_document_missing_schedule():
+        """The named negative control: a manifest missing `schedule` must be
+        rejected. If dropping `schedule` from the schema's required list does
+        not break this test, the test is asserting nothing."""
+        schema = load("product-manifest.schema.json")
+        m = _manifest()
+        del m["schedule"]
+>       assert errors(schema, m), "a manifest missing schedule must be rejected"
+E       AssertionError: a manifest missing schedule must be rejected
+E       assert []
+E        +  where [] = errors({'$schema': 'https://json-schema.org/draft/2020-12/schema', '$id': 'https://github.com/babar-raza/foss-mcp/schemas/pro... `schedule` is REQUIRED (plan 7.2) so that every product commits to a cadence rather than being ingested ad hoc.', ...}, {'family': 'aspose-words', 'platform': 'python', 'repository': 'aspose-words/Aspose.Words-for-Python-via-NET', 'storage_topology': 'single-index'})
+
+tests\schemas\test_product_schemas.py:76: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/schemas/test_product_schemas.py::test_product_manifest_rejects_a_document_missing_schedule
+
+--- stderr ---
+
