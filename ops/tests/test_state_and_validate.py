@@ -297,3 +297,19 @@ def test_jsonl_timestamps_must_not_go_backwards(sandbox):
     )
     problems = C._jsonl_problems(G.STATUS_JSONL, "status-line.schema.json", "status")
     assert any("backwards" in p for p in problems), problems
+
+
+def test_overlap_is_ignored_for_dependency_ordered_cards(sandbox):
+    """A skeleton card owning src/pkg/** and a later card owning
+    src/pkg/indexing/** cannot race - the second starts only once the first is
+    ACCEPTED. Flagging that pair would force contorted path lists for no gain."""
+    write_card(sandbox, "TC-001", paths=["src/pkg/**"])
+    write_card(sandbox, "TC-002", deps=["TC-001"], paths=["src/pkg/indexing/**"])
+    assert C._overlap_problems(G.all_cards()) == []
+
+
+def test_overlap_is_still_flagged_for_independent_cards(sandbox):
+    """Without a dependency edge the two really could be dispatched together."""
+    write_card(sandbox, "TC-001", paths=["src/pkg/**"])
+    write_card(sandbox, "TC-002", paths=["src/pkg/indexing/**"])
+    assert any("overlapping" in p for p in C._overlap_problems(G.all_cards()))

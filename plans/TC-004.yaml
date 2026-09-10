@@ -1,0 +1,61 @@
+id: TC-004
+gate: G0
+lane: storage-retrieval
+purpose: Decide the storage topology by measurement on a real fixture corpus, record
+  it in docs/DECISION_LOG.md, and write the decision back into the manifest.
+depends_on:
+- TC-003
+write_paths:
+- docs/DECISION_LOG.md
+- src/foss_mcp/indexing/topology_spike.py
+- tests/indexing/test_topology_decision.py
+- config/products/pdf/net.yaml
+satisfies:
+- REQ-G0-006
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 18.1 Storage topology'
+  sha256: 7612bcbaed3ae715a96ae4631bbdf537890af7acc465ddfab79914a7bab13078
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.2 Gate G0'
+  sha256: 7f0b50c7b5f2fafef08114ca3e1d2db5b16ddfd252d393646696f259a940cc05
+inputs:
+- 'Plan 18.1: build BOTH candidate profiles against the same fixture corpus, measure
+  query latency and top-5 relevance over at least 20 hand-labelled queries, and pick
+  the smaller footprint unless relevance drops >10% or p95 doubles.'
+- This runs OFFLINE. Use a small local fixture corpus you create; do not fetch anything.
+  The point is the decision procedure and its record, not corpus scale.
+actions:
+- Implement src/foss_mcp/indexing/topology_spike.py exposing both candidate profiles
+  over a common interface, plus a measure() that returns latency and relevance.
+- Build a small fixture corpus and at least 20 labelled queries inside the test.
+- 'Run the comparison, then append ONE entry to docs/DECISION_LOG.md (max 6 lines):
+  date, decision, the measured numbers, and the rule applied.'
+- Update storage_topology in config/products/pdf/net.yaml from 'undecided_pending_TC-004'
+  to the chosen profile.
+- 'Write tests/indexing/test_topology_decision.py asserting: both profiles answer
+  the same query set; DECISION_LOG.md contains a storage-topology entry with numbers;
+  the manifest''s storage_topology is no longer ''undecided_pending_TC-004''.'
+checks:
+- command: .venv/Scripts/python -m pytest tests/indexing/test_topology_decision.py
+    -q
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G0-006
+min_tests: 3
+negative_control:
+  mutate: 'python -c "import pathlib;p=pathlib.Path(''config/products/pdf/net.yaml'');import
+    re;p.write_text(re.sub(r''storage_topology:.*'',''storage_topology: undecided_pending_TC-004'',p.read_text()))"'
+  rationale: Reverting the manifest to 'undecided' must break the suite. Otherwise
+    the test is not actually checking that the decision was written back, and a spike
+    could 'pass' having changed nothing.
+evidence:
+- evidence/build/G0/TC-004/receipt.json
+- docs/DECISION_LOG.md
+closeout:
+- Both profiles ran against the same corpus and produced numbers.
+- DECISION_LOG.md carries one entry with the measurements and the rule applied.
+- The manifest records the chosen profile.
+recovery: Re-runnable; the decision entry is append-only, so do not rewrite history.

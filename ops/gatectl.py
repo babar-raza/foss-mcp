@@ -54,7 +54,7 @@ GLOBAL_DENY = [
     "plans/**",
     "project/**",
     "ops/**",
-    "schemas/**",
+    "schemas/*",  # control-plane schemas only; schemas/product/** is card-writable
     "evidence/**",
     ".githooks/**",
     ".claude/**",

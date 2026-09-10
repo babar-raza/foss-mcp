@@ -197,6 +197,7 @@ def _receipt(**over):
             {"run": 2, "checks": [check], "all_passed": True},
         ],
         "negative_control": {
+            "kind": "patch",
             "patch": "evidence/negctl/TC-001.patch",
             "patch_sha256": "e" * 64,
             "applied": True,

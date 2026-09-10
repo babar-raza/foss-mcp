@@ -1,0 +1,58 @@
+id: TC-005
+gate: G0
+lane: storage-retrieval
+purpose: Implement the immutable generation manifest with a compare-and-swap active
+  pointer and lease/fencing, so a stale publisher cannot win.
+depends_on:
+- TC-002
+write_paths:
+- src/foss_mcp/indexing/generation_manifest.py
+- tests/indexing/test_generation_manifest.py
+satisfies:
+- REQ-G0-007
+- REQ-G0-008
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 18.3 Publication authority'
+  sha256: 5e1dbd386b30ba03c6d13190591b2382e738c585942e4ef6617de72aac678d61
+inputs:
+- 'Plan 7.1: a generation is an IMMUTABLE manifest; publication is a CAS on one active
+  pointer; generation identity covers the full addressable unit (family, platform,
+  source_kind, version); activation never precedes write-and-validate completion.'
+- 'Plan 18.3: a lease is {held_by, generation_id, acquired_at, expires_at, fencing_token}.
+  Acquiring increments the monotonic token. A CAS carrying a stale token is REJECTED.
+  Rollback travels the identical path.'
+- This is a local filesystem implementation. No network, no external store.
+actions:
+- 'Implement generation_manifest.py: build a manifest, publish via CAS, read the active
+  pointer, acquire a lease, and roll back - all through the one authority path.'
+- 'Write tests/indexing/test_generation_manifest.py covering, as NEGATIVE controls:
+  a write with a stale fencing token is rejected; a second acquirer fences out the
+  first; a late publish after rollback is rejected; a manifest cannot be mutated after
+  publication; the active pointer never advances before validation completes.'
+checks:
+- command: .venv/Scripts/python -m pytest tests/indexing/test_generation_manifest.py
+    -q
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G0-007
+  - REQ-G0-008
+min_tests: 5
+negative_control:
+  mutate: 'python -c "import pathlib,re;p=pathlib.Path(''src/foss_mcp/indexing/generation_manifest.py'');s=p.read_text();s=re.sub(r''(def
+    [a-z_]*publish[a-z_]*\\([^)]*\\):)'',r''\\1\\n    pass  # falsifier: fencing check
+    removed'',s,count=1);p.write_text(s)"'
+  rationale: Short-circuiting the publish path must break the fencing tests. If they
+    still pass, they are not exercising the guard they claim to.
+evidence:
+- evidence/build/G0/TC-005/receipt.json
+closeout:
+- A stale-token write is rejected.
+- Rollback uses the same authority path as a forward publish.
+- The suite fails when the publish guard is short-circuited.
+recovery: Pure local implementation; re-run from a clean tree.

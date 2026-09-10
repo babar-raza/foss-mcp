@@ -1,0 +1,53 @@
+id: TC-001
+gate: G0
+lane: foundation
+purpose: Create the src/foss_mcp package tree exactly per plan 11.3, plus docs/REPOSITORY_LAYOUT.md
+  as the authority for where a file lives.
+depends_on: []
+write_paths:
+- src/**
+- tests/**
+- docs/REPOSITORY_LAYOUT.md
+satisfies:
+- REQ-G0-001
+- REQ-G0-002
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 11.3 Concrete repository structure'
+  sha256: bf89f34b8bc9bc8ff145f8e199719e1ed66c4fca159b027dd17f6ba38666f4ed
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.2 Gate G0'
+  sha256: 7f0b50c7b5f2fafef08114ca3e1d2db5b16ddfd252d393646696f259a940cc05
+inputs:
+- The repository layout block in plan 11.3, reproduced in `actions` below.
+actions:
+- 'Create src/foss_mcp/__init__.py and an __init__.py for each package: mcp, mcp/tools,
+  extraction, extraction/tree_sitter_engine, furnished_content, normalization, indexing,
+  retrieval, telemetry, config.'
+- Create a tests/ tree mirroring src/foss_mcp/ package for package, each with __init__.py.
+- Write docs/REPOSITORY_LAYOUT.md stating, for each package, what belongs in it and
+  what does not. State the rule that ops/ is supervisor tooling and is never imported
+  by src/.
+- 'Write tests/test_layout.py asserting: every package above exists and is importable;
+  tests/ mirrors src/foss_mcp/; docs/REPOSITORY_LAYOUT.md names every package.'
+checks:
+- command: .venv/Scripts/python -m pytest tests/test_layout.py -q
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G0-001
+  - REQ-G0-002
+min_tests: 3
+negative_control:
+  mutate: rm -f src/foss_mcp/indexing/__init__.py
+  rationale: Removing one package must make the layout test fail. If the suite still
+    passes, it is not actually checking the tree it claims to check.
+evidence:
+- evidence/build/G0/TC-001/receipt.json
+- docs/REPOSITORY_LAYOUT.md
+closeout:
+- Every package in plan 11.3 exists and imports.
+- docs/REPOSITORY_LAYOUT.md names every package.
+- The layout test fails when a package is removed.
+recovery: Purely additive file creation; re-run from a clean tree.

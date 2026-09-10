@@ -144,15 +144,34 @@ def _cycle_problems(cards):
     return out
 
 
+def _ancestors(cards, cid, seen=None):
+    """Every card `cid` transitively depends on."""
+    seen = seen if seen is not None else set()
+    for d in cards.get(cid, {}).get("depends_on", []):
+        if d in cards and d not in seen:
+            seen.add(d)
+            _ancestors(cards, d, seen)
+    return seen
+
+
 def _overlap_problems(cards):
+    """Overlapping write_paths are a race - but only between cards that can be
+    in flight at the same time.
+
+    Two cards ordered by a dependency edge can never race: the later one starts
+    only after the earlier is ACCEPTED. So a skeleton card owning `src/pkg/**`
+    and a later card owning `src/pkg/indexing/**` is correct design, not a
+    conflict. Flagging it anyway would push card authors into contorted,
+    file-by-file path lists for no safety gain.
+    """
     out = []
     ids = sorted(cards)
     for i, a in enumerate(ids):
         for b in ids[i + 1 :]:
-            pa = cards[a].get("write_paths", [])
-            pb = cards[b].get("write_paths", [])
-            for x in pa:
-                for y in pb:
+            if b in _ancestors(cards, a) or a in _ancestors(cards, b):
+                continue  # dependency-ordered: they cannot overlap in time
+            for x in cards[a].get("write_paths", []):
+                for y in cards[b].get("write_paths", []):
                     nx, ny = G.norm_path(x).casefold(), G.norm_path(y).casefold()
                     if nx == ny or G.path_matches(y.rstrip("/*"), x) or G.path_matches(x.rstrip("/*"), y):
                         out.append(f"{a} and {b} both claim overlapping write_paths ({x} / {y})")

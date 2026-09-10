@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/babar-raza/foss-mcp/schemas/requirements.schema.json",
+  "title": "foss-mcp requirement index",
+  "description": "ops/requirements.yaml. Stable ids for the mission plan's in-scope requirements, DERIVED from the plan - the plan itself is read-only and is never edited to add ids. This index is the omission control: gate-exit fails if any requirement for that gate is claimed by no card, or claimed but proven by no check.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "derived_from", "requirements"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "derived_from": {"type": "string", "minLength": 1},
+    "requirements": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "gate", "text", "anchor"],
+        "properties": {
+          "id":     {"type": "string", "pattern": "^REQ-[A-Z0-9]+-[0-9]{3}$"},
+          "gate":   {"type": "string", "pattern": "^G[0-5]$"},
+          "text":   {"type": "string", "minLength": 1},
+          "anchor": {"type": "string", "minLength": 1},
+          "note":   {"type": "string"}
+        }
+      }
+    }
+  }
+}

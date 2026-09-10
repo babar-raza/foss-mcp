@@ -1,0 +1,48 @@
+id: TC-006
+gate: G0
+lane: verification
+purpose: Prove the pre-push gate fails CLOSED on an unrecognised remote - the confirmed
+  defect in the hook this project forked.
+depends_on:
+- TC-001
+write_paths:
+- tests/test_githooks.py
+satisfies:
+- REQ-G0-009
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.4 Governance adoption map'
+  sha256: 633416b630ef7fe8d06e737dab888cabea30abc6e5e42f20ee33d08773d78d39
+inputs:
+- The hook already exists at .githooks/pre-push and is OFF LIMITS to you - do not
+  edit it. Your job is the test that proves its behaviour.
+- The forked original matched the remote URL with a `case` and `exit 0`d on a non-match.
+  git reports that as the hook PASSING, so the gate silently never ran.
+actions:
+- 'Write tests/test_githooks.py asserting, by INVOKING .githooks/pre-push directly:
+  a non-matching remote URL exits NON-ZERO (fails closed); an empty remote URL exits
+  non-zero; the hook file exists and is not empty.'
+- 'Also assert the repo is configured to use it: `git config --get core.hooksPath`
+  returns .githooks. A versioned hook is inert until that is set, and nothing else
+  reports it.'
+checks:
+- command: .venv/Scripts/python -m pytest tests/test_githooks.py -q
+  expect: exit 0
+  timeout_seconds: 180
+  junitxml: true
+  proves:
+  - REQ-G0-009
+min_tests: 3
+negative_control:
+  mutate: python -c "import pathlib;pathlib.Path('.githooks/pre-push').write_text('#!/usr/bin/env
+    bash\nexit 0\n')"
+  rationale: Replacing the hook with the fail-OPEN version must break the suite. This
+    is the exact regression the card exists to prevent, so if the tests still pass
+    they are worthless.
+evidence:
+- evidence/build/G0/TC-006/receipt.json
+closeout:
+- A non-matching remote is proven to exit non-zero.
+- core.hooksPath is asserted.
+- Substituting a fail-open hook makes the suite fail.
+recovery: Test-only; re-run from a clean tree.

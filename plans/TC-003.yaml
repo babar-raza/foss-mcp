@@ -1,0 +1,48 @@
+id: TC-003
+gate: G0
+lane: foundation
+purpose: Author config/products/pdf/net.yaml - the first real product manifest, pinning
+  the EXACT upstream repository name.
+depends_on:
+- TC-002
+write_paths:
+- config/**
+- tests/config/**
+satisfies:
+- REQ-G0-005
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.2 Gate G0'
+  sha256: 7f0b50c7b5f2fafef08114ca3e1d2db5b16ddfd252d393646696f259a940cc05
+inputs:
+- 'VERIFIED upstream name: aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET (public, 7.4MB,
+  default branch main). Confirmed by gh api during planning.'
+- Names in this org are irregular - pdf/go is Aspose-PDF-FOSS-for-Go, with a DASH.
+  A name derived from a pattern is wrong for 2 of the 7 pilots, so it must be pinned.
+- storage_topology starts as 'undecided_pending_TC-004' (plan 18.1).
+actions:
+- 'Write config/products/pdf/net.yaml: family pdf, platform net, repository aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET,
+  a real `schedule`, and storage_topology: undecided_pending_TC-004.'
+- 'Write tests/config/test_product_manifests.py asserting: the manifest validates
+  against schemas/product/product-manifest.schema.json; `repository` equals the exact
+  string above (assert the literal, do not reconstruct it from family/platform).'
+checks:
+- command: .venv/Scripts/python -m pytest tests/config -q
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G0-005
+min_tests: 2
+negative_control:
+  mutate: python -c "import pathlib;p=pathlib.Path('config/products/pdf/net.yaml');p.write_text(p.read_text().replace('Aspose.PDF-FOSS-for-.NET','Aspose-PDF-FOSS-for-NET'))"
+  rationale: Swapping the exact repo name for a plausible pattern-derived one must
+    break the suite. This is the specific error the irregular naming invites.
+evidence:
+- evidence/build/G0/TC-003/receipt.json
+- config/products/pdf/net.yaml
+closeout:
+- The manifest validates and carries a schedule.
+- The exact repository name is asserted literally.
+- Corrupting the name makes the suite fail.
+recovery: Additive; re-run from a clean tree.

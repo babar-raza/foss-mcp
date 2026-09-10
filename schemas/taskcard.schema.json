@@ -5,73 +5,242 @@
   "description": "Shape of plans/TC-NNN.yaml. A card is the worker's COMPLETE contract; the worker never reads the mission plan. Cards are immutable once issued.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "gate", "lane", "purpose", "depends_on", "write_paths",
-               "satisfies", "source_refs", "checks", "negative_control",
-               "evidence", "closeout", "recovery"],
+  "required": [
+    "id",
+    "gate",
+    "lane",
+    "purpose",
+    "depends_on",
+    "write_paths",
+    "satisfies",
+    "source_refs",
+    "checks",
+    "negative_control",
+    "evidence",
+    "closeout",
+    "recovery"
+  ],
   "properties": {
-    "id":        {"type": "string", "pattern": "^TC-[0-9]{3}[a-z]?$"},
-    "gate":      {"$ref": "#/$defs/gate_id"},
-    "lane":      {"enum": ["foundation", "extraction", "storage-retrieval",
-                            "transport-deployment", "verification", "control-plane"]},
-    "purpose":   {"$ref": "#/$defs/text"},
-    "depends_on": {"type": "array", "items": {"type": "string", "pattern": "^TC-[0-9]{3}[a-z]?$"}, "uniqueItems": true},
-    "write_paths": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/path_glob"}},
-    "satisfies": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/req_id"}, "uniqueItems": true},
-    "source_refs": {
-      "type": "array", "minItems": 1,
+    "id": {
+      "type": "string",
+      "pattern": "^TC-[0-9]{3}[a-z]?$"
+    },
+    "gate": {
+      "$ref": "#/$defs/gate_id"
+    },
+    "lane": {
+      "enum": [
+        "foundation",
+        "extraction",
+        "storage-retrieval",
+        "transport-deployment",
+        "verification",
+        "control-plane"
+      ]
+    },
+    "purpose": {
+      "$ref": "#/$defs/text"
+    },
+    "depends_on": {
+      "type": "array",
       "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["file", "anchor", "sha256"],
+        "type": "string",
+        "pattern": "^TC-[0-9]{3}[a-z]?$"
+      },
+      "uniqueItems": true
+    },
+    "write_paths": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/path_glob"
+      }
+    },
+    "satisfies": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/req_id"
+      },
+      "uniqueItems": true
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file",
+          "anchor",
+          "sha256"
+        ],
         "properties": {
-          "file":   {"$ref": "#/$defs/text"},
-          "anchor": {"$ref": "#/$defs/text"},
-          "sha256": {"$ref": "#/$defs/sha256"}
+          "file": {
+            "$ref": "#/$defs/text"
+          },
+          "anchor": {
+            "$ref": "#/$defs/text"
+          },
+          "sha256": {
+            "$ref": "#/$defs/sha256"
+          }
         }
       }
     },
-    "inputs":  {"type": "array", "items": {"$ref": "#/$defs/text"}},
-    "actions": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/text"}},
-    "checks": {
-      "type": "array", "minItems": 1,
+    "inputs": {
+      "type": "array",
       "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["command", "expect", "timeout_seconds", "proves"],
+        "$ref": "#/$defs/text"
+      }
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/text"
+      }
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "command",
+          "expect",
+          "timeout_seconds",
+          "proves"
+        ],
         "properties": {
-          "command": {"$ref": "#/$defs/text"},
-          "cwd":     {"type": "string"},
-          "expect":  {"const": "exit 0"},
-          "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 3600},
-          "proves":  {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/req_id"}},
-          "junitxml": {"type": "boolean"}
+          "command": {
+            "$ref": "#/$defs/text"
+          },
+          "cwd": {
+            "type": "string"
+          },
+          "expect": {
+            "const": "exit 0"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3600
+          },
+          "proves": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/req_id"
+            }
+          },
+          "junitxml": {
+            "type": "boolean"
+          }
         }
       }
     },
     "negative_control": {
-      "description": "Supervisor-authored falsifier. verify applies this patch and REQUIRES the checks to fail. A suite that passes both ways is vacuous.",
-      "type": "object", "additionalProperties": false,
-      "required": ["patch", "rationale"],
+      "description": "Supervisor-authored falsifier, applied inside the throwaway worktree. verify applies it and REQUIRES the card's checks to fail; a suite that passes both ways is vacuous. Use `mutate` (a command) when the card is authored before the code exists, `patch` when an exact diff is available.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rationale"
+      ],
       "properties": {
-        "patch":     {"type": "string", "pattern": "^evidence/negctl/TC-[0-9]{3}[a-z]?[.]patch$"},
-        "rationale": {"$ref": "#/$defs/text"}
+        "patch": {
+          "type": "string",
+          "pattern": "^evidence/negctl/TC-[0-9]{3}[a-z]?[.]patch$"
+        },
+        "mutate": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Shell command run in the worktree that breaks what the card built."
+        },
+        "rationale": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "patch"
+          ]
+        },
+        {
+          "required": [
+            "mutate"
+          ]
+        }
+      ]
+    },
+    "min_tests": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "expected_loc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "min",
+        "max"
+      ],
+      "properties": {
+        "min": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     },
-    "min_tests":    {"type": "integer", "minimum": 0},
-    "expected_loc": {
-      "type": "object", "additionalProperties": false,
-      "required": ["min", "max"],
-      "properties": {"min": {"type": "integer", "minimum": 0}, "max": {"type": "integer", "minimum": 1}}
+    "network": {
+      "type": "boolean",
+      "default": false
     },
-    "network":  {"type": "boolean", "default": false},
-    "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/text"}},
-    "closeout": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/text"}},
-    "recovery": {"$ref": "#/$defs/text"}
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/text"
+      }
+    },
+    "closeout": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/text"
+      }
+    },
+    "recovery": {
+      "$ref": "#/$defs/text"
+    }
   },
   "$defs": {
-    "text":    {"type": "string", "minLength": 1},
-    "sha256":  {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "gate_id": {"type": "string", "pattern": "^G[0-5]$"},
-    "req_id":  {"type": "string", "pattern": "^REQ-[A-Z0-9]+-[0-9]{3}$"},
-    "path_glob": {"type": "string", "minLength": 1, "maxLength": 200,
-                  "pattern": "^[A-Za-z0-9_./*-]+$"}
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "gate_id": {
+      "type": "string",
+      "pattern": "^G[0-5]$"
+    },
+    "req_id": {
+      "type": "string",
+      "pattern": "^REQ-[A-Z0-9]+-[0-9]{3}$"
+    },
+    "path_glob": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9_./*-]+$"
+    }
   }
 }

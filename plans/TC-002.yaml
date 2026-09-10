@@ -1,0 +1,57 @@
+id: TC-002
+gate: G0
+lane: foundation
+purpose: 'Author the PRODUCT schemas: product-manifest (with a required `schedule`
+  field) and reuse-manifest (with the mission''s own 8-value disposition enum).'
+depends_on:
+- TC-001
+write_paths:
+- schemas/product/**
+- tests/schemas/**
+satisfies:
+- REQ-G0-003
+- REQ-G0-004
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.2 Gate G0'
+  sha256: 7f0b50c7b5f2fafef08114ca3e1d2db5b16ddfd252d393646696f259a940cc05
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.4 Governance adoption map'
+  sha256: 633416b630ef7fe8d06e737dab888cabea30abc6e5e42f20ee33d08773d78d39
+inputs:
+- Control-plane schemas already exist at schemas/*.schema.json and are OFF LIMITS.
+  Product schemas live under schemas/product/.
+- 'The 8-value disposition enum is: REUSE_AS_IS, REUSE_WITH_CONFIGURATION, WRAP_WITH_ADAPTER,
+  EXTRACT_TO_SHARED_CORE, MODIFY_WITH_COMPATIBILITY, REPLACE_WITH_PROVEN_ALTERNATIVE,
+  DO_NOT_REUSE, INSUFFICIENT_EVIDENCE.'
+actions:
+- 'Write schemas/product/product-manifest.schema.json. additionalProperties:false.
+  Required: family, platform, repository, schedule, storage_topology. `repository`
+  must be the exact upstream full_name. `schedule` is REQUIRED - plan 7.2.'
+- Write schemas/product/reuse-manifest.schema.json with the 8-value disposition enum
+  above and additionalProperties:false.
+- 'Write tests/schemas/test_product_schemas.py with POSITIVE and NEGATIVE controls:
+  a well-formed manifest validates; a manifest MISSING `schedule` is rejected; a disposition
+  outside the 8 values is rejected; an unknown top-level key is rejected.'
+checks:
+- command: .venv/Scripts/python -m pytest tests/schemas -q
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G0-003
+  - REQ-G0-004
+min_tests: 4
+negative_control:
+  mutate: python -c "import json,pathlib;p=pathlib.Path('schemas/product/product-manifest.schema.json');d=json.loads(p.read_text());d['required']=[r
+    for r in d['required'] if r!='schedule'];p.write_text(json.dumps(d,indent=2))"
+  rationale: 'Plan 19.2 names this exact negative control for TC-003: a manifest missing
+    `schedule` must be rejected. Dropping `schedule` from the schema''s required list
+    must therefore break the suite. If it does not, the test is asserting nothing.'
+evidence:
+- evidence/build/G0/TC-002/receipt.json
+closeout:
+- Both schemas validate as Draft 2020-12.
+- The suite contains real negative controls, not only happy paths.
+- Removing `schedule` from the required list makes the suite fail.
+recovery: Additive; re-run from a clean tree.

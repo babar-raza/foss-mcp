@@ -125,8 +125,11 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None):
     py = ensure_shared_venv()
     log_lines: list[str] = []
     runs: list[dict] = []
+    nc_spec = card["negative_control"]
+    nc_kind = "patch" if "patch" in nc_spec else "mutate"
     negctl = {
-        "patch": card["negative_control"]["patch"],
+        "kind": nc_kind,
+        "patch": nc_spec.get("patch") or nc_spec.get("mutate"),
         "patch_sha256": "0" * 64,
         "applied": False,
         "patch_applied_failed": False,
@@ -148,20 +151,35 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None):
         flaky = codes1 != codes2
         clean_passed = runs[0]["all_passed"] and runs[1]["all_passed"] and not flaky
 
-        patch = REPO / card["negative_control"]["patch"]
-        if patch.exists():
-            negctl["patch_sha256"] = sha256_file(patch)
-            rc, _, err = run(["git", "apply", "--whitespace=nowarn", str(patch)], cwd=wt)
-            if rc == 0:
+        # ---- the falsifier ----
+        # Break what the card built, then re-run its own checks. They MUST fail.
+        # Only run this when the clean runs actually passed: falsifying an
+        # already-red suite would prove nothing either way.
+        if clean_passed:
+            if nc_kind == "patch":
+                patch = REPO / nc_spec["patch"]
+                if patch.exists():
+                    negctl["patch_sha256"] = sha256_file(patch)
+                    rc, _, err = run(["git", "apply", "--whitespace=nowarn", str(patch)], cwd=wt)
+                    applied, why = rc == 0, err
+                else:
+                    applied, why = False, f"patch missing: {patch}"
+            else:
+                cmd = nc_spec["mutate"]
+                negctl["patch_sha256"] = sha256_bytes(cmd.encode("utf-8"))
+                rc, out, err = run(cmd, cwd=wt, timeout=120)
+                applied, why = rc == 0, (err or out)
+
+            if applied:
                 negctl["applied"] = True
-                log_lines.append("\n===== NEGATIVE CONTROL (checks MUST fail) =====\n")
+                log_lines.append("\n===== NEGATIVE CONTROL (checks MUST now fail) =====\n")
                 nchecks, npassed = run_checks(card, wt, py, log_lines)
                 negctl["exit_codes"] = [c["exit_code"] for c in nchecks]
                 negctl["patch_applied_failed"] = not npassed
             else:
-                log_lines.append(f"\n!! negative-control patch did not apply: {err}\n")
+                log_lines.append(f"\n!! falsifier did not apply ({nc_kind}): {why}\n")
         else:
-            log_lines.append(f"\n!! negative-control patch missing: {patch}\n")
+            log_lines.append("\n!! clean runs failed; falsifier skipped (it would prove nothing)\n")
     finally:
         drop_worktree(wt)
 
