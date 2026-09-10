@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/babar-raza/foss-mcp/schemas/product/reuse-manifest.schema.json",
+  "title": "foss-mcp reuse manifest",
+  "description": "Records the reuse disposition for one evaluated upstream component: what it is, which of the mission's 8 dispositions applies, and why. The disposition enum is closed on purpose - an ad hoc ninth value would silently escape every downstream policy keyed to these 8.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["component", "disposition", "rationale"],
+  "properties": {
+    "component": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier of the evaluated upstream component or dependency."
+    },
+    "disposition": {
+      "type": "string",
+      "enum": [
+        "REUSE_AS_IS",
+        "REUSE_WITH_CONFIGURATION",
+        "WRAP_WITH_ADAPTER",
+        "EXTRACT_TO_SHARED_CORE",
+        "MODIFY_WITH_COMPATIBILITY",
+        "REPLACE_WITH_PROVEN_ALTERNATIVE",
+        "DO_NOT_REUSE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "description": "One of the mission's 8 reuse dispositions. Closed enum."
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Why this disposition was assigned."
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Optional pointers to supporting evidence (file paths, URLs, commit SHAs)."
+    }
+  }
+}

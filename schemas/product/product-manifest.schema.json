@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/babar-raza/foss-mcp/schemas/product/product-manifest.schema.json",
+  "title": "foss-mcp product manifest",
+  "description": "Per-product manifest describing a single ingested product: which family it belongs to, which platform it targets, the exact upstream repository it is built from, its ingestion schedule, and how its retrieval index is laid out. `schedule` is REQUIRED (plan 7.2) so that every product commits to a cadence rather than being ingested ad hoc.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["family", "platform", "repository", "schedule", "storage_topology"],
+  "properties": {
+    "family": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Product family identifier, e.g. 'aspose-words'."
+    },
+    "platform": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Target platform for this product build, e.g. 'python', 'java', '.net'."
+    },
+    "repository": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?/[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
+      "description": "The exact upstream repository full_name (owner/repo), matching GitHub's own `full_name` field byte for byte. Exactly one slash; no leading, trailing, or doubled slash."
+    },
+    "schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cron"],
+      "properties": {
+        "cron": {
+          "type": "string",
+          "minLength": 9,
+          "description": "Standard 5-field cron expression governing ingestion cadence."
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1,
+          "description": "IANA timezone name the cron expression is evaluated in. Defaults to UTC when absent."
+        }
+      }
+    },
+    "storage_topology": {
+      "type": "string",
+      "minLength": 1,
+      "description": "How this product's retrieval index is laid out, e.g. 'single-index', 'sharded', 'federated'."
+    }
+  }
+}
