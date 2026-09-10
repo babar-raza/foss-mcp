@@ -1,0 +1,41 @@
+
+===== CLEAN RUN 1 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/indexing/test_topology_decision.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-9znsxx00\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/indexing/test_topology_decision.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-9znsxx00\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/indexing/test_topology_decision.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-9znsxx00\.junit-0.xml"
+--- stdout ---
+.....F.                                                                  [100%]
+================================== FAILURES ===================================
+_ test_manifest_storage_topology_matches_the_measured_decision_and_is_not_the_placeholder _
+
+    def test_manifest_storage_topology_matches_the_measured_decision_and_is_not_the_placeholder():
+        """Load-bearing test for TC-004's negative control: if the manifest's
+        storage_topology is ever reverted to the 'undecided_pending_TC-004'
+        placeholder, this must fail, because that would mean the measured
+        decision was never actually written back."""
+        manifest = _load_manifest()
+        recorded = manifest["storage_topology"]
+    
+>       assert recorded != PLACEHOLDER
+E       AssertionError: assert 'undecided_pending_TC-004' != 'undecided_pending_TC-004'
+
+tests\indexing\test_topology_decision.py:265: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_topology_decision.py::test_manifest_storage_topology_matches_the_measured_decision_and_is_not_the_placeholder
+
+--- stderr ---
+

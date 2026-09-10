@@ -1,0 +1,52 @@
+id: TC-003a
+gate: G0
+lane: foundation
+purpose: Stop the pdf/net manifest test pinning a transient bootstrap value, so it
+  no longer contradicts the card that is mandated to change that value.
+depends_on:
+- TC-004
+write_paths:
+- tests/config/test_product_manifests.py
+satisfies:
+- REQ-G0-005
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.2 Gate G0'
+  sha256: 7f0b50c7b5f2fafef08114ca3e1d2db5b16ddfd252d393646696f259a940cc05
+inputs:
+- 'Root cause, stated plainly: TC-003''s card told a worker to assert storage_topology
+  equals the literal ''undecided_pending_TC-004'', and TC-004''s card told a worker
+  to change that same field. Two internally-consistent cards that contradict each
+  other - a supervisor card-authoring defect, not a worker defect. It surfaced because
+  a worker reported it honestly rather than quietly editing a file outside its scope.'
+- 'A test that pins a transient bootstrap value is wrong in itself: it asserts a moment,
+  not a contract.'
+actions:
+- 'In tests/config/test_product_manifests.py, replace the assertion that storage_topology
+  equals ''undecided_pending_TC-004'' with one that asserts the real contract: storage_topology
+  is a non-empty string, and is NOT still the placeholder (the decision has been made).'
+- Keep every other assertion in that file unchanged - in particular the literal repository-name
+  assertion, which is the whole point of TC-003.
+- Add a short comment naming why the placeholder assertion was removed, so it is not
+  reintroduced later.
+checks:
+- command: '{python} -m pytest tests/config -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G0-005
+min_tests: 2
+negative_control:
+  mutate: 'python -c "import pathlib,re;p=pathlib.Path(''config/products/pdf/net.yaml'');p.write_text(re.sub(r''storage_topology:.*'',''storage_topology:
+    undecided_pending_TC-004'',p.read_text()))"'
+  rationale: Resetting the manifest to the placeholder must still break tests/config.
+    The fix must relax the assertion to the real contract, not delete the check -
+    a card that 'fixes' a failing test by removing it has proven nothing.
+evidence:
+- evidence/build/G0/TC-003a/receipt.json
+closeout:
+- tests/config passes against the decided manifest.
+- The literal repository-name assertion is untouched.
+- Resetting storage_topology to the placeholder still fails the suite.
+recovery: Single-file test edit; re-run from a clean tree.

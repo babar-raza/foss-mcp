@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "card": "TC-004",
+  "gate": "G0",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-10T15:54:49Z",
+  "base_rev": "1abf1e8cba279c18e876681a226b2a20efd6673a",
+  "head_rev": "41a324a8323cb3aa4277042ba1c42d5ec6bebedb",
+  "card_sha256": "5dbca1a44f03d12581cca6b56794044120a87dbb29a2b4f6dfb5f2fff7589452",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e342726ff728ee7e499d12731c01127bef6f1aec686a6b4c0fe313984af5f94",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "config/products/pdf/net.yaml",
+      "docs/DECISION_LOG.md",
+      "src/foss_mcp/indexing/topology_spike.py",
+      "tests/indexing/test_topology_decision.py"
+    ],
+    "violations": []
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_topology_decision.py -q",
+          "exit_code": 0,
+          "duration_s": 0.909,
+          "stdout_sha256": "83a1593c5b5783693fe3006d1f6597bcb4f3a5968f23b59481ee09a0477f910a",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_topology_decision.py -q",
+          "exit_code": 0,
+          "duration_s": 0.815,
+          "stdout_sha256": "83a1593c5b5783693fe3006d1f6597bcb4f3a5968f23b59481ee09a0477f910a",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -c \"import pathlib;p=pathlib.Path('config/products/pdf/net.yaml');import re;p.write_text(re.sub(r'storage_topology:.*','storage_topology: undecided_pending_TC-004',p.read_text()))\"",
+    "patch_sha256": "fe58c9ba3dde969b07b834edfb3fb5d30de1d4d9983b341760a422b81b32cd26",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ]
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
