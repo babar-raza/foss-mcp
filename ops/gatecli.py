@@ -649,6 +649,11 @@ def cmd_instruct(args) -> int:
     G.INSTRUCTIONS_JSONL.parent.mkdir(parents=True, exist_ok=True)
     with G.INSTRUCTIONS_JSONL.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(line) + "\n")
+    # A dispatch changes derived state (the card becomes IN_PROGRESS), so refresh
+    # the cursor here. Otherwise the very next `validate` fails on a mismatch the
+    # dispatch itself caused - which blocked a push once already.
+    G.STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    G.STATE_FILE.write_text(G.dump_yaml(V.rebuild_state()), encoding="utf-8")
     print(f"dispatched {args.target} (card_sha256={card_sha[:12]}, issue_rev={line['issue_rev'][:12]})")
     return G.EXIT_OK
 
