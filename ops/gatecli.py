@@ -279,6 +279,40 @@ def _budget_problems():
     return out
 
 
+def cmd_review(args) -> int:
+    """The supervisor's whole per-card action: verify, then accept or reject.
+
+    Deliberately one command producing a bounded verdict. The dominant cost in
+    this system is not the workers, it is a supervisor re-reading context every
+    few minutes, so the review surface is a short program output rather than a
+    reasoning task over raw logs.
+    """
+    r = V.do_verify(args.card, args.base, args.head, args.issue_rev)
+    print(f"--- {args.card} ---")
+    print(
+        f"scope        : {'ok' if r['scope']['ok'] else 'VIOLATION'} "
+        f"({len(r['scope']['changed_paths'])} paths)"
+    )
+    for v in r["scope"]["violations"][:5]:
+        print(f"  ! {v}")
+    for run_ in r["runs"]:
+        c0 = run_["checks"][0]
+        counts = (
+            f" tests={c0['tests']} skipped={c0['skipped']} failures={c0['failures']}" if "tests" in c0 else ""
+        )
+        print(f"clean run {run_['run']}  : exit {[c['exit_code'] for c in run_['checks']]}{counts}")
+    nc = r["negative_control"]
+    print(
+        f"falsifier    : {nc['kind']} applied={nc['applied']} made_checks_fail={nc['patch_applied_failed']}"
+    )
+    print(f"verdict      : {r['reason']}")
+    if not r["accepted"]:
+        print(f"REWORK REQUIRED — see evidence/build/{r['gate']}/{args.card}/stdout.log")
+        return G.EXIT_FAIL
+    args_accept = argparse.Namespace(card=args.card, force_order=args.force_order)
+    return cmd_accept(args_accept)
+
+
 # --------------------------------------------------------------------------
 # state / next / scope / verify / accept
 # --------------------------------------------------------------------------
@@ -563,6 +597,13 @@ def build_parser():
     sp.add_argument("--head", default="HEAD")
     sp.add_argument("--issue-rev")
 
+    sp = sub.add_parser("review", help="verify then accept - the supervisor's whole per-card action")
+    sp.add_argument("card")
+    sp.add_argument("--base", required=True)
+    sp.add_argument("--head", default="HEAD")
+    sp.add_argument("--issue-rev")
+    sp.add_argument("--force-order", action="store_true")
+
     sp = sub.add_parser("accept", help="table lookup; refuses unless every condition holds")
     sp.add_argument("card")
     sp.add_argument(
@@ -591,6 +632,7 @@ HANDLERS = {
     "scope": cmd_scope,
     "verify": cmd_verify,
     "accept": cmd_accept,
+    "review": cmd_review,
     "status-append": cmd_status_append,
     "instruct": cmd_instruct,
     "tick": cmd_tick,
