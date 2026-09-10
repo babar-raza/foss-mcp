@@ -1,0 +1,44 @@
+
+===== CLEAN RUN 1 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/config -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wu9u_zry\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/config -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wu9u_zry\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e342726ff728ee7\Scripts\python.exe -m pytest tests/config -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wu9u_zry\.junit-0.xml"
+--- stdout ---
+..F...                                                                   [100%]
+================================== FAILURES ===================================
+__________ test_repository_is_the_exact_verified_upstream_full_name ___________
+
+    def test_repository_is_the_exact_verified_upstream_full_name():
+        """Asserts the LITERAL verified string. Do not derive this from
+        `family`/`platform` - that reconstruction is precisely the bug this test
+        guards against, since 2 of the 7 pilot repos use an irregular dash form
+        that no pattern predicts."""
+        manifest = _load_manifest()
+>       assert manifest["repository"] == EXPECTED_REPOSITORY
+E       AssertionError: assert 'aspose-pdf-f...-FOSS-for-NET' == 'aspose-pdf-f...FOSS-for-.NET'
+E         
+E         - aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET
+E         ?                       ^             -
+E         + aspose-pdf-foss/Aspose-PDF-FOSS-for-NET
+E         ?                       ^
+
+tests\config\test_product_manifests.py:55: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/config/test_product_manifests.py::test_repository_is_the_exact_verified_upstream_full_name
+
+--- stderr ---
+
