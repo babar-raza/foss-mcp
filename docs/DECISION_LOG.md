@@ -86,3 +86,17 @@ category keywords either. So this is latent, not live, and TC-017a is not failed
 It WILL matter when kb.aspose.org troubleshooting and FAQ content is ingested, where headings are
 the category. Fix then: classify over section_title + text, or carry section_title into the indexed
 document. Recorded so it is a decision rather than an oversight.
+
+## 2026-09-11 — requirements.lock was Windows-only; recompiled universally with uv
+Found by TC-018's first real docker build, three cards after the lock was written. mcp declares
+`pywin32>=311; sys_platform == 'win32'`, but pip-compile - run on this Windows host - flattened the
+marker into an unconditional pin, and the lock carried ZERO environment markers anywhere. Every
+Linux image died on `pip install --require-hashes`: no pywin32 distribution for linux.
+Impact beyond containers: a lock that only resolves on the machine that generated it also defeats
+customer self-hosting, which is a stated project requirement, and nothing in CI would have caught
+it because CI runs on the same Windows host.
+Fix: `uv pip compile --universal --generate-hashes` (uv 0.12.13, added as a build-time tool, not a
+runtime dependency). Markers now preserved - 8 marker lines where there were none. This matches the
+convention the sibling project already proved. A regression test in ops/tests asserts the lock
+carries platform markers and that Windows-only packages are constrained, so recompiling with a tool
+that cannot resolve cross-platform fails in the suite rather than in a container.

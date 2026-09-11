@@ -373,3 +373,38 @@ def test_a_falsifier_that_changes_nothing_is_not_applied(sandbox, monkeypatch):
     rc, dirty, _ = VV.run(["git", "status", "--porcelain"], cwd=".")
     assert not dirty.strip(), "precondition: the tree is clean after the mutation"
     assert calls["status"] == 1, "verify must consult the tree, not just the exit code"
+
+
+def test_the_lockfile_is_cross_platform_not_windows_only():
+    """Regression: the lock was compiled on Windows and silently lost every
+    environment marker.
+
+    mcp declares `pywin32>=311; sys_platform == 'win32'`, but pip-compile
+    flattened that into an unconditional pin, so every Linux container build died
+    on `pip install --require-hashes` with "no matching distribution for
+    pywin32". Nothing caught it until the first real docker build, three cards
+    later - and a lock that only works on the machine that generated it also
+    breaks customer self-hosting, which is a stated project requirement.
+
+    Compiled with `uv pip compile --universal` now. This test exists so that
+    recompiling with a tool that cannot do cross-platform resolution fails here
+    rather than in a container.
+    """
+    lock = (G.REPO / "requirements.lock").read_text(encoding="utf-8")
+    assert lock.strip(), "requirements.lock is empty"
+
+    windows_only = ("pywin32", "colorama")
+    for pkg in windows_only:
+        for line in lock.splitlines():
+            if line.startswith(f"{pkg}=="):
+                assert ";" in line, (
+                    f"{pkg} is pinned unconditionally: {line.strip()!r}. It has no Linux wheel, so "
+                    f"this lock cannot build a container or support self-hosting."
+                )
+                assert "sys_platform" in line or "platform_system" in line, (
+                    f"{pkg} carries a marker that does not constrain the platform: {line.strip()!r}"
+                )
+
+    assert sum(1 for line in lock.splitlines() if "sys_platform" in line or "platform_system" in line) > 0, (
+        "the lock carries no platform markers at all - it was resolved for one platform only"
+    )
