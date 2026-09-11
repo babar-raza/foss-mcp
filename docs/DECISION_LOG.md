@@ -129,3 +129,14 @@ them. The plan's own card would probably have carried it. Splitting for the 45-m
 traded one risk for another, and this is the cost.
 TC-019a added with REQ-G1-015 so the transport boundary is a claimed, proven requirement rather
 than an assumption inside the E2E card.
+
+## 2026-09-11 — Absent Origin is allowed; present-but-wrong is rejected (TC-019a)
+Deliberate decision by the worker, recorded so it cannot drift silently. reject_request rejects an
+Origin that is PRESENT and not allowlisted, but does not reject an ABSENT one: non-browser clients
+legitimately never send Origin, and DNS rebinding - the threat the check exists for - is a
+browser-specific attack. The SDK follows the same convention. A holdout pins both halves, because
+the risk is that the leniency quietly widens into allowing a wrong Origin too.
+Also recorded: the worker found a real container bug its in-process tests could not - the non-root
+user (uid 10001) cannot create a top-level /data at runtime, so the default manifest-store path
+failed with PermissionError on the first real request. Found by actually running `docker compose up
+--build` and hitting the published port, which is TC-020's job done a card early.

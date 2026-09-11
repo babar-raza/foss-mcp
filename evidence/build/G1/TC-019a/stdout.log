@@ -1,0 +1,1066 @@
+
+===== CLEAN RUN 1 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_server_wiring.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-t8zqs4x3\.junit-0.xml"
+--- stdout ---
+.....................                                                    [100%]
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_server_wiring.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-t8zqs4x3\.junit-0.xml"
+--- stdout ---
+.....................                                                    [100%]
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== HOLDOUT (supervisor-authored, not named by the card) =====
+$ "D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe" -m pytest .gatectl-holdout -q -p no:cacheprovider
+--- stdout ---
+................                                                         [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/transport_security.py, ?? .gatectl-holdout/, ?? .junit-0.xml
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_server_wiring.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-t8zqs4x3\.junit-0.xml"
+--- stdout ---
+FFFFF..FFFFFFFFFFFFFF                                                    [100%]
+================================== FAILURES ===================================
+____________________ test_a_disallowed_origin_is_rejected _____________________
+
+    def test_a_disallowed_origin_is_rejected() -> None:
+>       reason = reject_request(
+            {"Origin": "https://evil.example", "MCP-Protocol-Version": "2025-06-18"},
+            allowed_origins=ALLOWED_ORIGINS,
+        )
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+tests\mcp\test_server_wiring.py:121: TypeError
+______________ test_an_absent_origin_is_not_rejected_on_its_own _______________
+
+    def test_an_absent_origin_is_not_rejected_on_its_own() -> None:
+        """Non-browser clients legitimately never send Origin; only a PRESENT, disallowed one
+        is a DNS-rebinding-relevant signal."""
+>       reason = reject_request({"MCP-Protocol-Version": "2025-06-18"}, allowed_origins=ALLOWED_ORIGINS)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+tests\mcp\test_server_wiring.py:131: TypeError
+_________________ test_a_missing_protocol_version_is_rejected _________________
+
+    def test_a_missing_protocol_version_is_rejected() -> None:
+>       reason = reject_request({"Origin": "https://example.com"}, allowed_origins=ALLOWED_ORIGINS)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+tests\mcp\test_server_wiring.py:136: TypeError
+________________ test_an_invalid_protocol_version_is_rejected _________________
+
+    def test_an_invalid_protocol_version_is_rejected() -> None:
+>       reason = reject_request(
+            {"Origin": "https://example.com", "MCP-Protocol-Version": "not-a-date"},
+            allowed_origins=ALLOWED_ORIGINS,
+        )
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+tests\mcp\test_server_wiring.py:141: TypeError
+_________________ test_a_fully_valid_request_is_not_rejected __________________
+
+    def test_a_fully_valid_request_is_not_rejected() -> None:
+>       reason = reject_request(
+            {"Origin": "https://example.com", "MCP-Protocol-Version": "2025-06-18"},
+            allowed_origins=ALLOWED_ORIGINS,
+        )
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+tests\mcp\test_server_wiring.py:149: TypeError
+_____________ test_tools_list_returns_all_nine_tools_with_schemas _____________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-559/test_tools_list_returns_all_ni0')
+
+    def test_tools_list_returns_all_nine_tools_with_schemas(tmp_path: Path) -> None:
+        with _client(tmp_path) as client:
+>           session = _McpSession(client)
+                      ^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_server_wiring.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_server_wiring.py:77: in __init__
+    response = client.post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:556: in post
+    return super().post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1204: in post
+    return self.request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:455: in request
+    return super().request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:797: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:980: in send
+    response = self._send_handling_auth(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1008: in _send_handling_auth
+    response = self._send_handling_redirects(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1043: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1076: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <serve_http.RejectionMiddleware object at 0x000001BEB0E89FD0>
+scope = {'type': 'http', 'http_version': '1.1', 'method': 'POST', 'path': '/mcp', ...}
+receive = <function _TestClientTransport.handle_request.<locals>.receive at 0x000001BEB0D471A0>
+send = <function _TestClientTransport.handle_request.<locals>.send at 0x000001BEB0D47240>
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = {
+            key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])
+        }
+>       reason = reject_request(headers, allowed_origins=self.allowed_origins)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+infra\serve_http.py:52: TypeError
+__________________ test_each_tool_is_callable[find_examples] __________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-559/test_each_tool_is_callable_fin0')
+tool_name = 'find_examples'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+>           session = _McpSession(client)
+                      ^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_server_wiring.py:197: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_server_wiring.py:77: in __init__
+    response = client.post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:556: in post
+    return super().post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1204: in post
+    return self.request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:455: in request
+    return super().request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:797: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:980: in send
+    response = self._send_handling_auth(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1008: in _send_handling_auth
+    response = self._send_handling_redirects(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1043: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1076: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <serve_http.RejectionMiddleware object at 0x000001BEB0D2B390>
+scope = {'type': 'http', 'http_version': '1.1', 'method': 'POST', 'path': '/mcp', ...}
+receive = <function _TestClientTransport.handle_request.<locals>.receive at 0x000001BEB0CD4360>
+send = <function _TestClientTransport.handle_request.<locals>.send at 0x000001BEB0CD42C0>
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = {
+            key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])
+        }
+>       reason = reject_request(headers, allowed_origins=self.allowed_origins)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+infra\serve_http.py:52: TypeError
+______________ test_each_tool_is_callable[get_product_reference] ______________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-559/test_each_tool_is_callable_get0')
+tool_name = 'get_product_reference'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+>           session = _McpSession(client)
+                      ^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_server_wiring.py:197: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_server_wiring.py:77: in __init__
+    response = client.post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:556: in post
+    return super().post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1204: in post
+    return self.request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:455: in request
+    return super().request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:797: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:980: in send
+    response = self._send_handling_auth(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1008: in _send_handling_auth
+    response = self._send_handling_redirects(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1043: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1076: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <serve_http.RejectionMiddleware object at 0x000001BEB0D29E50>
+scope = {'type': 'http', 'http_version': '1.1', 'method': 'POST', 'path': '/mcp', ...}
+receive = <function _TestClientTransport.handle_request.<locals>.receive at 0x000001BEB0E94B80>
+send = <function _TestClientTransport.handle_request.<locals>.send at 0x000001BEB0E95760>
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = {
+            key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])
+        }
+>       reason = reject_request(headers, allowed_origins=self.allowed_origins)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+infra\serve_http.py:52: TypeError
+___________________ test_each_tool_is_callable[get_symbol] ____________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-559/test_each_tool_is_callable_get1')
+tool_name = 'get_symbol'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+>           session = _McpSession(client)
+                      ^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_server_wiring.py:197: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_server_wiring.py:77: in __init__
+    response = client.post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:556: in post
+    return super().post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1204: in post
+    return self.request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:455: in request
+    return super().request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:797: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:980: in send
+    response = self._send_handling_auth(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1008: in _send_handling_auth
+    response = self._send_handling_redirects(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1043: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1076: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <serve_http.RejectionMiddleware object at 0x000001BEB0DAA780>
+scope = {'type': 'http', 'http_version': '1.1', 'method': 'POST', 'path': '/mcp', ...}
+receive = <function _TestClientTransport.handle_request.<locals>.receive at 0x000001BEB0CD54E0>
+send = <function _TestClientTransport.handle_request.<locals>.send at 0x000001BEB0CD53A0>
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = {
+            key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])
+        }
+>       reason = reject_request(headers, allowed_origins=self.allowed_origins)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+infra\serve_http.py:52: TypeError
+__________________ test_each_tool_is_callable[list_members] ___________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-559/test_each_tool_is_callable_lis0')
+tool_name = 'list_members'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+>           session = _McpSession(client)
+                      ^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_server_wiring.py:197: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_server_wiring.py:77: in __init__
+    response = client.post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:556: in post
+    return super().post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1204: in post
+    return self.request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:455: in request
+    return super().request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:797: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:980: in send
+    response = self._send_handling_auth(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1008: in _send_handling_auth
+    response = self._send_handling_redirects(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1043: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1076: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <serve_http.RejectionMiddleware object at 0x000001BEB0DAB5C0>
+scope = {'type': 'http', 'http_version': '1.1', 'method': 'POST', 'path': '/mcp', ...}
+receive = <function _TestClientTransport.handle_request.<locals>.receive at 0x000001BEB0CD4AE0>
+send = <function _TestClientTransport.handle_request.<locals>.send at 0x000001BEB0CD4220>
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = {
+            key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])
+        }
+>       reason = reject_request(headers, allowed_origins=self.allowed_origins)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+infra\serve_http.py:52: TypeError
+_______________ test_each_tool_is_callable[list_recent_changes] _______________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-559/test_each_tool_is_callable_lis1')
+tool_name = 'list_recent_changes'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+>           session = _McpSession(client)
+                      ^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_server_wiring.py:197: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_server_wiring.py:77: in __init__
+    response = client.post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:556: in post
+    return super().post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1204: in post
+    return self.request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:455: in request
+    return super().request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:797: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:980: in send
+    response = self._send_handling_auth(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1008: in _send_handling_auth
+    response = self._send_handling_redirects(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1043: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1076: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <serve_http.RejectionMiddleware object at 0x000001BEB0EA70B0>
+scope = {'type': 'http', 'http_version': '1.1', 'method': 'POST', 'path': '/mcp', ...}
+receive = <function _TestClientTransport.handle_request.<locals>.receive at 0x000001BEB0CD6C00>
+send = <function _TestClientTransport.handle_request.<locals>.send at 0x000001BEB0CD6D40>
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = {
+            key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])
+        }
+>       reason = reject_request(headers, allowed_origins=self.allowed_origins)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+infra\serve_http.py:52: TypeError
+_____________________ test_each_tool_is_callable[lookup] ______________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-559/test_each_tool_is_callable_loo0')
+tool_name = 'lookup'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+>           session = _McpSession(client)
+                      ^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_server_wiring.py:197: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_server_wiring.py:77: in __init__
+    response = client.post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:556: in post
+    return super().post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1204: in post
+    return self.request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:455: in request
+    return super().request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:797: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:980: in send
+    response = self._send_handling_auth(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1008: in _send_handling_auth
+    response = self._send_handling_redirects(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1043: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1076: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <serve_http.RejectionMiddleware object at 0x000001BEB0DAC270>
+scope = {'type': 'http', 'http_version': '1.1', 'method': 'POST', 'path': '/mcp', ...}
+receive = <function _TestClientTransport.handle_request.<locals>.receive at 0x000001BEB0CD7E20>
+send = <function _TestClientTransport.handle_request.<locals>.send at 0x000001BEB0CD7CE0>
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = {
+            key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])
+        }
+>       reason = reject_request(headers, allowed_origins=self.allowed_origins)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+infra\serve_http.py:52: TypeError
+_____________ test_each_tool_is_callable[report_index_freshness] ______________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-559/test_each_tool_is_callable_rep0')
+tool_name = 'report_index_freshness'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+>           session = _McpSession(client)
+                      ^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_server_wiring.py:197: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_server_wiring.py:77: in __init__
+    response = client.post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:556: in post
+    return super().post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1204: in post
+    return self.request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:455: in request
+    return super().request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:797: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:980: in send
+    response = self._send_handling_auth(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1008: in _send_handling_auth
+    response = self._send_handling_redirects(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1043: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1076: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <serve_http.RejectionMiddleware object at 0x000001BEB0E7C380>
+scope = {'type': 'http', 'http_version': '1.1', 'method': 'POST', 'path': '/mcp', ...}
+receive = <function _TestClientTransport.handle_request.<locals>.receive at 0x000001BEB0D47560>
+send = <function _TestClientTransport.handle_request.<locals>.send at 0x000001BEB0D47600>
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = {
+            key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])
+        }
+>       reason = reject_request(headers, allowed_origins=self.allowed_origins)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+infra\serve_http.py:52: TypeError
+___________________ test_each_tool_is_callable[search_docs] ___________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-559/test_each_tool_is_callable_sea0')
+tool_name = 'search_docs'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+>           session = _McpSession(client)
+                      ^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_server_wiring.py:197: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_server_wiring.py:77: in __init__
+    response = client.post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:556: in post
+    return super().post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1204: in post
+    return self.request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:455: in request
+    return super().request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:797: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:980: in send
+    response = self._send_handling_auth(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1008: in _send_handling_auth
+    response = self._send_handling_redirects(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1043: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1076: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <serve_http.RejectionMiddleware object at 0x000001BEB0D58150>
+scope = {'type': 'http', 'http_version': '1.1', 'method': 'POST', 'path': '/mcp', ...}
+receive = <function _TestClientTransport.handle_request.<locals>.receive at 0x000001BEB0D46980>
+send = <function _TestClientTransport.handle_request.<locals>.send at 0x000001BEB0CD53A0>
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = {
+            key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])
+        }
+>       reason = reject_request(headers, allowed_origins=self.allowed_origins)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+infra\serve_http.py:52: TypeError
+_________________ test_each_tool_is_callable[search_symbols] __________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-559/test_each_tool_is_callable_sea1')
+tool_name = 'search_symbols'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+>           session = _McpSession(client)
+                      ^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_server_wiring.py:197: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_server_wiring.py:77: in __init__
+    response = client.post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:556: in post
+    return super().post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1204: in post
+    return self.request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:455: in request
+    return super().request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:797: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:980: in send
+    response = self._send_handling_auth(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1008: in _send_handling_auth
+    response = self._send_handling_redirects(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1043: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1076: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <serve_http.RejectionMiddleware object at 0x000001BEB0D59B50>
+scope = {'type': 'http', 'http_version': '1.1', 'method': 'POST', 'path': '/mcp', ...}
+receive = <function _TestClientTransport.handle_request.<locals>.receive at 0x000001BEB0CD4680>
+send = <function _TestClientTransport.handle_request.<locals>.send at 0x000001BEB0CD4360>
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = {
+            key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])
+        }
+>       reason = reject_request(headers, allowed_origins=self.allowed_origins)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+infra\serve_http.py:52: TypeError
+____ test_a_bad_origin_is_rejected_at_the_transport_never_reaching_a_tool _____
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-559/test_a_bad_origin_is_rejected_0')
+
+    def test_a_bad_origin_is_rejected_at_the_transport_never_reaching_a_tool(tmp_path: Path) -> None:
+        with _client(tmp_path) as client:
+>           response = client.post(
+                "/mcp",
+                json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+                headers=dict(VALID_HEADERS, Origin="https://evil.example"),
+            )
+
+tests\mcp\test_server_wiring.py:207: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:556: in post
+    return super().post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1204: in post
+    return self.request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:455: in request
+    return super().request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:797: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:980: in send
+    response = self._send_handling_auth(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1008: in _send_handling_auth
+    response = self._send_handling_redirects(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1043: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1076: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <serve_http.RejectionMiddleware object at 0x000001BEB0D8A300>
+scope = {'type': 'http', 'http_version': '1.1', 'method': 'POST', 'path': '/mcp', ...}
+receive = <function _TestClientTransport.handle_request.<locals>.receive at 0x000001BEB0CD6200>
+send = <function _TestClientTransport.handle_request.<locals>.send at 0x000001BEB0CD7880>
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = {
+            key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])
+        }
+>       reason = reject_request(headers, allowed_origins=self.allowed_origins)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+infra\serve_http.py:52: TypeError
+____________ test_a_missing_protocol_version_is_rejected_with_400 _____________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-559/test_a_missing_protocol_versio0')
+
+    def test_a_missing_protocol_version_is_rejected_with_400(tmp_path: Path) -> None:
+        with _client(tmp_path) as client:
+            headers = {key: value for key, value in VALID_HEADERS.items() if key != "MCP-Protocol-Version"}
+>           response = client.post(
+                "/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}, headers=headers
+            )
+
+tests\mcp\test_server_wiring.py:220: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:556: in post
+    return super().post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1204: in post
+    return self.request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:455: in request
+    return super().request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:797: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:980: in send
+    response = self._send_handling_auth(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1008: in _send_handling_auth
+    response = self._send_handling_redirects(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1043: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1076: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <serve_http.RejectionMiddleware object at 0x000001BEB1014230>
+scope = {'type': 'http', 'http_version': '1.1', 'method': 'POST', 'path': '/mcp', ...}
+receive = <function _TestClientTransport.handle_request.<locals>.receive at 0x000001BEB0D6CEA0>
+send = <function _TestClientTransport.handle_request.<locals>.send at 0x000001BEB0D6CD60>
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = {
+            key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])
+        }
+>       reason = reject_request(headers, allowed_origins=self.allowed_origins)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+infra\serve_http.py:52: TypeError
+____________ test_an_invalid_protocol_version_is_rejected_with_400 ____________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-559/test_an_invalid_protocol_versi0')
+
+    def test_an_invalid_protocol_version_is_rejected_with_400(tmp_path: Path) -> None:
+        with _client(tmp_path) as client:
+>           response = client.post(
+                "/mcp",
+                json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+                headers=dict(VALID_HEADERS, **{"MCP-Protocol-Version": "not-a-real-version"}),
+            )
+
+tests\mcp\test_server_wiring.py:229: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:556: in post
+    return super().post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1204: in post
+    return self.request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:455: in request
+    return super().request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:797: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:980: in send
+    response = self._send_handling_auth(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1008: in _send_handling_auth
+    response = self._send_handling_redirects(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1043: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1076: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <serve_http.RejectionMiddleware object at 0x000001BEB0E98050>
+scope = {'type': 'http', 'http_version': '1.1', 'method': 'POST', 'path': '/mcp', ...}
+receive = <function _TestClientTransport.handle_request.<locals>.receive at 0x000001BEB0CD5800>
+send = <function _TestClientTransport.handle_request.<locals>.send at 0x000001BEB0CD4540>
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = {
+            key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])
+        }
+>       reason = reject_request(headers, allowed_origins=self.allowed_origins)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+infra\serve_http.py:52: TypeError
+______________________ test_a_valid_request_still_passes ______________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-559/test_a_valid_request_still_pas0')
+
+    def test_a_valid_request_still_passes(tmp_path: Path) -> None:
+        """A rejection is a plain 400 JSON body; a real, valid session's response is the normal
+        JSON-RPC envelope - the two are never the same shape."""
+        with _client(tmp_path) as client:
+>           session = _McpSession(client)
+                      ^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_server_wiring.py:242: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_server_wiring.py:77: in __init__
+    response = client.post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:556: in post
+    return super().post(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1204: in post
+    return self.request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:455: in request
+    return super().request(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:797: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:980: in send
+    response = self._send_handling_auth(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1008: in _send_handling_auth
+    response = self._send_handling_redirects(
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1043: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\httpx2\_client.py:1076: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <serve_http.RejectionMiddleware object at 0x000001BEB0D79EF0>
+scope = {'type': 'http', 'http_version': '1.1', 'method': 'POST', 'path': '/mcp', ...}
+receive = <function _TestClientTransport.handle_request.<locals>.receive at 0x000001BEB0D6D300>
+send = <function _TestClientTransport.handle_request.<locals>.send at 0x000001BEB0D6CB80>
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = {
+            key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])
+        }
+>       reason = reject_request(headers, allowed_origins=self.allowed_origins)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: <lambda>() got an unexpected keyword argument 'allowed_origins'
+
+infra\serve_http.py:52: TypeError
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/mcp/test_server_wiring.py::test_a_disallowed_origin_is_rejected
+FAILED tests/mcp/test_server_wiring.py::test_an_absent_origin_is_not_rejected_on_its_own
+FAILED tests/mcp/test_server_wiring.py::test_a_missing_protocol_version_is_rejected
+FAILED tests/mcp/test_server_wiring.py::test_an_invalid_protocol_version_is_rejected
+FAILED tests/mcp/test_server_wiring.py::test_a_fully_valid_request_is_not_rejected
+FAILED tests/mcp/test_server_wiring.py::test_tools_list_returns_all_nine_tools_with_schemas
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[find_examples]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[get_product_reference]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[get_symbol]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[list_members]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[list_recent_changes]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[lookup] - ...
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[report_index_freshness]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[search_docs]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[search_symbols]
+FAILED tests/mcp/test_server_wiring.py::test_a_bad_origin_is_rejected_at_the_transport_never_reaching_a_tool
+FAILED tests/mcp/test_server_wiring.py::test_a_missing_protocol_version_is_rejected_with_400
+FAILED tests/mcp/test_server_wiring.py::test_an_invalid_protocol_version_is_rejected_with_400
+FAILED tests/mcp/test_server_wiring.py::test_a_valid_request_still_passes - T...
+
+--- stderr ---
+
