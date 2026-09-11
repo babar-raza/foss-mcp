@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "card": "TC-017b",
+  "gate": "G1",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-11T01:03:08Z",
+  "base_rev": "f9b69fadd0055f1b12b7e196ebcb8aac59d51e0e",
+  "head_rev": "4f5d16a6016775b0e433e154fcc5220c0ce1751a",
+  "card_sha256": "9e4a5c10a68d6c4aa386990235cb633b956c359ba5e03bdba201b7b764d5bf10",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "114132775c6f681414dd070347de5ccf5d520e22f938ad3882a09660dbe49a8a",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/find_examples.py",
+      "src/foss_mcp/mcp/tools/get_symbol.py",
+      "src/foss_mcp/mcp/tools/list_members.py",
+      "tests/mcp/tools/test_symbol_tools.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_symbol_tools.py -q",
+          "exit_code": 0,
+          "duration_s": 0.882,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_symbol_tools.py -q",
+          "exit_code": 0,
+          "duration_s": 0.874,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/get_symbol.py');p.write_text(p.read_text(encoding='utf-8') + chr(10) + 'get_symbol = lambda *a, **k: {chr(115)+chr(105)+chr(103): chr(120)}' + chr(10), encoding='utf-8')\"",
+    "patch_sha256": "5efa8b458e5d25116c717506bc99d1897e88398cc2177c771c78fb763039e00f",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/get_symbol.py",
+      "?? .gatectl-holdout/",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": true,
+    "passed": true,
+    "detail": "..............                                                           [100%]"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

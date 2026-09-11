@@ -1,0 +1,342 @@
+
+===== CLEAN RUN 1 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-114132775c6f6814\Scripts\python.exe -m pytest tests/mcp/tools/test_symbol_tools.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-m0r7v3ut\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-114132775c6f6814\Scripts\python.exe -m pytest tests/mcp/tools/test_symbol_tools.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-m0r7v3ut\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== HOLDOUT (supervisor-authored, not named by the card) =====
+$ "D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-114132775c6f6814\Scripts\python.exe" -m pytest .gatectl-holdout -q -p no:cacheprovider
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/get_symbol.py, ?? .gatectl-holdout/, ?? .junit-0.xml
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-114132775c6f6814\Scripts\python.exe -m pytest tests/mcp/tools/test_symbol_tools.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-m0r7v3ut\.junit-0.xml"
+--- stdout ---
+FFFFFFFF                                                                 [100%]
+================================== FAILURES ===================================
+_________ test_get_symbol_returns_the_real_signature_for_a_known_fqn __________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-507/test_get_symbol_returns_the_re0')
+
+    def test_get_symbol_returns_the_real_signature_for_a_known_fqn(tmp_path: Path) -> None:
+        store = _store(tmp_path)
+        _, by_name = _publish_pdf_net_symbols(store)
+    
+        result = get_symbol(store, PDF_NET_SCOPE, WITHOUT_EXAMPLE)
+    
+>       assert isinstance(result, SymbolSignature)
+E       AssertionError: assert False
+E        +  where False = isinstance({'sig': 'x'}, SymbolSignature)
+
+tests\mcp\tools\test_symbol_tools.py:99: AssertionError
+______ test_get_symbol_returns_an_explicit_not_found_never_a_near_match _______
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-507/test_get_symbol_returns_an_exp0')
+
+    def test_get_symbol_returns_an_explicit_not_found_never_a_near_match(tmp_path: Path) -> None:
+        """A near-miss of a real FQN (a plausible typo/suffix) must NOT resolve - proving this is
+        exact matching, not fuzzy matching."""
+        store = _store(tmp_path)
+        _publish_pdf_net_symbols(store)
+    
+        result = get_symbol(store, PDF_NET_SCOPE, WITHOUT_EXAMPLE + "Extended")
+    
+>       assert isinstance(result, NotFound)
+E       AssertionError: assert False
+E        +  where False = isinstance({'sig': 'x'}, NotFound)
+
+tests\mcp\tools\test_symbol_tools.py:115: AssertionError
+_________________ test_list_members_returns_the_real_children _________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-507/test_list_members_returns_the_0')
+
+    def test_list_members_returns_the_real_children(tmp_path: Path) -> None:
+        store = _store(tmp_path)
+        _, by_name = _publish_pdf_net_symbols(store)
+    
+>       members = list_members(store, PDF_NET_SCOPE, WITHOUT_EXAMPLE)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_symbol_tools.py:123: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000023E70093610>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+fqn = 'Border'
+
+    def list_members(store: GenerationManifestStore, scope: Scope, fqn: str) -> tuple[str, ...] | NotFound:
+        """Every method and property *fqn* declares, in declaration order - methods first, then
+        properties. An absent FQN returns the same ``NotFound`` ``get_symbol`` would.
+        """
+        signature = get_symbol(store, scope, fqn)
+        if isinstance(signature, NotFound):
+            return signature
+>       return signature.methods + signature.properties
+               ^^^^^^^^^^^^^^^^^
+E       AttributeError: 'dict' object has no attribute 'methods'
+
+src\foss_mcp\mcp\tools\list_members.py:21: AttributeError
+____________ test_list_members_propagates_the_identical_not_found _____________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-507/test_list_members_propagates_t0')
+
+    def test_list_members_propagates_the_identical_not_found(tmp_path: Path) -> None:
+        store = _store(tmp_path)
+        _publish_pdf_net_symbols(store)
+    
+>       result = list_members(store, PDF_NET_SCOPE, "TotallyMadeUpClassName")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_symbol_tools.py:135: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000023E6E3A3A80>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+fqn = 'TotallyMadeUpClassName'
+
+    def list_members(store: GenerationManifestStore, scope: Scope, fqn: str) -> tuple[str, ...] | NotFound:
+        """Every method and property *fqn* declares, in declaration order - methods first, then
+        properties. An absent FQN returns the same ``NotFound`` ``get_symbol`` would.
+        """
+        signature = get_symbol(store, scope, fqn)
+        if isinstance(signature, NotFound):
+            return signature
+>       return signature.methods + signature.properties
+               ^^^^^^^^^^^^^^^^^
+E       AttributeError: 'dict' object has no attribute 'methods'
+
+src\foss_mcp\mcp\tools\list_members.py:21: AttributeError
+__________________ test_find_examples_prefers_an_exact_match __________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-507/test_find_examples_prefers_an_0')
+
+    def test_find_examples_prefers_an_exact_match(tmp_path: Path) -> None:
+        store = _store(tmp_path)
+        _publish_pdf_net_symbols(store)
+    
+>       result = find_examples(store, PDF_NET_SCOPE, WITH_EXAMPLE)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_symbol_tools.py:145: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000023E70CF4510>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'AnnotationCollection', top_k = 5
+
+    def find_examples(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 5
+    ) -> list[ExampleMatch] | NoExampleFound:
+        """A verified snippet for *query*: an exact FQN match first (``get_symbol`` under the
+        hood), a semantic (lexical) search over every OTHER example-bearing chunk otherwise.
+    
+        Never executes a snippet, and never returns one when nothing - exact or semantic - has
+        one to offer.
+        """
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return NoExampleFound(scope, query)
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        documents = (lexical_payload or {}).get("documents") or {}
+        if not documents:
+            return NoExampleFound(scope, query)
+    
+        exact = get_symbol(store, scope, query)
+        if not isinstance(exact, NotFound):
+>           example = _extract_example(exact.raw_text)
+                                       ^^^^^^^^^^^^^^
+E           AttributeError: 'dict' object has no attribute 'raw_text'
+
+src\foss_mcp\mcp\tools\find_examples.py:69: AttributeError
+______________ test_find_examples_falls_back_to_semantic_search _______________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-507/test_find_examples_falls_back_0')
+
+    def test_find_examples_falls_back_to_semantic_search(tmp_path: Path) -> None:
+        """A query that is not itself an FQN still finds the verified snippet by lexical search."""
+        store = _store(tmp_path)
+        _publish_pdf_net_symbols(store)
+    
+>       result = find_examples(store, PDF_NET_SCOPE, "text annotation")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_symbol_tools.py:157: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000023E6E4F2C30>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'text annotation', top_k = 5
+
+    def find_examples(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 5
+    ) -> list[ExampleMatch] | NoExampleFound:
+        """A verified snippet for *query*: an exact FQN match first (``get_symbol`` under the
+        hood), a semantic (lexical) search over every OTHER example-bearing chunk otherwise.
+    
+        Never executes a snippet, and never returns one when nothing - exact or semantic - has
+        one to offer.
+        """
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return NoExampleFound(scope, query)
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        documents = (lexical_payload or {}).get("documents") or {}
+        if not documents:
+            return NoExampleFound(scope, query)
+    
+        exact = get_symbol(store, scope, query)
+        if not isinstance(exact, NotFound):
+>           example = _extract_example(exact.raw_text)
+                                       ^^^^^^^^^^^^^^
+E           AttributeError: 'dict' object has no attribute 'raw_text'
+
+src\foss_mcp\mcp\tools\find_examples.py:69: AttributeError
+___ test_find_examples_returns_an_explicit_miss_when_nothing_has_an_example ___
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-507/test_find_examples_returns_an_0')
+
+    def test_find_examples_returns_an_explicit_miss_when_nothing_has_an_example(tmp_path: Path) -> None:
+        store = _store(tmp_path)
+        _publish_pdf_net_symbols(store)
+    
+        # WITHOUT_EXAMPLE resolves as a real symbol (exact match) but carries no Example: block,
+        # and nothing else in this generation mentions its distinguishing terms either.
+>       result = find_examples(store, PDF_NET_SCOPE, WITHOUT_EXAMPLE)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_symbol_tools.py:169: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000023E704D7680>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'Border', top_k = 5
+
+    def find_examples(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 5
+    ) -> list[ExampleMatch] | NoExampleFound:
+        """A verified snippet for *query*: an exact FQN match first (``get_symbol`` under the
+        hood), a semantic (lexical) search over every OTHER example-bearing chunk otherwise.
+    
+        Never executes a snippet, and never returns one when nothing - exact or semantic - has
+        one to offer.
+        """
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return NoExampleFound(scope, query)
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        documents = (lexical_payload or {}).get("documents") or {}
+        if not documents:
+            return NoExampleFound(scope, query)
+    
+        exact = get_symbol(store, scope, query)
+        if not isinstance(exact, NotFound):
+>           example = _extract_example(exact.raw_text)
+                                       ^^^^^^^^^^^^^^
+E           AttributeError: 'dict' object has no attribute 'raw_text'
+
+src\foss_mcp\mcp\tools\find_examples.py:69: AttributeError
+_______________ test_no_snippet_is_ever_executed_at_query_time ________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-507/test_no_snippet_is_ever_execut0')
+
+    def test_no_snippet_is_ever_executed_at_query_time(tmp_path: Path) -> None:
+        """A snippet that would raise or have a visible side effect if actually run must come
+        back unchanged as inert text - find_examples only ever returns it, never runs it."""
+        store = _store(tmp_path)
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        entry = fixture["types"][0]
+        hostile_snippet = "raise RuntimeError('find_examples executed this snippet')"
+        body = f"## {entry['name']}\n\nFQN: {entry['name']}\nKind: {entry['kind']}\nExample:\n{hostile_snippet}"
+        doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="api_surface",
+            provenance=Provenance(repository=fixture["source_repository"], commit=fixture["source_commit"]),
+            evidence_refs=(),
+            title="pdf/net API surface",
+            body=body,
+        )
+        lease = store.acquire_lease("pdf::net::self_extracted", "worker-1", "pending")
+        publish_generation(
+            store,
+            family="pdf",
+            platform="net",
+            source_kind="self_extracted",
+            expected_active=None,
+            chunks=chunk_document(doc),
+            embedding_provider=DeterministicEmbeddingProvider(),
+            lease=lease,
+        )
+    
+>       result = find_examples(store, PDF_NET_SCOPE, entry["name"])
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_symbol_tools.py:202: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000023E704D6580>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'AFRelationship', top_k = 5
+
+    def find_examples(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 5
+    ) -> list[ExampleMatch] | NoExampleFound:
+        """A verified snippet for *query*: an exact FQN match first (``get_symbol`` under the
+        hood), a semantic (lexical) search over every OTHER example-bearing chunk otherwise.
+    
+        Never executes a snippet, and never returns one when nothing - exact or semantic - has
+        one to offer.
+        """
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return NoExampleFound(scope, query)
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        documents = (lexical_payload or {}).get("documents") or {}
+        if not documents:
+            return NoExampleFound(scope, query)
+    
+        exact = get_symbol(store, scope, query)
+        if not isinstance(exact, NotFound):
+>           example = _extract_example(exact.raw_text)
+                                       ^^^^^^^^^^^^^^
+E           AttributeError: 'dict' object has no attribute 'raw_text'
+
+src\foss_mcp\mcp\tools\find_examples.py:69: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_symbol_tools.py::test_get_symbol_returns_the_real_signature_for_a_known_fqn
+FAILED tests/mcp/tools/test_symbol_tools.py::test_get_symbol_returns_an_explicit_not_found_never_a_near_match
+FAILED tests/mcp/tools/test_symbol_tools.py::test_list_members_returns_the_real_children
+FAILED tests/mcp/tools/test_symbol_tools.py::test_list_members_propagates_the_identical_not_found
+FAILED tests/mcp/tools/test_symbol_tools.py::test_find_examples_prefers_an_exact_match
+FAILED tests/mcp/tools/test_symbol_tools.py::test_find_examples_falls_back_to_semantic_search
+FAILED tests/mcp/tools/test_symbol_tools.py::test_find_examples_returns_an_explicit_miss_when_nothing_has_an_example
+FAILED tests/mcp/tools/test_symbol_tools.py::test_no_snippet_is_ever_executed_at_query_time
+
+--- stderr ---
+
