@@ -1,0 +1,489 @@
+
+===== CLEAN RUN 1 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rqega6m9\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rqega6m9\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M docker-compose.yml, ?? .junit-0.xml
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rqega6m9\.junit-0.xml"
+--- stdout ---
+EEEEEEEEEEEEEE                                                           [100%]
+=================================== ERRORS ====================================
+____ ERROR at setup of test_tools_list_returns_all_nine_tools_with_schemas ____
+
+    @pytest.fixture(scope="module")
+    def running_container() -> Iterator[None]:
+        up = _compose("up", "-d", "--build")
+        try:
+            assert up.returncode == 0, (up.stdout + up.stderr)[-4000:]
+>           _wait_until_ready()
+
+tests\e2e\test_container_session.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _wait_until_ready() -> None:
+        """Poll the real published port with a real initialize request until the container
+        answers - or fail with whatever the last real error actually was, never a bare timeout."""
+        deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+        last_error = "never attempted"
+        while time.monotonic() < deadline:
+            try:
+                response = httpx.post(
+                    f"{BASE_URL}{MCP_PATH}", json=_initialize_body(), headers=VALID_HEADERS, timeout=5
+                )
+                if response.status_code == 200:
+                    return
+                last_error = f"HTTP {response.status_code}: {response.text[:300]}"
+            except httpx.HTTPError as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+            time.sleep(POLL_INTERVAL_SECONDS)
+>       raise AssertionError(f"container never became ready on {BASE_URL}: {last_error}")
+E       AssertionError: container never became ready on http://127.0.0.1:8080: ConnectError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+tests\e2e\test_container_session.py:123: AssertionError
+_ ERROR at setup of test_each_tool_is_callable_against_the_real_container[find_examples] _
+
+    @pytest.fixture(scope="module")
+    def running_container() -> Iterator[None]:
+        up = _compose("up", "-d", "--build")
+        try:
+            assert up.returncode == 0, (up.stdout + up.stderr)[-4000:]
+>           _wait_until_ready()
+
+tests\e2e\test_container_session.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _wait_until_ready() -> None:
+        """Poll the real published port with a real initialize request until the container
+        answers - or fail with whatever the last real error actually was, never a bare timeout."""
+        deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+        last_error = "never attempted"
+        while time.monotonic() < deadline:
+            try:
+                response = httpx.post(
+                    f"{BASE_URL}{MCP_PATH}", json=_initialize_body(), headers=VALID_HEADERS, timeout=5
+                )
+                if response.status_code == 200:
+                    return
+                last_error = f"HTTP {response.status_code}: {response.text[:300]}"
+            except httpx.HTTPError as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+            time.sleep(POLL_INTERVAL_SECONDS)
+>       raise AssertionError(f"container never became ready on {BASE_URL}: {last_error}")
+E       AssertionError: container never became ready on http://127.0.0.1:8080: ConnectError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+tests\e2e\test_container_session.py:123: AssertionError
+_ ERROR at setup of test_each_tool_is_callable_against_the_real_container[get_product_reference] _
+
+    @pytest.fixture(scope="module")
+    def running_container() -> Iterator[None]:
+        up = _compose("up", "-d", "--build")
+        try:
+            assert up.returncode == 0, (up.stdout + up.stderr)[-4000:]
+>           _wait_until_ready()
+
+tests\e2e\test_container_session.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _wait_until_ready() -> None:
+        """Poll the real published port with a real initialize request until the container
+        answers - or fail with whatever the last real error actually was, never a bare timeout."""
+        deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+        last_error = "never attempted"
+        while time.monotonic() < deadline:
+            try:
+                response = httpx.post(
+                    f"{BASE_URL}{MCP_PATH}", json=_initialize_body(), headers=VALID_HEADERS, timeout=5
+                )
+                if response.status_code == 200:
+                    return
+                last_error = f"HTTP {response.status_code}: {response.text[:300]}"
+            except httpx.HTTPError as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+            time.sleep(POLL_INTERVAL_SECONDS)
+>       raise AssertionError(f"container never became ready on {BASE_URL}: {last_error}")
+E       AssertionError: container never became ready on http://127.0.0.1:8080: ConnectError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+tests\e2e\test_container_session.py:123: AssertionError
+_ ERROR at setup of test_each_tool_is_callable_against_the_real_container[get_symbol] _
+
+    @pytest.fixture(scope="module")
+    def running_container() -> Iterator[None]:
+        up = _compose("up", "-d", "--build")
+        try:
+            assert up.returncode == 0, (up.stdout + up.stderr)[-4000:]
+>           _wait_until_ready()
+
+tests\e2e\test_container_session.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _wait_until_ready() -> None:
+        """Poll the real published port with a real initialize request until the container
+        answers - or fail with whatever the last real error actually was, never a bare timeout."""
+        deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+        last_error = "never attempted"
+        while time.monotonic() < deadline:
+            try:
+                response = httpx.post(
+                    f"{BASE_URL}{MCP_PATH}", json=_initialize_body(), headers=VALID_HEADERS, timeout=5
+                )
+                if response.status_code == 200:
+                    return
+                last_error = f"HTTP {response.status_code}: {response.text[:300]}"
+            except httpx.HTTPError as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+            time.sleep(POLL_INTERVAL_SECONDS)
+>       raise AssertionError(f"container never became ready on {BASE_URL}: {last_error}")
+E       AssertionError: container never became ready on http://127.0.0.1:8080: ConnectError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+tests\e2e\test_container_session.py:123: AssertionError
+_ ERROR at setup of test_each_tool_is_callable_against_the_real_container[list_members] _
+
+    @pytest.fixture(scope="module")
+    def running_container() -> Iterator[None]:
+        up = _compose("up", "-d", "--build")
+        try:
+            assert up.returncode == 0, (up.stdout + up.stderr)[-4000:]
+>           _wait_until_ready()
+
+tests\e2e\test_container_session.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _wait_until_ready() -> None:
+        """Poll the real published port with a real initialize request until the container
+        answers - or fail with whatever the last real error actually was, never a bare timeout."""
+        deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+        last_error = "never attempted"
+        while time.monotonic() < deadline:
+            try:
+                response = httpx.post(
+                    f"{BASE_URL}{MCP_PATH}", json=_initialize_body(), headers=VALID_HEADERS, timeout=5
+                )
+                if response.status_code == 200:
+                    return
+                last_error = f"HTTP {response.status_code}: {response.text[:300]}"
+            except httpx.HTTPError as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+            time.sleep(POLL_INTERVAL_SECONDS)
+>       raise AssertionError(f"container never became ready on {BASE_URL}: {last_error}")
+E       AssertionError: container never became ready on http://127.0.0.1:8080: ConnectError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+tests\e2e\test_container_session.py:123: AssertionError
+_ ERROR at setup of test_each_tool_is_callable_against_the_real_container[list_recent_changes] _
+
+    @pytest.fixture(scope="module")
+    def running_container() -> Iterator[None]:
+        up = _compose("up", "-d", "--build")
+        try:
+            assert up.returncode == 0, (up.stdout + up.stderr)[-4000:]
+>           _wait_until_ready()
+
+tests\e2e\test_container_session.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _wait_until_ready() -> None:
+        """Poll the real published port with a real initialize request until the container
+        answers - or fail with whatever the last real error actually was, never a bare timeout."""
+        deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+        last_error = "never attempted"
+        while time.monotonic() < deadline:
+            try:
+                response = httpx.post(
+                    f"{BASE_URL}{MCP_PATH}", json=_initialize_body(), headers=VALID_HEADERS, timeout=5
+                )
+                if response.status_code == 200:
+                    return
+                last_error = f"HTTP {response.status_code}: {response.text[:300]}"
+            except httpx.HTTPError as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+            time.sleep(POLL_INTERVAL_SECONDS)
+>       raise AssertionError(f"container never became ready on {BASE_URL}: {last_error}")
+E       AssertionError: container never became ready on http://127.0.0.1:8080: ConnectError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+tests\e2e\test_container_session.py:123: AssertionError
+_ ERROR at setup of test_each_tool_is_callable_against_the_real_container[lookup] _
+
+    @pytest.fixture(scope="module")
+    def running_container() -> Iterator[None]:
+        up = _compose("up", "-d", "--build")
+        try:
+            assert up.returncode == 0, (up.stdout + up.stderr)[-4000:]
+>           _wait_until_ready()
+
+tests\e2e\test_container_session.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _wait_until_ready() -> None:
+        """Poll the real published port with a real initialize request until the container
+        answers - or fail with whatever the last real error actually was, never a bare timeout."""
+        deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+        last_error = "never attempted"
+        while time.monotonic() < deadline:
+            try:
+                response = httpx.post(
+                    f"{BASE_URL}{MCP_PATH}", json=_initialize_body(), headers=VALID_HEADERS, timeout=5
+                )
+                if response.status_code == 200:
+                    return
+                last_error = f"HTTP {response.status_code}: {response.text[:300]}"
+            except httpx.HTTPError as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+            time.sleep(POLL_INTERVAL_SECONDS)
+>       raise AssertionError(f"container never became ready on {BASE_URL}: {last_error}")
+E       AssertionError: container never became ready on http://127.0.0.1:8080: ConnectError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+tests\e2e\test_container_session.py:123: AssertionError
+_ ERROR at setup of test_each_tool_is_callable_against_the_real_container[report_index_freshness] _
+
+    @pytest.fixture(scope="module")
+    def running_container() -> Iterator[None]:
+        up = _compose("up", "-d", "--build")
+        try:
+            assert up.returncode == 0, (up.stdout + up.stderr)[-4000:]
+>           _wait_until_ready()
+
+tests\e2e\test_container_session.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _wait_until_ready() -> None:
+        """Poll the real published port with a real initialize request until the container
+        answers - or fail with whatever the last real error actually was, never a bare timeout."""
+        deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+        last_error = "never attempted"
+        while time.monotonic() < deadline:
+            try:
+                response = httpx.post(
+                    f"{BASE_URL}{MCP_PATH}", json=_initialize_body(), headers=VALID_HEADERS, timeout=5
+                )
+                if response.status_code == 200:
+                    return
+                last_error = f"HTTP {response.status_code}: {response.text[:300]}"
+            except httpx.HTTPError as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+            time.sleep(POLL_INTERVAL_SECONDS)
+>       raise AssertionError(f"container never became ready on {BASE_URL}: {last_error}")
+E       AssertionError: container never became ready on http://127.0.0.1:8080: ConnectError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+tests\e2e\test_container_session.py:123: AssertionError
+_ ERROR at setup of test_each_tool_is_callable_against_the_real_container[search_docs] _
+
+    @pytest.fixture(scope="module")
+    def running_container() -> Iterator[None]:
+        up = _compose("up", "-d", "--build")
+        try:
+            assert up.returncode == 0, (up.stdout + up.stderr)[-4000:]
+>           _wait_until_ready()
+
+tests\e2e\test_container_session.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _wait_until_ready() -> None:
+        """Poll the real published port with a real initialize request until the container
+        answers - or fail with whatever the last real error actually was, never a bare timeout."""
+        deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+        last_error = "never attempted"
+        while time.monotonic() < deadline:
+            try:
+                response = httpx.post(
+                    f"{BASE_URL}{MCP_PATH}", json=_initialize_body(), headers=VALID_HEADERS, timeout=5
+                )
+                if response.status_code == 200:
+                    return
+                last_error = f"HTTP {response.status_code}: {response.text[:300]}"
+            except httpx.HTTPError as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+            time.sleep(POLL_INTERVAL_SECONDS)
+>       raise AssertionError(f"container never became ready on {BASE_URL}: {last_error}")
+E       AssertionError: container never became ready on http://127.0.0.1:8080: ConnectError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+tests\e2e\test_container_session.py:123: AssertionError
+_ ERROR at setup of test_each_tool_is_callable_against_the_real_container[search_symbols] _
+
+    @pytest.fixture(scope="module")
+    def running_container() -> Iterator[None]:
+        up = _compose("up", "-d", "--build")
+        try:
+            assert up.returncode == 0, (up.stdout + up.stderr)[-4000:]
+>           _wait_until_ready()
+
+tests\e2e\test_container_session.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _wait_until_ready() -> None:
+        """Poll the real published port with a real initialize request until the container
+        answers - or fail with whatever the last real error actually was, never a bare timeout."""
+        deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+        last_error = "never attempted"
+        while time.monotonic() < deadline:
+            try:
+                response = httpx.post(
+                    f"{BASE_URL}{MCP_PATH}", json=_initialize_body(), headers=VALID_HEADERS, timeout=5
+                )
+                if response.status_code == 200:
+                    return
+                last_error = f"HTTP {response.status_code}: {response.text[:300]}"
+            except httpx.HTTPError as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+            time.sleep(POLL_INTERVAL_SECONDS)
+>       raise AssertionError(f"container never became ready on {BASE_URL}: {last_error}")
+E       AssertionError: container never became ready on http://127.0.0.1:8080: ConnectError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+tests\e2e\test_container_session.py:123: AssertionError
+____________ ERROR at setup of test_an_invalid_origin_is_rejected _____________
+
+    @pytest.fixture(scope="module")
+    def running_container() -> Iterator[None]:
+        up = _compose("up", "-d", "--build")
+        try:
+            assert up.returncode == 0, (up.stdout + up.stderr)[-4000:]
+>           _wait_until_ready()
+
+tests\e2e\test_container_session.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _wait_until_ready() -> None:
+        """Poll the real published port with a real initialize request until the container
+        answers - or fail with whatever the last real error actually was, never a bare timeout."""
+        deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+        last_error = "never attempted"
+        while time.monotonic() < deadline:
+            try:
+                response = httpx.post(
+                    f"{BASE_URL}{MCP_PATH}", json=_initialize_body(), headers=VALID_HEADERS, timeout=5
+                )
+                if response.status_code == 200:
+                    return
+                last_error = f"HTTP {response.status_code}: {response.text[:300]}"
+            except httpx.HTTPError as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+            time.sleep(POLL_INTERVAL_SECONDS)
+>       raise AssertionError(f"container never became ready on {BASE_URL}: {last_error}")
+E       AssertionError: container never became ready on http://127.0.0.1:8080: ConnectError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+tests\e2e\test_container_session.py:123: AssertionError
+________ ERROR at setup of test_a_missing_protocol_version_is_rejected ________
+
+    @pytest.fixture(scope="module")
+    def running_container() -> Iterator[None]:
+        up = _compose("up", "-d", "--build")
+        try:
+            assert up.returncode == 0, (up.stdout + up.stderr)[-4000:]
+>           _wait_until_ready()
+
+tests\e2e\test_container_session.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _wait_until_ready() -> None:
+        """Poll the real published port with a real initialize request until the container
+        answers - or fail with whatever the last real error actually was, never a bare timeout."""
+        deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+        last_error = "never attempted"
+        while time.monotonic() < deadline:
+            try:
+                response = httpx.post(
+                    f"{BASE_URL}{MCP_PATH}", json=_initialize_body(), headers=VALID_HEADERS, timeout=5
+                )
+                if response.status_code == 200:
+                    return
+                last_error = f"HTTP {response.status_code}: {response.text[:300]}"
+            except httpx.HTTPError as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+            time.sleep(POLL_INTERVAL_SECONDS)
+>       raise AssertionError(f"container never became ready on {BASE_URL}: {last_error}")
+E       AssertionError: container never became ready on http://127.0.0.1:8080: ConnectError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+tests\e2e\test_container_session.py:123: AssertionError
+_______ ERROR at setup of test_an_invalid_protocol_version_is_rejected ________
+
+    @pytest.fixture(scope="module")
+    def running_container() -> Iterator[None]:
+        up = _compose("up", "-d", "--build")
+        try:
+            assert up.returncode == 0, (up.stdout + up.stderr)[-4000:]
+>           _wait_until_ready()
+
+tests\e2e\test_container_session.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _wait_until_ready() -> None:
+        """Poll the real published port with a real initialize request until the container
+        answers - or fail with whatever the last real error actually was, never a bare timeout."""
+        deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+        last_error = "never attempted"
+        while time.monotonic() < deadline:
+            try:
+                response = httpx.post(
+                    f"{BASE_URL}{MCP_PATH}", json=_initialize_body(), headers=VALID_HEADERS, timeout=5
+                )
+                if response.status_code == 200:
+                    return
+                last_error = f"HTTP {response.status_code}: {response.text[:300]}"
+            except httpx.HTTPError as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+            time.sleep(POLL_INTERVAL_SECONDS)
+>       raise AssertionError(f"container never became ready on {BASE_URL}: {last_error}")
+E       AssertionError: container never became ready on http://127.0.0.1:8080: ConnectError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+tests\e2e\test_container_session.py:123: AssertionError
+_ ERROR at setup of test_protocol_errors_stay_distinguishable_from_tool_domain_errors _
+
+    @pytest.fixture(scope="module")
+    def running_container() -> Iterator[None]:
+        up = _compose("up", "-d", "--build")
+        try:
+            assert up.returncode == 0, (up.stdout + up.stderr)[-4000:]
+>           _wait_until_ready()
+
+tests\e2e\test_container_session.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _wait_until_ready() -> None:
+        """Poll the real published port with a real initialize request until the container
+        answers - or fail with whatever the last real error actually was, never a bare timeout."""
+        deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+        last_error = "never attempted"
+        while time.monotonic() < deadline:
+            try:
+                response = httpx.post(
+                    f"{BASE_URL}{MCP_PATH}", json=_initialize_body(), headers=VALID_HEADERS, timeout=5
+                )
+                if response.status_code == 200:
+                    return
+                last_error = f"HTTP {response.status_code}: {response.text[:300]}"
+            except httpx.HTTPError as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+            time.sleep(POLL_INTERVAL_SECONDS)
+>       raise AssertionError(f"container never became ready on {BASE_URL}: {last_error}")
+E       AssertionError: container never became ready on http://127.0.0.1:8080: ConnectError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+tests\e2e\test_container_session.py:123: AssertionError
+=========================== short test summary info ===========================
+ERROR tests/e2e/test_container_session.py::test_tools_list_returns_all_nine_tools_with_schemas
+ERROR tests/e2e/test_container_session.py::test_each_tool_is_callable_against_the_real_container[find_examples]
+ERROR tests/e2e/test_container_session.py::test_each_tool_is_callable_against_the_real_container[get_product_reference]
+ERROR tests/e2e/test_container_session.py::test_each_tool_is_callable_against_the_real_container[get_symbol]
+ERROR tests/e2e/test_container_session.py::test_each_tool_is_callable_against_the_real_container[list_members]
+ERROR tests/e2e/test_container_session.py::test_each_tool_is_callable_against_the_real_container[list_recent_changes]
+ERROR tests/e2e/test_container_session.py::test_each_tool_is_callable_against_the_real_container[lookup]
+ERROR tests/e2e/test_container_session.py::test_each_tool_is_callable_against_the_real_container[report_index_freshness]
+ERROR tests/e2e/test_container_session.py::test_each_tool_is_callable_against_the_real_container[search_docs]
+ERROR tests/e2e/test_container_session.py::test_each_tool_is_callable_against_the_real_container[search_symbols]
+ERROR tests/e2e/test_container_session.py::test_an_invalid_origin_is_rejected
+ERROR tests/e2e/test_container_session.py::test_a_missing_protocol_version_is_rejected
+ERROR tests/e2e/test_container_session.py::test_an_invalid_protocol_version_is_rejected
+ERROR tests/e2e/test_container_session.py::test_protocol_errors_stay_distinguishable_from_tool_domain_errors
+
+--- stderr ---
+
