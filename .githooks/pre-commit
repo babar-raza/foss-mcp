@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Refuses a supervisor commit that would sweep up a worker's uncommitted work.
+#
+# This is a HOOK and not a command because the command already existed, already
+# printed the right refusal, and was chained past with `;` - twice. A control the
+# operator can step over is a suggestion.
+#
+# Set FOSS_MCP_WORKER=1 in the worker's own environment: a worker committing its
+# own product paths is exactly what should happen.
+set -euo pipefail
+
+if [ "${FOSS_MCP_WORKER:-0}" = "1" ]; then
+  exit 0
+fi
+
+PY=".venv/Scripts/python.exe"
+[ -x "$PY" ] || PY=".venv/bin/python"
+[ -x "$PY" ] || PY="python"
+
+staged=$("$PY" - <<'PYEOF'
+import subprocess, sys
+sys.path.insert(0, "ops")
+import gatectl as G
+
+out = subprocess.run(["git", "diff", "--cached", "--name-only"],
+                     capture_output=True, text=True).stdout
+bad = [p.strip() for p in out.splitlines()
+       if p.strip() and not G.matches_any(p.strip(), G.GLOBAL_DENY)
+       and not p.strip().startswith("docs/")]
+print("\n".join(bad))
+PYEOF
+)
+
+if [ -n "$staged" ]; then
+  echo "pre-commit: BLOCKED - product paths are staged in a supervisor commit:" >&2
+  echo "$staged" | sed 's/^/    /' >&2
+  echo >&2
+  echo "These belong to a worker. Stage explicit supervisor paths, or set" >&2
+  echo "FOSS_MCP_WORKER=1 if this IS the worker committing its own card." >&2
+  exit 1
+fi
