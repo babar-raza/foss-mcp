@@ -1,0 +1,20 @@
+# Deployment identity - deployment-time only, per foss_mcp.mcp.routing.resolve_scope: a
+# client request never determines which product a deployment serves.
+deployment:
+  family: pdf
+  platform: net
+  sourceKind: self_extracted
+
+image:
+  repository: foss-mcp-serving
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+resources: {}
+
+# NOTE: there is no `networkPolicy.enabled` toggle here, deliberately. The reference overlay
+# disabled its NetworkPolicy through a values flag like this one; that is the defect this
+# chart exists to reverse, not a pattern to reproduce. templates/networkpolicy.yaml always
+# renders - see that file's own header comment.

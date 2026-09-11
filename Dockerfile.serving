@@ -1,0 +1,32 @@
+# Serving image: the MCP server, wired to serve exactly one product deployment over stdio.
+#
+# Exactly one of the two build paths this project ships (the other is Dockerfile.ingestion).
+# Do NOT add a third: an unreferenced alternate Dockerfile is a confirmed crash-loop trap in
+# the reference system, still sitting unused in its tree.
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Hash-verified install: every dependency, and its transitive closure, is pinned by exact
+# sha256 in requirements.lock. --require-hashes refuses to install anything that isn't -
+# there is no path from a compromised or substituted package to this image.
+COPY requirements.lock ./requirements.lock
+RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+
+# foss_mcp has no [build-system] in pyproject.toml (src/ layout only, per docs/REPOSITORY_LAYOUT.md);
+# it is placed on PYTHONPATH rather than pip-installed, the same way tests/conftest.py does it locally.
+COPY src/ ./src/
+COPY config/ ./config/
+COPY infra/serve_stdio.py ./infra/serve_stdio.py
+ENV PYTHONPATH=/app/src
+
+RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp
+USER foss-mcp
+
+# The server speaks MCP over stdio, not HTTP, so there is no endpoint to poll from outside the
+# process; this confirms the deployed environment itself is intact (every import the server
+# needs actually resolves) rather than asserting the running session is mid-conversation.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["python", "-c", "import foss_mcp.mcp.server"]
+
+CMD ["python", "/app/infra/serve_stdio.py"]

@@ -1,0 +1,32 @@
+# Ingestion image: a plain CLI entry point that publishes one generation through the CAS
+# manifest path. Deliberately not called "worker" - there is no message broker in this
+# architecture for it to work against; it runs once, publishes, and exits.
+#
+# Exactly one of the two build paths this project ships (the other is Dockerfile.serving).
+# Do NOT add a third: an unreferenced alternate Dockerfile is a confirmed crash-loop trap in
+# the reference system, still sitting unused in its tree.
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Hash-verified install: every dependency, and its transitive closure, is pinned by exact
+# sha256 in requirements.lock. --require-hashes refuses to install anything that isn't.
+COPY requirements.lock ./requirements.lock
+RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+
+# foss_mcp has no [build-system] in pyproject.toml (src/ layout only, per docs/REPOSITORY_LAYOUT.md);
+# it is placed on PYTHONPATH rather than pip-installed, the same way tests/conftest.py does it locally.
+COPY src/ ./src/
+COPY config/ ./config/
+COPY infra/ingest.py ./infra/ingest.py
+ENV PYTHONPATH=/app/src
+
+RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp
+USER foss-mcp
+
+# A one-shot CLI has no long-running server to poll; this confirms the deployed environment
+# itself is intact (the publish path this entry point depends on actually imports).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["python", "-c", "import foss_mcp.indexing.publisher"]
+
+ENTRYPOINT ["python", "/app/infra/ingest.py"]

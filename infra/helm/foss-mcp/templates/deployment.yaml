@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "foss-mcp.fullname" . }}
+  labels:
+    {{- include "foss-mcp.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "foss-mcp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "foss-mcp.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: serving
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: FOSS_MCP_FAMILY
+              value: {{ .Values.deployment.family | quote }}
+            - name: FOSS_MCP_PLATFORM
+              value: {{ .Values.deployment.platform | quote }}
+            - name: FOSS_MCP_SOURCE_KIND
+              value: {{ .Values.deployment.sourceKind | quote }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
