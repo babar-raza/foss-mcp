@@ -94,9 +94,7 @@ def _literal_all(tree: ast.Module) -> set[str] | None:
         value: ast.AST | None = None
         if (
             isinstance(node, ast.Assign)
-            and any(
-                isinstance(target, ast.Name) and target.id == "__all__" for target in node.targets
-            )
+            and any(isinstance(target, ast.Name) and target.id == "__all__" for target in node.targets)
         ) or (
             isinstance(node, ast.AugAssign)
             and isinstance(node.target, ast.Name)
@@ -170,9 +168,7 @@ def _module_symbols(
         if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
             public, public_by = _public_name(node.name, explicit)
             if public:
-                kind: SymbolKind = (
-                    _class_kind(node) if isinstance(node, ast.ClassDef) else "function"
-                )
+                kind: SymbolKind = _class_kind(node) if isinstance(node, ast.ClassDef) else "function"
                 symbols.append(
                     PublicSymbol(
                         f"{module}.{node.name}",
@@ -211,9 +207,7 @@ def _module_symbols(
     return symbols, unresolved
 
 
-def _methods(
-    node: ast.ClassDef, module: str, relative: str, public_by: PublicBy
-) -> list[PublicSymbol]:
+def _methods(node: ast.ClassDef, module: str, relative: str, public_by: PublicBy) -> list[PublicSymbol]:
     """The public methods a class body defines, each once, in source order."""
     found: list[PublicSymbol] = []
     seen: set[str] = set()
@@ -239,9 +233,7 @@ def _methods(
     return found
 
 
-def _origin_kind(
-    origin: str, source_root: Path, seen: frozenset[str] = frozenset()
-) -> SymbolKind | None:
+def _origin_kind(origin: str, source_root: Path, seen: frozenset[str] = frozenset()) -> SymbolKind | None:
     """The kind of one re-exported definition, read from its own file; ``None`` if absent.
 
     A module that only forwards a name is followed to the module that defines it. The public

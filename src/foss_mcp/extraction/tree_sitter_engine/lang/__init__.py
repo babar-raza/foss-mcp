@@ -126,6 +126,7 @@ Consumers (as of this card):
     populate) ``REACHABILITY_ENFORCED_PLATFORMS`` as the future wiring
     point for reference-page generation (TC-MT040-17).
 """
+
 from __future__ import annotations
 
 from . import cpp, csharp, go, java, python, rust, typescript

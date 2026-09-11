@@ -15,7 +15,8 @@ import os
 
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.responses import JSONResponse
-from starlette.types import ASGIApp, Receive, Scope as ASGIScope, Send
+from starlette.types import ASGIApp, Receive, Send
+from starlette.types import Scope as ASGIScope
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import DeploymentConfig
@@ -46,9 +47,7 @@ class RejectionMiddleware:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        headers = {
-            key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])
-        }
+        headers = {key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])}
         reason = reject_request(headers, allowed_origins=self.allowed_origins)
         if reason is not None:
             response = JSONResponse({"error": "rejected", "reason": reason}, status_code=400)

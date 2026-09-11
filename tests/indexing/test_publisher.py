@@ -100,8 +100,14 @@ def test_point_ids_differ_across_generations_for_identical_content(tmp_path: Pat
     gen1 = _publish(store, chunks, None, provider)
     gen2 = _publish(store, chunks, gen1, provider)
 
-    points1 = {p["chunk_id"]: p["point_id"] for p in store.read_generation(SCOPE, gen1).payload["vector_index"]["points"]}
-    points2 = {p["chunk_id"]: p["point_id"] for p in store.read_generation(SCOPE, gen2).payload["vector_index"]["points"]}
+    points1 = {
+        p["chunk_id"]: p["point_id"]
+        for p in store.read_generation(SCOPE, gen1).payload["vector_index"]["points"]
+    }
+    points2 = {
+        p["chunk_id"]: p["point_id"]
+        for p in store.read_generation(SCOPE, gen2).payload["vector_index"]["points"]
+    }
 
     assert points1.keys() == points2.keys(), "identical content must yield the identical chunk_ids"
     for chunk_id in points1:

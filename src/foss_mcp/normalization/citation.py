@@ -128,14 +128,14 @@ def validate_numeric_claim(number: int, unit: str, known_counts: Mapping[str, in
     return ValidationResult(verdict=SUPPORTED, detail=f"matches raw knowledge's {known} {unit}")
 
 
-def validate_chunk(
-    chunk: Chunk, symbol_index: SymbolIndex, known_counts: Mapping[str, int]
-) -> Chunk:
+def validate_chunk(chunk: Chunk, symbol_index: SymbolIndex, known_counts: Mapping[str, int]) -> Chunk:
     """*chunk* with ``validation`` set to the worst verdict any claim inside it earned."""
     problems: list[ValidationResult] = []
     for anchor in find_symbol_anchors(chunk.text):
         if not anchor_resolves(anchor, symbol_index):
-            problems.append(ValidationResult(verdict=UNSUPPORTED, detail=f"anchor `{anchor}` does not resolve"))
+            problems.append(
+                ValidationResult(verdict=UNSUPPORTED, detail=f"anchor `{anchor}` does not resolve")
+            )
     for number, unit in find_numeric_claims(chunk.text):
         result = validate_numeric_claim(number, unit, known_counts)
         if result.verdict != SUPPORTED:

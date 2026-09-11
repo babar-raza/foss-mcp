@@ -15,13 +15,19 @@ in any way a golden test would catch. See ``top_level_exports()``'s
 docstring below for the full algorithm rationale (namespace-parent layout,
 ambiguity handling, etc.) -- unchanged from the original.
 """
+
 from __future__ import annotations
 
 import re
 from functools import lru_cache
 from pathlib import Path
 
-from foss_mcp.extraction.tree_sitter_engine.tree_helpers import _CLASS_TYPES, _FUNC_TYPES, _IMPORT_TYPES, _MODULE_TYPES
+from foss_mcp.extraction.tree_sitter_engine.tree_helpers import (
+    _CLASS_TYPES,
+    _FUNC_TYPES,
+    _IMPORT_TYPES,
+    _MODULE_TYPES,
+)
 
 _LANG = "python"
 
@@ -29,6 +35,7 @@ _LANG = "python"
 # ---------------------------------------------------------------------------
 # declaration_kinds
 # ---------------------------------------------------------------------------
+
 
 def declaration_kinds() -> dict:
     """Return this language's tree-sitter node-kind sets used during
@@ -47,6 +54,7 @@ def declaration_kinds() -> dict:
 # ---------------------------------------------------------------------------
 # doc_anchor
 # ---------------------------------------------------------------------------
+
 
 def doc_anchor(node):
     """Return the node whose doc comment belongs to *node*.
@@ -90,7 +98,7 @@ def parse_doc(raw: str) -> dict:
     wired into that function's hot path.
     """
     match = _STRING_PREFIX_RE.match(raw)
-    text = raw[match.end():] if match else raw
+    text = raw[match.end() :] if match else raw
     text = text.strip("\"' \n\r")
     return {"summary": _first_sentence(text)}
 
@@ -99,7 +107,8 @@ def parse_doc(raw: str) -> dict:
 # export_surface
 # ---------------------------------------------------------------------------
 
-def _extract_all_from_init(init_path: Path) -> "set[str] | None":
+
+def _extract_all_from_init(init_path: Path) -> set[str] | None:
     """Return the name set from a single __init__.py's top-level __all__.
 
     Returns None if the file can't be read or has no recognizable top-level
@@ -120,7 +129,7 @@ def _extract_all_from_init(init_path: Path) -> "set[str] | None":
 
 
 @lru_cache(maxsize=64)
-def _top_level_exports_cached(pkg_root: Path) -> "tuple[frozenset | None, Path | None]":
+def _top_level_exports_cached(pkg_root: Path) -> tuple[frozenset | None, Path | None]:
     """Cached core of top_level_exports() -- see that function's docstring
     for the algorithm. Cached (functools.lru_cache) because
     content_eval/evaluators/_reachability.py's live_unreachable() calls this
@@ -158,7 +167,7 @@ def _top_level_exports_cached(pkg_root: Path) -> "tuple[frozenset | None, Path |
     return None, None
 
 
-def top_level_exports(pkg_root: Path) -> "tuple[set[str] | None, Path | None]":
+def top_level_exports(pkg_root: Path) -> tuple[set[str] | None, Path | None]:
     """Return (export_names, export_root) for the package's real public surface.
 
     Tries ``pkg_root/__init__.py`` first (the common case). Some Aspose FOSS
@@ -187,7 +196,7 @@ def top_level_exports(pkg_root: Path) -> "tuple[set[str] | None, Path | None]":
     return (set(names) if names is not None else None), root
 
 
-def export_surface(repo: Path, pkg_root: Path) -> "tuple[set[str] | None, Path | None]":
+def export_surface(repo: Path, pkg_root: Path) -> tuple[set[str] | None, Path | None]:
     """Return (reachable_names, scope_root) -- see extraction/lang/__init__.py's
     module docstring for the shared contract. *repo* is accepted for
     interface uniformity across all 7 language modules but unused here (the
@@ -201,6 +210,7 @@ def export_surface(repo: Path, pkg_root: Path) -> "tuple[set[str] | None, Path |
 # ---------------------------------------------------------------------------
 # clear_cache
 # ---------------------------------------------------------------------------
+
 
 def clear_cache() -> None:
     """Reset the memoized __all__ scan (functools.lru_cache). Test/operator

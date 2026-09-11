@@ -13,12 +13,18 @@ returns (None, None) unconditionally (fail-safe default). C++ is not part
 of this mission's TypeScript-hardening scope; declaring the seam here keeps
 the adapter set uniform for the day a real signal is added.
 """
+
 from __future__ import annotations
 
 import re
 from pathlib import Path
 
-from foss_mcp.extraction.tree_sitter_engine.tree_helpers import _CLASS_TYPES, _FUNC_TYPES, _IMPORT_TYPES, _MODULE_TYPES
+from foss_mcp.extraction.tree_sitter_engine.tree_helpers import (
+    _CLASS_TYPES,
+    _FUNC_TYPES,
+    _IMPORT_TYPES,
+    _MODULE_TYPES,
+)
 
 _LANG = "cpp"
 
@@ -26,6 +32,7 @@ _LANG = "cpp"
 # ---------------------------------------------------------------------------
 # declaration_kinds
 # ---------------------------------------------------------------------------
+
 
 def declaration_kinds() -> dict:
     """Return this language's tree-sitter node-kind sets used during
@@ -45,6 +52,7 @@ def declaration_kinds() -> dict:
 # doc_anchor
 # ---------------------------------------------------------------------------
 
+
 def doc_anchor(node):
     """Return the node whose doc comment belongs to *node*.
 
@@ -59,6 +67,7 @@ def doc_anchor(node):
 # ---------------------------------------------------------------------------
 # parse_doc
 # ---------------------------------------------------------------------------
+
 
 def _first_sentence(text: str) -> str:
     """Return the first sentence (up to first period-space or newline).
@@ -90,7 +99,8 @@ def parse_doc(raw: str) -> dict:
 # export_surface
 # ---------------------------------------------------------------------------
 
-def export_surface(repo: Path, pkg_root: Path) -> "tuple[set[str] | None, Path | None]":
+
+def export_surface(repo: Path, pkg_root: Path) -> tuple[set[str] | None, Path | None]:
     """No reachability signal implemented for C++ yet -- always (None, None)
     (fail-safe: caller must treat every item as reachable).
     """
@@ -100,6 +110,7 @@ def export_surface(repo: Path, pkg_root: Path) -> "tuple[set[str] | None, Path |
 # ---------------------------------------------------------------------------
 # clear_cache
 # ---------------------------------------------------------------------------
+
 
 def clear_cache() -> None:
     """No-op -- this module holds no cached state."""

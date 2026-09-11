@@ -13,7 +13,6 @@ import sys
 from pathlib import Path
 
 import pytest
-from mcp.server.transport_security import TransportSecuritySettings
 from starlette.testclient import TestClient
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore

@@ -37,8 +37,7 @@ def test_python_manifest_falls_back_to_setup_py_when_no_pyproject(tmp_path: Path
 
 def test_rust_manifest_reads_cargo_toml(tmp_path: Path) -> None:
     (tmp_path / "Cargo.toml").write_text(
-        '[package]\nname = "widget"\nversion = "0.3.0"\nlicense = "MIT"\n'
-        '[dependencies]\nserde = "1"\n',
+        '[package]\nname = "widget"\nversion = "0.3.0"\nlicense = "MIT"\n[dependencies]\nserde = "1"\n',
         encoding="utf-8",
     )
     info = package_manifest.parse_manifest(tmp_path, "rust")

@@ -34,7 +34,11 @@ def test_every_required_field_round_trips_through_to_dict_and_from_dict() -> Non
     data = to_dict(original)
     assert data["source_kind"] == "furnished"
     assert data["content_type"] == "product_page"
-    assert data["provenance"] == {"repository": "Aspose/aspose.org", "commit": "30b4199e" * 5, "path": "a/b.md"}
+    assert data["provenance"] == {
+        "repository": "Aspose/aspose.org",
+        "commit": "30b4199e" * 5,
+        "path": "a/b.md",
+    }
     assert data["evidence_refs"] == ["Aspose/aspose.org@30b4199e:a/b.md"]
     assert data["validation"] == {"verdict": "supported", "detail": "every claim resolves"}
 

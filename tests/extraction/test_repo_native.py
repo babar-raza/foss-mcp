@@ -11,12 +11,11 @@ import json
 import urllib.error
 from pathlib import Path
 
-from foss_mcp.extraction.github_release_reader import classify_richness, fetch_releases
+from foss_mcp.extraction.github_release_reader import classify_richness
 from foss_mcp.extraction.manifest_reader import read_dotnet_manifest
 from foss_mcp.extraction.repo_native_reader import (
     DocumentNotPresent,
     DocumentPresent,
-    read_repo_document,
 )
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "repo_native"
@@ -97,7 +96,7 @@ class _FakeResponse:
     def __init__(self, payload: bytes) -> None:
         self._payload = payload
 
-    def __enter__(self) -> "_FakeResponse":
+    def __enter__(self) -> _FakeResponse:
         return self
 
     def __exit__(self, *exc_info: object) -> None:

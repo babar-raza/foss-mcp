@@ -21,11 +21,9 @@ from pathlib import Path
 from typing import Any
 
 NON_PRODUCTION_BANNER = (
-    "=" * 70
-    + "\nNON-PRODUCTION PILOT EXPORT\n"
+    "=" * 70 + "\nNON-PRODUCTION PILOT EXPORT\n"
     "This bundle is a manual stand-in for the public export bundle Aspose's own CI\n"
-    "must eventually produce. It is not the real thing - do not ingest it as one.\n"
-    + "=" * 70
+    "must eventually produce. It is not the real thing - do not ingest it as one.\n" + "=" * 70
 )
 
 
@@ -34,9 +32,7 @@ def print_banner() -> None:
 
 
 def _gh_api(path: str) -> Any:
-    result = subprocess.run(
-        ["gh", "api", path], check=True, capture_output=True, text=True, encoding="utf-8"
-    )
+    result = subprocess.run(["gh", "api", path], check=True, capture_output=True, text=True, encoding="utf-8")
     return json.loads(result.stdout)
 
 

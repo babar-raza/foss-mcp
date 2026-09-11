@@ -23,8 +23,10 @@ from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.publisher import publish_generation
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.lookup import lookup
-from foss_mcp.mcp.tools.search_docs import DocMatch, Miss as DocsMiss, search_docs
-from foss_mcp.mcp.tools.search_symbols import Miss as SymbolsMiss, SymbolMatch, search_symbols
+from foss_mcp.mcp.tools.search_docs import DocMatch, search_docs
+from foss_mcp.mcp.tools.search_docs import Miss as DocsMiss
+from foss_mcp.mcp.tools.search_symbols import Miss as SymbolsMiss
+from foss_mcp.mcp.tools.search_symbols import SymbolMatch, search_symbols
 from foss_mcp.normalization.chunker import chunk_document
 from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
 from tests.indexing.test_index_writers import DeterministicEmbeddingProvider
@@ -215,7 +217,9 @@ def test_every_result_carries_the_scope_that_was_passed_in_never_another(tmp_pat
             make_document(
                 source_kind=SourceKind.SELF_EXTRACTED,
                 content_type="api_surface",
-                provenance=Provenance(repository="aspose-cells-foss/Aspose.Cells-FOSS-for-Python", commit="y"),
+                provenance=Provenance(
+                    repository="aspose-cells-foss/Aspose.Cells-FOSS-for-Python", commit="y"
+                ),
                 evidence_refs=(),
                 title="cells/python API surface",
                 body="## Workbook\n\nWorkbook is a class. Methods: Save, Open.",

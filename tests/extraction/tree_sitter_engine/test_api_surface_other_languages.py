@@ -50,9 +50,7 @@ def test_go_names_a_top_level_type_type_spec_and_a_function_literally_function(
 
 
 def test_rust_names_a_top_level_free_function_literally_function(tmp_path: Path) -> None:
-    (tmp_path / "Cargo.toml").write_text(
-        '[package]\nname = "widget"\nversion = "0.1.0"\n', encoding="utf-8"
-    )
+    (tmp_path / "Cargo.toml").write_text('[package]\nname = "widget"\nversion = "0.1.0"\n', encoding="utf-8")
     package = tmp_path / "src"
     package.mkdir()
     (package / "lib.rs").write_text(RUST, encoding="utf-8")

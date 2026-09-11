@@ -13,13 +13,19 @@ was api_surface.py's ``_rust_reexported_names`` (RC-W1-004) -- the one hard
 rule for this card is that rust's reachability output must not change in any
 way a golden test would catch.
 """
+
 from __future__ import annotations
 
 import re
 from functools import lru_cache
 from pathlib import Path
 
-from foss_mcp.extraction.tree_sitter_engine.tree_helpers import _CLASS_TYPES, _FUNC_TYPES, _IMPORT_TYPES, _MODULE_TYPES
+from foss_mcp.extraction.tree_sitter_engine.tree_helpers import (
+    _CLASS_TYPES,
+    _FUNC_TYPES,
+    _IMPORT_TYPES,
+    _MODULE_TYPES,
+)
 
 _LANG = "rust"
 
@@ -27,6 +33,7 @@ _LANG = "rust"
 # ---------------------------------------------------------------------------
 # declaration_kinds
 # ---------------------------------------------------------------------------
+
 
 def declaration_kinds() -> dict:
     """Return this language's tree-sitter node-kind sets used during
@@ -46,6 +53,7 @@ def declaration_kinds() -> dict:
 # doc_anchor
 # ---------------------------------------------------------------------------
 
+
 def doc_anchor(node):
     """Return the node whose doc comment belongs to *node*.
 
@@ -58,6 +66,7 @@ def doc_anchor(node):
 # ---------------------------------------------------------------------------
 # parse_doc
 # ---------------------------------------------------------------------------
+
 
 def _first_sentence(text: str) -> str:
     """Return the first sentence (up to first period-space or newline).
@@ -106,7 +115,7 @@ _RUST_PUB_USE_GLOB_RE = re.compile(r"pub\s+use\s+[\w:]+::\*\s*;")
 
 
 @lru_cache(maxsize=64)
-def _reexported_names_cached(pkg_root: Path) -> "frozenset | None":
+def _reexported_names_cached(pkg_root: Path) -> frozenset | None:
     """Cached core of reexported_names() -- see that function's docstring
     for the algorithm. Cached (functools.lru_cache) for the same reason as
     python's _top_level_exports_cached: content_eval/evaluators/
@@ -148,7 +157,7 @@ def _reexported_names_cached(pkg_root: Path) -> "frozenset | None":
     return frozenset(names)
 
 
-def reexported_names(pkg_root: Path) -> "set[str] | None":
+def reexported_names(pkg_root: Path) -> set[str] | None:
     """Return the set of names re-exported via `pub use` at the crate root.
 
     Reads ``pkg_root/lib.rs`` -- ``package_root.py``'s ``_detect_rust_root()``
@@ -167,7 +176,7 @@ def reexported_names(pkg_root: Path) -> "set[str] | None":
     return set(names) if names is not None else None
 
 
-def export_surface(repo: Path, pkg_root: Path) -> "tuple[set[str] | None, Path | None]":
+def export_surface(repo: Path, pkg_root: Path) -> tuple[set[str] | None, Path | None]:
     """Return (reachable_names, scope_root) -- see extraction/lang/__init__.py's
     module docstring for the shared contract. *repo* is accepted for
     interface uniformity across all 7 language modules but unused here (the
@@ -183,6 +192,7 @@ def export_surface(repo: Path, pkg_root: Path) -> "tuple[set[str] | None, Path |
 # ---------------------------------------------------------------------------
 # clear_cache
 # ---------------------------------------------------------------------------
+
 
 def clear_cache() -> None:
     """Reset the memoized `pub use` scan (functools.lru_cache). Test/operator

@@ -10,11 +10,26 @@ license = { text = "MIT" }
 # and turns a green check red without a code change - a determinism leak.
 line-length = 110
 target-version = "py313"
-exclude = [".venv", ".gatectl-worktrees", "__pycache__"]
+# The tree-sitter engine is VENDORED. Its own header records "No other changes"
+# beyond an import rewrite, and that byte-provenance is the reason the port was
+# cheap and is re-syncable. Linting it would force edits that destroy exactly
+# that claim, so it is excluded rather than restyled - the same boundary the
+# source project draws around its own _vendor/ tree.
+exclude = [
+    ".venv",
+    ".gatectl-worktrees",
+    "__pycache__",
+    "src/foss_mcp/extraction/tree_sitter_engine",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]
-ignore = ["E501"]
+# UP042 wants `class X(str, Enum)` rewritten to `enum.StrEnum`. Declined
+# deliberately: StrEnum changes str()/format() behaviour, and these enum VALUES
+# are already serialized into generation manifests, receipts and published tool
+# JSON schemas. A silent change to how they render is a real compatibility risk
+# for a purely cosmetic gain.
+ignore = ["E501", "UP042"]
 
 [tool.mypy]
 python_version = "3.13"

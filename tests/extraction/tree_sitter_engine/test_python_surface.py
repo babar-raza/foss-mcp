@@ -35,9 +35,7 @@ def _package(tmp_path: Path) -> Path:
         "    def render(self):\n        pass\n\nclass _Hidden:\n    def visible(self):\n"
         "        pass\n",
     )
-    _write(
-        tmp_path, "pkg/factory.py", "def make():\n    return Widget()\n\ndef other():\n    pass\n"
-    )
+    _write(tmp_path, "pkg/factory.py", "def make():\n    return Widget()\n\ndef other():\n    pass\n")
     _write(tmp_path, "pkg/sub/__init__.py", "from .leaf import Leaf\n")
     _write(tmp_path, "pkg/sub/leaf.py", "class Leaf:\n    pass\n")
     _write(tmp_path, "pkg/_private.py", "class Exposed:\n    pass\n")

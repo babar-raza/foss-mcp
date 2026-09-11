@@ -70,7 +70,9 @@ def find_examples(
         if example is not None:
             return [ExampleMatch(scope, active_generation_id, exact.fqn, example)]
 
-    example_doc_ids = {doc_id for doc_id, document in documents.items() if _EXAMPLE_MARKER in document["text"]}
+    example_doc_ids = {
+        doc_id for doc_id, document in documents.items() if _EXAMPLE_MARKER in document["text"]
+    }
     if not example_doc_ids:
         return NoExampleFound(scope, query)
 

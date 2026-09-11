@@ -21,6 +21,7 @@ Constants::
 
     _JAVA_DEFAULT_EXCLUDED_PACKAGE_SEGMENTS  # frozenset({"internal", "impl"})
 """
+
 from __future__ import annotations
 
 import ast
@@ -33,6 +34,7 @@ from typing import Any
 
 LOG = logging.getLogger(__name__)
 
+from foss_mcp.extraction.tree_sitter_engine import lang
 from foss_mcp.extraction.tree_sitter_engine.tree_helpers import (
     _CLASS_TYPES,
     _DOC_COMMENT_STYLES,
@@ -57,8 +59,6 @@ from foss_mcp.extraction.tree_sitter_engine.tree_helpers import (
     synthesize_interface_members,
     visibility_tier,
 )
-from foss_mcp.extraction.tree_sitter_engine import lang
-
 
 # ---------------------------------------------------------------------------
 # SYS-PKG-001: Java internal-package exclusion filter
@@ -75,9 +75,14 @@ from foss_mcp.extraction.tree_sitter_engine import lang
 _JAVA_DEFAULT_EXCLUDED_PACKAGE_SEGMENTS: frozenset[str] = frozenset({"internal", "impl"})
 
 # H-04d: Path segments that indicate vendor/internal code for Python/C++.
-_VENDOR_PATH_SEGMENTS: frozenset[str] = frozenset({
-    "vendor", "vendored", "third_party", "thirdparty",
-})
+_VENDOR_PATH_SEGMENTS: frozenset[str] = frozenset(
+    {
+        "vendor",
+        "vendored",
+        "third_party",
+        "thirdparty",
+    }
+)
 
 # Private directory names that are exempt from filtering (contain real implementations)
 _EXEMPT_PRIVATE_DIRS: frozenset[str] = frozenset({"_internal"})
@@ -124,8 +129,7 @@ def _detect_vendor_files(files: list[Path], pkg_root: Path, language: str = "") 
             if part.lower() in vendor_segments:
                 vendor.add(fpath)
                 break
-            if (part.startswith("_") and not part.startswith("__")
-                    and part not in _EXEMPT_PRIVATE_DIRS):
+            if part.startswith("_") and not part.startswith("__") and part not in _EXEMPT_PRIVATE_DIRS:
                 vendor.add(fpath)
                 break
     return vendor
@@ -180,7 +184,8 @@ def _detect_vendor_files(files: list[Path], pkg_root: Path, language: str = "") 
 # directly from this module. No duplicate logic remains: each wrapper calls
 # straight through to the single real implementation in lang/.
 
-def _extract_all_from_init(init_path: Path) -> "set[str] | None":
+
+def _extract_all_from_init(init_path: Path) -> set[str] | None:
     """Return the name set from a single __init__.py's top-level __all__.
 
     See extraction/lang/python.py's ``_extract_all_from_init`` (the real,
@@ -189,7 +194,7 @@ def _extract_all_from_init(init_path: Path) -> "set[str] | None":
     return lang.python._extract_all_from_init(init_path)
 
 
-def _python_top_level_exports(pkg_root: Path) -> "tuple[set[str] | None, Path | None]":
+def _python_top_level_exports(pkg_root: Path) -> tuple[set[str] | None, Path | None]:
     """Return (export_names, export_root) for the package's real public surface.
 
     See extraction/lang/python.py's ``top_level_exports`` (the real, single
@@ -198,7 +203,7 @@ def _python_top_level_exports(pkg_root: Path) -> "tuple[set[str] | None, Path | 
     return lang.python.top_level_exports(pkg_root)
 
 
-def _rust_reexported_names(pkg_root: Path) -> "set[str] | None":
+def _rust_reexported_names(pkg_root: Path) -> set[str] | None:
     """Return the set of names re-exported via `pub use` at the crate root.
 
     See extraction/lang/rust.py's ``reexported_names`` (the real, single
@@ -229,8 +234,8 @@ def _is_excluded_java_package(package: str, excluded_segments: frozenset[str]) -
 # Internal claim helper
 # ---------------------------------------------------------------------------
 
-def _make_claim(family: str, kind: str, text: str,
-                file: str = "", line: int = 0) -> dict:
+
+def _make_claim(family: str, kind: str, text: str, file: str = "", line: int = 0) -> dict:
     h = hashlib.sha256(text.encode("utf-8")).hexdigest()[:6]
     evidence = [{"file": file, "line": line}] if file else []
     return {
@@ -308,9 +313,7 @@ def _stabilize_scout_claim_ids(claims: list, family: str) -> list:
             anchor_groups.setdefault(anchor, []).append(idx)
     anchor_owner: dict = {}
     for anchor, idxs in anchor_groups.items():
-        winner = idxs[0] if len(idxs) == 1 else min(
-            idxs, key=lambda i: claims[i].get("text", "")
-        )
+        winner = idxs[0] if len(idxs) == 1 else min(idxs, key=lambda i: claims[i].get("text", ""))
         anchor_owner[winner] = True
 
     result = []
@@ -330,9 +333,7 @@ def _stabilize_scout_claim_ids(claims: list, family: str) -> list:
             # anchors, matching the ~5.9 expected by the math (n^2/2^25).
             # [:8] (n^2/2^33) drops the expected count for the same corpus to
             # ~0.02, verified against this exact real dataset before committing.
-            stable = hashlib.sha256(
-                (anchor + "|" + c.get("kind", "")).encode("utf-8")
-            ).hexdigest()[:8]
+            stable = hashlib.sha256((anchor + "|" + c.get("kind", "")).encode("utf-8")).hexdigest()[:8]
             c["claim_id"] = f"CLM-{family}-{stable}"
         elif not c.get("claim_id"):
             # Defensive: normally every claim already has an ID from
@@ -352,39 +353,44 @@ def _stabilize_scout_claim_ids(claims: list, family: str) -> list:
 # Method parameter extraction
 # ---------------------------------------------------------------------------
 
+
 def _extract_method_params(node, language: str) -> list[dict[str, str]]:
     """Extract parameters from a method/function node."""
     params: list[dict[str, str]] = []
-    param_list = (child_by_field(node, "parameters")
-                  or find_child_by_type(node, "formal_parameters")
-                  or find_child_by_type(node, "parameter_list")
-                  or find_child_by_type(node, "parameters"))
+    param_list = (
+        child_by_field(node, "parameters")
+        or find_child_by_type(node, "formal_parameters")
+        or find_child_by_type(node, "parameter_list")
+        or find_child_by_type(node, "parameters")
+    )
     if param_list is None:
         return params
 
     for ch in param_list.children:
-        if ch.type in ("formal_parameter", "parameter", "required_parameter",
-                        "optional_parameter", "typed_parameter",
-                        "default_parameter", "typed_default_parameter",
-                        "identifier", "parameter_declaration",
-                        "optional_parameter_declaration",
-                        "variadic_parameter_declaration"):
+        if ch.type in (
+            "formal_parameter",
+            "parameter",
+            "required_parameter",
+            "optional_parameter",
+            "typed_parameter",
+            "default_parameter",
+            "typed_default_parameter",
+            "identifier",
+            "parameter_declaration",
+            "optional_parameter_declaration",
+            "variadic_parameter_declaration",
+        ):
             pnames: list[str] = []
             ptype = ""
 
-            if language == "go" and ch.type in (
-                "parameter_declaration", "variadic_parameter_declaration"
-            ):
+            if language == "go" and ch.type in ("parameter_declaration", "variadic_parameter_declaration"):
                 # Go allows comma-separated parameters sharing one declared
                 # type in a single parameter_declaration node, e.g.
                 # `func OpenWithPassword(path, password string)`. The node's
                 # "name" field only ever resolves to one identifier even when
                 # several are present, so every name after it silently
                 # vanished. Scan every identifier child directly instead.
-                pnames = [
-                    node_text(sub) for sub in ch.children
-                    if sub.type == "identifier"
-                ]
+                pnames = [node_text(sub) for sub in ch.children if sub.type == "identifier"]
 
             if not pnames:
                 name_node = child_by_field(ch, "name")
@@ -422,10 +428,12 @@ def _extract_method_params(node, language: str) -> list[dict[str, str]]:
             if not pnames:
                 continue
 
-            type_node = (child_by_field(ch, "type")
-                         or find_child_by_type(ch, "type_annotation")
-                         or find_child_by_type(ch, "type_identifier")
-                         or find_child_by_type(ch, "predefined_type"))
+            type_node = (
+                child_by_field(ch, "type")
+                or find_child_by_type(ch, "type_annotation")
+                or find_child_by_type(ch, "type_identifier")
+                or find_child_by_type(ch, "predefined_type")
+            )
             if type_node:
                 ptype = node_text(type_node).lstrip(":").strip()
 
@@ -440,6 +448,7 @@ def _extract_method_params(node, language: str) -> list[dict[str, str]]:
 # ---------------------------------------------------------------------------
 # Return type extraction
 # ---------------------------------------------------------------------------
+
 
 def _extract_return_type(node, language: str) -> str:
     """Extract the return type from a method/function node."""
@@ -503,6 +512,7 @@ def _extract_go_receiver_type(fnode) -> str:
 # ---------------------------------------------------------------------------
 # Doc comment extraction
 # ---------------------------------------------------------------------------
+
 
 def _first_sentence(text: str) -> str:
     """Return the first sentence (up to first period-space or newline)."""
@@ -578,7 +588,7 @@ def _strip_string_prefix_and_quotes(text: str) -> str:
     """
     match = _STRING_PREFIX_RE.match(text)
     if match:
-        text = text[match.end():]
+        text = text[match.end() :]
     return text.strip("\"' \n\r")
 
 
@@ -661,12 +671,8 @@ def _extract_doc_comment(node, language: str) -> str:
             cleaned = " ".join(l.lstrip("/ ").strip() for l in xml_comment_lines)
             # TC-SYS-007: preserve names from <paramref>, <typeparamref>,
             # and <see> tags before stripping remaining XML markup.
-            cleaned = re.sub(
-                r'<(?:paramref|typeparamref)\s+name="([^"]+)"\s*/?>',
-                r"\1", cleaned)
-            cleaned = re.sub(
-                r'<see\s+cref="([^"]+)"\s*/?>',
-                lambda m: m.group(1).rsplit(".", 1)[-1], cleaned)
+            cleaned = re.sub(r'<(?:paramref|typeparamref)\s+name="([^"]+)"\s*/?>', r"\1", cleaned)
+            cleaned = re.sub(r'<see\s+cref="([^"]+)"\s*/?>', lambda m: m.group(1).rsplit(".", 1)[-1], cleaned)
             # strip remaining XML tags
             cleaned = re.sub(r"<[^>]+>", "", cleaned).strip()
             return _first_sentence(cleaned)
@@ -703,6 +709,7 @@ def _extract_doc_comment(node, language: str) -> str:
 # TC-MT040-12: TSDoc block-tag enrichment (additive -- see
 # lang/typescript.py's parse_doc() for the actual tag parser)
 # ---------------------------------------------------------------------------
+
 
 def _ts_raw_jsdoc_comment(node) -> str:
     """Return the raw JSDoc comment text (including ``/**``/``*/``
@@ -761,6 +768,7 @@ def _apply_ts_tsdoc_enrichment(entry: dict, doc_node) -> None:
 # Python property extraction
 # ---------------------------------------------------------------------------
 
+
 def _all_decorator_text(fn) -> str:
     """Return the combined text of every decorator attached to *fn*.
 
@@ -794,7 +802,10 @@ def _all_decorator_text(fn) -> str:
 
 
 def _extract_python_properties(
-    cnode, cname: str, rel: str, family: str,
+    cnode,
+    cname: str,
+    rel: str,
+    family: str,
 ) -> tuple[list[dict[str, Any]], list[dict]]:
     """Extract @property decorated methods in Python classes.
 
@@ -825,17 +836,20 @@ def _extract_python_properties(
         if not pname or pname.startswith("_"):
             continue
         ret = _extract_return_type(fn, "python")
-        properties.append({
-            "name": pname,
-            "type": ret,
-            "writable": pname in setter_names,
-            "doc": _extract_doc_comment(fn, "python"),
-            "line": fn.start_point[0] + 1,
-        })
-        claims.append(_make_claim(
-            family, "api_method",
-            f"{cname}.{pname} property of type {ret}",
-            rel, fn.start_point[0] + 1))
+        properties.append(
+            {
+                "name": pname,
+                "type": ret,
+                "writable": pname in setter_names,
+                "doc": _extract_doc_comment(fn, "python"),
+                "line": fn.start_point[0] + 1,
+            }
+        )
+        claims.append(
+            _make_claim(
+                family, "api_method", f"{cname}.{pname} property of type {ret}", rel, fn.start_point[0] + 1
+            )
+        )
 
     return properties, claims
 
@@ -844,8 +858,12 @@ def _extract_python_properties(
 # Python annotated field extraction (dataclass fields, TypedDict members, etc.)
 # ---------------------------------------------------------------------------
 
+
 def _extract_python_annotated_fields(
-    cnode, cname: str, rel: str, family: str,
+    cnode,
+    cname: str,
+    rel: str,
+    family: str,
 ) -> tuple[list[dict[str, Any]], list[dict]]:
     """Extract annotated class-level field declarations from Python classes.
 
@@ -910,17 +928,20 @@ def _extract_python_annotated_fields(
         if ftype.startswith("ClassVar"):
             continue
 
-        fields.append({
-            "name": fname,
-            "type": ftype,
-            "writable": is_dataclass and not is_frozen,
-            "doc": "",
-            "line": stmt.start_point[0] + 1,
-        })
-        claims.append(_make_claim(
-            family, "api_method",
-            f"{cname}.{fname} field of type {ftype}",
-            rel, stmt.start_point[0] + 1))
+        fields.append(
+            {
+                "name": fname,
+                "type": ftype,
+                "writable": is_dataclass and not is_frozen,
+                "doc": "",
+                "line": stmt.start_point[0] + 1,
+            }
+        )
+        claims.append(
+            _make_claim(
+                family, "api_method", f"{cname}.{fname} field of type {ftype}", rel, stmt.start_point[0] + 1
+            )
+        )
 
     return fields, claims
 
@@ -929,8 +950,12 @@ def _extract_python_annotated_fields(
 # Python __init__ instance attribute extraction
 # ---------------------------------------------------------------------------
 
+
 def _extract_python_init_attributes(
-    cnode, cname: str, rel: str, family: str,
+    cnode,
+    cname: str,
+    rel: str,
+    family: str,
     existing_names: set[str] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict]]:
     """Extract instance attributes assigned in ``__init__`` from Python classes.
@@ -1024,16 +1049,23 @@ def _extract_python_init_attributes(
         type_node = child_by_field(target, "type")
         attr_type = node_text(type_node).strip() if type_node else ""
 
-        props.append({
-            "name": attr_name,
-            "type": attr_type,
-            "doc": "",
-            "line": target.start_point[0] + 1,
-        })
-        claims.append(_make_claim(
-            family, "api_method",
-            f"{cname}.{attr_name} field of type {attr_type or 'unknown'}",
-            rel, target.start_point[0] + 1))
+        props.append(
+            {
+                "name": attr_name,
+                "type": attr_type,
+                "doc": "",
+                "line": target.start_point[0] + 1,
+            }
+        )
+        claims.append(
+            _make_claim(
+                family,
+                "api_method",
+                f"{cname}.{attr_name} field of type {attr_type or 'unknown'}",
+                rel,
+                target.start_point[0] + 1,
+            )
+        )
 
     return props, claims
 
@@ -1042,14 +1074,26 @@ def _extract_python_init_attributes(
 # Java property synthesis
 # ---------------------------------------------------------------------------
 
-_JAVA_OBJECT_METHODS: frozenset[str] = frozenset({
-    "getClass", "hashCode", "equals", "toString",
-    "notify", "notifyAll", "wait", "clone", "finalize",
-})
+_JAVA_OBJECT_METHODS: frozenset[str] = frozenset(
+    {
+        "getClass",
+        "hashCode",
+        "equals",
+        "toString",
+        "notify",
+        "notifyAll",
+        "wait",
+        "clone",
+        "finalize",
+    }
+)
 
 
 def _synthesize_java_properties(
-    methods: list[dict[str, Any]], cname: str, rel: str, family: str,
+    methods: list[dict[str, Any]],
+    cname: str,
+    rel: str,
+    family: str,
 ) -> tuple[list[dict[str, Any]], list[dict]]:
     """Synthesize property entries from Java getter/setter method pairs.
 
@@ -1064,27 +1108,28 @@ def _synthesize_java_properties(
         if name in _JAVA_OBJECT_METHODS:
             continue
         params = m.get("params", [])
-        if (name.startswith("get") and len(name) > 3
-                and name[3].isupper() and len(params) == 0):
+        if name.startswith("get") and len(name) > 3 and name[3].isupper() and len(params) == 0:
             prop_name = name[3].lower() + name[4:]
             getters[prop_name] = m
-        elif (name.startswith("is") and len(name) > 2
-              and name[2].isupper() and len(params) == 0):
+        elif name.startswith("is") and len(name) > 2 and name[2].isupper() and len(params) == 0:
             prop_name = name[2].lower() + name[3:]
             getters[prop_name] = m
 
     for prop_name, getter in getters.items():
         ptype = getter.get("return_type", "")
-        properties.append({
-            "name": prop_name,
-            "type": ptype,
-            "doc": getter.get("doc", ""),
-            "line": getter["line"],
-        })
-        claims.append(_make_claim(
-            family, "api_method",
-            f"{cname}.{prop_name} property of type {ptype}",
-            rel, getter["line"]))
+        properties.append(
+            {
+                "name": prop_name,
+                "type": ptype,
+                "doc": getter.get("doc", ""),
+                "line": getter["line"],
+            }
+        )
+        claims.append(
+            _make_claim(
+                family, "api_method", f"{cname}.{prop_name} property of type {ptype}", rel, getter["line"]
+            )
+        )
 
     return properties, claims
 
@@ -1093,8 +1138,13 @@ def _synthesize_java_properties(
 # C# / Java const and static-final field extraction (Track A-1)
 # ---------------------------------------------------------------------------
 
+
 def _extract_const_fields(
-    cnode, cname: str, rel: str, family: str, language: str,
+    cnode,
+    cname: str,
+    rel: str,
+    family: str,
+    language: str,
 ) -> tuple[list[dict[str, Any]], list[dict]]:
     """Extract public const/static-readonly (C#) and public static final (Java) fields.
 
@@ -1108,8 +1158,7 @@ def _extract_const_fields(
     claims: list[dict] = []
 
     # C# class body is a declaration_list; Java class body is a class_body
-    body = (find_child_by_type(cnode, "declaration_list")
-            or find_child_by_type(cnode, "class_body"))
+    body = find_child_by_type(cnode, "declaration_list") or find_child_by_type(cnode, "class_body")
     if body is None:
         return fields, claims
 
@@ -1170,19 +1219,25 @@ def _extract_const_fields(
                     continue
 
                 kind = "constant" if "const" in mods else "static_field"
-                fields.append({
-                    "name": fname,
-                    "type": ftype,
-                    "kind": kind,
-                    "doc": _extract_doc_comment(member, language),
-                    "line": member.start_point[0] + 1,
-                    "writable": False,
-                })
-                claims.append(_make_claim(
-                    family, "api_field",
-                    f"{cname}.{fname} {kind} of type {ftype}",
-                    rel, member.start_point[0] + 1,
-                ))
+                fields.append(
+                    {
+                        "name": fname,
+                        "type": ftype,
+                        "kind": kind,
+                        "doc": _extract_doc_comment(member, language),
+                        "line": member.start_point[0] + 1,
+                        "writable": False,
+                    }
+                )
+                claims.append(
+                    _make_claim(
+                        family,
+                        "api_field",
+                        f"{cname}.{fname} {kind} of type {ftype}",
+                        rel,
+                        member.start_point[0] + 1,
+                    )
+                )
 
     return fields, claims
 
@@ -1191,10 +1246,18 @@ def _extract_const_fields(
 # TypeScript module-level `export const` extraction (TC-MT040-13)
 # ---------------------------------------------------------------------------
 
-_TS_LITERALISH_TYPES: frozenset[str] = frozenset({
-    "string", "number", "true", "false", "null",
-    "template_string", "array", "object",
-})
+_TS_LITERALISH_TYPES: frozenset[str] = frozenset(
+    {
+        "string",
+        "number",
+        "true",
+        "false",
+        "null",
+        "template_string",
+        "array",
+        "object",
+    }
+)
 
 
 def _infer_ts_literal_type(value_node) -> str:
@@ -1226,7 +1289,11 @@ def _infer_ts_literal_type(value_node) -> str:
 
 
 def _extract_ts_module_constants(
-    root, rel: str, fpath: Path, family: str, compute_reachable,
+    root,
+    rel: str,
+    fpath: Path,
+    family: str,
+    compute_reachable,
 ) -> tuple[list[dict[str, Any]], list[dict]]:
     """Scan a TypeScript source file's top-level `export const` declarations
     and emit module-level entries for them.
@@ -1281,7 +1348,8 @@ def _extract_ts_module_constants(
             value_node = child_by_field(vd, "value")
 
             if value_node is not None and value_node.type in (
-                "arrow_function", "function_expression",
+                "arrow_function",
+                "function_expression",
             ):
                 params = _extract_method_params(value_node, "typescript")
                 ret = _extract_return_type(value_node, "typescript")
@@ -1300,15 +1368,23 @@ def _extract_ts_module_constants(
                 }
                 _apply_ts_tsdoc_enrichment(func_entry, decl)
                 entries.append(func_entry)
-                claims.append(_make_claim(
-                    family, "api_method",
-                    f"Function {cname}({', '.join(p['name'] for p in params)}) -> {ret}",
-                    rel, vd.start_point[0] + 1))
+                claims.append(
+                    _make_claim(
+                        family,
+                        "api_method",
+                        f"Function {cname}({', '.join(p['name'] for p in params)}) -> {ret}",
+                        rel,
+                        vd.start_point[0] + 1,
+                    )
+                )
                 continue
 
             type_node = child_by_field(vd, "type")
-            ctype = (node_text(type_node).lstrip(":").strip() if type_node is not None
-                     else _infer_ts_literal_type(value_node))
+            ctype = (
+                node_text(type_node).lstrip(":").strip()
+                if type_node is not None
+                else _infer_ts_literal_type(value_node)
+            )
             cvalue = node_text(value_node)[:80] if value_node is not None else ""
 
             const_entry: dict[str, Any] = {
@@ -1325,11 +1401,15 @@ def _extract_ts_module_constants(
                 "reachable": compute_reachable(cname, fpath, rel),
             }
             entries.append(const_entry)
-            claims.append(_make_claim(
-                family, "api_field",
-                f"{cname} constant of type {ctype or 'unknown'}",
-                rel, vd.start_point[0] + 1,
-            ))
+            claims.append(
+                _make_claim(
+                    family,
+                    "api_field",
+                    f"{cname} constant of type {ctype or 'unknown'}",
+                    rel,
+                    vd.start_point[0] + 1,
+                )
+            )
 
     return entries, claims
 
@@ -1338,8 +1418,12 @@ def _extract_ts_module_constants(
 # C++ property synthesis
 # ---------------------------------------------------------------------------
 
+
 def _synthesize_cpp_properties(
-    methods: list[dict[str, Any]], cname: str, rel: str, family: str,
+    methods: list[dict[str, Any]],
+    cname: str,
+    rel: str,
+    family: str,
 ) -> tuple[list[dict[str, Any]], list[dict]]:
     """Synthesize property entries from C++ getter/setter method pairs.
 
@@ -1388,17 +1472,18 @@ def _synthesize_cpp_properties(
             continue
         seen.add(name)
 
-        properties.append({
-            "name": name,
-            "type": ret,
-            "doc": m.get("doc", ""),
-            "line": m["line"],
-            "writable": name in setter_names,
-        })
-        claims.append(_make_claim(
-            family, "api_method",
-            f"{cname}.{name} property of type {ret}",
-            rel, m["line"]))
+        properties.append(
+            {
+                "name": name,
+                "type": ret,
+                "doc": m.get("doc", ""),
+                "line": m["line"],
+                "writable": name in setter_names,
+            }
+        )
+        claims.append(
+            _make_claim(family, "api_method", f"{cname}.{name} property of type {ret}", rel, m["line"])
+        )
 
     return properties, claims
 
@@ -1406,6 +1491,7 @@ def _synthesize_cpp_properties(
 # ---------------------------------------------------------------------------
 # FR-16: Stub method detection helpers
 # ---------------------------------------------------------------------------
+
 
 def _is_python_stub(mnode) -> bool:
     """Return True if a Python function body is a single raise NotImplementedError."""
@@ -1439,9 +1525,11 @@ def _is_python_stub_with_docstring(mnode) -> bool:
     # pattern: expression_statement(string), raise_statement
     if len(stmts) == 2:
         first, second = stmts
-        if (first.type == "expression_statement"
-                and second.type == "raise_statement"
-                and "NotImplementedError" in node_text(second)):
+        if (
+            first.type == "expression_statement"
+            and second.type == "raise_statement"
+            and "NotImplementedError" in node_text(second)
+        ):
             return True
     return False
 
@@ -1543,6 +1631,7 @@ def _is_cpp_stub(mnode) -> bool:
 # ---------------------------------------------------------------------------
 # FR-15: C++ canonical namespace helper
 # ---------------------------------------------------------------------------
+
 
 def _cpp_canonical_namespace(cnode) -> str:
     """Walk up the AST from a C++ class node to collect all enclosing namespace names.
@@ -1665,19 +1754,25 @@ def _extract_go_struct_fields(
         for fname in field_names:
             if not fname or not fname[0].isupper():
                 continue  # skip unexported fields
-            properties.append({
-                "name": fname,
-                "type": ftype,
-                "kind": "property",
-                "access_mode": "readwrite",
-                "doc": "",
-                "line": field_decl.start_point[0] + 1,
-            })
-            claims.append(_make_claim(
-                family, "api_method",
-                f"{cname}.{fname} field of type {ftype}",
-                rel, field_decl.start_point[0] + 1,
-            ))
+            properties.append(
+                {
+                    "name": fname,
+                    "type": ftype,
+                    "kind": "property",
+                    "access_mode": "readwrite",
+                    "doc": "",
+                    "line": field_decl.start_point[0] + 1,
+                }
+            )
+            claims.append(
+                _make_claim(
+                    family,
+                    "api_method",
+                    f"{cname}.{fname} field of type {ftype}",
+                    rel,
+                    field_decl.start_point[0] + 1,
+                )
+            )
 
     return properties, claims
 
@@ -1728,19 +1823,25 @@ def _extract_go_interface_methods(
         params = _extract_method_params(member, "go")
         ret = _extract_return_type(member, "go")
         mdoc = _extract_doc_comment(member, "go")
-        methods.append({
-            "name": mname,
-            "params": params,
-            "return_type": ret,
-            "doc": mdoc,
-            "line": member.start_point[0] + 1,
-            "is_constructor": False,
-        })
-        claims.append(_make_claim(
-            family, "api_method",
-            f"{cname}.{mname}({', '.join(p['name'] for p in params)}) -> {ret}",
-            rel, member.start_point[0] + 1,
-        ))
+        methods.append(
+            {
+                "name": mname,
+                "params": params,
+                "return_type": ret,
+                "doc": mdoc,
+                "line": member.start_point[0] + 1,
+                "is_constructor": False,
+            }
+        )
+        claims.append(
+            _make_claim(
+                family,
+                "api_method",
+                f"{cname}.{mname}({', '.join(p['name'] for p in params)}) -> {ret}",
+                rel,
+                member.start_point[0] + 1,
+            )
+        )
 
     return methods, claims
 
@@ -1776,8 +1877,7 @@ def _extract_rust_struct_fields(
     for field_decl in body.children:
         if field_decl.type != "field_declaration":
             continue
-        vis = [node_text(c).strip() for c in field_decl.children
-               if c.type == "visibility_modifier"]
+        vis = [node_text(c).strip() for c in field_decl.children if c.type == "visibility_modifier"]
         if "pub" not in vis:
             continue
         name_node = child_by_field(field_decl, "name")
@@ -1786,19 +1886,25 @@ def _extract_rust_struct_fields(
             continue
         type_node = child_by_field(field_decl, "type")
         ftype = node_text(type_node) if type_node else ""
-        properties.append({
-            "name": fname,
-            "type": ftype,
-            "kind": "property",
-            "access_mode": "readwrite",
-            "doc": _extract_rustdoc_comment(field_decl),
-            "line": field_decl.start_point[0] + 1,
-        })
-        claims.append(_make_claim(
-            family, "api_method",
-            f"{cname}.{fname} field of type {ftype}",
-            rel, field_decl.start_point[0] + 1,
-        ))
+        properties.append(
+            {
+                "name": fname,
+                "type": ftype,
+                "kind": "property",
+                "access_mode": "readwrite",
+                "doc": _extract_rustdoc_comment(field_decl),
+                "line": field_decl.start_point[0] + 1,
+            }
+        )
+        claims.append(
+            _make_claim(
+                family,
+                "api_method",
+                f"{cname}.{fname} field of type {ftype}",
+                rel,
+                field_decl.start_point[0] + 1,
+            )
+        )
 
     return properties, claims
 
@@ -1824,13 +1930,17 @@ def _extract_rust_impl_context(fnode) -> tuple[str, str]:
         txt = node_text(n)
         return txt.split("<", 1)[0].strip().lstrip("&").strip()
 
-    return (_bare(child_by_field(parent, "type")),
-            _bare(child_by_field(parent, "trait")))
+    return (_bare(child_by_field(parent, "type")), _bare(child_by_field(parent, "trait")))
 
 
-_RUST_TYPE_KINDS: frozenset[str] = frozenset({
-    "struct_item", "enum_item", "union_item", "trait_item",
-})
+_RUST_TYPE_KINDS: frozenset[str] = frozenset(
+    {
+        "struct_item",
+        "enum_item",
+        "union_item",
+        "trait_item",
+    }
+)
 
 
 def _associate_rust_impl_methods(classes: list[dict]) -> list[dict]:
@@ -1882,8 +1992,7 @@ def _associate_rust_impl_methods(classes: list[dict]) -> list[dict]:
         to_remove.add(i)
         moved += 1
 
-    LOG.debug("Rust impl association: moved %d impl methods into %d types",
-              moved, len(type_map))
+    LOG.debug("Rust impl association: moved %d impl methods into %d types", moved, len(type_map))
     return [e for i, e in enumerate(classes) if i not in to_remove]
 
 
@@ -1934,8 +2043,7 @@ def _associate_go_methods(classes: list[dict]) -> list[dict]:
         parent["methods"].append(method_entry)
         to_remove.add(i)
 
-    LOG.debug("SFX-1: moved %d receiver methods into %d Go types",
-              len(to_remove), len(type_map))
+    LOG.debug("SFX-1: moved %d receiver methods into %d Go types", len(to_remove), len(type_map))
     return [e for i, e in enumerate(classes) if i not in to_remove]
 
 
@@ -1961,8 +2069,7 @@ def _merge_members(target: dict, source: dict) -> None:
     """
     # Methods: dedup by (name, params_str)
     existing_sigs: set[tuple[str, str]] = {
-        (m.get("name", ""), str(m.get("params", "")))
-        for m in target.get("methods", [])
+        (m.get("name", ""), str(m.get("params", ""))) for m in target.get("methods", [])
     }
     for m in source.get("methods", []):
         sig = (m.get("name", ""), str(m.get("params", "")))
@@ -2065,6 +2172,7 @@ def consolidate_classes(classes: list[dict], language: str) -> list[dict]:
                 # Pick the entry with the most total members as primary
                 def _member_count(e: dict) -> int:
                     return len(e.get("methods", [])) + len(e.get("properties", []))
+
                 primary_idx = max(ns_indices, key=lambda i: _member_count(classes[i]))
                 primary = classes[primary_idx]
                 for i in ns_indices:
@@ -2073,8 +2181,7 @@ def consolidate_classes(classes: list[dict], language: str) -> list[dict]:
                     _merge_members(primary, classes[i])
                     discard.add(i)
                     merge_count += 1
-                LOG.debug("MERGE-PARTIAL: %s â€” %d fragments â†’ 1",
-                          name, len(ns_indices))
+                LOG.debug("MERGE-PARTIAL: %s â€” %d fragments â†’ 1", name, len(ns_indices))
                 continue
 
             # Category 3: compat shim (one's bases list references the other by name)
@@ -2088,8 +2195,11 @@ def consolidate_classes(classes: list[dict], language: str) -> list[dict]:
                     if short_base == name:
                         discard.add(i)
                         shim_found = True
-                        LOG.debug("DISCARD-SHIM: %s â€” %s inherits from same-name type",
-                                  name, classes[i].get("file", ""))
+                        LOG.debug(
+                            "DISCARD-SHIM: %s â€” %s inherits from same-name type",
+                            name,
+                            classes[i].get("file", ""),
+                        )
                         break
             if shim_found:
                 continue
@@ -2100,8 +2210,12 @@ def consolidate_classes(classes: list[dict], language: str) -> list[dict]:
             if with_bases and without_bases:
                 for i in without_bases:
                     discard.add(i)
-                LOG.debug("DISCARD-STUB: %s â€” kept %d with bases, discarded %d stubs",
-                          name, len(with_bases), len(without_bases))
+                LOG.debug(
+                    "DISCARD-STUB: %s â€” kept %d with bases, discarded %d stubs",
+                    name,
+                    len(with_bases),
+                    len(without_bases),
+                )
                 continue
 
             # Category 6: fallback â€” merge on same visibility (backward compat)
@@ -2112,9 +2226,10 @@ def consolidate_classes(classes: list[dict], language: str) -> list[dict]:
             for rank, vis_indices in vis_groups.items():
                 if len(vis_indices) < 2:
                     continue
-                primary_idx = max(vis_indices,
-                                  key=lambda i: (len(classes[i].get("methods", []))
-                                                 + len(classes[i].get("properties", []))))
+                primary_idx = max(
+                    vis_indices,
+                    key=lambda i: len(classes[i].get("methods", [])) + len(classes[i].get("properties", [])),
+                )
                 primary = classes[primary_idx]
                 for i in vis_indices:
                     if i == primary_idx:
@@ -2122,8 +2237,9 @@ def consolidate_classes(classes: list[dict], language: str) -> list[dict]:
                     _merge_members(primary, classes[i])
                     discard.add(i)
                     merge_count += 1
-                LOG.debug("MERGE-FALLBACK: %s â€” %d entries with rank %d â†’ 1",
-                          name, len(vis_indices), rank)
+                LOG.debug(
+                    "MERGE-FALLBACK: %s â€” %d entries with rank %d â†’ 1", name, len(vis_indices), rank
+                )
 
     if merge_count:
         LOG.info("consolidate_classes: merged %d partial-class fragment(s)", merge_count)
@@ -2174,6 +2290,7 @@ def _flatten_inheritance(classes: list[dict]) -> None:
             parent = by_name.get(base_name)
             if parent is None:
                 continue
+
             # Deep-copy each inherited member â€” the parent's method/property
             # dicts must never be shared by reference across classes. Without
             # this, any later pass that mutates one class's copy of an
@@ -2218,7 +2335,9 @@ def _flatten_inheritance(classes: list[dict]) -> None:
 
 
 def _mark_package_init_exports(
-    classes: list[dict], source_files: list[Path], pkg_root: "Path | None" = None,
+    classes: list[dict],
+    source_files: list[Path],
+    pkg_root: Path | None = None,
 ) -> None:
     """Mark Python classes re-exported via any package __init__.py.__all__.
 
@@ -2278,8 +2397,7 @@ def _mark_package_init_exports(
         # subtree (a directory starting with a single "_", e.g. _internal/).
         # This ensures we only aggregate exports from the package's public interface
         # modules, not from internal subpackage init files.
-        if any(p.startswith("_") and not p.startswith("__")
-               for p in src_file.parts):
+        if any(p.startswith("_") and not p.startswith("__") for p in src_file.parts):
             continue
         try:
             content = src_file.read_text(encoding="utf-8", errors="replace")
@@ -2310,8 +2428,11 @@ def _mark_package_init_exports(
                 bound_names.add(node.name)
             elif isinstance(node, ast.Assign):
                 for target in node.targets:
-                    if isinstance(target, ast.Name) and target.id == "__all__" \
-                            and isinstance(node.value, (ast.List, ast.Tuple)):
+                    if (
+                        isinstance(target, ast.Name)
+                        and target.id == "__all__"
+                        and isinstance(node.value, (ast.List, ast.Tuple))
+                    ):
                         for elt in node.value.elts:
                             if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
                                 declared_all.add(elt.value)
@@ -2348,9 +2469,7 @@ def _mark_package_init_exports(
                 entry["public_import_module"] = public_import_module[name]
 
 
-_PY_RELATIVE_IMPORT_RE = re.compile(
-    r"^\s*from\s+(\.+)([\w.]*)\s+import\s+([^\n(]+)$", re.MULTILINE
-)
+_PY_RELATIVE_IMPORT_RE = re.compile(r"^\s*from\s+(\.+)([\w.]*)\s+import\s+([^\n(]+)$", re.MULTILINE)
 # Companion pattern for the parenthesized multi-line form of the same
 # statement (`from .forms import (\n    Field,\n    ...\n)`), which
 # _PY_RELATIVE_IMPORT_RE's own trailing `[^\n(]+$` deliberately excludes
@@ -2363,25 +2482,17 @@ _PY_RELATIVE_IMPORT_RE = re.compile(
 # regex, wrongly making UnsignedContentAbsorber read as "not re-exported
 # anywhere" and triggering _resolve_python_shim_collisions' whole-group
 # discard on a class the package's own __init__.py genuinely exports).
-_PY_RELATIVE_IMPORT_PAREN_RE = re.compile(
-    r"^\s*from\s+(\.+)([\w.]*)\s+import\s+\(([^)]*)\)", re.MULTILINE
-)
+_PY_RELATIVE_IMPORT_PAREN_RE = re.compile(r"^\s*from\s+(\.+)([\w.]*)\s+import\s+\(([^)]*)\)", re.MULTILINE)
 # Absolute-form counterparts ("from aspose_pdf.images import Rectangle"),
 # used only when scanning the repo's own test files (below) for direct
 # submodule imports â€” the leading `\w` (not `[\w.]`) is deliberate so
 # these never also match a relative "from .forms import X" statement's
 # dot-prefixed module path.
-_PY_ABSOLUTE_IMPORT_RE = re.compile(
-    r"^\s*from\s+(\w[\w.]*)\s+import\s+([^\n(]+)$", re.MULTILINE
-)
-_PY_ABSOLUTE_IMPORT_PAREN_RE = re.compile(
-    r"^\s*from\s+(\w[\w.]*)\s+import\s+\(([^)]*)\)", re.MULTILINE
-)
+_PY_ABSOLUTE_IMPORT_RE = re.compile(r"^\s*from\s+(\w[\w.]*)\s+import\s+([^\n(]+)$", re.MULTILINE)
+_PY_ABSOLUTE_IMPORT_PAREN_RE = re.compile(r"^\s*from\s+(\w[\w.]*)\s+import\s+\(([^)]*)\)", re.MULTILINE)
 
 
-def _resolve_python_shim_collisions(
-    classes: list[dict], source_files: list[Path], repo: Path
-) -> list[dict]:
+def _resolve_python_shim_collisions(classes: list[dict], source_files: list[Path], repo: Path) -> list[dict]:
     """Drop same-name Python class duplicates that are abandoned top-level
     compatibility shims shadowed by a real submodule implementation, or
     an unreferenced duplicate sitting alongside a confirmed-public sibling.
@@ -2585,9 +2696,8 @@ def _resolve_python_shim_collisions(
             content = src_file.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        for dots, modpath, names_part in (
-            list(_PY_RELATIVE_IMPORT_RE.findall(content))
-            + list(_PY_RELATIVE_IMPORT_PAREN_RE.findall(content))
+        for dots, modpath, names_part in list(_PY_RELATIVE_IMPORT_RE.findall(content)) + list(
+            _PY_RELATIVE_IMPORT_PAREN_RE.findall(content)
         ):
             if not modpath:
                 continue
@@ -2620,10 +2730,7 @@ def _resolve_python_shim_collisions(
     def _symbol_transitively_reachable(name: str, file: str) -> bool:
         if (name, file) in reachable:
             return True
-        return any(
-            (name, file) in unaliased_imports.get(g, ())
-            for g in reachable_files
-        )
+        return any((name, file) in unaliased_imports.get(g, ()) for g in reachable_files)
 
     groups: dict[str, list[int]] = defaultdict(list)
     for i, c in enumerate(classes):
@@ -2644,7 +2751,8 @@ def _resolve_python_shim_collisions(
                 discard.add(i)
             LOG.info(
                 "PY-SHIM: %s â€” discarded %d baseless shim(s) (kept %s)",
-                name, len(without_bases),
+                name,
+                len(without_bases),
                 ", ".join(classes[j].get("file", "") for j in with_bases),
             )
             continue
@@ -2656,7 +2764,9 @@ def _resolve_python_shim_collisions(
                     discard.add(i)
             LOG.info(
                 "PY-SHIM: %s â€” kept reachable %s, discarded %d unreachable duplicate(s)",
-                name, classes[reachable_idx[0]].get("file", ""), len(indices) - 1,
+                name,
+                classes[reachable_idx[0]].get("file", ""),
+                len(indices) - 1,
             )
             continue
 
@@ -2669,8 +2779,7 @@ def _resolve_python_shim_collisions(
             # genuinely live code and the others are the actual shim/dead
             # duplicates.
             file_reachable_idx = [
-                i for i, e in entries
-                if _symbol_transitively_reachable(name, e.get("file", ""))
+                i for i, e in entries if _symbol_transitively_reachable(name, e.get("file", ""))
             ]
             if len(file_reachable_idx) == 1:
                 for i in indices:
@@ -2679,7 +2788,8 @@ def _resolve_python_shim_collisions(
                 LOG.info(
                     "PY-SHIM: %s â€” kept transitively-reachable %s, discarded "
                     "%d duplicate(s) with no import chain to any __init__.py",
-                    name, classes[file_reachable_idx[0]].get("file", ""),
+                    name,
+                    classes[file_reachable_idx[0]].get("file", ""),
                     len(indices) - 1,
                 )
                 continue
@@ -2701,10 +2811,7 @@ def _resolve_python_shim_collisions(
             # test_reachable_from_tests below finding it in
             # test_image_extraction.py) gives no such evidence and must
             # not be treated as dead code by default.
-            entry_dirs = {
-                str(Path(e.get("file", "")).parent).replace("\\", "/")
-                for _, e in entries
-            }
+            entry_dirs = {str(Path(e.get("file", "")).parent).replace("\\", "/") for _, e in entries}
             if entry_dirs and entry_dirs.issubset(governed_dirs):
                 for i in indices:
                     discard.add(i)
@@ -2712,7 +2819,8 @@ def _resolve_python_shim_collisions(
                     "PY-SHIM: %s â€” none of %d duplicate(s) reachable, and every "
                     "containing package has a curating __init__.py that omits "
                     "them; treating as internal, discarding all: %s",
-                    name, len(indices),
+                    name,
+                    len(indices),
                     ", ".join(classes[i].get("file", "") for i in indices),
                 )
         # else (>1 reachable, or 0 reachable without full __init__.py
@@ -2792,15 +2900,15 @@ def extract_api_surface(
     # this card (python/rust only) -- see extraction/lang/__init__.py's
     # module docstring for why csharp's new export_surface() is not wired
     # in here yet.
-    _python_exports: "set[str] | None" = None
-    _python_export_root: "Path | None" = None
+    _python_exports: set[str] | None = None
+    _python_export_root: Path | None = None
     _python_export_init_rel = ""
-    _rust_reexports: "set[str] | None" = None
+    _rust_reexports: set[str] | None = None
     # TC-MT040-11: TypeScript/JavaScript reachability signal (real
     # implementation -- was an unconditional (None, None) placeholder from
     # extraction/lang/typescript.py before this card).
-    _ts_exports: "set[str] | None" = None
-    _ts_entry_point: "Path | None" = None
+    _ts_exports: set[str] | None = None
+    _ts_entry_point: Path | None = None
     _ts_entry_point_rel = ""
     if language == "python":
         _python_exports, _python_export_root = lang.python.export_surface(repo, pkg_root)
@@ -2824,9 +2932,7 @@ def extract_api_surface(
         _ts_resolved_entry = lang.typescript.resolve_entry_point(repo, pkg_root)
         if _ts_resolved_entry is not None:
             try:
-                _ts_entry_point_rel = str(
-                    _ts_resolved_entry.relative_to(repo)
-                ).replace("\\", "/")
+                _ts_entry_point_rel = str(_ts_resolved_entry.relative_to(repo)).replace("\\", "/")
             except ValueError:
                 _ts_entry_point_rel = ""
 
@@ -2917,7 +3023,7 @@ def extract_api_surface(
             pkg_text = node_text(mnode).strip().rstrip(";").rstrip("{").strip()
             for kw in ("package", "namespace"):
                 if pkg_text.startswith(kw):
-                    pkg_text = pkg_text[len(kw):].strip()
+                    pkg_text = pkg_text[len(kw) :].strip()
             if pkg_text:
                 packages.add(pkg_text)
 
@@ -2927,7 +3033,7 @@ def extract_api_surface(
             for pkg_node in collect_nodes(root, {"package_declaration"}):
                 pkg_txt = node_text(pkg_node).strip().rstrip(";")
                 if pkg_txt.startswith("package"):
-                    java_file_package = pkg_txt[len("package"):].strip()
+                    java_file_package = pkg_txt[len("package") :].strip()
                 break
 
         class_nodes = collect_nodes(root, class_types)
@@ -2947,9 +3053,7 @@ def extract_api_surface(
                     rhs = child_by_field(stmt, "right")
                     if lhs and node_text(lhs).strip() == "__all__" and rhs:
                         rhs_text = node_text(rhs)
-                        module_all_names = set(
-                            re.findall(r'["\'](\w+)["\']', rhs_text)
-                        )
+                        module_all_names = set(re.findall(r'["\'](\w+)["\']', rhs_text))
                         break
 
         for cnode in class_nodes:
@@ -2962,19 +3066,22 @@ def extract_api_surface(
 
             # SYS-PKG-001: exclude Java classes in internal/impl packages.
             # Check uses the file-level java_file_package captured above the loop.
-            if (language == "java"
-                    and _effective_excluded_segments
-                    and _is_excluded_java_package(java_file_package, _effective_excluded_segments)):
+            if (
+                language == "java"
+                and _effective_excluded_segments
+                and _is_excluded_java_package(java_file_package, _effective_excluded_segments)
+            ):
                 continue
 
             # Skip C++ forward declarations (class Foo;) â€” no body
-            if (language == "cpp"
-                    and cnode.type in ("class_specifier", "struct_specifier")
-                    and find_child_by_type(cnode, "field_declaration_list") is None):
+            if (
+                language == "cpp"
+                and cnode.type in ("class_specifier", "struct_specifier")
+                and find_child_by_type(cnode, "field_declaration_list") is None
+            ):
                 continue
 
-            is_enum = cnode.type in ("enum_declaration", "enum_definition",
-                                     "enum_specifier", "enum_item")
+            is_enum = cnode.type in ("enum_declaration", "enum_definition", "enum_specifier", "enum_item")
             # SFX-2 (TC-MT040-42: now handled inside _extract_doc_comment via
             # extraction/lang/go.py's doc_anchor() -- for Go type_spec nodes,
             # the godoc comment precedes the parent type_declaration node,
@@ -2998,10 +3105,7 @@ def extract_api_surface(
                 # body consists entirely of ALL_CAPS assignments are
                 # treated as enum-like (common in 3D/Python libraries).
                 candidates = _extract_python_enum_members(cnode)
-                if candidates and all(
-                    m["name"].replace("_", "").isupper()
-                    for m in candidates
-                ):
+                if candidates and all(m["name"].replace("_", "").isupper() for m in candidates):
                     enum_members = candidates
                     is_enum = True
                 else:
@@ -3061,31 +3165,38 @@ def extract_api_surface(
                         # Explicit TS accessor signature nodes
                         acc_mode = "readonly" if mnode.type == "get_signature" else "writeonly"
                         ptype = ""
-                        type_node = (child_by_field(mnode, "return_type")
-                                     or find_child_by_type(mnode, "type_annotation"))
+                        type_node = child_by_field(mnode, "return_type") or find_child_by_type(
+                            mnode, "type_annotation"
+                        )
                         if type_node:
                             ptype = node_text(type_node).lstrip(":").strip()
                         # Merge with existing same-name property if present
                         existing_prop = next(
-                            (p for p in properties
-                             if p.get("name") == mname and p.get("kind") == "property"),
+                            (p for p in properties if p.get("name") == mname and p.get("kind") == "property"),
                             None,
                         )
                         if existing_prop is not None:
                             existing_prop["access_mode"] = "readwrite"
                         else:
-                            properties.append({
-                                "name": mname,
-                                "type": ptype,
-                                "kind": "property",
-                                "access_mode": acc_mode,
-                                "doc": "",
-                                "line": mnode.start_point[0] + 1,
-                            })
-                            claims.append(_make_claim(
-                                family, "api_method",
-                                f"{cname}.{mname} property of type {ptype}",
-                                rel, mnode.start_point[0] + 1))
+                            properties.append(
+                                {
+                                    "name": mname,
+                                    "type": ptype,
+                                    "kind": "property",
+                                    "access_mode": acc_mode,
+                                    "doc": "",
+                                    "line": mnode.start_point[0] + 1,
+                                }
+                            )
+                            claims.append(
+                                _make_claim(
+                                    family,
+                                    "api_method",
+                                    f"{cname}.{mname} property of type {ptype}",
+                                    rel,
+                                    mnode.start_point[0] + 1,
+                                )
+                            )
                         continue
                     # method_definition that begins with 'get ' or 'set '
                     if mnode.type == "method_definition":
@@ -3096,13 +3207,17 @@ def extract_api_surface(
                             acc_mode = "readonly" if is_getter else "writeonly"
                             ptype = ""
                             if is_getter:
-                                type_node = (child_by_field(mnode, "return_type")
-                                             or find_child_by_type(mnode, "type_annotation"))
+                                type_node = child_by_field(mnode, "return_type") or find_child_by_type(
+                                    mnode, "type_annotation"
+                                )
                                 if type_node:
                                     ptype = node_text(type_node).lstrip(":").strip()
                             existing_prop = next(
-                                (p for p in properties
-                                 if p.get("name") == mname and p.get("kind") == "property"),
+                                (
+                                    p
+                                    for p in properties
+                                    if p.get("name") == mname and p.get("kind") == "property"
+                                ),
                                 None,
                             )
                             if existing_prop is not None:
@@ -3110,23 +3225,28 @@ def extract_api_surface(
                                 if is_getter and ptype and not existing_prop.get("type"):
                                     existing_prop["type"] = ptype
                             else:
-                                properties.append({
-                                    "name": mname,
-                                    "type": ptype,
-                                    "kind": "property",
-                                    "access_mode": acc_mode,
-                                    "doc": "",
-                                    "line": mnode.start_point[0] + 1,
-                                })
-                                claims.append(_make_claim(
-                                    family, "api_method",
-                                    f"{cname}.{mname} property of type {ptype}",
-                                    rel, mnode.start_point[0] + 1))
+                                properties.append(
+                                    {
+                                        "name": mname,
+                                        "type": ptype,
+                                        "kind": "property",
+                                        "access_mode": acc_mode,
+                                        "doc": "",
+                                        "line": mnode.start_point[0] + 1,
+                                    }
+                                )
+                                claims.append(
+                                    _make_claim(
+                                        family,
+                                        "api_method",
+                                        f"{cname}.{mname} property of type {ptype}",
+                                        rel,
+                                        mnode.start_point[0] + 1,
+                                    )
+                                )
                             continue
 
-                if mnode.type in ("property_declaration",
-                                  "public_field_definition",
-                                  "property_signature"):
+                if mnode.type in ("property_declaration", "public_field_definition", "property_signature"):
                     ptype = ""
                     type_node = child_by_field(mnode, "type")
                     if type_node:
@@ -3165,23 +3285,25 @@ def extract_api_surface(
                         if _ts_is_static:
                             prop_entry["is_static"] = True
                         _ts_value_node = child_by_field(mnode, "value")
-                        _ts_is_literalish = (
-                            _ts_value_node is not None
-                            and (_ts_value_node.type in _TS_LITERALISH_TYPES
-                                 or _ts_value_node.type == "unary_expression")
+                        _ts_is_literalish = _ts_value_node is not None and (
+                            _ts_value_node.type in _TS_LITERALISH_TYPES
+                            or _ts_value_node.type == "unary_expression"
                         )
-                        if (_ts_is_static and _ts_is_readonly) or (
-                            _ts_is_static and _ts_is_literalish
-                        ):
+                        if (_ts_is_static and _ts_is_readonly) or (_ts_is_static and _ts_is_literalish):
                             prop_entry["kind"] = "constant"
                             if _ts_value_node is not None:
                                 prop_entry["value"] = node_text(_ts_value_node)[:80]
 
                     properties.append(prop_entry)
-                    claims.append(_make_claim(
-                        family, "api_method",
-                        f"{cname}.{mname} property of type {ptype}",
-                        rel, mnode.start_point[0] + 1))
+                    claims.append(
+                        _make_claim(
+                            family,
+                            "api_method",
+                            f"{cname}.{mname} property of type {ptype}",
+                            rel,
+                            mnode.start_point[0] + 1,
+                        )
+                    )
                     continue
 
                 params = _extract_method_params(mnode, language)
@@ -3189,10 +3311,11 @@ def extract_api_surface(
                 mdoc = _extract_doc_comment(mnode, language)
                 m_deprecated, m_deprecated_reason = deprecated_marker(mnode, language)
 
-                is_ctor = (mnode.type == "constructor_declaration"
-                           or (language == "python" and mname == "__init__")
-                           or (language in ("typescript", "javascript")
-                               and mname == "constructor"))
+                is_ctor = (
+                    mnode.type == "constructor_declaration"
+                    or (language == "python" and mname == "__init__")
+                    or (language in ("typescript", "javascript") and mname == "constructor")
+                )
 
                 # FR-16: stub detection â€” methods that only raise/throw NotImplemented*
                 method_entry: dict[str, Any] = {
@@ -3220,22 +3343,25 @@ def extract_api_surface(
                     _apply_ts_tsdoc_enrichment(method_entry, mnode)
 
                 methods.append(method_entry)
-                claims.append(_make_claim(
-                    family, "api_method",
-                    f"{cname}.{mname}({', '.join(p['name'] for p in params)}) -> {ret}",
-                    rel, mnode.start_point[0] + 1))
+                claims.append(
+                    _make_claim(
+                        family,
+                        "api_method",
+                        f"{cname}.{mname}({', '.join(p['name'] for p in params)}) -> {ret}",
+                        rel,
+                        mnode.start_point[0] + 1,
+                    )
+                )
 
             # Python properties via decorators
             if language == "python":
-                extra_props, extra_claims = _extract_python_properties(
-                    cnode, cname, rel, family)
+                extra_props, extra_claims = _extract_python_properties(cnode, cname, rel, family)
                 properties.extend(extra_props)
                 claims.extend(extra_claims)
 
             # Python annotated fields (dataclass fields, TypedDict members, etc.)
             if language == "python":
-                extra_fields, extra_claims = _extract_python_annotated_fields(
-                    cnode, cname, rel, family)
+                extra_fields, extra_claims = _extract_python_annotated_fields(cnode, cname, rel, family)
                 properties.extend(extra_fields)
                 claims.extend(extra_claims)
 
@@ -3243,21 +3369,20 @@ def extract_api_surface(
             if language == "python":
                 existing_prop_names = {p["name"] for p in properties}
                 init_props, init_claims = _extract_python_init_attributes(
-                    cnode, cname, rel, family, existing_prop_names)
+                    cnode, cname, rel, family, existing_prop_names
+                )
                 properties.extend(init_props)
                 claims.extend(init_claims)
 
             # Java properties via getter/setter synthesis
             if language == "java":
-                extra_props, extra_claims = _synthesize_java_properties(
-                    methods, cname, rel, family)
+                extra_props, extra_claims = _synthesize_java_properties(methods, cname, rel, family)
                 properties.extend(extra_props)
                 claims.extend(extra_claims)
 
             # C++ properties via getter/setter synthesis
             if language == "cpp":
-                extra_props, extra_claims = _synthesize_cpp_properties(
-                    methods, cname, rel, family)
+                extra_props, extra_claims = _synthesize_cpp_properties(methods, cname, rel, family)
                 properties.extend(extra_props)
                 claims.extend(extra_claims)
 
@@ -3265,8 +3390,7 @@ def extract_api_surface(
             # These are accessed like properties in content (e.g. CfbConstants.RootStreamId)
             # but are NOT captured by the method/property_declaration pass above.
             if language in ("csharp", "java"):
-                extra_props, extra_claims = _extract_const_fields(
-                    cnode, cname, rel, family, language)
+                extra_props, extra_claims = _extract_const_fields(cnode, cname, rel, family, language)
                 properties.extend(extra_props)
                 claims.extend(extra_claims)
 
@@ -3298,18 +3422,25 @@ def extract_api_surface(
                                     params = _extract_method_params(fdecl, language)
                                     ret = _extract_return_type(member, language)
                                     mdoc = _extract_doc_comment(member, language)
-                                    methods.append({
-                                        "name": mname,
-                                        "params": params,
-                                        "return_type": ret,
-                                        "doc": mdoc,
-                                        "line": member.start_point[0] + 1,
-                                        "is_constructor": False,
-                                    })
-                                    claims.append(_make_claim(
-                                        family, "api_method",
-                                        f"{cname}.{mname}({', '.join(p['name'] for p in params)}) -> {ret}",
-                                        rel, member.start_point[0] + 1))
+                                    methods.append(
+                                        {
+                                            "name": mname,
+                                            "params": params,
+                                            "return_type": ret,
+                                            "doc": mdoc,
+                                            "line": member.start_point[0] + 1,
+                                            "is_constructor": False,
+                                        }
+                                    )
+                                    claims.append(
+                                        _make_claim(
+                                            family,
+                                            "api_method",
+                                            f"{cname}.{mname}({', '.join(p['name'] for p in params)}) -> {ret}",
+                                            rel,
+                                            member.start_point[0] + 1,
+                                        )
+                                    )
                         elif member.type == "field_declaration" and access == "public":
                             fdecl = find_child_by_type(member, "function_declarator")
                             # Support reference/pointer return types: T& GetFoo() or T* GetFoo()
@@ -3334,18 +3465,25 @@ def extract_api_surface(
                                 params = _extract_method_params(fdecl, language)
                                 ret = _extract_return_type(member, language)
                                 mdoc = _extract_doc_comment(member, language)
-                                methods.append({
-                                    "name": mname,
-                                    "params": params,
-                                    "return_type": ret,
-                                    "doc": mdoc,
-                                    "line": member.start_point[0] + 1,
-                                    "is_constructor": False,
-                                })
-                                claims.append(_make_claim(
-                                    family, "api_method",
-                                    f"{cname}.{mname}({', '.join(p['name'] for p in params)}) -> {ret}",
-                                    rel, member.start_point[0] + 1))
+                                methods.append(
+                                    {
+                                        "name": mname,
+                                        "params": params,
+                                        "return_type": ret,
+                                        "doc": mdoc,
+                                        "line": member.start_point[0] + 1,
+                                        "is_constructor": False,
+                                    }
+                                )
+                                claims.append(
+                                    _make_claim(
+                                        family,
+                                        "api_method",
+                                        f"{cname}.{mname}({', '.join(p['name'] for p in params)}) -> {ret}",
+                                        rel,
+                                        member.start_point[0] + 1,
+                                    )
+                                )
                             else:
                                 # Public data member (e.g., std::string name;)
                                 fname = ""
@@ -3360,22 +3498,28 @@ def extract_api_surface(
                                 if type_node:
                                     ftype = node_text(type_node)
                                 mdoc = _extract_doc_comment(member, language)
-                                properties.append({
-                                    "name": fname,
-                                    "type": ftype,
-                                    "doc": mdoc,
-                                    "line": member.start_point[0] + 1,
-                                    "writable": True,  # public data members are read-write
-                                })
-                                claims.append(_make_claim(
-                                    family, "api_method",
-                                    f"{cname}.{fname} data member of type {ftype}",
-                                    rel, member.start_point[0] + 1))
+                                properties.append(
+                                    {
+                                        "name": fname,
+                                        "type": ftype,
+                                        "doc": mdoc,
+                                        "line": member.start_point[0] + 1,
+                                        "writable": True,  # public data members are read-write
+                                    }
+                                )
+                                claims.append(
+                                    _make_claim(
+                                        family,
+                                        "api_method",
+                                        f"{cname}.{fname} data member of type {ftype}",
+                                        rel,
+                                        member.start_point[0] + 1,
+                                    )
+                                )
 
             # Go exported struct fields (e.g. RenderOptions.DPI, Rectangle.LLX)
             if language == "go":
-                extra_props, extra_claims = _extract_go_struct_fields(
-                    cnode, cname, rel, family)
+                extra_props, extra_claims = _extract_go_struct_fields(cnode, cname, rel, family)
                 properties.extend(extra_props)
                 claims.extend(extra_claims)
 
@@ -3383,20 +3527,19 @@ def extract_api_surface(
             # Flatten) -- interface bodies have no struct_type, so the block
             # above is a no-op for them; this is the dedicated path.
             if language == "go":
-                extra_methods, extra_iface_claims = _extract_go_interface_methods(
-                    cnode, cname, rel, family)
+                extra_methods, extra_iface_claims = _extract_go_interface_methods(cnode, cname, rel, family)
                 methods.extend(extra_methods)
                 claims.extend(extra_iface_claims)
 
             # Rust pub struct fields (e.g. Workbook.path)
             if language == "rust":
-                extra_props, extra_claims = _extract_rust_struct_fields(
-                    cnode, cname, rel, family)
+                extra_props, extra_claims = _extract_rust_struct_fields(cnode, cname, rel, family)
                 properties.extend(extra_props)
                 claims.extend(extra_claims)
 
             vis = visibility_tier(
-                cnode, language,
+                cnode,
+                language,
                 has_docstring=bool(cdoc),
                 in_module_all=(cname in module_all_names),
             )
@@ -3412,7 +3555,8 @@ def extract_api_surface(
             # same-file override. C#-only; see synthesize_interface_members's
             # own docstring for the full finding and scope rationale.
             _synth_methods, _synth_properties = synthesize_interface_members(
-                bases, methods, properties, language)
+                bases, methods, properties, language
+            )
             methods = methods + _synth_methods
             properties = properties + _synth_properties
 
@@ -3606,8 +3750,7 @@ def extract_api_surface(
                     # the whole derived path is unreliable, not just that
                     # segment (the file-stem "module" under a dotted dir is
                     # not a real module either).
-                    if any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", p)
-                           for p in parts):
+                    if any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", p) for p in parts):
                         parts = []
                     if parts:
                         module_path = "::".join(parts)
@@ -3619,10 +3762,11 @@ def extract_api_surface(
                     cls_record["class_import"] = cname
 
             classes.append(cls_record)
-            claims.append(_make_claim(
-                family, "api_class",
-                f"Class {cname} defined in {rel}",
-                rel, cnode.start_point[0] + 1))
+            claims.append(
+                _make_claim(
+                    family, "api_class", f"Class {cname} defined in {rel}", rel, cnode.start_point[0] + 1
+                )
+            )
 
         # top-level functions (not inside classes)
         top_funcs = collect_nodes(root, func_types)
@@ -3684,10 +3828,15 @@ def extract_api_surface(
             if language in ("typescript", "javascript"):
                 _apply_ts_tsdoc_enrichment(func_entry, fnode)
             classes.append(func_entry)
-            claims.append(_make_claim(
-                family, "api_method",
-                f"Function {fname}({', '.join(p['name'] for p in params)}) -> {ret}",
-                rel, fnode.start_point[0] + 1))
+            claims.append(
+                _make_claim(
+                    family,
+                    "api_method",
+                    f"Function {fname}({', '.join(p['name'] for p in params)}) -> {ret}",
+                    rel,
+                    fnode.start_point[0] + 1,
+                )
+            )
 
         # TC-MT040-13: module-level `export const` declarations -- classes,
         # functions, and top-level functions above are the only three shapes
@@ -3696,7 +3845,8 @@ def extract_api_surface(
         # invisible to extraction entirely.
         if language == "typescript":
             _ts_const_entries, _ts_const_claims = _extract_ts_module_constants(
-                root, rel, fpath, family, _compute_reachable)
+                root, rel, fpath, family, _compute_reachable
+            )
             classes.extend(_ts_const_entries)
             claims.extend(_ts_const_claims)
 

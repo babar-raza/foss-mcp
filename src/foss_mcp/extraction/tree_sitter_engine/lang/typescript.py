@@ -9,6 +9,7 @@ See extraction/lang/__init__.py for the shared adapter contract this module
 implements: declaration_kinds(), doc_anchor(), parse_doc(), export_surface(),
 clear_cache().
 """
+
 from __future__ import annotations
 
 import json
@@ -16,7 +17,12 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
-from foss_mcp.extraction.tree_sitter_engine.tree_helpers import _CLASS_TYPES, _FUNC_TYPES, _IMPORT_TYPES, _MODULE_TYPES
+from foss_mcp.extraction.tree_sitter_engine.tree_helpers import (
+    _CLASS_TYPES,
+    _FUNC_TYPES,
+    _IMPORT_TYPES,
+    _MODULE_TYPES,
+)
 
 _LANG = "typescript"
 
@@ -24,6 +30,7 @@ _LANG = "typescript"
 # ---------------------------------------------------------------------------
 # declaration_kinds
 # ---------------------------------------------------------------------------
+
 
 def declaration_kinds() -> dict:
     """Return this language's tree-sitter node-kind sets used during
@@ -42,6 +49,7 @@ def declaration_kinds() -> dict:
 # ---------------------------------------------------------------------------
 # doc_anchor (TC-MT040-12)
 # ---------------------------------------------------------------------------
+
 
 def doc_anchor(node):
     """Return the node whose doc comment belongs to *node*.
@@ -91,6 +99,7 @@ def doc_anchor(node):
 # parse_doc (TC-MT040-12: full TSDoc block-tag parser)
 # ---------------------------------------------------------------------------
 
+
 def _first_sentence(text: str) -> str:
     """Return the first sentence (up to first period-space or newline).
 
@@ -107,7 +116,7 @@ _JSDOC_LINE_RE = re.compile(r"^\s*\*\s?", re.MULTILINE)
 _JSDOC_TAG_SPLIT_RE = re.compile(r"(?m)^\s*@(\w+)\b")
 _JSDOC_INLINE_LINK_RE = re.compile(r"\{@link\s+([^}]+)\}")
 _JSDOC_PARAM_RE = re.compile(
-    r"^\s*(?:\{[^}]*\}\s*)?"          # optional {Type}
+    r"^\s*(?:\{[^}]*\}\s*)?"  # optional {Type}
     r"(?:\[\s*([\w.$]+)(?:\s*=\s*[^\]]*)?\s*\]|([\w.$]+))"  # [name=default] or name
     r"\s*-?\s*(.*)$",
     re.DOTALL,
@@ -120,7 +129,8 @@ def _clean_inline_links(text: str) -> str:
     references to just ``y`` (or ``X.y`` when no ``#`` member separator is
     present) inside free-text doc content.
     """
-    def _sub(m: "re.Match[str]") -> str:
+
+    def _sub(m: re.Match[str]) -> str:
         ref = m.group(1).strip()
         # Drop an optional trailing pipe-delimited display text: {@link X|text}
         ref = ref.split("|", 1)[0].strip()
@@ -128,6 +138,7 @@ def _clean_inline_links(text: str) -> str:
             _cls, _member = ref.split("#", 1)
             return _member.strip()
         return ref
+
     return _JSDOC_INLINE_LINK_RE.sub(_sub, text)
 
 
@@ -191,7 +202,7 @@ def parse_doc(raw: str) -> dict:
     returns_parts: list[str] = []
     remarks_parts: list[str] = []
     examples: list[str] = []
-    deprecated: "bool | str" = False
+    deprecated: bool | str = False
 
     for idx, m in enumerate(tag_starts):
         tag = m.group(1).lower()
@@ -241,9 +252,7 @@ def parse_doc(raw: str) -> dict:
 _JS_LIKE_EXT_RE = re.compile(r"\.(d\.ts|mjs|cjs|js|ts|tsx)$")
 _DIST_PREFIXES = ("dist/", "lib/", "build/")
 
-_EXPORT_STAR_AS_RE = re.compile(
-    r"\bexport\s+\*\s+as\s+[A-Za-z_$][\w$]*\s+from\s+['\"]([^'\"]+)['\"]"
-)
+_EXPORT_STAR_AS_RE = re.compile(r"\bexport\s+\*\s+as\s+[A-Za-z_$][\w$]*\s+from\s+['\"]([^'\"]+)['\"]")
 # Same pattern as _EXPORT_STAR_AS_RE, but with the namespace name itself
 # captured too (TC-MT040-43 / D-4 strategy (b): export_groups() below needs
 # both pieces; _EXPORT_STAR_AS_RE stays as-is since export_surface()'s
@@ -257,9 +266,7 @@ _EXPORT_BRACE_RE = re.compile(
     r"export\s+(?:type\s+)?\{(?P<names>[^}]*)\}"
     r"(?:\s*from\s*['\"][^'\"]*['\"])?\s*;",
 )
-_EXPORT_DEFAULT_NAME_RE = re.compile(
-    r"\bexport\s+default\s+(?P<name>[A-Za-z_$][\w$]*)\s*;"
-)
+_EXPORT_DEFAULT_NAME_RE = re.compile(r"\bexport\s+default\s+(?P<name>[A-Za-z_$][\w$]*)\s*;")
 _EXPORT_DECL_RE = re.compile(
     r"\bexport\s+(?:default\s+)?(?:abstract\s+)?"
     r"(?:class|interface|enum|function|const|let|var|type|namespace)\s+"
@@ -288,7 +295,7 @@ def _map_pkgjson_specifier(raw: str) -> str:
     return val
 
 
-def _pkgjson_entry_candidates(data: dict) -> "list[str]":
+def _pkgjson_entry_candidates(data: dict) -> list[str]:
     """Return raw (unmapped) candidate entry-point path strings from a
     parsed package.json dict, in resolution-priority order: exports["."]
     (string, or dict tried in import/default/types order), then main,
@@ -313,7 +320,7 @@ def _pkgjson_entry_candidates(data: dict) -> "list[str]":
 
 
 @lru_cache(maxsize=64)
-def resolve_entry_point(repo: Path, pkg_root: Path) -> "Path | None":
+def resolve_entry_point(repo: Path, pkg_root: Path) -> Path | None:
     """Resolve the package's real entry-point (barrel) source file.
 
     Tries, in order: package.json's ``exports["."]`` (string, or a dict
@@ -356,7 +363,7 @@ def _is_relative_specifier(spec: str) -> bool:
     return spec.startswith("./") or spec.startswith("../")
 
 
-def _resolve_relative_ts_file(base_dir: Path, spec: str) -> "Path | None":
+def _resolve_relative_ts_file(base_dir: Path, spec: str) -> Path | None:
     """Resolve a relative import/re-export specifier to a real file on disk.
 
     Tries ``<stem>.ts``, ``<stem>.tsx``, ``<stem>/index.ts``, ``<stem>.d.ts``
@@ -379,8 +386,10 @@ def _strip_inline_type_modifier(item: str) -> str:
 
 
 def _collect_file_exports(
-    path: Path, visited: "set[Path]", depth: int,
-) -> "tuple[set[str], bool] | None":
+    path: Path,
+    visited: set[Path],
+    depth: int,
+) -> tuple[set[str], bool] | None:
     """Return (names, found_any_export_statement) for *path*, recursing into
     any `export * from './relative'` targets. Returns None to signal an
     unrecoverable "cannot safely enumerate" condition that must propagate
@@ -454,7 +463,7 @@ def _collect_file_exports(
 
 
 @lru_cache(maxsize=64)
-def _export_names_cached(repo: Path, pkg_root: Path) -> "frozenset | None":
+def _export_names_cached(repo: Path, pkg_root: Path) -> frozenset | None:
     entry = resolve_entry_point(repo, pkg_root)
     if entry is None:
         return None
@@ -472,7 +481,7 @@ def _export_names_cached(repo: Path, pkg_root: Path) -> "frozenset | None":
     return frozenset(names)
 
 
-def export_surface(repo: Path, pkg_root: Path) -> "tuple[set[str] | None, Path | None]":
+def export_surface(repo: Path, pkg_root: Path) -> tuple[set[str] | None, Path | None]:
     """Return (reachable_names, entry_path) -- see extraction/lang/__init__.py's
     module docstring for the shared contract.
 
@@ -503,7 +512,8 @@ def export_surface(repo: Path, pkg_root: Path) -> "tuple[set[str] | None, Path |
 # capability, not part of the shared extraction/lang/ contract)
 # ---------------------------------------------------------------------------
 
-def export_groups(repo: Path, pkg_root: Path) -> "dict[str, str] | None":
+
+def export_groups(repo: Path, pkg_root: Path) -> dict[str, str] | None:
     """Best-effort ``{exported_name: group_label}`` map for names the
     barrel/entry-point re-exports under a NAMED sub-namespace -- e.g.
     ``export * as Forms from './forms.js'`` groups every name that
@@ -558,6 +568,7 @@ def export_groups(repo: Path, pkg_root: Path) -> "dict[str, str] | None":
 # ---------------------------------------------------------------------------
 # clear_cache
 # ---------------------------------------------------------------------------
+
 
 def clear_cache() -> None:
     """Reset the memoized entry-point resolution and export-enumeration

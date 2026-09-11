@@ -16,7 +16,12 @@ from foss_mcp.mcp.tools.search_symbols import Miss, SymbolMatch, search_symbols
 
 
 def lookup(
-    store: GenerationManifestStore, scope: Scope, query: str, *, content_type: str | None = None, top_k: int = 10
+    store: GenerationManifestStore,
+    scope: Scope,
+    query: str,
+    *,
+    content_type: str | None = None,
+    top_k: int = 10,
 ) -> list[SymbolMatch] | list[DocMatch] | Miss:
     """Try the most specific search first, then the others, all within ``scope`` alone.
 

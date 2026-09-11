@@ -66,7 +66,9 @@ def _extract_block(text: str, header: str) -> tuple[str, ...]:
     return tuple(items)
 
 
-def _parse_signature(scope: Scope, generation_id: str, doc_id: str, chunk_id: str, text: str) -> SymbolSignature:
+def _parse_signature(
+    scope: Scope, generation_id: str, doc_id: str, chunk_id: str, text: str
+) -> SymbolSignature:
     kind_match = _KIND_LINE.search(text)
     return SymbolSignature(
         scope=scope,
@@ -96,5 +98,7 @@ def get_symbol(store: GenerationManifestStore, scope: Scope, fqn: str) -> Symbol
     documents = (manifest.payload.get("lexical_index") or {}).get("documents") or {}
     for doc_id, document in documents.items():
         if extract_fqn(document["text"]) == fqn:
-            return _parse_signature(scope, active_generation_id, doc_id, document["chunk_id"], document["text"])
+            return _parse_signature(
+                scope, active_generation_id, doc_id, document["chunk_id"], document["text"]
+            )
     return NotFound(scope, fqn)

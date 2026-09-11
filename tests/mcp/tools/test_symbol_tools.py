@@ -16,7 +16,7 @@ from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.publisher import publish_generation
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools import find_examples as find_examples_module
-from foss_mcp.mcp.tools.find_examples import ExampleMatch, NoExampleFound, find_examples
+from foss_mcp.mcp.tools.find_examples import NoExampleFound, find_examples
 from foss_mcp.mcp.tools.get_symbol import NotFound, SymbolSignature, get_symbol
 from foss_mcp.mcp.tools.list_members import list_members
 from foss_mcp.normalization.chunker import chunk_document
@@ -35,7 +35,9 @@ WITHOUT_EXAMPLE = "Border"
 
 def _format_signature(entry: dict) -> str:
     def method_line(method: dict) -> str:
-        params = ", ".join(f"{p.get('type', '')} {p.get('name', '')}".strip() for p in method.get("params", []))
+        params = ", ".join(
+            f"{p.get('type', '')} {p.get('name', '')}".strip() for p in method.get("params", [])
+        )
         return f"{method['name']}({params})"
 
     def property_line(prop: dict) -> str:
@@ -51,7 +53,7 @@ def _format_signature(entry: dict) -> str:
     if entry["name"] == WITH_EXAMPLE:
         lines.append("Example:")
         lines.append(
-            'var annotations = page.Annotations;\n'
+            "var annotations = page.Annotations;\n"
             'annotations.AddTextAnnotation(rect, "A note", "Reviewer", true);'
         )
     return "\n".join(lines)

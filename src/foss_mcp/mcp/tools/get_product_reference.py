@@ -83,7 +83,9 @@ def _document_section(section: Section, document: DocumentResult | None) -> Refe
     return ReferenceContent(section, document.content)
 
 
-def get_product_reference(inputs: ProductReferenceInputs, section: Section) -> ReferenceContent | NotAvailable:
+def get_product_reference(
+    inputs: ProductReferenceInputs, section: Section
+) -> ReferenceContent | NotAvailable:
     """Real content for *section*, or an explicit ``NotAvailable`` - never a guess."""
     if section not in SECTIONS:
         raise ValueError(f"section must be one of {SECTIONS}, got {section!r}")

@@ -14,6 +14,7 @@ Extracted from scout.py (step 4.1). Contains:
 
 No Scout class dependencies â€” these are pure functions usable in isolation.
 """
+
 from __future__ import annotations
 
 import itertools
@@ -66,10 +67,14 @@ PLATFORM_TO_LANG: dict[str, str] = {
 }
 
 _CLASS_TYPES: dict[str, set[str]] = {
-    "java": {"class_declaration", "interface_declaration", "enum_declaration",
-             "annotation_type_declaration"},
-    "csharp": {"class_declaration", "interface_declaration", "enum_declaration",
-               "struct_declaration", "record_declaration"},
+    "java": {"class_declaration", "interface_declaration", "enum_declaration", "annotation_type_declaration"},
+    "csharp": {
+        "class_declaration",
+        "interface_declaration",
+        "enum_declaration",
+        "struct_declaration",
+        "record_declaration",
+    },
     "javascript": {"class_declaration"},
     # TC-MT040-10: abstract_class_declaration is a DISTINCT tree-sitter node
     # type from class_declaration for `export abstract class X {}` (verified
@@ -78,9 +83,13 @@ _CLASS_TYPES: dict[str, set[str]] = {
     # missing its is_abstract flag). Confirmed live: 8 real abstract classes
     # under 3d/typescript's src/ (e.g. formats/Exporter.ts's `export abstract
     # class Exporter`), none previously extracted.
-    "typescript": {"class_declaration", "interface_declaration",
-                   "type_alias_declaration", "enum_declaration",
-                   "abstract_class_declaration"},
+    "typescript": {
+        "class_declaration",
+        "interface_declaration",
+        "type_alias_declaration",
+        "enum_declaration",
+        "abstract_class_declaration",
+    },
     "cpp": {"class_specifier", "struct_specifier", "enum_specifier"},
     "python": {"class_definition"},
     "go": {"type_declaration", "type_spec"},
@@ -89,17 +98,21 @@ _CLASS_TYPES: dict[str, set[str]] = {
 
 _FUNC_TYPES: dict[str, set[str]] = {
     "java": {"method_declaration", "constructor_declaration"},
-    "csharp": {"method_declaration", "constructor_declaration",
-               "property_declaration"},
-    "javascript": {"function_declaration", "method_definition", "arrow_function",
-                   "public_field_definition"},
+    "csharp": {"method_declaration", "constructor_declaration", "property_declaration"},
+    "javascript": {"function_declaration", "method_definition", "arrow_function", "public_field_definition"},
     # TC-MT040-10: abstract method signatures (`abstract load(p: string): void;`,
     # no body) inside an abstract_class_declaration body parse as their own
     # distinct `abstract_method_signature` node type, not `method_signature`
     # (that one is for interface/ambient bodies) -- verified via parse probe.
-    "typescript": {"function_declaration", "method_definition", "arrow_function",
-                   "public_field_definition", "property_signature", "method_signature",
-                   "abstract_method_signature"},
+    "typescript": {
+        "function_declaration",
+        "method_definition",
+        "arrow_function",
+        "public_field_definition",
+        "property_signature",
+        "method_signature",
+        "abstract_method_signature",
+    },
     "go": {"function_declaration", "method_declaration"},
     "cpp": {"function_definition"},
     "python": {"function_definition"},
@@ -107,10 +120,20 @@ _FUNC_TYPES: dict[str, set[str]] = {
     "rust": {"function_item", "function_signature_item"},
 }
 
-_PY_ENUM_BASES: frozenset[str] = frozenset({
-    "Enum", "IntEnum", "StrEnum", "Flag", "IntFlag",
-    "enum.Enum", "enum.IntEnum", "enum.StrEnum", "enum.Flag", "enum.IntFlag",
-})
+_PY_ENUM_BASES: frozenset[str] = frozenset(
+    {
+        "Enum",
+        "IntEnum",
+        "StrEnum",
+        "Flag",
+        "IntFlag",
+        "enum.Enum",
+        "enum.IntEnum",
+        "enum.StrEnum",
+        "enum.Flag",
+        "enum.IntFlag",
+    }
+)
 
 _IMPORT_TYPES: dict[str, set[str]] = {
     "java": {"import_declaration"},
@@ -143,12 +166,9 @@ _NOT_IMPL_PATTERNS: dict[str, re.Pattern[str]] = {
     "python": re.compile(r"raise\s+NotImplementedError"),
     "csharp": re.compile(r"throw\s+new\s+NotImplementedException\s*\("),
     "java": re.compile(r"throw\s+new\s+UnsupportedOperationException\s*\("),
-    "cpp": re.compile(r'throw\s+std::runtime_error\s*\(\s*"not implemented"',
-                      re.IGNORECASE),
-    "javascript": re.compile(r'throw\s+new\s+Error\s*\(\s*"not implemented"',
-                              re.IGNORECASE),
-    "typescript": re.compile(r'throw\s+new\s+Error\s*\(\s*"not implemented"',
-                              re.IGNORECASE),
+    "cpp": re.compile(r'throw\s+std::runtime_error\s*\(\s*"not implemented"', re.IGNORECASE),
+    "javascript": re.compile(r'throw\s+new\s+Error\s*\(\s*"not implemented"', re.IGNORECASE),
+    "typescript": re.compile(r'throw\s+new\s+Error\s*\(\s*"not implemented"', re.IGNORECASE),
     # SFX-5: Go uses errors.New/fmt.Errorf with "not implemented" strings, or panic.
     "go": re.compile(
         r'errors\.New\s*\(\s*"not implemented"\s*\)'
@@ -203,17 +223,20 @@ def get_parser(language: str):
     if resolved == "_c_sharp_separate":
         import tree_sitter_c_sharp as tsc
         from tree_sitter import Language, Parser
+
         lang_obj = Language(tsc.language())
         parser = Parser(lang_obj)
         return parser
     else:
         from tree_sitter_language_pack import get_parser as _get
+
         return _get(resolved)
 
 
 # ---------------------------------------------------------------------------
 # Generic tree helpers
 # ---------------------------------------------------------------------------
+
 
 def collect_nodes(root, type_names: set[str]) -> list:
     """Iterative depth-first collection of nodes whose type is in *type_names*."""
@@ -270,6 +293,7 @@ def _node_name(node, language: str) -> str:
 # ---------------------------------------------------------------------------
 # Visibility check
 # ---------------------------------------------------------------------------
+
 
 def is_public(node, language: str) -> bool:
     """Return True if *node* represents a public declaration."""
@@ -332,17 +356,18 @@ def is_public(node, language: str) -> bool:
 
     if language in ("java", "csharp", "cpp"):
         # C++ top-level classes/structs are implicitly public API
-        if language == "cpp" and node.type in ("class_specifier", "struct_specifier",
-                                                "enum_specifier"):
+        if language == "cpp" and node.type in ("class_specifier", "struct_specifier", "enum_specifier"):
             parent = node.parent
-            if parent and parent.type in ("translation_unit", "declaration",
-                                           "namespace_definition",
-                                           "declaration_list"):
+            if parent and parent.type in (
+                "translation_unit",
+                "declaration",
+                "namespace_definition",
+                "declaration_list",
+            ):
                 return True
             if parent and parent.type == "declaration":
                 gp = parent.parent
-                if gp and gp.type in ("translation_unit", "namespace_definition",
-                                       "declaration_list"):
+                if gp and gp.type in ("translation_unit", "namespace_definition", "declaration_list"):
                     return True
         # HARDEN-A11 (2026-07-22): accumulate EVERY modifier/modifiers sibling
         # before deciding, instead of returning on the first one found. Java's
@@ -366,9 +391,11 @@ def is_public(node, language: str) -> bool:
         if found_modifier_node:
             return "public" in " ".join(modifier_texts)
         # C# / Java: interface members are implicitly public
-        if node.parent and node.parent.type in ("interface_declaration",
-                                                  "interface_body",
-                                                  "declaration_list"):
+        if node.parent and node.parent.type in (
+            "interface_declaration",
+            "interface_body",
+            "declaration_list",
+        ):
             gp = node.parent
             if gp.type in ("declaration_list", "interface_body"):
                 gp = gp.parent
@@ -428,8 +455,7 @@ def deprecated_marker(node, language: str) -> tuple[bool, str]:
     return False, ""
 
 
-def visibility_tier(node, language: str, *, has_docstring: bool = False,
-                     in_module_all: bool = False) -> str:
+def visibility_tier(node, language: str, *, has_docstring: bool = False, in_module_all: bool = False) -> str:
     """Return visibility tier for a node that already passed is_public().
 
     Tiers (highest to lowest signal):
@@ -466,14 +492,32 @@ def visibility_tier(node, language: str, *, has_docstring: bool = False,
 # ---------------------------------------------------------------------------
 
 # Directories that should never contribute to the public API surface.
-_NON_PUBLIC_DIRS: frozenset[str] = frozenset({
-    "tests", "test", "spec", "specs",
-    "examples", "example", "samples", "sample", "demo", "demos",
-    "docs", "doc", "documentation",
-    ".github", ".git",
-    "benchmarks", "benchmark", "perf",
-    "scripts", "tools", "build", "dist",
-})
+_NON_PUBLIC_DIRS: frozenset[str] = frozenset(
+    {
+        "tests",
+        "test",
+        "spec",
+        "specs",
+        "examples",
+        "example",
+        "samples",
+        "sample",
+        "demo",
+        "demos",
+        "docs",
+        "doc",
+        "documentation",
+        ".github",
+        ".git",
+        "benchmarks",
+        "benchmark",
+        "perf",
+        "scripts",
+        "tools",
+        "build",
+        "dist",
+    }
+)
 
 
 def _is_non_public_path(p: Path, root: Path) -> bool:
@@ -485,14 +529,15 @@ def _is_non_public_path(p: Path, root: Path) -> bool:
     return any(part.lower() in _NON_PUBLIC_DIRS for part in parts)
 
 
-_FORMAT_STEM_RE = re.compile(
-    r"(format|exporter|importer|loader|saver|reader|writer)", re.IGNORECASE
-)
+_FORMAT_STEM_RE = re.compile(r"(format|exporter|importer|loader|saver|reader|writer)", re.IGNORECASE)
 
 
 def _collect_source_files(
-    root: Path, ext: str, header_ext: str | list[str] = "",
-    *, stats: "dict[str, Any] | None" = None,
+    root: Path,
+    ext: str,
+    header_ext: str | list[str] = "",
+    *,
+    stats: dict[str, Any] | None = None,
 ) -> list[Path]:
     """Glob for source files, capped at MAX_FILES, excluding non-public directories.
 
@@ -509,6 +554,7 @@ def _collect_source_files(
     the true pre-cap candidate count and whether capping occurred, for
     callers that persist it into a durable report (e.g. scout_report.json).
     """
+
     def _priority(p: Path) -> tuple:
         rel = p.relative_to(root).as_posix()
         if "/_internal/" in rel:
@@ -542,7 +588,10 @@ def _collect_source_files(
             "processed (%d dropped) -- API surface will be INCOMPLETE for this product. "
             "Raise MAX_FILES in scripts/pipeline/extraction/tree_helpers.py if this repo's "
             "size is expected to persist.",
-            root, total_candidates, MAX_FILES, total_candidates - MAX_FILES,
+            root,
+            total_candidates,
+            MAX_FILES,
+            total_candidates - MAX_FILES,
         )
     if stats is not None:
         stats["candidates_found"] = total_candidates
@@ -553,6 +602,7 @@ def _collect_source_files(
 # ---------------------------------------------------------------------------
 # Base class extraction
 # ---------------------------------------------------------------------------
+
 
 def _extract_bases(node, language: str) -> list[str]:
     """Extract base classes / interfaces from a class declaration."""
@@ -577,8 +627,7 @@ def _extract_bases(node, language: str) -> list[str]:
             tb = find_child_by_type(node, "trait_bounds")
             if tb is not None:
                 for ch in tb.children:
-                    if ch.type in ("type_identifier", "generic_type",
-                                    "scoped_type_identifier"):
+                    if ch.type in ("type_identifier", "generic_type", "scoped_type_identifier"):
                         bases.append(node_text(ch))
         return bases
 
@@ -650,8 +699,7 @@ def _extract_bases(node, language: str) -> list[str]:
             # class_declaration with both clauses present too, same grammar
             # shape either way. Process each sub-clause independently
             # instead of the parent node as a whole.
-            sub_chs = [c for c in ch.children
-                       if c.type in ("extends_clause", "implements_clause")]
+            sub_chs = [c for c in ch.children if c.type in ("extends_clause", "implements_clause")]
             if sub_chs:
                 for sub in sub_chs:
                     sub_text = re.sub(r"^(extends|implements)\s*", "", node_text(sub))
@@ -663,10 +711,16 @@ def _extract_bases(node, language: str) -> list[str]:
             # No recognized sub-clauses -- fall through to the generic
             # whole-node handling below (preserves prior behavior exactly
             # for any other class_heritage shape).
-        if ch.type in ("superclass", "type_identifier", "base_list",
-                        "super_interfaces", "extends_interfaces",
-                        "class_heritage", "extends_clause",
-                        "implements_clause"):
+        if ch.type in (
+            "superclass",
+            "type_identifier",
+            "base_list",
+            "super_interfaces",
+            "extends_interfaces",
+            "class_heritage",
+            "extends_clause",
+            "implements_clause",
+        ):
             text = node_text(ch)
             # strip keywords
             text = re.sub(r"^(extends|implements|:)\s*", "", text)
@@ -704,9 +758,16 @@ def _extract_bases(node, language: str) -> list[str]:
 # override on Node.cs both leaked into api_surface.json and were rendered as
 # real public .NET API on 48 published reference pages (confirmed via an
 # independent adversarial review of the words/net launch).
-_PREPROC_KNOWN_FALSE_SYMBOLS = frozenset({
-    "DEBUG", "JAVA", "PLAIN_JAVA", "CPLUSPLUS", "PYNET", "TEST",
-})
+_PREPROC_KNOWN_FALSE_SYMBOLS = frozenset(
+    {
+        "DEBUG",
+        "JAVA",
+        "PLAIN_JAVA",
+        "CPLUSPLUS",
+        "PYNET",
+        "TEST",
+    }
+)
 
 _PREPROC_TOKEN_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*|&&|\|\||!|\(|\)")
 _PREPROC_SAFE_RE = re.compile(r"^[A-Za-z0-9_\s!&|()]*$")
@@ -848,7 +909,7 @@ _SYNTHESIZABLE_INTERFACE_MEMBERS: dict[str, list[dict[str, Any]]] = {
 _GENERIC_BASE_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*<(.+)>\s*$")
 
 
-def _canonical_interface_key(base_name: str) -> "tuple[str, str | None] | None":
+def _canonical_interface_key(base_name: str) -> tuple[str, str | None] | None:
     """Map a raw base-list entry (e.g. 'IEnumerator<Node>', 'IDisposable') to
     (key, generic_arg) where key is an entry in _SYNTHESIZABLE_INTERFACE_MEMBERS
     and generic_arg is the real captured type argument ('Node') for generic
@@ -930,29 +991,33 @@ def synthesize_interface_members(
                 return_type = member["return_type"]
                 if generic_arg and "T" in return_type:
                     return_type = return_type.replace("T", generic_arg)
-                new_methods.append({
-                    "name": name,
-                    "params": [],
-                    "return_type": return_type,
-                    "doc": "",
-                    "line": None,
-                    "is_constructor": False,
-                    "origin": "interface_synthesized",
-                })
+                new_methods.append(
+                    {
+                        "name": name,
+                        "params": [],
+                        "return_type": return_type,
+                        "doc": "",
+                        "line": None,
+                        "is_constructor": False,
+                        "origin": "interface_synthesized",
+                    }
+                )
             else:
                 if name in existing_property_names:
                     continue
                 prop_type = member["type"]
                 if generic_arg and prop_type == "T":
                     prop_type = generic_arg
-                new_properties.append({
-                    "name": name,
-                    "type": prop_type,
-                    "doc": "",
-                    "line": None,
-                    "writable": False,
-                    "origin": "interface_synthesized",
-                })
+                new_properties.append(
+                    {
+                        "name": name,
+                        "type": prop_type,
+                        "doc": "",
+                        "line": None,
+                        "writable": False,
+                        "origin": "interface_synthesized",
+                    }
+                )
             seen_this_class.add(name)
 
     return new_methods, new_properties
@@ -962,23 +1027,31 @@ def synthesize_interface_members(
 # Enum member extraction
 # ---------------------------------------------------------------------------
 
+
 def _extract_enum_members(node, language: str) -> list[dict[str, str]]:
     """Extract enum constant names and values."""
     members: list[dict[str, str]] = []
-    body = (find_child_by_type(node, "enum_body")
-            or find_child_by_type(node, "enum_member_declaration_list")
-            or find_child_by_type(node, "enum_declaration_list")
-            or find_child_by_type(node, "enumerator_list")
-            or find_child_by_type(node, "enum_variant_list")
-            or find_child_by_type(node, "declaration_list")
-            or find_child_by_type(node, "block"))
+    body = (
+        find_child_by_type(node, "enum_body")
+        or find_child_by_type(node, "enum_member_declaration_list")
+        or find_child_by_type(node, "enum_declaration_list")
+        or find_child_by_type(node, "enumerator_list")
+        or find_child_by_type(node, "enum_variant_list")
+        or find_child_by_type(node, "declaration_list")
+        or find_child_by_type(node, "block")
+    )
     if body is None:
         body = node
 
     for ch in body.children:
-        if ch.type in ("enum_constant", "enum_member_declaration",
-                        "enum_assignment", "enumerator", "property_identifier",
-                        "enum_variant"):
+        if ch.type in (
+            "enum_constant",
+            "enum_member_declaration",
+            "enum_assignment",
+            "enumerator",
+            "property_identifier",
+            "enum_variant",
+        ):
             name = _node_name(ch, language) or node_text(ch).strip()
             val_node = child_by_field(ch, "value")
             val = node_text(val_node) if val_node else ""

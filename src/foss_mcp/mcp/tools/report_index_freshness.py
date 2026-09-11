@@ -61,20 +61,40 @@ def report_index_freshness(
 
     if indexed_commit is None:
         return FreshnessReport(
-            scope, source_kind, generation_id, None, current_source_commit, True,
+            scope,
+            source_kind,
+            generation_id,
+            None,
+            current_source_commit,
+            True,
             "indexed generation does not record its source commit",
         )
     if current_source_commit is None:
         return FreshnessReport(
-            scope, source_kind, generation_id, indexed_commit, None, True,
+            scope,
+            source_kind,
+            generation_id,
+            indexed_commit,
+            None,
+            True,
             "current source commit is unknown; staleness cannot be ruled out",
         )
     if indexed_commit != current_source_commit:
         return FreshnessReport(
-            scope, source_kind, generation_id, indexed_commit, current_source_commit, True,
+            scope,
+            source_kind,
+            generation_id,
+            indexed_commit,
+            current_source_commit,
+            True,
             f"indexed {indexed_commit}, current source is {current_source_commit}",
         )
     return FreshnessReport(
-        scope, source_kind, generation_id, indexed_commit, current_source_commit, False,
+        scope,
+        source_kind,
+        generation_id,
+        indexed_commit,
+        current_source_commit,
+        False,
         "index matches the current source commit",
     )

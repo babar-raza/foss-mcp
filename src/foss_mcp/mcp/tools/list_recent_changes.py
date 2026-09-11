@@ -26,4 +26,7 @@ def list_recent_changes(releases: Sequence[Release], *, limit: int = 10) -> list
     ``github_release_reader.fetch_releases`` returns them), each carrying the SAME richness
     verdict ``classify_richness`` gave it - never dropped, never upgraded, never guessed at.
     """
-    return [ChangeEntry(tag_name=release.tag_name, richness=release.richness, body=release.body) for release in releases[:limit]]
+    return [
+        ChangeEntry(tag_name=release.tag_name, richness=release.richness, body=release.body)
+        for release in releases[:limit]
+    ]

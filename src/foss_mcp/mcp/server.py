@@ -241,7 +241,9 @@ def create_server(
 
 
 @asynccontextmanager
-async def run_stdio(deployment_config: DeploymentConfig, manifest_store: GenerationManifestStore | None = None):
+async def run_stdio(
+    deployment_config: DeploymentConfig, manifest_store: GenerationManifestStore | None = None
+):
     """Serve ``create_server`` over the process's stdin/stdout."""
     server = create_server(deployment_config, manifest_store)
     async with stdio_server() as (read_stream, write_stream):

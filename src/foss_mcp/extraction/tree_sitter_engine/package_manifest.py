@@ -11,6 +11,7 @@ Extracted from scout.py (step 4.3). Contains:
 
 No Scout class dependencies â€” these are pure functions usable in isolation.
 """
+
 from __future__ import annotations
 
 import json
@@ -110,8 +111,7 @@ def _parse_dotnet_manifest(repo: Path) -> dict[str, Any]:
         return info
     csproj_files.sort(key=lambda p: len(p.parts))
     text = csproj_files[0].read_text(encoding="utf-8", errors="replace")
-    for tag, key in [("PackageId", "name"), ("AssemblyName", "name"),
-                     ("Version", "version")]:
+    for tag, key in [("PackageId", "name"), ("AssemblyName", "name"), ("Version", "version")]:
         if key in info and info[key]:
             continue
         m = re.search(rf"<{tag}>(.*?)</{tag}>", text)
@@ -174,18 +174,14 @@ def _parse_java_manifest(repo: Path) -> dict[str, Any]:
     pom = repo / "pom.xml"
     if pom.exists():
         text = pom.read_text(encoding="utf-8", errors="replace")
-        for tag, key in [("groupId", "group_id"), ("artifactId", "artifact_id"),
-                         ("version", "version")]:
+        for tag, key in [("groupId", "group_id"), ("artifactId", "artifact_id"), ("version", "version")]:
             m = re.search(rf"<{tag}>(.*?)</{tag}>", text)
             if m:
                 info[key] = m.group(1)
         info["name"] = info.get("artifact_id", "")
         # Extract Java compiler target version (priority: release > target > source)
-        for prop_tag in ["maven.compiler.release", "maven.compiler.target",
-                         "maven.compiler.source"]:
-            m = re.search(
-                rf"<{re.escape(prop_tag)}>(.*?)</{re.escape(prop_tag)}>", text
-            )
+        for prop_tag in ["maven.compiler.release", "maven.compiler.target", "maven.compiler.source"]:
+            m = re.search(rf"<{re.escape(prop_tag)}>(.*?)</{re.escape(prop_tag)}>", text)
             if m:
                 info["runtime_min_version"] = m.group(1).strip()
                 break
@@ -279,13 +275,15 @@ def _detect_go_package_subpath(repo: Path, pkg_name: str) -> str:
     is `undefined` at that path. The real import path needs the
     subdirectory appended: `{module}/aspose/cells_foss`.
     """
-    root_files = [
-        f for f in sorted(repo.glob("*.go"))
-        if not f.name.endswith("_test.go")
-    ]
+    root_files = [f for f in sorted(repo.glob("*.go")) if not f.name.endswith("_test.go")]
     root_has_real_decl = any(
-        _has_go_declarations(f) for f in root_files
-        if re.search(rf"^package\s+{re.escape(pkg_name)}\b", f.read_text(encoding="utf-8", errors="replace"), re.MULTILINE)
+        _has_go_declarations(f)
+        for f in root_files
+        if re.search(
+            rf"^package\s+{re.escape(pkg_name)}\b",
+            f.read_text(encoding="utf-8", errors="replace"),
+            re.MULTILINE,
+        )
     )
     if root_has_real_decl:
         return ""
@@ -300,7 +298,9 @@ def _detect_go_package_subpath(repo: Path, pkg_name: str) -> str:
                 text = f.read_text(encoding="utf-8", errors="replace")
             except OSError:
                 continue
-            if re.search(rf"^package\s+{re.escape(pkg_name)}\b", text, re.MULTILINE) and _has_go_declarations(f):
+            if re.search(rf"^package\s+{re.escape(pkg_name)}\b", text, re.MULTILINE) and _has_go_declarations(
+                f
+            ):
                 return subdir.relative_to(repo).as_posix()
     return ""
 
@@ -331,7 +331,8 @@ def _parse_go_manifest(repo: Path) -> dict[str, Any]:
             LOG.info(
                 "Go package %r has no real declarations at repo root; "
                 "real implementation found at %s (import path needs this appended)",
-                pkg_name, subpath,
+                pkg_name,
+                subpath,
             )
     return info
 
@@ -382,8 +383,7 @@ def _parse_rust_manifest(repo: Path) -> dict[str, Any]:
         info["dependencies"] = list(deps.keys())
     lib_name = (data.get("lib") or {}).get("name", "")
     info["canonical_package"] = (
-        lib_name if isinstance(lib_name, str) and lib_name
-        else info["name"].replace("-", "_")
+        lib_name if isinstance(lib_name, str) and lib_name else info["name"].replace("-", "_")
     )
     return info
 
@@ -394,26 +394,26 @@ def _parse_cpp_manifest(repo: Path) -> dict[str, Any]:
     if cmake.exists():
         text = cmake.read_text(encoding="utf-8", errors="replace")
         # Project name and version
-        m = re.search(r"project\s*\(\s*(\S+)(?:\s+VERSION\s+(\S+))?", text,
-                      re.IGNORECASE)
+        m = re.search(r"project\s*\(\s*(\S+)(?:\s+VERSION\s+(\S+))?", text, re.IGNORECASE)
         if m:
             info["name"] = m.group(1)
             if m.group(2):
                 info["version"] = m.group(2).rstrip(")")
         # CMake minimum required version
-        m = re.search(r"cmake_minimum_required\s*\(\s*VERSION\s+([\d.]+)",
-                      text, re.IGNORECASE)
+        m = re.search(r"cmake_minimum_required\s*\(\s*VERSION\s+([\d.]+)", text, re.IGNORECASE)
         if m:
             info["cmake_min_version"] = m.group(1)
         # Library target name (first add_library call that is not INTERFACE-only)
-        m = re.search(r"add_library\s*\(\s*([A-Za-z][A-Za-z0-9_.-]*)\s+", text,
-                      re.IGNORECASE)
+        m = re.search(r"add_library\s*\(\s*([A-Za-z][A-Za-z0-9_.-]*)\s+", text, re.IGNORECASE)
         if m:
             info["library_target"] = m.group(1)
         # C++ standard requirement
-        m = re.search(r"set_property\s*\([^)]*CXX_STANDARD\s+(\d+)|"
-                      r"CMAKE_CXX_STANDARD\s+(\d+)",
-                      text, re.IGNORECASE)
+        m = re.search(
+            r"set_property\s*\([^)]*CXX_STANDARD\s+(\d+)|"
+            r"CMAKE_CXX_STANDARD\s+(\d+)",
+            text,
+            re.IGNORECASE,
+        )
         if m:
             std = m.group(1) or m.group(2)
             if std:

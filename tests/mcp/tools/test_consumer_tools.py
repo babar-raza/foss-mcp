@@ -61,12 +61,18 @@ def _read_document_replaying_fixture(monkeypatch: pytest.MonkeyPatch, path: str,
 
 def _inputs(monkeypatch: pytest.MonkeyPatch) -> ProductReferenceInputs:
     manifest_text = (FIXTURES / "pdf_net.csproj").read_text(encoding="utf-8")
-    contributing = _read_document_replaying_fixture(monkeypatch, "CONTRIBUTING.md", "pdf_net_contributing_404.json")
+    contributing = _read_document_replaying_fixture(
+        monkeypatch, "CONTRIBUTING.md", "pdf_net_contributing_404.json"
+    )
     agent_guidance = _read_document_replaying_fixture(monkeypatch, "AGENTS.md", "pdf_net_agents_404.json")
-    return ProductReferenceInputs(manifest_text=manifest_text, contributing=contributing, agent_guidance=agent_guidance)
+    return ProductReferenceInputs(
+        manifest_text=manifest_text, contributing=contributing, agent_guidance=agent_guidance
+    )
 
 
-def test_compatibility_surfaces_the_real_target_framework_not_flattened(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_compatibility_surfaces_the_real_target_framework_not_flattened(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     result = get_product_reference(_inputs(monkeypatch), "compatibility")
     assert isinstance(result, ReferenceContent)
     assert result.text == "net8.0"  # the exact manifest value, not "supports .NET"
@@ -81,7 +87,10 @@ def test_license_and_install_and_support_are_real_manifest_derived_content(
     support_result = get_product_reference(inputs, "support")
 
     assert isinstance(license_result, ReferenceContent) and license_result.text == "MIT"
-    assert isinstance(install_result, ReferenceContent) and install_result.text == "dotnet add package Aspose.PDF.FOSS"
+    assert (
+        isinstance(install_result, ReferenceContent)
+        and install_result.text == "dotnet add package Aspose.PDF.FOSS"
+    )
     assert isinstance(support_result, ReferenceContent)
     assert support_result.text == "https://github.com/aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET"
 
@@ -128,20 +137,20 @@ def test_richness_is_carried_through_list_recent_changes_honestly() -> None:
     pdf_net = json.loads((FIXTURES / "pdf_net_releases.json").read_text(encoding="utf-8"))
     font_python = json.loads((FIXTURES / "font_python_releases.json").read_text(encoding="utf-8"))
 
-    from foss_mcp.extraction.github_release_reader import classify_richness, Release
+    from foss_mcp.extraction.github_release_reader import Release, classify_richness
 
     releases = [
         Release(r["tag_name"], r["body"], classify_richness(r["body"])) for r in pdf_net["releases"]
-    ] + [
-        Release(r["tag_name"], r["body"], classify_richness(r["body"])) for r in font_python["releases"]
-    ]
+    ] + [Release(r["tag_name"], r["body"], classify_richness(r["body"])) for r in font_python["releases"]]
 
     entries = list_recent_changes(releases)
 
-    assert {e.richness for e in entries if e.tag_name in {r["tag_name"] for r in pdf_net["releases"]}} == {"detailed"}
-    assert {e.richness for e in entries if e.tag_name in {r["tag_name"] for r in font_python["releases"]}} == {
-        "templated"
+    assert {e.richness for e in entries if e.tag_name in {r["tag_name"] for r in pdf_net["releases"]}} == {
+        "detailed"
     }
+    assert {
+        e.richness for e in entries if e.tag_name in {r["tag_name"] for r in font_python["releases"]}
+    } == {"templated"}
 
 
 def test_list_recent_changes_respects_the_limit() -> None:
@@ -160,7 +169,9 @@ def _publish_pdf_net_symbols_with_source_commit(store: GenerationManifestStore, 
     sections = []
     for entry in fixture["types"][:5]:
         name = entry.get("class_import") or entry.get("name", "")
-        sections.append(f"## {name}\n\nFQN: {name}\nKind: {entry.get('kind', '')}\nSource-Commit: {source_commit}")
+        sections.append(
+            f"## {name}\n\nFQN: {name}\nKind: {entry.get('kind', '')}\nSource-Commit: {source_commit}"
+        )
     doc = make_document(
         source_kind=SourceKind.SELF_EXTRACTED,
         content_type="api_surface",

@@ -30,13 +30,19 @@ must test membership as "in this set == unreachable", the OPPOSITE test
 python/rust callers use ("in this set == reachable"). See
 extraction/lang/__init__.py's module docstring.
 """
+
 from __future__ import annotations
 
 import re
 from functools import lru_cache
 from pathlib import Path
 
-from foss_mcp.extraction.tree_sitter_engine.tree_helpers import _CLASS_TYPES, _FUNC_TYPES, _IMPORT_TYPES, _MODULE_TYPES
+from foss_mcp.extraction.tree_sitter_engine.tree_helpers import (
+    _CLASS_TYPES,
+    _FUNC_TYPES,
+    _IMPORT_TYPES,
+    _MODULE_TYPES,
+)
 
 _LANG = "csharp"
 
@@ -44,6 +50,7 @@ _LANG = "csharp"
 # ---------------------------------------------------------------------------
 # declaration_kinds
 # ---------------------------------------------------------------------------
+
 
 def declaration_kinds() -> dict:
     """Return this language's tree-sitter node-kind sets used during
@@ -63,6 +70,7 @@ def declaration_kinds() -> dict:
 # doc_anchor
 # ---------------------------------------------------------------------------
 
+
 def doc_anchor(node):
     """Return the node whose doc comment belongs to *node*.
 
@@ -75,6 +83,7 @@ def doc_anchor(node):
 # ---------------------------------------------------------------------------
 # parse_doc
 # ---------------------------------------------------------------------------
+
 
 def _first_sentence(text: str) -> str:
     """Return the first sentence (up to first period-space or newline).
@@ -102,12 +111,8 @@ def parse_doc(raw: str) -> dict:
     """
     lines = raw.split("\n")
     cleaned = " ".join(l.lstrip("/ ").strip() for l in lines)
-    cleaned = re.sub(
-        r'<(?:paramref|typeparamref)\s+name="([^"]+)"\s*/?>',
-        r"\1", cleaned)
-    cleaned = re.sub(
-        r'<see\s+cref="([^"]+)"\s*/?>',
-        lambda m: m.group(1).rsplit(".", 1)[-1], cleaned)
+    cleaned = re.sub(r'<(?:paramref|typeparamref)\s+name="([^"]+)"\s*/?>', r"\1", cleaned)
+    cleaned = re.sub(r'<see\s+cref="([^"]+)"\s*/?>', lambda m: m.group(1).rsplit(".", 1)[-1], cleaned)
     cleaned = re.sub(r"<[^>]+>", "", cleaned).strip()
     return {"summary": _first_sentence(cleaned) if cleaned else ""}
 
@@ -123,7 +128,7 @@ _INTERNAL_DECL_RE = re.compile(
 
 
 @lru_cache(maxsize=64)
-def _internal_names_cached(repo: Path) -> "frozenset":
+def _internal_names_cached(repo: Path) -> frozenset:
     """Cached core of internal_names() -- see that function's docstring.
     Cached (functools.lru_cache) because content_eval/evaluators/
     _reachability.py's live_unreachable() calls this once per class-name
@@ -148,7 +153,7 @@ def _internal_names_cached(repo: Path) -> "frozenset":
     return frozenset(names)
 
 
-def internal_names(repo: Path) -> "frozenset":
+def internal_names(repo: Path) -> frozenset:
     """Return every type name declared `internal` (not `public`) at the top
     level anywhere under *repo*. Never raises; returns an empty frozenset
     if *repo* is unavailable or unreadable.
@@ -162,7 +167,7 @@ def internal_names(repo: Path) -> "frozenset":
     return _internal_names_cached(repo)
 
 
-def export_surface(repo: Path, pkg_root: Path) -> "tuple[set[str] | None, Path | None]":
+def export_surface(repo: Path, pkg_root: Path) -> tuple[set[str] | None, Path | None]:
     """Return (internal_names, repo) -- see this module's docstring for the
     polarity note (membership here means UNREACHABLE, the opposite test
     from python/rust's export_surface). *pkg_root* is accepted for
@@ -176,6 +181,7 @@ def export_surface(repo: Path, pkg_root: Path) -> "tuple[set[str] | None, Path |
 # ---------------------------------------------------------------------------
 # clear_cache
 # ---------------------------------------------------------------------------
+
 
 def clear_cache() -> None:
     """Reset the memoized `internal` declaration scan

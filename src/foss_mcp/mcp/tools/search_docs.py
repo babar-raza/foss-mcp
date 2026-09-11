@@ -104,7 +104,9 @@ def search_docs(
         return Miss(scope, query, content_type, "published generation has no document index")
 
     matching_doc_ids = {
-        doc_id for doc_id, document in documents.items() if classify_content_type(document["text"]) == content_type
+        doc_id
+        for doc_id, document in documents.items()
+        if classify_content_type(document["text"]) == content_type
     }
     if not matching_doc_ids:
         return Miss(scope, query, content_type, f"no documents classified content_type={content_type!r}")

@@ -103,9 +103,7 @@ def reduce_fixture(artifact: dict[str, Any], *, max_types: int = 300) -> dict[st
     qualified name so the same source commit always reduces to the same fixture, and the
     truncation is recorded rather than hidden.
     """
-    types = sorted(
-        artifact["types"], key=lambda entry: entry.get("class_import") or entry.get("name") or ""
-    )
+    types = sorted(artifact["types"], key=lambda entry: entry.get("class_import") or entry.get("name") or "")
     reduced = types[:max_types]
     return {
         **{key: value for key, value in artifact.items() if key != "types"},
@@ -118,7 +116,9 @@ def reduce_fixture(artifact: dict[str, Any], *, max_types: int = 300) -> dict[st
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("manifest", type=Path, help="product manifest, e.g. config/products/pdf/net.yaml")
-    parser.add_argument("output", type=Path, help="fixture path, e.g. tests/fixtures/pdf_net/api_surface.json")
+    parser.add_argument(
+        "output", type=Path, help="fixture path, e.g. tests/fixtures/pdf_net/api_surface.json"
+    )
     parser.add_argument("--max-types", type=int, default=300)
     args = parser.parse_args()
 

@@ -11,6 +11,7 @@ Extracted from scout.py (step 4.2). Contains:
 
 No Scout class dependencies â€” these are pure functions usable in isolation.
 """
+
 from __future__ import annotations
 
 import json
@@ -45,14 +46,17 @@ def _detect_python_root(repo: Path) -> Path:
             # look for src layout first
             src = repo / "src"
             if src.is_dir():
-                pkgs = [d for d in src.iterdir() if d.is_dir()
-                        and (d / "__init__.py").exists()]
+                pkgs = [d for d in src.iterdir() if d.is_dir() and (d / "__init__.py").exists()]
                 if pkgs:
                     return pkgs[0]
             # flat layout: first package dir at root
-            pkgs = [d for d in repo.iterdir() if d.is_dir()
-                    and (d / "__init__.py").exists()
-                    and not d.name.lower().startswith((".", "test", "example", "doc", "api"))]
+            pkgs = [
+                d
+                for d in repo.iterdir()
+                if d.is_dir()
+                and (d / "__init__.py").exists()
+                and not d.name.lower().startswith((".", "test", "example", "doc", "api"))
+            ]
             if pkgs:
                 return pkgs[0]
     return repo

@@ -46,7 +46,9 @@ def read_dotnet_manifest(csproj_text: str) -> DotnetManifest:
     )
 
 
-def fetch_manifest_file(repository: str, path: str, *, ref: str | None = None, etag: str | None = None) -> str:
+def fetch_manifest_file(
+    repository: str, path: str, *, ref: str | None = None, etag: str | None = None
+) -> str:
     """The raw text of *path* (a manifest file) in *repository* at *ref*, via the Contents API.
 
     Sends *etag* as ``If-None-Match``; the caller decides what "unchanged" means for its own
