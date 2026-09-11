@@ -1,0 +1,71 @@
+
+===== CLEAN RUN 1 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/indexing/test_publisher.py tests/indexing/test_index_writers.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-47o5cmfu\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/indexing/test_publisher.py tests/indexing/test_index_writers.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-47o5cmfu\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+
+===== HOLDOUT (supervisor-authored, not named by the card) =====
+$ "D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe" -m pytest .gatectl-holdout -q -p no:cacheprovider
+--- stdout ---
+....                                                                     [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/vector_index_writer.py, ?? .gatectl-holdout/, ?? .junit-0.xml
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/indexing/test_publisher.py tests/indexing/test_index_writers.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-47o5cmfu\.junit-0.xml"
+--- stdout ---
+..F.F......                                                              [100%]
+================================== FAILURES ===================================
+_______ test_point_ids_differ_across_generations_for_identical_content ________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-476/test_point_ids_differ_across_g0')
+
+    def test_point_ids_differ_across_generations_for_identical_content(tmp_path: Path) -> None:
+        """The exact regression the plan names: same chunk content, but the two generations'
+        points must never collide - this is what makes rollback safe.
+        """
+        store = _store(tmp_path)
+        chunks = _pdf_net_chunks()
+        provider = DeterministicEmbeddingProvider()
+    
+        gen1 = _publish(store, chunks, None, provider)
+        gen2 = _publish(store, chunks, gen1, provider)
+    
+        points1 = {p["chunk_id"]: p["point_id"] for p in store.read_generation(SCOPE, gen1).payload["vector_index"]["points"]}
+        points2 = {p["chunk_id"]: p["point_id"] for p in store.read_generation(SCOPE, gen2).payload["vector_index"]["points"]}
+    
+        assert points1.keys() == points2.keys(), "identical content must yield the identical chunk_ids"
+        for chunk_id in points1:
+>           assert points1[chunk_id] != points2[chunk_id], "but generation-qualified point ids must differ"
+E           AssertionError: but generation-qualified point ids must differ
+E           assert '00444d269c4000bd' != '00444d269c4000bd'
+
+tests\indexing\test_publisher.py:108: AssertionError
+___________ test_point_id_is_generation_qualified_not_content_only ____________
+
+    def test_point_id_is_generation_qualified_not_content_only() -> None:
+>       assert point_id("gen-a", "chunk-1") != point_id("gen-b", "chunk-1")
+E       AssertionError: assert 'chunk-1' != 'chunk-1'
+E        +  where 'chunk-1' = point_id('gen-a', 'chunk-1')
+E        +  and   'chunk-1' = point_id('gen-b', 'chunk-1')
+
+tests\indexing\test_index_writers.py:66: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_publisher.py::test_point_ids_differ_across_generations_for_identical_content
+FAILED tests/indexing/test_index_writers.py::test_point_id_is_generation_qualified_not_content_only
+
+--- stderr ---
+
