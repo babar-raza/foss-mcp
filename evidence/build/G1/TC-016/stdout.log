@@ -1,0 +1,79 @@
+
+===== CLEAN RUN 1 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-114132775c6f6814\Scripts\python.exe -m pytest tests/mcp/test_routing.py tests/mcp/test_revision_negotiation.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-03n2is7o\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-114132775c6f6814\Scripts\python.exe -m pytest tests/mcp/test_routing.py tests/mcp/test_revision_negotiation.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-03n2is7o\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== HOLDOUT (supervisor-authored, not named by the card) =====
+$ "D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-114132775c6f6814\Scripts\python.exe" -m pytest .gatectl-holdout -q -p no:cacheprovider
+--- stdout ---
+................                                                         [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/routing.py, ?? .gatectl-holdout/, ?? .junit-0.xml
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-114132775c6f6814\Scripts\python.exe -m pytest tests/mcp/test_routing.py tests/mcp/test_revision_negotiation.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-03n2is7o\.junit-0.xml"
+--- stdout ---
+FFF.......                                                               [100%]
+================================== FAILURES ===================================
+________________ test_scope_comes_from_deployment_config_alone ________________
+
+    def test_scope_comes_from_deployment_config_alone() -> None:
+        config = DeploymentConfig(family="pdf", platform="net")
+        scope = resolve_scope(config, request={"scope": "irrelevant"})
+>       assert scope == Scope(family="pdf", platform="net", source_kind="self_extracted")
+E       AssertionError: assert {'scope': 'irrelevant'} == Scope(family='pdf', platform='net', source_kind='self_extracted')
+E        +  where Scope(family='pdf', platform='net', source_kind='self_extracted') = Scope(family='pdf', platform='net', source_kind='self_extracted')
+
+tests\mcp\test_routing.py:21: AssertionError
+___________ test_a_hostile_scope_supplied_in_the_request_is_ignored ___________
+
+    def test_a_hostile_scope_supplied_in_the_request_is_ignored() -> None:
+        """The exact confirmed reference-system defect: a client-controlled scope header (or a
+        tool argument, or any other field of the request) naming a DIFFERENT product entirely.
+        """
+        config = DeploymentConfig(family="pdf", platform="net", source_kind="self_extracted")
+        hostile_request = {
+            "scope": "cells::python::self_extracted",
+            "headers": {"X-Scope": "cells::python::self_extracted"},
+            "tool_arguments": {"scope": "cells::python::self_extracted"},
+        }
+        scope = resolve_scope(config, hostile_request)
+>       assert scope == Scope(family="pdf", platform="net", source_kind="self_extracted")
+E       AssertionError: assert {'scope': 'cells::python::self_extracted', 'headers': {'X-Scope': 'cells::python::self_extracted'}, 'tool_arguments': {'scope': 'cells::python::self_extracted'}} == Scope(family='pdf', platform='net', source_kind='self_extracted')
+E        +  where Scope(family='pdf', platform='net', source_kind='self_extracted') = Scope(family='pdf', platform='net', source_kind='self_extracted')
+
+tests\mcp\test_routing.py:35: AssertionError
+_____ test_resolve_scope_never_reads_any_attribute_or_item_of_the_request _____
+
+    def test_resolve_scope_never_reads_any_attribute_or_item_of_the_request() -> None:
+        """The strongest form of the rule: a request object that raises on ANY access still
+        resolves correctly, because resolve_scope never touches it at all.
+        """
+        config = DeploymentConfig(family="pdf", platform="net")
+        scope = resolve_scope(config, _ExplodingRequest())
+>       assert scope == Scope(family="pdf", platform="net", source_kind="self_extracted")
+E       AssertionError: assert <tests.mcp.test_routing._ExplodingRequest object at 0x000001E24AD1A7B0> == Scope(family='pdf', platform='net', source_kind='self_extracted')
+E        +  where Scope(family='pdf', platform='net', source_kind='self_extracted') = Scope(family='pdf', platform='net', source_kind='self_extracted')
+
+tests\mcp\test_routing.py:44: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/test_routing.py::test_scope_comes_from_deployment_config_alone
+FAILED tests/mcp/test_routing.py::test_a_hostile_scope_supplied_in_the_request_is_ignored
+FAILED tests/mcp/test_routing.py::test_resolve_scope_never_reads_any_attribute_or_item_of_the_request
+
+--- stderr ---
+

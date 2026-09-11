@@ -56,3 +56,21 @@ vacuity: 899 types -> supported, 12345 types -> unsupported, 805 classes -> insu
 All three verdicts reachable and distinct, so the mechanism distinguishes WRONG from
 NOT-CORROBORATED rather than shrugging at everything. Whether 805 is actually correct remains
 unknown and is correctly reported as unknown. A holdout pins all of this.
+
+## 2026-09-11 — Missing or unparseable MCP protocolVersion is rejected, not defaulted (TC-016)
+Decision made by the worker on TC-016 and recorded here because docs/ is outside its write_paths.
+The reference system treated a missing requested_revision as a non-fallback case and quietly
+negotiated to its own primary revision. Per the MCP spec, initialize's protocolVersion is REQUIRED,
+so a request without it is malformed rather than a permissive default: it raises
+MissingProtocolVersionError. The same reasoning extends to an unparseable (non-YYYY-MM-DD) string,
+which raises InvalidRevisionFormatError. The nearest-supported-or-min ALGORITHM is ported
+structurally from the reference system; this permissiveness deliberately is not. Plan 11.3 required
+this be an explicit decision rather than a silent inheritance.
+
+## 2026-09-11 — MCP SDK pinned (supervisor, post-TC-016)
+mcp==2.2.0 pinned with hashes. The worker hit the coordinator-owned boundary correctly: it did not
+touch requirements.*, built a disposable venv OUTSIDE the project to verify server.py against the
+real 2.2.0 API line by line, deleted it, and reported BLOCKED_EXTERNAL. Consequence worth noting -
+TC-016's own checks exercise only routing and negotiation, neither of which needs the SDK, so
+server.py was never imported by anything and the card could have shipped a file that does not load.
+Its holdout now imports and constructs it.

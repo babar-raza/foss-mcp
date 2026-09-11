@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "card": "TC-016",
+  "gate": "G1",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-11T00:35:27Z",
+  "base_rev": "991580a98aae47b6fc72e1603ca7cca596e543ee",
+  "head_rev": "bd35db95c62e430e53058789bc531e585de986c4",
+  "card_sha256": "ef1c62054ee3ad52952ac1c359652e4b09bd74a0b87813344d71c060fa76b4d2",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "114132775c6f681414dd070347de5ccf5d520e22f938ad3882a09660dbe49a8a",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/revision_negotiation.py",
+      "src/foss_mcp/mcp/routing.py",
+      "src/foss_mcp/mcp/server.py",
+      "tests/mcp/test_revision_negotiation.py",
+      "tests/mcp/test_routing.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/test_routing.py tests/mcp/test_revision_negotiation.py -q",
+          "exit_code": 0,
+          "duration_s": 0.706,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/test_routing.py tests/mcp/test_revision_negotiation.py -q",
+          "exit_code": 0,
+          "duration_s": 0.669,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/routing.py');p.write_text(p.read_text(encoding='utf-8') + chr(10) + 'resolve_scope = lambda deployment_config, request=None: (request or deployment_config)' + chr(10), encoding='utf-8')\"",
+    "patch_sha256": "546d046a74886aa5059b612bab63aaf40ed92a932fbee123896f87df44937a62",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/routing.py",
+      "?? .gatectl-holdout/",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": true,
+    "passed": true,
+    "detail": "................                                                         [100%]"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
