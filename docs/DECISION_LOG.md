@@ -100,3 +100,15 @@ runtime dependency). Markers now preserved - 8 marker lines where there were non
 convention the sibling project already proved. A regression test in ops/tests asserts the lock
 carries platform markers and that Windows-only packages are constrained, so recompiling with a tool
 that cannot resolve cross-platform fails in the suite rather than in a container.
+
+## 2026-09-11 — Supervisor swept a worker's deliverable into its own commit
+`git add -A` while TC-018's work sat uncommitted put eleven product files - both Dockerfiles,
+compose, the Helm chart, infra scripts and the test suite - into a supervisor commit whose message
+was about a lockfile fix. Provenance corrupted three ways: wrong author, misleading message, and -
+worst - the commit carried the supervisor trailer, so changed_paths classified it as governance and
+SKIPPED it, meaning that product code would never have been scope-checked.
+Caught because the worker reported a commit hash identical to the dispatch revision, which cannot
+happen legitimately. Split back out before anything was pushed; the worker commits its own work.
+Root cause is the one the design named before execution began: the two roles share one filesystem,
+and prose separation does not enforce itself. `gatectl commit-guard` now refuses a supervisor commit
+while worker product paths are uncommitted.

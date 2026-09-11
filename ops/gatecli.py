@@ -479,6 +479,49 @@ def cmd_holdout_check(args) -> int:
     return rc
 
 
+def cmd_commit_guard(args) -> int:
+    """Refuse to let the supervisor sweep a worker's uncommitted work into its own commit.
+
+    This happened for real: `git add -A` while a worker had TC-018's deliverable
+    sitting in the tree put eleven product files into a supervisor commit whose
+    message was about a lockfile. Provenance was corrupted three ways - the work
+    was attributed to the wrong author, the message described something else, and
+    because the commit carried the supervisor trailer, scope attribution
+    classified it as governance and skipped it, so that product code was never
+    scope-checked at all.
+
+    The two roles share one filesystem, which was already identified as the
+    design's weak point. Prose did not prevent it, so this does.
+    """
+    # G.git() strips its output, which eats the leading space of porcelain's
+    # first line and makes fixed-width slicing lose a character. Use the raw
+    # runner so "XY<space>PATH" stays intact.
+    _, out, _ = G.run(["git", "status", "--porcelain"])
+    product = []
+    for line in out.splitlines():
+        if len(line) < 4:
+            continue
+        # porcelain v1 is "XY<space>PATH"; a rename is "PATH -> NEWPATH".
+        path = line[3:].strip().strip('"')
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1].strip().strip('"')
+        if not path:
+            continue
+        if G.matches_any(path, G.GLOBAL_DENY) or path.startswith("docs/"):
+            continue  # supervisor-owned or shared documentation
+        product.append(path)
+
+    if product:
+        print("SUPERVISOR COMMIT BLOCKED - uncommitted product paths present:")
+        for p_ in sorted(product)[:20]:
+            print(f"    {p_}")
+        print("\nThese belong to a worker. Stage explicit supervisor paths instead of `git add -A`,")
+        print("or wait for the worker to commit. Never let them land under the supervisor trailer.")
+        return G.EXIT_FAIL
+    print("OK  no worker product paths are uncommitted; a supervisor commit is safe")
+    return G.EXIT_OK
+
+
 def cmd_review(args) -> int:
     """The supervisor's whole per-card action: verify, then accept or reject.
 
@@ -870,6 +913,8 @@ def build_parser():
     sub.add_parser("tick", help="the supervisor's bounded per-iteration brief")
     sub.add_parser("worker-tick", help="the worker loop's single decision point: WORK / WAIT / DONE")
 
+    sub.add_parser("commit-guard", help="refuse to sweep a worker's work into a supervisor commit")
+
     sp = sub.add_parser("holdout-check", help="run a card's holdout against the working tree")
     sp.add_argument("card")
 
@@ -947,6 +992,7 @@ HANDLERS = {
     "dispatch-next": cmd_dispatch_next,
     "question-append": cmd_question_append,
     "holdout-check": cmd_holdout_check,
+    "commit-guard": cmd_commit_guard,
     "doctor": cmd_doctor,
     "resume-brief": cmd_resume_brief,
 }

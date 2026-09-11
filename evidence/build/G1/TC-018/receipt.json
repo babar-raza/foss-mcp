@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "card": "TC-018",
+  "gate": "G1",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-11T01:54:55Z",
+  "base_rev": "80ee90d32fe756f847edc891775db68ca92ad465",
+  "head_rev": "6791eaa348bb5b22cc777ae386dd16a295ad7858",
+  "card_sha256": "850e8b8c97d468876bf48688979d58ff5229082506c1b83cf5008b8305d315c3",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "Dockerfile.ingestion",
+      "Dockerfile.serving",
+      "docker-compose.yml",
+      "infra/helm/foss-mcp/Chart.yaml",
+      "infra/helm/foss-mcp/templates/_helpers.tpl",
+      "infra/helm/foss-mcp/templates/deployment.yaml",
+      "infra/helm/foss-mcp/templates/networkpolicy.yaml",
+      "infra/helm/foss-mcp/values.yaml",
+      "infra/ingest.py",
+      "infra/serve_stdio.py",
+      "tests/test_container_build.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/test_container_build.py -q",
+          "exit_code": 0,
+          "duration_s": 103.917,
+          "stdout_sha256": "700bc0322b00f8e8db3ce495047983b54ab27ab59ed1fedac05f3aeba47dae24",
+          "tests": 6,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/test_container_build.py -q",
+          "exit_code": 0,
+          "duration_s": 4.041,
+          "stdout_sha256": "700bc0322b00f8e8db3ce495047983b54ab27ab59ed1fedac05f3aeba47dae24",
+          "tests": 6,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('Dockerfile.serving');p.write_text(p.read_text(encoding='utf-8').replace('--require-hashes', ''), encoding='utf-8')\"",
+    "patch_sha256": "0651f4fa15a3de73bd3fcd4b191738b11f8ceae8981d9ac7247737ac30c3f2ab",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M Dockerfile.serving",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

@@ -93,6 +93,27 @@ falsifiers in this project were silently defeated before the guard was added:
 - Ask the only question that matters: **does the suite still pass when the
   thing it tests is broken?**
 
+## Committing
+
+**Never `git add -A`.** Run:
+
+```
+python ops/gatectl.py commit-guard
+```
+
+It refuses when a worker has uncommitted product paths in the tree. This is a
+command because prose did not prevent it: `git add -A` during TC-018 swept
+eleven of the worker's product files into a supervisor commit whose message was
+about a lockfile. That corrupted provenance three ways at once — the work was
+attributed to the wrong author, the message described something else, and
+because the commit carried the supervisor trailer, scope attribution classified
+it as governance and *skipped it*, so that product code was never scope-checked
+at all.
+
+The two roles share one filesystem. That was identified as this design's weak
+point before execution started, and it still caught me. Stage explicit
+supervisor paths, always.
+
 ## Authoring a holdout
 
 Holdouts are the only control that can prove the code is RIGHT rather than
