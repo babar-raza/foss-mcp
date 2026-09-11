@@ -877,6 +877,18 @@ def cmd_doctor(args) -> int:
             "contend for .git/index.lock; exclude .git/.venv or move the repo"
         )
 
+    # The E2E suite genuinely requires a container, and it refuses to skip when
+    # it cannot get one - correctly, since a skip is not evidence. But that
+    # surfaces as an opaque named-pipe connect error buried in a pytest
+    # traceback. Name the precondition instead.
+    rc_d, _, _ = G.run(["docker", "info", "--format", "{{.ServerVersion}}"], timeout=30)
+    if rc_d != 0:
+        flags.append(
+            "the Docker engine is not reachable - tests/e2e cannot run, so the repo-wide CI "
+            "equivalent will fail and any push will be blocked. This is a precondition, not a "
+            "code defect: start Docker Desktop."
+        )
+
     if not G.LOCKFILE.exists():
         flags.append("requirements.lock missing - verification environment is unpinned")
 

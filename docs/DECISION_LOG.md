@@ -155,3 +155,13 @@ Two lint decisions, both declines rather than fixes:
    str()/format() behaviour, and these enum values are already serialized into generation manifests,
    receipts and published tool JSON schemas. A silent change in how they render is a real
    compatibility risk for a cosmetic gain.
+
+## 2026-09-11 — The repo-wide CI equivalent requires Docker, and that is deliberate
+After a machine restart, `scripts/ci_check.sh` failed and the pre-push hook correctly blocked a
+push. Cause: Docker Desktop was not running, so tests/e2e could not reach a container.
+Deliberately NOT fixed by skipping. A skip is not evidence, and TC-020's whole value is that a real
+client talks to a real container - a suite that quietly passes when it cannot do that would be
+exactly the theatre this project exists to avoid. So CI genuinely cannot be green without Docker,
+which is the honest state of affairs for a project whose gate predicate is an end-to-end session.
+What WAS fixed: the failure surfaced as an opaque named-pipe connect error inside a pytest
+traceback. `gatectl doctor` now checks the Docker engine and names the precondition directly.
