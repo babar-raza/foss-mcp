@@ -599,6 +599,13 @@ def cmd_gate_exit(args) -> int:
     # across the whole tree while every single card stayed green. Recorded as a
     # gap at G0 and then not closed until it bit again at G1 - so it lives here
     # now rather than in anyone's memory.
+    # Refresh the derived cursor BEFORE running CI. gate-exit rewrites every
+    # receipt in the gate, and ci_check.sh runs `gatectl validate`, which asserts
+    # the committed cursor equals a fresh rebuild - so without this the gate fails
+    # on a mismatch gate-exit caused itself, mid-flight.
+    G.STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    G.STATE_FILE.write_text(G.dump_yaml(V.rebuild_state()), encoding="utf-8")
+
     print("running the repo-wide CI-equivalent ...", flush=True)
     rc_ci, ci_out, ci_err = G.run(["bash", "scripts/ci_check.sh"], timeout=3600)
     ci_summary = [ln for ln in (ci_out or "").splitlines() if ": success" in ln or ": failure" in ln]
