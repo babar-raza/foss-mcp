@@ -1,14 +1,20 @@
 # Brings up the serving container for pdf/net locally. Deployment identity is set here, at
 # deploy time, never negotiated with a client (foss_mcp.mcp.routing.resolve_scope).
+#
+# Overrides the image's default CMD (stdio - see Dockerfile.serving) to run
+# infra/serve_http.py instead: the same create_server() dispatch core, served over
+# Streamable HTTP on the published port so a real client can reach it. Never a second
+# implementation of tool dispatch - only the transport differs.
 services:
   serving:
     build:
       context: .
       dockerfile: Dockerfile.serving
     image: foss-mcp-serving:local
+    command: ["python", "/app/infra/serve_http.py"]
+    ports:
+      - "8080:8080"
     environment:
       FOSS_MCP_FAMILY: pdf
       FOSS_MCP_PLATFORM: net
       FOSS_MCP_SOURCE_KIND: self_extracted
-    stdin_open: true
-    tty: true

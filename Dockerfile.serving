@@ -1,8 +1,13 @@
-# Serving image: the MCP server, wired to serve exactly one product deployment over stdio.
+# Serving image: the MCP server, wired to serve exactly one product deployment.
 #
-# Exactly one of the two build paths this project ships (the other is Dockerfile.ingestion).
-# Do NOT add a third: an unreferenced alternate Dockerfile is a confirmed crash-loop trap in
-# the reference system, still sitting unused in its tree.
+# Two transports over ONE dispatch core (foss_mcp.mcp.server.create_server) - both
+# entrypoints below call it, and neither re-implements tool dispatch. The default CMD keeps
+# serving over stdio (unchanged since TC-018); docker-compose.yml overrides `command` to run
+# infra/serve_http.py instead where a published port is needed. Never a THIRD implementation.
+#
+# Exactly one of the two build PATHS this project ships (the other is Dockerfile.ingestion).
+# Do NOT add a third Dockerfile: an unreferenced alternate build is a confirmed crash-loop
+# trap in the reference system, still sitting unused in its tree.
 FROM python:3.13-slim
 
 WORKDIR /app
@@ -18,14 +23,20 @@ RUN pip install --no-cache-dir --require-hashes -r requirements.lock
 COPY src/ ./src/
 COPY config/ ./config/
 COPY infra/serve_stdio.py ./infra/serve_stdio.py
+COPY infra/serve_http.py ./infra/serve_http.py
 ENV PYTHONPATH=/app/src
 
-RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp
+RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp \
+    && mkdir -p /data/manifests \
+    && chown -R foss-mcp:foss-mcp /data
 USER foss-mcp
 
-# The server speaks MCP over stdio, not HTTP, so there is no endpoint to poll from outside the
-# process; this confirms the deployed environment itself is intact (every import the server
-# needs actually resolves) rather than asserting the running session is mid-conversation.
+# Documentary only for the stdio default (there is nothing listening to poll); real when
+# docker-compose.yml overrides `command` to run infra/serve_http.py instead.
+EXPOSE 8080
+
+# Confirms the deployed environment itself is intact (every import the server needs actually
+# resolves) - true for either transport, so one healthcheck command serves both.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD ["python", "-c", "import foss_mcp.mcp.server"]
 
