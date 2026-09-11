@@ -889,9 +889,21 @@ def cmd_doctor(args) -> int:
             age = _dt.datetime.now(_dt.UTC) - _dt.datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(
                 tzinfo=_dt.UTC
             )
-            if age.total_seconds() > 900:
+            # A finished queue is not a wedged one. Flagging 'may be wedged'
+            # when every card is ACCEPTED is a false alarm, and a monitor that
+            # cries wolf when the work is simply done is one an operator learns
+            # to ignore - which is worse than not having it at all.
+            _s = V.rebuild_state()
+            _done = bool(_s["cards"]) and all(c["status"] == "ACCEPTED" for c in _s["cards"])
+            if age.total_seconds() > 900 and not _done:
                 flags.append(
-                    f"heartbeat is {int(age.total_seconds() / 60)} min old (> 15) - the loop may be wedged"
+                    f"heartbeat is {int(age.total_seconds() / 60)} min old (> 15) and work "
+                    f"remains - the loop may be wedged"
+                )
+            elif age.total_seconds() > 900:
+                print(
+                    f"note: heartbeat {int(age.total_seconds() / 60)} min old, but every card "
+                    f"is ACCEPTED - the loop stopped because it finished, not because it wedged"
                 )
         except ValueError:
             flags.append(f"heartbeat timestamp unparseable: {ts!r}")
