@@ -452,6 +452,33 @@ def cmd_question_append(args) -> int:
     return G.EXIT_OK
 
 
+def cmd_holdout_check(args) -> int:
+    """Run a holdout against the WORKING TREE before it is ever wired into a verdict.
+
+    Holdouts are the one thing in this system nothing else checks. They are
+    supervisor-authored, unreviewed, and they can reject a card outright - so a
+    bug in a holdout is indistinguishable, from the worker's side, from a real
+    defect in its own work. Three consecutive bugs in one holdout (wrong
+    constructor, wrong field names, invalid enum value) is what made this a
+    command rather than a habit.
+
+    Green here does not mean the card is right. It means the ORACLE runs, so a
+    red result during verification is a real finding rather than my typo.
+    """
+    src = G.EVIDENCE / "holdout" / args.card
+    if not src.is_dir():
+        print(f"no holdout at {src.relative_to(G.REPO)}")
+        return G.EXIT_FAIL
+    py = G.venv_python()
+    rc, out, err = G.run([str(py), "-m", "pytest", str(src), "-q", "-p", "no:cacheprovider"], timeout=600)
+    print(out[-1500:] or err[-1500:])
+    if rc == 0:
+        print(f"HOLDOUT OK - {args.card}'s oracle runs clean against the working tree")
+    else:
+        print(f"HOLDOUT BROKEN - fix the oracle before trusting any verdict it produces (exit {rc})")
+    return rc
+
+
 def cmd_review(args) -> int:
     """The supervisor's whole per-card action: verify, then accept or reject.
 
@@ -843,6 +870,9 @@ def build_parser():
     sub.add_parser("tick", help="the supervisor's bounded per-iteration brief")
     sub.add_parser("worker-tick", help="the worker loop's single decision point: WORK / WAIT / DONE")
 
+    sp = sub.add_parser("holdout-check", help="run a card's holdout against the working tree")
+    sp.add_argument("card")
+
     sp = sub.add_parser("question-append", help="open a provisional decision; blocks gate exit only")
     sp.add_argument("--card", required=True)
     sp.add_argument("--question", required=True)
@@ -916,6 +946,7 @@ HANDLERS = {
     "worker-tick": cmd_worker_tick,
     "dispatch-next": cmd_dispatch_next,
     "question-append": cmd_question_append,
+    "holdout-check": cmd_holdout_check,
     "doctor": cmd_doctor,
     "resume-brief": cmd_resume_brief,
 }

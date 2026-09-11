@@ -93,6 +93,32 @@ falsifiers in this project were silently defeated before the guard was added:
 - Ask the only question that matters: **does the suite still pass when the
   thing it tests is broken?**
 
+## Authoring a holdout
+
+Holdouts are the only control that can prove the code is RIGHT rather than
+merely self-consistent — and the only one nothing else checks. A bug in a
+holdout rejects good work, and from the worker's side that is indistinguishable
+from a real defect in its own card.
+
+So, before wiring a new holdout into a verdict:
+
+```
+python ops/gatectl.py holdout-check TC-NNN
+```
+
+Green there does not mean the card is right; it means the oracle RUNS, so a red
+result during verification is a finding rather than a typo. This is a command
+and not a habit because one holdout had three consecutive bugs — wrong
+constructor, wrong field names, invalid enum value.
+
+Two rules that follow from the same experience:
+
+- Build fixtures through the card's own public factory, not its dataclass
+  constructors. Guessing field order tests my memory, not the contract.
+- Include an anti-vacuity assertion. A validator that only ever returns "I don't
+  know" passes every exclusion test while validating nothing, so assert that
+  each distinct verdict is actually reachable.
+
 ## Cold restart
 
 ```

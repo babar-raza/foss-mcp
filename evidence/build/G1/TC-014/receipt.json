@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "card": "TC-014",
+  "gate": "G1",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-11T00:01:44Z",
+  "base_rev": "e45eecf6088765b88ab3fac8f48a4f548ba874a5",
+  "head_rev": "1efdc4795bafad2eea227193b17e25e85b2afba0",
+  "card_sha256": "d2f15b32ff8011a82c30823f9aaa27ba7655b1f6563b7c0665506c29be07f25c",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "2ce5d8dd7b5f3acfd4e8508f47f8d6a76df706306c6b0931fc58c1b9b33fe7ca",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/normalization/chunker.py",
+      "src/foss_mcp/normalization/citation.py",
+      "src/foss_mcp/normalization/document_schema.py",
+      "tests/normalization/test_chunker.py",
+      "tests/normalization/test_citation.py",
+      "tests/normalization/test_document_schema.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/normalization -q",
+          "exit_code": 0,
+          "duration_s": 0.546,
+          "stdout_sha256": "341d5dca33250b815baddbafb6001e174c20bf1716bb74f3d612e77777db8938",
+          "tests": 18,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/normalization -q",
+          "exit_code": 0,
+          "duration_s": 0.636,
+          "stdout_sha256": "341d5dca33250b815baddbafb6001e174c20bf1716bb74f3d612e77777db8938",
+          "tests": 18,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/normalization/chunker.py');p.write_text(p.read_text(encoding='utf-8') + chr(10) + 'chunk_document = lambda doc: [doc]' + chr(10), encoding='utf-8')\"",
+    "patch_sha256": "1a502d568e5a2f040f5f5df1d288c98513402dedf468e7abe4587730c1ac9545",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/normalization/chunker.py",
+      "?? .gatectl-holdout/",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": true,
+    "passed": true,
+    "detail": "....                                                                     [100%]"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

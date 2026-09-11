@@ -1,0 +1,88 @@
+
+===== CLEAN RUN 1 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/normalization -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4txxciml\.junit-0.xml"
+--- stdout ---
+..................                                                       [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/normalization -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4txxciml\.junit-0.xml"
+--- stdout ---
+..................                                                       [100%]
+
+--- stderr ---
+
+
+===== HOLDOUT (supervisor-authored, not named by the card) =====
+$ "D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe" -m pytest .gatectl-holdout -q -p no:cacheprovider
+--- stdout ---
+....                                                                     [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/normalization/chunker.py, ?? .gatectl-holdout/, ?? .junit-0.xml
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-2ce5d8dd7b5f3acf\Scripts\python.exe -m pytest tests/normalization -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4txxciml\.junit-0.xml"
+--- stdout ---
+FF.FF.............                                                       [100%]
+================================== FAILURES ===================================
+________ test_a_multi_heading_document_becomes_multiple_section_chunks ________
+
+    def test_a_multi_heading_document_becomes_multiple_section_chunks() -> None:
+        chunks = chunk_document(_document(MULTI_SECTION_BODY))
+>       assert len(chunks) > 1
+E       AssertionError: assert 1 > 1
+E        +  where 1 = len([NormalizedDocument(source_kind='repo_native_release_notes', content_type='release_notes', provenance=Provenance(repos...n\n## Rendering\n- Dash patterns on software strokes.\n\n## Text and fonts\n- Horizontal scaling stretches glyphs.\n')])
+
+tests\normalization\test_chunker.py:37: AssertionError
+_ test_page_level_chunking_is_rejected_a_fabricated_sentence_stays_localized __
+
+    def test_page_level_chunking_is_rejected_a_fabricated_sentence_stays_localized() -> None:
+        """The defect page-level chunking cannot catch: one bad sentence inside an otherwise
+        correct page. Section chunking keeps it in its own chunk, not smeared across the page.
+        """
+        chunks = chunk_document(_document(MULTI_SECTION_BODY))
+>       rendering = next(c for c in chunks if c.section_title == "Rendering")
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\normalization\test_chunker.py:47: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+.0 = <list_iterator object at 0x0000022575C1E890>
+
+>   rendering = next(c for c in chunks if c.section_title == "Rendering")
+                                          ^^^^^^^^^^^^^^^
+E   AttributeError: 'NormalizedDocument' object has no attribute 'section_title'
+
+tests\normalization\test_chunker.py:47: AttributeError
+___ test_a_heading_free_body_still_splits_on_paragraphs_not_one_page_chunk ____
+
+    def test_a_heading_free_body_still_splits_on_paragraphs_not_one_page_chunk() -> None:
+        body = "First paragraph, one topic.\n\nSecond paragraph, a different topic entirely."
+        chunks = chunk_document(_document(body))
+>       assert len(chunks) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([NormalizedDocument(source_kind='repo_native_release_notes', content_type='release_notes', provenance=Provenance(repos...ust_tier='high', title='v26.9.0', body='First paragraph, one topic.\n\nSecond paragraph, a different topic entirely.')])
+
+tests\normalization\test_chunker.py:63: AssertionError
+_____________________ test_an_empty_body_yields_no_chunks _____________________
+
+    def test_an_empty_body_yields_no_chunks() -> None:
+>       assert chunk_document(_document("")) == []
+E       AssertionError: assert [NormalizedDo....0', body='')] == []
+E         
+E         Left contains one more item: NormalizedDocument(source_kind='repo_native_release_notes', content_type='release_notes', provenance=Provenance(reposi...v26.9.0',), validation=ValidationResult(verdict='not_checked', detail=''), trust_tier='high', title='v26.9.0', body='')
+E         Use -v to get more diff
+
+tests\normalization\test_chunker.py:67: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/normalization/test_chunker.py::test_a_multi_heading_document_becomes_multiple_section_chunks
+FAILED tests/normalization/test_chunker.py::test_page_level_chunking_is_rejected_a_fabricated_sentence_stays_localized
+FAILED tests/normalization/test_chunker.py::test_a_heading_free_body_still_splits_on_paragraphs_not_one_page_chunk
+FAILED tests/normalization/test_chunker.py::test_an_empty_body_yields_no_chunks
+
+--- stderr ---
+

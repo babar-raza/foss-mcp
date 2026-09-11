@@ -47,3 +47,12 @@ Attempt 2 fixed it on principle (change-verb AND a specific referent, fenced blo
 no repo names in the logic. Verified independently on four repos neither side used: 3d-java's bare
 "Full Changelog" link -> templated, cells-rust -> detailed, empty pdf-ts -> none, slides-py ->
 detailed. Generalises; not tuned to the oracle.
+
+## 2026-09-11 — OQ-001 resolved: unverifiable counts fail closed (TC-014)
+Resolved as designed, not by settling the number. The furnished page's "805 classes" now returns
+insufficient_evidence, because known_counts_from_fixture only trusts a per-kind count when the
+fixture's truncated flag is false - and TC-011's is deliberately reduced. Independently probed for
+vacuity: 899 types -> supported, 12345 types -> unsupported, 805 classes -> insufficient_evidence.
+All three verdicts reachable and distinct, so the mechanism distinguishes WRONG from
+NOT-CORROBORATED rather than shrugging at everything. Whether 805 is actually correct remains
+unknown and is correctly reported as unknown. A holdout pins all of this.
