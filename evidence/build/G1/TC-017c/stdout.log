@@ -1,0 +1,135 @@
+
+===== CLEAN RUN 1 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-114132775c6f6814\Scripts\python.exe -m pytest tests/mcp/tools/test_consumer_tools.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-403112gb\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-114132775c6f6814\Scripts\python.exe -m pytest tests/mcp/tools/test_consumer_tools.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-403112gb\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+
+===== HOLDOUT (supervisor-authored, not named by the card) =====
+$ "D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-114132775c6f6814\Scripts\python.exe" -m pytest .gatectl-holdout -q -p no:cacheprovider
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/get_product_reference.py, ?? .gatectl-holdout/, ?? .junit-0.xml
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-114132775c6f6814\Scripts\python.exe -m pytest tests/mcp/tools/test_consumer_tools.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-403112gb\.junit-0.xml"
+--- stdout ---
+FFFFFFF.....                                                             [100%]
+================================== FAILURES ===================================
+_____ test_compatibility_surfaces_the_real_target_framework_not_flattened _____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000024A15C66D70>
+
+    def test_compatibility_surfaces_the_real_target_framework_not_flattened(monkeypatch: pytest.MonkeyPatch) -> None:
+        result = get_product_reference(_inputs(monkeypatch), "compatibility")
+>       assert isinstance(result, ReferenceContent)
+E       AssertionError: assert False
+E        +  where False = isinstance({'tx': 'y'}, ReferenceContent)
+
+tests\mcp\tools\test_consumer_tools.py:71: AssertionError
+___ test_license_and_install_and_support_are_real_manifest_derived_content ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000024A15E15E00>
+
+    def test_license_and_install_and_support_are_real_manifest_derived_content(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        inputs = _inputs(monkeypatch)
+        license_result = get_product_reference(inputs, "license")
+        install_result = get_product_reference(inputs, "install")
+        support_result = get_product_reference(inputs, "support")
+    
+>       assert isinstance(license_result, ReferenceContent) and license_result.text == "MIT"
+E       AssertionError: assert (False)
+E        +  where False = isinstance({'tx': 'y'}, ReferenceContent)
+
+tests\mcp\tools\test_consumer_tools.py:83: AssertionError
+___ test_a_genuinely_absent_contributing_file_is_an_explicit_not_available ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000024A15DDB1D0>
+
+    def test_a_genuinely_absent_contributing_file_is_an_explicit_not_available(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Real data: pdf/net genuinely has no CONTRIBUTING.md (TC-012's real 404 fixture)."""
+        result = get_product_reference(_inputs(monkeypatch), "contributing")
+>       assert isinstance(result, NotAvailable)
+E       AssertionError: assert False
+E        +  where False = isinstance({'tx': 'y'}, NotAvailable)
+
+tests\mcp\tools\test_consumer_tools.py:94: AssertionError
+__ test_a_genuinely_absent_agent_guidance_file_is_an_explicit_not_available ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000024A15D13790>
+
+    def test_a_genuinely_absent_agent_guidance_file_is_an_explicit_not_available(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        result = get_product_reference(_inputs(monkeypatch), "agent_guidance")
+>       assert isinstance(result, NotAvailable)
+E       AssertionError: assert False
+E        +  where False = isinstance({'tx': 'y'}, NotAvailable)
+
+tests\mcp\tools\test_consumer_tools.py:101: AssertionError
+________ test_sections_with_no_data_source_are_honestly_not_available _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000024A15D13AC0>
+
+    def test_sections_with_no_data_source_are_honestly_not_available(monkeypatch: pytest.MonkeyPatch) -> None:
+        """formats and limitations are not fabricated just because a manifest happens to exist."""
+        inputs = _inputs(monkeypatch)
+>       assert isinstance(get_product_reference(inputs, "formats"), NotAvailable)
+E       assert False
+E        +  where False = isinstance({'tx': 'y'}, NotAvailable)
+E        +    where {'tx': 'y'} = get_product_reference(ProductReferenceInputs(manifest_text='<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <TargetFramework>net...ject>\n', contributing=DocumentNotPresent(path='CONTRIBUTING.md'), agent_guidance=DocumentNotPresent(path='AGENTS.md')), 'formats')
+
+tests\mcp\tools\test_consumer_tools.py:107: AssertionError
+__________________ test_every_section_selector_is_exercised ___________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000024A15D83C50>
+
+    def test_every_section_selector_is_exercised(monkeypatch: pytest.MonkeyPatch) -> None:
+        from foss_mcp.mcp.tools.get_product_reference import SECTIONS
+    
+        inputs = _inputs(monkeypatch)
+        for section in SECTIONS:
+            result = get_product_reference(inputs, section)
+>           assert isinstance(result, ReferenceContent | NotAvailable)
+E           AssertionError: assert False
+E            +  where False = isinstance({'tx': 'y'}, (ReferenceContent | NotAvailable))
+
+tests\mcp\tools\test_consumer_tools.py:117: AssertionError
+__________________ test_an_unrecognized_section_is_rejected ___________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000024A15C9C050>
+
+    def test_an_unrecognized_section_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+>       with pytest.raises(ValueError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\mcp\tools\test_consumer_tools.py:121: Failed
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_consumer_tools.py::test_compatibility_surfaces_the_real_target_framework_not_flattened
+FAILED tests/mcp/tools/test_consumer_tools.py::test_license_and_install_and_support_are_real_manifest_derived_content
+FAILED tests/mcp/tools/test_consumer_tools.py::test_a_genuinely_absent_contributing_file_is_an_explicit_not_available
+FAILED tests/mcp/tools/test_consumer_tools.py::test_a_genuinely_absent_agent_guidance_file_is_an_explicit_not_available
+FAILED tests/mcp/tools/test_consumer_tools.py::test_sections_with_no_data_source_are_honestly_not_available
+FAILED tests/mcp/tools/test_consumer_tools.py::test_every_section_selector_is_exercised
+FAILED tests/mcp/tools/test_consumer_tools.py::test_an_unrecognized_section_is_rejected
+
+--- stderr ---
+
