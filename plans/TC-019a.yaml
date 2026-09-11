@@ -1,0 +1,81 @@
+id: TC-019a
+gate: G1
+lane: transport-deployment
+purpose: Wire the nine tools into the served MCP transport and enforce Origin and
+  protocol-version rejection at the transport boundary.
+depends_on:
+- TC-017a
+- TC-017b
+- TC-017c
+- TC-018
+- TC-019
+write_paths:
+- src/foss_mcp/mcp/server.py
+- src/foss_mcp/mcp/transport_security.py
+- infra/serve_http.py
+- docker-compose.yml
+- Dockerfile.serving
+- tests/mcp/test_server_wiring.py
+satisfies:
+- REQ-G1-015
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.8 Transport & routing'
+  sha256: e8e3578aa0e28d3425d2dfe3723879924ef86844620c3781e6f0bc2d60a779d7
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.2 Common tools'
+  sha256: fcc5e91a552d272bd617369066de6c312007c25806671af9c1ccbbfd6f574453
+inputs:
+- 'WHY THIS CARD EXISTS: a supervisor decomposition defect. TC-016 built the server
+  with a deliberately EMPTY tool registry, TC-017a/b/c implemented nine tool FUNCTIONS,
+  and no card was ever asked to connect them. TC-020 could not proceed. Not your error.'
+- 'Verified facts, do not re-derive: server.py''s on_list_tools returns an empty list;
+  the only container entrypoint (infra/serve_stdio.py) speaks stdio; docker-compose.yml
+  publishes no port; mcp 2.2.0 does NOT reject a MISSING MCP-Protocol-Version (it
+  falls through to DEFAULT_NEGOTIATED_VERSION - only a present-but-invalid value routes
+  to rejection), so the missing case needs YOUR middleware; TransportSecuritySettings(allowed_origins=[...])
+  exists and nothing constructs one.'
+- 'REQUIRED PUBLIC API so the falsifier and later cards have a stable contract: src/foss_mcp/mcp/transport_security.py
+  must expose reject_request(headers: Mapping[str, str]) -> str | None, returning
+  a human-readable reason to reject or None to allow.'
+- Serve on port 8080, SDK default path /mcp. Keep the stdio entrypoint working - two
+  transports over ONE dispatch core, never a second implementation.
+- Protocol-level errors and tool-domain errors must stay distinguishable. A rejected
+  Origin is not the same shape as a tool reporting no match.
+actions:
+- Register all nine tools with on_list_tools and on_call_tool, each with a real JSON
+  schema derived from its own signature. Product identity still comes from deployment
+  config - never a tool argument.
+- 'Implement transport_security.reject_request: reject an Origin not in the allowlist;
+  reject a MISSING MCP-Protocol-Version; reject an unparseable one. Return None only
+  when both are fine.'
+- Add infra/serve_http.py serving streamable_http_app() behind that middleware with
+  TransportSecuritySettings(allowed_origins=...), on 8080.
+- Publish 8080 in docker-compose.yml and make Dockerfile.serving able to run the HTTP
+  entrypoint without losing the stdio one.
+- 'Write tests/mcp/test_server_wiring.py: all nine tools appear in tools/list with
+  schemas; each is callable; a bad Origin is rejected; a missing protocol version
+  is rejected; an invalid one is rejected; a valid request passes.'
+checks:
+- command: '{python} -m pytest tests/mcp/test_server_wiring.py -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G1-015
+min_tests: 6
+network: false
+negative_control:
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/mcp/transport_security.py'');p.write_text(p.read_text(encoding=''utf-8'')
+    + chr(10) + ''reject_request = lambda headers: None'' + chr(10), encoding=''utf-8'')"'
+  rationale: Making the transport accept everything must break the suite. Origin and
+    protocol-version rejection are spec MUSTs, and a permissive transport is the reference
+    system's confirmed defect - it read a client-controlled header and validated nothing.
+evidence:
+- evidence/build/G1/TC-019a/receipt.json
+closeout:
+- All nine tools are listed and callable through the served transport.
+- A bad Origin, a missing protocol version, and an invalid one are each rejected.
+- A valid request still passes.
+- Making reject_request permissive fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

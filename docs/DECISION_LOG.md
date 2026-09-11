@@ -112,3 +112,20 @@ happen legitimately. Split back out before anything was pushed; the worker commi
 Root cause is the one the design named before execution began: the two roles share one filesystem,
 and prose separation does not enforce itself. `gatectl commit-guard` now refuses a supervisor commit
 while worker product paths are uncommitted.
+
+## 2026-09-11 — Decomposition defect: nobody was asked to wire the tools into the server (TC-019a)
+Found by TC-020, which could not start. TC-016 built the server with a deliberately EMPTY tool
+registry (my instruction), TC-017a/b/c implemented nine tool FUNCTIONS, and no card ever connected
+them. The container served stdio only, compose published no port, and nothing constructed
+TransportSecuritySettings.
+All four claims independently verified before acting: on_list_tools returns an empty list; compose
+has no ports stanza; mcp 2.2.0's streamable_http falls through to DEFAULT_NEGOTIATED_VERSION when
+the MCP-Protocol-Version header is MISSING, so the SDK covers only the present-but-invalid case and
+the missing case needs our own middleware; TransportSecuritySettings exposes allowed_origins and
+nothing constructs one.
+Root cause is mine and structural: I split the plan's single TC-017 ("implement all nine tools")
+into three cards scoped to tool implementations, and the integration work fell into the gap between
+them. The plan's own card would probably have carried it. Splitting for the 45-minute sizing rule
+traded one risk for another, and this is the cost.
+TC-019a added with REQ-G1-015 so the transport boundary is a claimed, proven requirement rather
+than an assumption inside the E2E card.
