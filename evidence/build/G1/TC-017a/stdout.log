@@ -1,0 +1,132 @@
+
+===== CLEAN RUN 1 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-114132775c6f6814\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-87ogqlae\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-114132775c6f6814\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-87ogqlae\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== HOLDOUT (supervisor-authored, not named by the card) =====
+$ "D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-114132775c6f6814\Scripts\python.exe" -m pytest .gatectl-holdout -q -p no:cacheprovider
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_docs.py, ?? .gatectl-holdout/, ?? .junit-0.xml
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-114132775c6f6814\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-87ogqlae\.junit-0.xml"
+--- stdout ---
+..FFF.FF.                                                                [100%]
+================================== FAILURES ===================================
+______________ test_search_docs_rejects_an_invalid_content_type _______________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-494/test_search_docs_rejects_an_in0')
+
+    def test_search_docs_rejects_an_invalid_content_type(tmp_path: Path) -> None:
+        store = _store(tmp_path)
+>       with pytest.raises(ValueError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\mcp\tools\test_retrieval_tools.py:138: Failed
+_______________ test_content_type_genuinely_partitions_results ________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-494/test_content_type_genuinely_pa0')
+
+    def test_content_type_genuinely_partitions_results(tmp_path: Path) -> None:
+        """The same term, filtered to the WRONG category, misses even though it would match if
+        the filter were dropped - this is what proves genuine partitioning, not just "no match
+        anywhere"."""
+        store = _store(tmp_path)
+        _publish_pdf_net_docs(store)
+    
+        hit = search_docs(store, PDF_NET_SCOPE, "document", "developer_guide")
+        miss = search_docs(store, PDF_NET_SCOPE, "document", "faq")
+    
+        assert isinstance(hit, list) and hit
+>       assert all(match.content_type == "developer_guide" for match in hit)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:153: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+.0 = <list_iterator object at 0x000001798B835CC0>
+
+>   assert all(match.content_type == "developer_guide" for match in hit)
+               ^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'dict' object has no attribute 'content_type'
+
+tests\mcp\tools\test_retrieval_tools.py:153: AttributeError
+_ test_getting_started_and_troubleshooting_are_genuinely_different_partitions _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-494/test_getting_started_and_troub0')
+
+    def test_getting_started_and_troubleshooting_are_genuinely_different_partitions(tmp_path: Path) -> None:
+        store = _store(tmp_path)
+        _publish_pdf_net_docs(store)
+    
+        getting_started = search_docs(store, PDF_NET_SCOPE, "install", "getting_started")
+        wrong_category = search_docs(store, PDF_NET_SCOPE, "install", "troubleshooting")
+    
+        assert isinstance(getting_started, list) and getting_started
+>       assert isinstance(wrong_category, DocsMiss)
+E       assert False
+E        +  where False = isinstance([{"'id'": 1}], DocsMiss)
+
+tests\mcp\tools\test_retrieval_tools.py:166: AssertionError
+______ test_lookup_dispatches_to_search_docs_when_content_type_is_given _______
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-494/test_lookup_dispatches_to_sear1')
+
+    def test_lookup_dispatches_to_search_docs_when_content_type_is_given(tmp_path: Path) -> None:
+        store = _store(tmp_path)
+        _publish_pdf_net_docs(store)
+    
+        result = lookup(store, PDF_NET_SCOPE, "install", content_type="getting_started")
+    
+>       assert isinstance(result, list) and all(isinstance(match, DocMatch) for match in result)
+E       assert (True and False)
+E        +  where True = isinstance([{"'id'": 1}], list)
+E        +  and   False = all(<generator object test_lookup_dispatches_to_search_docs_when_content_type_is_given.<locals>.<genexpr> at 0x000001798B857AE0>)
+
+tests\mcp\tools\test_retrieval_tools.py:186: AssertionError
+______ test_lookup_falls_back_to_docs_when_nothing_resolves_as_a_symbol _______
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-494/test_lookup_falls_back_to_docs0')
+
+    def test_lookup_falls_back_to_docs_when_nothing_resolves_as_a_symbol(tmp_path: Path) -> None:
+        """No self_extracted generation is published in this test at all: the symbol search
+        must miss cleanly (no generation for that source kind), and lookup falls through to
+        docs - never inventing a symbol match out of documentation content.
+        """
+        store = _store(tmp_path)
+        _publish_pdf_net_docs(store)
+    
+        result = lookup(store, PDF_NET_SCOPE, "licensed")
+    
+        assert isinstance(result, list) and result
+>       assert all(isinstance(match, DocMatch) for match in result)
+E       assert False
+E        +  where False = all(<generator object test_lookup_falls_back_to_docs_when_nothing_resolves_as_a_symbol.<locals>.<genexpr> at 0x000001798B7D8740>)
+
+tests\mcp\tools\test_retrieval_tools.py:201: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_docs_rejects_an_invalid_content_type
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_content_type_genuinely_partitions_results
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_getting_started_and_troubleshooting_are_genuinely_different_partitions
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_lookup_dispatches_to_search_docs_when_content_type_is_given
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_lookup_falls_back_to_docs_when_nothing_resolves_as_a_symbol
+
+--- stderr ---
+

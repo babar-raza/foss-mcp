@@ -74,3 +74,15 @@ real 2.2.0 API line by line, deleted it, and reported BLOCKED_EXTERNAL. Conseque
 TC-016's own checks exercise only routing and negotiation, neither of which needs the SDK, so
 server.py was never imported by anything and the card could have shipped a file that does not load.
 Its holdout now imports and constructs it.
+
+## 2026-09-11 — Known limitation: section headings are dropped before content_type classification
+Found while writing TC-017a's holdout. chunk_document moves a heading into Chunk.section_title,
+build_lexical_index stores only chunk.text, and search_docs classifies document["text"] - so a
+section headed "Troubleshooting" whose body never uses a category keyword classifies as
+developer_guide. The heading is the strongest available signal and it is discarded.
+Measured before judging: on the REAL furnished pdf/net page, 0 of 8 sections change classification
+when the heading is included, because that page's headings are "Overview"/"Features" and carry no
+category keywords either. So this is latent, not live, and TC-017a is not failed for it.
+It WILL matter when kb.aspose.org troubleshooting and FAQ content is ingested, where headings are
+the category. Fix then: classify over section_title + text, or carry section_title into the indexed
+document. Recorded so it is a decision rather than an oversight.
