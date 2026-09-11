@@ -1,0 +1,64 @@
+
+===== CLEAN RUN 1 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_health.py tests/telemetry/test_usage_recorder.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-abytn4i5\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_health.py tests/telemetry/test_usage_recorder.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-abytn4i5\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+
+===== HOLDOUT (supervisor-authored, not named by the card) =====
+$ "D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe" -m pytest .gatectl-holdout -q -p no:cacheprovider
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/health.py, ?? .gatectl-holdout/, ?? .junit-0.xml
+$ D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_health.py tests/telemetry/test_usage_recorder.py -q "--junitxml=D:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-abytn4i5\.junit-0.xml"
+--- stdout ---
+.F.F........                                                             [100%]
+================================== FAILURES ===================================
+______________ test_readiness_is_false_with_no_active_generation ______________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-542/test_readiness_is_false_with_n0')
+
+    def test_readiness_is_false_with_no_active_generation(tmp_path: Path) -> None:
+        store = DeploymentGenerationStore.for_scope(_store(tmp_path), PDF_NET_SCOPE, "self_extracted")
+>       assert is_ready(store) is False
+E       AssertionError: assert True is False
+E        +  where True = is_ready(DeploymentGenerationStore(manifest_store=<foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001B6C8A2B230>, scope_key='pdf::net::self_extracted'))
+
+tests\mcp\test_health.py:58: AssertionError
+_________________ test_readiness_does_not_leak_across_scopes __________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-542/test_readiness_does_not_leak_a0')
+
+    def test_readiness_does_not_leak_across_scopes(tmp_path: Path) -> None:
+        """Publishing pdf/net must never make an unrelated scope report ready."""
+        manifest_store = _store(tmp_path)
+        _publish_real_generation(manifest_store)
+        other = DeploymentGenerationStore.for_scope(
+            manifest_store, Scope(family="cells", platform="python"), "self_extracted"
+        )
+>       assert is_ready(other) is False
+E       AssertionError: assert True is False
+E        +  where True = is_ready(DeploymentGenerationStore(manifest_store=<foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001B6C8AF0690>, scope_key='cells::python::self_extracted'))
+
+tests\mcp\test_health.py:75: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/test_health.py::test_readiness_is_false_with_no_active_generation
+FAILED tests/mcp/test_health.py::test_readiness_does_not_leak_across_scopes
+
+--- stderr ---
+
