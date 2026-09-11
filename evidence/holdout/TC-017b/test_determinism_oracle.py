@@ -108,15 +108,15 @@ def test_the_real_symbol_resolves(store):
 # Near-misses built from a REAL symbol - the queries an agent sends after
 # half-remembering an API, and the ones a ranked search is most tempted by.
 NEAR_MISSES = [
-    REAL_FQN + "s",                       # plausible plural
-    REAL_FQN[:-1],                        # one character short
-    REAL_FQN.lower(),                     # wrong casing
-    REAL_FQN.replace("Aspose.Pdf", "Aspose.PDF"),   # wrong namespace casing
-    REAL_FQN + ".NoSuchMember",           # real type, fabricated member
-    REAL_FQN.split(".")[-1],              # bare name, no namespace
-    "Aspose.Pdf.AFRelationships",         # near-identical neighbour
-    " " + REAL_FQN,                       # leading whitespace
-    REAL_FQN + " ",                       # trailing whitespace
+    REAL_FQN + "s",  # plausible plural
+    REAL_FQN[:-1],  # one character short
+    REAL_FQN.lower(),  # wrong casing
+    REAL_FQN.replace("Aspose.Pdf", "Aspose.PDF"),  # wrong namespace casing
+    REAL_FQN + ".NoSuchMember",  # real type, fabricated member
+    REAL_FQN.split(".")[-1],  # bare name, no namespace
+    "Aspose.Pdf.AFRelationships",  # near-identical neighbour
+    " " + REAL_FQN,  # leading whitespace
+    REAL_FQN + " ",  # trailing whitespace
 ]
 
 

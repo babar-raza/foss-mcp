@@ -3,14 +3,14 @@
   "card": "TC-005",
   "gate": "G0",
   "generated_by": "gatectl",
-  "generated_at": "2026-09-10T16:29:13Z",
+  "generated_at": "2026-09-11T02:53:14Z",
   "base_rev": "17e0bc1e446f02cbba3ce7f26348040b9553fef6",
-  "head_rev": "afc3f11cc7ba02052f2e1ce1400ee4b1d2b8cd59",
-  "card_sha256": "3d06dbd1b9d0cc3591c6fd8fc01790fb86978cd09fc4c2e24943ef31a9c0ca95",
+  "head_rev": "f36b38fd24672f1dab5b7464f8984292513e8f5e",
+  "card_sha256": "86cc0817b674d043fb89e3947a4802d48a33b69a0de08cc8cb92b5951f5e6dc8",
   "fingerprint": {
     "python": "3.13.2",
     "platform": "Windows-11-10.0.26200-SP0",
-    "lock_sha256": "0e342726ff728ee7e499d12731c01127bef6f1aec686a6b4c0fe313984af5f94",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
     "env": {
       "PYTHONHASHSEED": "0",
       "PYTHONUTF8": "1",
@@ -34,7 +34,7 @@
         {
           "command": "{python} -m pytest tests/indexing/test_generation_manifest.py -q",
           "exit_code": 0,
-          "duration_s": 1.526,
+          "duration_s": 1.027,
           "stdout_sha256": "eb27a136c18598aedc0e4f11e6893b614a04335a9faf3ec03433325d777e2663",
           "tests": 12,
           "skipped": 0,
@@ -50,7 +50,7 @@
         {
           "command": "{python} -m pytest tests/indexing/test_generation_manifest.py -q",
           "exit_code": 0,
-          "duration_s": 1.433,
+          "duration_s": 0.958,
           "stdout_sha256": "eb27a136c18598aedc0e4f11e6893b614a04335a9faf3ec03433325d777e2663",
           "tests": 12,
           "skipped": 0,
@@ -63,8 +63,8 @@
   ],
   "negative_control": {
     "kind": "mutate",
-    "patch": "python -c \"import pathlib;p=pathlib.Path('src/foss_mcp/indexing/generation_manifest.py');p.write_text(p.read_text() + chr(10) + 'GenerationManifestStore.cas_activate = lambda self, scope, expected_active, generation_id, lease: generation_id' + chr(10))\"",
-    "patch_sha256": "de5d974d17f50c137d8888d8885041323d311be474a5767ae3835b35cea451fd",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/indexing/generation_manifest.py');p.write_text(p.read_text(encoding='utf-8') + chr(10) + 'GenerationManifestStore.cas_activate = lambda self, scope, expected_active, generation_id, lease: generation_id' + chr(10), encoding='utf-8')\"",
+    "patch_sha256": "54cb84873bee83c6ba2fb25dfddf0ba789f6b959f09428a7e844213939615fae",
     "applied": true,
     "patch_applied_failed": true,
     "exit_codes": [
@@ -74,6 +74,11 @@
       "M src/foss_mcp/indexing/generation_manifest.py",
       "?? .junit-0.xml"
     ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
   },
   "accepted": true,
   "reason": "all gates passed"

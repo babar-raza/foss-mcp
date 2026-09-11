@@ -116,7 +116,9 @@ def test_negotiation_is_nearest_supported_or_min_and_never_exceeds_the_request()
     """Anti-vacuity for the algorithm: rejecting everything would satisfy the two
     tests above while negotiating nothing at all."""
     exact = negotiate("2025-06-18")
-    assert exact.negotiated_revision == "2025-06-18", f"an exactly-supported revision was not honoured: {exact}"
+    assert exact.negotiated_revision == "2025-06-18", (
+        f"an exactly-supported revision was not honoured: {exact}"
+    )
     assert exact.fallback_applied is False
 
     below = negotiate("2001-01-01")

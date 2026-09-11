@@ -286,7 +286,7 @@ def commits_recorded_for(card_id: str) -> set:
     burning one of three attempts on a commit message would push good work
     toward FAILED_INTERNAL for no safety gain.
     """
-    out = set()
+    out: set[str] = set()
     if not STATUS_JSONL.exists():
         return out
     for line in STATUS_JSONL.read_text(encoding="utf-8").splitlines():

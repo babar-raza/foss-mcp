@@ -105,15 +105,23 @@ def store(tmp_path_factory):
         f"{e.get('class_import') or e.get('name', '')} is a {e.get('kind', '')}."
         for e in fixture["types"][:20]
     ]
-    _publish(st, PDF_NET, "self_extracted",
-             chunk_document(_doc("pdf surface", "\n\n".join(pdf_sections), SourceKind.SELF_EXTRACTED)))
+    _publish(
+        st,
+        PDF_NET,
+        "self_extracted",
+        chunk_document(_doc("pdf surface", "\n\n".join(pdf_sections), SourceKind.SELF_EXTRACTED)),
+    )
 
     cells_sections = [
         f"## {CELLS_ONLY_TERM}\n\n{CELLS_ONLY_TERM} is a class in the cells python surface.",
         "## Workbook\n\nWorkbook is a class in the cells python surface.",
     ]
-    _publish(st, CELLS_PY, "self_extracted",
-             chunk_document(_doc("cells surface", "\n\n".join(cells_sections), SourceKind.SELF_EXTRACTED)))
+    _publish(
+        st,
+        CELLS_PY,
+        "self_extracted",
+        chunk_document(_doc("cells surface", "\n\n".join(cells_sections), SourceKind.SELF_EXTRACTED)),
+    )
 
     # Furnished prose for pdf/net only, one category each so partitioning is real.
     # Category keywords sit in the BODY on purpose: chunking moves a heading into
@@ -127,8 +135,7 @@ def store(tmp_path_factory):
         "## Troubleshooting\n\nTo troubleshoot a PdfCorruptedException, check the file header; "
         "this common error means the document could not be parsed.\n"
     )
-    _publish(st, PDF_NET, "furnished",
-             chunk_document(_doc("pdf prose", prose, SourceKind.FURNISHED)))
+    _publish(st, PDF_NET, "furnished", chunk_document(_doc("pdf prose", prose, SourceKind.FURNISHED)))
     return st
 
 
@@ -170,9 +177,7 @@ def test_a_pdf_query_never_returns_cells_content(store):
 def test_a_cells_query_never_returns_pdf_content(store):
     """Leakage is directional - prove it both ways."""
     result = ss.search_symbols(store, CELLS_PY, PDF_ONLY_TERM)
-    assert _is_miss(result), (
-        f"cells/python returned a result that exists only in pdf/net: {_texts(result)}"
-    )
+    assert _is_miss(result), f"cells/python returned a result that exists only in pdf/net: {_texts(result)}"
     assert PDF_ONLY_TERM not in _texts(result)
 
 
@@ -212,9 +217,7 @@ def test_an_explicit_content_type_is_never_widened_past(store):
 def test_lookup_with_an_explicit_content_type_delegates_and_does_not_fall_back(store):
     """The precise boundary: breadth is allowed only when no filter was given."""
     result = lookup(store, PDF_NET, "PdfCorruptedException", content_type="getting_started")
-    assert _is_miss(result), (
-        f"lookup widened past an explicitly supplied content_type: {_texts(result)}"
-    )
+    assert _is_miss(result), f"lookup widened past an explicitly supplied content_type: {_texts(result)}"
 
 
 def test_lookup_without_a_filter_may_still_search_broadly(store):

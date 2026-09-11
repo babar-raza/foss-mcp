@@ -594,8 +594,21 @@ def cmd_gate_exit(args) -> int:
         if not r["accepted"]:
             failures.append(f"{cid}: {r['reason']}")
 
+    # Repo-wide CI is a GATE property, not a card property. Card checks are
+    # scoped to what each card touched, so lint, format and typecheck drifted
+    # across the whole tree while every single card stayed green. Recorded as a
+    # gap at G0 and then not closed until it bit again at G1 - so it lives here
+    # now rather than in anyone's memory.
+    print("running the repo-wide CI-equivalent ...", flush=True)
+    rc_ci, ci_out, ci_err = G.run(["bash", "scripts/ci_check.sh"], timeout=3600)
+    ci_summary = [ln for ln in (ci_out or "").splitlines() if ": success" in ln or ": failure" in ln]
+    if rc_ci != 0:
+        failures.append("repo-wide CI failed: " + "; ".join(ci_summary) or (ci_err or "")[:200])
+
     print()
     print(f"=== GATE {args.gate} EXIT ===")
+    for ln in ci_summary:
+        print(f"  CI {ln.strip()}")
     for cid in sorted(results):
         r = results[cid]
         mark = "PASS" if r["accepted"] else "FAIL"
@@ -620,6 +633,7 @@ def cmd_gate_exit(args) -> int:
         "control_revision": head,
         "method": "every card re-verified from scratch at this revision; stored receipts ignored",
         "fingerprint": G.fingerprint(),
+        "repo_wide_ci": {"exit_code": rc_ci, "steps": ci_summary},
         "cards": {
             cid: {
                 "accepted": r["accepted"],

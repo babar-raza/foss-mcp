@@ -3,14 +3,14 @@
   "card": "TC-002",
   "gate": "G0",
   "generated_by": "gatectl",
-  "generated_at": "2026-09-10T16:28:57Z",
+  "generated_at": "2026-09-11T02:52:58Z",
   "base_rev": "3bb6706a728d733129fa2f420cfb4a9af71d2e41",
-  "head_rev": "afc3f11cc7ba02052f2e1ce1400ee4b1d2b8cd59",
-  "card_sha256": "c321170b2e2421ce531c4949d2f842f5326f805ac4099fb81554b279bf411795",
+  "head_rev": "f36b38fd24672f1dab5b7464f8984292513e8f5e",
+  "card_sha256": "792a698409f2fc56b609d94da7d6e6f57810377244f6e0bed5a45fd808970868",
   "fingerprint": {
     "python": "3.13.2",
     "platform": "Windows-11-10.0.26200-SP0",
-    "lock_sha256": "0e342726ff728ee7e499d12731c01127bef6f1aec686a6b4c0fe313984af5f94",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
     "env": {
       "PYTHONHASHSEED": "0",
       "PYTHONUTF8": "1",
@@ -34,7 +34,7 @@
         {
           "command": "{python} -m pytest tests/schemas -q",
           "exit_code": 0,
-          "duration_s": 0.77,
+          "duration_s": 0.931,
           "stdout_sha256": "c66ef7936b32d2201bf6eb901cf69cbc8e71996669c38afe1f70ad40098e04a3",
           "tests": 20,
           "skipped": 0,
@@ -50,7 +50,7 @@
         {
           "command": "{python} -m pytest tests/schemas -q",
           "exit_code": 0,
-          "duration_s": 0.804,
+          "duration_s": 0.82,
           "stdout_sha256": "c66ef7936b32d2201bf6eb901cf69cbc8e71996669c38afe1f70ad40098e04a3",
           "tests": 20,
           "skipped": 0,
@@ -63,8 +63,8 @@
   ],
   "negative_control": {
     "kind": "mutate",
-    "patch": "python -c \"import json,pathlib;p=pathlib.Path('schemas/product/product-manifest.schema.json');d=json.loads(p.read_text());d['required']=[r for r in d['required'] if r!='schedule'];p.write_text(json.dumps(d,indent=2))\"",
-    "patch_sha256": "a2fcf890580113ea2c57c0fda406407cb070dfb6d7190228f866dce2697645f0",
+    "patch": "python -X utf8 -c \"import json,pathlib;p=pathlib.Path('schemas/product/product-manifest.schema.json');d=json.loads(p.read_text(encoding='utf-8'));d['required']=[r for r in d['required'] if r!='schedule'];p.write_text(json.dumps(d,indent=2), encoding='utf-8')\"",
+    "patch_sha256": "f1dc310147c6612632a5e23e843972745a5020bea2201ce8cd021c0d65f7525c",
     "applied": true,
     "patch_applied_failed": true,
     "exit_codes": [
@@ -74,6 +74,11 @@
       "M schemas/product/product-manifest.schema.json",
       "?? .junit-0.xml"
     ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
   },
   "accepted": true,
   "reason": "all gates passed"

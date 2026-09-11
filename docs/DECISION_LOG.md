@@ -140,3 +140,18 @@ Also recorded: the worker found a real container bug its in-process tests could 
 user (uid 10001) cannot create a top-level /data at runtime, so the default manifest-store path
 failed with PermissionError on the first real request. Found by actually running `docker compose up
 --build` and hitting the published port, which is TC-020's job done a card early.
+
+## 2026-09-11 — Repo-wide CI is now a gate property, and two lint decisions
+The gap recorded at G0 and not closed: card checks are scoped to what each card touched, so
+repo-wide lint/format/typecheck drifted across the tree while every card stayed green. Both gates
+reported MET while `scripts/ci_check.sh` was red. `gatectl gate-exit` now runs the repo-wide
+CI-equivalent and records its per-step outcome in the gate manifest, so this cannot rest on memory.
+Two lint decisions, both declines rather than fixes:
+1. The vendored tree-sitter engine is EXCLUDED from lint/format. Its own header records "No other
+   changes" beyond an import rewrite, and that byte-provenance is why the port was cheap and stays
+   re-syncable. Linting it would force edits that destroy exactly that claim. Same boundary the
+   source project draws around its own _vendor/ tree.
+2. UP042 (rewrite `class X(str, Enum)` as enum.StrEnum) is IGNORED project-wide. StrEnum changes
+   str()/format() behaviour, and these enum values are already serialized into generation manifests,
+   receipts and published tool JSON schemas. A silent change in how they render is a real
+   compatibility risk for a cosmetic gain.

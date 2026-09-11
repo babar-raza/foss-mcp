@@ -51,9 +51,7 @@ FIXTURE = WT / "tests" / "fixtures" / "pdf_net" / "api_surface.json"
 # string silently addressed a DIFFERENT scope, so leases were acquired somewhere
 # the publisher never looked - which holdout-check caught before it could reject
 # a correct card.
-SCOPE = GenerationKey(
-    family="pdf", platform="net", source_kind="self_extracted", version="probe"
-).scope
+SCOPE = GenerationKey(family="pdf", platform="net", source_kind="self_extracted", version="probe").scope
 
 
 class _FixedProvider:

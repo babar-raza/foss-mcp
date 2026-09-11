@@ -27,8 +27,6 @@ import json
 import pathlib
 import sys
 
-import pytest
-
 WT = pathlib.Path(__file__).resolve().parents[3]
 for p in (str(WT), str(WT / "src")):
     if p not in sys.path:
@@ -161,9 +159,7 @@ def test_raw_query_text_survives_nowhere_on_the_event():
         query=SENTINEL,
     )
     rendered = json.dumps(event, default=lambda o: getattr(o, "__dict__", str(o)))
-    assert SENTINEL not in rendered, (
-        f"the raw query text survived onto the event: {rendered[:400]}"
-    )
+    assert SENTINEL not in rendered, f"the raw query text survived onto the event: {rendered[:400]}"
     assert "QueryTextSentinel" not in rendered, "a fragment of the raw query survived"
 
     shape = getattr(event, "query_shape_category", None)
@@ -182,8 +178,16 @@ def test_the_event_still_carries_its_contract_fields():
         latency_ms=3.0,
         query="Document",
     )
-    for field in ("event_id", "request_correlation_id", "deployment_id", "generation_id",
-                  "tool_name", "outcome", "latency_ms", "query_shape_category"):
+    for field in (
+        "event_id",
+        "request_correlation_id",
+        "deployment_id",
+        "generation_id",
+        "tool_name",
+        "outcome",
+        "latency_ms",
+        "query_shape_category",
+    ):
         assert getattr(event, field, None) is not None, f"contract field {field} is missing"
     assert event.tool_name == "get_symbol"
     assert event.outcome == "not_found", "a miss must be recorded as a miss, not smoothed to success"

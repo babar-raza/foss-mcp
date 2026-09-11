@@ -55,9 +55,7 @@ def test_a_missing_protocol_version_is_rejected():
 
 @pytest.mark.parametrize("bad", ["not-a-date", "2026-13-99", "latest", "2026/06/18", ""])
 def test_an_unparseable_protocol_version_is_rejected(bad):
-    reason = reject_request(
-        headers(Origin=ALLOWED[0], MCP_Protocol_Version=bad), allowed_origins=ALLOWED
-    )
+    reason = reject_request(headers(Origin=ALLOWED[0], MCP_Protocol_Version=bad), allowed_origins=ALLOWED)
     assert reason is not None, f"an unparseable protocol version was allowed: {bad!r}"
 
 
@@ -90,14 +88,17 @@ def test_an_absent_origin_is_allowed_but_a_wrong_one_is_not():
     rebinding - the threat this check exists for - is browser-specific. That
     leniency must NOT extend to an Origin that is present and wrong.
     """
-    assert reject_request(
-        headers(MCP_Protocol_Version=GOOD_VERSION), allowed_origins=ALLOWED
-    ) is None, "an absent Origin was rejected; non-browser clients legitimately omit it"
+    assert reject_request(headers(MCP_Protocol_Version=GOOD_VERSION), allowed_origins=ALLOWED) is None, (
+        "an absent Origin was rejected; non-browser clients legitimately omit it"
+    )
 
-    assert reject_request(
-        headers(Origin="https://evil.example", MCP_Protocol_Version=GOOD_VERSION),
-        allowed_origins=ALLOWED,
-    ) is not None, "absent-Origin leniency leaked into allowing a WRONG Origin"
+    assert (
+        reject_request(
+            headers(Origin="https://evil.example", MCP_Protocol_Version=GOOD_VERSION),
+            allowed_origins=ALLOWED,
+        )
+        is not None
+    ), "absent-Origin leniency leaked into allowing a WRONG Origin"
 
 
 # ------------------------------------------------------------- header casing
@@ -144,9 +145,7 @@ def test_no_tool_schema_exposes_the_deployment_store_or_scope():
     )
 
     scope = resolve_scope(DeploymentConfig(family="pdf", platform="net"), request=None)
-    registry = _build_tool_registry(
-        _default_manifest_store(), scope, ProductReferenceInputs(), ()
-    )
+    registry = _build_tool_registry(_default_manifest_store(), scope, ProductReferenceInputs(), ())
     assert len(registry) == 9, f"expected all nine tools registered, got {sorted(registry)}"
 
     for name, handler in registry.items():
