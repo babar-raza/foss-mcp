@@ -22,7 +22,9 @@ inputs:
   one call per tool, Origin and protocol-version rejections, protocol-vs-tool-domain
   error distinguishability), against a REAL docker-compose-managed container, teardown
   even on failure.
-- docker-compose.yml publishes pdf/go as service `serving-pdf-go` on host port 8083
+- docker-compose.yml publishes pdf/go as service `serving-pdf-go` on host port 8084
+  (the card's own inputs originally, incorrectly, said 8083 - that is pdf/java's port;
+  corrected here after the worker flagged it by checking docker-compose.yml directly)
   (container port stays 8080 internally, never changes). Use this exact service name
   and port.
 - 'CRITICAL, same as every prior E2E card: with an empty manifest store, every deployment
@@ -54,11 +56,13 @@ checks:
 min_tests: 14
 network: true
 negative_control:
-  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/e2e/test_pdf_go_container_session.py');s=p.read_text(encoding='utf-8');s=s.replace('8083','8080');p.write_text(s,encoding='utf-8')"
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/e2e/test_pdf_go_container_session.py');s=p.read_text(encoding='utf-8');s=s.replace('8084','8080');p.write_text(s,encoding='utf-8')"
   rationale: Pointing the new test file at a different pilot's port (8080) instead
-    of pdf/go's own (8083) must break it via the scope-identity assertion - proves
-    the test genuinely verifies it is talking to the pdf/go deployment specifically.
-    Self-checked end-to-end before being persisted.
+    of pdf/go's real published port (8084 - the card's original inputs text incorrectly
+    stated 8083, which is actually pdf/java's port per docker-compose.yml; the worker
+    correctly used the real port and flagged the discrepancy, and this falsifier is
+    corrected to match reality) must break it via the scope-identity assertion. Self-checked
+    end-to-end against the real committed file before being persisted.
 evidence:
 - evidence/build/G2/TC-042/receipt.json
 closeout:
