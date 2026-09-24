@@ -1,0 +1,90 @@
+id: TC-033
+gate: G2
+lane: extraction
+purpose: Pin cells/rust's real GitHub-presence data (releases, packaging manifest,
+  governance docs) as fixtures and prove the existing, already-generic readers (github_release_reader,
+  manifest_reader.read_rust_manifest, repo_native_reader) work correctly against a
+  third, differently-shaped repository - exactly TC-012/TC-027's pattern, no reader
+  code changes needed.
+depends_on:
+- TC-012
+- TC-022
+- TC-031
+- TC-027
+write_paths:
+- tests/extraction/test_repo_native.py
+- tests/fixtures/repo_native/**
+satisfies:
+- REQ-G2-013
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.6 New ingestion source: the FOSS repo''s own GitHub presence (distinct
+    from `aspose.org`)'
+  sha256: 3ffc905bc422c49676e488f41ef71e7ebdd8ac18a2eeb18b1ed83a27578c7fc3
+inputs:
+- 'VERIFIED by a fresh anonymous GitHub API read on 2026-09-24 against the real repository
+  (config/products/cells/rust.yaml pins it): aspose-cells-foss/Aspose.Cells-FOSS-for-Rust
+  has exactly 1 release, tagged V26.7.0 (''Initial public release''), with a real,
+  specific, non-templated body describing genuine features (pure-Rust .xlsx read/write,
+  a Workbook/Worksheet API) - must classify as classify_richness''s ''detailed'' value.'
+- 'VERIFIED Cargo.toml content (fetch via the Contents API, decode base64 - this is
+  exactly how repo_native_reader.read_repo_document already works, do not write a
+  new fetcher): name = ''aspose-cells-foss-rust'', version = ''26.7.0'', license =
+  ''MIT'', no rust-version field stated at all. Use manifest_reader.read_rust_manifest
+  (added in TC-022) against this real text and assert it extracts name/version/license
+  correctly AND that rust_version is honestly empty (never fabricated) since the manifest
+  states none - this is the first real-world proof of both the happy path AND the
+  honest-absence path for this parser.'
+- 'VERIFIED presence via the Contents API - the OPPOSITE pattern from slides/python
+  (TC-027 had AGENTS.md absent, CONTRIBUTING.md present): here AGENTS.md IS present
+  (real content, ~7.8KB) and CONTRIBUTING.md returns a real 404 (DocumentNotPresent).
+  Mirror TC-012/TC-027''s pattern of pinning one present-and-absent pair, but note
+  the roles are swapped for this pilot - read those two cards'' existing fixtures
+  for the pinned-404 JSON shape to match, but pin AGENTS.md as the PRESENT one and
+  CONTRIBUTING.md as the ABSENT one here.'
+- Fetch these five real API responses yourself (releases list, Cargo.toml contents,
+  README.md contents, AGENTS.md contents, CONTRIBUTING.md contents [expect 404]) via
+  plain anonymous curl/urllib against api.github.com - no auth needed. Save each raw
+  JSON response as a fixture file under tests/fixtures/repo_native/, named with a
+  cells_rust_ prefix mirroring the existing pdf_net_*/slides_python_* naming (e.g.
+  cells_rust_releases.json, cells_rust_cargo_contents.json, cells_rust_readme_present.json,
+  cells_rust_agents_present.json, cells_rust_contributing_404.json).
+- Do not modify github_release_reader.py, manifest_reader.py, or repo_native_reader.py
+  - all three are already generic and confirmed correct; this card is fixtures + tests
+  only.
+actions:
+- Fetch the five real GitHub API responses named above and save them as new fixture
+  files under tests/fixtures/repo_native/, following the naming convention of the
+  existing fixtures in that same directory.
+- 'Extend tests/extraction/test_repo_native.py (add tests, do not remove or modify
+  any existing pdf/net or slides/python test) with: the real single cells/rust release
+  classifies as ''detailed''; manifest_reader.read_rust_manifest against the real
+  Cargo.toml text extracts name=''aspose-cells-foss-rust'', version=''26.7.0'', license=''MIT'',
+  and rust_version=='''' (honest absence, not fabricated); the pinned AGENTS.md fixture
+  yields DocumentPresent with real, non-empty content; the pinned CONTRIBUTING.md
+  fixture yields DocumentNotPresent.'
+checks:
+- command: '{python} -m pytest tests/extraction/test_repo_native.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-013
+min_tests: 15
+network: false
+negative_control:
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/extraction/github_release_reader.py'');s=p.read_text(encoding=''utf-8'');s=s+chr(10)+''classify_richness
+    = lambda body: ''+chr(39)+''detailed''+chr(39)+chr(10);p.write_text(s,encoding=''utf-8'')"'
+  rationale: Forcing classify_richness to always return 'detailed' must break the
+    suite if any test asserts a non-detailed value anywhere (the existing pdf/net
+    tests already cover 'none'/'templated' cases) - proves richness classification
+    is genuinely exercised. Same falsifier shape as TC-012/TC-027's own, self-checked
+    end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-033/receipt.json
+closeout:
+- Real cells/rust GitHub-presence fixtures are pinned and committed.
+- The existing generic readers are proven correct against a third, differently-shaped
+  repository, including the honest-absence rust_version case.
+- Forcing richness classification to always be 'detailed' fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
