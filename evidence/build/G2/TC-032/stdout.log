@@ -1,0 +1,101 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_cells_rust_extraction.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-a71rhaeb\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_cells_rust_extraction.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-a71rhaeb\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/cells_rust/api_surface.json, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_cells_rust_extraction.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-a71rhaeb\.junit-0.xml"
+--- stdout ---
+FFFFFFF                                                                  [100%]
+================================== FAILURES ===================================
+_____________ test_the_fixture_parses_and_has_the_expected_shape ______________
+
+    def test_the_fixture_parses_and_has_the_expected_shape() -> None:
+        data = _load_fixture()
+        assert isinstance(data, dict)
+>       assert isinstance(data["types"], list)
+                          ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_rust_extraction.py:38: KeyError
+_______ test_the_fixture_records_the_exact_source_commit_and_repository _______
+
+    def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
+        data = _load_fixture()
+>       assert _COMMIT_SHA.match(data["source_commit"]), data["source_commit"]
+                                 ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'source_commit'
+
+tests\extraction\test_cells_rust_extraction.py:44: KeyError
+________________________ test_the_fixture_is_non_empty ________________________
+
+    def test_the_fixture_is_non_empty() -> None:
+        data = _load_fixture()
+>       assert len(data["types"]) > 0
+                   ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_rust_extraction.py:55: KeyError
+_______________ test_the_fixture_contains_real_rust_type_names ________________
+
+    def test_the_fixture_contains_real_rust_type_names() -> None:
+        data = _load_fixture()
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_rust_extraction.py:66: KeyError
+________________ test_every_entry_is_a_real_rust_surface_kind _________________
+
+    def test_every_entry_is_a_real_rust_surface_kind() -> None:
+        data = _load_fixture()
+>       kinds = {entry["kind"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_rust_extraction.py:75: KeyError
+________________ test_common_fields_are_present_on_every_entry ________________
+
+    def test_common_fields_are_present_on_every_entry() -> None:
+        data = _load_fixture()
+        # Fields present on every entry regardless of kind - struct/enum-only fields like
+        # class_import or enum_members are deliberately not asserted here since plain trait-impl
+        # functions do not carry them.
+>       for entry in data["types"]:
+                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_rust_extraction.py:86: KeyError
+__________ test_the_trait_item_and_free_functions_observed_are_real ___________
+
+    def test_the_trait_item_and_free_functions_observed_are_real() -> None:
+        data = _load_fixture()
+>       trait_items = {e["name"] for e in data["types"] if e["kind"] == "trait_item"}
+                                          ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_rust_extraction.py:93: KeyError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_cells_rust_extraction.py::test_the_fixture_parses_and_has_the_expected_shape
+FAILED tests/extraction/test_cells_rust_extraction.py::test_the_fixture_records_the_exact_source_commit_and_repository
+FAILED tests/extraction/test_cells_rust_extraction.py::test_the_fixture_is_non_empty
+FAILED tests/extraction/test_cells_rust_extraction.py::test_the_fixture_contains_real_rust_type_names
+FAILED tests/extraction/test_cells_rust_extraction.py::test_every_entry_is_a_real_rust_surface_kind
+FAILED tests/extraction/test_cells_rust_extraction.py::test_common_fields_are_present_on_every_entry
+FAILED tests/extraction/test_cells_rust_extraction.py::test_the_trait_item_and_free_functions_observed_are_real
+
+--- stderr ---
+
