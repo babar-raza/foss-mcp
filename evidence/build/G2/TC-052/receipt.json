@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "card": "TC-052",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-24T17:22:48Z",
+  "base_rev": "850d58d82fa0092184228a430e68f5dec508a349",
+  "head_rev": "03d56133dc3ca27a50dce1c24dc5811ceb8379fa",
+  "card_sha256": "3c95b338ba3025858c8754d7119ba95205d13e85ac885c85c7e8fcbd1f1f765b",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/extraction/test_repo_native.py",
+      "tests/fixtures/repo_native/pdf_typescript_agents_present.json",
+      "tests/fixtures/repo_native/pdf_typescript_contributing_404.json",
+      "tests/fixtures/repo_native/pdf_typescript_package_contents.json",
+      "tests/fixtures/repo_native/pdf_typescript_releases.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_repo_native.py -q",
+          "exit_code": 0,
+          "duration_s": 0.911,
+          "stdout_sha256": "a4ba55c7ec7daeede2ecfea3dda9a793665ee142066911215af4f033a9e8412a",
+          "tests": 28,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_repo_native.py -q",
+          "exit_code": 0,
+          "duration_s": 0.928,
+          "stdout_sha256": "a4ba55c7ec7daeede2ecfea3dda9a793665ee142066911215af4f033a9e8412a",
+          "tests": 28,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('tests/fixtures/repo_native/pdf_typescript_releases.json');s=p.read_text(encoding='utf-8');s=s.replace('[]','[{\\\"tag_name\\\": \\\"vFAKE\\\", \\\"body\\\": \\\"fake\\\"}]');p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "a3c9b57d7dc8da499c5fefba1e9c51fe6812ba66732a663aaf06ddd176ba7ff3",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/fixtures/repo_native/pdf_typescript_releases.json",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

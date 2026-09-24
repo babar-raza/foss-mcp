@@ -1,0 +1,47 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_repo_native.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ffux5r6d\.junit-0.xml"
+--- stdout ---
+............................                                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_repo_native.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ffux5r6d\.junit-0.xml"
+--- stdout ---
+............................                                             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/repo_native/pdf_typescript_releases.json, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_repo_native.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ffux5r6d\.junit-0.xml"
+--- stdout ---
+........................F...                                             [100%]
+================================== FAILURES ===================================
+_ test_fetch_releases_against_a_genuinely_empty_release_history_is_honestly_empty _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000028E957CE450>
+
+    def test_fetch_releases_against_a_genuinely_empty_release_history_is_honestly_empty(monkeypatch) -> None:
+        """The first pilot with zero releases at all. The pinned fixture is the real, genuine
+        empty JSON array GitHub returned - not a placeholder standing in for "no releases yet".
+        fetch_releases must return an empty list honestly: no crash, no fabricated release, and
+        the empty first page must stop pagination immediately rather than looping.
+        """
+        import foss_mcp.extraction.github_release_reader as reader
+    
+>       assert _pdf_typescript_releases_fixture()["releases"] == []
+E       AssertionError: assert [{'tag_name':...ody': 'fake'}] == []
+E         
+E         Left contains one more item: {'tag_name': 'vFAKE', 'body': 'fake'}
+E         Use -v to get more diff
+
+tests\extraction\test_repo_native.py:465: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_repo_native.py::test_fetch_releases_against_a_genuinely_empty_release_history_is_honestly_empty
+
+--- stderr ---
+
