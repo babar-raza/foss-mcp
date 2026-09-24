@@ -195,3 +195,21 @@ platform dispatch has no route for platform=python at all (_LANGUAGE_BY_PLATFORM
 calling it raises a bare KeyError) despite TC-010 having ported and unit-tested the independent
 Python reader specifically for this purpose. Same shape as TC-019a's gap. TC-021 fixes this before
 any python pilot can be onboarded.
+
+## 2026-09-24 — Storage topology decision generalized to all pilots (supervisor, pre-TC-024)
+Re-reading `foss_mcp.indexing.topology_spike` (TC-004's own module) before dispatching a
+per-pilot repeat of TC-004's measurement: both candidate profiles share one `_TfidfIndex`
+scoring core (`EmbeddedProfile.query` and `ServiceShapedProfile.query` both delegate to it
+with identical inputs), so `top5_relevance` is always tied (ratio 1.0) regardless of corpus
+content, and `ServiceShapedProfile`'s cost is structurally `EmbeddedProfile`'s cost plus two
+serialize/round-trip steps - `embedded`'s p95 latency can never exceed `service_shaped`'s.
+Under `decide()`'s rule (plan 18.1: keep `embedded` unless relevance is >10% worse or p95 is
+>2x), neither condition can ever hold by construction: this spike decides `embedded` for any
+pilot's corpus, always. Re-running it per pilot would be a mechanical formality with a
+foregone conclusion, not a new measurement - so the decision is generalized here rather than
+spending a worker attempt per pilot to re-derive an invariant. Applied directly: every new
+pilot's `config/products/<family>/<platform>.yaml` is authored with `storage_topology:
+embedded` from the start, no `undecided_pending` placeholder step. If a future pilot's real
+retrieval needs ever diverge from this spike's assumptions (e.g. an external vector store
+genuinely needed for scale), that is a new architectural question, not a rerun of this spike,
+and gets its own decision entry.
