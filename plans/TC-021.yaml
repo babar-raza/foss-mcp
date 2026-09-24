@@ -1,0 +1,87 @@
+id: TC-021
+gate: G2
+lane: extraction
+purpose: Wire platform=python into run_extraction.py's real dispatch, routing it through
+  the independent pure-AST reader instead of tree-sitter, and adapting its output
+  into the same dict shape extract_api_surface produces.
+depends_on:
+- TC-010
+- TC-011
+write_paths:
+- src/foss_mcp/extraction/run_extraction.py
+- tests/extraction/test_run_extraction_python.py
+satisfies:
+- REQ-G2-001
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'CONFIRMED by reading the real source, not a guess: extract_from_clone() in run_extraction.py
+  does `language = _LANGUAGE_BY_PLATFORM[platform]` unconditionally (run_extraction.py,
+  near line 69). ''python'' is not a key in that dict. This means calling extract_pinned_repository()
+  against ANY python manifest raises a bare KeyError today.'
+- 'package_root.detect_package_root(repo, platform) ALREADY handles ''python'' correctly
+  (package_root.py: `if platform == ''python'': return _detect_python_root(repo)`)
+  - only run_extraction.py''s language-dispatch is missing the branch, not package-root
+  detection.'
+- 'The reader to route to is python_surface.inspect_public_surface(repository_root:
+  Path, package_dirs: Sequence[str]) -> PublicSurface, where PublicSurface has `symbols:
+  tuple[PublicSymbol, ...]` and `unresolved: tuple[str, ...]`, and PublicSymbol has
+  fields: qualified_name, module, name, kind, source_path, line, public_by, reexported_from,
+  docstring, signature.'
+- 'Real, working call site to read before designing the adapter: tests/extraction/tree_sitter_engine/test_lang_python_parity.py
+  line ~70: `python_surface.inspect_public_surface(tmp_path, [''aspose''])` - note
+  the first argument is the REPOSITORY ROOT, not a pre-resolved package root, and
+  the second is a list of top-level package NAMES, not a Path. This is a different
+  calling convention from the tree-sitter path (which takes a pre-resolved pkg_root
+  Path). Read _detect_python_root''s own implementation (package_root.py) to see how
+  it already solves ''find the package name(s) under this repo'' - do not re-derive
+  that logic separately or guess a different heuristic.'
+- 'The dict shape extract_from_clone''s callers expect (compare against the real committed
+  tests/fixtures/pdf_net/api_surface.json entries) has keys: name, kind, file, line,
+  doc, visibility, deprecated, deprecated_reason, bases, class_import, canonical_namespace,
+  plus methods/properties/enum_members lists depending on kind. Your adapter must
+  map each PublicSymbol onto this same shape so downstream fixture/citation code needs
+  no changes - do not invent a second, python-specific fixture shape.'
+actions:
+- 'Add a python branch to run_extraction.py''s dispatch: when manifest[''platform'']
+  == ''python'', call python_surface.inspect_public_surface with the correct arguments
+  (read _detect_python_root to determine the right package_dirs derivation) instead
+  of _LANGUAGE_BY_PLATFORM/get_parser/extract_api_surface.'
+- Write an adapter function converting each PublicSymbol into the extract_api_surface
+  dict shape (kind/file/line/doc/visibility/etc. as listed above), so extract_pinned_repository's
+  return value has the identical shape regardless of which reader ran.
+- 'Record ''language'': ''python'' (not a tree-sitter grammar name) in the returned
+  artifact''s top-level ''language'' field for a python manifest, so downstream code
+  can tell which path produced a given fixture.'
+- 'Write tests/extraction/test_run_extraction_python.py: extraction against a small
+  real synthetic python package (module-level classes/functions with docstrings, an
+  __all__, a private name, a re-export) produces the adapted dict shape with correct
+  kind/doc/line values; the result never imports tree_sitter_c_sharp or calls get_parser
+  for a python manifest (grep the module under test, or a monkeypatch tripwire); an
+  unresolved re-export surfaces rather than being silently dropped.'
+checks:
+- command: '{python} -m pytest tests/extraction/test_run_extraction_python.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-001
+min_tests: 5
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/run_extraction.py');s=p.read_text(encoding='utf-8');s=s.replace(chr(39)+'python'+chr(39),chr(39)+'PYTHON_DISABLED'+chr(39));p.write_text(s,encoding='utf-8')"
+  rationale: Breaking the literal string match on 'python' anywhere it is compared
+    must revert the dispatch to the old KeyError-raising behaviour (or otherwise break
+    your new tests) - proving your tests actually exercise the new branch rather than
+    merely existing alongside it.
+evidence:
+- evidence/build/G2/TC-021/receipt.json
+closeout:
+- A python-platform manifest extracts successfully through run_extraction.py's real
+  entrypoint, with no KeyError.
+- The output dict shape matches extract_api_surface's shape exactly.
+- Nothing in the python path imports or calls a tree-sitter grammar.
+- Breaking the 'python' string match fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

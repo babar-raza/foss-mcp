@@ -149,3 +149,14 @@ requirements:
     is rejected with 400. Verified in mcp 2.2.0 that the SDK alone does NOT cover
     the missing case - it falls through to DEFAULT_NEGOTIATED_VERSION - so this needs
     explicit middleware.'
+- id: REQ-G2-001
+  gate: G2
+  anchor: '### 4.7 Redesign'
+  text: run_extraction.py, the real production entrypoint a pilot onboarding card
+    actually calls, has a working route for every tree-sitter-backed platform (net/dotnet,
+    java, cpp, go, rust, typescript/javascript/nodejs) but NO route for platform=python
+    at all - confirmed by reading _LANGUAGE_BY_PLATFORM directly, which omits the
+    key. Calling it against a python pilot raises a bare KeyError. TC-010 ported and
+    unit-tested the independent pure-AST reader (python_surface.inspect_public_surface)
+    specifically because the plan requires Python NOT go through tree-sitter in production,
+    but nothing ever wired that reader into the entrypoint. Same shape of gap as TC-019a.

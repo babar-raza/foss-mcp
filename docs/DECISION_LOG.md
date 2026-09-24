@@ -165,3 +165,33 @@ exactly the theatre this project exists to avoid. So CI genuinely cannot be gree
 which is the honest state of affairs for a project whose gate predicate is an end-to-end session.
 What WAS fixed: the failure surfaced as an opaque named-pipe connect error inside a pytest
 traceback. `gatectl doctor` now checks the Docker engine and names the precondition directly.
+
+## 2026-09-24 — G2 begins: pilot repos re-verified fresh, sequencing reordered
+Session restarted after a 13-day gap (G0/G1 both remained ACCEPTED; cold resume from files
+confirmed the design's central property again). No worker-loop terminal is currently running, so
+this session spawns Agent-tool subagents directly as workers per card, same mechanism used for the
+original G0 run before the dedicated-window pattern existed - AGENTS.md's supervisor/worker split
+is transport-agnostic.
+All 6 remaining pilots re-verified via live (anonymous, since gh auth is broken - see OWNER-03) API
+calls rather than trusted from 13-day-old memory: aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript
+(23,017KB), aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp (4,542KB), aspose-pdf-foss/Aspose.PDF-FOSS-for-Java
+(2,908KB), aspose-pdf-foss/Aspose-PDF-FOSS-for-Go (49,046KB, dash not dot),
+aspose-slides-foss/Aspose.Slides-FOSS-for-Python (1,050KB), aspose-cells-foss/Aspose.Cells-FOSS-for-Rust
+(245KB, default branch is `master` not `main` - the only one of the six that differs). Most were
+pushed within the last 1-2 days, so every extraction card pins an exact commit SHA, same discipline
+as TC-011.
+Reconnaissance (a read-only agent pass) found real extraction proof exists only for pdf/net's C#
+path. Go and Rust have shallow synthetic-snippet coverage only; Java, C++, and TypeScript have ZERO
+coverage through the actual extraction entrypoint. This is new information the original mission
+plan's own pilot-ordering (pdf/typescript, cpp, java, go, then slides/python, cells/rust) did not
+have. Sequencing is reordered on this evidence: slides/python first, since Python's extraction goes
+through an independent stdlib ast reader with no third-party grammar risk - the lowest-risk pilot to
+prove the shared pipeline-extension mechanics (multi-instance deployment, manifest_reader coverage)
+work at all, before spending effort on the tree-sitter languages that also carry undiscovered
+adapter risk. pdf/cpp stays last among these regardless, since it additionally needs TC-010b's
+already-known bug fixes first.
+Also found by direct code reading, before it could cost a worker an attempt: run_extraction.py's
+platform dispatch has no route for platform=python at all (_LANGUAGE_BY_PLATFORM omits the key;
+calling it raises a bare KeyError) despite TC-010 having ported and unit-tested the independent
+Python reader specifically for this purpose. Same shape as TC-019a's gap. TC-021 fixes this before
+any python pilot can be onboarded.
