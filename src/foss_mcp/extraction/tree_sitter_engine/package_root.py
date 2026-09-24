@@ -40,6 +40,16 @@ def detect_package_root(repo: Path, platform: str) -> Path:
     return repo
 
 
+def _contains_nested_init_py(d: Path) -> bool:
+    """Return True if *d* contains an ``__init__.py`` anywhere beneath it.
+
+    Used to recognize a PEP 420 implicit namespace package: a top-level
+    directory that has no ``__init__.py`` of its own but whose nested
+    subpackage does (e.g. ``aspose/`` containing ``aspose/slides_foss/__init__.py``).
+    """
+    return any(d.rglob("__init__.py"))
+
+
 def _detect_python_root(repo: Path) -> Path:
     for marker in ("pyproject.toml", "setup.py", "setup.cfg"):
         if (repo / marker).exists():
@@ -59,6 +69,34 @@ def _detect_python_root(repo: Path) -> Path:
             ]
             if pkgs:
                 return pkgs[0]
+            # PEP 420 implicit namespace package fallback: neither the src-layout
+            # nor the flat-layout check above found a directory with its own
+            # __init__.py. A top-level (or src/) directory that itself lacks
+            # __init__.py but contains one somewhere beneath it (e.g. `aspose/`
+            # containing `aspose/slides_foss/__init__.py`) is still a valid
+            # package root - return it AS-IS, never descend into the nested
+            # subpackage.
+            if src.is_dir():
+                ns_pkgs = [
+                    d
+                    for d in src.iterdir()
+                    if d.is_dir()
+                    and not (d / "__init__.py").exists()
+                    and not d.name.lower().startswith((".", "test", "example", "doc", "api"))
+                    and _contains_nested_init_py(d)
+                ]
+                if ns_pkgs:
+                    return ns_pkgs[0]
+            ns_pkgs = [
+                d
+                for d in repo.iterdir()
+                if d.is_dir()
+                and not (d / "__init__.py").exists()
+                and not d.name.lower().startswith((".", "test", "example", "doc", "api"))
+                and _contains_nested_init_py(d)
+            ]
+            if ns_pkgs:
+                return ns_pkgs[0]
     return repo
 
 

@@ -44,3 +44,22 @@ def test_go_nested_layout_root_is_the_directory_with_go_mod(tmp_path: Path) -> N
 def test_falls_back_to_the_repo_root_when_no_marker_is_found(tmp_path: Path) -> None:
     assert package_root.detect_package_root(tmp_path, "python") == tmp_path
     assert package_root.detect_package_root(tmp_path, "unknown-platform") == tmp_path
+
+
+def test_python_namespace_package_root_is_the_top_level_namespace_dir(tmp_path: Path) -> None:
+    """Mirrors the real aspose-slides-foss/Aspose.Slides-FOSS-for-Python layout:
+
+    `aspose/` has no __init__.py (a PEP 420 implicit namespace package) but
+    contains `aspose/slides_foss/__init__.py`. detect_package_root must return
+    the top-level namespace directory itself, not the nested subpackage and
+    not the repo root.
+    """
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname = 'aspose-slides-foss'\n", encoding="utf-8"
+    )
+    namespace_dir = tmp_path / "aspose"
+    namespace_dir.mkdir()
+    nested_pkg = namespace_dir / "slides_foss"
+    nested_pkg.mkdir()
+    (nested_pkg / "__init__.py").write_text("", encoding="utf-8")
+    assert package_root.detect_package_root(tmp_path, "python") == namespace_dir
