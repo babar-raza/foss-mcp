@@ -16,6 +16,9 @@ from tests.indexing.test_index_writers import DeterministicEmbeddingProvider
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "pdf_net" / "api_surface.json"
 SCOPE = "pdf::net::self_extracted"
 
+FIXTURE_SLIDES_PYTHON = Path(__file__).parents[1] / "fixtures" / "slides_python" / "api_surface.json"
+SCOPE_SLIDES_PYTHON = "slides::python::self_extracted"
+
 
 def _pdf_net_chunks() -> list[Chunk]:
     """A real, bounded slice of TC-011's actual pdf/net extraction, normalized and chunked
@@ -43,6 +46,35 @@ def _pdf_net_chunks() -> list[Chunk]:
     return chunk_document(doc)
 
 
+def _slides_python_chunks() -> list[Chunk]:
+    """A real, bounded slice of TC-025's actual slides/python extraction, normalized and
+    chunked through TC-014's own pipeline - the second pilot's first real content, over its
+    own independent scope. The fixture's entries carry the same class_import/name/kind/methods
+    shape _pdf_net_chunks() already relies on (plus fields it doesn't need, like enum_members
+    on the 36 enum entries, whose methods list is simply empty).
+    """
+    fixture = json.loads(FIXTURE_SLIDES_PYTHON.read_text(encoding="utf-8"))
+    sections = []
+    for entry in fixture["types"][:20]:
+        name = entry.get("class_import") or entry.get("name", "")
+        methods = ", ".join(m.get("name", "") for m in entry.get("methods") or [])
+        text = f"{name} is a {entry.get('kind', '')}."
+        if methods:
+            text += f" Methods: {methods}."
+        sections.append(f"## {name}\n\n{text}")
+    doc = make_document(
+        source_kind=SourceKind.SELF_EXTRACTED,
+        content_type="api_surface",
+        provenance=Provenance(
+            repository=fixture["source_repository"], commit=fixture["source_commit"], path="api_surface.json"
+        ),
+        evidence_refs=(f"{fixture['source_repository']}@{fixture['source_commit']}:api_surface.json",),
+        title="slides/python API surface",
+        body="\n\n".join(sections),
+    )
+    return chunk_document(doc)
+
+
 def _store(tmp_path: Path) -> GenerationManifestStore:
     return GenerationManifestStore(tmp_path / "manifests")
 
@@ -53,6 +85,20 @@ def _publish(store: GenerationManifestStore, chunks, expected_active, provider) 
         store,
         family="pdf",
         platform="net",
+        source_kind="self_extracted",
+        expected_active=expected_active,
+        chunks=chunks,
+        embedding_provider=provider,
+        lease=lease,
+    )
+
+
+def _publish_slides_python(store: GenerationManifestStore, chunks, expected_active, provider) -> str:
+    lease = store.acquire_lease(SCOPE_SLIDES_PYTHON, "worker-1", "pending")
+    return publish_generation(
+        store,
+        family="slides",
+        platform="python",
         source_kind="self_extracted",
         expected_active=expected_active,
         chunks=chunks,
@@ -127,3 +173,38 @@ def test_rollback_restores_the_prior_generation(tmp_path: Path) -> None:
     rollback_generation(store, SCOPE, gen2, gen1, rollback_lease)
 
     assert store.read_active(SCOPE) == gen1
+
+
+def test_publishing_slides_pythons_first_generation_through_the_cas_path(tmp_path: Path) -> None:
+    """A real generation, from TC-025's real fixture, through the same CAS/leasing authority
+    pdf/net's own first-generation test proves - the second pilot, its own independent scope."""
+    store = _store(tmp_path)
+    chunks = _slides_python_chunks()
+    assert len(chunks) > 1
+
+    generation_id = _publish_slides_python(store, chunks, None, DeterministicEmbeddingProvider())
+
+    assert store.read_active(SCOPE_SLIDES_PYTHON) == generation_id
+    manifest = store.read_generation(SCOPE_SLIDES_PYTHON, generation_id)
+    assert manifest.payload["vector_index"]["points"]
+    assert manifest.payload["lexical_index"]["documents"]
+    assert len(manifest.payload["vector_index"]["points"]) == len(chunks)
+
+
+def test_two_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation(
+    tmp_path: Path,
+) -> None:
+    """pdf/net and slides/python publish their first generations into the SAME store instance -
+    the real-world deployment shape TC-023's multi-instance docker-compose assumes. TC-015's own
+    suite never exercised two scopes together; this proves neither pilot's active generation ever
+    leaks into, or is shadowed by, the other's.
+    """
+    store = _store(tmp_path)
+    provider = DeterministicEmbeddingProvider()
+
+    pdf_net_generation = _publish(store, _pdf_net_chunks(), None, provider)
+    slides_python_generation = _publish_slides_python(store, _slides_python_chunks(), None, provider)
+
+    assert store.read_active(SCOPE) == pdf_net_generation
+    assert store.read_active(SCOPE_SLIDES_PYTHON) == slides_python_generation
+    assert store.read_active(SCOPE) != store.read_active(SCOPE_SLIDES_PYTHON)
