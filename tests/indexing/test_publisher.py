@@ -22,6 +22,9 @@ SCOPE_SLIDES_PYTHON = "slides::python::self_extracted"
 FIXTURE_CELLS_RUST = Path(__file__).parents[1] / "fixtures" / "cells_rust" / "api_surface.json"
 SCOPE_CELLS_RUST = "cells::rust::self_extracted"
 
+FIXTURE_PDF_GO = Path(__file__).parents[1] / "fixtures" / "pdf_go" / "api_surface.json"
+SCOPE_PDF_GO = "pdf::go::self_extracted"
+
 
 def _pdf_net_chunks() -> list[Chunk]:
     """A real, bounded slice of TC-011's actual pdf/net extraction, normalized and chunked
@@ -110,6 +113,42 @@ def _cells_rust_chunks() -> list[Chunk]:
     return chunk_document(doc)
 
 
+def _pdf_go_chunks() -> list[Chunk]:
+    """A real, bounded slice of TC-038's actual pdf/go extraction, normalized and chunked
+    through TC-014's own pipeline - the fourth pilot's first real content, over its own
+    independent scope, and the first from the SAME family ("pdf") as pdf/net. Go's kind
+    vocabulary ("type_spec" for the 148 named types, "function" for the 152 standalone
+    top-level functions - 300 entries total, matching the fixture's own reduced_type_count)
+    differs from every other pilot's, and unlike pdf/net, slides/python and cells/rust, NOT
+    A SINGLE entry in this fixture carries a "class_import" field - Go has no qualified-import
+    name shaped like the others' class paths. The existing class_import-or-name fallback
+    already degrades correctly: it always falls through to plain "name" here. "function"
+    entries always carry an empty "methods" list (their own params/return_type live at the
+    top level of the entry, not nested inside a methods array), which the existing
+    methods-join logic already tolerates by simply omitting the "Methods:" suffix.
+    """
+    fixture = json.loads(FIXTURE_PDF_GO.read_text(encoding="utf-8"))
+    sections = []
+    for entry in fixture["types"][:20]:
+        name = entry.get("class_import") or entry.get("name", "")
+        methods = ", ".join(m.get("name", "") for m in entry.get("methods") or [])
+        text = f"{name} is a {entry.get('kind', '')}."
+        if methods:
+            text += f" Methods: {methods}."
+        sections.append(f"## {name}\n\n{text}")
+    doc = make_document(
+        source_kind=SourceKind.SELF_EXTRACTED,
+        content_type="api_surface",
+        provenance=Provenance(
+            repository=fixture["source_repository"], commit=fixture["source_commit"], path="api_surface.json"
+        ),
+        evidence_refs=(f"{fixture['source_repository']}@{fixture['source_commit']}:api_surface.json",),
+        title="pdf/go API surface",
+        body="\n\n".join(sections),
+    )
+    return chunk_document(doc)
+
+
 def _store(tmp_path: Path) -> GenerationManifestStore:
     return GenerationManifestStore(tmp_path / "manifests")
 
@@ -148,6 +187,20 @@ def _publish_cells_rust(store: GenerationManifestStore, chunks, expected_active,
         store,
         family="cells",
         platform="rust",
+        source_kind="self_extracted",
+        expected_active=expected_active,
+        chunks=chunks,
+        embedding_provider=provider,
+        lease=lease,
+    )
+
+
+def _publish_pdf_go(store: GenerationManifestStore, chunks, expected_active, provider) -> str:
+    lease = store.acquire_lease(SCOPE_PDF_GO, "worker-1", "pending")
+    return publish_generation(
+        store,
+        family="pdf",
+        platform="go",
         source_kind="self_extracted",
         expected_active=expected_active,
         chunks=chunks,
@@ -257,6 +310,24 @@ def test_publishing_cells_rusts_first_generation_through_the_cas_path(tmp_path: 
     assert len(manifest.payload["vector_index"]["points"]) == len(chunks)
 
 
+def test_publishing_pdf_gos_first_generation_through_the_cas_path(tmp_path: Path) -> None:
+    """A real generation, from TC-038's real fixture, through the same CAS/leasing authority
+    pdf/net's, slides/python's and cells/rust's own first-generation tests prove - the fourth
+    pilot, and the first sharing pdf/net's own family, over its own independent scope
+    distinguished by platform ("go" vs "net")."""
+    store = _store(tmp_path)
+    chunks = _pdf_go_chunks()
+    assert len(chunks) > 1
+
+    generation_id = _publish_pdf_go(store, chunks, None, DeterministicEmbeddingProvider())
+
+    assert store.read_active(SCOPE_PDF_GO) == generation_id
+    manifest = store.read_generation(SCOPE_PDF_GO, generation_id)
+    assert manifest.payload["vector_index"]["points"]
+    assert manifest.payload["lexical_index"]["documents"]
+    assert len(manifest.payload["vector_index"]["points"]) == len(chunks)
+
+
 def test_two_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation(
     tmp_path: Path,
 ) -> None:
@@ -304,3 +375,40 @@ def test_three_pilots_sharing_one_manifest_store_never_leak_into_each_others_act
         SCOPE_CELLS_RUST: store.read_active(SCOPE_CELLS_RUST),
     }
     assert len(set(actives.values())) == 3, "no scope's active generation may equal another's"
+
+
+def test_four_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation(
+    tmp_path: Path,
+) -> None:
+    """pdf/net, slides/python, cells/rust AND pdf/go publish their first generations into the
+    SAME store instance - extending the three-pilot isolation proof (above) to four concurrent
+    pilots sharing one manifest store. This is the harder case: pdf/net and pdf/go share the
+    SAME family ("pdf"), so it is platform ("net" vs "go") - not family - that must keep their
+    scopes, their leases and their active generations distinct. Each scope's read_active() must
+    return only its own generation; none may leak into or be shadowed by any of the other three,
+    including its own same-family sibling.
+    """
+    store = _store(tmp_path)
+    provider = DeterministicEmbeddingProvider()
+
+    pdf_net_generation = _publish(store, _pdf_net_chunks(), None, provider)
+    slides_python_generation = _publish_slides_python(store, _slides_python_chunks(), None, provider)
+    cells_rust_generation = _publish_cells_rust(store, _cells_rust_chunks(), None, provider)
+    pdf_go_generation = _publish_pdf_go(store, _pdf_go_chunks(), None, provider)
+
+    assert store.read_active(SCOPE) == pdf_net_generation
+    assert store.read_active(SCOPE_SLIDES_PYTHON) == slides_python_generation
+    assert store.read_active(SCOPE_CELLS_RUST) == cells_rust_generation
+    assert store.read_active(SCOPE_PDF_GO) == pdf_go_generation
+
+    generations = {pdf_net_generation, slides_python_generation, cells_rust_generation, pdf_go_generation}
+    assert len(generations) == 4, "each pilot's generation id must be distinct"
+
+    actives = {
+        SCOPE: store.read_active(SCOPE),
+        SCOPE_SLIDES_PYTHON: store.read_active(SCOPE_SLIDES_PYTHON),
+        SCOPE_CELLS_RUST: store.read_active(SCOPE_CELLS_RUST),
+        SCOPE_PDF_GO: store.read_active(SCOPE_PDF_GO),
+    }
+    assert len(set(actives.values())) == 4, "no scope's active generation may equal another's"
+    assert SCOPE != SCOPE_PDF_GO, "same-family pdf/net and pdf/go must still carry distinct scope keys"
