@@ -1,0 +1,68 @@
+id: TC-041
+gate: G2
+lane: storage-retrieval
+purpose: Publish pdf/go's first real generation through the exact same CAS/leasing
+  authority the other three onboarded pilots were proven through, over real content
+  from TC-038's extraction fixture, with its own independent scope key - extending
+  the cross-scope isolation test to four concurrent pilots.
+depends_on:
+- TC-035
+- TC-038
+write_paths:
+- tests/indexing/test_publisher.py
+satisfies:
+- REQ-G2-021
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- Read tests/indexing/test_publisher.py in full first - it already has _pdf_net_chunks()/_slides_python_chunks()/_cells_rust_chunks()
+  and a cross-scope isolation test covering all three together. publisher.py/chunker.py/document_schema.py
+  need no changes.
+- Add a PARALLEL _pdf_go_chunks() helper reading tests/fixtures/pdf_go/api_surface.json
+  (TC-038's real, committed extraction fixture - 300 real Go type_spec/function entries
+  from the real public repo, 2192 real types found in total). Read that fixture file
+  directly to see its actual shape before writing the helper - Go's kind vocabulary
+  (type_spec/function) differs from every other pilot's, so check the actual field
+  names rather than assuming.
+- 'Use scope key ''pdf::go::self_extracted'' (family=''pdf'', platform=''go'', source_kind=''self_extracted'')
+  - a SCOPE_PDF_GO constant, independent from the other three pilots'' scopes (note:
+  pdf/net is already ''pdf::net::...'', so pdf/go''s platform segment ''go'' keeps
+  it distinct even within the same family).'
+- Add a test publishing pdf/go's first generation through the real CAS path.
+- 'EXTEND the existing cross-scope isolation test to publish all FOUR pilots'' first
+  generations into the SAME GenerationManifestStore instance, then assert each of
+  the four scopes'' read_active() returns only its own generation - proving isolation
+  holds for four concurrent pilots, including two from the SAME family (pdf/net and
+  pdf/go), which is the harder case: platform, not just family, must distinguish them.'
+- Do not modify any existing test or helper for another pilot - purely additive.
+actions:
+- Add _pdf_go_chunks() and a SCOPE_PDF_GO constant to tests/indexing/test_publisher.py.
+- Add a test publishing pdf/go's first generation through the real CAS path.
+- Extend the cross-scope isolation coverage to all four pilots sharing one store instance.
+checks:
+- command: '{python} -m pytest tests/indexing/test_publisher.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-021
+min_tests: 9
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/indexing/test_publisher.py');s=p.read_text(encoding='utf-8');s=s.replace('SCOPE_PDF_GO
+    = '+chr(34)+'pdf::go::self_extracted'+chr(34),'SCOPE_PDF_GO = '+chr(34)+'pdf::net::self_extracted'+chr(34));p.write_text(s,encoding='utf-8')"
+  rationale: Colliding pdf/go's scope constant with pdf/net's own scope must break
+    the four-way isolation test - proves it genuinely depends on all four scopes being
+    distinct, including the same-family pdf/net vs pdf/go pair, the harder discrimination
+    case. Self-checked end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-041/receipt.json
+closeout:
+- pdf/go has a real generation published through the same CAS path as the other pilots.
+- Four pilots sharing one manifest store never leak into each other's active generation,
+  including two from the same family.
+- Colliding pdf/go's scope key with pdf/net's fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
