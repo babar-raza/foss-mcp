@@ -1,0 +1,85 @@
+id: TC-027
+gate: G2
+lane: extraction
+purpose: Pin slides/python's real GitHub-presence data (releases, packaging manifest,
+  governance docs) as fixtures and prove the existing, already-generic readers (github_release_reader,
+  manifest_reader.read_python_manifest, repo_native_reader) work correctly against
+  a second, differently-shaped repository - exactly TC-012's pattern for pdf/net,
+  no reader code changes needed.
+depends_on:
+- TC-012
+- TC-022
+- TC-024
+write_paths:
+- tests/extraction/test_repo_native.py
+- tests/fixtures/repo_native/**
+satisfies:
+- REQ-G2-007
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.6 New ingestion source: the FOSS repo''s own GitHub presence (distinct
+    from `aspose.org`)'
+  sha256: 3ffc905bc422c49676e488f41ef71e7ebdd8ac18a2eeb18b1ed83a27578c7fc3
+inputs:
+- 'VERIFIED by a fresh anonymous GitHub API read on 2026-09-24 against the real repository
+  (config/products/slides/python.yaml pins it): aspose-slides-foss/Aspose.Slides-FOSS-for-Python
+  has 3 releases, the newest tagged 26.8.0 with a real, specific, non-templated body
+  describing a genuine feature (Markdown export support) - not boilerplate, so it
+  must classify as classify_richness''s ''detailed'' value, not ''templated'' or ''none''.'
+- 'VERIFIED pyproject.toml content (fetch via the Contents API, decode base64, this
+  is exactly how repo_native_reader.read_repo_document already works - do not write
+  a new fetcher): name = ''aspose-slides-foss'', version = ''26.8.0'', requires-python
+  = ''>=3.10'', license = ''MIT''. Use manifest_reader.read_python_manifest (added
+  in TC-022) against this real text and assert it extracts these real fields correctly
+  - this is the first real-world proof of that parser, which TC-022 only unit-tested
+  against synthetic text.'
+- 'VERIFIED presence via the Contents API: README.md present, CONTRIBUTING.md present,
+  AGENTS.md returns a real 404 (DocumentNotPresent) - mirror TC-012''s own pattern
+  of pinning one present-and-absent pair, exactly as pdf_net_agents_404.json / pdf_net_contributing_404.json
+  (read those two existing fixtures for the pinned-404 JSON shape to match) already
+  do for pdf/net.'
+- Fetch these five real API responses yourself (releases list, pyproject.toml contents,
+  README.md contents, AGENTS.md contents [expect 404], CONTRIBUTING.md contents) via
+  plain anonymous `curl`/`urllib` against api.github.com - no auth needed, these are
+  public endpoints - and save each raw JSON response as a fixture file under tests/fixtures/repo_native/,
+  named with a slides_python_ prefix mirroring the existing pdf_net_*.json naming
+  (e.g. slides_python_releases.json, slides_python_pyproject_contents.json, slides_python_readme_present.json,
+  slides_python_agents_404.json, slides_python_contributing_present.json).
+- Do not modify github_release_reader.py, manifest_reader.py, or repo_native_reader.py
+  - all three are already generic and confirmed correct; this card is fixtures + tests
+  only, proving they work against real, differently-shaped data (Python packaging
+  vs .NET, a leaner release history than pdf/net's).
+actions:
+- Fetch the five real GitHub API responses named above and save them as new fixture
+  files under tests/fixtures/repo_native/, following the naming convention of the
+  existing pdf_net_*.json fixtures in that same directory.
+- 'Extend tests/extraction/test_repo_native.py (add tests, do not remove or modify
+  any existing pdf/net test) with: the real newest slides/python release classifies
+  as ''detailed''; manifest_reader.read_python_manifest against the real pyproject.toml
+  text extracts name=''aspose-slides-foss'', version=''26.8.0'', requires_python=''>=3.10'';
+  the pinned AGENTS.md fixture yields DocumentNotPresent; the pinned CONTRIBUTING.md
+  fixture yields DocumentPresent with real, non-empty content.'
+checks:
+- command: '{python} -m pytest tests/extraction/test_repo_native.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-007
+min_tests: 10
+network: false
+negative_control:
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/extraction/github_release_reader.py'');s=p.read_text(encoding=''utf-8'');s=s+chr(10)+''classify_richness
+    = lambda body: ''+chr(39)+''detailed''+chr(39)+chr(10);p.write_text(s,encoding=''utf-8'')"'
+  rationale: Forcing classify_richness to always return 'detailed' must break the
+    suite if any test asserts a non-detailed value anywhere (the existing pdf/net
+    tests already cover 'none'/'templated' cases) - proves richness classification
+    is genuinely exercised, not merely called. Same falsifier shape as TC-012's own,
+    self-checked end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-027/receipt.json
+closeout:
+- Real slides/python GitHub-presence fixtures are pinned and committed.
+- The existing generic readers are proven correct against this second repository.
+- Forcing richness classification to always be 'detailed' fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
