@@ -1,0 +1,45 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_pilot_export.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-eur78z6j\.junit-0.xml"
+--- stdout ---
+...............                                                          [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_pilot_export.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-eur78z6j\.junit-0.xml"
+--- stdout ---
+...............                                                          [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/furnished/slides_python/manifest.json, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_pilot_export.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-eur78z6j\.junit-0.xml"
+--- stdout ---
+..............F                                                          [100%]
+================================== FAILURES ===================================
+_____ test_the_committed_slides_python_bundle_is_real_and_verifies_clean ______
+
+    def test_the_committed_slides_python_bundle_is_real_and_verifies_clean() -> None:
+        manifest = json.loads((SLIDES_PYTHON_BUNDLE / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest["source_repository"] == "Aspose/aspose.org"
+        assert manifest["source_subtree"] == "content/products.aspose.org/en/slides/python"
+        assert manifest["files"], "the slides/python bundle exported nothing"
+        for entry in manifest["files"]:
+            assert _COMMIT_SHA.match(entry["source_commit"])
+        assert _COMMIT_SHA.match(manifest["source_commit"])
+>       assert verify_bundle(SLIDES_PYTHON_BUNDLE) == []
+E       AssertionError: assert ['_index.md: ... or corrupt)'] == []
+E         
+E         Left contains one more item: '_index.md: checksum mismatch (tampered or corrupt)'
+E         Use -v to get more diff
+
+tests\test_pilot_export.py:283: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_pilot_export.py::test_the_committed_slides_python_bundle_is_real_and_verifies_clean
+
+--- stderr ---
+

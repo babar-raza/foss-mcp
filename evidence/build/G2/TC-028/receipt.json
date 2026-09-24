@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-028",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-24T12:43:16Z",
+  "base_rev": "4b08f75f4607774866b340ad8681429f1d6a42fa",
+  "head_rev": "e660401745a95b4b5ea92fb45b123e113ecdcb46",
+  "card_sha256": "cac80cb18c5824e6b8d46bf770638cb570741474d36a222f7726b37aa0fbe0a7",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/pilot_manual_export.py",
+      "tests/fixtures/furnished/slides_python/manifest.json",
+      "tests/fixtures/furnished/slides_python/pages/_index.md",
+      "tests/test_pilot_export.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/test_pilot_export.py -q",
+          "exit_code": 0,
+          "duration_s": 8.743,
+          "stdout_sha256": "511fb971caf59261241ec2a3919d9d10c7dcb9ec044ee07d50b2db465184f057",
+          "tests": 15,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/test_pilot_export.py -q",
+          "exit_code": 0,
+          "duration_s": 8.889,
+          "stdout_sha256": "511fb971caf59261241ec2a3919d9d10c7dcb9ec044ee07d50b2db465184f057",
+          "tests": 15,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('tests/fixtures/furnished/slides_python/manifest.json');s=p.read_text(encoding='utf-8');s=s.replace('\\\"sha256\\\":','\\\"sha256_TAMPERED\\\":',1);p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "fa7a2d5f8b8a78f8fdbd0e15c97259110d028e0ed4f21bfe57423a0ce9fbbd5f",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/fixtures/furnished/slides_python/manifest.json",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
