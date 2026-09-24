@@ -1,25 +1,29 @@
 owner_items:
 - id: OWNER-01
-  status: OPEN
-  summary: 'TC-013 needs credentialed read access to the PRIVATE Aspose/aspose.org
-    repository to produce a real furnished-content export. Verified private: anonymous
-    fetch 404s. This session''s own git/gh credentials may already satisfy it.'
-  resume_predicate: '`gh api repos/aspose/aspose.org` returns 200 from this machine;
-    then a slides/python (or any future pilot''s) live furnished-content export step
-    can run. Until then that step builds the tool and parser against a committed
-    fixture and reports the live export step blocked - it does NOT stall.'
+  status: SATISFIED
+  summary: 'TC-013 needs read access to the PRIVATE Aspose/aspose.org repository to
+    produce a real furnished-content export. Verified private: anonymous fetch 404s.'
+  resume_predicate: 'No longer gated on `gh api` credentials at all: TC-028 (2026-09-24)
+    added a local-git-clone export path to pilot_manual_export.py after the operator
+    pointed out a full local clone of Aspose/aspose.org already exists on this machine
+    at H:\onedrive\Documents\GitHub\aspose.org. `--local-clone <path>` reads committed
+    content via read-only git plumbing (rev-parse/ls-tree/cat-file) - no GitHub API
+    call, no token, no network. Every future pilot''s furnished-content export should
+    use this path by default; it does not depend on OWNER-03''s credential state at
+    all. Only relevant again if that local clone itself ever becomes unavailable.'
   consumed_by:
   - TC-013
+  - TC-028
   recorded_at: '2026-09-10T00:00:00Z'
-  note: 'Access CONFIRMED 2026-09-11: gh api repos/aspose/aspose.org returned 200 and
-    TC-013 completed a real live export at commit 30b4199e for pdf/net. RE-CHECKED
-    2026-09-24 while planning slides/python''s onboarding: `gh api repos/aspose/aspose.org`
-    now returns 401 Bad Credentials - the SAME credential breakage as OWNER-03 (this
-    session''s GH_TOKEN/GITHUB_TOKEN went bad mid-session on 2026-09-24), not a new or
-    separate issue. Reopened rather than left SATISFIED on stale information. Any new
-    pilot''s furnished-content export card must build against a hand-written fixture
-    and report the live step BLOCKED_EXTERNAL until OWNER-03''s credential fix lands -
-    at which point this item resolves too, since it is the same root cause.'
+  note: 'Access CONFIRMED via gh api 2026-09-11 (TC-013, pdf/net, commit 30b4199e).
+    RE-CHECKED 2026-09-24 while planning slides/python''s onboarding: gh api now returns
+    401 - the SAME credential breakage as OWNER-03. Briefly reopened rather than left
+    SATISFIED on stale information, then RE-SATISFIED the same day once the operator
+    pointed out a local clone already exists on this machine: TC-028 built a
+    credential-free local-git-plumbing export path and used it for a real slides/python
+    export at commit b22e412fb1f55fa0d314b25cabd1e7ef42ae9c9f, verified clean. This item
+    no longer depends on OWNER-03 at all - a durable structural fix, not a workaround
+    that expires when credentials are restored.'
   last_checked_at: '2026-09-24T00:00:00Z'
 - id: OWNER-02
   status: OPEN
