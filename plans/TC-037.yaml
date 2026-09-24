@@ -1,0 +1,59 @@
+id: TC-037
+gate: G2
+lane: foundation
+purpose: Author config/products/pdf/go.yaml, the fourth G2 pilot's product manifest,
+  pinning the exact verified upstream repository and its already-decided storage_topology.
+depends_on:
+- TC-003
+write_paths:
+- config/products/pdf/go.yaml
+- tests/config/test_pdf_go_manifest.py
+satisfies:
+- REQ-G2-017
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 11.2 Family-wise public GitHub distribution — preserved as a required
+    outcome, not deferred'
+  sha256: 230a252ade7d0c7eaf969af89192636e0905f79b15b780f65ad8797efbe5f427
+inputs:
+- 'VERIFIED upstream name, re-checked via a fresh anonymous `gh api repos/aspose-pdf-foss/Aspose-PDF-FOSS-for-Go`
+  read on 2026-09-24: aspose-pdf-foss/Aspose-PDF-FOSS-for-Go (a DASH before ''PDF'',
+  unlike every other pdf/* pilot''s dot - e.g. pdf/net is Aspose.PDF-FOSS-for-.NET),
+  public, default branch main, size ~49MB - by far the largest checkout of all 7 pilots.
+  Pin this exact string; do not derive it from family/platform.'
+- 'storage_topology is ALREADY DECIDED - see docs/DECISION_LOG.md''s topology-generalization
+  entry: write storage_topology: embedded directly. Do not write ''undecided_pending_TC-004''
+  and do not run any new topology measurement.'
+- 'config/products/pdf/net.yaml already exists in the SAME family directory (config/products/pdf/**)
+  - write config/products/pdf/go.yaml alongside it without touching net.yaml. Follow
+  its exact shape: family: pdf, platform: go, repository: aspose-pdf-foss/Aspose-PDF-FOSS-for-Go,
+  a real schedule.cron (pick an hour distinct from every other pilot''s: pdf/net=04:00,
+  slides/python=06:00, cells/rust=08:00 UTC), storage_topology: embedded.'
+actions:
+- Write config/products/pdf/go.yaml with the fields above.
+- 'Write tests/config/test_pdf_go_manifest.py asserting: the manifest validates against
+  schemas/product/product-manifest.schema.json; repository equals the exact pinned
+  literal string above (assert the literal, never reconstruct it from family/platform
+  - this pilot''s dash-vs-dot naming is exactly the trap a derived name would fall
+  into); storage_topology equals ''embedded''.'
+checks:
+- command: '{python} -m pytest tests/config/test_pdf_go_manifest.py -q'
+  expect: exit 0
+  timeout_seconds: 60
+  junitxml: true
+  proves:
+  - REQ-G2-017
+min_tests: 3
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('config/products/pdf/go.yaml');s=p.read_text(encoding='utf-8');s=s.replace('aspose-pdf-foss/Aspose-PDF-FOSS-for-Go','aspose-pdf-foss/wrong-repo-name');p.write_text(s,encoding='utf-8')"
+  rationale: Corrupting the pinned repository string must break the suite - proves
+    the test asserts the real literal rather than something derivable. Self-checked
+    end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-037/receipt.json
+closeout:
+- config/products/pdf/go.yaml exists, validates, pins the exact dash-named repository.
+- storage_topology is embedded.
+- Corrupting the repository string fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
