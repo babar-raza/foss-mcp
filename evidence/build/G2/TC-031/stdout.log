@@ -1,0 +1,43 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/config/test_cells_rust_manifest.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-irlxdxfa\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/config/test_cells_rust_manifest.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-irlxdxfa\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/products/cells/rust.yaml, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/config/test_cells_rust_manifest.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-irlxdxfa\.junit-0.xml"
+--- stdout ---
+..F....                                                                  [100%]
+================================== FAILURES ===================================
+__________ test_repository_is_the_exact_verified_upstream_full_name ___________
+
+    def test_repository_is_the_exact_verified_upstream_full_name():
+        """Asserts the LITERAL verified string. Do not derive this from
+        `family`/`platform` - that reconstruction is precisely the bug this test
+        guards against, since this org's naming is irregular and no pattern
+        predicts every pilot repo's exact name."""
+        manifest = _load_manifest()
+>       assert manifest["repository"] == EXPECTED_REPOSITORY
+E       AssertionError: assert 'aspose-cells...ong-repo-name' == 'aspose-cells...FOSS-for-Rust'
+E         
+E         - aspose-cells-foss/Aspose.Cells-FOSS-for-Rust
+E         + aspose-cells-foss/wrong-repo-name
+
+tests\config\test_cells_rust_manifest.py:59: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/config/test_cells_rust_manifest.py::test_repository_is_the_exact_verified_upstream_full_name
+
+--- stderr ---
+
