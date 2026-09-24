@@ -1,0 +1,81 @@
+id: TC-032
+gate: G2
+lane: extraction
+purpose: Run run_extraction.py's rust path for real against cells/rust's actual public
+  repository and pin the result as a reproducible offline fixture, exactly as TC-011
+  and TC-025 did for pdf/net and slides/python.
+depends_on:
+- TC-010
+- TC-031
+write_paths:
+- tests/extraction/test_cells_rust_extraction.py
+- tests/fixtures/cells_rust/**
+satisfies:
+- REQ-G2-012
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'run_extraction.py already has a fully generic CLI and API for this, unchanged since
+  TC-011: extract_pinned_repository(manifest_path) clones shallowly, extracts, and
+  returns an artifact; reduce_fixture(artifact, max_types=300) makes a deterministic,
+  size-bounded subset. CLI: `python -m foss_mcp.extraction.run_extraction <manifest>
+  <output> [--max-types N]`. Do NOT modify run_extraction.py, package_root.py, or
+  any tree-sitter engine file - this card is run-and-pin only.'
+- 'The manifest to pass is config/products/cells/rust.yaml (TC-031, already committed)
+  - it pins repository: aspose-cells-foss/Aspose.Cells-FOSS-for-Rust, platform: rust.
+  clone_shallow uses `git clone --depth 1` with no explicit branch, which correctly
+  follows whatever the remote''s actual default branch is (this repo''s happens to
+  be master, not main) - no special handling needed, git resolves this automatically.'
+- 'IF THE LIVE EXTRACTION REVEALS A REAL DEFECT in code outside this card''s write_paths
+  (exactly what happened with slides/python''s TC-025/TC-026: a namespace-package
+  detection gap was found and had to be fixed in a separate card before the fixture
+  could be produced) - STOP, do not commit a broken/empty fixture, and report the
+  exact defect with your diagnosis instead of patching a file outside your write_paths.
+  This is the CORRECT outcome if it happens, not a failure - two prior cards in this
+  project handled exactly this situation this way and it worked.'
+- Commit a REDUCED fixture, not the whole surface - representative subset, under about
+  2MB. Use the CLI's default --max-types unless the real output needs a smaller cap.
+- The test file must run fully OFFLINE against the committed fixture only - never
+  re-invoke extraction or reach the network from the test itself.
+actions:
+- Run `python -m foss_mcp.extraction.run_extraction config/products/cells/rust.yaml
+  tests/fixtures/cells_rust/api_surface.json` for real (network access is available
+  to you for this one-time generation step).
+- 'IF it succeeds with real, non-empty content: write tests/extraction/test_cells_rust_extraction.py
+  mirroring tests/extraction/test_slides_python_extraction.py''s structure - the fixture
+  parses and has the expected shape; records the exact 40-hex source commit and the
+  repository matches the pinned manifest; is non-empty; contains real Rust type/symbol
+  names and real kind values you actually observed in your own run (do not guess or
+  invent names).'
+- 'IF it fails or produces a 0-type/empty result: diagnose the real root cause (read
+  the actual tree-sitter rust grammar/api_surface code path involved), do NOT commit
+  anything, and report the defect in full instead - this stops the card honestly rather
+  than faking success.'
+checks:
+- command: '{python} -m pytest tests/extraction/test_cells_rust_extraction.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-012
+min_tests: 5
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/cells_rust/api_surface.json');p.write_text('{}',encoding='utf-8')"
+  rationale: Emptying the pinned fixture must break the suite - a test that passes
+    against an empty artifact is asserting the file exists, not that a real extraction
+    ran. Same shape as TC-011/TC-025's own falsifiers, self-checked end-to-end before
+    being persisted.
+evidence:
+- evidence/build/G2/TC-032/receipt.json
+closeout:
+- A real extraction ran against the real public cells/rust repo, OR a real defect
+  was honestly diagnosed and reported instead of papered over.
+- 'If a fixture was committed: it records the exact source commit and matches the
+  pinned manifest, and emptying it fails the suite.'
+recovery: Re-run from a clean tree; if the live clone/extraction step is not reproducible
+  offline, the committed fixture and test are still idempotent from committed content
+  alone.
