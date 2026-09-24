@@ -22,8 +22,20 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from foss_mcp.extraction.manifest_reader import read_dotnet_manifest
+from foss_mcp.extraction.manifest_reader import (
+    read_cpp_manifest,
+    read_dotnet_manifest,
+    read_go_manifest,
+    read_java_manifest,
+    read_js_manifest,
+    read_python_manifest,
+    read_rust_manifest,
+)
 from foss_mcp.extraction.repo_native_reader import DocumentNotPresent, DocumentResult
+
+_DOTNET_PLATFORMS = ("net", "dotnet")
+_JS_PLATFORMS = ("typescript", "javascript", "js", "nodejs")
+_KNOWN_PLATFORMS = _DOTNET_PLATFORMS + ("python", "java") + _JS_PLATFORMS + ("go", "rust", "cpp")
 
 Section = Literal[
     "install",
@@ -70,6 +82,7 @@ class ProductReferenceInputs:
     manifest_text: str | None = None
     contributing: DocumentResult | None = None
     agent_guidance: DocumentResult | None = None
+    platform: str = "net"
 
 
 def _xml_field(manifest_text: str, tag: str) -> str | None:
@@ -101,26 +114,108 @@ def get_product_reference(
     if inputs.manifest_text is None:
         return NotAvailable(section, "no packaging manifest was provided")
 
+    # A single read of inputs.platform, reused by every branch below - this is what
+    # the card's negative control targets: force this back to a literal 'net' and every
+    # non-.NET platform's dispatch collapses onto the .NET path, which raises when it
+    # tries to parse non-XML manifest text as a .csproj.
+    platform = inputs.platform
+
     if section == "compatibility":
-        manifest = read_dotnet_manifest(inputs.manifest_text)
-        if not manifest.target_framework:
-            return NotAvailable(section, "manifest does not state a TargetFramework")
-        return ReferenceContent(section, manifest.target_framework)
+        if platform in _DOTNET_PLATFORMS:
+            manifest = read_dotnet_manifest(inputs.manifest_text)
+            if not manifest.target_framework:
+                return NotAvailable(section, "manifest does not state a TargetFramework")
+            return ReferenceContent(section, manifest.target_framework)
+        if platform == "python":
+            value = read_python_manifest(inputs.manifest_text).requires_python
+            reason = "manifest does not state requires-python"
+        elif platform == "java":
+            value = read_java_manifest(inputs.manifest_text).runtime_min_version
+            reason = "manifest does not state a compiler target version"
+        elif platform in _JS_PLATFORMS:
+            value = read_js_manifest(inputs.manifest_text).engines_node
+            reason = "manifest does not state an engines.node range"
+        elif platform == "go":
+            value = read_go_manifest(inputs.manifest_text).go_version
+            reason = "manifest does not state a go version"
+        elif platform == "rust":
+            value = read_rust_manifest(inputs.manifest_text).rust_version
+            reason = "manifest does not state a rust-version"
+        elif platform == "cpp":
+            value = read_cpp_manifest(inputs.manifest_text).cpp_standard
+            reason = "manifest does not state a C++ standard"
+        else:
+            return NotAvailable(section, f"platform {platform!r} is not supported")
+        if not value:
+            return NotAvailable(section, reason)
+        return ReferenceContent(section, value)
 
     if section == "license":
-        license_expression = _xml_field(inputs.manifest_text, "PackageLicenseExpression")
-        if not license_expression:
+        if platform in _DOTNET_PLATFORMS:
+            license_expression = _xml_field(inputs.manifest_text, "PackageLicenseExpression")
+            if not license_expression:
+                return NotAvailable(section, "manifest does not state a license expression")
+            return ReferenceContent(section, license_expression)
+        if platform == "python":
+            value = read_python_manifest(inputs.manifest_text).license
+        elif platform in _JS_PLATFORMS:
+            value = read_js_manifest(inputs.manifest_text).license
+        elif platform == "rust":
+            value = read_rust_manifest(inputs.manifest_text).license
+        elif platform in ("java", "go", "cpp"):
+            value = ""
+        else:
+            return NotAvailable(section, f"platform {platform!r} is not supported")
+        if not value:
             return NotAvailable(section, "manifest does not state a license expression")
-        return ReferenceContent(section, license_expression)
+        return ReferenceContent(section, value)
 
     if section == "install":
-        manifest = read_dotnet_manifest(inputs.manifest_text)
-        if not manifest.package_id:
-            return NotAvailable(section, "manifest does not state a package id")
-        return ReferenceContent(section, f"dotnet add package {manifest.package_id}")
+        if platform in _DOTNET_PLATFORMS:
+            manifest = read_dotnet_manifest(inputs.manifest_text)
+            if not manifest.package_id:
+                return NotAvailable(section, "manifest does not state a package id")
+            return ReferenceContent(section, f"dotnet add package {manifest.package_id}")
+        if platform == "python":
+            name = read_python_manifest(inputs.manifest_text).name
+            if not name:
+                return NotAvailable(section, "manifest does not state a package name")
+            return ReferenceContent(section, f"pip install {name}")
+        if platform in _JS_PLATFORMS:
+            name = read_js_manifest(inputs.manifest_text).name
+            if not name:
+                return NotAvailable(section, "manifest does not state a package name")
+            return ReferenceContent(section, f"npm install {name}")
+        if platform == "java":
+            java_manifest = read_java_manifest(inputs.manifest_text)
+            if not java_manifest.artifact_id:
+                return NotAvailable(section, "manifest does not state an artifact id")
+            coordinate = (
+                f"{java_manifest.group_id}:{java_manifest.artifact_id}"
+                if java_manifest.group_id
+                else java_manifest.artifact_id
+            )
+            return ReferenceContent(section, coordinate)
+        if platform == "go":
+            name = read_go_manifest(inputs.manifest_text).name
+            if not name:
+                return NotAvailable(section, "manifest does not state a module path")
+            return ReferenceContent(section, f"go get {name}")
+        if platform == "rust":
+            name = read_rust_manifest(inputs.manifest_text).name
+            if not name:
+                return NotAvailable(section, "manifest does not state a package name")
+            return ReferenceContent(section, f"cargo add {name}")
+        if platform == "cpp":
+            return NotAvailable(section, "cpp has no package-manager install command")
+        return NotAvailable(section, f"platform {platform!r} is not supported")
 
     # section == "support"
-    project_url = _xml_field(inputs.manifest_text, "PackageProjectUrl")
-    if not project_url:
-        return NotAvailable(section, "manifest does not state a project url")
-    return ReferenceContent(section, project_url)
+    if platform in _DOTNET_PLATFORMS:
+        project_url = _xml_field(inputs.manifest_text, "PackageProjectUrl")
+        if not project_url:
+            return NotAvailable(section, "manifest does not state a project url")
+        return ReferenceContent(section, project_url)
+    if platform not in _KNOWN_PLATFORMS:
+        return NotAvailable(section, f"platform {platform!r} is not supported")
+    return NotAvailable(section, "manifest does not state a project url")
