@@ -1,20 +1,87 @@
-# Brings up the serving container for pdf/net locally. Deployment identity is set here, at
-# deploy time, never negotiated with a client (foss_mcp.mcp.routing.resolve_scope).
+# Brings up serving containers for all 7 G2 pilots locally, one per pilot, each on its
+# own host port so they can run concurrently. Deployment identity is set here, at deploy
+# time, never negotiated with a client (foss_mcp.mcp.routing.resolve_scope).
 #
 # Overrides the image's default CMD (stdio - see Dockerfile.serving) to run
 # infra/serve_http.py instead: the same create_server() dispatch core, served over
 # Streamable HTTP on the published port so a real client can reach it. Never a second
 # implementation of tool dispatch - only the transport differs.
+#
+# infra/serve_http.py always binds its OWN internal port to 8080 (DEFAULT_PORT, not
+# overridable by env), so every service below maps a DIFFERENT, unique HOST port to the
+# SAME container port 8080. Never change the container side.
+#
+# The shared build/image/command shape is factored into the x-serving-base anchor to
+# avoid 7-way copy-paste drift; each service still lists its own full, independently
+# readable environment block and port mapping - correctness never lives only in the
+# anchor.
+x-serving-base: &serving-base
+  build:
+    context: .
+    dockerfile: Dockerfile.serving
+  image: foss-mcp-serving:local
+  command: ["python", "/app/infra/serve_http.py"]
+
 services:
   serving:
-    build:
-      context: .
-      dockerfile: Dockerfile.serving
-    image: foss-mcp-serving:local
-    command: ["python", "/app/infra/serve_http.py"]
+    <<: *serving-base
     ports:
       - "8080:8080"
     environment:
       FOSS_MCP_FAMILY: pdf
       FOSS_MCP_PLATFORM: net
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  serving-pdf-typescript:
+    <<: *serving-base
+    ports:
+      - "8081:8080"
+    environment:
+      FOSS_MCP_FAMILY: pdf
+      FOSS_MCP_PLATFORM: typescript
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  serving-pdf-cpp:
+    <<: *serving-base
+    ports:
+      - "8082:8080"
+    environment:
+      FOSS_MCP_FAMILY: pdf
+      FOSS_MCP_PLATFORM: cpp
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  serving-pdf-java:
+    <<: *serving-base
+    ports:
+      - "8083:8080"
+    environment:
+      FOSS_MCP_FAMILY: pdf
+      FOSS_MCP_PLATFORM: java
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  serving-pdf-go:
+    <<: *serving-base
+    ports:
+      - "8084:8080"
+    environment:
+      FOSS_MCP_FAMILY: pdf
+      FOSS_MCP_PLATFORM: go
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  serving-slides-python:
+    <<: *serving-base
+    ports:
+      - "8085:8080"
+    environment:
+      FOSS_MCP_FAMILY: slides
+      FOSS_MCP_PLATFORM: python
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  serving-cells-rust:
+    <<: *serving-base
+    ports:
+      - "8086:8080"
+    environment:
+      FOSS_MCP_FAMILY: cells
+      FOSS_MCP_PLATFORM: rust
       FOSS_MCP_SOURCE_KIND: self_extracted
