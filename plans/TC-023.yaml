@@ -1,0 +1,95 @@
+id: TC-023
+gate: G2
+lane: transport-deployment
+purpose: Generalize docker-compose.yml from one hardcoded pdf/net service into 7 concurrently-runnable
+  services, one per pilot, each on its own host port with correct deployment-identity
+  env vars - the shared infra every G2 pilot's E2E and the eventual cross-instance
+  leakage matrix depend on.
+depends_on:
+- TC-018
+- TC-019a
+write_paths:
+- docker-compose.yml
+- tests/infra/__init__.py
+- tests/infra/test_docker_compose_multi_instance.py
+satisfies:
+- REQ-G2-003
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.2 Common tools'
+  sha256: fcc5e91a552d272bd617369066de6c312007c25806671af9c1ccbbfd6f574453
+inputs:
+- 'CONFIRMED by reading the current docker-compose.yml: it has exactly one service,
+  `serving`, hardcoded to FOSS_MCP_FAMILY=pdf, FOSS_MCP_PLATFORM=net, FOSS_MCP_SOURCE_KIND=self_extracted,
+  published as host port 8080 -> container port 8080, built from `Dockerfile.serving`
+  with `command: ["python", "/app/infra/serve_http.py"]`. That entrypoint (infra/serve_http.py)
+  reads exactly those three env vars via os.environ.get with the same defaults, and
+  always binds its OWN internal port to 8080 (DEFAULT_PORT, not overridable by env)
+  - so every new service must publish a DIFFERENT HOST port mapped to the SAME container
+  port 8080, never change the container side.'
+- 'CONFIRMED: deployment identity comes ENTIRELY from these three env vars via foss_mcp.mcp.routing.DeploymentConfig/resolve_scope,
+  which deliberately never reads anything from an incoming request - so correctness
+  here is just each service''s env block being correct, nothing more elaborate is
+  needed for scope isolation at the code level (that is already covered by existing
+  tests/holdouts; this card is pure deploy config, not new isolation logic).'
+- 'The 7 pilots and their exact (family, platform) pairs, already verified in an earlier
+  session via `gh api repos/<owner>/<repo>` against the real GitHub API (do not re-derive
+  or guess a different set): pdf/net (existing, keep on host port 8080), pdf/typescript,
+  pdf/cpp, pdf/java, pdf/go, slides/python, cells/rust. Assign the 6 new ones host
+  ports 8081 through 8086 in that same listed order. FOSS_MCP_SOURCE_KIND is self_extracted
+  for all 7 - every pilot is ingested the same way (a public GitHub FOSS repo, self-extracted),
+  so do not invent a different value per pilot.'
+- This card is deploy-config only. It does NOT create config/products/<family>/<platform>.yaml
+  product manifests for the 6 new pilots (those require a measured storage_topology
+  decision per pilot, done separately, per the pattern already visible in config/products/pdf/net.yaml)
+  - do not create or touch anything under config/products/.
+- 'Avoid 7-way copy-paste drift: docker-compose supports YAML anchors/aliases natively
+  (a common `build`/`command`/`environment`-shape block defined once with `&anchor`,
+  reused per service with `<<: *anchor` merge keys, overriding just family/platform/port
+  per service) - prefer that over 7 independently-maintained blocks, but a plain repeated
+  block per service is acceptable too if anchors prove awkward; either way, every
+  service''s own final env values must be correct and independently readable from
+  the file, not just from the anchor.'
+actions:
+- 'Add 6 new service blocks to docker-compose.yml (keep the existing pdf/net `serving`
+  block as-is or fold it into the same pattern, but its behaviour/port must not change):
+  one per new pilot, each with its own FOSS_MCP_FAMILY/FOSS_MCP_PLATFORM env values,
+  FOSS_MCP_SOURCE_KIND=self_extracted, the same build context/Dockerfile.serving,
+  the same command, and a unique host port from 8081-8086 in the order listed above,
+  mapped to container port 8080.'
+- 'Write tests/infra/test_docker_compose_multi_instance.py: parse docker-compose.yml
+  with yaml.safe_load (PyYAML resolves anchors/aliases automatically), assert exactly
+  7 services exist, assert each service''s FOSS_MCP_FAMILY/FOSS_MCP_PLATFORM matches
+  the pinned 7-pilot list exactly (no more, no fewer, no substitutions), assert all
+  7 host ports are distinct, assert every service maps to container port 8080, assert
+  FOSS_MCP_SOURCE_KIND is self_extracted for all 7.'
+- Also run `docker compose -f docker-compose.yml config -q` yourself (Docker Desktop
+  and the compose v2 plugin are both installed on this machine) and confirm it exits
+  0 - this proves the file is not just YAML-valid but Compose-schema-valid too. This
+  is not one of your declared checks (Compose availability should not gate a test
+  run on a machine that lacks it), but report the result.
+checks:
+- command: '{python} -m pytest tests/infra/test_docker_compose_multi_instance.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-003
+min_tests: 4
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('docker-compose.yml');s=p.read_text(encoding='utf-8');s=s.replace('8081','8080').replace('8082','8080').replace('8083','8080').replace('8084','8080').replace('8085','8080').replace('8086','8080');p.write_text(s,encoding='utf-8')"
+  rationale: 'Collapsing every new pilot''s host port back onto 8080 (a real port
+    collision - every one of these services could never actually run concurrently)
+    must fail the distinct-ports assertion; proves the test genuinely checks port
+    uniqueness rather than just service count. Self-checked end-to-end against a real
+    7-service fixture before being persisted, per this project''s standing lesson:
+    never trust a falsifier that wasn''t executed against the exact object.'
+evidence:
+- evidence/build/G2/TC-023/receipt.json
+closeout:
+- docker-compose.yml defines all 7 pilots as independently runnable services.
+- Every service has a unique host port and correct family/platform/source_kind env.
+- The pdf/net service's existing behaviour (port 8080, its env values) is unchanged.
+- Collapsing ports back to a single value fails the test suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
