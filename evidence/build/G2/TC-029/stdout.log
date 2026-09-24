@@ -1,0 +1,144 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_publisher.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-exxt9on_\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_publisher.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-exxt9on_\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/indexing/test_publisher.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_publisher.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-exxt9on_\.junit-0.xml"
+--- stdout ---
+....FF                                                                   [100%]
+================================== FAILURES ===================================
+____ test_publishing_slides_pythons_first_generation_through_the_cas_path _____
+
+tmp_path = WindowsPath('C:/Users/prora/AppData/Local/Temp/pytest-of-prora/pytest-112/test_publishing_slides_pythons0')
+
+    def test_publishing_slides_pythons_first_generation_through_the_cas_path(tmp_path: Path) -> None:
+        """A real generation, from TC-025's real fixture, through the same CAS/leasing authority
+        pdf/net's own first-generation test proves - the second pilot, its own independent scope."""
+        store = _store(tmp_path)
+        chunks = _slides_python_chunks()
+        assert len(chunks) > 1
+    
+>       generation_id = _publish_slides_python(store, chunks, None, DeterministicEmbeddingProvider())
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_publisher.py:185: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_publisher.py:98: in _publish_slides_python
+    return publish_generation(
+src\foss_mcp\indexing\publisher.py:80: in publish_generation
+    return manifest_publish(store, key.scope, expected_active, manifest, lease)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\indexing\generation_manifest.py:455: in publish
+    return store.cas_activate(scope, expected_active, store.write_and_validate(generation), lease)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001CF7EECB950>
+scope = 'slides::python::self_extracted', expected_active = None
+generation_id = 'slides::python::self_extracted::20260924T131540277201Z-318c923d'
+lease = Lease(held_by='worker-1', generation_id='pending', acquired_at='2026-09-24T13:15:40.270370+00:00', expires_at='2026-09-24T13:20:40.270370+00:00', fencing_token=1)
+
+    def cas_activate(self, scope: str, expected_active: str | None, generation_id: str, lease: Lease) -> str:
+        """The single fenced compare-and-swap every activation of the
+        active pointer â€” forward publish or rollback â€” must go through.
+        Not meant to be called directly: use the module-level
+        :func:`publish` and :func:`rollback` functions below, which are
+        the actual authority path.
+    
+        Order is deliberate and load-bearing:
+          1. fencing check FIRST â€” a stale lease produces no observable
+             effect whatsoever, not even an informative CAS-mismatch.
+          2. THEN the compare (``expected_active`` vs what is actually
+             active).
+          3. Only if both hold does the pointer get written, and that
+             write is atomic (see :meth:`_atomic_write_json`).
+        """
+        current_token = self.current_fencing_token(scope)
+        if lease.fencing_token != current_token:
+>           raise StaleFencingTokenError(
+                f"fencing token {lease.fencing_token} for scope {scope!r} is stale "
+                f"(latest issued token is {current_token})"
+            )
+E           foss_mcp.indexing.generation_manifest.StaleFencingTokenError: fencing token 1 for scope 'slides::python::self_extracted' is stale (latest issued token is 0)
+
+src\foss_mcp\indexing\generation_manifest.py:418: StaleFencingTokenError
+_ test_two_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation _
+
+tmp_path = WindowsPath('C:/Users/prora/AppData/Local/Temp/pytest-of-prora/pytest-112/test_two_pilots_sharing_one_ma0')
+
+    def test_two_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation(
+        tmp_path: Path,
+    ) -> None:
+        """pdf/net and slides/python publish their first generations into the SAME store instance -
+        the real-world deployment shape TC-023's multi-instance docker-compose assumes. TC-015's own
+        suite never exercised two scopes together; this proves neither pilot's active generation ever
+        leaks into, or is shadowed by, the other's.
+        """
+        store = _store(tmp_path)
+        provider = DeterministicEmbeddingProvider()
+    
+        pdf_net_generation = _publish(store, _pdf_net_chunks(), None, provider)
+>       slides_python_generation = _publish_slides_python(store, _slides_python_chunks(), None, provider)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_publisher.py:206: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_publisher.py:98: in _publish_slides_python
+    return publish_generation(
+src\foss_mcp\indexing\publisher.py:80: in publish_generation
+    return manifest_publish(store, key.scope, expected_active, manifest, lease)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\indexing\generation_manifest.py:455: in publish
+    return store.cas_activate(scope, expected_active, store.write_and_validate(generation), lease)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001CF7EF4A9F0>
+scope = 'slides::python::self_extracted', expected_active = None
+generation_id = 'slides::python::self_extracted::20260924T131540503438Z-97252250'
+lease = Lease(held_by='worker-1', generation_id='pending', acquired_at='2026-09-24T13:15:40.495659+00:00', expires_at='2026-09-24T13:20:40.495659+00:00', fencing_token=2)
+
+    def cas_activate(self, scope: str, expected_active: str | None, generation_id: str, lease: Lease) -> str:
+        """The single fenced compare-and-swap every activation of the
+        active pointer â€” forward publish or rollback â€” must go through.
+        Not meant to be called directly: use the module-level
+        :func:`publish` and :func:`rollback` functions below, which are
+        the actual authority path.
+    
+        Order is deliberate and load-bearing:
+          1. fencing check FIRST â€” a stale lease produces no observable
+             effect whatsoever, not even an informative CAS-mismatch.
+          2. THEN the compare (``expected_active`` vs what is actually
+             active).
+          3. Only if both hold does the pointer get written, and that
+             write is atomic (see :meth:`_atomic_write_json`).
+        """
+        current_token = self.current_fencing_token(scope)
+        if lease.fencing_token != current_token:
+>           raise StaleFencingTokenError(
+                f"fencing token {lease.fencing_token} for scope {scope!r} is stale "
+                f"(latest issued token is {current_token})"
+            )
+E           foss_mcp.indexing.generation_manifest.StaleFencingTokenError: fencing token 2 for scope 'slides::python::self_extracted' is stale (latest issued token is 0)
+
+src\foss_mcp\indexing\generation_manifest.py:418: StaleFencingTokenError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_publisher.py::test_publishing_slides_pythons_first_generation_through_the_cas_path
+FAILED tests/indexing/test_publisher.py::test_two_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation
+
+--- stderr ---
+
