@@ -1,0 +1,109 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_package_root.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1ray6qje\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_package_root.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1ray6qje\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/package_root.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_package_root.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1ray6qje\.junit-0.xml"
+--- stdout ---
+.....F                                                                   [100%]
+================================== FAILURES ===================================
+______ test_python_namespace_package_root_is_the_top_level_namespace_dir ______
+
+tmp_path = WindowsPath('C:/Users/prora/AppData/Local/Temp/pytest-of-prora/pytest-66/test_python_namespace_package_0')
+
+    def test_python_namespace_package_root_is_the_top_level_namespace_dir(tmp_path: Path) -> None:
+        """Mirrors the real aspose-slides-foss/Aspose.Slides-FOSS-for-Python layout:
+    
+        `aspose/` has no __init__.py (a PEP 420 implicit namespace package) but
+        contains `aspose/slides_foss/__init__.py`. detect_package_root must return
+        the top-level namespace directory itself, not the nested subpackage and
+        not the repo root.
+        """
+        (tmp_path / "pyproject.toml").write_text(
+            "[project]\nname = 'aspose-slides-foss'\n", encoding="utf-8"
+        )
+        namespace_dir = tmp_path / "aspose"
+        namespace_dir.mkdir()
+        nested_pkg = namespace_dir / "slides_foss"
+        nested_pkg.mkdir()
+        (nested_pkg / "__init__.py").write_text("", encoding="utf-8")
+>       assert package_root.detect_package_root(tmp_path, "python") == namespace_dir
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\tree_sitter_engine\test_package_root.py:65: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\extraction\tree_sitter_engine\package_root.py:27: in detect_package_root
+    return _detect_python_root(repo)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+repo = WindowsPath('C:/Users/prora/AppData/Local/Temp/pytest-of-prora/pytest-66/test_python_namespace_package_0')
+
+    def _detect_python_root(repo: Path) -> Path:
+        for marker in ("pyproject.toml", "setup.py", "setup.cfg"):
+            if (repo / marker).exists():
+                # look for src layout first
+                src = repo / "src"
+                if src.is_dir():
+                    pkgs = [d for d in src.iterdir() if d.is_dir() and (d / "__init__.py").exists()]
+                    if pkgs:
+                        return pkgs[0]
+                # flat layout: first package dir at root
+                pkgs = [
+                    d
+                    for d in repo.iterdir()
+                    if d.is_dir()
+                    and (d / "__init__.py").exists()
+                    and not d.name.lower().startswith((".", "test", "example", "doc", "api"))
+                ]
+                if pkgs:
+                    return pkgs[0]
+                # PEP 420 implicit namespace package fallback: neither the src-layout
+                # nor the flat-layout check above found a directory with its own
+                # __init__.py. A top-level (or src/) directory that itself lacks
+                # __init__.py but contains one somewhere beneath it (e.g. `aspose/`
+                # containing `aspose/slides_foss/__init__.py`) is still a valid
+                # package root - return it AS-IS, never descend into the nested
+                # subpackage.
+                if src.is_dir():
+                    ns_pkgs = [
+                        d
+                        for d in src.iterdir()
+                        if d.is_dir()
+                        and not (d / "__init__.py").exists()
+                        and not d.name.lower().startswith((".", "test", "example", "doc", "api"))
+                        and _contains_nested_init_py(d)
+                    ]
+                    if ns_pkgs:
+                        return ns_pkgs[0]
+                ns_pkgs = [
+                    d
+                    for d in repo.iterdir()
+                    if d.is_dir()
+                    and not (d / "__init__.py").exists()
+                    and not d.name.lower().startswith((".", "test", "example", "doc", "api"))
+>                   and _contains_nested_init_py(d)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^
+                ]
+E               NameError: name '_contains_nested_init_py' is not defined
+
+src\foss_mcp\extraction\tree_sitter_engine\package_root.py:96: NameError
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_package_root.py::test_python_namespace_package_root_is_the_top_level_namespace_dir
+
+--- stderr ---
+
