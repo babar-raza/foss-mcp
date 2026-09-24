@@ -213,3 +213,20 @@ embedded` from the start, no `undecided_pending` placeholder step. If a future p
 retrieval needs ever diverge from this spike's assumptions (e.g. an external vector store
 genuinely needed for scale), that is a new architectural question, not a rerun of this spike,
 and gets its own decision entry.
+
+## 2026-09-24 — Rework-dispatch commit must not sit between a card's base and head (supervisor, TC-025)
+`gatectl review TC-025` reported a scope violation (`ops/instructions.jsonl`,
+`project/state.yaml` "outside write_paths") on TC-025's real, correct attempt-2 commit.
+Root cause, confirmed by direct reproduction with `--base` overridden to isolate it: I
+committed the rework-dispatch record (`chore(plans): rework-dispatch TC-025...`) as its own
+commit, subject-tagged `(G2/TC-025)` for traceability, BEFORE the worker started - landing it
+strictly between the dispatch's recorded base and the worker's head. `changed_paths()`
+classifies any commit whose subject carries a card's tag as that worker's own scoped
+commit (this is correct for the normal case: open-card commits land before base, accept
+commits land after head), so my own bookkeeping commit was swept in and graded against
+write_paths it was never meant to satisfy. Not a `gatectl` defect - `--base <my commit>`
+correctly resolves it, because that commit IS where the worker's real work started. Standing
+rule from here: a rework-dispatch commit either skips the `(GATE/CARD)` tag suffix entirely,
+or is deferred to land in the same commit as the eventual accept/reject (matching every prior
+card's pattern, where this never surfaced). If skipped anyway, `review --base <that commit>`
+is the correct, legitimate fix - not evidence of a real scope problem.
