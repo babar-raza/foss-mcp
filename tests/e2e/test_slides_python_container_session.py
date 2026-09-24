@@ -236,6 +236,31 @@ def test_an_invalid_protocol_version_is_rejected(running_container: None) -> Non
     assert "protocol-version" in response.json()["reason"].lower()
 
 
+def test_report_index_freshness_identifies_the_real_slides_python_deployment(
+    session: _McpSession,
+) -> None:
+    """``report_index_freshness``'s ``scope`` is not test fixture data - ``server.py``'s
+    ``_wrap_report_index_freshness`` closes over the REAL deployment's own ``Scope`` and passes
+    it straight through untouched, so the response identifies WHICH container actually answered.
+    This deployment must identify as family=slides, platform=python; pdf/net's own container
+    (family=pdf, platform=net) can never produce this response. Without an assertion like this
+    one, pointing BASE_URL at the wrong port is structurally incapable of failing here: every
+    tool call against an EMPTY manifest store returns a byte-identical isError: false result no
+    matter which real container answers it - only this field distinguishes the two.
+
+    Actual observed response (docker-compose's `serving-slides-python`, empty manifest store)::
+
+        {"structuredContent": {"result": {"scope": {"family": "slides", "platform": "python",
+        "source_kind": "self_extracted"}, ...}}}
+    """
+    response = session.request("tools/call", {"name": "report_index_freshness", "arguments": {}})
+    assert response.status_code == 200
+    body = _sse_json(response.text)
+    scope = body["result"]["structuredContent"]["result"]["scope"]
+    assert scope["family"] == "slides"
+    assert scope["platform"] == "python"
+
+
 def test_protocol_errors_stay_distinguishable_from_tool_domain_errors(session: _McpSession) -> None:
     """A protocol-level rejection is a plain HTTP 400 JSON body that never reaches JSON-RPC
     dispatch; a tool-domain error (an unknown tool name, here) is a completely normal 200
