@@ -1,0 +1,80 @@
+id: TC-038
+gate: G2
+lane: extraction
+purpose: Run run_extraction.py's go path for real against pdf/go's actual public repository
+  and pin the result as a reproducible offline fixture, exactly as done for slides/python
+  and cells/rust.
+depends_on:
+- TC-010
+- TC-037
+write_paths:
+- tests/extraction/test_pdf_go_extraction.py
+- tests/fixtures/pdf_go/**
+satisfies:
+- REQ-G2-018
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'run_extraction.py already has a fully generic CLI and API for this, unchanged since
+  TC-011: extract_pinned_repository(manifest_path) clones shallowly, extracts, and
+  returns an artifact; reduce_fixture(artifact, max_types=300) makes a deterministic,
+  size-bounded subset. CLI: `python -m foss_mcp.extraction.run_extraction <manifest>
+  <output> [--max-types N]`. Do NOT modify run_extraction.py, package_root.py, or
+  any tree-sitter engine file - this card is run-and-pin only.'
+- 'The manifest to pass is config/products/pdf/go.yaml (TC-037, already committed)
+  - it pins repository: aspose-pdf-foss/Aspose-PDF-FOSS-for-Go, platform: go.'
+- This repository is ~49MB, far larger than any prior pilot (the others are all under
+  10MB) - the shallow clone and extraction may take noticeably longer. Use a generous
+  timeout for the clone/extraction step itself (well beyond what slides_python/cells_rust
+  needed); the card's own check timeout only bounds the offline test run, not your
+  one-time live extraction action.
+- IF THE LIVE EXTRACTION REVEALS A REAL DEFECT in code outside this card's write_paths
+  (the same situation that happened with slides/python's namespace-package gap, fixed
+  in a separate card before the fixture could be produced) - STOP, do not commit a
+  broken/empty fixture, and report the exact defect with your diagnosis instead of
+  patching a file outside your write_paths. This is the CORRECT outcome if it happens.
+- Commit a REDUCED fixture, not the whole surface - representative subset, under about
+  2MB. Given the repo's size, the real type count could be large; do not hesitate
+  to pass a smaller --max-types than the CLI's default 300 if needed to stay under
+  budget.
+- The test file must run fully OFFLINE against the committed fixture only.
+actions:
+- Run `python -m foss_mcp.extraction.run_extraction config/products/pdf/go.yaml tests/fixtures/pdf_go/api_surface.json`
+  for real (network access is available to you for this one-time generation step;
+  allow it extra time given the repo's size).
+- 'IF it succeeds with real, non-empty content: write tests/extraction/test_pdf_go_extraction.py
+  mirroring tests/extraction/test_cells_rust_extraction.py''s structure - the fixture
+  parses and has the expected shape; records the exact 40-hex source commit and the
+  repository matches the pinned manifest; is non-empty; contains real Go type/symbol
+  names and real kind values you actually observed in your own run (do not guess or
+  invent names).'
+- 'IF it fails or produces a 0-type/empty result: diagnose the real root cause, do
+  NOT commit anything, and report the defect in full instead.'
+checks:
+- command: '{python} -m pytest tests/extraction/test_pdf_go_extraction.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-018
+min_tests: 5
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/pdf_go/api_surface.json');p.write_text('{}',encoding='utf-8')"
+  rationale: Emptying the pinned fixture must break the suite - a test that passes
+    against an empty artifact is asserting the file exists, not that a real extraction
+    ran. Same shape as every prior extraction card's falsifier, self-checked end-to-end
+    before being persisted.
+evidence:
+- evidence/build/G2/TC-038/receipt.json
+closeout:
+- A real extraction ran against the real public pdf/go repo, OR a real defect was
+  honestly diagnosed and reported instead of papered over.
+- 'If a fixture was committed: it records the exact source commit and matches the
+  pinned manifest, and emptying it fails the suite.'
+recovery: Re-run from a clean tree; if the live clone/extraction step is not reproducible
+  offline, the committed fixture and test are still idempotent from committed content
+  alone.
