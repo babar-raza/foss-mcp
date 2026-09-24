@@ -1,0 +1,94 @@
+id: TC-052
+gate: G2
+lane: extraction
+purpose: Pin pdf/typescript's real GitHub-presence data (a genuinely empty release
+  history, packaging manifest, governance docs) as fixtures and prove the existing,
+  already-generic readers work correctly against a sixth, differently-shaped repository
+  - including the first real zero-releases case.
+depends_on:
+- TC-012
+- TC-022
+- TC-049
+- TC-027
+- TC-033
+- TC-039
+- TC-045
+write_paths:
+- tests/extraction/test_repo_native.py
+- tests/fixtures/repo_native/**
+satisfies:
+- REQ-G2-032
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.6 New ingestion source: the FOSS repo''s own GitHub presence (distinct
+    from `aspose.org`)'
+  sha256: 3ffc905bc422c49676e488f41ef71e7ebdd8ac18a2eeb18b1ed83a27578c7fc3
+inputs:
+- 'VERIFIED by a fresh anonymous GitHub API read on 2026-09-24 against the real repository
+  (config/products/pdf/typescript.yaml pins it): aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript
+  has ZERO releases - the releases API returns a real, genuine empty JSON array `[]`.
+  This is the FIRST pilot with no releases at all; github_release_reader.fetch_releases
+  already handles this correctly (confirmed by reading the code: an empty first page
+  breaks the loop immediately, returning []) - assert this honest-empty behavior directly,
+  do not invent a fake release to test against.'
+- 'VERIFIED package.json content (fetch via the Contents API, decode base64): name
+  ''@asposefoss/pdf'', version ''0.1.0'', license ''MIT'', engines.node ''>=22''.
+  The description states ''zero-dependency'' - check the FULL real package.json text
+  yourself for whether a ''dependencies'' key with actual entries exists; assert dependencies
+  honestly (an empty tuple if truly absent/empty, matching the ''zero-dependency''
+  claim, or the real entries if some exist - verify, do not assume).'
+- 'VERIFIED presence via the Contents API: README.md present (a very large ~412KB,
+  the largest of any pilot so far - the fixture only needs a representative excerpt,
+  not the whole file, matching this project''s own ''a real, bounded slice'' fixture
+  convention already used elsewhere), AGENTS.md present (~4.5KB), CONTRIBUTING.md
+  returns a real 404 (DocumentNotPresent).'
+- Fetch these four real API responses yourself (releases list [expect a genuine empty
+  array], package.json contents, AGENTS.md contents, CONTRIBUTING.md contents [expect
+  404]) via plain anonymous curl/urllib against api.github.com - no auth needed. For
+  README.md, fetch it too but only need to confirm it's present (DocumentPresent,
+  non-empty) - you do not need a separate dedicated README fixture test beyond what
+  the existing pattern already covers for other pilots, if any. Save each raw JSON
+  response as a fixture file under tests/fixtures/repo_native/, named with a pdf_typescript_
+  prefix mirroring the existing naming convention in that directory.
+- Do not modify github_release_reader.py, manifest_reader.py, or repo_native_reader.py
+  - all three are already generic and confirmed correct; this card is fixtures + tests
+  only.
+actions:
+- Fetch the real GitHub API responses named above and save them as new fixture files
+  under tests/fixtures/repo_native/, following the naming convention of the existing
+  fixtures in that same directory. Save the releases fixture as the REAL, genuine
+  empty array, not a placeholder.
+- 'Extend tests/extraction/test_repo_native.py (add tests, do not remove or modify
+  any existing test for another pilot) with: fetch_releases-equivalent behavior against
+  the pinned empty-releases fixture returns an empty list, honestly, with no crash
+  or fabrication (this is a genuinely new case, not covered by any prior pilot''s
+  tests); manifest_reader.read_js_manifest against the real package.json text extracts
+  name=''@asposefoss/pdf'', version=''0.1.0'', license=''MIT'', engines_node=''>=22'',
+  and dependencies matching what you actually verified in the real file; the pinned
+  AGENTS.md fixture yields DocumentPresent with real, non-empty content; the pinned
+  CONTRIBUTING.md fixture yields DocumentNotPresent.'
+checks:
+- command: '{python} -m pytest tests/extraction/test_repo_native.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-032
+min_tests: 28
+network: false
+negative_control:
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''tests/fixtures/repo_native/pdf_typescript_releases.json'');s=p.read_text(encoding=''utf-8'');s=s.replace(''[]'',''[{\"tag_name\":
+    \"vFAKE\", \"body\": \"fake\"}]'');p.write_text(s,encoding=''utf-8'')"'
+  rationale: Injecting a fake release into the pinned empty-releases fixture must
+    break the new zero-releases test - proves that test genuinely asserts the release
+    list is empty rather than merely not crashing on it. Self-checked end-to-end before
+    being persisted.
+evidence:
+- evidence/build/G2/TC-052/receipt.json
+closeout:
+- Real pdf/typescript GitHub-presence fixtures are pinned and committed, including
+  a genuinely empty release history.
+- The existing generic readers are proven correct against a sixth, differently-shaped
+  repository and the first real zero-releases case.
+- Injecting a fake release into the empty-releases fixture fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
