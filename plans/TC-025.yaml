@@ -1,0 +1,82 @@
+id: TC-025
+gate: G2
+lane: extraction
+purpose: Run run_extraction.py's now-wired python path for real against slides/python's
+  actual public repository and pin the result as a reproducible offline fixture, exactly
+  as TC-011 did for pdf/net.
+depends_on:
+- TC-021
+- TC-024
+write_paths:
+- tests/extraction/test_slides_python_extraction.py
+- tests/fixtures/slides_python/**
+satisfies:
+- REQ-G2-005
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'run_extraction.py already has a fully generic CLI and API for this - you do not
+  need to write or modify any extraction code, only run it and commit its output.
+  The module exposes extract_pinned_repository(manifest_path) -> dict (clones shallowly,
+  extracts, returns an artifact with source_repository/source_commit/language/type_count/types)
+  and reduce_fixture(artifact, max_types=300) -> dict (a deterministic, size-bounded
+  subset, sorted for reproducibility). Its CLI: `python -m foss_mcp.extraction.run_extraction
+  <manifest> <output> [--max-types N]`.'
+- 'The manifest to pass is config/products/slides/python.yaml (TC-024, already committed)
+  - it pins repository: aspose-slides-foss/Aspose.Slides-FOSS-for-Python, platform:
+  python. Do not hardcode the repository string yourself; read it from the manifest
+  via the CLI exactly as TC-011 did for pdf/net.'
+- Clone shallowly into a temporary directory (extract_pinned_repository already does
+  this and cleans up after itself). Never write into the clone, never push to it.
+- Commit a REDUCED fixture (tests/fixtures/slides_python/api_surface.json), not the
+  whole surface - representative subset, not a data dump, under about 2MB. Use the
+  CLI's default --max-types unless the real output needs a smaller cap to stay under
+  that budget.
+- For python (unlike .NET/tree-sitter languages), the artifact's 'language' field
+  reads literally 'python' and 'kind' values come from TC-021's adaptation of the
+  independent stdlib-ast reader (foss_mcp.extraction.python_surface) rather than a
+  tree-sitter grammar - inspect the REAL output yourself after running the extraction
+  to learn the actual kind vocabulary and real type/class names this repository contains;
+  do not guess or invent names, assert what you actually observe.
+- The test file must run fully OFFLINE against the committed fixture only (gatectl
+  verifies this card with network denied, matching TC-011's own test's own stated
+  convention) - never re-invoke extraction or reach the network from the test itself.
+actions:
+- Run `python -m foss_mcp.extraction.run_extraction config/products/slides/python.yaml
+  tests/fixtures/slides_python/api_surface.json` for real (network access is available
+  to you as the worker performing this one-time generation step, even though the card's
+  checks later run network-free against the committed result).
+- 'Write tests/extraction/test_slides_python_extraction.py, mirroring tests/extraction/test_pdf_net_extraction.py''s
+  structure: the fixture parses and has the expected shape; it records the exact source
+  commit (40-hex) and the repository matches config/products/slides/python.yaml''s
+  pinned value; it is non-empty (reduced_type_count == len(types), type_count >= reduced_type_count);
+  it contains real Python type/class names you actually observed from the live run
+  (assert at least 3 specific real names, not placeholders); every entry''s kind is
+  one of the real kind values you actually observed (assert the real set, not a guess).'
+checks:
+- command: '{python} -m pytest tests/extraction/test_slides_python_extraction.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-005
+min_tests: 5
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/slides_python/api_surface.json');p.write_text('{}',encoding='utf-8')"
+  rationale: Emptying the pinned fixture must break the suite - a test that passes
+    against an empty artifact is asserting the file exists, not that a real extraction
+    ran. Same shape as TC-011's own falsifier, self-checked end-to-end before being
+    persisted.
+evidence:
+- evidence/build/G2/TC-025/receipt.json
+closeout:
+- A real extraction ran against the real public slides/python repo.
+- The fixture records the exact source commit and matches the pinned manifest.
+- Emptying the fixture fails the suite.
+recovery: Re-run from a clean tree; if the live clone/extraction step is not reproducible
+  offline, the committed fixture and test are still idempotent from committed content
+  alone.
