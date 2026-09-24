@@ -1,0 +1,104 @@
+id: TC-022
+gate: G2
+lane: extraction
+purpose: Give manifest_reader.py real parsers for the 6 non-.NET ecosystems, adapting
+  the already-proven logic in tree_sitter_engine/package_manifest.py, and wire get_product_reference.py's
+  compatibility/install/license/support sections to dispatch by platform instead of
+  unconditionally calling the .NET reader.
+depends_on:
+- TC-012
+- TC-017c
+write_paths:
+- src/foss_mcp/extraction/manifest_reader.py
+- src/foss_mcp/mcp/tools/get_product_reference.py
+- tests/extraction/test_manifest_reader_ecosystems.py
+- tests/mcp/tools/test_get_product_reference_platforms.py
+satisfies:
+- REQ-G2-002
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.2 Common tools'
+  sha256: fcc5e91a552d272bd617369066de6c312007c25806671af9c1ccbbfd6f574453
+inputs:
+- 'CONFIRMED by reading the source: get_product_reference.py''s compatibility/install
+  sections both call read_dotnet_manifest(inputs.manifest_text) unconditionally; license
+  and support both call _xml_field(inputs.manifest_text, <PackageXxx tag>) unconditionally
+  - an XML-tag helper that only makes sense for a .csproj. ProductReferenceInputs
+  (get_product_reference.py) has no platform field at all today.'
+- 'manifest_reader.py''s convention (established by TC-012, read_dotnet_manifest)
+  is: a function taking RAW TEXT (already fetched via fetch_manifest_file/GitHub API),
+  returning a frozen dataclass of identity fields - NOT a repo Path. Follow this convention
+  for every new parser; do not require a local clone.'
+- tree_sitter_engine/package_manifest.py already has real, working parsers for every
+  ecosystem needed, but they take a repo Path and read the file from disk themselves
+  - adapt their PARSING LOGIC (regex/JSON/TOML field extraction) into new text-based
+  functions, do not port the file-discovery part.
+- 'Real reference implementations to adapt from, by exact function name in package_manifest.py:
+  _parse_python_manifest (pyproject.toml via tomllib, falls back to setup.py regex
+  if no name found - fields: name, version, license, requires_python), _parse_java_manifest
+  (pom.xml via regex, falls back to build.gradle if no name found - fields: group_id,
+  artifact_id, version, runtime_min_version from maven.compiler.release/target/source
+  or gradle''s targetCompatibility/sourceCompatibility/languageVersion.of), _parse_js_manifest
+  (package.json via json.loads - fields: name, version, license, dependencies, engines_node),
+  _parse_go_manifest (go.mod via regex - fields: name from the module line, go_version
+  from the go line; IGNORE the package_name/package_subpath enrichment in that function,
+  it scans source files across the whole repo and does not fit a single-text-argument
+  convention), _parse_rust_manifest (Cargo.toml), _parse_cpp_manifest (CMakeLists.txt
+  via regex - fields: name, version, cmake_min_version, library_target, cpp_standard).'
+- 'For the ''compatibility'' section, each ecosystem''s natural equivalent of .NET''s
+  TargetFramework is: python -> requires_python, java -> runtime_min_version, typescript/js
+  -> engines_node, go -> go_version, rust -> the rust-version field if Cargo.toml
+  states one (else NotAvailable, never fabricated), cpp -> cpp_standard. Return the
+  value VERBATIM as the manifest states it, exactly like the .NET path already does
+  - never flattened into a generic sentence.'
+- 'ProductReferenceInputs needs a platform field to dispatch on. Add it with a DEFAULT
+  that preserves EXACT current behaviour for every existing caller: TC-017c''s holdout
+  (evidence/holdout/TC-017c/test_honest_absence_oracle.py) constructs ProductReferenceInputs(manifest_text=...,
+  contributing=..., agent_guidance=...) with no platform argument at all, and it MUST
+  keep passing unchanged, dispatching to the .NET reader exactly as it does today
+  - a default of platform=''net'' achieves this.'
+actions:
+- Add one dataclass + one read_<x>_manifest(text) function per ecosystem to manifest_reader.py,
+  adapted from the reference implementations named above.
+- 'Add `platform: str = ''net''` to ProductReferenceInputs.'
+- Rewrite get_product_reference.py's compatibility/install/license/support branches
+  to dispatch on inputs.platform, calling the matching new reader and extracting the
+  field named above for compatibility; keep the existing .NET behaviour bit-for-bit
+  identical when platform is 'net'/'dotnet'.
+- 'Write tests/extraction/test_manifest_reader_ecosystems.py: each new parser extracts
+  correct identity fields from a small real-shaped fixture text (not empty stubs)
+  for its ecosystem; a malformed/empty text degrades to empty fields rather than raising.'
+- 'Write tests/mcp/tools/test_get_product_reference_platforms.py: compatibility/install
+  for at least 3 non-.NET platforms return the ecosystem''s real verbatim value; an
+  unhandled platform''s compatibility section returns NotAvailable, never a guess.'
+- Run evidence/holdout/TC-017c/test_honest_absence_oracle.py yourself (read-only -
+  you cannot write there, but you can run it) and confirm it still passes unchanged.
+  This is not part of your checks, but if it breaks, your default did not actually
+  preserve the old behaviour and you must fix that before committing.
+checks:
+- command: '{python} -m pytest tests/extraction/test_manifest_reader_ecosystems.py
+    tests/mcp/tools/test_get_product_reference_platforms.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-002
+min_tests: 10
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/get_product_reference.py');s=p.read_text(encoding='utf-8');s=s.replace('inputs.platform',chr(39)+'net'+chr(39));p.write_text(s,encoding='utf-8')"
+  rationale: 'Forcing platform dispatch back to a literal ''net'' constant must break
+    every non-.NET test - proving the tests actually exercise real per-platform dispatch
+    rather than merely calling functions that happen to exist. NOTE for whoever re-verifies
+    this: hand-check this exact command against the real committed file before trusting
+    it - two prior falsifiers in this project were wrong on the first attempt for
+    exactly this reason (quote-style assumptions, a missing paren), caught only by
+    actually running them.'
+evidence:
+- evidence/build/G2/TC-022/receipt.json
+closeout:
+- All 6 new ecosystems have a working, text-based manifest parser.
+- get_product_reference dispatches by platform for all 4 affected sections.
+- TC-017c's existing holdout still passes unchanged (net/dotnet default preserved).
+- Forcing platform back to a literal 'net' fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

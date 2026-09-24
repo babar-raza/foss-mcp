@@ -160,3 +160,14 @@ requirements:
     unit-tested the independent pure-AST reader (python_surface.inspect_public_surface)
     specifically because the plan requires Python NOT go through tree-sitter in production,
     but nothing ever wired that reader into the entrypoint. Same shape of gap as TC-019a.
+- id: REQ-G2-002
+  gate: G2
+  anchor: '### 8.2 Common tools'
+  text: get_product_reference's compatibility/install/license/support sections are
+    all hardcoded to .NET (read_dotnet_manifest / an XML-tag helper), confirmed by
+    reading the source directly - four unconditional call sites, and ProductReferenceInputs
+    carries no platform field to dispatch on at all. Every one of the 6 new pilots
+    needs its own ecosystem's manifest correctly read (Cargo.toml, go.mod, pom.xml/build.gradle,
+    package.json, CMakeLists.txt, pyproject.toml/setup.py) and the tool must route
+    to the right one, not silently answer with .NET-shaped nonsense or NotAvailable
+    for everything else.

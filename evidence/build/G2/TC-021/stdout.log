@@ -1,0 +1,292 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_run_extraction_python.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cg5klti3\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_run_extraction_python.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cg5klti3\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/run_extraction.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_run_extraction_python.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cg5klti3\.junit-0.xml"
+--- stdout ---
+FFFFFF.F                                                                 [100%]
+================================== FAILURES ===================================
+_______________ test_python_manifest_extracts_without_keyerror ________________
+
+tmp_path = WindowsPath('C:/Users/prora/AppData/Local/Temp/pytest-of-prora/pytest-57/test_python_manifest_extracts_0')
+
+    def test_python_manifest_extracts_without_keyerror(tmp_path: Path) -> None:
+        """The bug this card fixes: platform='python' used to raise a bare KeyError."""
+        _write_package(tmp_path)
+>       types, _unresolved = run_extraction.extract_from_clone(tmp_path, _manifest())
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_run_extraction_python.py:80: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+clone_root = WindowsPath('C:/Users/prora/AppData/Local/Temp/pytest-of-prora/pytest-57/test_python_manifest_extracts_0')
+manifest = {'platform': 'python', 'family': 'widgets', 'repository': 'acme/widgets'}
+
+    def extract_from_clone(
+        clone_root: Path, manifest: dict[str, Any]
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """Run the engine over an already-cloned checkout, per the manifest's declared platform.
+    
+        Returns ``(types, unresolved)``. A python manifest never reaches ``_LANGUAGE_BY_PLATFORM``,
+        ``get_parser``, or ``api_surface.extract_api_surface`` at all - it is routed to
+        ``python_surface.inspect_public_surface`` instead, and ``unresolved`` is always empty for
+        every other, tree-sitter-backed platform (that engine has no equivalent concept).
+        """
+        platform = manifest["platform"]
+        if platform == "PYTHON_DISABLED":
+            return _extract_python_surface(clone_root)
+>       language = _LANGUAGE_BY_PLATFORM[platform]
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'python'
+
+src\foss_mcp\extraction\run_extraction.py:174: KeyError
+__________ test_output_entries_match_extract_api_surface_dict_shape ___________
+
+tmp_path = WindowsPath('C:/Users/prora/AppData/Local/Temp/pytest-of-prora/pytest-57/test_output_entries_match_extr0')
+
+    def test_output_entries_match_extract_api_surface_dict_shape(tmp_path: Path) -> None:
+        _write_package(tmp_path)
+>       types, _unresolved = run_extraction.extract_from_clone(tmp_path, _manifest())
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_run_extraction_python.py:86: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+clone_root = WindowsPath('C:/Users/prora/AppData/Local/Temp/pytest-of-prora/pytest-57/test_output_entries_match_extr0')
+manifest = {'platform': 'python', 'family': 'widgets', 'repository': 'acme/widgets'}
+
+    def extract_from_clone(
+        clone_root: Path, manifest: dict[str, Any]
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """Run the engine over an already-cloned checkout, per the manifest's declared platform.
+    
+        Returns ``(types, unresolved)``. A python manifest never reaches ``_LANGUAGE_BY_PLATFORM``,
+        ``get_parser``, or ``api_surface.extract_api_surface`` at all - it is routed to
+        ``python_surface.inspect_public_surface`` instead, and ``unresolved`` is always empty for
+        every other, tree-sitter-backed platform (that engine has no equivalent concept).
+        """
+        platform = manifest["platform"]
+        if platform == "PYTHON_DISABLED":
+            return _extract_python_surface(clone_root)
+>       language = _LANGUAGE_BY_PLATFORM[platform]
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'python'
+
+src\foss_mcp\extraction\run_extraction.py:174: KeyError
+__________________ test_class_kind_doc_and_line_are_correct ___________________
+
+tmp_path = WindowsPath('C:/Users/prora/AppData/Local/Temp/pytest-of-prora/pytest-57/test_class_kind_doc_and_line_a0')
+
+    def test_class_kind_doc_and_line_are_correct(tmp_path: Path) -> None:
+        _write_package(tmp_path)
+>       types, _unresolved = run_extraction.extract_from_clone(tmp_path, _manifest())
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_run_extraction_python.py:110: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+clone_root = WindowsPath('C:/Users/prora/AppData/Local/Temp/pytest-of-prora/pytest-57/test_class_kind_doc_and_line_a0')
+manifest = {'platform': 'python', 'family': 'widgets', 'repository': 'acme/widgets'}
+
+    def extract_from_clone(
+        clone_root: Path, manifest: dict[str, Any]
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """Run the engine over an already-cloned checkout, per the manifest's declared platform.
+    
+        Returns ``(types, unresolved)``. A python manifest never reaches ``_LANGUAGE_BY_PLATFORM``,
+        ``get_parser``, or ``api_surface.extract_api_surface`` at all - it is routed to
+        ``python_surface.inspect_public_surface`` instead, and ``unresolved`` is always empty for
+        every other, tree-sitter-backed platform (that engine has no equivalent concept).
+        """
+        platform = manifest["platform"]
+        if platform == "PYTHON_DISABLED":
+            return _extract_python_surface(clone_root)
+>       language = _LANGUAGE_BY_PLATFORM[platform]
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'python'
+
+src\foss_mcp\extraction\run_extraction.py:174: KeyError
+_______ test_reexport_resolves_to_the_same_class_under_the_package_name _______
+
+tmp_path = WindowsPath('C:/Users/prora/AppData/Local/Temp/pytest-of-prora/pytest-57/test_reexport_resolves_to_the_0')
+
+    def test_reexport_resolves_to_the_same_class_under_the_package_name(tmp_path: Path) -> None:
+        _write_package(tmp_path)
+>       types, _unresolved = run_extraction.extract_from_clone(tmp_path, _manifest())
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_run_extraction_python.py:134: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+clone_root = WindowsPath('C:/Users/prora/AppData/Local/Temp/pytest-of-prora/pytest-57/test_reexport_resolves_to_the_0')
+manifest = {'platform': 'python', 'family': 'widgets', 'repository': 'acme/widgets'}
+
+    def extract_from_clone(
+        clone_root: Path, manifest: dict[str, Any]
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """Run the engine over an already-cloned checkout, per the manifest's declared platform.
+    
+        Returns ``(types, unresolved)``. A python manifest never reaches ``_LANGUAGE_BY_PLATFORM``,
+        ``get_parser``, or ``api_surface.extract_api_surface`` at all - it is routed to
+        ``python_surface.inspect_public_surface`` instead, and ``unresolved`` is always empty for
+        every other, tree-sitter-backed platform (that engine has no equivalent concept).
+        """
+        platform = manifest["platform"]
+        if platform == "PYTHON_DISABLED":
+            return _extract_python_surface(clone_root)
+>       language = _LANGUAGE_BY_PLATFORM[platform]
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'python'
+
+src\foss_mcp\extraction\run_extraction.py:174: KeyError
+_________ test_unresolved_reexport_surfaces_rather_than_being_dropped _________
+
+tmp_path = WindowsPath('C:/Users/prora/AppData/Local/Temp/pytest-of-prora/pytest-57/test_unresolved_reexport_surfa0')
+
+    def test_unresolved_reexport_surfaces_rather_than_being_dropped(tmp_path: Path) -> None:
+        _write_package(tmp_path)
+>       types, unresolved = run_extraction.extract_from_clone(tmp_path, _manifest())
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_run_extraction_python.py:147: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+clone_root = WindowsPath('C:/Users/prora/AppData/Local/Temp/pytest-of-prora/pytest-57/test_unresolved_reexport_surfa0')
+manifest = {'platform': 'python', 'family': 'widgets', 'repository': 'acme/widgets'}
+
+    def extract_from_clone(
+        clone_root: Path, manifest: dict[str, Any]
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """Run the engine over an already-cloned checkout, per the manifest's declared platform.
+    
+        Returns ``(types, unresolved)``. A python manifest never reaches ``_LANGUAGE_BY_PLATFORM``,
+        ``get_parser``, or ``api_surface.extract_api_surface`` at all - it is routed to
+        ``python_surface.inspect_public_surface`` instead, and ``unresolved`` is always empty for
+        every other, tree-sitter-backed platform (that engine has no equivalent concept).
+        """
+        platform = manifest["platform"]
+        if platform == "PYTHON_DISABLED":
+            return _extract_python_surface(clone_root)
+>       language = _LANGUAGE_BY_PLATFORM[platform]
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'python'
+
+src\foss_mcp\extraction\run_extraction.py:174: KeyError
+______________ test_never_calls_get_parser_for_a_python_manifest ______________
+
+tmp_path = WindowsPath('C:/Users/prora/AppData/Local/Temp/pytest-of-prora/pytest-57/test_never_calls_get_parser_fo0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002560485D940>
+
+    def test_never_calls_get_parser_for_a_python_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        _write_package(tmp_path)
+    
+        def _boom(*_args: object, **_kwargs: object) -> None:
+            raise AssertionError("get_parser must never be called for a python manifest")
+    
+        monkeypatch.setattr(run_extraction, "get_parser", _boom)
+>       types, _unresolved = run_extraction.extract_from_clone(tmp_path, _manifest())
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_run_extraction_python.py:163: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+clone_root = WindowsPath('C:/Users/prora/AppData/Local/Temp/pytest-of-prora/pytest-57/test_never_calls_get_parser_fo0')
+manifest = {'platform': 'python', 'family': 'widgets', 'repository': 'acme/widgets'}
+
+    def extract_from_clone(
+        clone_root: Path, manifest: dict[str, Any]
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """Run the engine over an already-cloned checkout, per the manifest's declared platform.
+    
+        Returns ``(types, unresolved)``. A python manifest never reaches ``_LANGUAGE_BY_PLATFORM``,
+        ``get_parser``, or ``api_surface.extract_api_surface`` at all - it is routed to
+        ``python_surface.inspect_public_surface`` instead, and ``unresolved`` is always empty for
+        every other, tree-sitter-backed platform (that engine has no equivalent concept).
+        """
+        platform = manifest["platform"]
+        if platform == "PYTHON_DISABLED":
+            return _extract_python_surface(clone_root)
+>       language = _LANGUAGE_BY_PLATFORM[platform]
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'python'
+
+src\foss_mcp\extraction\run_extraction.py:174: KeyError
+___ test_extract_pinned_repository_records_language_python_with_no_network ____
+
+tmp_path = WindowsPath('C:/Users/prora/AppData/Local/Temp/pytest-of-prora/pytest-57/test_extract_pinned_repository0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002560485DE00>
+
+    def test_extract_pinned_repository_records_language_python_with_no_network(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        package_src = tmp_path / "src_repo"
+        package_src.mkdir()
+        _write_package(package_src)
+        manifest_path = tmp_path / "manifest.yaml"
+        manifest_path.write_text(
+            "platform: python\nfamily: widgets\nrepository: acme/widgets\n", encoding="utf-8"
+        )
+    
+        def _fake_clone(_repository: str, dest: Path) -> str:
+            # extract_pinned_repository's workdir already exists (tempfile.mkdtemp) - copy into it.
+            shutil.copytree(package_src, dest, dirs_exist_ok=True)
+            return "a" * 40
+    
+        monkeypatch.setattr(run_extraction, "clone_shallow", _fake_clone)
+>       artifact = run_extraction.extract_pinned_repository(manifest_path)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_run_extraction_python.py:190: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\extraction\run_extraction.py:192: in extract_pinned_repository
+    types, unresolved = extract_from_clone(workdir, manifest)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+clone_root = WindowsPath('C:/Users/prora/AppData/Local/Temp/foss-mcp-extract-olqua0hv')
+manifest = {'platform': 'python', 'family': 'widgets', 'repository': 'acme/widgets'}
+
+    def extract_from_clone(
+        clone_root: Path, manifest: dict[str, Any]
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """Run the engine over an already-cloned checkout, per the manifest's declared platform.
+    
+        Returns ``(types, unresolved)``. A python manifest never reaches ``_LANGUAGE_BY_PLATFORM``,
+        ``get_parser``, or ``api_surface.extract_api_surface`` at all - it is routed to
+        ``python_surface.inspect_public_surface`` instead, and ``unresolved`` is always empty for
+        every other, tree-sitter-backed platform (that engine has no equivalent concept).
+        """
+        platform = manifest["platform"]
+        if platform == "PYTHON_DISABLED":
+            return _extract_python_surface(clone_root)
+>       language = _LANGUAGE_BY_PLATFORM[platform]
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'python'
+
+src\foss_mcp\extraction\run_extraction.py:174: KeyError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_run_extraction_python.py::test_python_manifest_extracts_without_keyerror
+FAILED tests/extraction/test_run_extraction_python.py::test_output_entries_match_extract_api_surface_dict_shape
+FAILED tests/extraction/test_run_extraction_python.py::test_class_kind_doc_and_line_are_correct
+FAILED tests/extraction/test_run_extraction_python.py::test_reexport_resolves_to_the_same_class_under_the_package_name
+FAILED tests/extraction/test_run_extraction_python.py::test_unresolved_reexport_surfaces_rather_than_being_dropped
+FAILED tests/extraction/test_run_extraction_python.py::test_never_calls_get_parser_for_a_python_manifest
+FAILED tests/extraction/test_run_extraction_python.py::test_extract_pinned_repository_records_language_python_with_no_network
+
+--- stderr ---
+
