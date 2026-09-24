@@ -1,0 +1,74 @@
+id: TC-034
+gate: G2
+lane: extraction
+purpose: Produce cells/rust's real furnished-content export using the existing local-clone
+  export path (TC-028), exactly mirroring TC-028's own slides/python run - no code
+  changes to pilot_manual_export.py needed.
+depends_on:
+- TC-028
+- TC-031
+write_paths:
+- tests/test_pilot_export.py
+- tests/fixtures/furnished/cells_rust/**
+satisfies:
+- REQ-G2-014
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- scripts/pilot_manual_export.py's export_local_subtree(clone_path, repository, subtree,
+  ref, output_dir) already exists (TC-028) and needs NO changes - this card is run-and-pin
+  only, exactly like TC-034 mirrors TC-028's own slides/python run.
+- 'The local read-only reference clone is at H:\onedrive\Documents\GitHub\aspose.org
+  - use this EXACT path. Per AGENTS.md this is a READ-ONLY reference repository: only
+  read-only git plumbing may ever touch it (export_local_subtree already does this
+  correctly - rev-parse/ls-tree/cat-file - you do not need to invoke git against it
+  yourself at all, just call the existing CLI/function). Confirm via `git -C "H:\onedrive\Documents\GitHub\aspose.org"
+  status --porcelain` before and after that it is unchanged.'
+- 'CONFIRMED the real content subtree exists: content/products.aspose.org/en/cells/rust
+  contains a real, substantial _index.md (~9.9KB), matching the exact convention established
+  by tests/fixtures/furnished/pdf_net/ and tests/fixtures/furnished/slides_python/
+  (source_subtree: ''content/products.aspose.org/en/pdf/net'' and ''.../slides/python''
+  respectively - this one is ''content/products.aspose.org/en/cells/rust'').'
+- 'CLI: `python scripts/pilot_manual_export.py --local-clone "H:\onedrive\Documents\GitHub\aspose.org"
+  --repository Aspose/aspose.org --subtree content/products.aspose.org/en/cells/rust
+  --output tests/fixtures/furnished/cells_rust` (the --ref flag defaults to ''main'',
+  which is correct here - that''s the aspose.org clone''s OWN branch, unrelated to
+  cells/rust upstream repo''s own default branch of ''master'', which is irrelevant
+  to this step).'
+- Run verify_bundle() against the real committed bundle yourself and confirm it reports
+  zero problems before committing.
+actions:
+- Run the export for real against the local clone, producing tests/fixtures/furnished/cells_rust/manifest.json
+  and its pages/.
+- 'Add one offline test to tests/test_pilot_export.py (add, do not modify existing
+  tests) asserting the committed real cells_rust bundle validates: source_repository
+  == ''Aspose/aspose.org'', source_subtree matches the pinned convention above, every
+  file has a real 40-hex source_commit, and verify_bundle() returns no problems -
+  mirroring the equivalent slides_python assertion TC-028 already added.'
+checks:
+- command: '{python} -m pytest tests/test_pilot_export.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-014
+min_tests: 16
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/furnished/cells_rust/manifest.json');s=p.read_text(encoding='utf-8');s=s.replace('\"sha256\":','\"sha256_TAMPERED\":',1);p.write_text(s,encoding='utf-8')"
+  rationale: Corrupting the committed real bundle's manifest checksum key name must
+    break the new assertion that the real committed bundle validates cleanly - proves
+    that test actually re-checks the real bundle rather than merely asserting the
+    files exist. Same shape as TC-028's own falsifier, self-checked end-to-end before
+    being persisted.
+evidence:
+- evidence/build/G2/TC-034/receipt.json
+closeout:
+- cells/rust has a real, committed, verifiable furnished-content bundle.
+- The aspose.org local clone was never written to.
+- Corrupting the committed bundle's manifest fails the suite.
+recovery: Re-run from a clean tree; the committed bundle and test are idempotent from
+  committed content.
