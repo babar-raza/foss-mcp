@@ -1,0 +1,77 @@
+id: TC-029
+gate: G2
+lane: storage-retrieval
+purpose: Publish slides/python's first real generation through the exact same CAS/leasing
+  authority (publisher.py, generation_manifest.py) pdf/net's TC-015 proved, over real
+  content from TC-025's extraction fixture, with its own independent scope key - no
+  new source code, only a second real dataset proving the generic publish path and
+  scope isolation both hold for a second pilot.
+depends_on:
+- TC-015
+- TC-025
+write_paths:
+- tests/indexing/test_publisher.py
+satisfies:
+- REQ-G2-009
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read tests/indexing/test_publisher.py in full first - it already has _pdf_net_chunks()
+  (builds real Chunk objects from tests/fixtures/pdf_net/api_surface.json via normalization.document_schema.make_document
+  + normalization.chunker.chunk_document), a _store()/_publish() helper pair, and
+  four tests proving: first-generation publish; a republish of unchanged content still
+  gets a new generation id; point ids differ across generations for identical content
+  (the rollback-safety regression); rollback restores the prior generation. All of
+  this is ALREADY GENERIC - publisher.py, chunker.py, document_schema.py need no changes.'
+- Add a PARALLEL _slides_python_chunks() helper reading tests/fixtures/slides_python/api_surface.json
+  (TC-025's real, committed extraction fixture - 300 reduced real Python class/enum
+  entries from the real public repo), building real Chunk objects the same way _pdf_net_chunks()
+  does (adapt field names to the python fixture's actual shape - it may not have every
+  key the .NET fixture has; read the fixture file directly rather than assuming the
+  same keys).
+- Use scope key 'slides::python::self_extracted' (family='slides', platform='python',
+  source_kind='self_extracted') - independent from pdf/net's 'pdf::net::self_extracted'
+  scope, so the two pilots' generations can never collide in the same manifest store.
+- 'Add tests mirroring at least: first-generation publish succeeds and store.read_active(SCOPE_SLIDES_PYTHON)
+  matches; and - this is the part TC-015''s own test suite did NOT cover, because
+  it only ever exercised one scope - publishing slides/python''s generation does not
+  disturb or appear in pdf/net''s own scope, and vice versa (publish both pilots''
+  first generations in the SAME store instance, then assert store.read_active(SCOPE)
+  for each scope returns only that scope''s own generation id).'
+- Do not modify any existing pdf/net test or helper in this file - purely additive.
+actions:
+- Add _slides_python_chunks() and a SCOPE_SLIDES_PYTHON constant to tests/indexing/test_publisher.py.
+- Add a test publishing slides/python's first generation through the real CAS path,
+  mirroring TC-015's own first-generation test shape.
+- 'Add a cross-scope isolation test: publish both pdf/net''s and slides/python''s
+  first generations into the SAME GenerationManifestStore instance, then assert each
+  scope''s read_active() returns only its own generation - proving two pilots sharing
+  one store never leak into each other, which is the real-world deployment shape TC-023''s
+  multi-instance docker-compose assumes.'
+checks:
+- command: '{python} -m pytest tests/indexing/test_publisher.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-009
+min_tests: 6
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/indexing/test_publisher.py');s=p.read_text(encoding='utf-8');s=s.replace('SCOPE_SLIDES_PYTHON
+    = '+chr(34)+'slides::python::self_extracted'+chr(34),'SCOPE_SLIDES_PYTHON = '+chr(34)+'pdf::net::self_extracted'+chr(34));p.write_text(s,encoding='utf-8')"
+  rationale: Corrupting the slides/python scope constant to collide with pdf/net's
+    own scope must break the cross-scope isolation test (and likely others) - proves
+    the isolation test actually depends on the two scopes being genuinely distinct
+    rather than merely calling the publish function twice. Self-checked end-to-end
+    before being persisted.
+evidence:
+- evidence/build/G2/TC-029/receipt.json
+closeout:
+- slides/python has a real generation published through the same CAS path as pdf/net.
+- Two pilots sharing one manifest store never leak into each other's active generation.
+- Colliding the two scope keys fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
