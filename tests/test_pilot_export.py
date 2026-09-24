@@ -32,6 +32,7 @@ from scripts.pilot_manual_export import (
 
 FIXTURE_BUNDLE = Path(__file__).parent / "fixtures" / "furnished" / "pdf_net"
 SLIDES_PYTHON_BUNDLE = Path(__file__).parent / "fixtures" / "furnished" / "slides_python"
+CELLS_RUST_BUNDLE = Path(__file__).parent / "fixtures" / "furnished" / "cells_rust"
 _COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
@@ -59,7 +60,9 @@ def _make_synthetic_clone(tmp_path: Path) -> tuple[Path, str]:
 
     subtree_dir = clone / "content" / "products.aspose.org" / "en" / "widgets" / "python"
     subtree_dir.mkdir(parents=True)
-    (subtree_dir / "_index.md").write_text("---\ntitle: Widgets Python\n---\nReal content.\n", encoding="utf-8")
+    (subtree_dir / "_index.md").write_text(
+        "---\ntitle: Widgets Python\n---\nReal content.\n", encoding="utf-8"
+    )
     (subtree_dir / "nested").mkdir()
     (subtree_dir / "nested" / "page.md").write_text("nested page\n", encoding="utf-8")
     # A binary-ish file outside plain UTF-8 text, to exercise the raw-bytes blob fetch.
@@ -281,3 +284,17 @@ def test_the_committed_slides_python_bundle_is_real_and_verifies_clean() -> None
         assert _COMMIT_SHA.match(entry["source_commit"])
     assert _COMMIT_SHA.match(manifest["source_commit"])
     assert verify_bundle(SLIDES_PYTHON_BUNDLE) == []
+
+
+# --- TC-034: the real, committed cells/rust bundle exported from Aspose/aspose.org ---
+
+
+def test_the_committed_cells_rust_bundle_is_real_and_verifies_clean() -> None:
+    manifest = json.loads((CELLS_RUST_BUNDLE / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["source_repository"] == "Aspose/aspose.org"
+    assert manifest["source_subtree"] == "content/products.aspose.org/en/cells/rust"
+    assert manifest["files"], "the cells/rust bundle exported nothing"
+    for entry in manifest["files"]:
+        assert _COMMIT_SHA.match(entry["source_commit"])
+    assert _COMMIT_SHA.match(manifest["source_commit"])
+    assert verify_bundle(CELLS_RUST_BUNDLE) == []
