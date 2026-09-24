@@ -1,0 +1,69 @@
+id: TC-035
+gate: G2
+lane: storage-retrieval
+purpose: Publish cells/rust's first real generation through the exact same CAS/leasing
+  authority pdf/net and slides/python's were proven through, over real content from
+  TC-032's extraction fixture, with its own independent scope key - extending the
+  cross-scope isolation test to three concurrent pilots.
+depends_on:
+- TC-029
+- TC-032
+write_paths:
+- tests/indexing/test_publisher.py
+satisfies:
+- REQ-G2-015
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- Read tests/indexing/test_publisher.py in full first - it already has _pdf_net_chunks()/_slides_python_chunks()
+  (TC-015/TC-029), a _store()/_publish() helper pair, and a cross-scope isolation
+  test covering pdf/net + slides/python together. publisher.py/chunker.py/document_schema.py
+  need no changes.
+- Add a PARALLEL _cells_rust_chunks() helper reading tests/fixtures/cells_rust/api_surface.json
+  (TC-032's real, committed extraction fixture - 219 real Rust struct/enum/trait/function
+  entries from the real public repo). Read that fixture file directly to see its actual
+  shape before writing the helper - Rust's tree-sitter-derived kind vocabulary (struct_item/enum_item/trait_item/function)
+  differs from both pdf/net's C# kinds and slides/python's python-ast kinds, so do
+  not assume identical field names without checking.
+- Use scope key 'cells::rust::self_extracted' (family='cells', platform='rust', source_kind='self_extracted')
+  - a SCOPE_CELLS_RUST constant, independent from the other two pilots' scopes.
+- Add a test publishing cells/rust's first generation through the real CAS path, mirroring
+  the existing first-generation tests.
+- EXTEND the existing cross-scope isolation test (or add a new one covering all three)
+  to publish pdf/net's, slides/python's, AND cells/rust's first generations into the
+  SAME GenerationManifestStore instance, then assert each of the three scopes' read_active()
+  returns only its own generation - proving isolation holds for three concurrent pilots
+  sharing one store, not just two.
+- Do not modify any existing pdf/net or slides/python test or helper - purely additive.
+actions:
+- Add _cells_rust_chunks() and a SCOPE_CELLS_RUST constant to tests/indexing/test_publisher.py.
+- Add a test publishing cells/rust's first generation through the real CAS path.
+- Extend the cross-scope isolation coverage to all three pilots sharing one store
+  instance.
+checks:
+- command: '{python} -m pytest tests/indexing/test_publisher.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-015
+min_tests: 7
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/indexing/test_publisher.py');s=p.read_text(encoding='utf-8');s=s.replace('SCOPE_CELLS_RUST
+    = '+chr(34)+'cells::rust::self_extracted'+chr(34),'SCOPE_CELLS_RUST = '+chr(34)+'pdf::net::self_extracted'+chr(34));p.write_text(s,encoding='utf-8')"
+  rationale: Colliding cells/rust's scope constant with pdf/net's own scope must break
+    the three-way isolation test - proves it genuinely depends on all three scopes
+    being distinct rather than merely calling publish three times. Self-checked end-to-end
+    before being persisted.
+evidence:
+- evidence/build/G2/TC-035/receipt.json
+closeout:
+- cells/rust has a real generation published through the same CAS path as the other
+  two pilots.
+- Three pilots sharing one manifest store never leak into each other's active generation.
+- Colliding cells/rust's scope key with pdf/net's fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
