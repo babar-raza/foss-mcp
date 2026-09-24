@@ -729,6 +729,58 @@ def _ts_raw_jsdoc_comment(node) -> str:
     return txt if txt.startswith("/**") else ""
 
 
+def _is_real_typescript_property_signature(node) -> bool:
+    """TC-051: True iff a TypeScript ``property_signature`` node is a genuine
+    direct member of an ``interface_declaration`` or ``type_alias_declaration``
+    body -- never a property key of an INLINE object-type literal used as a
+    parameter/variable/return-type annotation elsewhere.
+
+    ``property_signature`` is in ``_FUNC_TYPES["typescript"]`` (tree_helpers.py)
+    because genuine interface/type-alias members legitimately need to be
+    collectible that way. But the top-level-function scan in this module
+    (``collect_nodes(root, func_types)``) is an UNSCOPED whole-file search that
+    only excludes a match whose ancestor chain reaches a ``class_types`` node
+    (``interface_declaration``/``type_alias_declaration``) -- an inline
+    object-type literal used as e.g. a parameter's type annotation
+    (``function f(w: { A: number })``) has an ancestor chain of
+    ``property_signature -> object_type -> type_annotation ->
+    required_parameter -> formal_parameters -> function_declaration`` that
+    never reaches either, so its property keys ('A', ...) leaked through as
+    fabricated top-level "function" entries. Confirmed by direct reproduction
+    against the real pdf/typescript repository (src/metrics.ts:81 and others).
+
+    Verified via a live tree-sitter-typescript parse probe (this project's
+    established discipline for exactly this kind of grammar ambiguity, per
+    the TC-MT040-10 precedent elsewhere in this file/tree_helpers.py):
+      - Genuine interface member (``interface Foo { bar: number }``):
+        property_signature's DIRECT parent is ``interface_body``.
+      - Genuine type-alias member (``type Baz = { qux: string }``):
+        property_signature's DIRECT parent is ``object_type``, and THAT
+        object_type's own direct parent is ``type_alias_declaration``.
+      - Inline object-type literal anywhere else (a parameter's type
+        annotation, a variable's type annotation, a function's return-type
+        annotation, or nested inside another inline object-type literal):
+        property_signature's DIRECT parent is also ``object_type``, but that
+        object_type's own parent is ``type_annotation`` (or another
+        property_signature's type_annotation when nested deeper) -- never
+        ``type_alias_declaration``. Checking only the immediate object_type's
+        own parent (not walking further up to a function/variable ancestor)
+        is exactly what distinguishes the two cases, and correctly narrows
+        even for a type-alias member that itself has an inline nested object
+        type (only the outer property_signature is genuine; the nested one
+        is correctly excluded here too, matching its true role).
+    """
+    parent = node.parent
+    if parent is None:
+        return False
+    if parent.type == "interface_body":
+        return True
+    if parent.type == "object_type":
+        grandparent = parent.parent
+        return grandparent is not None and grandparent.type == "type_alias_declaration"
+    return False
+
+
 def _apply_ts_tsdoc_enrichment(entry: dict, doc_node) -> None:
     """TC-MT040-12: additive TSDoc enrichment for a TypeScript/JavaScript
     method/function/module-constant entry.
@@ -3780,6 +3832,15 @@ def extract_api_surface(
                     break
                 parent = parent.parent
             if in_class:
+                continue
+            # TC-051: a 'property_signature' reaching this unscoped top-level
+            # scan is only a genuine construct when it is a direct member of
+            # an interface_declaration/type_alias_declaration body -- never
+            # when it's a property key of an inline object-type literal used
+            # as a parameter/variable/return-type annotation elsewhere (whose
+            # ancestor chain never passes through class_types, so the in_class
+            # check above cannot catch it). See _is_real_typescript_property_signature.
+            if fnode.type == "property_signature" and not _is_real_typescript_property_signature(fnode):
                 continue
             if not is_public(fnode, language):
                 continue
