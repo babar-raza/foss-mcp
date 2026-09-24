@@ -1,0 +1,40 @@
+name: Mirror to GitLab
+
+# GitHub is the source of truth for this repo. This workflow keeps GitLab's `main`
+# and tags current automatically, no matter which machine/worktree pushed to GitHub -
+# a local git remote can't do that since it only fires when someone pushes from that
+# one machine. Every other branch is intentionally left GitHub-only.
+#
+# The push below is not forced on purpose: if GitLab's `main` ever diverges (e.g.
+# someone pushes to it directly), this job fails loudly here instead of silently
+# discarding those GitLab-only commits.
+
+on:
+  push:
+    branches: [main]
+    tags: ['*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-gitlab
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Push main + tags to GitLab
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          git push "https://oauth2:${GITLAB_TOKEN}@gitlab.recruitize.ai/sialkot/cantt-smallize/aspose-foss-dev-context-mcp.git" HEAD:refs/heads/main
+          git push "https://oauth2:${GITLAB_TOKEN}@gitlab.recruitize.ai/sialkot/cantt-smallize/aspose-foss-dev-context-mcp.git" --tags

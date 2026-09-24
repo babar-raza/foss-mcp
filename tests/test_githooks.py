@@ -150,3 +150,48 @@ def test_core_hooks_path_is_configured():
     assert result.stdout.strip() == ".githooks", (
         f"core.hooksPath is {result.stdout.strip()!r}, expected '.githooks'"
     )
+
+
+def test_gitlab_mirror_remote_is_recognized_as_this_project_not_refused():
+    """GitHub is the source of truth; a GitHub Actions workflow pushes `main` and
+    tags to a GitLab mirror on every push (`.github/workflows/mirror-gitlab.yml`).
+    That workflow authenticates over HTTPS with a token embedded in the URL, not
+    through a named local remote, so this hook only matters here if someone ever
+    pushes to the mirror by hand from a clone that has it configured as a remote.
+    Either way, the URL must be recognized as "this project", not refused.
+
+    A matching URL falls through into `scripts/ci_check.sh`, which is slow and is
+    deliberately not exercised by the other tests in this file. So this test only
+    proves the pattern match: run the hook with a short timeout and confirm it
+    printed "running scripts/ci_check.sh" (proceeded past the case statement)
+    rather than its refusal text, without waiting for the full suite to finish.
+
+    Accepted bounded risk: on timeout, `subprocess.run` terminates the immediate
+    `bash` child but does not recursively kill whatever short-lived lint process
+    it had just started. Two seconds is chosen to land inside the fast `ruff
+    check` step, which self-terminates almost immediately even if orphaned, and
+    the calls made in that window are all read-only.
+    """
+    gitlab_url = "https://gitlab.recruitize.ai/sialkot/cantt-smallize/aspose-foss-dev-context-mcp.git"
+    try:
+        result = subprocess.run(
+            ["bash", HOOK_RELATIVE, "gitlab", gitlab_url],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        combined = result.stdout + result.stderr
+    except subprocess.TimeoutExpired as exc:
+        out = exc.stdout if isinstance(exc.stdout, str) else (exc.stdout or b"").decode(errors="replace")
+        err = exc.stderr if isinstance(exc.stderr, str) else (exc.stderr or b"").decode(errors="replace")
+        combined = out + err
+
+    assert "refusing" not in combined, (
+        f"the gitlab mirror URL was refused instead of recognized as this project's own remote: "
+        f"{combined[:300]}"
+    )
+    assert "running scripts/ci_check.sh" in combined, (
+        f"the hook did not proceed past the case statement for the gitlab mirror URL, so the "
+        f"pattern match is unproven: {combined[:300]}"
+    )

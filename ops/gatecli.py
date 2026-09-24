@@ -492,7 +492,25 @@ def cmd_commit_guard(args) -> int:
 
     The two roles share one filesystem, which was already identified as the
     design's weak point. Prose did not prevent it, so this does.
+
+    The real risk condition is narrower than "any non-governance path is
+    uncommitted": it is specifically that a WORKER CARD IS IN FLIGHT. A path
+    heuristic (GLOBAL_DENY-complement) is only a proxy for that, and it produces
+    real false positives - the supervisor legitimately writing CI infrastructure
+    or a governance test file outside GLOBAL_DENY (`.github/**`,
+    `tests/test_githooks.py`) gets blocked identically to a genuinely swept
+    worker deliverable. So check the actual signal first: if no dispatch is
+    open, nothing in the tree can be an in-flight worker's forgotten work, by
+    definition, and the path heuristic is skipped entirely.
     """
+    if _open_dispatch() is None:
+        print("OK  no dispatch is open; nothing in the tree can be an in-flight worker's work")
+        return G.EXIT_OK
+
+    # A dispatch IS open. Per AGENTS.md the supervisor never writes product code
+    # while that is true, so the coarse heuristic is the right, deliberately
+    # strict rule here: anything outside GLOBAL_DENY/docs is presumptively the
+    # open card's own work and must not be swept into a supervisor commit.
     # G.git() strips its output, which eats the leading space of porcelain's
     # first line and makes fixed-width slicing lose a character. Use the raw
     # runner so "XY<space>PATH" stays intact.

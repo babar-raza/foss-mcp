@@ -1,7 +1,7 @@
 schema_version: 1
 project: foss-mcp
 generated_by: gatectl
-generated_at: '2026-09-11T04:38:13Z'
+generated_at: '2026-09-24T10:42:44Z'
 current_gate:
   id: G0
   status: ACCEPTED
@@ -183,6 +183,26 @@ owner_items:
     still cannot depend on these credentials - the public export bundle from Aspose
     CI remains the real fix.'
   last_checked_at: '2026-09-10T23:50:04Z'
+- id: OWNER-02
+  status: OPEN
+  summary: 'GitHub is source of truth; .github/workflows/mirror-gitlab.yml pushes
+    main+tags to gitlab.recruitize.ai/sialkot/cantt-smallize/aspose-foss-dev-context-mcp.git
+    on every push, authenticating via the GITLAB_TOKEN repo secret. That secret''s
+    existence cannot be verified from this session: `gh auth status` reports the configured
+    GH_TOKEN is invalid (HTTP 401), so `gh secret list` and `gh run list` both fail
+    here. A local `gitlab` git remote also exists but authenticates with the same
+    invalid credentials - irrelevant to the CI-based mirror, which pushes over HTTPS
+    with the secret embedded in the URL, not through a named remote.'
+  resume_predicate: An owner with valid GitHub credentials confirms GITLAB_TOKEN is
+    set as a repository secret (Settings > Secrets and variables > Actions) with write
+    access to the GitLab project, then triggers the workflow once (push to main, or
+    `gh workflow run mirror-gitlab.yml`) and confirms it succeeds. Until then the
+    mirror workflow exists in the tree but has never been proven to run.
+  consumed_by:
+  - NONE
+  recorded_at: '2026-09-24T00:00:00Z'
+  note: 'Non-blocking for the mission: nothing in G0-G4 depends on GitLab being in
+    sync. This is purely an operator-requested sync mechanism between two remotes.'
 open_questions:
   open: 0
   ids: []
