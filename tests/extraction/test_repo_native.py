@@ -16,6 +16,7 @@ from foss_mcp.extraction.github_release_reader import classify_richness
 from foss_mcp.extraction.manifest_reader import (
     read_dotnet_manifest,
     read_go_manifest,
+    read_java_manifest,
     read_python_manifest,
     read_rust_manifest,
 )
@@ -45,6 +46,10 @@ def _cells_rust_releases_fixture() -> dict:
 
 def _pdf_go_releases_fixture() -> dict:
     return json.loads((FIXTURES / "pdf_go_releases.json").read_text(encoding="utf-8"))
+
+
+def _pdf_java_releases_fixture() -> dict:
+    return json.loads((FIXTURES / "pdf_java_releases.json").read_text(encoding="utf-8"))
 
 
 def test_all_three_richness_values_are_exercised() -> None:
@@ -358,3 +363,79 @@ def test_pdf_go_contributing_md_is_really_present(monkeypatch) -> None:
     assert result.path == "CONTRIBUTING.md"
     assert result.content.strip() != ""
     assert result.size > 3000
+
+
+# --- A fifth, differently-shaped repository: pdf/java (a Maven package, exactly two real
+# releases) proving the same three readers generalize a fourth time - this time exercising
+# read_java_manifest (added in TC-022, only unit-tested there against synthetic text) against
+# a real pom.xml for the first time. Its present/absent pattern matches cells/rust's swap
+# rather than pdf/net, slides/python and pdf/go's: AGENTS.md is really present and
+# CONTRIBUTING.md is the real 404. Real GitHub API reads against
+# aspose-pdf-foss/Aspose.PDF-FOSS-for-Java, pinned 2026-09-24.
+
+
+def test_the_real_newest_pdf_java_release_is_genuinely_detailed() -> None:
+    """v26.8.0's body is a hand-written note naming a real, specific feature - a new
+    Structured Document Model (SDM) subsystem for PDF-to-HTML and PDF-to-DOCX round-trip
+    conversion, 122 new public classes - not GitHub's auto-generated boilerplate and not a
+    filled-in template, so it must classify 'detailed'. (The older v26.6.0 release, by
+    contrast, is just a bare 'Full Changelog' link and classifies 'templated' - not asserted
+    here since only the newest release is in scope for this check, but it confirms the
+    fixture itself isn't uniformly rich.)
+    """
+    releases = {r["tag_name"]: r["body"] for r in _pdf_java_releases_fixture()["releases"]}
+    assert releases.keys() >= {"v26.8.0"}
+    assert classify_richness(releases["v26.8.0"]) == "detailed"
+
+
+def test_the_real_pom_xml_yields_its_real_maven_fields() -> None:
+    """First real-world proof of read_java_manifest (TC-022 only unit-tested it against
+    synthetic text): the actual pom.xml content, fetched via the Contents API and
+    base64-decoded exactly as repo_native_reader.read_repo_document already does. The real
+    pom.xml states <maven.compiler.source>11</maven.compiler.source> and
+    <maven.compiler.target>11</maven.compiler.target> (checked directly against the full
+    fetched text, not assumed), so runtime_min_version must come back as the real value '11'
+    rather than being asserted empty by default.
+    """
+    payload = json.loads((FIXTURES / "pdf_java_pom_contents.json").read_text(encoding="utf-8"))
+    text = b64decode(payload["content"]).decode("utf-8")
+    assert "<maven.compiler.target>11</maven.compiler.target>" in text
+    manifest = read_java_manifest(text)
+    assert manifest.group_id == "org.aspose"
+    assert manifest.artifact_id == "aspose-pdf-foss"
+    assert manifest.version == "26.8.0"
+    assert manifest.runtime_min_version == "11"
+
+
+def test_pdf_java_agents_md_is_really_present(monkeypatch) -> None:
+    """The swapped role for this repository, same as cells/rust: AGENTS.md really is there
+    (real, non-empty content, ~8.3KB), replayed from the real 200 response.
+    """
+    import foss_mcp.extraction.repo_native_reader as reader
+
+    payload = (FIXTURES / "pdf_java_agents_present.json").read_bytes()
+
+    def fake_urlopen(request, timeout=30):
+        return _FakeResponse(payload)
+
+    monkeypatch.setattr(reader.urllib.request, "urlopen", fake_urlopen)
+    result = reader.read_repo_document("aspose-pdf-foss/Aspose.PDF-FOSS-for-Java", "AGENTS.md")
+    assert isinstance(result, DocumentPresent)
+    assert result.path == "AGENTS.md"
+    assert result.content.strip() != ""
+    assert result.size > 8000
+
+
+def test_pdf_java_contributing_md_is_really_absent(monkeypatch) -> None:
+    """The swapped contrast case, same as cells/rust: CONTRIBUTING.md really is a 404 here,
+    replayed offline.
+    """
+    import foss_mcp.extraction.repo_native_reader as reader
+
+    def fake_urlopen(request, timeout=30):
+        raise urllib.error.HTTPError(request.full_url, 404, "Not Found", {}, None)
+
+    monkeypatch.setattr(reader.urllib.request, "urlopen", fake_urlopen)
+    result = reader.read_repo_document("aspose-pdf-foss/Aspose.PDF-FOSS-for-Java", "CONTRIBUTING.md")
+    assert result == DocumentNotPresent(path="CONTRIBUTING.md")
+    assert not isinstance(result, DocumentPresent)
