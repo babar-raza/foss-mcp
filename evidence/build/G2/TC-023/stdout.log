@@ -1,0 +1,63 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_docker_compose_multi_instance.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_n9nn7_0\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_docker_compose_multi_instance.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_n9nn7_0\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M docker-compose.yml, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_docker_compose_multi_instance.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_n9nn7_0\.junit-0.xml"
+--- stdout ---
+..FF...                                                                  [100%]
+================================== FAILURES ===================================
+______________________ test_all_host_ports_are_distinct _______________________
+
+    def test_all_host_ports_are_distinct():
+        services = _load_services()
+        host_ports = [int(_port_mapping(svc)[0]) for svc in services.values()]
+        assert len(host_ports) == 7
+>       assert len(set(host_ports)) == 7, f"host ports are not all distinct: {host_ports}"
+E       AssertionError: host ports are not all distinct: [8080, 8080, 8080, 8080, 8080, 8080, 8080]
+E       assert 1 == 7
+E        +  where 1 = len({8080})
+E        +    where {8080} = set([8080, 8080, 8080, 8080, 8080, 8080, ...])
+
+tests\infra\test_docker_compose_multi_instance.py:72: AssertionError
+________________ test_host_ports_are_exactly_8080_through_8086 ________________
+
+    def test_host_ports_are_exactly_8080_through_8086():
+        services = _load_services()
+        host_ports = {int(_port_mapping(svc)[0]) for svc in services.values()}
+>       assert host_ports == EXPECTED_HOST_PORTS, (
+            f"expected host ports {sorted(EXPECTED_HOST_PORTS)}, got {sorted(host_ports)}"
+        )
+E       AssertionError: expected host ports [8080, 8081, 8082, 8083, 8084, 8085, 8086], got [8080]
+E       assert {8080} == {8080, 8081, ...84, 8085, ...}
+E         
+E         Extra items in the right set:
+E         8081
+E         8082
+E         8083
+E         8084
+E         8085
+E         8086
+E         Use -v to get more diff
+
+tests\infra\test_docker_compose_multi_instance.py:78: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_docker_compose_multi_instance.py::test_all_host_ports_are_distinct
+FAILED tests/infra/test_docker_compose_multi_instance.py::test_host_ports_are_exactly_8080_through_8086
+
+--- stderr ---
+
