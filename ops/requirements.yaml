@@ -413,3 +413,16 @@ requirements:
     ZERO prior coverage through the actual extraction entrypoint - the last remaining
     untested tree-sitter language besides cpp, and this repo is the second-largest
     of all 7 pilots (~23MB).
+- id: REQ-G2-031
+  gate: G2
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge - extract it directly instead'
+  text: 'TC-050''s worker found, by direct reproduction against the real pdf/typescript
+    repository, that api_surface.py''s top-level-function collector fabricates bogus
+    public ''function'' entries from property keys of INLINE object-type literals
+    used as parameter/variable type annotations (e.g. `w: { A: number; E: number }`),
+    because ''property_signature'' is included in _FUNC_TYPES[''typescript''] and
+    the only exclusion check walks ancestors looking for a class_types match, which
+    an inline object_type annotation''s ancestor chain never reaches. This corrupts
+    real data too: a genuine function can be silently merged with a same-named bogus
+    entry from an unrelated inline type literal.'

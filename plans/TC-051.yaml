@@ -1,0 +1,111 @@
+id: TC-051
+gate: G2
+lane: extraction
+purpose: Fix api_surface.py's top-level-function collector fabricating bogus public
+  'function' entries from inline TypeScript object-type-literal property keys - discovered
+  by direct reproduction against the real pdf/typescript repository while working
+  TC-050, which correctly stopped rather than committing a corrupted fixture.
+depends_on:
+- TC-010
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py
+satisfies:
+- REQ-G2-031
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'CONFIRMED by direct reproduction against the real public aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript
+  repository (commit 155bfc7a33f0ba23fb4252b6ba201828b02a5b9d): src/metrics.ts:81
+  has `function withAccents(base: WMap, w: { A: number; E: number; I: number; O: number;
+  U: number; AE: number })` - a real function whose SECOND PARAMETER''s type is an
+  INLINE object-type literal, not an interface. The extractor fabricated bogus top-level
+  ''function'' entries named ''A'', ''E'', ''I'', ''O'', ''AE'' with the property''s
+  own declared type as a fake ''return_type'' - these are property keys of a parameter''s
+  type annotation, not functions. Same pattern confirmed at src/uarule.ts:53, src/jpeg.ts:106,
+  src/linearize.ts:544. Worse: a genuine module-private function named `A` really
+  exists at src/svgfilterlight.ts:11 and got merged/confused with the bogus `A` from
+  metrics.ts''s inline type literal, since both produce a top-level ''function'' entry
+  named ''A''.'
+- 'ROOT CAUSE, confirmed by reading the code directly: src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py''s
+  _FUNC_TYPES[''typescript''] (around line 107) includes ''property_signature'' -
+  needed because genuine interface/type-alias members ARE legitimately captured this
+  way. src/foss_mcp/extraction/tree_sitter_engine/api_surface.py''s top-level-function
+  collector (around line 3772: `top_funcs = collect_nodes(root, func_types)`) does
+  an UNSCOPED WHOLE-FILE search for every func_types node, then excludes a match only
+  if some ancestor''s .type is in class_types (around lines 3775-3783, walking fnode.parent).
+  _CLASS_TYPES[''typescript''] (tree_helpers.py, around line 85) correctly includes
+  interface_declaration and type_alias_declaration, so a property_signature that is
+  a genuine interface/type-alias member IS correctly excluded (its ancestor chain
+  reaches interface_declaration/type_alias_declaration, which is in class_types).
+  But an INLINE object-type literal used as a parameter or variable''s type annotation
+  has an ancestor chain like property_signature -> object_type -> type_annotation
+  -> required_parameter -> formal_parameters -> function_declaration - NONE of which
+  are in class_types - so the exclusion never fires and the property leaks through
+  as a fake top-level ''function''.'
+- 'Genuine interface/type-alias members are ALSO already captured correctly by a SEPARATE,
+  interface-body-specific code path (api_surface.py, around line 3249: `mnode.type
+  in ("property_declaration", "public_field_definition", "property_signature")` inside
+  the class/interface member extraction loop) - so narrowing or removing property_signature''s
+  role in the TOP-LEVEL scan should not cause any loss of real interface-member data;
+  that data path is separate and unaffected.'
+- This project's own established discipline for exactly this kind of tree-sitter grammar
+  ambiguity is a LIVE PARSE PROBE, not guessing from documentation - see the existing
+  'TC-MT040-10' comment in tree_helpers.py for the precedent (a prior real fix verified
+  the same way). Probe the actual parsed node structure for both a genuine interface
+  member and an inline object-type-literal property yourself before choosing your
+  fix, and cite what you found.
+actions:
+- Probe the real tree-sitter-typescript grammar structure (a quick script using tree_sitter_language_pack.get_parser('typescript')
+  against small synthetic snippets reproducing both a genuine interface member and
+  an inline object-type-literal property) to determine precisely how to distinguish
+  the two cases structurally.
+- Fix the top-level-function collector in api_surface.py so a 'property_signature'
+  node is only treated as a real top-level construct when it is genuinely a direct
+  member of an interface_declaration or type_alias_declaration body - never when nested
+  inside an inline object-type literal used as a parameter/variable/return-type annotation
+  elsewhere. Keep every other func_types entry's existing behavior unchanged.
+- 'Write a regression test in tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py
+  (add to the existing file; it currently has zero TypeScript coverage at all) using
+  a minimal synthetic snippet reproducing the exact bug: a real function with a parameter
+  typed by an inline object-type literal (e.g. `w: { A: number; E: number }`), a genuine
+  interface with a real member, and a genuine standalone function - assert: the real
+  function is captured correctly as itself with no name/type corruption; the inline
+  object-type literal''s property keys (''A'', ''E'') are NOT emitted as bogus top-level
+  functions; the genuine interface''s own member is still correctly handled (however
+  the existing interface-member path already surfaces it - assert that path''s existing
+  behavior is unchanged, do not assert a new claim about it if you cannot verify one
+  already existed).'
+- Run the full existing tree_sitter_engine test suite yourself (tests/extraction/tree_sitter_engine/)
+  and confirm nothing else broke - this fix must be a narrowing, not a behavior change
+  for any other language or any genuine interface/type-alias case.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/ -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-031
+min_tests: 3
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    _is_real_typescript_property_signature','def _is_real_typescript_property_signature_DISABLED');p.write_text(s,encoding='utf-8')"
+  rationale: This falsifier assumes you name your new guard function exactly `_is_real_typescript_property_signature`
+    - if you choose a different implementation shape (e.g. inlining the check rather
+    than a named helper), this exact mutate will be a silent no-op and you MUST tell
+    the supervisor in your report so it can be corrected before trusting acceptance,
+    per this project's standing rule never to trust an unexecuted falsifier. If you
+    do name a helper function that removes the fabricated entries when disabled, describe
+    its exact name in your report even if it matches.
+evidence:
+- evidence/build/G2/TC-051/receipt.json
+closeout:
+- Inline TypeScript object-type-literal properties are no longer fabricated as top-level
+  functions.
+- Genuine interface/type-alias members and real standalone functions are unaffected.
+- The full tree_sitter_engine test suite still passes.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
