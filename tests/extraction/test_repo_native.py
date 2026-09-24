@@ -13,7 +13,12 @@ from base64 import b64decode
 from pathlib import Path
 
 from foss_mcp.extraction.github_release_reader import classify_richness
-from foss_mcp.extraction.manifest_reader import read_dotnet_manifest, read_python_manifest, read_rust_manifest
+from foss_mcp.extraction.manifest_reader import (
+    read_dotnet_manifest,
+    read_go_manifest,
+    read_python_manifest,
+    read_rust_manifest,
+)
 from foss_mcp.extraction.repo_native_reader import (
     DocumentNotPresent,
     DocumentPresent,
@@ -36,6 +41,10 @@ def _slides_python_releases_fixture() -> dict:
 
 def _cells_rust_releases_fixture() -> dict:
     return json.loads((FIXTURES / "cells_rust_releases.json").read_text(encoding="utf-8"))
+
+
+def _pdf_go_releases_fixture() -> dict:
+    return json.loads((FIXTURES / "pdf_go_releases.json").read_text(encoding="utf-8"))
 
 
 def test_all_three_richness_values_are_exercised() -> None:
@@ -285,3 +294,67 @@ def test_cells_rust_contributing_md_is_really_absent(monkeypatch) -> None:
     result = reader.read_repo_document("aspose-cells-foss/Aspose.Cells-FOSS-for-Rust", "CONTRIBUTING.md")
     assert result == DocumentNotPresent(path="CONTRIBUTING.md")
     assert not isinstance(result, DocumentPresent)
+
+
+# --- A fourth, differently-shaped repository: pdf/go (a Go module, the richest release
+# history of any pilot so far - 10 releases) proving the same three readers generalize a
+# third time. Its present/absent pattern matches pdf/net and slides/python rather than
+# cells/rust's swap: AGENTS.md is the real 404 and CONTRIBUTING.md is really present. Real
+# GitHub API reads against aspose-pdf-foss/Aspose-PDF-FOSS-for-Go, pinned 2026-09-24.
+
+
+def test_the_real_newest_pdf_go_release_is_genuinely_detailed() -> None:
+    """v0.9.0's body is a hand-written note naming real, specific features - OpenType
+    text shaping (GSUB/GPOS) for complex scripts and word-by-word PDF comparison with
+    differences drawn back onto the document - not GitHub's auto-generated boilerplate
+    and not a filled-in template, so it must classify 'detailed'.
+    """
+    releases = {r["tag_name"]: r["body"] for r in _pdf_go_releases_fixture()["releases"]}
+    assert releases.keys() >= {"v0.9.0"}
+    assert classify_richness(releases["v0.9.0"]) == "detailed"
+
+
+def test_the_real_go_mod_yields_its_real_module_and_go_version() -> None:
+    """First real-world proof of read_go_manifest (TC-022 only unit-tested it against
+    synthetic text): the actual go.mod content, fetched via the Contents API and
+    base64-decoded exactly as repo_native_reader.read_repo_document already does.
+    """
+    payload = json.loads((FIXTURES / "pdf_go_gomod_contents.json").read_text(encoding="utf-8"))
+    text = b64decode(payload["content"]).decode("utf-8")
+    manifest = read_go_manifest(text)
+    assert manifest.name == "github.com/aspose-pdf-foss/aspose-pdf-foss-for-go"
+    assert manifest.go_version == "1.24"
+
+
+def test_pdf_go_agents_md_is_really_absent(monkeypatch) -> None:
+    """A real 404 from pdf/go, replayed offline - the same absent role AGENTS.md plays for
+    pdf/net and slides/python.
+    """
+    import foss_mcp.extraction.repo_native_reader as reader
+
+    def fake_urlopen(request, timeout=30):
+        raise urllib.error.HTTPError(request.full_url, 404, "Not Found", {}, None)
+
+    monkeypatch.setattr(reader.urllib.request, "urlopen", fake_urlopen)
+    result = reader.read_repo_document("aspose-pdf-foss/Aspose-PDF-FOSS-for-Go", "AGENTS.md")
+    assert result == DocumentNotPresent(path="AGENTS.md")
+    assert not isinstance(result, DocumentPresent)
+
+
+def test_pdf_go_contributing_md_is_really_present(monkeypatch) -> None:
+    """The contrast case for this repository: CONTRIBUTING.md really is there (~3.2KB),
+    replayed from the real 200 response, with real, non-empty content.
+    """
+    import foss_mcp.extraction.repo_native_reader as reader
+
+    payload = (FIXTURES / "pdf_go_contributing_present.json").read_bytes()
+
+    def fake_urlopen(request, timeout=30):
+        return _FakeResponse(payload)
+
+    monkeypatch.setattr(reader.urllib.request, "urlopen", fake_urlopen)
+    result = reader.read_repo_document("aspose-pdf-foss/Aspose-PDF-FOSS-for-Go", "CONTRIBUTING.md")
+    assert isinstance(result, DocumentPresent)
+    assert result.path == "CONTRIBUTING.md"
+    assert result.content.strip() != ""
+    assert result.size > 3000
