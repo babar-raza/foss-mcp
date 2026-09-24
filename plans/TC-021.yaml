@@ -71,11 +71,17 @@ checks:
 min_tests: 5
 network: false
 negative_control:
-  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/run_extraction.py');s=p.read_text(encoding='utf-8');s=s.replace(chr(39)+'python'+chr(39),chr(39)+'PYTHON_DISABLED'+chr(39));p.write_text(s,encoding='utf-8')"
-  rationale: Breaking the literal string match on 'python' anywhere it is compared
-    must revert the dispatch to the old KeyError-raising behaviour (or otherwise break
-    your new tests) - proving your tests actually exercise the new branch rather than
-    merely existing alongside it.
+  mutate: python -X utf8 -c "import pathlib,re;p=pathlib.Path('src/foss_mcp/extraction/run_extraction.py');s=p.read_text(encoding='utf-8');pat='(['+chr(39)+chr(34)+']'+'python'+chr(92)+'1';rep=chr(92)+'1PYTHON_DISABLED'+chr(92)+'1';s2=re.sub(pat,rep,s);p.write_text(s2,encoding='utf-8')"
+  rationale: 'The first falsifier for this card searched for single-quoted ''python''
+    and matched NOTHING, since the actual code (correctly, per this project''s own
+    ruff style) uses double-quoted "python" everywhere - a card whose product code
+    does not exist yet at authoring time cannot be checked against real committed
+    content the way holdout-check checks a holdout, so the falsifier was written blind
+    and guessed wrong. Rewritten quote-agnostic: it corrupts the actual `platform
+    == "python"` dispatch condition regardless of which quote character surrounds
+    it, verified by hand to change the real committed file and to genuinely break
+    the dispatch (python manifests fall through to _LANGUAGE_BY_PLATFORM, reproducing
+    the original KeyError this card exists to fix).'
 evidence:
 - evidence/build/G2/TC-021/receipt.json
 closeout:
