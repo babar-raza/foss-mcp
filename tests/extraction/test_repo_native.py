@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import json
 import urllib.error
+from base64 import b64decode
 from pathlib import Path
 
 from foss_mcp.extraction.github_release_reader import classify_richness
-from foss_mcp.extraction.manifest_reader import read_dotnet_manifest
+from foss_mcp.extraction.manifest_reader import read_dotnet_manifest, read_python_manifest
 from foss_mcp.extraction.repo_native_reader import (
     DocumentNotPresent,
     DocumentPresent,
@@ -27,6 +28,10 @@ def _releases_fixture() -> dict:
 
 def _font_python_fixture() -> dict:
     return json.loads((FIXTURES / "font_python_releases.json").read_text(encoding="utf-8"))
+
+
+def _slides_python_releases_fixture() -> dict:
+    return json.loads((FIXTURES / "slides_python_releases.json").read_text(encoding="utf-8"))
 
 
 def test_all_three_richness_values_are_exercised() -> None:
@@ -145,3 +150,70 @@ def test_a_present_document_is_reported_with_its_real_content(monkeypatch) -> No
     assert result.sha == "b10afb6063d78d6c2d42b08e97fae05c300f7a50"
     assert result.size == 104805
     assert "Aspose" in result.content
+
+
+# --- A second, differently-shaped repository: slides/python (Python packaging, a leaner
+# release history than pdf/net's) proving the same three readers generalize, not just fit
+# the one repository they were built against. Real GitHub API reads against
+# aspose-slides-foss/Aspose.Slides-FOSS-for-Python, pinned 2026-09-24.
+
+
+def test_the_real_newest_slides_python_release_is_genuinely_detailed() -> None:
+    """26.8.0's body is a hand-written note naming a real feature (Markdown export,
+    `SaveFormat.MD`, `MarkdownSaveOptions`) and specific chart-loading fixes - not a filled-in
+    template and not GitHub's auto-generated boilerplate - so it must classify 'detailed'.
+    """
+    releases = {r["tag_name"]: r["body"] for r in _slides_python_releases_fixture()["releases"]}
+    assert classify_richness(releases["26.8.0"]) == "detailed"
+
+
+def test_the_real_pyproject_toml_yields_its_real_packaging_fields() -> None:
+    """First real-world proof of read_python_manifest (TC-022 only unit-tested it against
+    synthetic text): the actual pyproject.toml content, fetched via the Contents API and
+    base64-decoded exactly as repo_native_reader.read_repo_document already does.
+    """
+    payload = json.loads(
+        (FIXTURES / "slides_python_pyproject_contents.json").read_text(encoding="utf-8")
+    )
+    text = b64decode(payload["content"]).decode("utf-8")
+    manifest = read_python_manifest(text)
+    assert manifest.name == "aspose-slides-foss"
+    assert manifest.version == "26.8.0"
+    assert manifest.requires_python == ">=3.10"
+
+
+def test_slides_python_agents_md_is_really_absent(monkeypatch) -> None:
+    """A real 404 from slides/python, replayed offline - a second repository confirming
+    absence is reported honestly rather than being a quirk of pdf/net's own layout.
+    """
+    import foss_mcp.extraction.repo_native_reader as reader
+
+    def fake_urlopen(request, timeout=30):
+        raise urllib.error.HTTPError(request.full_url, 404, "Not Found", {}, None)
+
+    monkeypatch.setattr(reader.urllib.request, "urlopen", fake_urlopen)
+    result = reader.read_repo_document(
+        "aspose-slides-foss/Aspose.Slides-FOSS-for-Python", "AGENTS.md"
+    )
+    assert result == DocumentNotPresent(path="AGENTS.md")
+    assert not isinstance(result, DocumentPresent)
+
+
+def test_slides_python_contributing_md_is_really_present(monkeypatch) -> None:
+    """The contrast case for the second repository: CONTRIBUTING.md really is there, replayed
+    from the real 200 response, with real, non-empty content.
+    """
+    import foss_mcp.extraction.repo_native_reader as reader
+
+    payload = (FIXTURES / "slides_python_contributing_present.json").read_bytes()
+
+    def fake_urlopen(request, timeout=30):
+        return _FakeResponse(payload)
+
+    monkeypatch.setattr(reader.urllib.request, "urlopen", fake_urlopen)
+    result = reader.read_repo_document(
+        "aspose-slides-foss/Aspose.Slides-FOSS-for-Python", "CONTRIBUTING.md"
+    )
+    assert isinstance(result, DocumentPresent)
+    assert result.path == "CONTRIBUTING.md"
+    assert result.content.strip() != ""
