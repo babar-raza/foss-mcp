@@ -1,0 +1,106 @@
+id: TC-028
+gate: G2
+lane: extraction
+purpose: Extend pilot_manual_export.py with a local-git-clone export path (read-only
+  git plumbing, no GitHub API, no credentials needed), and use it to produce slides/python's
+  real furnished-content export from the local Aspose/aspose.org clone already present
+  on this machine.
+depends_on:
+- TC-013
+write_paths:
+- scripts/pilot_manual_export.py
+- tests/test_pilot_export.py
+- tests/fixtures/furnished/slides_python/**
+satisfies:
+- REQ-G2-008
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'CONFIRMED: credentialed `gh api` access to the private Aspose/aspose.org repository
+  is broken this session (401 Bad Credentials - OWNER-01/OWNER-03). A local clone
+  of that exact repository already exists on this machine at H:\onedrive\Documents\GitHub\aspose.org
+  - use this EXACT path, do not derive or guess a different one.'
+- 'This local clone is a READ-ONLY REFERENCE repository per AGENTS.md (''These repositories
+  are read-only references. Never write to them: ... aspose.org ...''). You may ONLY
+  run read-only git plumbing against it: `git -C <path> rev-parse HEAD`, `git -C <path>
+  ls-tree -r <sha> -- <subtree>`, `git -C <path> cat-file -p <blob-sha>`. NEVER run
+  `git add`/`commit`/`checkout`/`reset`/anything that writes to its working tree,
+  index, or refs. Read via git plumbing (blob content at a pinned commit), never by
+  reading raw working-tree files directly - this matches how the existing GitHub-API
+  path already works (it fetches committed blobs, never an uncommitted working tree),
+  and is unaffected if that clone''s working tree ever has local, uncommitted changes.'
+- 'CONFIRMED real content exists at the exact subtree convention tests/fixtures/furnished/pdf_net/manifest.json
+  already establishes (''source_subtree'': ''content/products.aspose.org/en/pdf/net''):
+  for slides/python this is content/products.aspose.org/en/slides/python, which exists
+  in the local clone and contains a real, substantial _index.md (~9KB, real Hugo front-matter
+  and content blocks describing the actual library, not a stub).'
+- 'Read scripts/pilot_manual_export.py in full first. It already has export_subtree/resolve_commit/_list_tree/_fetch_blob
+  (GitHub-API-based), ExportedFile, verify_bundle (fully generic - checksum-only,
+  works unchanged regardless of how a bundle was produced), the NON_PRODUCTION_BANNER,
+  and a CLI in main(). Add PARALLEL local-clone equivalents: resolve_local_commit(clone_path,
+  ref) using `git -C clone_path rev-parse ref`; a tree-listing function using `git
+  -C clone_path ls-tree -r <sha> -- <subtree>` (parse the `<mode> <type> <sha>\t<path>`
+  output format); a blob-fetch function using `git -C clone_path cat-file -p <blob_sha>`
+  capturing raw BYTES (subprocess with capture_output, not text=True, to avoid encoding
+  corruption of binary or non-UTF8 content). Reuse ExportedFile, the manifest-writing
+  shape, and the banner exactly as export_subtree already does - refactor a small
+  shared helper if that avoids real duplication, but do not force an awkward abstraction
+  for its own sake.'
+- 'Add a `--local-clone PATH` CLI flag to main() as an alternative to `--repository`/`--ref`:
+  when given, export via the new local-clone path instead of the GitHub API path.
+  Keep the existing API-based flow completely unchanged - this is additive.'
+- The OFFLINE graded test suite must use a SYNTHETIC local git repo built fresh inside
+  a pytest tmp_path (git init, write files, commit) to exercise the new local-clone
+  export path - never hardcode a dependency on this specific machine's H:\onedrive\Documents\GitHub\aspose.org
+  path inside the graded tests, since that path will not exist on every machine that
+  runs this suite. The REAL export against the real local clone is a one-time ACTION
+  you perform yourself (see below), producing a committed fixture bundle - it is not
+  something the test suite re-runs live.
+actions:
+- Implement the local-clone export path in scripts/pilot_manual_export.py as described
+  above, plus the new --local-clone CLI flag.
+- 'Write offline tests in tests/test_pilot_export.py (add to the existing file, do
+  not remove any existing GitHub-API-path test) using a synthetic tmp_path git repo:
+  the local-clone export produces the correct manifest shape, correct checksums, the
+  NON_PRODUCTION banner, and verify_bundle() reports it clean; a tampered file is
+  caught by verify_bundle().'
+- 'Run the tool for REAL, once, against the actual local clone: `python scripts/pilot_manual_export.py
+  --local-clone "H:\onedrive\Documents\GitHub\aspose.org" --subtree content/products.aspose.org/en/slides/python
+  --output tests/fixtures/furnished/slides_python` (adjust the exact CLI flag names
+  to whatever you actually implement) - this produces a REAL bundle with the real
+  pinned commit SHA and real page content, not a synthetic fixture.'
+- Run verify_bundle() against that real committed bundle yourself and confirm it reports
+  zero problems before committing.
+- 'Add an offline test asserting the COMMITTED real slides_python bundle (tests/fixtures/furnished/slides_python/)
+  is valid: manifest declares source_repository=''Aspose/aspose.org'', source_subtree
+  matches the pinned convention, every file has a real 40-hex source_commit, and verify_bundle()
+  on it returns no problems.'
+checks:
+- command: '{python} -m pytest tests/test_pilot_export.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-008
+min_tests: 8
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/furnished/slides_python/manifest.json');s=p.read_text(encoding='utf-8');s=s.replace('\"sha256\":','\"sha256_TAMPERED\":',1);p.write_text(s,encoding='utf-8')"
+  rationale: Corrupting the committed real bundle's manifest key name for its checksum
+    field must break the test that asserts the real committed bundle validates cleanly
+    via verify_bundle() - proves that test actually re-checks the real bundle rather
+    than merely asserting the files exist. Self-checked end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-028/receipt.json
+closeout:
+- pilot_manual_export.py can export from a local git clone, read-only, no GitHub API.
+- slides/python has a real, committed, verifiable furnished-content bundle.
+- The aspose.org local clone was never written to.
+- Corrupting the committed bundle's manifest fails the suite.
+recovery: Re-run from a clean tree; the committed bundle and tests are idempotent
+  from committed content. If the local clone path is unavailable on a future machine,
+  this becomes BLOCKED_EXTERNAL for the live-export action only - the code and offline
+  tests remain valid regardless.
