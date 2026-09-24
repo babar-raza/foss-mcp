@@ -1,0 +1,44 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/config/test_pdf_go_manifest.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-m3rn9x31\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/config/test_pdf_go_manifest.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-m3rn9x31\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/products/pdf/go.yaml, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/config/test_pdf_go_manifest.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-m3rn9x31\.junit-0.xml"
+--- stdout ---
+..F....                                                                  [100%]
+================================== FAILURES ===================================
+__________ test_repository_is_the_exact_verified_upstream_full_name ___________
+
+    def test_repository_is_the_exact_verified_upstream_full_name():
+        """Asserts the LITERAL verified string. Do not derive this from
+        `family`/`platform` - that reconstruction is precisely the bug this test
+        guards against, since this org's naming is irregular (a dash before
+        'PDF' here, unlike every other pdf/* pilot's dot naming) and no pattern
+        predicts every pilot repo's exact name."""
+        manifest = _load_manifest()
+>       assert manifest["repository"] == EXPECTED_REPOSITORY
+E       AssertionError: assert 'aspose-pdf-f...ong-repo-name' == 'aspose-pdf-f...F-FOSS-for-Go'
+E         
+E         - aspose-pdf-foss/Aspose-PDF-FOSS-for-Go
+E         + aspose-pdf-foss/wrong-repo-name
+
+tests\config\test_pdf_go_manifest.py:61: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/config/test_pdf_go_manifest.py::test_repository_is_the_exact_verified_upstream_full_name
+
+--- stderr ---
+
