@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "card": "TC-045",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-24T15:52:15Z",
+  "base_rev": "63e6f6b8597b1862026ebe1170bb71e085bd86bb",
+  "head_rev": "df377ca32c8c7bb0744de499cd4b22f56f506179",
+  "card_sha256": "76e99e5a18fe620a6518fbfafb700fb90522dbdce09974f62aa02ba07eed4968",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/extraction/test_repo_native.py",
+      "tests/fixtures/repo_native/pdf_java_agents_present.json",
+      "tests/fixtures/repo_native/pdf_java_contributing_404.json",
+      "tests/fixtures/repo_native/pdf_java_pom_contents.json",
+      "tests/fixtures/repo_native/pdf_java_readme_present.json",
+      "tests/fixtures/repo_native/pdf_java_releases.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_repo_native.py -q",
+          "exit_code": 0,
+          "duration_s": 0.951,
+          "stdout_sha256": "12784721e0280443291002b595b03384e8588476665647b621a862f07297e08f",
+          "tests": 24,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_repo_native.py -q",
+          "exit_code": 0,
+          "duration_s": 0.826,
+          "stdout_sha256": "12784721e0280443291002b595b03384e8588476665647b621a862f07297e08f",
+          "tests": 24,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/extraction/github_release_reader.py');s=p.read_text(encoding='utf-8');s=s+chr(10)+'classify_richness = lambda body: '+chr(39)+'detailed'+chr(39)+chr(10);p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "92aec7defceeb572fd5abb6f569ba986c1bfb938f94be18550794f79b9cf2866",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/github_release_reader.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
