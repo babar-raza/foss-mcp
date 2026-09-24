@@ -1,0 +1,365 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_manifest_reader_ecosystems.py tests/mcp/tools/test_get_product_reference_platforms.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rdr65tjl\.junit-0.xml"
+--- stdout ---
+...........................                                              [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_manifest_reader_ecosystems.py tests/mcp/tools/test_get_product_reference_platforms.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rdr65tjl\.junit-0.xml"
+--- stdout ---
+...........................                                              [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/get_product_reference.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_manifest_reader_ecosystems.py tests/mcp/tools/test_get_product_reference_platforms.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rdr65tjl\.junit-0.xml"
+--- stdout ---
+...............FFFFFFFFFFF.                                              [100%]
+================================== FAILURES ===================================
+_________ test_python_compatibility_returns_requires_python_verbatim __________
+
+    def test_python_compatibility_returns_requires_python_verbatim() -> None:
+        inputs = ProductReferenceInputs(manifest_text=PYPROJECT_TEXT, platform="python")
+>       result = get_product_reference(inputs, "compatibility")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_platforms.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:125: in get_product_reference
+    manifest = read_dotnet_manifest(inputs.manifest_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\extraction\manifest_reader.py:37: in read_dotnet_manifest
+    root = ElementTree.fromstring(csproj_text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = '\n[project]\nname = "aspose-pdf-foss"\nversion = "26.9.0"\nlicense = { text = "MIT" }\nrequires-python = ">=3.9"\n'
+parser = <xml.etree.ElementTree.XMLParser object at 0x000001FAC1D5B380>
+
+    def XML(text, parser=None):
+        """Parse XML document from string constant.
+    
+        This function can be used to embed "XML Literals" in Python code.
+    
+        *text* is a string containing XML data, *parser* is an
+        optional parser instance, defaulting to the standard XMLParser.
+    
+        Returns an Element instance.
+    
+        """
+        if not parser:
+            parser = XMLParser(target=TreeBuilder())
+>       parser.feed(text)
+E       xml.etree.ElementTree.ParseError: syntax error: line 2, column 0
+
+C:\Python313\Lib\xml\etree\ElementTree.py:1342: ParseError
+________ test_java_compatibility_returns_runtime_min_version_verbatim _________
+
+    def test_java_compatibility_returns_runtime_min_version_verbatim() -> None:
+        inputs = ProductReferenceInputs(manifest_text=POM_XML_TEXT, platform="java")
+        result = get_product_reference(inputs, "compatibility")
+>       assert isinstance(result, ReferenceContent)
+E       AssertionError: assert False
+E        +  where False = isinstance(NotAvailable(section='compatibility', reason='manifest does not state a TargetFramework'), ReferenceContent)
+
+tests\mcp\tools\test_get_product_reference_platforms.py:80: AssertionError
+_________ test_typescript_compatibility_returns_engines_node_verbatim _________
+
+    def test_typescript_compatibility_returns_engines_node_verbatim() -> None:
+        inputs = ProductReferenceInputs(manifest_text=PACKAGE_JSON_TEXT, platform="typescript")
+>       result = get_product_reference(inputs, "compatibility")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_platforms.py:86: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:125: in get_product_reference
+    manifest = read_dotnet_manifest(inputs.manifest_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\extraction\manifest_reader.py:37: in read_dotnet_manifest
+    root = ElementTree.fromstring(csproj_text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = '\n{\n  "name": "aspose-pdf-foss",\n  "version": "26.9.0",\n  "license": "MIT",\n  "engines": {"node": ">=18"}\n}\n'
+parser = <xml.etree.ElementTree.XMLParser object at 0x000001FAC1D594E0>
+
+    def XML(text, parser=None):
+        """Parse XML document from string constant.
+    
+        This function can be used to embed "XML Literals" in Python code.
+    
+        *text* is a string containing XML data, *parser* is an
+        optional parser instance, defaulting to the standard XMLParser.
+    
+        Returns an Element instance.
+    
+        """
+        if not parser:
+            parser = XMLParser(target=TreeBuilder())
+>       parser.feed(text)
+E       xml.etree.ElementTree.ParseError: not well-formed (invalid token): line 2, column 0
+
+C:\Python313\Lib\xml\etree\ElementTree.py:1342: ParseError
+______________ test_go_compatibility_returns_go_version_verbatim ______________
+
+    def test_go_compatibility_returns_go_version_verbatim() -> None:
+        inputs = ProductReferenceInputs(manifest_text=GO_MOD_TEXT, platform="go")
+>       result = get_product_reference(inputs, "compatibility")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_platforms.py:93: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:125: in get_product_reference
+    manifest = read_dotnet_manifest(inputs.manifest_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\extraction\manifest_reader.py:37: in read_dotnet_manifest
+    root = ElementTree.fromstring(csproj_text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = '\nmodule github.com/aspose/pdf-foss-for-go\n\ngo 1.21\n'
+parser = <xml.etree.ElementTree.XMLParser object at 0x000001FAC1D58B80>
+
+    def XML(text, parser=None):
+        """Parse XML document from string constant.
+    
+        This function can be used to embed "XML Literals" in Python code.
+    
+        *text* is a string containing XML data, *parser* is an
+        optional parser instance, defaulting to the standard XMLParser.
+    
+        Returns an Element instance.
+    
+        """
+        if not parser:
+            parser = XMLParser(target=TreeBuilder())
+>       parser.feed(text)
+E       xml.etree.ElementTree.ParseError: syntax error: line 2, column 0
+
+C:\Python313\Lib\xml\etree\ElementTree.py:1342: ParseError
+____________ test_cpp_compatibility_returns_cpp_standard_verbatim _____________
+
+    def test_cpp_compatibility_returns_cpp_standard_verbatim() -> None:
+        inputs = ProductReferenceInputs(manifest_text=CMAKE_LISTS_TEXT, platform="cpp")
+>       result = get_product_reference(inputs, "compatibility")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_platforms.py:100: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:125: in get_product_reference
+    manifest = read_dotnet_manifest(inputs.manifest_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\extraction\manifest_reader.py:37: in read_dotnet_manifest
+    root = ElementTree.fromstring(csproj_text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = '\ncmake_minimum_required(VERSION 3.20)\nproject(AsposePdfFoss VERSION 26.9.0)\nset_property(TARGET aspose_pdf_foss PROPERTY CXX_STANDARD 17)\n'
+parser = <xml.etree.ElementTree.XMLParser object at 0x000001FAC1D58EA0>
+
+    def XML(text, parser=None):
+        """Parse XML document from string constant.
+    
+        This function can be used to embed "XML Literals" in Python code.
+    
+        *text* is a string containing XML data, *parser* is an
+        optional parser instance, defaulting to the standard XMLParser.
+    
+        Returns an Element instance.
+    
+        """
+        if not parser:
+            parser = XMLParser(target=TreeBuilder())
+>       parser.feed(text)
+E       xml.etree.ElementTree.ParseError: not well-formed (invalid token): line 2, column 22
+
+C:\Python313\Lib\xml\etree\ElementTree.py:1342: ParseError
+_ test_rust_compatibility_is_not_available_when_manifest_states_no_rust_version _
+
+    def test_rust_compatibility_is_not_available_when_manifest_states_no_rust_version() -> None:
+        """rust-version is optional in Cargo.toml; absence must stay NotAvailable, never a guess."""
+        inputs = ProductReferenceInputs(manifest_text=CARGO_TOML_NO_RUST_VERSION_TEXT, platform="rust")
+>       result = get_product_reference(inputs, "compatibility")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_platforms.py:108: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:125: in get_product_reference
+    manifest = read_dotnet_manifest(inputs.manifest_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\extraction\manifest_reader.py:37: in read_dotnet_manifest
+    root = ElementTree.fromstring(csproj_text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = '\n[package]\nname = "aspose-pdf-foss"\nversion = "26.9.0"\nlicense = "MIT"\n'
+parser = <xml.etree.ElementTree.XMLParser object at 0x000001FAC1D6C040>
+
+    def XML(text, parser=None):
+        """Parse XML document from string constant.
+    
+        This function can be used to embed "XML Literals" in Python code.
+    
+        *text* is a string containing XML data, *parser* is an
+        optional parser instance, defaulting to the standard XMLParser.
+    
+        Returns an Element instance.
+    
+        """
+        if not parser:
+            parser = XMLParser(target=TreeBuilder())
+>       parser.feed(text)
+E       xml.etree.ElementTree.ParseError: syntax error: line 2, column 0
+
+C:\Python313\Lib\xml\etree\ElementTree.py:1342: ParseError
+_______________ test_python_install_returns_pip_install_command _______________
+
+    def test_python_install_returns_pip_install_command() -> None:
+        inputs = ProductReferenceInputs(manifest_text=PYPROJECT_TEXT, platform="python")
+>       result = get_product_reference(inputs, "install")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_platforms.py:115: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:175: in get_product_reference
+    manifest = read_dotnet_manifest(inputs.manifest_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\extraction\manifest_reader.py:37: in read_dotnet_manifest
+    root = ElementTree.fromstring(csproj_text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = '\n[project]\nname = "aspose-pdf-foss"\nversion = "26.9.0"\nlicense = { text = "MIT" }\nrequires-python = ">=3.9"\n'
+parser = <xml.etree.ElementTree.XMLParser object at 0x000001FAC1D6C720>
+
+    def XML(text, parser=None):
+        """Parse XML document from string constant.
+    
+        This function can be used to embed "XML Literals" in Python code.
+    
+        *text* is a string containing XML data, *parser* is an
+        optional parser instance, defaulting to the standard XMLParser.
+    
+        Returns an Element instance.
+    
+        """
+        if not parser:
+            parser = XMLParser(target=TreeBuilder())
+>       parser.feed(text)
+E       xml.etree.ElementTree.ParseError: syntax error: line 2, column 0
+
+C:\Python313\Lib\xml\etree\ElementTree.py:1342: ParseError
+_________________ test_js_install_returns_npm_install_command _________________
+
+    def test_js_install_returns_npm_install_command() -> None:
+        inputs = ProductReferenceInputs(manifest_text=PACKAGE_JSON_TEXT, platform="javascript")
+>       result = get_product_reference(inputs, "install")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_platforms.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:175: in get_product_reference
+    manifest = read_dotnet_manifest(inputs.manifest_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\extraction\manifest_reader.py:37: in read_dotnet_manifest
+    root = ElementTree.fromstring(csproj_text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = '\n{\n  "name": "aspose-pdf-foss",\n  "version": "26.9.0",\n  "license": "MIT",\n  "engines": {"node": ">=18"}\n}\n'
+parser = <xml.etree.ElementTree.XMLParser object at 0x000001FAC1D6C900>
+
+    def XML(text, parser=None):
+        """Parse XML document from string constant.
+    
+        This function can be used to embed "XML Literals" in Python code.
+    
+        *text* is a string containing XML data, *parser* is an
+        optional parser instance, defaulting to the standard XMLParser.
+    
+        Returns an Element instance.
+    
+        """
+        if not parser:
+            parser = XMLParser(target=TreeBuilder())
+>       parser.feed(text)
+E       xml.etree.ElementTree.ParseError: not well-formed (invalid token): line 2, column 0
+
+C:\Python313\Lib\xml\etree\ElementTree.py:1342: ParseError
+_________________ test_java_install_returns_maven_coordinate __________________
+
+    def test_java_install_returns_maven_coordinate() -> None:
+        inputs = ProductReferenceInputs(manifest_text=POM_XML_TEXT, platform="java")
+        result = get_product_reference(inputs, "install")
+>       assert isinstance(result, ReferenceContent)
+E       AssertionError: assert False
+E        +  where False = isinstance(NotAvailable(section='install', reason='manifest does not state a package id'), ReferenceContent)
+
+tests\mcp\tools\test_get_product_reference_platforms.py:130: AssertionError
+_________________ test_python_license_returns_manifest_value __________________
+
+    def test_python_license_returns_manifest_value() -> None:
+        inputs = ProductReferenceInputs(manifest_text=PYPROJECT_TEXT, platform="python")
+        result = get_product_reference(inputs, "license")
+>       assert isinstance(result, ReferenceContent)
+E       AssertionError: assert False
+E        +  where False = isinstance(NotAvailable(section='license', reason='manifest does not state a license expression'), ReferenceContent)
+
+tests\mcp\tools\test_get_product_reference_platforms.py:137: AssertionError
+____ test_unhandled_platform_compatibility_is_not_available_never_a_guess _____
+
+    def test_unhandled_platform_compatibility_is_not_available_never_a_guess() -> None:
+        inputs = ProductReferenceInputs(manifest_text=GO_MOD_TEXT, platform="cobol")
+>       result = get_product_reference(inputs, "compatibility")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_platforms.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:125: in get_product_reference
+    manifest = read_dotnet_manifest(inputs.manifest_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\extraction\manifest_reader.py:37: in read_dotnet_manifest
+    root = ElementTree.fromstring(csproj_text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = '\nmodule github.com/aspose/pdf-foss-for-go\n\ngo 1.21\n'
+parser = <xml.etree.ElementTree.XMLParser object at 0x000001FAC1D6CE00>
+
+    def XML(text, parser=None):
+        """Parse XML document from string constant.
+    
+        This function can be used to embed "XML Literals" in Python code.
+    
+        *text* is a string containing XML data, *parser* is an
+        optional parser instance, defaulting to the standard XMLParser.
+    
+        Returns an Element instance.
+    
+        """
+        if not parser:
+            parser = XMLParser(target=TreeBuilder())
+>       parser.feed(text)
+E       xml.etree.ElementTree.ParseError: syntax error: line 2, column 0
+
+C:\Python313\Lib\xml\etree\ElementTree.py:1342: ParseError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_python_compatibility_returns_requires_python_verbatim
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_java_compatibility_returns_runtime_min_version_verbatim
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_typescript_compatibility_returns_engines_node_verbatim
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_go_compatibility_returns_go_version_verbatim
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_cpp_compatibility_returns_cpp_standard_verbatim
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_rust_compatibility_is_not_available_when_manifest_states_no_rust_version
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_python_install_returns_pip_install_command
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_js_install_returns_npm_install_command
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_java_install_returns_maven_coordinate
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_python_license_returns_manifest_value
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_unhandled_platform_compatibility_is_not_available_never_a_guess
+
+--- stderr ---
+
