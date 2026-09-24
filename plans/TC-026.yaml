@@ -1,0 +1,100 @@
+id: TC-026
+gate: G2
+lane: extraction
+purpose: Fix package_root._detect_python_root's blind spot for PEP 420 namespace package
+  layouts (a repo-root directory with no __init__.py whose subpackage has one), which
+  produces a silent 0-type extraction for every python repo shaped this way - discovered
+  by direct reproduction against the real slides/python repository while working TC-025,
+  which correctly stopped rather than working around it.
+depends_on:
+- TC-010
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/package_root.py
+- tests/extraction/tree_sitter_engine/test_package_root.py
+satisfies:
+- REQ-G2-006
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'CONFIRMED by direct reproduction against the real public aspose-slides-foss/Aspose.Slides-FOSS-for-Python
+  repository (commit 4e63447ba79d1c27a5192844847d9f872c5b92ad): its layout is `aspose/`
+  (a directory with NO __init__.py - a PEP 420 implicit namespace package) containing
+  `aspose/slides_foss/` (which DOES have __init__.py; pyproject.toml declares `packages
+  = [''aspose.slides_foss'']`). _detect_python_root''s flat-layout branch requires
+  the candidate directory itself to have __init__.py, so it finds nothing for `aspose/`
+  and falls back to returning the repo root - which run_extraction.py''s _python_package_dirs
+  then correctly (per its own documented contract) turns into an EMPTY package_dirs
+  list, producing a 0-type fixture with no error raised anywhere.'
+- 'CONFIRMED the reader itself is fine, not the bug: calling python_surface.inspect_public_surface(repo,
+  [''aspose'']) directly against the same real clone returned 3686 real symbols (808
+  class, 214 enum, 2645 method, 18 module, 1 function). This means passing the TOP-LEVEL
+  namespace directory itself (not the nested subpackage) as the package_dir string
+  is exactly what inspect_public_surface already handles correctly via its own recursive
+  .rglob(''*.py'') - the fix belongs entirely in _detect_python_root''s DETECTION
+  logic, nothing downstream needs to change.'
+- package_manifest.py (tree_sitter_engine/package_manifest.py) already has comments
+  naming other aspose.* namespace packages (aspose.email_foss, aspose.pdf_foss, etc.)
+  - this is a shared-library defect affecting every python pilot, not one repo's peculiarity,
+  so fix it generally rather than special-casing 'aspose'.
+- 'Current code (both branches of _detect_python_root need equivalent treatment for
+  consistency, though the confirmed real bug is in the flat-layout branch): a candidate
+  top-level directory whose own __init__.py is missing, but which contains at least
+  one __init__.py somewhere within it (e.g. via rglob), is a valid PEP 420 namespace
+  package root and should be returned AS-IS (the top-level directory, never descend
+  into the nested subpackage - that is what the live diagnostic proved correct). Keep
+  applying the existing name-exclusion filter (not ''.'', ''test'', ''example'', ''doc'',
+  ''api''-prefixed) to whatever directory is considered as a namespace-package candidate.'
+- 'Name the new helper exactly `_contains_nested_init_py(d: Path) -> bool` (module-level
+  function in package_root.py, e.g. `return any(d.rglob(''__init__.py''))`) - the
+  supervisor''s negative-control falsifier for this card targets that exact name;
+  using a different name will make the falsifier a silent no-op and the card will
+  be rejected on review even though your tests pass, so use this exact signature.'
+- Do not touch run_extraction.py or python_surface.py - both are outside this card's
+  write_paths and confirmed not to need any change.
+actions:
+- 'Extend _detect_python_root in package_root.py: when the existing __init__.py-having
+  checks (both src-layout and flat-layout branches) find nothing, add a namespace-package
+  fallback that looks for a top-level (or src/) directory, matching the same name-exclusion
+  filter already used, that contains at least one __init__.py anywhere beneath it
+  even though it lacks one itself; return that directory. Only fall through to `return
+  repo` if even this fallback finds nothing.'
+- 'Write a regression test in tests/extraction/tree_sitter_engine/test_package_root.py
+  (add to the existing file, do not remove any existing test) using a synthetic, PEP-420-shaped
+  fixture that mirrors the real slides/python layout exactly: a top-level directory
+  with no __init__.py containing a nested subdirectory that does have one - assert
+  detect_package_root now returns the TOP-LEVEL namespace directory (not the nested
+  one, not the repo root).'
+- Run the full existing test file yourself and confirm every prior test (src-layout,
+  flat-layout-with-init, dotnet, go, the no-marker fallback) still passes unchanged
+  - this fix must be additive, not a behaviour change for the layouts that already
+  worked.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_package_root.py
+    -q'
+  expect: exit 0
+  timeout_seconds: 60
+  junitxml: true
+  proves:
+  - REQ-G2-006
+min_tests: 6
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/package_root.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    _contains_nested_init_py(','def _contains_nested_init_py_RENAMED(');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming only the DEFINITION of _contains_nested_init_py (leaving its
+    call site(s) pointing at the now-undefined old name) must raise a NameError exactly
+    when the namespace-detection path is exercised, breaking the new regression test
+    while every pre-existing test (which never reaches this code path) keeps passing
+    - proves the test genuinely exercises the new logic. This exact helper name is
+    prescribed to the worker in the card's own inputs, so this falsifier is not a
+    guess.
+evidence:
+- evidence/build/G2/TC-026/receipt.json
+closeout:
+- detect_package_root now finds the real slides/python namespace-package layout.
+- Every pre-existing package_root test still passes unchanged.
+- Disabling the new detection logic fails the new regression test.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

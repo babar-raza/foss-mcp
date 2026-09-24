@@ -197,3 +197,15 @@ requirements:
     got one in TC-011 - run_extraction.py's platform=python path (wired by TC-021)
     must be proven against the REAL public slides/python repository, not just the
     synthetic unit fixtures TC-021's own tests used.
+- id: REQ-G2-006
+  gate: G2
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge - extract it directly instead'
+  text: 'TC-025''s worker found, by direct reproduction against the real slides/python
+    repository, that package_root._detect_python_root cannot see a PEP 420 namespace
+    package layout (a top-level directory with no __init__.py whose subpackage does
+    have one - confirmed real layout: aspose/ has none, aspose/slides_foss/ does),
+    so it silently falls back to the repo root and every python extraction against
+    such a repo produces a 0-type fixture. package_manifest.py''s own comments already
+    name several other aspose.* namespace packages, so this is not slides/python-specific
+    - it blocks every python pilot until fixed.'
