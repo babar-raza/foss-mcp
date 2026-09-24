@@ -13,7 +13,7 @@ from base64 import b64decode
 from pathlib import Path
 
 from foss_mcp.extraction.github_release_reader import classify_richness
-from foss_mcp.extraction.manifest_reader import read_dotnet_manifest, read_python_manifest
+from foss_mcp.extraction.manifest_reader import read_dotnet_manifest, read_python_manifest, read_rust_manifest
 from foss_mcp.extraction.repo_native_reader import (
     DocumentNotPresent,
     DocumentPresent,
@@ -32,6 +32,10 @@ def _font_python_fixture() -> dict:
 
 def _slides_python_releases_fixture() -> dict:
     return json.loads((FIXTURES / "slides_python_releases.json").read_text(encoding="utf-8"))
+
+
+def _cells_rust_releases_fixture() -> dict:
+    return json.loads((FIXTURES / "cells_rust_releases.json").read_text(encoding="utf-8"))
 
 
 def test_all_three_richness_values_are_exercised() -> None:
@@ -172,9 +176,7 @@ def test_the_real_pyproject_toml_yields_its_real_packaging_fields() -> None:
     synthetic text): the actual pyproject.toml content, fetched via the Contents API and
     base64-decoded exactly as repo_native_reader.read_repo_document already does.
     """
-    payload = json.loads(
-        (FIXTURES / "slides_python_pyproject_contents.json").read_text(encoding="utf-8")
-    )
+    payload = json.loads((FIXTURES / "slides_python_pyproject_contents.json").read_text(encoding="utf-8"))
     text = b64decode(payload["content"]).decode("utf-8")
     manifest = read_python_manifest(text)
     assert manifest.name == "aspose-slides-foss"
@@ -192,9 +194,7 @@ def test_slides_python_agents_md_is_really_absent(monkeypatch) -> None:
         raise urllib.error.HTTPError(request.full_url, 404, "Not Found", {}, None)
 
     monkeypatch.setattr(reader.urllib.request, "urlopen", fake_urlopen)
-    result = reader.read_repo_document(
-        "aspose-slides-foss/Aspose.Slides-FOSS-for-Python", "AGENTS.md"
-    )
+    result = reader.read_repo_document("aspose-slides-foss/Aspose.Slides-FOSS-for-Python", "AGENTS.md")
     assert result == DocumentNotPresent(path="AGENTS.md")
     assert not isinstance(result, DocumentPresent)
 
@@ -211,9 +211,77 @@ def test_slides_python_contributing_md_is_really_present(monkeypatch) -> None:
         return _FakeResponse(payload)
 
     monkeypatch.setattr(reader.urllib.request, "urlopen", fake_urlopen)
-    result = reader.read_repo_document(
-        "aspose-slides-foss/Aspose.Slides-FOSS-for-Python", "CONTRIBUTING.md"
-    )
+    result = reader.read_repo_document("aspose-slides-foss/Aspose.Slides-FOSS-for-Python", "CONTRIBUTING.md")
     assert isinstance(result, DocumentPresent)
     assert result.path == "CONTRIBUTING.md"
     assert result.content.strip() != ""
+
+
+# --- A third, differently-shaped repository: cells/rust (a Rust crate, exactly one real
+# release so far) proving the same three readers generalize again, and - unlike pdf/net and
+# slides/python, where AGENTS.md was the absent one - exercising the present/absent roles
+# swapped: here AGENTS.md IS present and CONTRIBUTING.md is the real 404. Real GitHub API
+# reads against aspose-cells-foss/Aspose.Cells-FOSS-for-Rust, pinned 2026-09-24.
+
+
+def test_the_real_cells_rust_release_is_genuinely_detailed() -> None:
+    """The only release so far, V26.7.0: a hand-written note naming real, specific features
+    (pure-Rust .xlsx read/write, a Workbook/Worksheet/Cells object model, OOXML packaging
+    implemented from scratch) - not GitHub's auto-generated boilerplate and not a filled-in
+    template - so it must classify 'detailed'.
+    """
+    releases = {r["tag_name"]: r["body"] for r in _cells_rust_releases_fixture()["releases"]}
+    assert releases.keys() == {"V26.7.0"}
+    assert classify_richness(releases["V26.7.0"]) == "detailed"
+
+
+def test_the_real_cargo_toml_yields_its_real_packaging_fields_including_honest_absence() -> None:
+    """First real-world proof of read_rust_manifest (TC-022 only unit-tested it against
+    synthetic text): the actual Cargo.toml content, fetched via the Contents API and
+    base64-decoded exactly as repo_native_reader.read_repo_document already does. The real
+    manifest states no ``rust-version`` field at all, so rust_version must come back
+    honestly empty - never fabricated - proving the honest-absence path alongside the
+    happy path in the same assertion.
+    """
+    payload = json.loads((FIXTURES / "cells_rust_cargo_contents.json").read_text(encoding="utf-8"))
+    text = b64decode(payload["content"]).decode("utf-8")
+    manifest = read_rust_manifest(text)
+    assert manifest.name == "aspose-cells-foss-rust"
+    assert manifest.version == "26.7.0"
+    assert manifest.license == "MIT"
+    assert manifest.rust_version == ""
+
+
+def test_cells_rust_agents_md_is_really_present(monkeypatch) -> None:
+    """The swapped role for this repository: AGENTS.md really is there (real, non-empty
+    content, ~7.8KB), replayed from the real 200 response - the opposite of pdf/net and
+    slides/python, where AGENTS.md was absent.
+    """
+    import foss_mcp.extraction.repo_native_reader as reader
+
+    payload = (FIXTURES / "cells_rust_agents_present.json").read_bytes()
+
+    def fake_urlopen(request, timeout=30):
+        return _FakeResponse(payload)
+
+    monkeypatch.setattr(reader.urllib.request, "urlopen", fake_urlopen)
+    result = reader.read_repo_document("aspose-cells-foss/Aspose.Cells-FOSS-for-Rust", "AGENTS.md")
+    assert isinstance(result, DocumentPresent)
+    assert result.path == "AGENTS.md"
+    assert result.content.strip() != ""
+    assert result.size > 7000
+
+
+def test_cells_rust_contributing_md_is_really_absent(monkeypatch) -> None:
+    """The swapped contrast case: CONTRIBUTING.md really is a 404 here, replayed offline -
+    the opposite of pdf/net and slides/python, where CONTRIBUTING.md was present.
+    """
+    import foss_mcp.extraction.repo_native_reader as reader
+
+    def fake_urlopen(request, timeout=30):
+        raise urllib.error.HTTPError(request.full_url, 404, "Not Found", {}, None)
+
+    monkeypatch.setattr(reader.urllib.request, "urlopen", fake_urlopen)
+    result = reader.read_repo_document("aspose-cells-foss/Aspose.Cells-FOSS-for-Rust", "CONTRIBUTING.md")
+    assert result == DocumentNotPresent(path="CONTRIBUTING.md")
+    assert not isinstance(result, DocumentPresent)
