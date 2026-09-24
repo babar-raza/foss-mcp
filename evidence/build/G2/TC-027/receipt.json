@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "card": "TC-027",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-24T12:14:06Z",
+  "base_rev": "27aae68c712cfd2135d0b21dbfc0fc8ba46a9324",
+  "head_rev": "a0fe753e15f578a924bd533753787fc8c6ed3bf2",
+  "card_sha256": "3377f2c492b87918f140f66e6507d164ab54cc9381ebabaa2d9820dfa839c7cb",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/extraction/test_repo_native.py",
+      "tests/fixtures/repo_native/slides_python_agents_404.json",
+      "tests/fixtures/repo_native/slides_python_contributing_present.json",
+      "tests/fixtures/repo_native/slides_python_pyproject_contents.json",
+      "tests/fixtures/repo_native/slides_python_readme_present.json",
+      "tests/fixtures/repo_native/slides_python_releases.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_repo_native.py -q",
+          "exit_code": 0,
+          "duration_s": 0.804,
+          "stdout_sha256": "eb27a136c18598aedc0e4f11e6893b614a04335a9faf3ec03433325d777e2663",
+          "tests": 12,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_repo_native.py -q",
+          "exit_code": 0,
+          "duration_s": 0.732,
+          "stdout_sha256": "eb27a136c18598aedc0e4f11e6893b614a04335a9faf3ec03433325d777e2663",
+          "tests": 12,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/extraction/github_release_reader.py');s=p.read_text(encoding='utf-8');s=s+chr(10)+'classify_richness = lambda body: '+chr(39)+'detailed'+chr(39)+chr(10);p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "92aec7defceeb572fd5abb6f569ba986c1bfb938f94be18550794f79b9cf2866",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/github_release_reader.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
