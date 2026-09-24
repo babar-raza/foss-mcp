@@ -1,0 +1,76 @@
+id: TC-036
+gate: G2
+lane: verification
+purpose: Prove a real MCP client completes a full session against the running cells/rust
+  container on its own published port, mirroring TC-020/TC-030's proof for the other
+  two pilots, including a genuine deployment-identity assertion from the first attempt
+  - a real gap was found and fixed the hard way for slides/python (TC-030); this card
+  applies that fix upfront.
+depends_on:
+- TC-030
+- TC-023
+write_paths:
+- tests/e2e/**
+satisfies:
+- REQ-G2-016
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.3 Gate G1 — First vertical slice (`pdf/net`, end-to-end)'
+  sha256: a344c6f36b3a9bf9f2d4ea462369e9c6636e642c40d78bea2f6798575b16e1de
+inputs:
+- Read tests/e2e/test_slides_python_container_session.py in full first - it is the
+  CORRECTED, complete pattern to mirror (not the original pdf/net file, which needed
+  a rework to reach this same shape). Real MCP-over-HTTP session (initialize, tools/list,
+  one call per tool, Origin and protocol-version rejections, protocol-vs-tool-domain
+  error distinguishability), against a REAL docker-compose-managed container, teardown
+  even on failure.
+- docker-compose.yml publishes cells/rust as service `serving-cells-rust` on host
+  port 8086 (container port stays 8080 internally, never changes). Use this exact
+  service name and port.
+- 'CRITICAL, LEARNED THE HARD WAY ON TC-030: with an empty manifest store (no volumes
+  mounted), every deployment answers tool calls IDENTICALLY (isError: false, honest
+  empty/NotAvailable results) regardless of family/platform - so a test asserting
+  only generic protocol behavior can PASS even when pointed at the WRONG container,
+  if another pilot''s container happens to be running at the same time (which it will
+  be, since your check command likely runs alongside the other E2E files). You MUST
+  include the report_index_freshness scope-identity assertion from the start: call
+  that tool against your real running container, and assert its response''s scope
+  identifies family=''cells'', platform=''rust'' specifically (see test_slides_python_container_session.py''s
+  own test_report_index_freshness_identifies_the_real_slides_python_deployment for
+  the exact real JSON shape already confirmed once - structuredContent.result.scope.family/platform).
+  Do not skip this or your negative control will be vacuous.'
+- Do not touch test_container_session.py or test_slides_python_container_session.py
+  - this card only adds a new file.
+actions:
+- 'Write tests/e2e/test_cells_rust_container_session.py, mirroring test_slides_python_container_session.py''s
+  structure exactly but with BASE_URL ''http://127.0.0.1:8086'' and bringing up only
+  the `serving-cells-rust` service by name. Cover: tools/list returns all nine tools;
+  each tool is callable and returns isError: false; invalid Origin rejected (400);
+  missing/invalid protocol-version rejected (400); protocol vs tool-domain errors
+  stay distinguishable; AND the report_index_freshness scope-identity assertion (family=''cells'',
+  platform=''rust'') from the start.'
+checks:
+- command: '{python} -m pytest tests/e2e/test_container_session.py tests/e2e/test_slides_python_container_session.py
+    tests/e2e/test_cells_rust_container_session.py -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-016
+min_tests: 14
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/e2e/test_cells_rust_container_session.py');s=p.read_text(encoding='utf-8');s=s.replace('8086','8080');p.write_text(s,encoding='utf-8')"
+  rationale: Pointing the new test file at a different pilot's port (8080) instead
+    of cells/rust's own (8086) must break it via the scope-identity assertion - proves
+    the test genuinely verifies it is talking to the cells/rust deployment specifically,
+    not any container. Self-checked end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-036/receipt.json
+closeout:
+- A real MCP client completes a full session against the real running cells/rust container
+  on port 8086.
+- The deployment-identity assertion genuinely distinguishes this container from the
+  other two pilots.
+- Pointing the new test at the wrong port fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
