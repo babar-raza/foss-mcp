@@ -33,6 +33,7 @@ from scripts.pilot_manual_export import (
 FIXTURE_BUNDLE = Path(__file__).parent / "fixtures" / "furnished" / "pdf_net"
 SLIDES_PYTHON_BUNDLE = Path(__file__).parent / "fixtures" / "furnished" / "slides_python"
 CELLS_RUST_BUNDLE = Path(__file__).parent / "fixtures" / "furnished" / "cells_rust"
+PDF_GO_BUNDLE = Path(__file__).parent / "fixtures" / "furnished" / "pdf_go"
 _COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
@@ -298,3 +299,17 @@ def test_the_committed_cells_rust_bundle_is_real_and_verifies_clean() -> None:
         assert _COMMIT_SHA.match(entry["source_commit"])
     assert _COMMIT_SHA.match(manifest["source_commit"])
     assert verify_bundle(CELLS_RUST_BUNDLE) == []
+
+
+# --- TC-040: the real, committed pdf/go bundle exported from Aspose/aspose.org ---
+
+
+def test_the_committed_pdf_go_bundle_is_real_and_verifies_clean() -> None:
+    manifest = json.loads((PDF_GO_BUNDLE / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["source_repository"] == "Aspose/aspose.org"
+    assert manifest["source_subtree"] == "content/products.aspose.org/en/pdf/go"
+    assert manifest["files"], "the pdf/go bundle exported nothing"
+    for entry in manifest["files"]:
+        assert _COMMIT_SHA.match(entry["source_commit"])
+    assert _COMMIT_SHA.match(manifest["source_commit"])
+    assert verify_bundle(PDF_GO_BUNDLE) == []
