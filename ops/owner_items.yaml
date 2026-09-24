@@ -38,3 +38,32 @@ owner_items:
   recorded_at: '2026-09-24T00:00:00Z'
   note: 'Non-blocking for the mission: nothing in G0-G4 depends on GitLab being in
     sync. This is purely an operator-requested sync mechanism between two remotes.'
+- id: OWNER-03
+  status: OPEN
+  summary: 'GitHub WRITE credentials broke mid-session on 2026-09-24. An earlier
+    push in this same session (commit ee6c834) succeeded normally. A later push
+    (commit 92ef3f6) hung for 14+ minutes with no CI process anywhere in its tree
+    - confirmed via process inspection it was stuck purely in `git-remote-https`
+    network/auth negotiation, not in the pre-push hook. Reproduced cleanly with
+    `timeout 25 git push --dry-run origin main` (exit 124, no output) - a dry-run
+    still requires GitHub to authenticate the push, unlike `git ls-remote` on this
+    PUBLIC repo, which succeeds instantly via anonymous read and proves nothing
+    about write credentials. `gh auth status` independently reports GH_TOKEN is
+    invalid (401), and two credential helpers are configured for github.com
+    (`manager` i.e. Git Credential Manager, and `gh auth git-credential`) - the
+    working theory is the second one fails on the invalid token and falls through
+    to GCM attempting an interactive/browser OAuth flow that can never complete in
+    this non-interactive session, hanging indefinitely rather than failing fast.'
+  resume_predicate: 'An owner with a valid GitHub credential either refreshes
+    GH_TOKEN/GITHUB_TOKEN for this environment, or fixes the credential.helper
+    chain for github.com so it fails fast instead of hanging. Test with `timeout 25
+    git push --dry-run origin main` - resolved when that returns 0 quickly rather
+    than exit 124.'
+  consumed_by:
+  - NONE
+  recorded_at: '2026-09-24T16:10:00Z'
+  note: 'Does not block local work: commits land and verify normally, only the
+    push to origin is affected. Local commits accumulate and will be pushed once
+    this is resolved. Every future git push/fetch against an authenticated remote
+    in this session must be wrapped in `timeout N` - an unbounded git network call
+    can hang for the rest of the session otherwise, exactly as this one did.'
