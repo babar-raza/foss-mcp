@@ -12,11 +12,12 @@ import urllib.error
 from base64 import b64decode
 from pathlib import Path
 
-from foss_mcp.extraction.github_release_reader import classify_richness
+from foss_mcp.extraction.github_release_reader import classify_richness, fetch_releases
 from foss_mcp.extraction.manifest_reader import (
     read_dotnet_manifest,
     read_go_manifest,
     read_java_manifest,
+    read_js_manifest,
     read_python_manifest,
     read_rust_manifest,
 )
@@ -50,6 +51,10 @@ def _pdf_go_releases_fixture() -> dict:
 
 def _pdf_java_releases_fixture() -> dict:
     return json.loads((FIXTURES / "pdf_java_releases.json").read_text(encoding="utf-8"))
+
+
+def _pdf_typescript_releases_fixture() -> dict:
+    return json.loads((FIXTURES / "pdf_typescript_releases.json").read_text(encoding="utf-8"))
 
 
 def test_all_three_richness_values_are_exercised() -> None:
@@ -437,5 +442,91 @@ def test_pdf_java_contributing_md_is_really_absent(monkeypatch) -> None:
 
     monkeypatch.setattr(reader.urllib.request, "urlopen", fake_urlopen)
     result = reader.read_repo_document("aspose-pdf-foss/Aspose.PDF-FOSS-for-Java", "CONTRIBUTING.md")
+    assert result == DocumentNotPresent(path="CONTRIBUTING.md")
+    assert not isinstance(result, DocumentPresent)
+
+
+# --- A sixth, differently-shaped repository: pdf/typescript (an npm package) proving the same
+# three readers generalize a fifth time - and, uniquely among all six pilots, exercising the
+# first genuinely empty release history (the releases API returns a real `[]`, not a listing
+# that merely happens to be short). Its present/absent pattern matches cells/rust's and
+# pdf/java's swap: AGENTS.md is really present and CONTRIBUTING.md is the real 404. Real
+# GitHub API reads against aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript, pinned 2026-09-24.
+
+
+def test_fetch_releases_against_a_genuinely_empty_release_history_is_honestly_empty(monkeypatch) -> None:
+    """The first pilot with zero releases at all. The pinned fixture is the real, genuine
+    empty JSON array GitHub returned - not a placeholder standing in for "no releases yet".
+    fetch_releases must return an empty list honestly: no crash, no fabricated release, and
+    the empty first page must stop pagination immediately rather than looping.
+    """
+    import foss_mcp.extraction.github_release_reader as reader
+
+    assert _pdf_typescript_releases_fixture()["releases"] == []
+
+    calls = []
+
+    def fake_get_json(url, *, etag=None):
+        calls.append(url)
+        return 200, [], None
+
+    monkeypatch.setattr(reader, "_get_json", fake_get_json)
+    releases = fetch_releases("aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript")
+    assert releases == []
+    assert calls == [
+        "https://api.github.com/repos/aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript/releases?per_page=100&page=1"
+    ]
+
+
+def test_the_real_package_json_yields_its_real_npm_fields_including_honest_zero_dependencies() -> None:
+    """First real-world proof of read_js_manifest (TC-022/TC-027 only unit-tested it against
+    synthetic text): the actual package.json content, fetched via the Contents API and
+    base64-decoded exactly as repo_native_reader.read_repo_document already does. The
+    description claims 'zero-dependency' - checked directly against the full real text, which
+    has no 'dependencies' key at all (only devDependencies), so dependencies must come back as
+    a genuinely empty tuple, matching that claim honestly rather than being assumed.
+    """
+    payload = json.loads((FIXTURES / "pdf_typescript_package_contents.json").read_text(encoding="utf-8"))
+    text = b64decode(payload["content"]).decode("utf-8")
+    assert '"dependencies"' not in text
+    assert '"devDependencies"' in text
+    manifest = read_js_manifest(text)
+    assert manifest.name == "@asposefoss/pdf"
+    assert manifest.version == "0.1.0"
+    assert manifest.license == "MIT"
+    assert manifest.engines_node == ">=22"
+    assert manifest.dependencies == ()
+
+
+def test_pdf_typescript_agents_md_is_really_present(monkeypatch) -> None:
+    """The swapped role for this repository, same as cells/rust and pdf/java: AGENTS.md
+    really is there (real, non-empty content, ~4.5KB), replayed from the real 200 response.
+    """
+    import foss_mcp.extraction.repo_native_reader as reader
+
+    payload = (FIXTURES / "pdf_typescript_agents_present.json").read_bytes()
+
+    def fake_urlopen(request, timeout=30):
+        return _FakeResponse(payload)
+
+    monkeypatch.setattr(reader.urllib.request, "urlopen", fake_urlopen)
+    result = reader.read_repo_document("aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript", "AGENTS.md")
+    assert isinstance(result, DocumentPresent)
+    assert result.path == "AGENTS.md"
+    assert result.content.strip() != ""
+    assert result.size > 4000
+
+
+def test_pdf_typescript_contributing_md_is_really_absent(monkeypatch) -> None:
+    """The swapped contrast case, same as cells/rust and pdf/java: CONTRIBUTING.md really is
+    a 404 here, replayed offline from the real response.
+    """
+    import foss_mcp.extraction.repo_native_reader as reader
+
+    def fake_urlopen(request, timeout=30):
+        raise urllib.error.HTTPError(request.full_url, 404, "Not Found", {}, None)
+
+    monkeypatch.setattr(reader.urllib.request, "urlopen", fake_urlopen)
+    result = reader.read_repo_document("aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript", "CONTRIBUTING.md")
     assert result == DocumentNotPresent(path="CONTRIBUTING.md")
     assert not isinstance(result, DocumentPresent)
