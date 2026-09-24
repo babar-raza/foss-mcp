@@ -1,0 +1,77 @@
+id: TC-030
+gate: G2
+lane: verification
+purpose: Prove a real MCP client completes a full session against the running slides/python
+  container on its own published port, mirroring TC-020's proof for pdf/net, and fix
+  a small regression TC-023 introduced in TC-020's own E2E test along the way.
+depends_on:
+- TC-020
+- TC-023
+write_paths:
+- tests/e2e/**
+satisfies:
+- REQ-G2-010
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.3 Gate G1 — First vertical slice (`pdf/net`, end-to-end)'
+  sha256: a344c6f36b3a9bf9f2d4ea462369e9c6636e642c40d78bea2f6798575b16e1de
+inputs:
+- 'Read tests/e2e/test_container_session.py in full first - it is the exact pattern
+  to mirror. Real MCP-over-HTTP session (initialize, tools/list, one call per tool,
+  Origin and protocol-version rejections, protocol-vs-tool-domain error distinguishability),
+  against a REAL docker-compose-managed container, teardown even on failure. docker-compose.yml''s
+  serving containers start with an EMPTY manifest store (no volumes are mounted, /data/manifests
+  is container-local and ephemeral) - an honest Miss/NotAvailable/empty result from
+  a tool call against a freshly-built, unpopulated deployment is a SUCCESSFUL result
+  (isError: false), not a test failure. Do not try to pre-populate real data into
+  the container; that is not what this card proves.'
+- docker-compose.yml (confirmed by reading it) publishes slides/python as service
+  `serving-slides-python` on host port 8085 (container port stays 8080 internally,
+  never changes). Use this exact service name and port.
+- 'CONFIRMED REGRESSION: TC-023 added 6 more services to docker-compose.yml, so test_container_session.py''s
+  `_compose(''up'', ''-d'', ''--build'')` call (no service name argument) now brings
+  up ALL 7 services on every pdf/net E2E run instead of just `serving` - correct in
+  outcome (each service is isolated on its own port) but wasteful (6 unused container
+  builds/starts every run) and was never intended. Fix this in the SAME card: add
+  the explicit service name `serving` to that existing `_compose(...)` call (and its
+  matching `down`/`-v` teardown, scoped to just that service if the compose CLI''s
+  syntax supports it cleanly - check `docker compose down --help`; if scoping `down`
+  to one service is awkward, leaving `down -v --remove-orphans` unscoped is fine,
+  since teardown removing everything is harmless, only `up` needlessly builds/starts
+  unrelated containers).'
+- Do not touch anything else in test_container_session.py - this is a one-line-shaped
+  fix, not a rewrite.
+actions:
+- 'Fix the regression: add the explicit `serving` service name to test_container_session.py''s
+  `_compose(''up'', ''-d'', ''--build'')` call.'
+- 'Write tests/e2e/test_slides_python_container_session.py, mirroring test_container_session.py''s
+  structure exactly but targeting BASE_URL ''http://127.0.0.1:8085'' and bringing
+  up only the `serving-slides-python` service by name. Cover: tools/list returns all
+  nine tools; each tool is callable and returns isError: false (an honest empty/NotAvailable
+  result counts as success); an invalid Origin is rejected (400); a missing or invalid
+  MCP-Protocol-Version is rejected (400); protocol-level errors and tool-domain errors
+  stay distinguishable.'
+checks:
+- command: '{python} -m pytest tests/e2e/test_container_session.py tests/e2e/test_slides_python_container_session.py
+    -q'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-010
+min_tests: 10
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/e2e/test_slides_python_container_session.py');s=p.read_text(encoding='utf-8');s=s.replace('8085','8080');p.write_text(s,encoding='utf-8')"
+  rationale: Pointing the new test file at pdf/net's port (8080) instead of slides/python's
+    own (8085) must break it - if both containers happen to be up together the assertions
+    could coincidentally still pass against the WRONG container, proving nothing about
+    slides/python specifically. Self-checked end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-030/receipt.json
+closeout:
+- A real MCP client completes a full session against the real running slides/python
+  container on port 8085.
+- pdf/net's own E2E run no longer needlessly builds/starts the other 6 pilots.
+- Pointing the new test at the wrong port fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
