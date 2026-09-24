@@ -1,16 +1,24 @@
-"""The gate's whole point (TC-020): a REAL MCP client completing a full session against the
-ACTUALLY RUNNING pdf/net serving container - docker-compose up, a real published port, a real
-socket. ``tests/mcp/test_server_wiring.py`` already proves the same contract in-process
-(``TestClient``, no socket); this file is the one place that in-process proof is checked
-against reality, and the one place a broken published port is guaranteed to be noticed.
+"""TC-030: the same real-client, real-container proof TC-020 established for pdf/net
+(``tests/e2e/test_container_session.py``), mirrored against the slides/python pilot's own
+published port. ``tests/mcp/test_server_wiring.py`` already proves the same contract
+in-process (``TestClient``, no socket); this file is the one place that in-process proof is
+checked against reality for slides/python specifically, and the one place a broken published
+port for THIS pilot is guaranteed to be noticed.
 
 network: true on this card, for exactly this reason - everything here talks to a container
 this file itself brings up and tears down.
 
-BASE_URL is hardcoded to the port docker-compose.yml currently publishes (8080), deliberately
-never read back out of that file: a harness that re-derives the port from the (possibly
-mutated) compose file would silently follow a broken publish and never notice a thing - the
-single most likely way an E2E suite like this one degrades into theatre.
+BASE_URL is hardcoded to the port docker-compose.yml currently publishes for
+``serving-slides-python`` (8085), deliberately never read back out of that file: a harness
+that re-derives the port from the (possibly mutated) compose file would silently follow a
+broken publish and never notice a thing - the single most likely way an E2E suite like this
+one degrades into theatre.
+
+docker-compose.yml's serving containers start with an EMPTY manifest store (no volumes are
+mounted, /data/manifests is container-local and ephemeral) - an honest Miss/NotAvailable/empty
+result from a tool call against this freshly-built, unpopulated deployment is a SUCCESSFUL
+result (isError: false), not a test failure. This file does not try to pre-populate real data;
+that is not what this card proves.
 """
 
 from __future__ import annotations
@@ -27,7 +35,8 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_FILE = REPO_ROOT / "docker-compose.yml"
 PROJECT_NAME = "foss-mcp-e2e"
-BASE_URL = "http://127.0.0.1:8080"
+SERVICE_NAME = "serving-slides-python"
+BASE_URL = "http://127.0.0.1:8085"
 MCP_PATH = "/mcp"
 STARTUP_TIMEOUT_SECONDS = 180
 POLL_INTERVAL_SECONDS = 2
@@ -91,7 +100,7 @@ def _initialize_body(request_id: int = 0) -> dict:
         "params": {
             "protocolVersion": PROTOCOL_VERSION,
             "capabilities": {},
-            "clientInfo": {"name": "tc-020-e2e-client", "version": "0.0.1"},
+            "clientInfo": {"name": "tc-030-e2e-client", "version": "0.0.1"},
         },
     }
 
@@ -125,7 +134,7 @@ def _wait_until_ready() -> None:
 
 @pytest.fixture(scope="module")
 def running_container() -> Iterator[None]:
-    up = _compose("up", "-d", "--build", "serving")
+    up = _compose("up", "-d", "--build", SERVICE_NAME)
     try:
         assert up.returncode == 0, (up.stdout + up.stderr)[-4000:]
         _wait_until_ready()
