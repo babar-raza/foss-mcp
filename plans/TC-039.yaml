@@ -1,0 +1,79 @@
+id: TC-039
+gate: G2
+lane: extraction
+purpose: Pin pdf/go's real GitHub-presence data (releases, packaging manifest, governance
+  docs) as fixtures and prove the existing, already-generic readers (github_release_reader,
+  manifest_reader.read_go_manifest, repo_native_reader) work correctly against a fourth,
+  differently-shaped repository - no reader code changes needed.
+depends_on:
+- TC-012
+- TC-022
+- TC-037
+- TC-027
+- TC-033
+write_paths:
+- tests/extraction/test_repo_native.py
+- tests/fixtures/repo_native/**
+satisfies:
+- REQ-G2-019
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.6 New ingestion source: the FOSS repo''s own GitHub presence (distinct
+    from `aspose.org`)'
+  sha256: 3ffc905bc422c49676e488f41ef71e7ebdd8ac18a2eeb18b1ed83a27578c7fc3
+inputs:
+- 'VERIFIED by a fresh anonymous GitHub API read on 2026-09-24 against the real repository
+  (config/products/pdf/go.yaml pins it): aspose-pdf-foss/Aspose-PDF-FOSS-for-Go has
+  10 releases (the richest release history of any pilot so far), newest tagged v0.9.0
+  with a real, specific, non-templated body describing genuine features (OpenType
+  text shaping, word-by-word PDF comparison) - must classify as classify_richness''s
+  ''detailed'' value.'
+- 'VERIFIED go.mod content (fetch via the Contents API, decode base64): module ''github.com/aspose-pdf-foss/aspose-pdf-foss-for-go'',
+  go ''1.24''. Use manifest_reader.read_go_manifest (added in TC-022) against this
+  real text and assert it extracts name and go_version correctly.'
+- 'VERIFIED presence via the Contents API: README.md present, CONTRIBUTING.md present
+  (~3.2KB), AGENTS.md returns a real 404 (DocumentNotPresent) - the SAME presence
+  pattern as slides/python (AGENTS.md absent, CONTRIBUTING.md present), the opposite
+  of cells/rust''s pattern. Mirror TC-012/TC-027''s pinning approach.'
+- Fetch these five real API responses yourself (releases list, go.mod contents, README.md
+  contents, AGENTS.md contents [expect 404], CONTRIBUTING.md contents) via plain anonymous
+  curl/urllib against api.github.com - no auth needed. Save each raw JSON response
+  as a fixture file under tests/fixtures/repo_native/, named with a pdf_go_ prefix
+  mirroring the existing naming convention in that directory.
+- Do not modify github_release_reader.py, manifest_reader.py, or repo_native_reader.py
+  - all three are already generic and confirmed correct; this card is fixtures + tests
+  only.
+actions:
+- Fetch the five real GitHub API responses named above and save them as new fixture
+  files under tests/fixtures/repo_native/, following the naming convention of the
+  existing fixtures in that same directory.
+- 'Extend tests/extraction/test_repo_native.py (add tests, do not remove or modify
+  any existing test for another pilot) with: the real newest pdf/go release classifies
+  as ''detailed''; manifest_reader.read_go_manifest against the real go.mod text extracts
+  name=''github.com/aspose-pdf-foss/aspose-pdf-foss-for-go'', go_version=''1.24'';
+  the pinned AGENTS.md fixture yields DocumentNotPresent; the pinned CONTRIBUTING.md
+  fixture yields DocumentPresent with real, non-empty content.'
+checks:
+- command: '{python} -m pytest tests/extraction/test_repo_native.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-019
+min_tests: 19
+network: false
+negative_control:
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/extraction/github_release_reader.py'');s=p.read_text(encoding=''utf-8'');s=s+chr(10)+''classify_richness
+    = lambda body: ''+chr(39)+''detailed''+chr(39)+chr(10);p.write_text(s,encoding=''utf-8'')"'
+  rationale: Forcing classify_richness to always return 'detailed' must break the
+    suite if any test asserts a non-detailed value anywhere - proves richness classification
+    is genuinely exercised. Same falsifier shape as every prior GitHub-presence card's,
+    self-checked end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-039/receipt.json
+closeout:
+- Real pdf/go GitHub-presence fixtures are pinned and committed.
+- The existing generic readers are proven correct against a fourth, differently-shaped
+  repository.
+- Forcing richness classification to always be 'detailed' fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
