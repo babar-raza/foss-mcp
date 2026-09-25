@@ -1,0 +1,69 @@
+id: TC-055
+gate: G2
+lane: verification
+purpose: Prove a real MCP client completes a full session against the running pdf/typescript
+  container on its own published port, mirroring the other onboarded pilots' proofs,
+  including the deployment-identity assertion from the start.
+depends_on:
+- TC-048
+- TC-023
+write_paths:
+- tests/e2e/**
+satisfies:
+- REQ-G2-035
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.3 Gate G1 — First vertical slice (`pdf/net`, end-to-end)'
+  sha256: a344c6f36b3a9bf9f2d4ea462369e9c6636e642c40d78bea2f6798575b16e1de
+inputs:
+- Read tests/e2e/test_pdf_java_container_session.py in full first - it is the complete,
+  correct pattern to mirror (includes the deployment-identity assertion from the start).
+  Real MCP-over-HTTP session (initialize, tools/list, one call per tool, Origin and
+  protocol-version rejections, protocol-vs-tool-domain error distinguishability),
+  against a REAL docker-compose-managed container, teardown even on failure.
+- 'CONFIRMED by directly reading the current docker-compose.yml before this card was
+  authored (not assumed - a prior card, TC-042, stated the wrong port for pdf/go and
+  had to be corrected after dispatch): `serving-pdf-typescript` maps host port 8081
+  to container port 8080. Use this exact service name and port.'
+- 'CRITICAL, same as every prior E2E card: with an empty manifest store, every deployment
+  answers tool calls identically - you MUST include the report_index_freshness scope-identity
+  assertion from the start. Call that tool against your real running container and
+  assert its response identifies family=''pdf'', platform=''typescript'' specifically.
+  Note: pdf/typescript shares its FAMILY with pdf/net, pdf/go, and pdf/java, so platform
+  is what must distinguish it from all three.'
+- Do not touch any other tests/e2e/*.py file - this card only adds a new file.
+actions:
+- 'Write tests/e2e/test_pdf_typescript_container_session.py, mirroring test_pdf_java_container_session.py''s
+  structure exactly but with BASE_URL ''http://127.0.0.1:8081'' and bringing up only
+  the `serving-pdf-typescript` service by name. Cover: tools/list returns all nine
+  tools; each tool is callable and returns isError: false; invalid Origin rejected
+  (400); missing/invalid protocol-version rejected (400); protocol vs tool-domain
+  errors stay distinguishable; AND the report_index_freshness scope-identity assertion
+  (family=''pdf'', platform=''typescript'') from the start.'
+checks:
+- command: '{python} -m pytest tests/e2e/test_container_session.py tests/e2e/test_slides_python_container_session.py
+    tests/e2e/test_cells_rust_container_session.py tests/e2e/test_pdf_go_container_session.py
+    tests/e2e/test_pdf_java_container_session.py tests/e2e/test_pdf_typescript_container_session.py
+    -q'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G2-035
+min_tests: 14
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/e2e/test_pdf_typescript_container_session.py');s=p.read_text(encoding='utf-8');s=s.replace('8081','8080');p.write_text(s,encoding='utf-8')"
+  rationale: Pointing the new test file at a different pilot's port (8080) instead
+    of pdf/typescript's own (8081) must break it via the scope-identity assertion
+    - proves the test genuinely verifies it is talking to the pdf/typescript deployment
+    specifically. Self-checked end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-055/receipt.json
+closeout:
+- A real MCP client completes a full session against the real running pdf/typescript
+  container on port 8081.
+- The deployment-identity assertion genuinely distinguishes this container from every
+  other pilot, including its three pdf family siblings.
+- Pointing the new test at the wrong port fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
