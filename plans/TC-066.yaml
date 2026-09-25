@@ -1,0 +1,87 @@
+id: TC-066
+gate: G2
+lane: storage-retrieval
+purpose: 'First piece of the real verified-example pipeline (REQ-G2-048, mission plan
+  section 22''s ''Executable examples'' obligation, never operationalized until today):
+  extract candidate example code blocks from the pinned furnished-content page, as
+  real, structured, testable data - no verification yet, that is the next card. Pure
+  extraction only.'
+depends_on:
+- TC-028
+write_paths:
+- src/foss_mcp/indexing/example_candidates.py
+- tests/indexing/test_example_candidates.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'CONFIRMED by reading the real committed fixture directly: tests/fixtures/furnished/pdf_net/pages/_index.md
+  (TC-028) is a Hugo page-bundle file - the ENTIRE file is one YAML document delimited
+  by a ''---'' line at the very start and another ''---'' line at the very end (confirmed:
+  lines 1 and 223 of 224). Parse it with `text.split(''---'', 2)[1]` then `yaml.safe_load(...)`
+  - do not hand-parse YAML.'
+- 'The parsed dict''s `single.block` key is a list of dicts, each with `title` (str)
+  and `content` (a markdown string containing a short prose description followed by
+  a fenced code block, e.g. a ```csharp ... ``` fence). CONFIRMED real content today:
+  3 real blocks - ''Open a PDF, Add a Link Annotation, and Save'', ''Add a Watermark
+  Annotation'', ''Extract Text Fragments from a Page'' - each with a complete, real
+  C# example using genuine Aspose.Pdf class/method names (verified separately today
+  by actually compiling one against the real library - it needed one added `using`
+  line, confirming these are real, close-to-correct candidates, not fabricated, but
+  still require real verification before being trusted - that is TC-067, not this
+  card).'
+- This card does NOT verify anything - it only extracts candidates as structured data.
+  Do not attempt to compile, execute, or validate the code in any way here.
+- 'Design: a frozen dataclass `CandidateExample(title: str, description: str, language:
+  str, code: str)` and a function `extract_candidate_examples(page: Mapping[str, object])
+  -> list[CandidateExample]` taking the ALREADY-PARSED page dict (never a file path
+  - callers load and yaml.safe_load the page themselves, matching chunk_builder.py''s
+  own precedent of taking parsed structures for testability). For each entry in `page.get(''single'',
+  {}).get(''block'', [])`: `description` is the markdown text before the first code
+  fence (stripped), `language` is the fence''s language tag (e.g. ''csharp''), `code`
+  is the fenced block''s exact content (dedented, stripped of the fence markers themselves).
+  A block with no code fence at all is skipped, not an error - an honest partial extraction,
+  matching this project''s own never-fabricate discipline.'
+actions:
+- Create src/foss_mcp/indexing/example_candidates.py with CandidateExample and extract_candidate_examples
+  exactly as specified.
+- 'Write tests/indexing/test_example_candidates.py: (1) a synthetic in-test page dict
+  with a real-shaped single.block entry (title + content with a fenced code block)
+  extracts correctly (title, description, language, code all correct); (2) a block
+  with NO code fence is skipped, not an error; (3) MOST IMPORTANT - a real, non-vacuous
+  test against the REAL committed fixture: load tests/fixtures/furnished/pdf_net/pages/_index.md
+  yourself (split on ''---'', yaml.safe_load), call extract_candidate_examples on
+  the real parsed page, and assert you get exactly 3 real candidates back, with the
+  real title ''Add a Watermark Annotation'' among them and real C# code containing
+  the real string ''AddWatermarkAnnotation'' in its body - do not invent or guess
+  this string, read the real fixture yourself first to confirm it verbatim.'
+checks:
+- command: '{python} -m pytest tests/indexing/test_example_candidates.py -q'
+  expect: exit 0
+  timeout_seconds: 60
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 3
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_candidates.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    extract_candidate_examples','def extract_candidate_examples_DISABLED');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming extract_candidate_examples must break every test in the new
+    file (AttributeError/NameError), proving they genuinely exercise this concrete
+    function. Self-checked end-to-end against a fixture implementing the exact prescribed
+    function name before being persisted.
+evidence:
+- evidence/build/G2/TC-066/receipt.json
+closeout:
+- Real candidate example code blocks are extracted from the real pinned furnished-content
+  page as structured data.
+- The extraction is proven against the real committed fixture, not only a synthetic
+  one.
+- No verification/compilation happens in this card - that is explicitly deferred.
+- Renaming the extraction function fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
