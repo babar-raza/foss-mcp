@@ -12,6 +12,7 @@ import inspect
 import json
 from pathlib import Path
 
+from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.publisher import publish_generation
 from foss_mcp.mcp.routing import Scope
@@ -138,6 +139,105 @@ def test_list_members_propagates_the_identical_not_found(tmp_path: Path) -> None
 
     assert result == get_symbol(store, PDF_NET_SCOPE, "TotallyMadeUpClassName")
     assert isinstance(result, NotFound)
+
+
+def test_get_symbol_and_list_members_against_a_real_production_built_chunk(tmp_path: Path) -> None:
+    """TC-065: the exact disconnection the 2026-09-25 audit found - every test above publishes
+    its chunk text through ``_format_signature``/``_publish_pdf_net_symbols``, a private,
+    hand-shaped FQN:/Kind:/Methods:/Properties: fixture built right here in this test file,
+    entirely disconnected from the real production chunk builder
+    (``foss_mcp.indexing.chunk_builder.build_chunks_from_api_surface``). That disconnection is
+    exactly why ``get_symbol``'s own tests passed while the real production path was broken:
+    ``get_symbol('Aspose.Pdf.AFRelationship')`` against a real published generation returned
+    ``NotFound``, because the real builder emitted none of the FQN:/Kind:/... convention this
+    tool's regex-based parser requires.
+
+    This test closes that gap for real: it builds a chunk via the REAL
+    ``build_chunks_from_api_surface``, against a synthetic fixture carrying real
+    bases/methods/params/return_type/properties/enum_members, publishes it through the REAL
+    ``publish_generation`` with the REAL ``DeterministicEmbeddingProvider``, and then calls the
+    REAL ``get_symbol``/``list_members`` against that REAL published generation - asserting the
+    real base types, a real method's full parameter list and return type, a real property's
+    type and writability, and a real enum's member values all come back correctly.
+    """
+    store = _store(tmp_path)
+    fixture = {
+        "source_repository": "example-org/Example-FOSS-for-Widgets",
+        "source_commit": "cafefeedfacefeed000000000000000000000001",
+        "types": [
+            {
+                "name": "Sprocket",
+                "class_import": "Example.Widgets.Sprocket",
+                "kind": "class",
+                "doc": "A rotating widget component.",
+                "bases": ["IEnumerable<Cog>", "IDisposable"],
+                "methods": [
+                    {
+                        "name": "Spin",
+                        "params": [{"name": "speed", "type": "int"}, {"name": "reverse", "type": "bool"}],
+                        "return_type": "bool",
+                    },
+                    {"name": "Stop", "params": [], "return_type": ""},
+                ],
+                "properties": [
+                    {"name": "Radius", "type": "double", "writable": True},
+                    {"name": "Id", "type": "string", "writable": False},
+                ],
+            },
+            {
+                "name": "SprocketKind",
+                "class_import": "",
+                "kind": "enum",
+                "enum_members": [
+                    {"name": "Small", "value": "0"},
+                    {"name": "Large", "value": "1"},
+                ],
+            },
+        ],
+    }
+    chunks = build_chunks_from_api_surface(fixture, title="widgets/example API surface")
+    lease = store.acquire_lease("pdf::net::self_extracted", "worker-1", "pending")
+    publish_generation(
+        store,
+        family="pdf",
+        platform="net",
+        source_kind="self_extracted",
+        expected_active=None,
+        chunks=chunks,
+        embedding_provider=DeterministicEmbeddingProvider(),
+        lease=lease,
+    )
+
+    class_result = get_symbol(store, PDF_NET_SCOPE, "Example.Widgets.Sprocket")
+    assert isinstance(class_result, SymbolSignature)
+    assert class_result.fqn == "Example.Widgets.Sprocket"
+    assert class_result.kind == "class"
+    assert class_result.bases == ("IEnumerable<Cog>", "IDisposable")
+    assert class_result.methods == (
+        "Spin(speed: int, reverse: bool) -> bool",
+        "Stop() -> void",
+    )
+    assert class_result.properties == (
+        "Radius: double (writable)",
+        "Id: string (read-only)",
+    )
+    assert class_result.members == ()
+
+    class_members = list_members(store, PDF_NET_SCOPE, "Example.Widgets.Sprocket")
+    assert isinstance(class_members, tuple)
+    assert class_members == class_result.methods + class_result.properties
+    # bases are not children - list_members must never surface them.
+    for base in class_result.bases:
+        assert base not in class_members
+
+    enum_result = get_symbol(store, PDF_NET_SCOPE, "SprocketKind")
+    assert isinstance(enum_result, SymbolSignature)
+    assert enum_result.kind == "enum"
+    assert enum_result.bases == ()
+    assert enum_result.members == ("Small = 0", "Large = 1")
+
+    enum_members = list_members(store, PDF_NET_SCOPE, "SprocketKind")
+    assert enum_members == ("Small = 0", "Large = 1")
 
 
 def test_find_examples_prefers_an_exact_match(tmp_path: Path) -> None:

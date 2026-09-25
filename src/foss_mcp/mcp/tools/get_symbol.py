@@ -34,8 +34,10 @@ class SymbolSignature:
     chunk_id: str
     fqn: str
     kind: str
+    bases: tuple[str, ...]
     methods: tuple[str, ...]
     properties: tuple[str, ...]
+    members: tuple[str, ...]
     raw_text: str
 
 
@@ -77,8 +79,10 @@ def _parse_signature(
         chunk_id=chunk_id,
         fqn=extract_fqn(text) or "",
         kind=kind_match.group(1).strip() if kind_match else "",
+        bases=_extract_block(text, "Bases:"),
         methods=_extract_block(text, "Methods:"),
         properties=_extract_block(text, "Properties:"),
+        members=_extract_block(text, "Members:"),
         raw_text=text,
     )
 
