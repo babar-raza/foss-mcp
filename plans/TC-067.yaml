@@ -1,0 +1,103 @@
+id: TC-067
+gate: G2
+lane: storage-retrieval
+purpose: 'Second piece of the real verified-example pipeline (REQ-G2-048): a real,
+  isolated .NET compile-verification sandbox for pdf/net''s candidate examples (TC-066),
+  tied to the exact pinned commit already indexed - never trusting a candidate''s
+  plausibility, only its real compiler result.'
+depends_on:
+- TC-066
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_example_verifier.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'CONFIRMED by direct, hands-on proof today (not a design assumption): cloning https://github.com/aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET.git
+  (pinned repository ''aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET'' per config/products/pdf/net.yaml,
+  pinned commit ''b7172877651413cff57a8bfe41fb8a8befb2406b'' per tests/fixtures/pdf_net/api_surface.json''s
+  own source_commit - USE THIS EXACT COMMIT, matching what is actually indexed, never
+  ''latest'') and running `dotnet build src/Aspose.Pdf.Foss.csproj` against it succeeds
+  cleanly with plain, unauthenticated `dotnet build` - no extra NuGet feed configuration
+  needed, .NET 8 SDK. Verified separately today: one of the three real candidate examples
+  from TC-066 (the link-annotation one, using `PdfAction.CreateUri`) FAILS to compile
+  with `error CS0103: The name ''PdfAction'' does not exist in the current context`
+  when given only `using Aspose.Pdf;` - PdfAction is real (confirmed: src/Annotations/PdfAction.cs,
+  a real class with a real static CreateUri(string) method) but lives in the `Aspose.Pdf.Annotations`
+  namespace; adding `using Aspose.Pdf.Annotations;` makes it compile cleanly. This
+  exact pair (fails without the using, succeeds with it) is the concrete input for
+  this card''s regression tests below - do not invent a different example, this one
+  is already proven both ways.'
+- 'Design, two functions in src/foss_mcp/indexing/example_verifier.py: `prepare_reference_library(repository:
+  str, commit: str, csproj_relative_path: str, workdir: Path) -> Path` - shallow-clones
+  *repository* into *workdir*, checks out *commit* exactly (a plain shallow clone
+  only gets the default branch tip, so fetch the specific commit if it is not already
+  present - `git init` + `git remote add` + `git fetch --depth 1 origin <commit>`
+  + `git checkout <commit>` is the standard pattern for fetching one specific historical
+  commit shallowly), runs `dotnet build` on `workdir / csproj_relative_path` once,
+  and returns that csproj''s path (raises on a real build failure - the reference
+  library itself must always build clean, a failure there is a real, reportable defect,
+  never silently swallowed).'
+- '`verify_dotnet_example(candidate: CandidateExample, *, library_csproj: Path, workdir:
+  Path) -> VerificationResult` - creates a throwaway console project in a fresh subdirectory
+  of *workdir* (a minimal .csproj targeting net8.0 with `<ProjectReference Include="{library_csproj}"
+  />`, and a Program.cs containing exactly `candidate.code` as top-level statements
+  - this project''s own real furnished examples are already written as top-level statements,
+  confirmed today), runs `dotnet build` on it, and returns `VerificationResult(candidate=candidate,
+  verified=<bool>, output=<the real compiler stdout+stderr, truncated to a reasonable
+  length>)`. The literal comparison determining `verified` MUST be exactly `verified
+  = result.returncode == 0` (a subprocess.CompletedProcess named `result`) - this
+  exact literal is required for the negative control below to be meaningful and unambiguous.'
+- '`VerificationResult` is a frozen dataclass: candidate: CandidateExample, verified:
+  bool, output: str.'
+- 'This card is network: true and genuinely slow (real git clone, real NuGet restore,
+  real dotnet build, twice - once for the library, once per candidate) - budget real
+  minutes, not seconds.'
+actions:
+- Implement example_verifier.py exactly as specified.
+- 'Write tests/indexing/test_example_verifier.py with REAL network/dotnet calls (no
+  mocking subprocess or git - this card''s entire point is genuine verification):
+  (1) prepare_reference_library against the real pinned repo/commit/csproj_relative_path
+  (''src/Aspose.Pdf.Foss.csproj'') succeeds and returns a real, existing path; (2)
+  verify_dotnet_example against the ALREADY-KNOWN-BROKEN candidate (title ''Open a
+  PDF, Add a Link Annotation, and Save'' from TC-066''s real extraction of the real
+  fixture, which uses PdfAction without importing Aspose.Pdf.Annotations) returns
+  verified=False, with ''PdfAction'' or ''CS0103'' somewhere in its output; (3) verify_dotnet_example
+  against the SAME candidate''s code with an added `using Aspose.Pdf.Annotations;`
+  line (construct this corrected version explicitly in the test, from the real extracted
+  candidate''s code plus the one missing line - do not hand-write a wholly different
+  snippet) returns verified=True.'
+- Run this yourself for real and confirm all three pass before committing - do not
+  trust reasoning about what dotnet build should do, only what it actually did.
+checks:
+- command: '{python} -m pytest tests/indexing/test_example_verifier.py -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 3
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');s=s.replace('verified
+    = result.returncode == 0','verified = True');p.write_text(s,encoding='utf-8')"
+  rationale: Forcing verified=True unconditionally must break the test asserting the
+    known-broken candidate returns verified=False - proving the suite genuinely distinguishes
+    a real compile failure from a real success, not merely that the function runs
+    without crashing. Self-checked end-to-end against a fixture implementing the exact
+    prescribed comparison literal before being persisted.
+evidence:
+- evidence/build/G2/TC-067/receipt.json
+closeout:
+- A real, isolated .NET compile sandbox verifies candidate examples against the exact
+  pinned commit already indexed - never against 'latest' or a guess.
+- The known-broken real candidate is correctly rejected; its corrected version is
+  correctly accepted.
+- Forcing verified=True unconditionally fails the suite.
+recovery: Re-run from a clean tree; if the network clone/build step is flaky, re-running
+  is safe and idempotent - nothing here is stateful across runs.
