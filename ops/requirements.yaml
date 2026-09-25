@@ -560,3 +560,62 @@ requirements:
     path"). A real ingestion run cannot happen in production without one. A minimal,
     real, non-ML v1 (deterministic hashing/lexical vectorizer, documented as v1 pending
     a future semantic-model replacement) must ship in src/.
+- id: REQ-G2-047
+  gate: G2
+  anchor: '### 8.2 Common tools — present identically on every instance (9 tools —
+    this table is the single authoritative registry; tool discovery, JSON schemas,
+    and generated documentation are all derived from it, never restated independently)'
+  text: '2026-09-25 operator review found get_symbol/list_members (src/foss_mcp/mcp/tools/get_symbol.py,
+    list_members.py) parse a chunk''s raw text for an ''FQN:''/''Kind:''/''Methods:''/''Properties:''
+    convention - their only data source - but build_chunks_from_api_surface (TC-062/064,
+    the function actually wired into production) emits none of it, only a bare one-line
+    summary. Confirmed by direct trace: get_symbol(''Aspose.Pdf.AFRelationship'')
+    against the real generation published by TC-064 returns NotFound. build_chunks_from_api_surface
+    must emit the real convention AND carry forward enum_members, method parameter/return
+    info, and base classes from the raw fixture - all present in tests/fixtures/pdf_net/api_surface.json
+    today but currently dropped.'
+- id: REQ-G2-048
+  gate: G2
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  text: 'Mission plan section 22 requires: ''Executable examples (G2-G3): parse/compile/import/execution/functional-output
+    checks distinguished per snippet, tied to the exact package version it was sourced
+    from, run in an isolated disposable environment across all 7 ecosystems - index
+    presence alone is never treated as proof of executability.'' No REQ or card in
+    this project''s backlog has ever operationalized this, confirmed by direct search
+    on 2026-09-25. find_examples (src/foss_mcp/mcp/tools/find_examples.py) requires
+    a chunk''s ''Example:'' marker - nothing in production ever produces one. A real
+    candidate-example pipeline (sourced from the FOSS repo''s own real README/docs
+    content where present, or the furnished-content bundle''s embedded code blocks
+    as a pilot-scoped fallback - tests/fixtures/furnished/pdf_net/pages/_index.md
+    already has three complete, plausible csharp examples) gated by a real, isolated
+    compile/execute verification step per ecosystem must exist before any snippet
+    is published or cited as verified. Start with pdf/net (.NET toolchain confirmed
+    present).'
+- id: REQ-G2-049
+  gate: G2
+  anchor: '### 8.2 Common tools — present identically on every instance (9 tools —
+    this table is the single authoritative registry; tool discovery, JSON schemas,
+    and generated documentation are all derived from it, never restated independently)'
+  text: '2026-09-25 operator review: lookup (src/foss_mcp/mcp/tools/lookup.py) only
+    ever returns ONE underlying tool''s result (search_symbols first, then each search_docs
+    content type, first non-empty wins) - it never composes doc/API guidance with
+    a verified example, and never calls find_examples at all. A developer asking a
+    task-oriented question (''how do I add a watermark to a PDF'') with no prior API
+    knowledge gets, at best, prose naming the right classes with no proven-working
+    example attached. lookup''s composition must be able to return both the relevant
+    doc/API guidance AND a verified example for the same query where one exists -
+    an honest partial answer when no example exists yet, never a fabricated one. Depends
+    on REQ-G2-048 (nothing to compose until a real verified-example pipeline exists).'
+- id: REQ-G2-050
+  gate: G2
+  anchor: '### 8.9 Normalized document schema (`foss_mcp.normalized_document.v1`)
+    — extended for dual sourcing and the wider content taxonomy'
+  text: '2026-09-25 operator decision: no further replication of TC-064''s live-publish
+    pattern to the remaining six pilots, no cross-instance leakage matrix work, and
+    no pdf/cpp consolidate_classes() fix starts before pdf/net proves the FULL developer-context
+    vision live - rich get_symbol/list_members answers (REQ-G2-047), at least one
+    real verified example returned by find_examples (REQ-G2-048), and a lookup answer
+    that composes both for a genuine task query (REQ-G2-049). Only once pdf/net proves
+    this completely does the pattern replicate to the other six pilots, one per platform,
+    before any further gate-exit work.'

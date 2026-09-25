@@ -326,3 +326,89 @@ answerable now):**
    TC-060–TC-063 are accepted and independently re-verified live** (by hand, same as this
    audit - not by trusting `gatectl accept` alone for this specific class of check, until the
    new live-content check pattern itself has proven itself once).
+
+## 2026-09-25 — Second pivot: the "dev context" vision itself has two unclosed gaps. Revised direction before further pilot replication.
+
+TC-060 through TC-064 landed and were independently proven live (`search_symbols('AFRelationship')`
+against a real published pdf/net generation, verified by hand three separate times: by the worker,
+by `gatectl review`'s real double-run, and by the supervisor directly). Reporting that result, the
+operator asked a harder question than "does it plumb through": does the ANSWER actually serve a
+developer, and does the system handle a developer who doesn't already know the API? Investigating
+both questions directly (not from memory) found two real, load-bearing gaps in the product itself,
+distinct from today's earlier wiring gaps.
+
+**Gap 1 - `get_symbol`/`list_members`/`find_examples` are non-functional against real content,
+even after TC-060–064.** Confirmed by reading the real code, not inference: `get_symbol`
+(`src/foss_mcp/mcp/tools/get_symbol.py`) parses a chunk's raw text for an `FQN:` line plus
+`Kind:`/`Methods:`/`Properties:` blocks - its ONLY data source. `list_members` is built directly on
+`get_symbol`. `find_examples` looks for an `Example:` marker in chunk text - the same convention
+shape. `build_chunks_from_api_surface` (TC-062, the function actually wired into production by
+TC-064) emits none of these - only `"{name} is a {kind}."` plus a bare comma-joined method-name
+list. Traced with the exact real text captured from today's live check
+(`"Aspose.Pdf.AFRelationship is a enum_declaration.\nSource-Commit: ..."`): `extract_fqn()`'s regex
+never matches, so `get_symbol('Aspose.Pdf.AFRelationship')` against the generation published today
+returns `NotFound`, not the rich signature the product exists to serve. Each of these three tools'
+own test suites pass anyway - `tests/mcp/tools/test_symbol_tools.py` builds its OWN private,
+FQN:/Kind:/Methods:-shaped chunk fixture, entirely disconnected from `build_chunks_from_api_surface`.
+This is the identical "real module, tested in isolation, never actually wired to what production
+emits" shape as this morning's audit findings - found one layer deeper, in code shipped today, by
+directly answering the operator's question rather than assuming today's live-content proof settled
+the matter. `chunk_builder.py` also never reads `enum_members`, method parameters/return types, or
+base classes from the raw fixture at all, even though `tests/fixtures/pdf_net/api_surface.json`
+carries all three - so even a convention fix alone would not yet answer "what are this enum's
+values."
+
+**Gap 2 - a developer who does not already know the API has no real answer today, and even a
+correct answer would arrive without a proven-working example.** `lookup` (§8.2's "forgiving
+universal entry point") only ever returns ONE underlying tool's result - `search_symbols` first,
+then each `search_docs` content type in turn, first non-empty wins (`src/foss_mcp/mcp/tools/
+lookup.py`, read directly) - it never composes "here is the API to use" with "here is a verified
+example," and never calls `find_examples` at all. Separately, `search_docs`'s own source
+(`FURNISHED` content) has never been wired into any live generation, for any pilot, same as
+`self_extracted` was this morning before TC-064. And even once wired, the furnished content itself
+- read directly at `tests/fixtures/furnished/pdf_net/pages/_index.md` - already contains
+exactly the right SHAPE of answer (task-titled prose blocks like "Add a Watermark Annotation" with
+real-looking, complete `csharp` code blocks using genuine class/method names), but per this
+project's own established discipline that content is agent-generated and explicitly flagged
+"NON-PRODUCTION PILOT EXPORT... not the real thing" (`scripts/pilot_manual_export.py`) - it must
+never be published as a verified example without independent compile/execute proof.
+
+**The mission plan already anticipated exactly this**, confirmed by direct re-reading, not
+overlooked by its own authors: `## 22. Verification obligations mapped to gates` states
+"**Executable examples** (G2-G3): parse/compile/import/execution/functional-output checks
+distinguished per snippet, tied to the exact package version it was sourced from, run in an
+isolated disposable environment across all 7 ecosystems - index presence alone is never treated as
+proof of executability." This was correctly scoped to G2-G3, not G0-G1 - but no REQ or card in this
+project's own backlog has ever operationalized it. That is a gap in how this supervisor translated
+the mission plan into a backlog, not a gap in the mission plan itself, and it is being corrected
+now rather than left implicit for a future gate-exit to discover.
+
+**Decisions taken (supervisor decides, per AGENTS.md):**
+
+1. **Fix `build_chunks_from_api_surface`'s emitted text to the real convention** (`FQN:`, `Kind:`,
+   `Methods:`/`Properties:` blocks carrying real parameter/return info where the fixture has it,
+   plus enum members and base classes) - closes `get_symbol`/`list_members` for real content. Cheap,
+   well-scoped, first in sequence.
+2. **Build a real, verified-example pipeline**, matching §22's own requirement rather than
+   inventing a lesser one: candidate snippets sourced from (Tier 1) the FOSS repo's own real
+   README/docs/examples content where present, (Tier 2) the furnished-content bundle's embedded
+   code blocks as a pilot-scoped fallback - EITHER tier gated by an actual, isolated compile (and
+   where feasible, execute) step per ecosystem before a snippet is ever published or cited as
+   "verified." No snippet is ever trusted on origin alone, matching §9's own rule that snippet
+   verification happens at ingestion time, never at query time, and is never conflated with an
+   execution sandbox inside the serving process. Start with pdf/net (.NET toolchain already
+   confirmed present on this machine) as the anchor pilot before designing the other six
+   ecosystems' sandboxes.
+3. **Fix `lookup`'s composition**: a task-oriented answer must be able to carry both the relevant
+   doc/API guidance AND a verified example in one response where one exists for the same query -
+   never fabricated when none exists, an honest partial answer is correct behavior, matching this
+   project's own "closed-vocabulary miss, never a silent substitution" rule. Sequenced after the
+   verified-example pipeline exists, since there is nothing to compose until then.
+4. **Revised sequencing, recorded so it is never lost**: no further replication of TC-064's pattern
+   to the remaining six pilots, no cross-instance leakage matrix work, and no pdf/cpp `consolidate_
+   classes()` fix starts before pdf/net proves the FULL vision live - rich `get_symbol`/`list_members`
+   answers, at least one real verified example returned by `find_examples`, and a `lookup` answer
+   that composes both for a genuine task query ("how do I add a watermark to a PDF") - not merely
+   that a chunk round-trips through the pipeline. Only once pdf/net proves this completely does the
+   pattern get replicated to the other six pilots, one per platform, as the operator's own pilot
+   proof requires before any further expansion.
