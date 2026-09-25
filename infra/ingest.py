@@ -23,6 +23,12 @@ from foss_mcp.indexing.embedding_provider import EmbeddingProvider
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.publisher import publish_generation
 from foss_mcp.normalization.chunker import Chunk
+from foss_mcp.normalization.citation import (
+    citable_chunks,
+    known_counts_from_fixture,
+    symbol_index_from_api_surface,
+    validate_document,
+)
 from foss_mcp.normalization.document_schema import NOT_CHECKED, Provenance, ValidationResult
 
 
@@ -60,6 +66,17 @@ def main() -> None:
     parser.add_argument("--manifest-store", type=Path, required=True)
     parser.add_argument("--embedding-provider", required=True, help="module.path:ClassName")
     parser.add_argument("--held-by", default="ingestion")
+    parser.add_argument(
+        "--api-surface",
+        type=Path,
+        default=None,
+        help=(
+            "self-extracted api_surface.json to validate chunks' citations against "
+            "(TC-014's validate_document/citable_chunks). Omit to publish all loaded "
+            "chunks unchanged, as before this card - not every source_kind has a "
+            "self-extracted symbol index to validate against."
+        ),
+    )
     args = parser.parse_args()
 
     store = GenerationManifestStore(args.manifest_store)
@@ -67,6 +84,11 @@ def main() -> None:
     expected_active = store.read_active(scope)
     lease = store.acquire_lease(scope, args.held_by, "pending")
     chunks = _load_chunks(args.chunks)
+    if args.api_surface is not None:
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        symbol_index = symbol_index_from_api_surface(fixture["types"])
+        known_counts = known_counts_from_fixture(fixture)
+        chunks = citable_chunks(validate_document(chunks, symbol_index, known_counts))
     embedding_provider = _load_embedding_provider(args.embedding_provider)
 
     generation_id = publish_generation(
