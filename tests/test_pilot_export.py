@@ -35,6 +35,7 @@ SLIDES_PYTHON_BUNDLE = Path(__file__).parent / "fixtures" / "furnished" / "slide
 CELLS_RUST_BUNDLE = Path(__file__).parent / "fixtures" / "furnished" / "cells_rust"
 PDF_GO_BUNDLE = Path(__file__).parent / "fixtures" / "furnished" / "pdf_go"
 PDF_JAVA_BUNDLE = Path(__file__).parent / "fixtures" / "furnished" / "pdf_java"
+PDF_TYPESCRIPT_BUNDLE = Path(__file__).parent / "fixtures" / "furnished" / "pdf_typescript"
 _COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
@@ -328,3 +329,17 @@ def test_the_committed_pdf_java_bundle_is_real_and_verifies_clean() -> None:
         assert _COMMIT_SHA.match(entry["source_commit"])
     assert _COMMIT_SHA.match(manifest["source_commit"])
     assert verify_bundle(PDF_JAVA_BUNDLE) == []
+
+
+# --- TC-053: the real, committed pdf/typescript bundle exported from Aspose/aspose.org ---
+
+
+def test_the_committed_pdf_typescript_bundle_is_real_and_verifies_clean() -> None:
+    manifest = json.loads((PDF_TYPESCRIPT_BUNDLE / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["source_repository"] == "Aspose/aspose.org"
+    assert manifest["source_subtree"] == "content/products.aspose.org/en/pdf/typescript"
+    assert manifest["files"], "the pdf/typescript bundle exported nothing"
+    for entry in manifest["files"]:
+        assert _COMMIT_SHA.match(entry["source_commit"])
+    assert _COMMIT_SHA.match(manifest["source_commit"])
+    assert verify_bundle(PDF_TYPESCRIPT_BUNDLE) == []
