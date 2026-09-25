@@ -1,0 +1,84 @@
+id: TC-059
+gate: G2
+lane: extraction
+purpose: Fix _cpp_free_function_name() to recognize C++ operator overloads (function_declarator's
+  'operator_name' node type), the third and hopefully final gap in the C++ free-function
+  naming logic - discovered by direct reproduction against the real pdf/cpp repository
+  while re-working TC-057, which correctly stopped a second time rather than committing
+  wrong data.
+depends_on:
+- TC-058
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py
+- tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py
+satisfies:
+- REQ-G2-040
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'CONFIRMED by direct reproduction against the real public aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp
+  repository (commit c559fc3dd1c5d3a42c7f12a953918ce8dc59fa07): `AnnotationFlags::operator|`,
+  `BorderSide::operator|`, `Permissions::operator|`, and `RichTextFontStyles::operator|`
+  (all real free functions returning their own enum type by value) are extracted with
+  the WRONG name - each named after its own return type (e.g. ''AnnotationFlags''
+  instead of ''operator|'') rather than its real name. TC-058''s own Matrix::Identity()
+  fix is confirmed working correctly for the plain-identifier case; this is a narrower,
+  distinct gap for operator overloads specifically.'
+- 'ROOT CAUSE, confirmed via a live tree-sitter-cpp parse probe (both by the reporting
+  worker and independently by the supervisor reading the code directly): _cpp_free_function_name()
+  (tree_helpers.py, ~line 339-341) checks `ch.type in (''identifier'', ''field_identifier'',
+  ''destructor_name'')` when scanning a function_declarator''s children for the real
+  name. An operator overload''s declarator name child has node type ''operator_name''
+  instead (e.g. the literal text ''operator|'' for `Flags operator|(Flags a, Flags
+  b)`) - a genuinely distinct tree-sitter-cpp node type from a plain function''s ''identifier'',
+  not covered by the existing check.'
+- 'The fix is narrow and precise: add ''operator_name'' to the tuple of node types
+  checked in _cpp_free_function_name(). node_text() on an operator_name node returns
+  the full literal operator token (e.g. ''operator|'', ''operator=='') - verify this
+  yourself via a live parse probe before trusting it, per this project''s standing
+  discipline, but do not overcomplicate the fix if the probe confirms this expectation.'
+- Do not touch is_public(), _cpp_is_free_function(), _node_name()'s call ordering
+  (both already correctly fixed by TC-010b/TC-058), or any other language's logic
+  - this is a single, narrow addition to _cpp_free_function_name()'s checked node-type
+  set.
+actions:
+- Probe the real tree-sitter-cpp grammar structure yourself for an operator overload
+  (e.g. `Flags operator|(Flags a, Flags b) { ... }`) to confirm the declarator child's
+  exact node type and text before writing your fix.
+- Add 'operator_name' to the tuple of node types checked in _cpp_free_function_name()
+  (~line 340), alongside the existing 'identifier', 'field_identifier', 'destructor_name'.
+- 'Write a regression test in tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py
+  (add to the existing C++ section from TC-010b/TC-058, do not remove any existing
+  test) using a minimal synthetic C++ snippet: a free function operator overload (e.g.
+  `enum class Flags {}; Flags operator|(Flags a, Flags b) { return a; }`) is now extracted
+  with its real name (''operator|''), not its return type (''Flags'').'
+- Run the full existing tree_sitter_engine test suite yourself and confirm nothing
+  else broke - this must be a pure addition.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/ -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-040
+min_tests: 3
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py');s=p.read_text(encoding='utf-8');s=s.replace(chr(39)+'operator_name'+chr(39)+',
+    '+chr(39)+'identifier'+chr(39),chr(39)+'operator_name_DISABLED'+chr(39)+', '+chr(39)+'identifier'+chr(39));p.write_text(s,encoding='utf-8')"
+  rationale: Corrupting the literal 'operator_name' check must break the new regression
+    test, causing the operator overload to fall through to the generic fallback and
+    be misnamed again - proves the test genuinely exercises this specific node-type
+    addition. Self-checked end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-059/receipt.json
+closeout:
+- A C++ operator overload free function is now extracted with its real name, not its
+  return type.
+- Every other already-working case (plain functions, class members, other languages)
+  is unaffected.
+- The full tree_sitter_engine test suite still passes.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
