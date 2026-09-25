@@ -1,0 +1,167 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_build_chunks.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dvzx13g6\.junit-0.xml"
+--- stdout ---
+...                                                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_build_chunks.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dvzx13g6\.junit-0.xml"
+--- stdout ---
+...                                                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/build_chunks.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_build_chunks.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dvzx13g6\.junit-0.xml"
+--- stdout ---
+.F.                                                                      [100%]
+================================== FAILURES ===================================
+________ test_furnished_page_adds_real_compile_verified_example_chunks ________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-291/test_furnished_page_adds_real_0')
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000026F064C3A80>, _basetemp=WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-291'), _retention_count=3, _retention_policy='all')
+
+    def test_furnished_page_adds_real_compile_verified_example_chunks(
+        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory
+    ) -> None:
+        """Real end-to-end: real furnished fixture -> real candidate extraction -> real
+        isolated dotnet compile verification -> only a really-verified candidate becomes
+        a citable chunk, alongside the existing type-based chunks.
+    
+        The ground truth this test checks against is itself determined empirically, by
+        independently running the exact same real compile-verification path
+        (example_verifier.prepare_reference_library / verify_dotnet_example) a second time -
+        never an assumed/hardcoded count of how many of the 3 real candidates verify. This
+        is deliberately strict about correspondence (a real, independently-verified
+        candidate's own distinctive code must appear; a real, independently-unverified
+        candidate's own distinctive code must NOT appear) so that publishing an unverified
+        candidate instead of a verified one - exactly what inverting the verified-guard does -
+        is a real, detected failure, not merely "some chunk with an Example: marker exists".
+        """
+        page = _load_real_page()
+        candidates = extract_candidate_examples(page)
+        assert {c.title for c in candidates} == set(_DISTINCTIVE_CODE_MARKER)
+    
+        ground_truth_library_workdir = tmp_path_factory.mktemp("tc068_ground_truth_library")
+        ground_truth_library_csproj = prepare_reference_library(
+            repository=LIBRARY_REPOSITORY,
+            commit=LIBRARY_COMMIT,
+            csproj_relative_path=LIBRARY_CSPROJ,
+            workdir=ground_truth_library_workdir,
+        )
+        ground_truth_verified_titles = set()
+        for candidate in candidates:
+            candidate_workdir = tmp_path_factory.mktemp("tc068_ground_truth_candidate")
+            result = verify_dotnet_example(
+                candidate, library_csproj=ground_truth_library_csproj, workdir=candidate_workdir
+            )
+            if result.verified:
+                ground_truth_verified_titles.add(candidate.title)
+        assert ground_truth_verified_titles, "expected at least one real candidate to independently verify"
+        print(f"ground truth (independent real compile pass): verified={sorted(ground_truth_verified_titles)}")
+    
+        out_path = tmp_path / "chunks.json"
+        _run_main(
+            [
+                "--api-surface",
+                str(API_SURFACE),
+                "--title",
+                "Aspose.PDF FOSS for .NET",
+                "--out",
+                str(out_path),
+                "--furnished-page",
+                str(FURNISHED_PAGE),
+                "--library-repository",
+                LIBRARY_REPOSITORY,
+                "--library-commit",
+                LIBRARY_COMMIT,
+                "--library-csproj",
+                LIBRARY_CSPROJ,
+            ]
+        )
+    
+        produced = json.loads(out_path.read_text(encoding="utf-8"))
+        chunks = produced["chunks"]
+    
+        # The pre-existing type-based chunks are still there (300 real types, capped at
+        # max_types=20 default -> 20 real "## <TypeName>" sections from build_chunks_from_api_surface).
+        type_chunks = [c for c in chunks if c["content_type"] == "api_surface"]
+        assert len(type_chunks) > 0
+    
+        example_chunks = [c for c in chunks if c["content_type"] == "example"]
+        assert len(example_chunks) >= 1, (
+            "expected at least one real candidate example to really compile-verify against "
+            f"{LIBRARY_REPOSITORY}@{LIBRARY_COMMIT}, but none did"
+        )
+    
+        # Every emitted example chunk's source_kind is "furnished".
+        assert all(c["source_kind"] == "furnished" for c in example_chunks)
+    
+        # At least one chunk's text contains "Example:" and a real, recognizable code
+        # fragment - not a synthetic placeholder.
+        matching = [c for c in example_chunks if "Example:" in c["text"] and "Aspose.Pdf" in c["text"]]
+        assert matching, [c["text"] for c in example_chunks]
+    
+        # The Source-Commit convention applies uniformly - an example chunk's trailing
+        # line names the real pinned library commit it was compiled against, not the
+        # api-surface fixture's commit.
+        for chunk in example_chunks:
+            assert chunk["text"].splitlines()[-1] == f"Source-Commit: {LIBRARY_COMMIT}"
+            assert chunk["provenance"]["repository"] == LIBRARY_REPOSITORY
+            assert chunk["provenance"]["commit"] == LIBRARY_COMMIT
+    
+        # The real, load-bearing assertion: published example content corresponds EXACTLY to
+        # the independently-determined ground truth - a really-verified candidate's own
+        # distinctive code is present, and a really-unverified candidate's own distinctive
+        # code is absent. Inverting the verified-guard swaps this correspondence and fails here.
+        all_example_text = "\n".join(c["text"] for c in example_chunks)
+        for candidate in candidates:
+            marker = _DISTINCTIVE_CODE_MARKER[candidate.title]
+            is_published = marker in all_example_text
+            if candidate.title in ground_truth_verified_titles:
+                assert is_published, (
+                    f"real, independently-verified candidate {candidate.title!r} "
+                    f"(marker {marker!r}) is missing from the published example chunks"
+                )
+            else:
+                assert not is_published, (
+                    f"real, independently-UNVERIFIED candidate {candidate.title!r} "
+                    f"(marker {marker!r}) was published anyway"
+                )
+    
+        # TC-070/REQ-G2-048: before the '# Example: {title}' heading fix, the example body
+        # had no markdown heading, so chunker.py's chunk_document() fell back to
+        # _paragraph_sections and fractured a single verified candidate's body into TWO
+        # chunks at its one blank line - a description-only chunk (ranks highest on a bare
+        # query term appearing in prose) and a code-only chunk (the term never matches
+        # inside a bare identifier like AddWatermarkAnnotation) - so find_examples could
+        # only ever surface one half, never both. Confirmed against the real produced
+        # chunks.json before writing this assertion: with the heading fix, this run
+        # produces exactly one example chunk (the Watermark candidate is the only one of
+        # the 3 real candidates that compile-verifies today), and its single text contains
+        # both the description prose and the real 'AddWatermarkAnnotation' code.
+>       assert len(example_chunks) == len(ground_truth_verified_titles), (
+            "expected exactly ONE chunk per real verified candidate (chunk fragmentation "
+            f"regression), got {len(example_chunks)} chunks for verified titles "
+            f"{sorted(ground_truth_verified_titles)}: {[c['text'] for c in example_chunks]}"
+        )
+E       AssertionError: expected exactly ONE chunk per real verified candidate (chunk fragmentation regression), got 3 chunks for verified titles ['Add a Watermark Annotation']: ['Example (not a heading): Add a Watermark Annotation\nSource-Commit: b7172877651413cff57a8bfe41fb8a8befb2406b', 'FQN: Example: Add a Watermark Annotation\nKind: verified_example\nStamp a watermark onto page 1 of an existing document and round-trip through serialization.\nSource-Commit: b7172877651413cff57a8bfe41fb8a8befb2406b', 'Example:\nusing Aspose.Pdf;\nvar input = System.IO.File.ReadAllBytes("report.pdf");\nusing var doc = Document.Open(input);\ndoc.Pages[1].Annotations.AddWatermarkAnnotation(\n    new Rectangle(0, 0, 612, 792), "CONFIDENTIAL");\nvar saved = doc.ToArray();\nSystem.IO.File.WriteAllBytes("watermarked.pdf", saved);\nSource-Commit: b7172877651413cff57a8bfe41fb8a8befb2406b']
+E       assert 3 == 1
+E        +  where 3 = len([{'section_title': '', 'text': 'Example (not a heading): Add a Watermark Annotation\nSource-Commit: b7172877651413cff5...nSource-Commit: b7172877651413cff57a8bfe41fb8a8befb2406b', 'source_kind': 'furnished', 'content_type': 'example', ...}])
+E        +  and   1 = len({'Add a Watermark Annotation'})
+
+tests\infra\test_build_chunks.py:233: AssertionError
+---------------------------- Captured stdout call -----------------------------
+ground truth (independent real compile pass): verified=['Add a Watermark Annotation']
+verified 1/3 candidate examples
+wrote 23 chunks to C:\Windows\Temp\pytest-of-prora\pytest-291\test_furnished_page_adds_real_0\chunks.json
+=========================== short test summary info ===========================
+FAILED tests/infra/test_build_chunks.py::test_furnished_page_adds_real_compile_verified_example_chunks
+
+--- stderr ---
+
