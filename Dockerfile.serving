@@ -35,9 +35,13 @@ USER foss-mcp
 # docker-compose.yml overrides `command` to run infra/serve_http.py instead.
 EXPOSE 8080
 
-# Confirms the deployed environment itself is intact (every import the server needs actually
-# resolves) - true for either transport, so one healthcheck command serves both.
+# Real readiness, not a bare import check: calls the running server's own /readyz endpoint
+# (infra/serve_http.py), which is 200 only when the deployment's own scope names a real active
+# generation (foss_mcp.mcp.health.is_ready) and 503 otherwise - never merely "the process
+# accepts connections". This HEALTHCHECK is only meaningful when docker-compose.yml overrides
+# `command` to run infra/serve_http.py (the stdio default below has nothing listening on 8080);
+# it is unchanged for Dockerfile.ingestion's one-shot CLI, which is a different shape entirely.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD ["python", "-c", "import foss_mcp.mcp.server"]
+    CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/readyz', timeout=3).status==200 else 1)"]
 
 CMD ["python", "/app/infra/serve_stdio.py"]

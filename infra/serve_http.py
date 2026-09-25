@@ -1,5 +1,6 @@
 """HTTP serving container entrypoint: the MCP server over Streamable HTTP, on port 8080 at
-the SDK's default path (``/mcp``), behind Origin and protocol-version rejection.
+the SDK's default path (``/mcp``), behind Origin and protocol-version rejection, plus a real
+``/readyz`` readiness probe.
 
 Two transports over ONE dispatch core (``foss_mcp.mcp.server.create_server``), never a second
 implementation: this module and ``infra/serve_stdio.py`` both call it; only the transport
@@ -7,6 +8,19 @@ differs. The SDK's own DNS-rebinding protection (Host/Origin) is disabled here d
 ``foss_mcp.mcp.transport_security.reject_request`` is the ONE place Origin and
 protocol-version MUSTs are decided, wrapping the SDK's ASGI app rather than duplicating its
 own, separate check.
+
+``/readyz`` is added via the SDK's own ``custom_starlette_routes`` hook - INTO the same
+Starlette app ``streamable_http_app`` builds, never a second, separately-mounted app - so it
+shares that app's real lifespan (``session_manager.run()``); a second Starlette app wrapped
+around it would never start that lifespan and every MCP call would fail with "Task group is
+not initialized". ``RejectionMiddleware`` then exempts ``/readyz`` by path: it must answer a
+plain container healthcheck (``python -c "...urllib..."`` from ``Dockerfile.serving``, which
+sends neither an ``Origin`` nor an ``MCP-Protocol-Version`` header) without being rejected as a
+malformed MCP request - those MUSTs govern the MCP transport itself, not this probe. It reads
+``foss_mcp.mcp.health.is_ready`` against the SAME ``GenerationManifestStore`` instance
+``create_server`` was built with (the real reference-system defect this replaces: a readiness
+probe that reports healthy while serving nothing, because it checked reachability instead of
+the deployment's own active generation).
 """
 
 from __future__ import annotations
@@ -14,16 +28,20 @@ from __future__ import annotations
 import os
 
 from mcp.server.transport_security import TransportSecuritySettings
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, PlainTextResponse
+from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Send
 from starlette.types import Scope as ASGIScope
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
-from foss_mcp.mcp.routing import DeploymentConfig
-from foss_mcp.mcp.server import create_server
+from foss_mcp.mcp.health import DeploymentGenerationStore, is_ready
+from foss_mcp.mcp.routing import DeploymentConfig, resolve_scope
+from foss_mcp.mcp.server import _default_manifest_store, create_server
 from foss_mcp.mcp.transport_security import reject_request
 
 DEFAULT_PORT = 8080
+READYZ_PATH = "/readyz"
 
 
 def allowed_origins_from_env() -> list[str]:
@@ -37,14 +55,19 @@ class RejectionMiddleware:
 
     A rejection is a plain HTTP 400 JSON error - never a JSON-RPC envelope - so it can never
     be confused with a tool call that ran and reported no match.
+
+    ``exempt_paths`` (``/readyz`` only, in practice) never reach ``reject_request`` at all: the
+    Origin/protocol-version MUSTs are an MCP-transport contract, and a plain container
+    healthcheck request is not an MCP request and carries neither header.
     """
 
-    def __init__(self, app: ASGIApp, allowed_origins: list[str]) -> None:
+    def __init__(self, app: ASGIApp, allowed_origins: list[str], exempt_paths: frozenset[str] = frozenset()) -> None:
         self.app = app
         self.allowed_origins = allowed_origins
+        self.exempt_paths = exempt_paths
 
     async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        if scope["type"] != "http" or scope.get("path") in self.exempt_paths:
             await self.app(scope, receive, send)
             return
         headers = {key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])}
@@ -56,24 +79,53 @@ class RejectionMiddleware:
         await self.app(scope, receive, send)
 
 
+def _readyz_route(deployment_config: DeploymentConfig, manifest_store: GenerationManifestStore) -> Route:
+    """The ``/readyz`` route: 200 only when the deployment's own scope names a real active
+    generation (``foss_mcp.mcp.health.is_ready``), 503 otherwise - never process reachability.
+
+    Binds to *manifest_store* directly (the SAME instance ``create_server`` was built with, per
+    ``build_app`` below) and to the scope this deployment - never a request - resolves to
+    (``foss_mcp.mcp.routing.resolve_scope``), so no per-request work decides which generation
+    matters.
+    """
+    scope = resolve_scope(deployment_config, request=None)
+    generation_store = DeploymentGenerationStore.for_scope(
+        manifest_store, scope, deployment_config.source_kind
+    )
+
+    async def readyz(request: Request) -> PlainTextResponse:
+        del request  # nothing about the request influences readiness - see module docstring.
+        if is_ready(generation_store):
+            return PlainTextResponse("ready", status_code=200)
+        return PlainTextResponse("not ready", status_code=503)
+
+    return Route(READYZ_PATH, readyz, methods=["GET"])
+
+
 def build_app(
     deployment_config: DeploymentConfig,
     manifest_store: GenerationManifestStore | None = None,
     allowed_origins: list[str] | None = None,
 ) -> ASGIApp:
     """The ASGI app this container serves: the same ``create_server`` dispatch core as
-    stdio, wrapped in Origin/protocol-version rejection.
+    stdio, wrapped in Origin/protocol-version rejection, plus a real ``/readyz`` probe added
+    into the SAME app (so it shares the SDK's own session-manager lifespan) and exempted from
+    that rejection layer (see module docstring for why).
 
     ``manifest_store`` and ``allowed_origins`` default to the real deployment's own store
     (``foss_mcp.mcp.server``'s ``/data/manifests``) and the ``FOSS_MCP_ALLOWED_ORIGINS`` env
-    var respectively; both are overridable so tests never touch either.
+    var respectively; both are overridable so tests never touch either. ``manifest_store`` is
+    resolved ONCE, here, and handed to both ``create_server`` and the readiness route - never
+    two separate stores for one running deployment.
     """
-    server = create_server(deployment_config, manifest_store)
+    resolved_store = manifest_store if manifest_store is not None else _default_manifest_store()
+    server = create_server(deployment_config, resolved_store)
     allowed_origins = allowed_origins_from_env() if allowed_origins is None else allowed_origins
     inner = server.streamable_http_app(
-        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)
+        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+        custom_starlette_routes=[_readyz_route(deployment_config, resolved_store)],
     )
-    return RejectionMiddleware(inner, allowed_origins)
+    return RejectionMiddleware(inner, allowed_origins, exempt_paths=frozenset({READYZ_PATH}))
 
 
 def main() -> None:
