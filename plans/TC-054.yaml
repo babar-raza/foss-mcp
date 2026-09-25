@@ -1,0 +1,71 @@
+id: TC-054
+gate: G2
+lane: storage-retrieval
+purpose: Publish pdf/typescript's first real generation through the exact same CAS/leasing
+  authority the other five onboarded pilots were proven through, over real content
+  from TC-050's extraction fixture, with its own independent scope key - extending
+  the cross-scope isolation test to six concurrent pilots.
+depends_on:
+- TC-047
+- TC-050
+write_paths:
+- tests/indexing/test_publisher.py
+satisfies:
+- REQ-G2-034
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- Read tests/indexing/test_publisher.py in full first - it already has chunk-building
+  helpers for pdf/net, slides/python, cells/rust, pdf/go, and pdf/java, plus a cross-scope
+  isolation test covering all five together. publisher.py/chunker.py/document_schema.py
+  need no changes.
+- Add a PARALLEL _pdf_typescript_chunks() helper reading tests/fixtures/pdf_typescript/api_surface.json
+  (TC-050's real, committed extraction fixture - 150 real TypeScript function/constant
+  entries from the real public repo, 4211 real types found in total). Read that fixture
+  file directly to see its actual shape before writing the helper - this fixture's
+  observed kind vocabulary is {'function', 'constant'} only (no classes/interfaces
+  in the reduced subset), which differs from every other pilot's - check field names
+  rather than assuming.
+- Use scope key 'pdf::typescript::self_extracted' (family='pdf', platform='typescript',
+  source_kind='self_extracted') - a SCOPE_PDF_TYPESCRIPT constant, independent from
+  the other five pilots' scopes, including its own family siblings pdf/net, pdf/go,
+  pdf/java.
+- Add a test publishing pdf/typescript's first generation through the real CAS path.
+- EXTEND the existing cross-scope isolation test to publish all SIX pilots' first
+  generations into the SAME GenerationManifestStore instance, then assert each of
+  the six scopes' read_active() returns only its own generation - now FOUR platforms
+  share the pdf family (net, go, java, typescript).
+- Do not modify any existing test or helper for another pilot - purely additive.
+actions:
+- Add _pdf_typescript_chunks() and a SCOPE_PDF_TYPESCRIPT constant to tests/indexing/test_publisher.py.
+- Add a test publishing pdf/typescript's first generation through the real CAS path.
+- Extend the cross-scope isolation coverage to all six pilots sharing one store instance.
+checks:
+- command: '{python} -m pytest tests/indexing/test_publisher.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-034
+min_tests: 13
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/indexing/test_publisher.py');s=p.read_text(encoding='utf-8');s=s.replace('SCOPE_PDF_TYPESCRIPT
+    = '+chr(34)+'pdf::typescript::self_extracted'+chr(34),'SCOPE_PDF_TYPESCRIPT =
+    '+chr(34)+'pdf::net::self_extracted'+chr(34));p.write_text(s,encoding='utf-8')"
+  rationale: Colliding pdf/typescript's scope constant with pdf/net's own scope must
+    break the six-way isolation test - proves it genuinely depends on all six scopes
+    being distinct, including four same-family platforms. Self-checked end-to-end
+    before being persisted.
+evidence:
+- evidence/build/G2/TC-054/receipt.json
+closeout:
+- pdf/typescript has a real generation published through the same CAS path as the
+  other pilots.
+- Six pilots sharing one manifest store never leak into each other's active generation,
+  including four same-family platforms.
+- Colliding pdf/typescript's scope key with pdf/net's fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
