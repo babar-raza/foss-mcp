@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.publisher import publish_generation, rollback_generation
 from foss_mcp.normalization.chunker import Chunk, chunk_document
@@ -35,27 +36,13 @@ SCOPE_PDF_TYPESCRIPT = "pdf::typescript::self_extracted"
 def _pdf_net_chunks() -> list[Chunk]:
     """A real, bounded slice of TC-011's actual pdf/net extraction, normalized and chunked
     through TC-014's own pipeline - the first real content this generation publishes.
+
+    Delegates to the real, reusable ``build_chunks_from_api_surface`` (TC-062) - this used to
+    be duplicated inline here, which is exactly why a real ingestion run never had anything to
+    call.
     """
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
-    sections = []
-    for entry in fixture["types"][:20]:
-        name = entry.get("class_import") or entry.get("name", "")
-        methods = ", ".join(m.get("name", "") for m in entry.get("methods") or [])
-        text = f"{name} is a {entry.get('kind', '')}."
-        if methods:
-            text += f" Methods: {methods}."
-        sections.append(f"## {name}\n\n{text}")
-    doc = make_document(
-        source_kind=SourceKind.SELF_EXTRACTED,
-        content_type="api_surface",
-        provenance=Provenance(
-            repository=fixture["source_repository"], commit=fixture["source_commit"], path="api_surface.json"
-        ),
-        evidence_refs=(f"{fixture['source_repository']}@{fixture['source_commit']}:api_surface.json",),
-        title="pdf/net API surface",
-        body="\n\n".join(sections),
-    )
-    return chunk_document(doc)
+    return build_chunks_from_api_surface(fixture, title="pdf/net API surface", max_types=20)
 
 
 def _slides_python_chunks() -> list[Chunk]:
