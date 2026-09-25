@@ -1,0 +1,123 @@
+id: TC-065
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix build_chunks_from_api_surface (TC-062) to emit the real FQN:/Kind:/Bases:/Methods:/Properties:/Members:
+  text convention get_symbol/list_members actually require, carrying forward the real
+  parameter/return/enum data the raw fixture already has - closing the 2026-09-25
+  operator-found gap where get_symbol(''Aspose.Pdf.AFRelationship'') against the real
+  published pdf/net generation returns NotFound, and no tool can report an enum''s
+  values, a method''s parameters, or a class''s base types even though the raw extraction
+  fixture carries all three.'
+depends_on:
+- TC-062
+- TC-017b
+write_paths:
+- src/foss_mcp/indexing/chunk_builder.py
+- src/foss_mcp/mcp/tools/get_symbol.py
+- src/foss_mcp/mcp/tools/list_members.py
+- tests/indexing/test_chunk_builder.py
+- tests/mcp/tools/test_symbol_tools.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.2 Common tools — present identically on every instance (9 tools —
+    this table is the single authoritative registry; tool discovery, JSON schemas,
+    and generated documentation are all derived from it, never restated independently)'
+  sha256: fcc5e91a552d272bd617369066de6c312007c25806671af9c1ccbbfd6f574453
+inputs:
+- 'CONFIRMED by direct trace against the real committed code and the real generation
+  published today by TC-064: get_symbol (src/foss_mcp/mcp/tools/get_symbol.py) finds
+  a chunk purely by regex-matching an ''FQN: <name>'' line in its raw text (extract_fqn,
+  _FQN_LINE), then parses a ''Kind: <k>'' line (_KIND_LINE) and ''Methods:''/''Properties:''
+  bullet-list blocks (_extract_block, bullet prefix ''  - '') into a SymbolSignature(scope,
+  generation_id, doc_id, chunk_id, fqn, kind, methods, properties, raw_text). list_members.py
+  is built directly on get_symbol and currently returns signature.methods + signature.properties.
+  build_chunks_from_api_surface (src/foss_mcp/indexing/chunk_builder.py, TC-062) emits
+  NONE of this convention today - only ''{name} is a {kind}.'' plus an optional bare
+  comma-joined method-name list. get_symbol(''Aspose.Pdf.AFRelationship'') against
+  today''s real published generation returns NotFound because of this - confirmed
+  by regex trace, not assumption.'
+- 'The raw fixture (tests/fixtures/pdf_net/api_surface.json, and every other pilot''s
+  equivalent) already carries everything needed, read directly and confirmed: types[].bases
+  (list of base-type name strings), types[].methods[] (each with name, params: [{name,
+  type}], return_type, doc), types[].properties[] (each with name, type, writable,
+  doc), types[].enum_members[] (each with name, value).'
+- "New required text convention for build_chunks_from_api_surface's per-type chunk\
+  \ body (each section entirely OMITTED, header and all, when its source list is empty\
+  \ - get_symbol._extract_block already handles an absent header correctly by returning\
+  \ an empty tuple, do not emit an empty section):\n    FQN: {fqn}\n    Kind: {kind}\n\
+  \    {doc, if non-empty}\n    \n    Bases:\n      - {base}\n    \n    Methods:\n\
+  \      - {name}({param_name}: {param_type}, ...) -> {return_type or 'void'}\n  \
+  \  \n    Properties:\n      - {name}: {type} (writable)   <- or '(read-only)' when\
+  \ writable is False\n    \n    Members:\n      - {member_name} = {member_value}\n\
+  where {fqn} is entry.get('class_import') or entry.get('name', '') (same fallback\
+  \ the function already uses), and a method's bullet line ALWAYS carries its full\
+  \ parameter list, exactly as CONFIRMED present in the real fixture. 'Members:' is\
+  \ the enum-values block - keep the exact header name 'Members:', distinct from 'Methods:'/'Properties:',\
+  \ so get_symbol's own header-matching (which does exact line equality against a\
+  \ fixed header, not a prefix or substring match) cannot confuse the two."
+- 'get_symbol.py needs two new SymbolSignature fields, bases: tuple[str, ...] and
+  members: tuple[str, ...], populated via _extract_block(text, ''Bases:'') and _extract_block(text,
+  ''Members:'') exactly like the existing methods/properties fields - do not change
+  _extract_block''s own logic, it already generalizes correctly to any header string.'
+- list_members.py's return must become signature.methods + signature.properties +
+  signature.members (enum values are children of an enum the same way methods/properties
+  are children of a class) - bases are NOT children, do not add them to list_members's
+  output; they stay exposed only through get_symbol's own bases field.
+- 'CRITICAL - close the exact gap that let this go unnoticed today: tests/mcp/tools/test_symbol_tools.py
+  currently builds its OWN private, hand-shaped FQN:/Kind:/Methods:/Properties: chunk-text
+  fixture, entirely disconnected from build_chunks_from_api_surface - this is WHY
+  get_symbol''s own tests passed while the real production path was broken. Add at
+  least one new test in this file (or test_chunk_builder.py, your choice, but it must
+  exist) that builds a REAL chunk via build_chunks_from_api_surface against a synthetic
+  fixture dict with real bases/methods/properties/enum_members, publishes it through
+  the real foss_mcp.indexing.publisher.publish_generation with the real DeterministicEmbeddingProvider
+  (tests.indexing.test_index_writers), and then calls the REAL get_symbol/list_members
+  against that REAL published generation - asserting real bases/params/return types/enum
+  values come back. Do not remove any of test_symbol_tools.py''s existing private-fixture
+  tests - they still validate get_symbol''s own parsing logic on its own terms and
+  remain useful; this is an ADDITION that closes the disconnection, not a replacement.'
+actions:
+- Rewrite build_chunks_from_api_surface's per-type text construction to the convention
+  above, using the real fields (bases, methods[].params/return_type, properties[].type/writable,
+  enum_members[].name/value) - every existing caller (TC-062's own test, TC-064's
+  real ingestion pipeline) must keep working; run the full existing test_chunk_builder.py
+  and test_publisher.py suites and confirm they still pass, updating any assertion
+  that depended on the OLD thin text shape (expected, not a regression - the old shape
+  was the bug).
+- Add bases/members fields to get_symbol.py's SymbolSignature and _parse_signature.
+- Update list_members.py to include signature.members in its returned tuple.
+- Add the new real-round-trip test described above (build_chunks_from_api_surface
+  -> real publish -> real get_symbol/list_members), asserting genuine bases, a method
+  with its real parameter list and return type, a property's real type/writability,
+  and an enum's real member values all come back correctly.
+- Run the full test suite yourself and confirm nothing else broke.
+checks:
+- command: '{python} -m pytest tests/indexing/test_chunk_builder.py tests/indexing/test_publisher.py
+    tests/mcp/tools/test_symbol_tools.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 5
+network: false
+negative_control:
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/indexing/chunk_builder.py'');s=p.read_text(encoding=''utf-8'');s=s.replace(''FQN:
+    '',''FQN_DISABLED: '');p.write_text(s,encoding=''utf-8'')"'
+  rationale: 'Corrupting the literal ''FQN: '' prefix build_chunks_from_api_surface
+    emits must break the new real round-trip test (get_symbol can never find the chunk)
+    - proving the test genuinely depends on the real production text convention, not
+    a private fixture. Self-checked end-to-end against a fixture implementing the
+    exact prescribed text shape before being persisted.'
+evidence:
+- evidence/build/G2/TC-065/receipt.json
+closeout:
+- get_symbol/list_members work against real, production-built chunks - not only against
+  a private test fixture.
+- A real enum's member values, a real method's parameters and return type, a real
+  property's type/writability, and a real class's base types are all recoverable through
+  get_symbol/list_members against real content.
+- 'Corrupting the FQN: prefix fails the new round-trip test.'
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
