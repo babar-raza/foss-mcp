@@ -67,12 +67,16 @@ checks:
 min_tests: 3
 network: false
 negative_control:
-  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py');s=p.read_text(encoding='utf-8');s=s.replace(chr(39)+'operator_name'+chr(39)+',
-    '+chr(39)+'identifier'+chr(39),chr(39)+'operator_name_DISABLED'+chr(39)+', '+chr(39)+'identifier'+chr(39));p.write_text(s,encoding='utf-8')"
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py');s=p.read_text(encoding='utf-8');s=s.replace('\"operator_name\"','\"operator_name_DISABLED\"');p.write_text(s,encoding='utf-8')"
   rationale: Corrupting the literal 'operator_name' check must break the new regression
     test, causing the operator overload to fall through to the generic fallback and
     be misnamed again - proves the test genuinely exercises this specific node-type
-    addition. Self-checked end-to-end before being persisted.
+    addition. The original falsifier assumed a specific tuple insertion position ('operator_name'
+    immediately before 'identifier') that did not match the worker's actual placement
+    (appended at the end of the tuple instead) - a supervisor authoring mistake, not
+    a worker defect - so it was silently vacuous. Corrected here to target the real
+    committed string directly, and self-checked against the ACTUAL committed file
+    before being persisted, not a hypothetical placement.
 evidence:
 - evidence/build/G2/TC-059/receipt.json
 closeout:
