@@ -1,0 +1,91 @@
+id: TC-070
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix a real chunk-fragmentation defect TC-069''s own live E2E test correctly
+  found and correctly refused to paper over: a verified example''s description and
+  its code get split into two separate chunks by chunker.py''s blank-line paragraph
+  splitter (since the example body has no markdown heading, unlike TC-062''s own ''##
+  {name}''-per-type convention), so find_examples(''watermark'') returns only the
+  prose, never the code. This is the supervisor''s own authoring gap in TC-068''s
+  card, not a worker defect.'
+depends_on:
+- TC-068
+write_paths:
+- infra/build_chunks.py
+- tests/infra/test_build_chunks.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.9 Normalized document schema (`foss_mcp.normalized_document.v1`)
+    — extended for dual sourcing and the wider content taxonomy'
+  sha256: 138349d96db696b055efab492ac8a95b98afe51007c518521af07bbe4a92ac1c
+inputs:
+- 'CONFIRMED by reading src/foss_mcp/normalization/chunker.py directly: chunk_document''s
+  _sections() tries _heading_sections first (matches on ''#''-style markdown headings
+  via _HEADING = re.compile(r''^(#{1,6})[ \t]+(.+?)[ \t]*$'', re.MULTILINE)) - only
+  when NO heading exists does it fall back to _paragraph_sections, which splits at
+  every blank line (_BLANK_LINE = re.compile(r''\n\s*\n+'')). build_chunks_from_api_surface
+  (TC-062) wraps each type''s text in a ''## {name}'' heading before joining, which
+  is WHY its FQN:/Kind:/Bases:/Methods:/Properties:/Members: block survives as one
+  chunk despite its own internal blank lines (confirmed working live by the supervisor:
+  TC-065''s get_symbol(''AFRelationship'') round-trip). TC-068''s example-chunk body
+  (in infra/build_chunks.py, this card''s own file) has NO heading at all - f''FQN:
+  Example: {candidate.title}\nKind: verified_example\n{candidate.description}\n\nExample:\n{candidate.code}''
+  - so it falls through to the blank-line splitter and fractures into a description
+  chunk (contains the literal word ''watermark'', ranks highest) and a code-only chunk
+  (the word only appears inside the identifier ''AddWatermarkAnnotation'', which the
+  current plain tokenizer never matches against the bare query term ''watermark'').
+  find_examples returns only the top-ranked chunk - so a real live query returns prose
+  with no code, confirmed live today by TC-069''s own test.'
+- 'The fix is narrow and precise: add a single markdown heading line before the existing
+  body construction in infra/build_chunks.py''s example-chunk builder - exactly `f''#
+  Example: {candidate.title}\n\nFQN: Example: {candidate.title}\nKind: verified_example\n{candidate.description}\n\nExample:\n{candidate.code}''`
+  (the literal substring ''# Example: '' at the very start is required for the negative
+  control below). This gives _heading_sections exactly one heading to key on, so the
+  entire body - including its own internal blank lines - becomes ONE chunk, exactly
+  matching why TC-062''s per-type convention already works this way. Do not touch
+  chunker.py, the tokenizer, or lexical_index_writer.py - this is a body-construction
+  fix only, in the one file that builds the malformed body.'
+- A camelCase-aware tokenizer (so a bare query term also matches inside an identifier
+  like AddWatermarkAnnotation) is a real, separately valuable future improvement,
+  recorded in DECISION_LOG's 2026-09-25 TC-069 entry - it is NOT required once description
+  and code can no longer be split apart, and is explicitly out of this card's scope.
+actions:
+- 'Add the ''# Example: {title}'' heading line to the example body construction in
+  infra/build_chunks.py exactly as prescribed.'
+- Update/add a test in tests/infra/test_build_chunks.py that runs the real furnished-content
+  path (same real network/dotnet flow as TC-068's own tests) and asserts the verified
+  'Add a Watermark Annotation' example now produces EXACTLY ONE chunk (not two) whose
+  single text contains both the description prose and the real 'AddWatermarkAnnotation'
+  code - read the real produced chunks.json yourself to confirm this before writing
+  the final assertion, do not assume the count.
+- Do not remove TC-068's existing tests - update only what the new heading line requires
+  (e.g. an exact-text assertion that no longer matches because of the new heading
+  prefix).
+- Run the full check command yourself for real and confirm it passes before committing.
+checks:
+- command: '{python} -m pytest tests/infra/test_build_chunks.py -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 3
+network: true
+negative_control:
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''infra/build_chunks.py'');s=p.read_text(encoding=''utf-8'');s=s.replace(''#
+    Example: '',''Example (not a heading): '');p.write_text(s,encoding=''utf-8'')"'
+  rationale: 'Corrupting the literal ''# Example: '' heading marker (so it is no longer
+    a valid markdown heading, just plain text) must make the example body fall back
+    to the blank-line splitter again, fracturing it into two chunks and breaking the
+    new single-chunk assertion - proving the test genuinely depends on the heading
+    fix, not merely that some chunk exists. Self-checked end-to-end against a fixture
+    implementing the exact prescribed heading literal before being persisted.'
+evidence:
+- evidence/build/G2/TC-070/receipt.json
+closeout:
+- A verified example's description and code survive as one atomic chunk, never split.
+- Corrupting the heading marker fails the new test.
+- No other file (chunker.py, the tokenizer, lexical_index_writer.py) is touched.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

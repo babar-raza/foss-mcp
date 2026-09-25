@@ -412,3 +412,45 @@ now rather than left implicit for a future gate-exit to discover.
    that a chunk round-trips through the pipeline. Only once pdf/net proves this completely does the
    pattern get replicated to the other six pilots, one per platform, as the operator's own pilot
    proof requires before any further expansion.
+
+## 2026-09-25 — TC-069 correctly stopped: a real chunk-fragmentation defect, and it's the supervisor's own authoring mistake
+
+TC-069's worker built the real Docker/compose wiring correctly (git + .NET 8 SDK genuinely
+installed and working inside the ingestion image, the real pinned repo/commit genuinely cloned
+and built inside the container, `verified 1/3 candidate examples` matching TC-068's own
+host-level result exactly) - then ran the actual live E2E test the card required
+(`find_examples('watermark')` against the real running container) and found a real defect: the
+match returned is the example's own English description, never its code.
+
+Root cause, confirmed by reading `chunker.py` directly: `chunk_document()` finds `#`-style
+markdown headings first (`_heading_sections`); only when NONE exist does it fall back to
+splitting on blank lines (`_paragraph_sections`). TC-062's own convention (preserved by TC-065)
+wraps each type in a `## {name}` heading, so its FQN:/Kind:/Bases:/Methods:/Properties:/Members:
+block survives as ONE chunk regardless of the blank lines between its own sections - this is WHY
+`get_symbol`'s round-trip test passed. TC-068's card (authored by this supervisor, not a worker
+error) prescribed the example's body as `FQN: Example: {title}\nKind: verified_example\n
+{description}\n\nExample:\n{code}` with NO heading at all - so it fell through to the blank-line
+splitter and fractured into two separate chunks: a description chunk (which contains the literal
+word "watermark" and ranks highest) and a code-only chunk (whose only occurrence of the idea is
+inside the single identifier token `AddWatermarkAnnotation`, which never matches the bare query
+term "watermark" under the current plain-tokenizer). `find_examples` returns only the top-ranked
+chunk, so a real, live, natural-language query for exactly the thing this whole pipeline exists
+to prove got back prose with no code - the precise failure mode the operator's original question
+was asking about, caught by the operator's own newly-required live-content discipline before it
+could ship silently.
+
+TC-069's worker did exactly what this project asks: ran the real test, found the real defect, did
+not weaken the assertion or narrow the query to dodge it, left its own genuinely-correct,
+already-proven Docker/compose work uncommitted rather than force a false pass, and reported the
+root cause precisely enough to fix without re-diagnosing. This is the third time today the
+"stop rather than paper over" discipline has produced exactly the outcome it exists for.
+
+**Decision**: fix the root cause narrowly, in infra/build_chunks.py alone (TC-068's own file, a
+one-line addition of a `# Example: {title}` heading before the FQN:/Kind:/description/Example:
+body, giving `_heading_sections` a single heading to key on so the whole example survives as one
+atomic chunk) - not chunker.py, not the tokenizer. A camelCase-aware lexical tokenizer (so a bare
+query term matches inside an identifier like `AddWatermarkAnnotation` too) is a real, separately
+valuable future enhancement for retrieval quality generally, but is not required once the
+description and its code can no longer be split apart - recorded here so it isn't lost, not
+pursued now to keep this fix minimal and scoped to the actual defect. TC-069 is reworked
+(attempt 2) once this lands, reusing its own already-correct, still-uncommitted infra changes.
