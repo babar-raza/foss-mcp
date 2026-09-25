@@ -37,7 +37,11 @@ PROJECT_NAME = "foss-mcp-e2e-tc064"
 BASE_URL = "http://127.0.0.1:8080"
 MCP_PATH = "/mcp"
 READYZ_PATH = "/readyz"
-INGEST_TIMEOUT_SECONDS = 600
+# REQ-G2-048 (TC-069) widened this: the ingest-pdf-net image now bakes in a real .NET 8 SDK
+# download/install, and the container itself now does a real git clone plus real `dotnet
+# build`s (the reference library once, then one per real furnished-content candidate) -
+# genuinely slower than the pre-TC-069 type-only publish this budget originally covered.
+INGEST_TIMEOUT_SECONDS = 1500
 READYZ_TIMEOUT_SECONDS = 180
 POLL_INTERVAL_SECONDS = 2
 
@@ -50,6 +54,14 @@ PROTOCOL_VERSION = "2025-06-18"
 # never a guess.
 REAL_SYMBOL = "AFRelationship"
 REAL_SOURCE_COMMIT = "b7172877651413cff57a8bfe41fb8a8befb2406b"
+
+# REQ-G2-048 (TC-069): the real, compile-verified example this card's real containerized
+# ingestion run produces - of the 3 real candidates in tests/fixtures/furnished/pdf_net's
+# real furnished page, only "Add a Watermark Annotation" really compiles against the real
+# pinned Aspose.PDF-FOSS-for-.NET commit (confirmed by hand today, at the host level, by
+# TC-067/TC-068). ``AddWatermarkAnnotation`` is the real, distinctive method call this
+# candidate's real code uses - never a guess at what a container might return.
+REAL_EXAMPLE_SYMBOL = "AddWatermarkAnnotation"
 
 VALID_HEADERS = {
     "Accept": "application/json, text/event-stream",
@@ -226,3 +238,24 @@ def test_lookup_returns_real_content_from_the_real_fixture(session: _McpSession)
     result = body["result"]["structuredContent"]["result"]
     assert isinstance(result, list) and result, f"expected real matches, got a Miss: {result}"
     assert any(REAL_SYMBOL in match["text"] for match in result), result
+
+
+def test_find_examples_returns_the_real_compile_verified_watermark_example(
+    session: _McpSession,
+) -> None:
+    """REQ-G2-048 (TC-069): the concrete answer to the operator's own worked question ("how
+    do I add a watermark to a PDF"), proven through the FULL containerized production path -
+    not only at the host/test level (TC-068) but through a real ``docker compose up --build``
+    of ``ingest-pdf-net`` (real git clone + real ``dotnet build`` INSIDE the container) feeding
+    the same real ``serving`` container every other test in this file already queries.
+
+    A task-oriented query ('watermark') takes ``find_examples``'s semantic/lexical fallback
+    path (TC-068's own real fixture chunk is deliberately labeled ``FQN: Example: Add a
+    Watermark Annotation``, not a real symbol FQN, so no exact-match path would fire here) -
+    ranking every real ``Example:``-bearing chunk against the query text and returning the one
+    real, compile-verified match.
+    """
+    body = session.call_tool("find_examples", {"query": "watermark"})
+    result = body["result"]["structuredContent"]["result"]
+    assert isinstance(result, list) and result, f"expected real ExampleMatch(es), got a Miss: {result}"
+    assert any(REAL_EXAMPLE_SYMBOL in match["snippet"] for match in result), result

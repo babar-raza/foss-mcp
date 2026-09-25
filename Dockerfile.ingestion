@@ -9,6 +9,32 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
+# REQ-G2-048 (TC-069): the real verified-example path (infra/build_chunks.py's
+# --furnished-page/--library-* flags, TC-068) needs a real git (to clone the pinned
+# reference library) and a real .NET 8 SDK (to really compile each candidate example) -
+# neither is present in this image's plain python:3.13-slim base. Debian trixie's own apt
+# repos do not reliably carry a current dotnet-sdk-8.0 package, so Microsoft's own,
+# officially supported dotnet-install.sh script is used instead (more reliable across
+# base-image releases than chasing distro packaging):
+# https://learn.microsoft.com/dotnet/core/tools/dotnet-install-script
+#
+# DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 is required on this slim base: without it the
+# installed SDK aborts at startup with "Couldn't find a valid ICU package installed on the
+# system" (confirmed by hand against this exact image) rather than pull in a whole ICU data
+# package for a one-shot CLI that never needs locale-aware formatting.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
+    && chmod +x /tmp/dotnet-install.sh \
+    && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet \
+    && rm /tmp/dotnet-install.sh
+ENV PATH="/usr/share/dotnet:${PATH}" \
+    DOTNET_ROOT=/usr/share/dotnet \
+    DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+    DOTNET_NOLOGO=1 \
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+
 # Hash-verified install: every dependency, and its transitive closure, is pinned by exact
 # sha256 in requirements.lock. --require-hashes refuses to install anything that isn't.
 COPY requirements.lock ./requirements.lock
@@ -21,6 +47,10 @@ COPY config/ ./config/
 COPY infra/ingest.py ./infra/ingest.py
 COPY infra/build_chunks.py ./infra/build_chunks.py
 COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+# REQ-G2-048 (TC-069): the furnished-content page --furnished-page reads from, real inside
+# the container - the same real, committed fixture TC-068's own host-level test already
+# proved against.
+COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
 ENV PYTHONPATH=/app/src
 
 # Same fix as Dockerfile.serving's own /data/manifests (TC-019a): the non-root user below
