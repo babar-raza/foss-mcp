@@ -1,0 +1,96 @@
+id: TC-069
+gate: G2
+lane: transport-deployment
+purpose: 'Fourth and final wiring piece of the real verified-example pipeline (REQ-G2-048):
+  run TC-068''s verified-example generation inside the REAL containerized ingestion
+  pipeline, not only at the host/test level, and prove with a real live query that
+  find_examples returns the real, compile-verified watermark example - the concrete
+  answer to the operator''s own worked question (''how do I add a watermark to a PDF'').'
+depends_on:
+- TC-068
+- TC-064
+write_paths:
+- Dockerfile.ingestion
+- docker-compose.yml
+- tests/e2e/test_pdf_net_live_content.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'CONFIRMED by direct testing today: infra/build_chunks.py (TC-068) now accepts --furnished-page/--library-repository/--library-commit/--library-csproj
+  alongside its existing --api-surface/--title/--max-types/--out flags, and produces
+  a real, compile-verified ''Add a Watermark Annotation'' example chunk when run against
+  the real pinned furnished content and library commit. Today it only ran on the HOST
+  (real .NET 8 SDK already installed there) - docker-compose.yml''s ingest-pdf-net
+  service (TC-064) invokes build_chunks.py inside a container built from Dockerfile.ingestion,
+  which is a plain python:3.13-slim image with NO git and NO .NET SDK - the new example-verification
+  path cannot run there today.'
+- Dockerfile.ingestion needs git and the .NET 8 SDK added. The standard, well-known
+  installation path for a Debian-based image (python:3.13-slim's base) is apt-get
+  install git, then Microsoft's own dotnet-install.sh script (https://dot.net/v1/dotnet-install.sh
+  --channel 8.0) or the dotnet-sdk-8.0 apt package if the Debian release's apt repos
+  carry it - use your own judgment on which is more reliable in this environment,
+  but confirm `dotnet --version` reports 8.x inside the built image before trusting
+  anything downstream. This will genuinely increase the ingestion image's build time
+  and size - expected and acceptable, this image already declared network access was
+  needed for a one-time ingestion run.
+- 'docker-compose.yml''s ingest-pdf-net service''s command must be extended to also
+  pass --furnished-page (pointing at the fixture already COPY''d into the image by
+  TC-064: ./fixtures/pdf_net/api_surface.json''s sibling - confirm the exact real
+  path Dockerfile.ingestion copies the furnished page to, or add a new COPY line for
+  tests/fixtures/furnished/pdf_net/pages/_index.md if it is not already present) and
+  --library-repository/--library-commit/--library-csproj with the same real, already-proven
+  values TC-067/068 used (aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET, b7172877651413cff57a8bfe41fb8a8befb2406b,
+  src/Aspose.Pdf.Foss.csproj).'
+- Do not touch any other pilot's docker-compose service, and do not touch Dockerfile.serving
+  at all - only Dockerfile.ingestion and the one ingest-pdf-net service change.
+actions:
+- Update Dockerfile.ingestion to install git and the .NET 8 SDK, and to COPY the furnished-content
+  fixture into the image if not already present.
+- Update docker-compose.yml's ingest-pdf-net command to pass the new flags with the
+  real pinned values above.
+- 'Extend tests/e2e/test_pdf_net_live_content.py (TC-064''s existing real-docker E2E
+  test) with a new test: bring up the real ingestion service (docker compose up --build,
+  wait for exit 0 - this now includes real git clone + real dotnet build INSIDE the
+  container), bring up serving, poll /readyz, run a real MCP session, call find_examples
+  with a task-oriented query (e.g. ''watermark'') and assert a real ExampleMatch comes
+  back whose snippet contains the real string ''AddWatermarkAnnotation'' - the same
+  real, verified content TC-068 proved at the host level, now proven through the full
+  containerized production path. Tear down containers even on failure, mirroring the
+  existing pattern in this file.'
+- Run this yourself for real (a full docker compose build + up cycle) and confirm
+  it passes before committing - budget real time, this is the slowest card in the
+  sequence (image rebuild with a new SDK layer, a real clone, a real build, inside
+  a container).
+checks:
+- command: '{python} -m pytest tests/e2e/test_pdf_net_live_content.py -q'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 4
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('docker-compose.yml');s=p.read_text(encoding='utf-8');s=s.replace('--furnished-page','--furnished-page-DISABLED');p.write_text(s,encoding='utf-8')"
+  rationale: Corrupting the literal '--furnished-page' flag name in docker-compose.yml
+    must make the real ingestion container's argparse call fail (unrecognized argument),
+    breaking the new find_examples live-content test - proving it genuinely depends
+    on the real containerized example-verification path running, not merely that the
+    container starts. Self-checked end-to-end against a fixture implementing the exact
+    prescribed flag name before being persisted.
+evidence:
+- evidence/build/G2/TC-069/receipt.json
+closeout:
+- The real ingestion container can run git+dotnet-based example verification for real,
+  inside docker-compose, not only at the host/test level.
+- A real MCP client calling find_examples('watermark') against the real running pdf/net
+  container gets back the real, compile-verified AddWatermarkAnnotation example.
+- No other pilot's service or Dockerfile.serving is affected.
+- Corrupting the --furnished-page flag name fails the new test.
+recovery: Re-run from a clean tree; `docker compose down -v` first to clear any stale
+  volume/image state, then the card is idempotent from committed content.
