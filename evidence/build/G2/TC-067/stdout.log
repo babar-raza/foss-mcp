@@ -1,0 +1,51 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tnq35_fo\.junit-0.xml"
+--- stdout ---
+...                                                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tnq35_fo\.junit-0.xml"
+--- stdout ---
+...                                                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/example_verifier.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tnq35_fo\.junit-0.xml"
+--- stdout ---
+.F.                                                                      [100%]
+================================== FAILURES ===================================
+_______________ test_known_broken_candidate_fails_real_compile ________________
+
+reference_library = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-217/pdf_net_reference0/src/Aspose.Pdf.Foss.csproj')
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-217/test_known_broken_candidate_fa0')
+
+    def test_known_broken_candidate_fails_real_compile(
+        reference_library: Path, tmp_path: Path
+    ) -> None:
+        candidate = _link_annotation_candidate()
+        assert "PdfAction" in candidate.code
+        assert "using Aspose.Pdf.Annotations;" not in candidate.code
+    
+        result = verify_dotnet_example(
+            candidate, library_csproj=reference_library, workdir=tmp_path
+        )
+    
+        assert isinstance(result, VerificationResult)
+        assert result.candidate == candidate
+>       assert result.verified is False
+E       assert True is False
+E        +  where True = VerificationResult(candidate=CandidateExample(title='Open a PDF, Add a Link Annotation, and Save', description='Open a...candidate_fa0\\candidate_project\\candidate.csproj]\n    0 Warning(s)\n    1 Error(s)\n\nTime Elapsed 00:00:20.25\n\n").verified
+
+tests\indexing\test_example_verifier.py:91: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_example_verifier.py::test_known_broken_candidate_fails_real_compile
+
+--- stderr ---
+

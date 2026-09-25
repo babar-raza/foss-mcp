@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-061",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-25T09:05:14Z",
+  "base_rev": "709ba2b0e42bfcb6b7d5b63c789700d0973e1f88",
+  "head_rev": "37dd7a0c180f69d70424df95d23f4ec0cc301b12",
+  "card_sha256": "71116a5dcda711874b563eb2c49ed7ac9de67848bc312dceeb7c816fd6602e80",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "Dockerfile.serving",
+      "infra/serve_http.py",
+      "tests/infra/test_serve_http.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_serve_http.py tests/mcp/test_server_wiring.py tests/test_container_build.py -q",
+          "exit_code": 0,
+          "duration_s": 10.704,
+          "stdout_sha256": "b61ec808d96e02df16bfd5be6174b0c6a6a717f0a6fbdf2a08bffc3d7bf621d8",
+          "tests": 32,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_serve_http.py tests/mcp/test_server_wiring.py tests/test_container_build.py -q",
+          "exit_code": 0,
+          "duration_s": 9.266,
+          "stdout_sha256": "b61ec808d96e02df16bfd5be6174b0c6a6a717f0a6fbdf2a08bffc3d7bf621d8",
+          "tests": 32,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/health.py');s=p.read_text(encoding='utf-8');s=s.replace('return store.active_generation_id() is not None','return True');p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "28160e40cedd1e4b6f27dd0d6148ab722d03b5670a64a598888f5eef31429cf4",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/health.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

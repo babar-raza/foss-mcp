@@ -1,0 +1,170 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder.py tests/indexing/test_publisher.py tests/mcp/tools/test_symbol_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8cl4nfn4\.junit-0.xml"
+--- stdout ---
+.............................                                            [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder.py tests/indexing/test_publisher.py tests/mcp/tools/test_symbol_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8cl4nfn4\.junit-0.xml"
+--- stdout ---
+.............................                                            [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/chunk_builder.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder.py tests/indexing/test_publisher.py tests/mcp/tools/test_symbol_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8cl4nfn4\.junit-0.xml"
+--- stdout ---
+..FF....................F....                                            [100%]
+================================== FAILURES ===================================
+_________ test_body_text_reflects_the_real_synthetic_types_passed_in __________
+
+    def test_body_text_reflects_the_real_synthetic_types_passed_in() -> None:
+        chunks = build_chunks_from_api_surface(SYNTHETIC_FIXTURE, title="widgets/example API surface")
+        all_text = "\n".join(chunk.text for chunk in chunks)
+        all_titles = {chunk.section_title for chunk in chunks}
+    
+        # class_import wins over name when present.
+>       assert "FQN: Example.Widgets.WidgetFactory" in all_text
+E       AssertionError: assert 'FQN: Example.Widgets.WidgetFactory' in 'FQN_DISABLED: Example.Widgets.WidgetFactory\nKind: class\n\nMethods:\n  - Create() -> void\n  - Destroy() -> void\nFQN_DISABLED: WidgetKind\nKind: enum\nFQN_DISABLED: Sprocket\nKind: struct\n\nMethods:\n  - Spin() -> void'
+
+tests\indexing\test_chunk_builder.py:71: AssertionError
+____ test_body_text_carries_bases_properties_and_enum_members_when_present ____
+
+    def test_body_text_carries_bases_properties_and_enum_members_when_present() -> None:
+        """The real convention get_symbol/list_members require: FQN:/Kind:/Bases:/Methods:/
+        Properties:/Members:, each section carrying the real field data the raw fixture has -
+        a method's full parameter list and return type, a property's type and writability, and an
+        enum's real member values.
+        """
+        fixture = {
+            "source_repository": "example-org/Example-FOSS-for-Widgets",
+            "source_commit": "deadbeefcafef00d1234567890abcdef1234567",
+            "types": [
+                {
+                    "name": "Cog",
+                    "class_import": "Example.Widgets.Cog",
+                    "kind": "class",
+                    "doc": "A toothed rotating widget part.",
+                    "bases": ["IEnumerable<Tooth>", "IDisposable"],
+                    "methods": [
+                        {
+                            "name": "Rotate",
+                            "params": [{"name": "degrees", "type": "int"}, {"name": "clockwise", "type": "bool"}],
+                            "return_type": "bool",
+                        },
+                        {"name": "Reset", "params": [], "return_type": ""},
+                    ],
+                    "properties": [
+                        {"name": "ToothCount", "type": "int", "writable": True},
+                        {"name": "Id", "type": "string", "writable": False},
+                    ],
+                },
+                {
+                    "name": "CogKind",
+                    "class_import": "",
+                    "kind": "enum",
+                    "enum_members": [
+                        {"name": "Small", "value": "0"},
+                        {"name": "Large", "value": "1"},
+                    ],
+                },
+            ],
+        }
+    
+        chunks = build_chunks_from_api_surface(fixture, title="widgets/example API surface")
+        by_title = {c.section_title: c.text for c in chunks}
+    
+        cog_text = by_title["Example.Widgets.Cog"]
+>       assert "FQN: Example.Widgets.Cog" in cog_text
+E       AssertionError: assert 'FQN: Example.Widgets.Cog' in 'FQN_DISABLED: Example.Widgets.Cog\nKind: class\nA toothed rotating widget part.\n\nBases:\n  - IEnumerable<Tooth>\n  ...ockwise: bool) -> bool\n  - Reset() -> void\n\nProperties:\n  - ToothCount: int (writable)\n  - Id: string (read-only)'
+
+tests\indexing\test_chunk_builder.py:142: AssertionError
+___ test_get_symbol_and_list_members_against_a_real_production_built_chunk ____
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-190/test_get_symbol_and_list_membe0')
+
+    def test_get_symbol_and_list_members_against_a_real_production_built_chunk(tmp_path: Path) -> None:
+        """TC-065: the exact disconnection the 2026-09-25 audit found - every test above publishes
+        its chunk text through ``_format_signature``/``_publish_pdf_net_symbols``, a private,
+        hand-shaped FQN:/Kind:/Methods:/Properties: fixture built right here in this test file,
+        entirely disconnected from the real production chunk builder
+        (``foss_mcp.indexing.chunk_builder.build_chunks_from_api_surface``). That disconnection is
+        exactly why ``get_symbol``'s own tests passed while the real production path was broken:
+        ``get_symbol('Aspose.Pdf.AFRelationship')`` against a real published generation returned
+        ``NotFound``, because the real builder emitted none of the FQN:/Kind:/... convention this
+        tool's regex-based parser requires.
+    
+        This test closes that gap for real: it builds a chunk via the REAL
+        ``build_chunks_from_api_surface``, against a synthetic fixture carrying real
+        bases/methods/params/return_type/properties/enum_members, publishes it through the REAL
+        ``publish_generation`` with the REAL ``DeterministicEmbeddingProvider``, and then calls the
+        REAL ``get_symbol``/``list_members`` against that REAL published generation - asserting the
+        real base types, a real method's full parameter list and return type, a real property's
+        type and writability, and a real enum's member values all come back correctly.
+        """
+        store = _store(tmp_path)
+        fixture = {
+            "source_repository": "example-org/Example-FOSS-for-Widgets",
+            "source_commit": "cafefeedfacefeed000000000000000000000001",
+            "types": [
+                {
+                    "name": "Sprocket",
+                    "class_import": "Example.Widgets.Sprocket",
+                    "kind": "class",
+                    "doc": "A rotating widget component.",
+                    "bases": ["IEnumerable<Cog>", "IDisposable"],
+                    "methods": [
+                        {
+                            "name": "Spin",
+                            "params": [{"name": "speed", "type": "int"}, {"name": "reverse", "type": "bool"}],
+                            "return_type": "bool",
+                        },
+                        {"name": "Stop", "params": [], "return_type": ""},
+                    ],
+                    "properties": [
+                        {"name": "Radius", "type": "double", "writable": True},
+                        {"name": "Id", "type": "string", "writable": False},
+                    ],
+                },
+                {
+                    "name": "SprocketKind",
+                    "class_import": "",
+                    "kind": "enum",
+                    "enum_members": [
+                        {"name": "Small", "value": "0"},
+                        {"name": "Large", "value": "1"},
+                    ],
+                },
+            ],
+        }
+        chunks = build_chunks_from_api_surface(fixture, title="widgets/example API surface")
+        lease = store.acquire_lease("pdf::net::self_extracted", "worker-1", "pending")
+        publish_generation(
+            store,
+            family="pdf",
+            platform="net",
+            source_kind="self_extracted",
+            expected_active=None,
+            chunks=chunks,
+            embedding_provider=DeterministicEmbeddingProvider(),
+            lease=lease,
+        )
+    
+        class_result = get_symbol(store, PDF_NET_SCOPE, "Example.Widgets.Sprocket")
+>       assert isinstance(class_result, SymbolSignature)
+E       AssertionError: assert False
+E        +  where False = isinstance(NotFound(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), fqn='Example.Widgets.Sprocket'), SymbolSignature)
+
+tests\mcp\tools\test_symbol_tools.py:212: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_chunk_builder.py::test_body_text_reflects_the_real_synthetic_types_passed_in
+FAILED tests/indexing/test_chunk_builder.py::test_body_text_carries_bases_properties_and_enum_members_when_present
+FAILED tests/mcp/tools/test_symbol_tools.py::test_get_symbol_and_list_members_against_a_real_production_built_chunk
+
+--- stderr ---
+

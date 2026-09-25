@@ -1,0 +1,83 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_hashing_embedding_provider.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-l_fxfzi3\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_hashing_embedding_provider.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-l_fxfzi3\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/hashing_embedding_provider.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_hashing_embedding_provider.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-l_fxfzi3\.junit-0.xml"
+--- stdout ---
+FFFFF                                                                    [100%]
+================================== FAILURES ===================================
+__________ test_the_same_text_always_embeds_to_the_identical_vector ___________
+
+    def test_the_same_text_always_embeds_to_the_identical_vector() -> None:
+        provider = HashingEmbeddingProvider()
+        text = "The Document class opens and saves PDF files."
+>       assert provider.embed([text]) == provider.embed([text])
+               ^^^^^^^^^^^^^^
+E       AttributeError: 'HashingEmbeddingProvider' object has no attribute 'embed'
+
+tests\indexing\test_hashing_embedding_provider.py:31: AttributeError
+_______________ test_every_vector_has_length_equal_to_dimension _______________
+
+    def test_every_vector_has_length_equal_to_dimension() -> None:
+        default_provider = HashingEmbeddingProvider()
+>       vectors = default_provider.embed(["hello world", "a second, different text!"])
+                  ^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'HashingEmbeddingProvider' object has no attribute 'embed'
+
+tests\indexing\test_hashing_embedding_provider.py:40: AttributeError
+_ test_shared_vocabulary_yields_higher_cosine_similarity_than_disjoint_vocabulary _
+
+    def test_shared_vocabulary_yields_higher_cosine_similarity_than_disjoint_vocabulary() -> None:
+        provider = HashingEmbeddingProvider()
+    
+        text_a = "The Document class opens and saves PDF files quickly and safely."
+        text_b = "A Document instance also opens and saves PDF files reliably."
+        text_c = "Bananas trains oceans mountains guitars velvet clouds whisper silently."
+    
+>       vector_a, vector_b, vector_c = provider.embed([text_a, text_b, text_c])
+                                       ^^^^^^^^^^^^^^
+E       AttributeError: 'HashingEmbeddingProvider' object has no attribute 'embed'
+
+tests\indexing\test_hashing_embedding_provider.py:57: AttributeError
+______________________ test_each_vector_is_l2_normalized ______________________
+
+    def test_each_vector_is_l2_normalized() -> None:
+        provider = HashingEmbeddingProvider()
+>       [vector] = provider.embed(["repeated repeated repeated words words distinct"])
+                   ^^^^^^^^^^^^^^
+E       AttributeError: 'HashingEmbeddingProvider' object has no attribute 'embed'
+
+tests\indexing\test_hashing_embedding_provider.py:73: AttributeError
+___________ test_empty_text_embeds_to_the_zero_vector_without_error ___________
+
+    def test_empty_text_embeds_to_the_zero_vector_without_error() -> None:
+        provider = HashingEmbeddingProvider()
+>       [vector] = provider.embed([""])
+                   ^^^^^^^^^^^^^^
+E       AttributeError: 'HashingEmbeddingProvider' object has no attribute 'embed'
+
+tests\indexing\test_hashing_embedding_provider.py:80: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_hashing_embedding_provider.py::test_the_same_text_always_embeds_to_the_identical_vector
+FAILED tests/indexing/test_hashing_embedding_provider.py::test_every_vector_has_length_equal_to_dimension
+FAILED tests/indexing/test_hashing_embedding_provider.py::test_shared_vocabulary_yields_higher_cosine_similarity_than_disjoint_vocabulary
+FAILED tests/indexing/test_hashing_embedding_provider.py::test_each_vector_is_l2_normalized
+FAILED tests/indexing/test_hashing_embedding_provider.py::test_empty_text_embeds_to_the_zero_vector_without_error
+
+--- stderr ---
+

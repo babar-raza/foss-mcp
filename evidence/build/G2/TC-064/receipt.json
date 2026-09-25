@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-064",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-25T09:34:01Z",
+  "base_rev": "8207ba8fd45f79138f1e1baffd86c763e46c0a30",
+  "head_rev": "c60996ec1dc4dc3a1b9210c798acd93589ec01b4",
+  "card_sha256": "31ef19ecd64c8a21ce3c45b3e1022d1dbe70c756c2544a7799d9ccb03ae62d95",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "Dockerfile.ingestion",
+      "docker-compose.yml",
+      "infra/build_chunks.py",
+      "tests/e2e/test_pdf_net_live_content.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/e2e/test_pdf_net_live_content.py -q",
+          "exit_code": 0,
+          "duration_s": 25.799,
+          "stdout_sha256": "c4b808d34f4db00b333696dec1f3a43a2887d8bfe0cb7af07a3cb98ff43a7830",
+          "tests": 4,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/e2e/test_pdf_net_live_content.py -q",
+          "exit_code": 0,
+          "duration_s": 16.978,
+          "stdout_sha256": "c4b808d34f4db00b333696dec1f3a43a2887d8bfe0cb7af07a3cb98ff43a7830",
+          "tests": 4,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/build_chunks.py');s=p.read_text(encoding='utf-8');s=s.replace('build_chunks_from_api_surface(','build_chunks_from_api_surface_DISABLED(');p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "c96c623157902103ccb56683b1cefecfda1e44c9b7706a2ec594fa285d8c9c82",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/build_chunks.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
