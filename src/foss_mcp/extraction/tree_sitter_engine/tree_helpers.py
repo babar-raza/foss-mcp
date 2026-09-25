@@ -326,6 +326,13 @@ def _cpp_free_function_name(node) -> str:
     called there BEFORE the generic identifier-child fallback, which
     otherwise matches a bare-identifier return type (e.g. `Matrix Identity()`)
     before this correct lookup ever runs -- see TC-058 for the reproduction.
+
+    TC-059: an operator overload's function_declarator names its declarator
+    child 'operator_name' instead of 'identifier' -- a genuinely distinct
+    tree-sitter-cpp node type, confirmed via a live parse probe against
+    `Flags operator|(Flags a, Flags b)`. node_text() on that node returns the
+    full literal operator token (e.g. 'operator|'), which is exactly the real
+    name we want, so it is included alongside the other checked node types.
     """
     fdecl = find_child_by_type(node, "function_declarator")
     if fdecl is None:
@@ -337,7 +344,7 @@ def _cpp_free_function_name(node) -> str:
                     break
     if fdecl is not None:
         for ch in fdecl.children:
-            if ch.type in ("identifier", "field_identifier", "destructor_name"):
+            if ch.type in ("identifier", "field_identifier", "destructor_name", "operator_name"):
                 return node_text(ch)
     return ""
 

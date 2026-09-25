@@ -234,3 +234,45 @@ def test_cpp_free_function_returning_bare_user_type_by_value_is_named_correctly(
     # must remain correctly named after this fix.
     assert "HasSide" in by_name
     assert by_name["HasSide"]["kind"] == "function"
+
+
+# TC-059: reproduces a bug found by direct reproduction against the real
+# public aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp repository (commit
+# c559fc3dd1c5d3a42c7f12a953918ce8dc59fa07): real free functions such as
+# `AnnotationFlags::operator|`, `BorderSide::operator|`,
+# `Permissions::operator|` and `RichTextFontStyles::operator|` (all returning
+# their own enum type by value) were extracted with the WRONG name -- each
+# named after its own return type (e.g. 'Flags') instead of its real name
+# ('operator|'). TC-058's bare-identifier-return-type fix does not cover this
+# case: it is a narrower, distinct gap for operator overloads specifically.
+#
+# Root cause, confirmed via a live parse probe (tree_sitter_language_pack.
+# get_parser("cpp")) against `Flags operator|(Flags a, Flags b)`: the
+# function_declarator's declarator-name child has node type 'operator_name'
+# (with literal text 'operator|'), a genuinely distinct tree-sitter-cpp node
+# type from a plain function's 'identifier' -- not covered by the existing
+# _cpp_free_function_name() check before this fix.
+CPP_FREE_FUNCTION_OPERATOR_OVERLOAD = """
+enum class Flags { A, B };
+
+Flags operator|(Flags a, Flags b) {
+    return a;
+}
+"""
+
+
+def test_cpp_free_function_operator_overload_is_named_correctly(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "src"
+    package.mkdir()
+    (package / "widget.cpp").write_text(CPP_FREE_FUNCTION_OPERATOR_OVERLOAD, encoding="utf-8")
+    types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, "widget")
+    by_name = {t["name"]: t for t in types}
+
+    # The exact TC-059 bug: a free function operator overload must be named
+    # after itself ('operator|'), not misnamed after its own return type
+    # ('Flags').
+    assert "operator|" in by_name
+    assert by_name["operator|"]["kind"] == "function"
+    assert "Flags" not in by_name or by_name["Flags"]["kind"] != "function"
