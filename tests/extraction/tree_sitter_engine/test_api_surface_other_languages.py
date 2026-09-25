@@ -110,3 +110,77 @@ def test_rust_names_a_top_level_free_function_literally_function(tmp_path: Path)
     by_name = {t["name"]: t["kind"] for t in types}
     assert by_name["Widget"] == "struct_item"
     assert by_name["make_widget"] == "function"
+
+
+# TC-010b: reproduces two confirmed bugs in tree_helpers.py, both verified
+# against the real tree-sitter-cpp grammar via a live parse probe
+# (tree_sitter_language_pack.get_parser("cpp") against these exact shapes)
+# before being fixed:
+#
+# (1) is_public() had no branch for a bare C++ free function at namespace/
+#     global scope -- it fell through every existing check and was always
+#     dropped. `makeWidget` below is such a function, at namespace scope.
+#
+# (2) _extract_bases() had no branch reading a class's `base_class_clause`
+#     child (the real tree-sitter-cpp node for `: public Base1, private
+#     Base2`) -- it fell through to the generic Java/C# loop, which does not
+#     recognize `base_class_clause` at all but DOES match the class's own
+#     `type_identifier` name child, so bases lists were not merely empty but
+#     silently populated with the class's own name (confirmed empirically:
+#     `_extract_bases()` on `class Widget : public Base1` previously returned
+#     ['Widget'], not ['Base1'] and not []).
+CPP = """
+namespace widget {
+
+int makeWidget(int seed) {
+    return seed + 1;
+}
+
+class Widget : public OnlyBase {
+public:
+    Widget();
+};
+
+class MixedWidget : public PubBase, protected ProtBase, private PrivBase {
+public:
+    MixedWidget();
+};
+
+}
+"""
+
+
+def test_cpp_free_function_at_namespace_scope_is_extracted_as_function(tmp_path: Path) -> None:
+    package = tmp_path / "src"
+    package.mkdir()
+    (package / "widget.cpp").write_text(CPP, encoding="utf-8")
+    types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, "widget")
+    by_name = {t["name"]: t for t in types}
+
+    # The exact TC-010b free-function bug: previously dropped entirely by
+    # is_public() falling through every branch to False.
+    assert "makeWidget" in by_name
+    assert by_name["makeWidget"]["kind"] == "function"
+
+
+def test_cpp_class_with_single_public_base_has_base_in_bases_list(tmp_path: Path) -> None:
+    package = tmp_path / "src"
+    package.mkdir()
+    (package / "widget.cpp").write_text(CPP, encoding="utf-8")
+    types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, "widget")
+    by_name = {t["name"]: t for t in types}
+
+    assert by_name["Widget"]["bases"] == ["OnlyBase"]
+
+
+def test_cpp_class_with_multiple_bases_and_mixed_access_specifiers_has_all_bases(tmp_path: Path) -> None:
+    package = tmp_path / "src"
+    package.mkdir()
+    (package / "widget.cpp").write_text(CPP, encoding="utf-8")
+    types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, "widget")
+    by_name = {t["name"]: t for t in types}
+
+    # Verified against the real grammar via a live parse probe: public,
+    # protected and private bases all appear as base_class_clause children
+    # and must all be captured regardless of their access specifier.
+    assert by_name["MixedWidget"]["bases"] == ["PubBase", "ProtBase", "PrivBase"]

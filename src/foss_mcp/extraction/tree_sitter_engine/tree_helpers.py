@@ -287,7 +287,59 @@ def _node_name(node, language: str) -> str:
     for ch in node.children:
         if ch.type == "identifier" or ch.type == "type_identifier":
             return node_text(ch)
+    # TC-010b: a C++ function_definition has no "name" field and no direct
+    # identifier/type_identifier child of its own -- tree-sitter-cpp nests
+    # the identifier inside a "function_declarator" child (optionally
+    # wrapped in a reference_declarator/pointer_declarator for a
+    # reference/pointer return type, e.g. `T& Foo()`/`T* Foo()`), verified
+    # via a live parse probe. Scoped to genuine free functions only (see
+    # _cpp_is_free_function) -- a class member's function_definition is
+    # deliberately left returning "" here, exactly as before this fix,
+    # because api_surface.py's dedicated C++ field_declaration_list member
+    # loop already names and extracts those independently; resolving a name
+    # here too would make the generic method-collection loop (which also
+    # calls this function) start emitting a SECOND, duplicate entry for the
+    # same inline-bodied method.
+    if language == "cpp" and node.type == "function_definition" and _cpp_is_free_function(node):
+        fdecl = find_child_by_type(node, "function_declarator")
+        if fdecl is None:
+            for wrapper_type in ("reference_declarator", "pointer_declarator"):
+                wrapper = find_child_by_type(node, wrapper_type)
+                if wrapper:
+                    fdecl = find_child_by_type(wrapper, "function_declarator")
+                    if fdecl:
+                        break
+        if fdecl is not None:
+            for ch in fdecl.children:
+                if ch.type in ("identifier", "field_identifier", "destructor_name"):
+                    return node_text(ch)
     return ""
+
+
+def _cpp_is_free_function(node) -> bool:
+    """True if C++ *node* (a function_definition) is a genuine free function
+    at namespace/global scope, as opposed to a class/struct member.
+
+    Verified via a live tree-sitter-cpp parse probe (get_parser("cpp")
+    against synthetic snippets): a namespace-scope free function's immediate
+    parent is the namespace body's 'declaration_list' node (itself a child
+    of 'namespace_definition'); a global-scope free function's immediate
+    parent is 'translation_unit' directly. Walks the full ancestor chain
+    (not just the immediate parent, to tolerate any intervening wrapper node
+    such as a linkage-specification block) and returns False the moment a
+    class/struct body ('field_declaration_list') is reached first -- that
+    means *node* is a member function instead, handled by wholly separate
+    logic elsewhere. Shared by is_public() and _node_name() so both agree on
+    exactly which function_definition nodes count as free functions.
+    """
+    ancestor = node.parent
+    while ancestor is not None:
+        if ancestor.type == "field_declaration_list":
+            return False
+        if ancestor.type in ("translation_unit", "namespace_definition", "declaration_list"):
+            return True
+        ancestor = ancestor.parent
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -369,6 +421,28 @@ def is_public(node, language: str) -> bool:
                 gp = parent.parent
                 if gp and gp.type in ("translation_unit", "namespace_definition", "declaration_list"):
                     return True
+        # TC-010b: a bare C++ free function at namespace/global scope carries
+        # no 'public' keyword (that only exists inside a class body) and has
+        # no preceding access_specifier sibling -- every check in this
+        # language block matches only class/struct/enum specifiers or class
+        # members, so a free function fell through all of them and
+        # is_public() silently returned False, dropping every C++ free
+        # function from extraction. Verified via a live tree-sitter-cpp
+        # parse probe (get_parser("cpp") against synthetic snippets): a
+        # namespace-scope function's immediate parent is the namespace
+        # body's 'declaration_list' node (whose own parent is
+        # 'namespace_definition'); a global-scope function's immediate
+        # parent is 'translation_unit' directly. Walk the full ancestor
+        # chain (not just the immediate parent, to tolerate any intervening
+        # wrapper node such as a linkage-specification block) and stop
+        # WITHOUT returning True if a class/struct body
+        # ('field_declaration_list') is reached first -- that is a member
+        # function, whose visibility is decided by the access-specifier walk
+        # further down in this same function, unchanged. _cpp_is_free_function
+        # implements exactly that ancestor walk, shared with _node_name() so
+        # both agree on which function_definition nodes are free functions.
+        if language == "cpp" and node.type in _FUNC_TYPES.get("cpp", set()) and _cpp_is_free_function(node):
+            return True
         # HARDEN-A11 (2026-07-22): accumulate EVERY modifier/modifiers sibling
         # before deciding, instead of returning on the first one found. Java's
         # grammar bundles all annotations/keywords into one "modifiers" node, so
@@ -682,6 +756,36 @@ def _extract_bases(node, language: str) -> list[str]:
             return bases
         # Neither struct_type nor interface_type (e.g. the enum-alias idiom):
         # fall through to the generic loop below, unchanged.
+
+    if language == "cpp":
+        # TC-010b: dedicated C++ branch. Verified via a live tree-sitter-cpp
+        # parse probe (get_parser("cpp") against synthetic single-base,
+        # multi-base, and mixed-access-specifier snippets): a class's
+        # inheritance list parses as ONE 'base_class_clause' child of the
+        # class_specifier node (e.g. ': public Base1, private Base2'), whose
+        # own children are: the ':' token, then for each base an
+        # 'access_specifier' node (wrapping the public/private/protected
+        # keyword as its own unnamed child token) immediately followed by
+        # the base name as a 'type_identifier' sibling, separated by ','
+        # tokens; a bare 'virtual' keyword (virtual inheritance) appears as
+        # its own unnamed token sibling, not wrapped in any named node.
+        # 'base_class_clause' previously appeared nowhere in this file.
+        #
+        # Without this early return, control previously fell through to the
+        # generic Java/C# loop below, which matches ANY direct child of
+        # type 'type_identifier' -- but a class_specifier's OWN name is
+        # also a direct 'type_identifier' child, so the generic loop did not
+        # merely leave C++ bases empty, it silently populated bases with the
+        # class's OWN name (confirmed empirically: _extract_bases() on
+        # `class Widget : public Base1, private Base2` returned ['Widget'],
+        # not ['Base1', 'Base2'] and not []). Returning early here avoids
+        # the generic loop entirely for C++, fixing both problems at once.
+        base_clause = find_child_by_type(node, 'base_class_clause')
+        if base_clause is not None:
+            for ch in base_clause.children:
+                if ch.type in ("type_identifier", "qualified_identifier"):
+                    bases.append(node_text(ch))
+        return bases
 
     # Java/C#: superclass, interfaces, base_list
     for ch in node.children:
