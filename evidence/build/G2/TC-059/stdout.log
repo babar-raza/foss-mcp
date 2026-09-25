@@ -1,0 +1,48 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/ -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-th7d9iyk\.junit-0.xml"
+--- stdout ---
+.............................................                            [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/ -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-th7d9iyk\.junit-0.xml"
+--- stdout ---
+.............................................                            [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/ -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-th7d9iyk\.junit-0.xml"
+--- stdout ---
+.............F...............................                            [100%]
+================================== FAILURES ===================================
+_________ test_cpp_free_function_operator_overload_is_named_correctly _________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-66/test_cpp_free_function_operato0')
+
+    def test_cpp_free_function_operator_overload_is_named_correctly(
+        tmp_path: Path,
+    ) -> None:
+        package = tmp_path / "src"
+        package.mkdir()
+        (package / "widget.cpp").write_text(CPP_FREE_FUNCTION_OPERATOR_OVERLOAD, encoding="utf-8")
+        types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, "widget")
+        by_name = {t["name"]: t for t in types}
+    
+        # The exact TC-059 bug: a free function operator overload must be named
+        # after itself ('operator|'), not misnamed after its own return type
+        # ('Flags').
+>       assert "operator|" in by_name
+E       AssertionError: assert 'operator|' in {'Flags': {'name': 'Flags', 'kind': 'function', 'doc': '', 'file': 'src/widget.cpp', ...}}
+
+tests\extraction\tree_sitter_engine\test_api_surface_other_languages.py:276: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py::test_cpp_free_function_operator_overload_is_named_correctly
+
+--- stderr ---
+
