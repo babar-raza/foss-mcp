@@ -505,3 +505,47 @@ requirements:
     child ''operator_name'' (e.g. operator|), a distinct node type from the identifier/field_identifier/destructor_name
     types already checked, so every operator overload still falls through to the generic
     fallback and gets misnamed as its own return type.'
+- id: REQ-G2-041
+  gate: G2
+  anchor: '### 8.10 Insufficient-evidence behavior — corrected: citation resolution
+    proves traceability, not correctness'
+  text: 2026-09-25 audit found src/foss_mcp/normalization/citation.py's validate_document/citable_chunks
+    (TC-014) have zero call sites anywhere outside their own test file. infra/ingest.py
+    (TC-018) publishes chunks straight through without ever validating citations,
+    so an unresolved or fabricated claim would be indexed and served exactly like
+    a verified one. This must be wired into the real ingest path, not merely proven
+    correct in isolation.
+- id: REQ-G2-042
+  gate: G2
+  anchor: '### 7.3 Health probes — made real, not shallow'
+  text: 2026-09-25 audit found src/foss_mcp/mcp/health.py's is_ready/round_trip_check
+    (TC-019) have zero call sites outside their own tests. Dockerfile.serving's real
+    HEALTHCHECK is `python -c "import foss_mcp.mcp.server"` - a bare import check
+    - so a container reports healthy while serving nothing, the exact reference-system
+    defect health.py's own docstring says it replaces. Must be wired into a real HTTP
+    endpoint and the real Dockerfile HEALTHCHECK.
+- id: REQ-G2-043
+  gate: G2
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  text: 2026-09-25 audit (live, hands-on smoke test) found every running serving container
+    returns 'no published generation for this scope' on every content tool call, for
+    every pilot - docker-compose.yml mounts no volume for /data/manifests and nothing
+    in production ever calls the extraction-to-publish pipeline. The chunk-building
+    logic that turns a real api_surface.json fixture into real Chunk objects exists
+    only inline inside tests/indexing/test_publisher.py's per-pilot test helpers -
+    no src/ module does this. A real production chunk-builder must be promoted to
+    src/, and pdf/net (the anchor pilot) must have a real generation actually published
+    into the real deployment topology, proven by a live query returning real content
+    - not merely a correct empty response.
+- id: REQ-G2-044
+  gate: G2
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  text: '2026-09-25 audit: no gate-exit check anywhere in this project asserts a deployed
+    container ever returns real, non-empty content to a real client. Every existing
+    E2E card (TC-020, TC-030, TC-036, TC-042, TC-048, TC-055) proves protocol correctness
+    and scope-identity, both necessary but not sufficient. A new, reusable live-content
+    E2E check must be added (first for pdf/net, the pattern every other pilot and
+    every future gate reuses) that brings up a real ingestion step before serving
+    and asserts a real query returns real data.'

@@ -196,7 +196,7 @@ calling it raises a bare KeyError) despite TC-010 having ported and unit-tested 
 Python reader specifically for this purpose. Same shape as TC-019a's gap. TC-021 fixes this before
 any python pilot can be onboarded.
 
-## 2026-09-24 — Storage topology decision generalized to all pilots (supervisor, pre-TC-024)
+## 2026-09-24 — TC-004's topology rule generalized to all pilots (supervisor, pre-TC-024)
 Re-reading `foss_mcp.indexing.topology_spike` (TC-004's own module) before dispatching a
 per-pilot repeat of TC-004's measurement: both candidate profiles share one `_TfidfIndex`
 scoring core (`EmbeddedProfile.query` and `ServiceShapedProfile.query` both delegate to it
@@ -230,3 +230,99 @@ rule from here: a rework-dispatch commit either skips the `(GATE/CARD)` tag suff
 or is deferred to land in the same commit as the eventual accept/reject (matching every prior
 card's pattern, where this never surfaced). If skipped anyway, `review --base <that commit>`
 is the correct, legitimate fix - not evidence of a real scope problem.
+
+## 2026-09-25 — Full-stop audit: mechanically sound, systemically unwired. Corrective plan before further pilot expansion.
+
+The operator paused all pilot expansion after TC-057's third failed attempt and asked for a
+full, hands-on audit covering: a real end-to-end smoke test, a hand spot-check of accepted
+deliverables, an audit of supervisor conduct, and a systematic pass over every one of the 62
+accepted cards (not a sample). This entry records the findings and the corrective decisions
+taken. Full findings were also reported directly to the operator; this entry is the durable
+record.
+
+**Live smoke test (done by hand, not delegated):** built and started the real `serving` and
+`serving-slides-python` containers, drove them with a real MCP client (initialize, session id,
+tools/list, tools/call - no test harness). Both correctly self-identify distinct scopes
+(`family`/`platform` differ correctly via `report_index_freshness`) - the cross-instance
+scope-isolation work genuinely holds outside pytest. But every content tool call
+(`search_symbols`, `lookup`, `list_recent_changes`) returned empty / "no published generation
+for this scope" on both. Root cause, confirmed directly: `docker-compose.yml` mounts no
+volume for `/data/manifests` (the path `infra/serve_http.py` reads), and nothing in any
+Dockerfile, compose file, or entrypoint ever invokes `infra/ingest.py` or the publisher in
+production. The extraction fixtures are real (verified TC-011's pdf/net fixture directly: a
+real 1.9MB artifact, real commit sha, real class names); the publisher is real and tested; the
+two were simply never connected to anything that runs.
+
+**Systematic audit of all 62 cards (six parallel read-only passes, each re-reading real
+committed files against each card's own closeout claim, not trusting `gatectl`'s past
+verdict):** confirmed no scope violations, no fabricated fixtures, and no vacuous checks
+across the full set, with these genuine exceptions:
+
+- **TC-004** — the storage-topology "decision" cannot ever produce any outcome but
+  `embedded`: both candidate profiles share one `_TfidfIndex` scoring core (relevance always
+  ties) and `ServiceShapedProfile`'s cost is structurally `EmbeddedProfile`'s cost plus two
+  extra round trips (it can never win on latency either). This was actually already noticed
+  and recorded in this log's own 2026-09-24 entry above - but that entry used the finding only
+  to justify *skipping* a rerun, and never went back to correct TC-004's own closeout, which
+  still reads as a fair measurement. It was not one. Corrected below.
+- **TC-014 / TC-019** — real, well-tested modules (`citation.py`'s `validate_document`/
+  `citable_chunks`; `health.py`'s `is_ready`/`round_trip_check`; the telemetry recorder) with
+  **zero call sites anywhere outside their own tests.** `infra/ingest.py` (committed under
+  TC-018, whose own actual scope was container-build hygiene and never claimed this) builds
+  and publishes chunks without ever validating citations. `Dockerfile.serving`'s real
+  `HEALTHCHECK` is `python -c "import foss_mcp.mcp.server"` - a bare import check, not a call
+  to `is_ready` - so a container reports healthy while serving nothing, the exact defect
+  `health.py`'s own docstring says it replaces.
+- **New, found only while designing the fix (not by the audit passes above):**
+  `infra/ingest.py`'s actual CLI logic (chunk loading, calling `publish_generation`) has never
+  been exercised by a single test anywhere in the repository - `tests/test_container_build.py`
+  (TC-018's real, accurately-scoped check) only asserts Dockerfile properties (two build
+  paths, non-root, `--require-hashes`, `HEALTHCHECK` presence), never `ingest.py`'s behavior.
+  TC-018's closeout is accurate about what it claims; nothing downstream ever added the
+  missing coverage.
+- **TC-042** — the taskcard's own `actions`/`closeout` text still stated the wrong port
+  (8083, actually pdf/java's) after an earlier correction only touched `inputs` and
+  `negative_control`. The delivered test file and negative control were always correct
+  (port 8084). Text corrected directly in `plans/TC-042.yaml` today; no functional defect.
+- **`ops/requirements.yaml`** contains supervisor-authored prose in several G2 pilot
+  requirement entries asserting "docker-compose.yml (TC-023) actually publishes it" - false.
+  TC-023's real, accepted scope (re-read directly) was only service/port/env-var definitions;
+  its own closeout never claims a publish step runs. The overclaim is loose narrative text I
+  wrote, not a false verdict on any card - but it is exactly the kind of confident claim this
+  project's own design exists to prevent, and it went unverified until today.
+
+**Supervisor-conduct assessment:** the mechanical safeguards worked whenever invoked - no
+worker self-report was ever trusted blindly, three separately-authored vacuous negative
+controls were each caught by `gatectl review` and corrected before acceptance (never
+overridden), TC-057 shows the "stop rather than paper over" discipline holding under real
+repeated pressure (three honest stops on three distinct real C++ bugs). The actual defect was
+one of altitude: every check ever run answered "does this card's narrow claim hold," never
+"does the assembled system do the thing it exists to do." Nothing in the taskcard schema
+forced that second question, and it was not asked, by anyone, until the operator asked it.
+TC-004 is the clearest single miss: a foundational, all-pilots-inherited decision was accepted
+without checking whether its own measurement could ever have gone the other way.
+
+**Decisions taken (supervisor decides, per AGENTS.md - no open question filed, since these are
+answerable now):**
+
+1. **TC-004 retracted, not rerun.** `embedded` storage topology is retained for all 7 pilots,
+   but as a **reasoned default given corpus scale** (a few hundred to a few thousand types per
+   pilot, trivially in-process), not as a measured A/B outcome - the prior claim of a fair
+   measurement is withdrawn. `topology_spike.py` is not deleted; a future card may give
+   `ServiceShapedProfile` a genuinely independent cost model if a real service-shaped need ever
+   arises (e.g. corpus scale changes by orders of magnitude at production scale), but that is a
+   new question, not a rerun of this one.
+2. **A new standing rule is added to `AGENTS.md`** ("Integration and liveness"): any card
+   wiring something into a production path must prove the real call site exists (not just that
+   the wired function's own test passes), and every gate exit must include a live-content smoke
+   test against a real running deployment - a correct empty answer is not a passing deployment.
+3. **Four corrective cards are authored next** (TC-060 through TC-063, see `plans/`), closing
+   the citation-validation wiring gap, the readiness/healthcheck wiring gap, the missing
+   production chunk-builder (promoting `tests/indexing/test_publisher.py`'s per-pilot chunk
+   helpers to a real `src/` module), and a real, live, end-to-end first publish for pdf/net
+   (the anchor pilot) with a genuine live-content assertion - establishing the pattern every
+   other pilot and every future gate will be held to.
+4. **No further pilot onboarding, C++ fix, or cross-instance-matrix work starts before
+   TC-060–TC-063 are accepted and independently re-verified live** (by hand, same as this
+   audit - not by trusting `gatectl accept` alone for this specific class of check, until the
+   new live-content check pattern itself has proven itself once).

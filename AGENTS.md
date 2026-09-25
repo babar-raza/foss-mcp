@@ -101,3 +101,26 @@ A card closes only when its checks pass twice identically, the supervisor's
 negative-control patch makes them fail, scope holds, and `gatectl accept`
 returns zero. Index presence, a green summary line, or a confident report are
 not evidence of anything.
+
+## Integration and liveness (added 2026-09-25, after the mid-G2 audit)
+
+A green suite proves a function is correct. It never proves the function is
+*called*. This project shipped three separate real, well-tested modules
+(citation validation, readiness probes, the extraction→publish pipeline) that
+sat completely unreferenced by any production entrypoint, unnoticed for dozens
+of accepted cards, because every check that ran was scoped to the module
+itself.
+
+- Any card whose purpose is to **wire** or **integrate** something into a
+  production path must prove the call site exists in the real entrypoint file
+  — a grep or import-graph assertion on committed source, not merely that the
+  wired function's own unit test still passes.
+- Every gate exit must include a **live-content smoke test**: bring up the
+  real container(s) and confirm a real query returns real, non-empty content
+  — not just a well-formed empty response or a correct scope identity. A
+  deployment that correctly answers "I have nothing" is not a passing
+  deployment.
+- Before generalizing a measurement-based decision (e.g. topology, a spike's
+  A/B result) to every future instance, confirm the measurement mechanism can
+  actually produce more than one outcome. A decision only one branch of the
+  code can ever reach is not a measurement.
