@@ -1,0 +1,85 @@
+id: TC-063
+gate: G2
+lane: storage-retrieval
+purpose: Ship a real, production (not test-only) EmbeddingProvider - the 2026-09-25
+  audit found infra/ingest.py requires --embedding-provider module.path:ClassName
+  but no concrete implementation exists anywhere in src/; the only one that exists
+  (tests/indexing/test_index_writers.py:DeterministicEmbeddingProvider) is deliberately
+  confined to tests/ per TC-015's own inputs, so a real ingestion run cannot happen
+  in production today, full stop - infra/ingest.py's own docstring already names this
+  exact gap.
+depends_on:
+- TC-015
+write_paths:
+- src/foss_mcp/indexing/hashing_embedding_provider.py
+- tests/indexing/test_hashing_embedding_provider.py
+satisfies:
+- REQ-G2-045
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'CONFIRMED by reading src/foss_mcp/indexing/embedding_provider.py directly: the
+  EmbeddingProvider protocol requires only `dimension: int` and `def embed(self, texts:
+  Sequence[str]) -> list[tuple[float, ...]]` (one vector of length `dimension` per
+  input text, same order).'
+- 'This is explicitly a v1: a real, honest, deterministic, offline, non-ML hashing-trick
+  bag-of-words vectorizer - NOT a semantic embedding model. Unlike tests/indexing/test_index_writers.py''s
+  DeterministicEmbeddingProvider (which hashes the WHOLE text into one opaque digest
+  and admits in its own docstring it proves ''nothing about embedding quality'' -
+  two texts sharing every word still map to unrelated vectors), this one must have
+  real, meaningful structure: two texts that share more vocabulary must produce vectors
+  with higher cosine similarity than two texts sharing none. This is the actual, load-bearing
+  difference between a wiring-test double and a real (if simple) v1 production embedding
+  - state this explicitly in the module''s own docstring, including that a future
+  card may replace it with a real semantic model once one is needed.'
+- Implementation must be genuinely deterministic across processes (do not rely on
+  Python's randomized hash() - use hashlib, e.g. hashlib.md5 or sha256, to map each
+  lowercased token to a stable bucket index in [0, dimension)), must have zero ML/network
+  dependencies (nothing new added to requirements.lock), and must L2-normalize each
+  output vector so cosine similarity is well-behaved.
+- Do not touch embedding_provider.py's Protocol, vector_index_writer.py, or the test-only
+  DeterministicEmbeddingProvider at all - this card only adds a new, independent,
+  real production implementation.
+actions:
+- 'Create src/foss_mcp/indexing/hashing_embedding_provider.py exporting `class HashingEmbeddingProvider`
+  satisfying the EmbeddingProvider protocol: tokenize each text (simple whitespace/punctuation
+  split, lowercased), hash each token to a bucket via a stable hash (hashlib-based,
+  not built-in hash()), accumulate term-frequency counts per bucket, then L2-normalize
+  the resulting vector. Pick a reasonable default dimension (e.g. 64) as a class attribute,
+  overridable via __init__.'
+- 'Write tests/indexing/test_hashing_embedding_provider.py asserting, with real computed
+  vectors (never mocked): (1) the same text always produces the identical vector (call
+  embed twice, compare); (2) every vector has length == dimension; (3) two texts sharing
+  significant vocabulary have strictly higher cosine similarity than either has with
+  a third, vocabulary-disjoint text - compute cosine similarity yourself in the test
+  from the real returned vectors, do not assert on internal implementation details.'
+- Confirm requirements.lock is unchanged (no new dependency was needed).
+checks:
+- command: '{python} -m pytest tests/indexing/test_hashing_embedding_provider.py -q'
+  expect: exit 0
+  timeout_seconds: 60
+  junitxml: true
+  proves:
+  - REQ-G2-045
+min_tests: 3
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/hashing_embedding_provider.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    embed(self','def embed_DISABLED(self');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming embed() must break every test in the new file (AttributeError
+    on any call), proving they genuinely exercise this concrete implementation, not
+    just the Protocol shape. Self-checked end-to-end against a fixture implementing
+    the exact prescribed method name before being persisted.
+evidence:
+- evidence/build/G2/TC-063/receipt.json
+closeout:
+- A real, production, non-test-only EmbeddingProvider ships in src/ for the first
+  time.
+- It has genuine similarity structure (shared vocabulary -> higher cosine similarity),
+  unlike the test-only digest-based double.
+- No new runtime dependency was added.
+- Renaming embed() fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

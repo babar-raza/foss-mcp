@@ -549,3 +549,14 @@ requirements:
     E2E check must be added (first for pdf/net, the pattern every other pilot and
     every future gate reuses) that brings up a real ingestion step before serving
     and asserts a real query returns real data.'
+- id: REQ-G2-045
+  gate: G2
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  text: infra/ingest.py requires --embedding-provider module.path:ClassName but no
+    real, production EmbeddingProvider ships anywhere in src/ - the only one that
+    exists (tests/indexing/test_index_writers.py:DeterministicEmbeddingProvider) is
+    deliberately test-only per TC-015 own inputs ("never importable from a production
+    path"). A real ingestion run cannot happen in production without one. A minimal,
+    real, non-ML v1 (deterministic hashing/lexical vectorizer, documented as v1 pending
+    a future semantic-model replacement) must ship in src/.

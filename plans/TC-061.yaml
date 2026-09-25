@@ -1,0 +1,102 @@
+id: TC-061
+gate: G2
+lane: transport-deployment
+purpose: Wire src/foss_mcp/mcp/health.py's is_ready (TC-019) into a real HTTP endpoint
+  and the real Dockerfile.serving HEALTHCHECK - the 2026-09-25 audit found is_ready
+  and round_trip_check have zero call sites outside their own tests, and the real
+  HEALTHCHECK is a bare `python -c "import foss_mcp.mcp.server"` import check, so
+  a container reports healthy while serving nothing - the exact reference-system defect
+  health.py's own docstring says it replaces.
+depends_on:
+- TC-019
+- TC-019a
+write_paths:
+- infra/serve_http.py
+- Dockerfile.serving
+- tests/infra/test_serve_http.py
+satisfies:
+- REQ-G2-042
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.3 Health probes — made real, not shallow'
+  sha256: 497b82aca6241684b8d747a953da99c04bfe5e1038c712c14baf3a5a73967a13
+inputs:
+- 'CONFIRMED by reading both files directly: infra/serve_http.py''s build_app(deployment_config,
+  manifest_store=None, allowed_origins=None) builds `server = create_server(deployment_config,
+  manifest_store)`, wraps `server.streamable_http_app(...)` in RejectionMiddleware,
+  and returns that. main() builds `DeploymentConfig(family=os.environ.get(''FOSS_MCP_FAMILY'',
+  ''pdf''), platform=os.environ.get(''FOSS_MCP_PLATFORM'', ''net''), source_kind=os.environ.get(''FOSS_MCP_SOURCE_KIND'',
+  ''self_extracted''))` then `uvicorn.run(build_app(config), ...)`. manifest_store
+  defaults to None inside create_server, which then defaults to foss_mcp.mcp.server._default_manifest_store()
+  (GenerationManifestStore(Path(''/data/manifests''))) - build_app itself never has
+  a direct handle on the real store unless you obtain one the same way create_server
+  does.'
+- 'health.py already has everything needed: DeploymentGenerationStore.for_scope(manifest_store,
+  scope, source_kind) -> DeploymentGenerationStore; is_ready(store) -> bool (True
+  only when the deployment''s own scope names a real active generation - this is the
+  fix); round_trip_check(store) -> bool (also confirms the generation''s lexical index
+  actually has documents). foss_mcp.mcp.routing.resolve_scope(deployment_config, request=None)
+  -> Scope gives the real Scope from a DeploymentConfig.'
+- 'Add a `/readyz` HTTP route to the app build_app returns, which must: resolve the
+  real manifest_store (use the SAME store instance create_server used - either have
+  build_app construct it once and pass it to both create_server and the readiness
+  handler, or import foss_mcp.mcp.server._default_manifest_store() directly when manifest_store
+  is None - your choice, but it MUST be the real store the server itself reads from,
+  never a separate one), build a DeploymentGenerationStore.for_scope(...) from deployment_config,
+  and return HTTP 200 when is_ready(...) is True, HTTP 503 otherwise. You will need
+  to research how to add a plain route alongside the MCP SDK''s own ASGI app (e.g.
+  a small Starlette app that mounts the MCP app at its own path and adds /readyz separately)
+  - read the mcp package''s own streamable_http_app() to see what it returns before
+  deciding the exact wiring; do not guess.'
+- Update Dockerfile.serving's HEALTHCHECK to call the real /readyz endpoint instead
+  of the bare import check - e.g. `python -c "import urllib.request,sys; sys.exit(0
+  if urllib.request.urlopen('http://localhost:8080/readyz', timeout=3).status==200
+  else 1)"` (do not add curl as a new dependency; python's stdlib urllib is already
+  available in every image). This ONLY applies to Dockerfile.serving (the long-running
+  server) - Dockerfile.ingestion's one-shot import-check HEALTHCHECK is a different,
+  already-correct shape for a one-shot CLI and must not be touched.
+- Do not change health.py, routing.py, server.py, or create_server's own signature
+  - this card only wires the already-correct, already-tested is_ready/round_trip_check
+  into a real endpoint and a real Dockerfile HEALTHCHECK.
+actions:
+- Add the /readyz route to infra/serve_http.py's build_app, wired to the real manifest_store
+  and deployment_config as described above.
+- Update Dockerfile.serving's HEALTHCHECK to call /readyz for real.
+- 'Write tests/infra/test_serve_http.py using Starlette''s TestClient (or the ASGI
+  test client already used by tests/mcp/test_server_wiring.py - read that file for
+  the existing real pattern) against a REAL GenerationManifestStore in tmp_path (never
+  a mock): (1) with an empty store (no generation ever published for this deployment''s
+  scope), GET /readyz returns 503; (2) after actually publishing a real generation
+  into that same store for that same scope (use foss_mcp.indexing.publisher.publish_generation
+  directly, with real Chunk objects and the REAL DeterministicEmbeddingProvider from
+  tests.indexing.test_index_writers), GET /readyz returns 200.'
+- Run the full existing test suite (including tests/mcp/test_server_wiring.py and
+  tests/test_container_build.py) yourself and confirm nothing else broke.
+checks:
+- command: '{python} -m pytest tests/infra/test_serve_http.py tests/mcp/test_server_wiring.py
+    tests/test_container_build.py -q'
+  expect: exit 0
+  timeout_seconds: 180
+  junitxml: true
+  proves:
+  - REQ-G2-042
+min_tests: 4
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/health.py');s=p.read_text(encoding='utf-8');s=s.replace('return
+    store.active_generation_id() is not None','return True');p.write_text(s,encoding='utf-8')"
+  rationale: Corrupting health.py's is_ready to unconditionally return True must break
+    the new test asserting /readyz returns 503 against an empty store - this is implementation-independent
+    of exactly how the Starlette route is wired, since every correct implementation
+    must depend on this exact line. Self-checked end-to-end against the real committed
+    file before being persisted.
+evidence:
+- evidence/build/G2/TC-061/receipt.json
+closeout:
+- /readyz reflects the real active-generation state of the real manifest store, not
+  process reachability.
+- Dockerfile.serving's real HEALTHCHECK calls /readyz, not a bare import check.
+- An empty deployment now genuinely reports unhealthy/not-ready, matching what the
+  2026-09-25 live smoke test found by hand.
+- Corrupting is_ready to always return True fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

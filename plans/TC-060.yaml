@@ -1,0 +1,92 @@
+id: TC-060
+gate: G2
+lane: storage-retrieval
+purpose: Wire src/foss_mcp/normalization/citation.py's validate_document/citable_chunks
+  (TC-014) into the real ingest path (infra/ingest.py) - the 2026-09-25 audit found
+  this safeguard has zero call sites anywhere outside its own test file, so a real
+  generation can currently carry an unresolved or fabricated claim and it would be
+  indexed and served exactly like a verified one. Also gives infra/ingest.py its first
+  real test coverage - it has none today; TC-018's own scope (container-build hygiene)
+  never claimed to test its logic, and nothing else ever did either.
+depends_on:
+- TC-014
+- TC-018
+write_paths:
+- infra/ingest.py
+- tests/infra/test_ingest.py
+satisfies:
+- REQ-G2-041
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.10 Insufficient-evidence behavior — corrected: citation resolution
+    proves traceability, not correctness'
+  sha256: 100e949e350e7fc443a2b1cd331fc6e7043f4f26ce200f9db7dcde61bfbd7b4e
+inputs:
+- 'CONFIRMED by reading both files directly: infra/ingest.py''s main() loads chunks
+  via _load_chunks(args.chunks) and calls publish_generation(store, family=, platform=,
+  source_kind=, expected_active=, chunks=, embedding_provider=, lease=) - it never
+  touches citation.py at all. citation.py already exports everything needed: symbol_index_from_api_surface(types:
+  Sequence[Mapping]) -> SymbolIndex, known_counts_from_fixture(fixture: Mapping) ->
+  dict[str, int], validate_document(chunks, symbol_index, known_counts) -> list[Chunk],
+  citable_chunks(chunks) -> list[Chunk].'
+- infra/ingest.py has ZERO existing tests anywhere in the repo (grep confirms no test
+  file references infra.ingest or infra/ingest.py) - tests/infra/test_ingest.py does
+  not exist yet. Write real, first-time coverage for _load_chunks and main()'s actual
+  publish behavior, not just the new citation-validation branch.
+- Add a new CLI argument `--api-surface` (type=pathlib.Path, default=None, NOT required)
+  to the existing argparse parser in main().
+- "Add EXACTLY this block in main(), after `chunks = _load_chunks(args.chunks)` and\
+  \ before the `publish_generation(...)` call, using this exact literal call shape\
+  \ so it is unambiguous and testable:\n    if args.api_surface is not None:\n   \
+  \     fixture = json.loads(args.api_surface.read_text(encoding='utf-8'))\n     \
+  \   symbol_index = symbol_index_from_api_surface(fixture['types'])\n        known_counts\
+  \ = known_counts_from_fixture(fixture)\n        chunks = citable_chunks(validate_document(chunks,\
+  \ symbol_index, known_counts))\nAdd the corresponding import: `from foss_mcp.normalization.citation\
+  \ import citable_chunks, known_counts_from_fixture, symbol_index_from_api_surface,\
+  \ validate_document`. When --api-surface is omitted, behavior is completely unchanged\
+  \ from today (all loaded chunks publish as-is) - this is intentional: not every\
+  \ source_kind has a self-extracted symbol index to validate against."
+- Do not change publish_generation, citation.py, or the CAS/leasing machinery at all
+  - this card only wires an existing, already-tested safeguard into an existing, already-tested
+  publish call.
+actions:
+- Add the --api-surface argument and the exact validation block above to infra/ingest.py.
+- 'Write tests/infra/test_ingest.py (new file; tests/infra/__init__.py already exists,
+  do not touch it) covering, all against a REAL GenerationManifestStore in tmp_path
+  and the REAL DeterministicEmbeddingProvider from tests.indexing.test_index_writers
+  (never a mock): (1) _load_chunks reads a real small chunks.json fixture you write
+  and returns correct Chunk objects; (2) running main() via its CLI (subprocess or
+  direct argument parsing - your choice) WITHOUT --api-surface publishes every loaded
+  chunk unchanged, matching today''s behavior exactly; (3) running main() WITH --api-surface
+  pointing at a small synthetic api_surface.json fixture you write: a chunk whose
+  inline code-span anchor resolves against that fixture''s types IS published, and
+  a chunk making an unresolvable claim (an anchor naming a symbol absent from the
+  fixture, or a numeric claim contradicting the fixture''s real counts) is EXCLUDED
+  from what gets published - verify this by reading back the published generation''s
+  actual content, not merely that the CLI exits 0.'
+- Run the full test suite yourself and confirm nothing else broke.
+checks:
+- command: '{python} -m pytest tests/infra/test_ingest.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-041
+min_tests: 4
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('infra/ingest.py');s=p.read_text(encoding='utf-8');s=s.replace('citable_chunks(validate_document(','citable_chunks_DISABLED(validate_document(');p.write_text(s,encoding='utf-8')"
+  rationale: Disabling citable_chunks (renaming the call so it raises NameError) must
+    break the test that proves an unresolvable-claim chunk gets excluded when --api-surface
+    is passed - proving that test genuinely exercises the filtering, not merely that
+    validate_document runs. Self-checked end-to-end against a fixture implementing
+    the exact prescribed code shape before being persisted.
+evidence:
+- evidence/build/G2/TC-060/receipt.json
+closeout:
+- infra/ingest.py has real, first-time test coverage of its own core logic.
+- Passing --api-surface causes a real, unresolvable citation to be excluded from what
+  gets published, not merely validated and ignored.
+- Omitting --api-surface leaves today's behavior completely unchanged.
+- Disabling citable_chunks fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

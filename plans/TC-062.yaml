@@ -1,0 +1,94 @@
+id: TC-062
+gate: G2
+lane: storage-retrieval
+purpose: Promote the chunk-building logic that turns a raw api_surface.json extraction
+  fixture into real Chunk objects from a test-only helper into a real, reusable src/
+  production module - the 2026-09-25 audit found no src/ module does this anywhere;
+  the only place this logic exists is inline inside tests/indexing/test_publisher.py's
+  _pdf_net_chunks() (and 6 sibling per-pilot helpers), so a real production ingestion
+  run has never had anything to call.
+depends_on:
+- TC-011
+- TC-014
+- TC-015
+- TC-054
+write_paths:
+- src/foss_mcp/indexing/chunk_builder.py
+- tests/indexing/test_chunk_builder.py
+- tests/indexing/test_publisher.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- "CONFIRMED by reading tests/indexing/test_publisher.py directly (lines 35-58): _pdf_net_chunks()\
+  \ is real, working, non-fabricated logic - it just lives in the wrong place (a test\
+  \ file, never importable from src/ or from infra/ingest.py). Its exact body, to\
+  \ be generalized (do not change its behavior for pdf/net, only its location and\
+  \ parameterization):\n    fixture = json.loads(FIXTURE.read_text(encoding='utf-8'))\n\
+  \    sections = []\n    for entry in fixture['types'][:20]:\n        name = entry.get('class_import')\
+  \ or entry.get('name', '')\n        methods = ', '.join(m.get('name', '') for m\
+  \ in entry.get('methods') or [])\n        text = f\"{name} is a {entry.get('kind',\
+  \ '')}.\"\n        if methods:\n            text += f\" Methods: {methods}.\"\n\
+  \        sections.append(f\"## {name}\\n\\n{text}\")\n    doc = make_document(\n\
+  \        source_kind=SourceKind.SELF_EXTRACTED,\n        content_type='api_surface',\n\
+  \        provenance=Provenance(repository=fixture['source_repository'], commit=fixture['source_commit'],\
+  \ path='api_surface.json'),\n        evidence_refs=(f\"{fixture['source_repository']}@{fixture['source_commit']}:api_surface.json\"\
+  ,),\n        title=title,\n        body='\\n\\n'.join(sections),\n    )\n    return\
+  \ chunk_document(doc)\nCreate src/foss_mcp/indexing/chunk_builder.py exporting:\
+  \ `def build_chunks_from_api_surface(fixture: Mapping[str, object], *, title: str,\
+  \ max_types: int = 20) -> list[Chunk]`, taking the ALREADY-PARSED fixture dict (not\
+  \ a path - callers load the JSON themselves, matching infra/ingest.py's own --api-surface\
+  \ flag from TC-060) and using exactly the body above with `fixture['types'][:20]`\
+  \ generalized to `fixture['types'][:max_types]`."
+- Refactor tests/indexing/test_publisher.py's _pdf_net_chunks() to call this new function
+  (`build_chunks_from_api_surface(json.loads(FIXTURE.read_text(encoding='utf-8')),
+  title='pdf/net API surface', max_types=20)`), deleting the now-duplicated inline
+  logic - every existing pdf/net publisher test in that file (test_publishing_pdf_nets_first_generation_through_the_cas_path,
+  the rollback/republish/point-id tests, and every cross-scope isolation test that
+  calls _pdf_net_chunks()) must still pass completely unchanged, proving this is a
+  behavior-preserving extraction, not a rewrite.
+- Do NOT touch _slides_python_chunks, _cells_rust_chunks, _pdf_go_chunks, _pdf_java_chunks,
+  or _pdf_typescript_chunks in this card - refactoring the other 6 pilots onto the
+  shared module is separate, later work, out of this card's scope.
+actions:
+- Create src/foss_mcp/indexing/chunk_builder.py with build_chunks_from_api_surface
+  exactly as specified above.
+- Refactor _pdf_net_chunks() in tests/indexing/test_publisher.py to call it; run the
+  full existing test_publisher.py suite and confirm every pdf/net-related test still
+  passes byte-for-byte the same as before (same chunk count, same text content).
+- 'Write tests/indexing/test_chunk_builder.py: a new, direct unit test of build_chunks_from_api_surface
+  against a small synthetic fixture dict you construct in-test (matching tests/fixtures/pdf_net/api_surface.json''s
+  real shape: source_repository, source_commit, types with name/class_import/kind/methods)
+  - assert the real returned Chunk objects carry the real repository/commit in their
+  provenance, the real title, and real body text built from the real synthetic types
+  you passed in (not placeholder assertions).'
+checks:
+- command: '{python} -m pytest tests/indexing/test_chunk_builder.py tests/indexing/test_publisher.py
+    -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 3
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/chunk_builder.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    build_chunks_from_api_surface','def build_chunks_from_api_surface_DISABLED');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming build_chunks_from_api_surface must break both the new direct
+    unit test and (via the refactored _pdf_net_chunks) the entire test_publisher.py
+    suite - proving real reuse, not a parallel duplicate. Self-checked end-to-end
+    against a fixture implementing the exact prescribed function name before being
+    persisted.
+evidence:
+- evidence/build/G2/TC-062/receipt.json
+closeout:
+- A real, reusable src/ module builds Chunk objects from a raw api_surface.json fixture
+  - no longer only inline inside a test file.
+- pdf/net's existing publisher tests are unaffected (same behavior, proven byte-for-byte).
+- Renaming the new function fails both its own test and test_publisher.py's suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
