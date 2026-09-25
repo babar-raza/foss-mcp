@@ -1,0 +1,140 @@
+id: TC-064
+gate: G2
+lane: verification
+purpose: 'The capstone of the 2026-09-25 audit''s corrective work: wire TC-060 (citation
+  validation), TC-061 (real readiness), TC-062 (production chunk builder), and TC-063
+  (real embedding provider) together into an actual, real, live first publish of pdf/net''s
+  generation - through docker-compose, not a test''s in-memory store - and prove it
+  with a real MCP client query returning real content. This establishes the new mandatory
+  live-content pattern AGENTS.md''s 2026-09-25 ''Integration and liveness'' rule requires
+  at every future gate exit: a correct empty answer is not a passing deployment.'
+depends_on:
+- TC-060
+- TC-061
+- TC-062
+- TC-063
+- TC-020
+- TC-011
+- TC-055
+write_paths:
+- infra/build_chunks.py
+- Dockerfile.ingestion
+- docker-compose.yml
+- tests/e2e/test_pdf_net_live_content.py
+satisfies:
+- REQ-G2-043
+- REQ-G2-044
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'CONFIRMED by direct, hands-on testing on 2026-09-25 (not by reading code): the
+  live `serving` container returns ''no published generation for this scope'' on every
+  content tool call, because docker-compose.yml mounts NO volume for /data/manifests
+  and nothing ever invokes the ingest pipeline in production. This card closes that
+  gap for real, for pdf/net specifically - the anchor pilot every other pilot will
+  later copy this pattern from.'
+- 'infra/ingest.py (TC-060) already accepts: --family --platform --source-kind --chunks
+  PATH --manifest-store PATH --embedding-provider module.path:ClassName --held-by
+  [--api-surface PATH]. --chunks must be a JSON file shaped exactly like _load_chunks()
+  reads it: {"chunks": [{"section_title":, "text":, "source_kind":, "content_type":,
+  "provenance": {"repository":, "commit":, "path":}, "trust_tier":, "evidence_refs":
+  [...]}, ...]} (validation is optional, defaults to not_checked - see foss_mcp.normalization.document_schema.Provenance/ValidationResult
+  for the exact field names).'
+- 'src/foss_mcp/indexing/chunk_builder.py (TC-062) exports build_chunks_from_api_surface(fixture:
+  Mapping, *, title: str, max_types: int = 20) -> list[Chunk] - it returns real Chunk
+  dataclass objects (foss_mcp.normalization.chunker.Chunk), not JSON. There is currently
+  NO script that calls it and writes the result to a file infra/ingest.py''s --chunks
+  flag can read - you must write one (infra/build_chunks.py, a new file, this card''s
+  own scope) that bridges the two: reads --api-surface (a raw fixture JSON path),
+  calls build_chunks_from_api_surface, serializes each returned Chunk to the exact
+  dict shape above, writes it to --out as JSON. Use dataclasses.asdict or equivalent
+  - do not hand-duplicate field names if you can avoid it, but the output JSON top-level
+  key must be ''chunks'' (a list), matching infra/ingest.py''s _load_chunks reader
+  exactly.'
+- src/foss_mcp/indexing/hashing_embedding_provider.py (TC-063) exports HashingEmbeddingProvider
+  - the real, production embedding provider to pass as --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider.
+- infra/serve_http.py (TC-061) now exposes GET /readyz returning 200 only when a real
+  active generation exists for the deployment's own scope, 503 otherwise - use this
+  to POLL for real readiness in your new E2E test after starting the ingestion step,
+  instead of a fixed sleep (this is exactly what /readyz was built for).
+- 'The real pdf/net fixture (tests/fixtures/pdf_net/api_surface.json, TC-011, already
+  committed) is real: its first entries include a real class named ''AFRelationship''
+  (kind enum_declaration, class_import ''Aspose.Pdf.AFRelationship'') - build_chunks_from_api_surface''s
+  default max_types=20 will include it, so ''AFRelationship'' appearing in a real
+  query response is a genuine, falsifiable proof of real content, not a guess. Use
+  this exact real string as your positive-content assertion.'
+- 'Dockerfile.ingestion currently only COPYs src/, config/, infra/ingest.py - it needs
+  infra/build_chunks.py and the pdf/net fixture added too (e.g. COPY tests/fixtures/pdf_net/api_surface.json
+  ./fixtures/pdf_net/api_surface.json). Its ENTRYPOINT is fixed to `python /app/infra/ingest.py`
+  for its general one-shot-CLI contract used by other cards'' expectations - do NOT
+  change that. To run build_chunks.py before ingest.py for THIS pilot''s real ingestion,
+  override BOTH `entrypoint:` and `command:` in docker-compose.yml for the new one-shot
+  ingestion service specifically (e.g. `entrypoint: ["sh", "-c"]` with a `command:`
+  that chains both python invocations with `&&`) - this is a normal, idiomatic compose
+  pattern for a one-shot init job and does not require touching the Dockerfile''s
+  own general-purpose ENTRYPOINT.'
+- docker-compose.yml's existing `serving` service (pdf/net, port 8080) currently has
+  no volume at all, so /data/manifests is ephemeral per-container-start. Add a NAMED
+  volume (e.g. `manifests-pdf-net`) mounted at /data/manifests in BOTH the new one-shot
+  ingestion service AND the existing `serving` service, so what ingestion publishes
+  is what serving actually reads. Do not add this volume to any other pilot's service
+  in this card - scope is pdf/net only; the other 6 pilots stay exactly as they are
+  today.
+- Read tests/e2e/test_container_session.py (pdf/net's own existing E2E test, TC-020)
+  and tests/e2e/test_cells_rust_container_session.py for the established real-docker-compose
+  E2E pattern (MCP-over-HTTP handshake, teardown even on failure) before writing your
+  new test file - do not reinvent it.
+actions:
+- 'Write infra/build_chunks.py: a CLI (--api-surface PATH, --title STR, --max-types
+  INT default 20, --out PATH) that loads the fixture JSON, calls build_chunks_from_api_surface(fixture,
+  title=args.title, max_types=args.max_types), and writes {"chunks": [...]} to --out
+  using the exact call shape `build_chunks_from_api_surface(fixture, title=..., max_types=...)`
+  so it is unambiguous and testable.'
+- Update Dockerfile.ingestion to COPY infra/build_chunks.py and the pdf/net fixture
+  into the image.
+- Add the shared volume and a new one-shot ingestion service to docker-compose.yml
+  as described above, and mount the same volume into the existing `serving` service.
+- 'Write tests/e2e/test_pdf_net_live_content.py: bring up the real ingestion service
+  first (docker compose up --build, wait for it to exit 0 - this IS the real, live
+  first publish), then bring up `serving`, poll GET /readyz until 200 (bounded retry,
+  not an unbounded loop), then run a real MCP session and assert: report_index_freshness
+  now reports stale=False and a real indexed_generation_id; search_symbols or lookup
+  for ''AFRelationship'' returns it as real, non-empty content (not ''no published
+  generation for this scope''). Tear down containers even on failure, mirroring the
+  existing E2E pattern.'
+- Run this yourself for real (docker compose, real containers) and confirm it passes
+  before committing - this card's whole point is proof by actually doing it, not by
+  reading code and reasoning that it should work.
+checks:
+- command: '{python} -m pytest tests/e2e/test_pdf_net_live_content.py -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-043
+  - REQ-G2-044
+min_tests: 2
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('infra/build_chunks.py');s=p.read_text(encoding='utf-8');s=s.replace('build_chunks_from_api_surface(','build_chunks_from_api_surface_DISABLED(');p.write_text(s,encoding='utf-8')"
+  rationale: Disabling build_chunks_from_api_surface's call site in the new infra/build_chunks.py
+    (renaming it so it raises NameError) must break the real ingestion step, which
+    must break the new E2E test - proving the test genuinely depends on the real chunk-building
+    step running, not merely on containers starting. Self-checked end-to-end against
+    a fixture implementing the exact prescribed call shape before being persisted.
+evidence:
+- evidence/build/G2/TC-064/receipt.json
+closeout:
+- A real generation is published into pdf/net's real, persistent /data/manifests volume
+  through real docker-compose services - not a test's in-memory store.
+- A real MCP client query against the real running `serving` container returns real
+  content (a real class name from the real fixture), not an empty 'no published generation'
+  response.
+- report_index_freshness reports stale=False with a real generation id.
+- Breaking the chunk-building call site fails the new E2E test.
+- No other pilot's docker-compose service is affected.
+recovery: Re-run from a clean tree; `docker compose down -v` first to clear any stale
+  volume state, then the card is idempotent from committed content.
