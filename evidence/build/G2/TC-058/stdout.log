@@ -1,0 +1,253 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/ -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2m_1e0dd\.junit-0.xml"
+--- stdout ---
+............................................                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/ -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2m_1e0dd\.junit-0.xml"
+--- stdout ---
+............................................                             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/ -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2m_1e0dd\.junit-0.xml"
+--- stdout ---
+.........FFFF...............................                             [100%]
+================================== FAILURES ===================================
+_____ test_cpp_free_function_at_namespace_scope_is_extracted_as_function ______
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-47/test_cpp_free_function_at_name0')
+
+    def test_cpp_free_function_at_namespace_scope_is_extracted_as_function(tmp_path: Path) -> None:
+        package = tmp_path / "src"
+        package.mkdir()
+        (package / "widget.cpp").write_text(CPP, encoding="utf-8")
+>       types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, "widget")
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\tree_sitter_engine\test_api_surface_other_languages.py:157: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\extraction\tree_sitter_engine\api_surface.py:3845: in extract_api_surface
+    if not is_public(fnode, language):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\extraction\tree_sitter_engine\tree_helpers.py:378: in is_public
+    name = _node_name(node, language)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+node = <Node type=function_definition, start_point=(3, 0), end_point=(5, 1)>
+language = 'cpp'
+
+    def _node_name(node, language: str) -> str:
+        """Extract the identifier name from a declaration node."""
+        name_node = child_by_field(node, "name")
+        if name_node:
+            return node_text(name_node)
+        # TC-010b: a C++ function_definition has no "name" field and no direct
+        # identifier/type_identifier child of its own -- tree-sitter-cpp nests
+        # the identifier inside a "function_declarator" child (optionally
+        # wrapped in a reference_declarator/pointer_declarator for a
+        # reference/pointer return type, e.g. `T& Foo()`/`T* Foo()`), verified
+        # via a live parse probe. Scoped to genuine free functions only (see
+        # _cpp_is_free_function) -- a class member's function_definition is
+        # deliberately left returning "" here, exactly as before this fix,
+        # because api_surface.py's dedicated C++ field_declaration_list member
+        # loop already names and extracts those independently; resolving a name
+        # here too would make the generic method-collection loop (which also
+        # calls this function) start emitting a SECOND, duplicate entry for the
+        # same inline-bodied method.
+        #
+        # TC-058: this cpp free-function lookup MUST run before the generic
+        # identifier-child fallback below, not after. A C++ function_definition's
+        # direct children include the return-type node itself (e.g. a bare
+        # 'type_identifier' for `Matrix Identity()`) -- the generic loop below
+        # would otherwise match that return-type node first and misreport it as
+        # the function's name, before ever reaching this correct lookup.
+        if language == "cpp" and node.type == "function_definition" and _cpp_is_free_function(node):
+>           cpp_name = _cpp_free_function_name(node)
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_cpp_free_function_name' is not defined
+
+src\foss_mcp\extraction\tree_sitter_engine\tree_helpers.py:307: NameError
+________ test_cpp_class_with_single_public_base_has_base_in_bases_list ________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-47/test_cpp_class_with_single_pub0')
+
+    def test_cpp_class_with_single_public_base_has_base_in_bases_list(tmp_path: Path) -> None:
+        package = tmp_path / "src"
+        package.mkdir()
+        (package / "widget.cpp").write_text(CPP, encoding="utf-8")
+>       types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, "widget")
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\tree_sitter_engine\test_api_surface_other_languages.py:170: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\extraction\tree_sitter_engine\api_surface.py:3845: in extract_api_surface
+    if not is_public(fnode, language):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\extraction\tree_sitter_engine\tree_helpers.py:378: in is_public
+    name = _node_name(node, language)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+node = <Node type=function_definition, start_point=(3, 0), end_point=(5, 1)>
+language = 'cpp'
+
+    def _node_name(node, language: str) -> str:
+        """Extract the identifier name from a declaration node."""
+        name_node = child_by_field(node, "name")
+        if name_node:
+            return node_text(name_node)
+        # TC-010b: a C++ function_definition has no "name" field and no direct
+        # identifier/type_identifier child of its own -- tree-sitter-cpp nests
+        # the identifier inside a "function_declarator" child (optionally
+        # wrapped in a reference_declarator/pointer_declarator for a
+        # reference/pointer return type, e.g. `T& Foo()`/`T* Foo()`), verified
+        # via a live parse probe. Scoped to genuine free functions only (see
+        # _cpp_is_free_function) -- a class member's function_definition is
+        # deliberately left returning "" here, exactly as before this fix,
+        # because api_surface.py's dedicated C++ field_declaration_list member
+        # loop already names and extracts those independently; resolving a name
+        # here too would make the generic method-collection loop (which also
+        # calls this function) start emitting a SECOND, duplicate entry for the
+        # same inline-bodied method.
+        #
+        # TC-058: this cpp free-function lookup MUST run before the generic
+        # identifier-child fallback below, not after. A C++ function_definition's
+        # direct children include the return-type node itself (e.g. a bare
+        # 'type_identifier' for `Matrix Identity()`) -- the generic loop below
+        # would otherwise match that return-type node first and misreport it as
+        # the function's name, before ever reaching this correct lookup.
+        if language == "cpp" and node.type == "function_definition" and _cpp_is_free_function(node):
+>           cpp_name = _cpp_free_function_name(node)
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_cpp_free_function_name' is not defined
+
+src\foss_mcp\extraction\tree_sitter_engine\tree_helpers.py:307: NameError
+_ test_cpp_class_with_multiple_bases_and_mixed_access_specifiers_has_all_bases _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-47/test_cpp_class_with_multiple_b0')
+
+    def test_cpp_class_with_multiple_bases_and_mixed_access_specifiers_has_all_bases(tmp_path: Path) -> None:
+        package = tmp_path / "src"
+        package.mkdir()
+        (package / "widget.cpp").write_text(CPP, encoding="utf-8")
+>       types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, "widget")
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\tree_sitter_engine\test_api_surface_other_languages.py:180: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\extraction\tree_sitter_engine\api_surface.py:3845: in extract_api_surface
+    if not is_public(fnode, language):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\extraction\tree_sitter_engine\tree_helpers.py:378: in is_public
+    name = _node_name(node, language)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+node = <Node type=function_definition, start_point=(3, 0), end_point=(5, 1)>
+language = 'cpp'
+
+    def _node_name(node, language: str) -> str:
+        """Extract the identifier name from a declaration node."""
+        name_node = child_by_field(node, "name")
+        if name_node:
+            return node_text(name_node)
+        # TC-010b: a C++ function_definition has no "name" field and no direct
+        # identifier/type_identifier child of its own -- tree-sitter-cpp nests
+        # the identifier inside a "function_declarator" child (optionally
+        # wrapped in a reference_declarator/pointer_declarator for a
+        # reference/pointer return type, e.g. `T& Foo()`/`T* Foo()`), verified
+        # via a live parse probe. Scoped to genuine free functions only (see
+        # _cpp_is_free_function) -- a class member's function_definition is
+        # deliberately left returning "" here, exactly as before this fix,
+        # because api_surface.py's dedicated C++ field_declaration_list member
+        # loop already names and extracts those independently; resolving a name
+        # here too would make the generic method-collection loop (which also
+        # calls this function) start emitting a SECOND, duplicate entry for the
+        # same inline-bodied method.
+        #
+        # TC-058: this cpp free-function lookup MUST run before the generic
+        # identifier-child fallback below, not after. A C++ function_definition's
+        # direct children include the return-type node itself (e.g. a bare
+        # 'type_identifier' for `Matrix Identity()`) -- the generic loop below
+        # would otherwise match that return-type node first and misreport it as
+        # the function's name, before ever reaching this correct lookup.
+        if language == "cpp" and node.type == "function_definition" and _cpp_is_free_function(node):
+>           cpp_name = _cpp_free_function_name(node)
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_cpp_free_function_name' is not defined
+
+src\foss_mcp\extraction\tree_sitter_engine\tree_helpers.py:307: NameError
+_ test_cpp_free_function_returning_bare_user_type_by_value_is_named_correctly _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-47/test_cpp_free_function_returni0')
+
+    def test_cpp_free_function_returning_bare_user_type_by_value_is_named_correctly(
+        tmp_path: Path,
+    ) -> None:
+        package = tmp_path / "src"
+        package.mkdir()
+        (package / "widget.cpp").write_text(CPP_FREE_FUNCTION_BARE_RETURN_TYPE, encoding="utf-8")
+>       types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, "widget")
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\tree_sitter_engine\test_api_surface_other_languages.py:222: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\extraction\tree_sitter_engine\api_surface.py:3845: in extract_api_surface
+    if not is_public(fnode, language):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\extraction\tree_sitter_engine\tree_helpers.py:378: in is_public
+    name = _node_name(node, language)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+node = <Node type=function_definition, start_point=(3, 0), end_point=(5, 1)>
+language = 'cpp'
+
+    def _node_name(node, language: str) -> str:
+        """Extract the identifier name from a declaration node."""
+        name_node = child_by_field(node, "name")
+        if name_node:
+            return node_text(name_node)
+        # TC-010b: a C++ function_definition has no "name" field and no direct
+        # identifier/type_identifier child of its own -- tree-sitter-cpp nests
+        # the identifier inside a "function_declarator" child (optionally
+        # wrapped in a reference_declarator/pointer_declarator for a
+        # reference/pointer return type, e.g. `T& Foo()`/`T* Foo()`), verified
+        # via a live parse probe. Scoped to genuine free functions only (see
+        # _cpp_is_free_function) -- a class member's function_definition is
+        # deliberately left returning "" here, exactly as before this fix,
+        # because api_surface.py's dedicated C++ field_declaration_list member
+        # loop already names and extracts those independently; resolving a name
+        # here too would make the generic method-collection loop (which also
+        # calls this function) start emitting a SECOND, duplicate entry for the
+        # same inline-bodied method.
+        #
+        # TC-058: this cpp free-function lookup MUST run before the generic
+        # identifier-child fallback below, not after. A C++ function_definition's
+        # direct children include the return-type node itself (e.g. a bare
+        # 'type_identifier' for `Matrix Identity()`) -- the generic loop below
+        # would otherwise match that return-type node first and misreport it as
+        # the function's name, before ever reaching this correct lookup.
+        if language == "cpp" and node.type == "function_definition" and _cpp_is_free_function(node):
+>           cpp_name = _cpp_free_function_name(node)
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_cpp_free_function_name' is not defined
+
+src\foss_mcp\extraction\tree_sitter_engine\tree_helpers.py:307: NameError
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py::test_cpp_free_function_at_namespace_scope_is_extracted_as_function
+FAILED tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py::test_cpp_class_with_single_public_base_has_base_in_bases_list
+FAILED tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py::test_cpp_class_with_multiple_bases_and_mixed_access_specifiers_has_all_bases
+FAILED tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py::test_cpp_free_function_returning_bare_user_type_by_value_is_named_correctly
+
+--- stderr ---
+
