@@ -1,0 +1,94 @@
+id: TC-057
+gate: G2
+lane: extraction
+purpose: Run run_extraction.py's cpp path for real against pdf/cpp's actual public
+  repository and pin the result as a reproducible offline fixture - the first real-world
+  proof that TC-010b's free-function and base_class_clause fixes hold against genuine,
+  large C++ source, not just synthetic snippets.
+depends_on:
+- TC-010
+- TC-010b
+- TC-056
+write_paths:
+- tests/extraction/test_pdf_cpp_extraction.py
+- tests/fixtures/pdf_cpp/**
+satisfies:
+- REQ-G2-038
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'run_extraction.py already has a fully generic CLI and API for this, unchanged since
+  TC-011: extract_pinned_repository(manifest_path) clones shallowly, extracts, and
+  returns an artifact; reduce_fixture(artifact, max_types=300) makes a deterministic,
+  size-bounded subset. CLI: `python -m foss_mcp.extraction.run_extraction <manifest>
+  <output> [--max-types N]`. Do NOT modify run_extraction.py, package_root.py, or
+  any tree-sitter engine file (including tree_helpers.py, just fixed by TC-010b) -
+  this card is run-and-pin only.'
+- 'The manifest to pass is config/products/pdf/cpp.yaml (TC-056, already committed)
+  - it pins repository: aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp, platform: cpp.'
+- This is the FIRST real-world test of TC-010b's two fixes (a free-function branch
+  in is_public(), a base_class_clause branch in _extract_bases()) against genuine,
+  large C++ source rather than synthetic snippets. If real free functions and real
+  class inheritance are NOT correctly extracted here, that is a real regression or
+  gap in TC-010b's fix, not merely an empty result to shrug off - inspect the actual
+  output carefully rather than accepting a technically-non-empty result at face value.
+- IF THE LIVE EXTRACTION REVEALS A REAL DEFECT (empty/wrong result, a crash, missing
+  free functions, missing/wrong inheritance data) in code outside this card's write_paths
+  - STOP, do not commit a broken/incomplete fixture, and report the exact defect with
+  your diagnosis instead of patching a file outside your write_paths. This is the
+  CORRECT outcome if it happens, not a failure - multiple prior cards in this project
+  handled exactly this situation this way.
+- Commit a REDUCED fixture, not the whole surface - representative subset, under about
+  2MB. Use the CLI's default --max-types unless the real output needs a smaller cap.
+- The test file must run fully OFFLINE against the committed fixture only.
+actions:
+- Run `python -m foss_mcp.extraction.run_extraction config/products/pdf/cpp.yaml tests/fixtures/pdf_cpp/api_surface.json`
+  for real (network access is available to you for this one-time generation step).
+- 'Inspect the real output carefully: confirm it contains at least one entry with
+  kind ''function'' representing a genuine free function (not a class method), AND
+  at least one class/struct entry with a non-empty ''bases'' list representing genuine
+  inheritance - these are the two specific things TC-010b''s fix was supposed to make
+  work. If either is entirely absent from the real repository''s actual API surface
+  (i.e. the repo genuinely has no free functions or no inheritance at all, which is
+  possible but should be verified, not assumed), say so explicitly in your report
+  rather than silently treating it as fine.'
+- 'IF it succeeds with real, correct content: write tests/extraction/test_pdf_cpp_extraction.py
+  mirroring tests/extraction/test_pdf_java_extraction.py''s structure - the fixture
+  parses and has the expected shape; records the exact 40-hex source commit and the
+  repository matches the pinned manifest; is non-empty; contains real C++ type/symbol
+  names and real kind values you actually observed in your own run; if real free functions
+  and/or real inheritance are present in the reduced fixture, assert on at least one
+  concrete example of each (do not guess or invent names).'
+- 'IF it fails, produces a 0-type/empty result, or the two TC-010b fixes don''t hold
+  against this real repo: diagnose the real root cause, do NOT commit anything, and
+  report the defect in full instead.'
+checks:
+- command: '{python} -m pytest tests/extraction/test_pdf_cpp_extraction.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-038
+min_tests: 5
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/pdf_cpp/api_surface.json');p.write_text('{}',encoding='utf-8')"
+  rationale: Emptying the pinned fixture must break the suite - a test that passes
+    against an empty artifact is asserting the file exists, not that a real extraction
+    ran. Same shape as every prior extraction card's falsifier, self-checked end-to-end
+    before being persisted.
+evidence:
+- evidence/build/G2/TC-057/receipt.json
+closeout:
+- A real extraction ran against the real public pdf/cpp repo, OR a real defect was
+  honestly diagnosed and reported instead of papered over.
+- 'If a fixture was committed: TC-010b''s free-function and inheritance fixes are
+  proven against real data, or their real absence in this specific repo is explicitly
+  noted.'
+- Emptying the fixture fails the suite.
+recovery: Re-run from a clean tree; if the live clone/extraction step is not reproducible
+  offline, the committed fixture and test are still idempotent from committed content
+  alone.
