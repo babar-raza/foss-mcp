@@ -1,0 +1,101 @@
+id: TC-058
+gate: G2
+lane: extraction
+purpose: Fix _node_name()'s generic identifier-child fallback shadowing TC-010b's
+  own cpp free-function name lookup for any free function whose return type is a bare
+  identifier - discovered by direct reproduction against the real pdf/cpp repository
+  while working TC-057, which correctly stopped rather than committing a fixture with
+  wrong data.
+depends_on:
+- TC-010b
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py
+- tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py
+satisfies:
+- REQ-G2-039
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'CONFIRMED by direct reproduction against the real public aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp
+  repository (commit c559fc3dd1c5d3a42c7f12a953918ce8dc59fa07): a real function `constexpr
+  Matrix Identity() noexcept` was extracted with name ''Matrix'' (its own return type)
+  instead of ''Identity''. Same for every `operator|`/`operator&` overload on this
+  codebase''s [Flags]-style enums, which all return the enum type by value.'
+- 'ROOT CAUSE, confirmed by reading the code directly: src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py''s
+  _node_name() (~line 281) has a GENERIC fallback (~line 286-289: `for ch in node.children:
+  if ch.type == ''identifier'' or ch.type == ''type_identifier'': return node_text(ch)`)
+  that runs BEFORE TC-010b''s cpp-specific free-function branch (~line 303 onward).
+  A C++ function_definition''s direct children include the return-type node itself
+  (e.g. a bare ''type_identifier'' for a function returning a class/struct/enum by
+  value) - the generic loop matches and returns THAT before ever reaching the function_declarator-based
+  lookup that finds the real function name.'
+- 'The cpp-specific lookup logic (TC-010b''s own code, ~line 303-315: walking into
+  function_declarator, optionally through reference_declarator/pointer_declarator,
+  to find the real identifier/field_identifier/destructor_name) is itself CORRECT
+  - confirmed working for the free functions whose return type was NOT a bare identifier
+  (e.g. `bool HasSide(...)`, `std::size_t ComponentCount(...)` were both extracted
+  correctly, since ''bool'' and ''std::size_t'' don''t parse as a plain type_identifier/identifier
+  node the generic loop would match). The fix is purely about ORDERING: this correct
+  lookup must run BEFORE the generic fallback for a cpp free function, not after.'
+- 'Extract the existing cpp-specific lookup logic (lines ~304-315: the function_declarator/wrapper-declarator
+  walk) into its own named function `_cpp_free_function_name(node) -> str` (returning
+  '''' if no name is found, matching the existing behavior''s shape). Call it FIRST,
+  before the generic identifier-child loop, specifically when `language == ''cpp''
+  and node.type == ''function_definition'' and _cpp_is_free_function(node)` - and
+  only fall through to the generic loop (or return '''' if nothing matched) if that
+  call does not find a name. Do not change the generic loop''s behavior for any other
+  language or node type, and do not change _cpp_is_free_function() at all.'
+- This project's own established discipline for exactly this kind of tree-sitter grammar
+  work is a LIVE PARSE PROBE, not guessing - see TC-010b's and TC-051's own recent
+  fixes to this exact file for precedent. Verify your fix against a live parse of
+  a synthetic snippet reproducing this exact case (`Matrix Identity() { ... }`, a
+  free function returning a bare type by value) before trusting it.
+actions:
+- Extract the existing cpp free-function name lookup into a new function `_cpp_free_function_name(node)
+  -> str` (module-level, in tree_helpers.py) with exactly the same logic currently
+  inline in _node_name() - no behavior change to that logic itself, only relocating
+  it.
+- Reorder _node_name() so this new function is called FIRST for a cpp free function
+  (before the generic identifier-child fallback loop), falling through to the generic
+  loop only when it returns no match. Every other language/node-type path through
+  _node_name() must be completely unaffected.
+- 'Write a regression test in tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py
+  (add to the existing file''s C++ section from TC-010b, do not remove any existing
+  test) using a minimal synthetic C++ snippet: a free function returning a bare user-defined
+  type by value (e.g. `struct Widget {}; Widget Make() { return Widget{}; }`) is now
+  extracted with its real name (''Make''), not its return type (''Widget''). Also
+  verify (or add, if not already covered) that a free function with a non-identifier
+  return type (e.g. `bool`) still works correctly, proving this fix does not regress
+  the already-working case.'
+- Run the full existing tree_sitter_engine test suite yourself and confirm nothing
+  else broke.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/ -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-039
+min_tests: 3
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    _cpp_free_function_name','def _cpp_free_function_name_DISABLED');p.write_text(s,encoding='utf-8')"
+  rationale: Disabling the new _cpp_free_function_name helper (renaming it so it is
+    never called) must break the new regression test, causing _node_name() to fall
+    through to the generic loop and misname the free function again - proves the test
+    genuinely exercises the reordering fix. This exact helper name is prescribed to
+    the worker in the card's own inputs, so this falsifier is not a guess. Self-checked
+    end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-058/receipt.json
+closeout:
+- A C++ free function returning a bare user type by value is now extracted with its
+  real name, not its return type.
+- The already-working case (a free function with a non-identifier return type) is
+  unaffected.
+- The full tree_sitter_engine test suite still passes.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
