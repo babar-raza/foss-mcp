@@ -1,0 +1,109 @@
+id: TC-068
+gate: G2
+lane: storage-retrieval
+purpose: 'Third piece of the real verified-example pipeline (REQ-G2-048): wire TC-066''s
+  candidate extraction and TC-067''s real compile verification into infra/build_chunks.py,
+  so a real, isolated-compile-verified example becomes a real, citable chunk find_examples
+  can actually return - closing the gap where find_examples requires an ''Example:''
+  marker that nothing in production has ever emitted.'
+depends_on:
+- TC-064
+- TC-066
+- TC-067
+write_paths:
+- infra/build_chunks.py
+- tests/infra/test_build_chunks.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Read infra/build_chunks.py''s real current content directly - it already has a
+  working --api-surface/--title/--max-types/--out flow (TC-064) producing type-based
+  chunks with an appended ''Source-Commit: <sha>'' line (_with_source_commit_line).
+  This card ADDS a second, optional path alongside it - do not change the existing
+  type-based behavior when the new flags are omitted.'
+- 'Add new optional CLI arguments: --furnished-page PATH (the Hugo-bundle YAML file,
+  e.g. tests/fixtures/furnished/pdf_net/pages/_index.md), --library-repository STR,
+  --library-commit STR, --library-csproj STR (the pinned reference library''s repository/commit/csproj-relative-path
+  for TC-067''s prepare_reference_library - for pdf/net: ''aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET'',
+  ''b7172877651413cff57a8bfe41fb8a8befb2406b'', ''src/Aspose.Pdf.Foss.csproj'', all
+  three CONFIRMED real and already used successfully by TC-067''s own tests). All
+  four are required together if any is given; if --furnished-page is omitted entirely,
+  this card''s whole new path is skipped and behavior is byte-for-byte identical to
+  today.'
+- 'When --furnished-page is given: parse it (split on ''---'', yaml.safe_load - see
+  TC-066''s own real-fixture test for the exact real parsing pattern), call foss_mcp.indexing.example_candidates.extract_candidate_examples(page)
+  for candidates, call foss_mcp.indexing.example_verifier.prepare_reference_library(args.library_repository,
+  args.library_commit, args.library_csproj, workdir) ONCE (a fresh tempfile.mkdtemp()),
+  then call verify_dotnet_example(candidate, library_csproj=..., workdir=...) for
+  EACH candidate. For each result, the EXACT literal guard `if verification_result.verified:`
+  must decide whether to build and append an example chunk - this exact literal is
+  required for the negative control below.'
+- 'A verified example''s chunk is built via make_document(source_kind=SourceKind.FURNISHED,
+  content_type=''example'', provenance=Provenance(repository=args.library_repository,
+  commit=args.library_commit, path=str(args.furnished_page)), evidence_refs=(f''{args.library_repository}@{args.library_commit}'',),
+  title=candidate.title, body=f''FQN: Example: {candidate.title}\nKind: verified_example\n{candidate.description}\n\nExample:\n{candidate.code}'')
+  then chunk_document(doc) - mirroring how build_chunks_from_api_surface (TC-062)
+  already builds its own chunks via make_document + chunk_document, so this stays
+  consistent with the rest of the pipeline rather than inventing a third construction
+  path. The ''FQN: Example: <title>'' form is a deliberate, honestly-labeled pseudo-symbol
+  - it is NOT claimed to be a real class/method FQN, since reliably attributing an
+  example to its single most relevant real symbol is out of this card''s scope (a
+  reasonable future enhancement, not required for this pilot proof). get_symbol/list_members/find_examples''s
+  exact-match path simply will not match this label unless a caller asks for it verbatim
+  - find_examples''s SEMANTIC/lexical fallback (ranking every Example:-bearing chunk
+  against the query text) is the path a real task-oriented query like ''watermark''
+  actually takes, and that path only needs the chunk''s own text to be relevant, which
+  title+description+code already provide.'
+- An UNVERIFIED candidate is silently excluded, never published, never logged as an
+  error - a candidate failing real compilation is the pipeline working correctly,
+  not a defect. Print a one-line summary either way (e.g. 'verified N/M candidate
+  examples') so a human running this manually can see what happened.
+- 'This card''s own check runs REAL git/dotnet against the real pinned pdf/net repo/commit
+  - network: true, budget real minutes.'
+actions:
+- Extend infra/build_chunks.py exactly as described - the existing type-based chunk
+  path must remain completely unchanged when the new flags are omitted.
+- 'Write tests/infra/test_build_chunks.py: a real, end-to-end test (real furnished-content
+  fixture, real git clone via prepare_reference_library, real dotnet build via verify_dotnet_example
+  - no mocking) that runs main() with --furnished-page pointing at the real tests/fixtures/furnished/pdf_net/pages/_index.md
+  and the real pdf/net library coordinates above, then reads the real --out chunks.json
+  and asserts: at least one chunk''s text contains ''Example:'' and a real, recognizable
+  code fragment (do not assume a specific count of how many of the 3 real candidates
+  verify - find out empirically by actually running this and assert on what you actually
+  observe); every emitted example chunk''s source_kind is ''furnished''; the pre-existing
+  --api-surface-only path (no new flags given) still produces byte-identical output
+  to before your change.'
+- Run this yourself for real and inspect the actual chunks.json content before committing.
+checks:
+- command: '{python} -m pytest tests/infra/test_build_chunks.py -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 3
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('infra/build_chunks.py');s=p.read_text(encoding='utf-8');s=s.replace('if
+    verification_result.verified:','if not verification_result.verified:');p.write_text(s,encoding='utf-8')"
+  rationale: 'Inverting the verified-guard so only UNVERIFIED candidates get published
+    must break the test asserting a real, recognizable verified example is present
+    in the output - proving the test genuinely depends on real compile-verification
+    gating what gets published, not merely that some chunk with an Example: marker
+    exists. Self-checked end-to-end against a fixture implementing the exact prescribed
+    guard literal before being persisted.'
+evidence:
+- evidence/build/G2/TC-068/receipt.json
+closeout:
+- infra/build_chunks.py can produce a real, compile-verified example chunk from the
+  real pinned furnished content, alongside its existing type-based chunks.
+- An unverified candidate is never published.
+- The pre-existing --api-surface-only behavior is completely unchanged.
+- Inverting the verified-guard fails the suite.
+recovery: Re-run from a clean tree; if the network clone/build step is flaky, re-running
+  is safe and idempotent.
