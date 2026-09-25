@@ -1,4 +1,4 @@
-"""Tests for infra/build_chunks.py (REQ-G2-048, TC-068).
+"""Tests for infra/build_chunks.py (REQ-G2-048, TC-068, TC-070).
 
 Real end-to-end: a real furnished-content fixture, a real git clone of the
 pinned pdf/net reference library (via example_verifier.prepare_reference_library),
@@ -218,6 +218,38 @@ def test_furnished_page_adds_real_compile_verified_example_chunks(
                 f"real, independently-UNVERIFIED candidate {candidate.title!r} "
                 f"(marker {marker!r}) was published anyway"
             )
+
+    # TC-070/REQ-G2-048: before the '# Example: {title}' heading fix, the example body
+    # had no markdown heading, so chunker.py's chunk_document() fell back to
+    # _paragraph_sections and fractured a single verified candidate's body into TWO
+    # chunks at its one blank line - a description-only chunk (ranks highest on a bare
+    # query term appearing in prose) and a code-only chunk (the term never matches
+    # inside a bare identifier like AddWatermarkAnnotation) - so find_examples could
+    # only ever surface one half, never both. Confirmed against the real produced
+    # chunks.json before writing this assertion: with the heading fix, this run
+    # produces exactly one example chunk (the Watermark candidate is the only one of
+    # the 3 real candidates that compile-verifies today), and its single text contains
+    # both the description prose and the real 'AddWatermarkAnnotation' code.
+    assert len(example_chunks) == len(ground_truth_verified_titles), (
+        "expected exactly ONE chunk per real verified candidate (chunk fragmentation "
+        f"regression), got {len(example_chunks)} chunks for verified titles "
+        f"{sorted(ground_truth_verified_titles)}: {[c['text'] for c in example_chunks]}"
+    )
+    for candidate in candidates:
+        if candidate.title not in ground_truth_verified_titles:
+            continue
+        marker = _DISTINCTIVE_CODE_MARKER[candidate.title]
+        atomic_chunks = [
+            c
+            for c in example_chunks
+            if marker in c["text"] and candidate.description in c["text"]
+        ]
+        assert len(atomic_chunks) == 1, (
+            f"expected exactly one chunk containing BOTH {candidate.title!r}'s "
+            f"description prose and its real code marker {marker!r} together (never "
+            f"split into a description-only chunk and a code-only chunk), found "
+            f"{len(atomic_chunks)}: {[c['text'] for c in example_chunks]}"
+        )
 
     print(f"real chunks.json: {len(type_chunks)} type chunks, {len(example_chunks)} example chunks")
     for chunk in example_chunks:

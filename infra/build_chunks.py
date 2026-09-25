@@ -99,6 +99,7 @@ def _build_verified_example_chunks(args: argparse.Namespace) -> list[Chunk]:
                 evidence_refs=(f"{args.library_repository}@{args.library_commit}",),
                 title=candidate.title,
                 body=(
+                    f"# Example: {candidate.title}\n\n"
                     f"FQN: Example: {candidate.title}\n"
                     f"Kind: verified_example\n"
                     f"{candidate.description}\n\n"
