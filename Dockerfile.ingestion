@@ -19,9 +19,18 @@ RUN pip install --no-cache-dir --require-hashes -r requirements.lock
 COPY src/ ./src/
 COPY config/ ./config/
 COPY infra/ingest.py ./infra/ingest.py
+COPY infra/build_chunks.py ./infra/build_chunks.py
+COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
 ENV PYTHONPATH=/app/src
 
-RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp
+# Same fix as Dockerfile.serving's own /data/manifests (TC-019a): the non-root user below
+# cannot create a top-level /data at runtime, so a volume mounted at /data/manifests for this
+# one-shot ingestion service needs the mountpoint to already exist, owned by foss-mcp, in the
+# image - otherwise Docker populates a fresh named volume from this directory's own on-image
+# ownership (root), and the first real write inside the container fails with PermissionError.
+RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp \
+    && mkdir -p /data/manifests \
+    && chown -R foss-mcp:foss-mcp /data
 USER foss-mcp
 
 # A one-shot CLI has no long-running server to poll; this confirms the deployed environment

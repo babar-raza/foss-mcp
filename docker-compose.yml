@@ -22,11 +22,59 @@ x-serving-base: &serving-base
   image: foss-mcp-serving:local
   command: ["python", "/app/infra/serve_http.py"]
 
+# G2/TC-064: pdf/net's real, persistent manifest volume - shared between the one-shot
+# `ingest-pdf-net` service below (which publishes into it) and the `serving` service (which
+# reads it). Named, not a bind mount, so it survives one container's exit and is picked up by
+# the next container that mounts it - the exact gap the 2026-09-25 audit found: no volume here
+# meant every `serving` start read an empty, ephemeral /data/manifests. Scope is pdf/net only;
+# no other pilot service below is touched by this card.
+volumes:
+  manifests-pdf-net:
+
 services:
+  # G2/TC-064: the real, live first publish for pdf/net - a one-shot init job, not a
+  # long-running service. Builds real Chunk objects from TC-011's real committed fixture
+  # (infra/build_chunks.py, TC-062's build_chunks_from_api_surface), then publishes them
+  # through the real CAS/citation-validation authority path (infra/ingest.py, TC-060) using the
+  # real HashingEmbeddingProvider (TC-063) - into the SAME named volume `serving` below reads.
+  #
+  # Dockerfile.ingestion's own ENTRYPOINT is fixed to `python /app/infra/ingest.py` for its
+  # general one-shot-CLI contract (other cards depend on that); both `entrypoint` and `command`
+  # are overridden here, for this service only, to chain build_chunks.py before ingest.py -
+  # idiomatic for a one-shot compose init job, and it does not touch the Dockerfile's own
+  # general-purpose ENTRYPOINT.
+  ingest-pdf-net:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-pdf-net:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/pdf_net/api_surface.json
+        --title "pdf/net API surface"
+        --max-types 20
+        --out /tmp/pdf_net_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family pdf
+        --platform net
+        --source-kind self_extracted
+        --chunks /tmp/pdf_net_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/pdf_net/api_surface.json
+        --held-by ingestion-pdf-net
+
   serving:
     <<: *serving-base
     ports:
       - "8080:8080"
+    volumes:
+      - manifests-pdf-net:/data/manifests
     environment:
       FOSS_MCP_FAMILY: pdf
       FOSS_MCP_PLATFORM: net
