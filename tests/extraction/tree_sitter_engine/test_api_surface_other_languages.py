@@ -184,3 +184,53 @@ def test_cpp_class_with_multiple_bases_and_mixed_access_specifiers_has_all_bases
     # protected and private bases all appear as base_class_clause children
     # and must all be captured regardless of their access specifier.
     assert by_name["MixedWidget"]["bases"] == ["PubBase", "ProtBase", "PrivBase"]
+
+
+# TC-058: reproduces a bug found by direct reproduction against the real
+# public aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp repository (commit
+# c559fc3dd1c5d3a42c7f12a953918ce8dc59fa07): a real free function
+# `constexpr Matrix Identity() noexcept` was extracted with name 'Matrix'
+# (its own return type) instead of 'Identity'.
+#
+# Root cause, confirmed via a live parse probe (tree_sitter_language_pack.
+# get_parser("cpp")): a C++ function_definition's direct children include
+# the return-type node itself. For a function returning a user-defined type
+# by value, that return-type node is a bare 'type_identifier' (e.g.
+# 'Widget' below) -- exactly what _node_name()'s generic identifier-child
+# fallback loop matches, so it returned the return type instead of ever
+# reaching the function_declarator-based lookup that finds the real name
+# ('Make', nested inside the function_declarator child alongside it).
+CPP_FREE_FUNCTION_BARE_RETURN_TYPE = """
+struct Widget {};
+
+Widget Make() {
+    return Widget{};
+}
+
+bool HasSide(int x) {
+    return x > 0;
+}
+"""
+
+
+def test_cpp_free_function_returning_bare_user_type_by_value_is_named_correctly(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "src"
+    package.mkdir()
+    (package / "widget.cpp").write_text(CPP_FREE_FUNCTION_BARE_RETURN_TYPE, encoding="utf-8")
+    types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, "widget")
+    by_name = {t["name"]: t for t in types}
+
+    # The exact TC-058 bug: a free function returning a bare user-defined
+    # type by value must be named after itself ('Make'), not misnamed after
+    # its own return type ('Widget').
+    assert "Make" in by_name
+    assert by_name["Make"]["kind"] == "function"
+    assert "Widget" not in by_name or by_name["Widget"]["kind"] != "function"
+
+    # Control: a free function whose return type is NOT a bare identifier
+    # (here 'bool', a primitive_type node) never triggered this bug and
+    # must remain correctly named after this fix.
+    assert "HasSide" in by_name
+    assert by_name["HasSide"]["kind"] == "function"

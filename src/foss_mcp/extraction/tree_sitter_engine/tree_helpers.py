@@ -283,10 +283,6 @@ def _node_name(node, language: str) -> str:
     name_node = child_by_field(node, "name")
     if name_node:
         return node_text(name_node)
-    # fallback: first identifier child
-    for ch in node.children:
-        if ch.type == "identifier" or ch.type == "type_identifier":
-            return node_text(ch)
     # TC-010b: a C++ function_definition has no "name" field and no direct
     # identifier/type_identifier child of its own -- tree-sitter-cpp nests
     # the identifier inside a "function_declarator" child (optionally
@@ -300,19 +296,49 @@ def _node_name(node, language: str) -> str:
     # here too would make the generic method-collection loop (which also
     # calls this function) start emitting a SECOND, duplicate entry for the
     # same inline-bodied method.
+    #
+    # TC-058: this cpp free-function lookup MUST run before the generic
+    # identifier-child fallback below, not after. A C++ function_definition's
+    # direct children include the return-type node itself (e.g. a bare
+    # 'type_identifier' for `Matrix Identity()`) -- the generic loop below
+    # would otherwise match that return-type node first and misreport it as
+    # the function's name, before ever reaching this correct lookup.
     if language == "cpp" and node.type == "function_definition" and _cpp_is_free_function(node):
-        fdecl = find_child_by_type(node, "function_declarator")
-        if fdecl is None:
-            for wrapper_type in ("reference_declarator", "pointer_declarator"):
-                wrapper = find_child_by_type(node, wrapper_type)
-                if wrapper:
-                    fdecl = find_child_by_type(wrapper, "function_declarator")
-                    if fdecl:
-                        break
-        if fdecl is not None:
-            for ch in fdecl.children:
-                if ch.type in ("identifier", "field_identifier", "destructor_name"):
-                    return node_text(ch)
+        cpp_name = _cpp_free_function_name(node)
+        if cpp_name:
+            return cpp_name
+    # fallback: first identifier child
+    for ch in node.children:
+        if ch.type == "identifier" or ch.type == "type_identifier":
+            return node_text(ch)
+    return ""
+
+
+def _cpp_free_function_name(node) -> str:
+    """Return the real identifier name of a C++ free-function
+    function_definition *node*, or '' if none is found.
+
+    Walks into the node's "function_declarator" child (optionally through a
+    wrapping reference_declarator/pointer_declarator for a reference/pointer
+    return type, e.g. `T& Foo()`/`T* Foo()`) to find the real
+    identifier/field_identifier/destructor_name, verified via a live parse
+    probe (TC-010b). Extracted out of _node_name() by TC-058 so it can be
+    called there BEFORE the generic identifier-child fallback, which
+    otherwise matches a bare-identifier return type (e.g. `Matrix Identity()`)
+    before this correct lookup ever runs -- see TC-058 for the reproduction.
+    """
+    fdecl = find_child_by_type(node, "function_declarator")
+    if fdecl is None:
+        for wrapper_type in ("reference_declarator", "pointer_declarator"):
+            wrapper = find_child_by_type(node, wrapper_type)
+            if wrapper:
+                fdecl = find_child_by_type(wrapper, "function_declarator")
+                if fdecl:
+                    break
+    if fdecl is not None:
+        for ch in fdecl.children:
+            if ch.type in ("identifier", "field_identifier", "destructor_name"):
+                return node_text(ch)
     return ""
 
 
