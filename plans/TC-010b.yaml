@@ -1,0 +1,106 @@
+id: TC-010b
+gate: G2
+lane: extraction
+purpose: Fix the two confirmed C++ extraction bugs (is_public()'s missing free-function
+  branch, _extract_bases()'s missing base_class_clause branch) that explicitly gate
+  pdf/cpp's onboarding - the last remaining pilot for G2.
+depends_on:
+- TC-010
+- TC-051
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py
+- tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py
+satisfies:
+- REQ-G2-036
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.3 Gate G1 — First vertical slice (`pdf/net`, end-to-end)'
+  sha256: a344c6f36b3a9bf9f2d4ea462369e9c6636e642c40d78bea2f6798575b16e1de
+inputs:
+- 'CONFIRMED by reading the current code directly (not merely citing the mission plan''s
+  own note about this, which predates this project''s own ported copy): src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py''s
+  is_public() (~line 357), for language==''cpp'', only handles class/struct/enum specifiers
+  (~line 359) and class-member access_specifier checks (~line 405). A bare C++ free
+  function at translation_unit/namespace scope (node.type == ''function_definition'',
+  matching _FUNC_TYPES[''cpp'']) falls through every branch: it is not a class/struct/enum
+  specifier, it has no ''modifiers''/''public'' child (C++ functions carry no such
+  keyword), it is not an interface member, and prev_named_sibling walking for an access_specifier
+  never finds one outside a class body - so is_public() returns False and the function
+  is silently dropped from extraction entirely.'
+- 'CONFIRMED by reading the current code directly: _extract_bases() (~line 607) has
+  dedicated branches for rust/python/go, then falls through to a generic Java/C# loop
+  (~line 622 onward) checking for child types ''superclass'', ''type_identifier'',
+  ''base_list'', ''super_interfaces'', ''extends_interfaces'', ''class_heritage'',
+  ''extends_clause'', ''implements_clause'' - grep confirms ''base_class_clause''
+  (the real tree-sitter-cpp node type for a class''s `: public Base1, private Base2`
+  inheritance list) appears NOWHERE in this file. Every C++ class''s bases list is
+  silently empty regardless of real inheritance in the source.'
+- This project's own established discipline for exactly this kind of tree-sitter grammar
+  work is a LIVE PARSE PROBE, not guessing from documentation or the mission plan's
+  prose description - see the 'TC-MT040-10' comment in this same file for the precedent
+  (a prior real fix verified the same way), and TC-051's own recent fix to this exact
+  file for a second precedent. Probe the real tree-sitter-cpp grammar yourself against
+  small synthetic snippets (a free function at namespace/global scope, and a class
+  with single and multiple base classes using public/private/protected inheritance)
+  to determine the exact node structure and base_class_clause text shape before writing
+  your fix.
+- tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py has ZERO
+  C++ coverage today (grep confirms no 'cpp' string anywhere in that file) - this
+  is the first real test for this language path.
+- Do not touch api_surface.py, package_root.py, or any other tree-sitter engine file
+  - both confirmed bugs live entirely in tree_helpers.py's is_public()/_extract_bases().
+actions:
+- 'Probe the real tree-sitter-cpp grammar structure yourself (a quick throwaway script
+  using tree_sitter_language_pack.get_parser(''cpp'') against small synthetic snippets)
+  to confirm: (a) a free function''s exact ancestor node types at namespace/global
+  scope, and (b) base_class_clause''s exact child node types and text shape for single
+  and multiple inheritance with different access specifiers.'
+- 'Add a C++ free-function branch to is_public(): a node.type == ''function_definition''
+  (or whatever _FUNC_TYPES[''cpp''] actually contains) whose ancestor chain reaches
+  translation_unit/namespace_definition/declaration_list WITHOUT first passing through
+  any class/struct body should be treated as public. Do not change any existing cpp
+  branch''s behavior for class/struct/enum specifiers or class members.'
+- Add a C++ branch to _extract_bases() that reads a base_class_clause child (if present)
+  and extracts every named base class, stripping access-specifier keywords (public/private/protected)
+  and virtual, matching the real grammar shape you probed.
+- 'Write regression tests in tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py
+  (add to the existing file, following its Go/Rust pattern; it currently has zero
+  C++ coverage) using minimal synthetic C++ snippets: a free function at namespace
+  scope is now extracted with kind ''function''; a class with a single public base
+  class has that base in its bases list; a class with multiple bases and mixed access
+  specifiers has all of them in its bases list (verify exactly what you observed in
+  your probe - do not assert a claim you have not verified).'
+- Run the full existing tree_sitter_engine test suite yourself and confirm nothing
+  else broke - this fix must only ADD C++ coverage, never change behavior for any
+  other language or any already-passing C++ case (class/struct/enum extraction, class-member
+  visibility).
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/ -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-036
+min_tests: 3
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py');s=p.read_text(encoding='utf-8');s=s.replace(chr(39)+'base_class_clause'+chr(39),chr(39)+'base_class_clause_DISABLED'+chr(39));p.write_text(s,encoding='utf-8')"
+  rationale: This falsifier disables base_class_clause handling by corrupting the
+    exact string literal (assuming you check for it by that literal string somewhere
+    in your fix, which is the natural way to implement this) - it must break your
+    new bases-list regression test. It does NOT exercise the free-function fix at
+    all, since that fix's exact shape cannot be predicted before you write it. You
+    MUST also verify, and if necessary correct, that this falsifier genuinely breaks
+    your test before treating acceptance as final - if your fix does not reference
+    the literal string 'base_class_clause' (e.g. you used a different variable or
+    constant), this will be a silent no-op and you must say so exactly in your report
+    so the supervisor can correct it, per this project's standing rule never to trust
+    an unexecuted falsifier.
+evidence:
+- evidence/build/G2/TC-010b/receipt.json
+closeout:
+- C++ free functions at namespace/global scope are now extracted, not silently dropped.
+- C++ class inheritance (base_class_clause) is now extracted into the bases list.
+- Every other language's and every other C++ case's existing behavior is unchanged.
+- The full tree_sitter_engine test suite still passes.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
