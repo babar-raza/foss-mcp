@@ -1,0 +1,83 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder.py tests/indexing/test_publisher.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7s3csoeu\.junit-0.xml"
+--- stdout ---
+..........................                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder.py tests/indexing/test_publisher.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7s3csoeu\.junit-0.xml"
+--- stdout ---
+..........................                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/chunk_builder.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder.py tests/indexing/test_publisher.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7s3csoeu\.junit-0.xml"
+--- stdout ---
+......F...F...............                                               [100%]
+================================== FAILURES ===================================
+______ test_free_function_entry_is_synthesized_as_its_own_single_method _______
+
+    def test_free_function_entry_is_synthesized_as_its_own_single_method() -> None:
+        """Fix 1 (TC-076). Mirrors pdf_go's real AddFontFile entry (tests/fixtures/pdf_go/
+        api_surface.json): a top-level entry with kind == "function", an empty "methods" list, and
+        params/return_type carried directly on the entry itself. Before this fix, such an entry got a
+        bare "Kind: function" header with no signature at all - every free function in pdf_go,
+        cells_rust, and pdf_typescript was silently signature-less.
+        """
+        fixture = {
+            "source_repository": "example-org/Example-FOSS-for-Widgets",
+            "source_commit": "deadbeefcafef00d1234567890abcdef1234567",
+            "types": [
+                {
+                    "name": "AddFontFile",
+                    "kind": "function",
+                    "doc": "AddFontFile registers a single font file.",
+                    "methods": [],
+                    "params": [{"name": "path", "type": "string"}],
+                    "return_type": "",
+                    "properties": [],
+                    "bases": [],
+                }
+            ],
+        }
+    
+        chunks = build_chunks_from_api_surface(fixture, title="pdf/go API surface")
+        all_text = "\n".join(chunk.text for chunk in chunks)
+    
+        assert "FQN: AddFontFile" in all_text
+        assert "Kind: function" in all_text
+>       assert "Methods:" in all_text
+E       AssertionError: assert 'Methods:' in 'FQN: AddFontFile\nKind: function\nAddFontFile registers a single font file.'
+
+tests\indexing\test_chunk_builder.py:229: AssertionError
+_ test_real_free_functions_get_real_signatures_across_the_three_affected_pilots _
+
+    def test_real_free_functions_get_real_signatures_across_the_three_affected_pilots() -> None:
+        """Runs build_chunks_from_api_surface against the ACTUAL committed pdf_go, cells_rust, and
+        pdf_typescript fixtures (real JSON, not a synthetic stand-in) and asserts a real free
+        function's real name and parameters appear correctly in the output chunk text. This is the
+        test the negative control (reverting `methods = [entry]` to `methods = []`) must break.
+        """
+        # pdf_go's real AddFontFile: {kind: "function", methods: [], params: [{name: "path", type:
+        # "string"}], return_type: ""} - confirmed directly against the committed fixture.
+        pdf_go_fixture = json.loads((FIXTURES_DIR / "pdf_go" / "api_surface.json").read_text(encoding="utf-8"))
+        pdf_go_chunks = build_chunks_from_api_surface(
+            pdf_go_fixture, title="pdf/go API surface", max_types=len(pdf_go_fixture["types"])
+        )
+        pdf_go_text = "\n".join(chunk.text for chunk in pdf_go_chunks)
+>       assert "  - AddFontFile(path: string) -> void" in pdf_go_text
+E       AssertionError: assert '  - AddFontFile(path: string) -> void' in 'FQN: AFRelationship\nKind: type_spec\nAFRelationship says how an embedded file relates to the document.\n\nBases:\n  ....\nFQN: OpenStreamWithCertificate\nKind: function\nOpenStreamWithCertificate reads a certificate-encrypted PDF from r.'
+
+tests\indexing\test_chunk_builder.py:348: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_chunk_builder.py::test_free_function_entry_is_synthesized_as_its_own_single_method
+FAILED tests/indexing/test_chunk_builder.py::test_real_free_functions_get_real_signatures_across_the_three_affected_pilots
+
+--- stderr ---
+
