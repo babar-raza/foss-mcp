@@ -1,0 +1,106 @@
+id: TC-074
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix the actual, final blocker preventing lookup(''how do I add a watermark
+  to a PDF'') from ever reaching its own composition path: TC-073''s worker (correctly,
+  honestly) found that even with camelCase-aware tokenization and BM25 scoring both
+  fixed, search_symbols STILL returns a non-empty (if weak) result for virtually any
+  on-topic query, because the query''s own word ''pdf'' lexically matches nearly every
+  symbol''s own FQN (every one starts with ''Aspose.Pdf.''). This is not a scoring-quality
+  problem BM25 can fix - it is lookup''s own dispatch priority treating ANY nonzero
+  symbol-search result as decisive, when a real natural-language question and a bare
+  identifier lookup need different priority orders.'
+depends_on:
+- TC-071
+write_paths:
+- src/foss_mcp/mcp/tools/lookup.py
+- tests/mcp/tools/test_retrieval_tools.py
+satisfies:
+- REQ-G2-049
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.2 Common tools — present identically on every instance (9 tools —
+    this table is the single authoritative registry; tool discovery, JSON schemas,
+    and generated documentation are all derived from it, never restated independently)'
+  sha256: fcc5e91a552d272bd617369066de6c312007c25806671af9c1ccbbfd6f574453
+inputs:
+- 'CONFIRMED today by TC-073''s own worker, rigorously: after implementing and verifying
+  camelCase splitting and real BM25 scoring (both correct, both necessary, both left
+  uncommitted in the working tree pending this fix - do not discard or redo that work,
+  it is real and will be reused once this card lands), lookup(''how do I add a watermark
+  to a PDF'') against the real running pdf/net container still returned a bare list[SymbolMatch]
+  of 10 mostly-unrelated symbols, never a TaskAnswer. Root cause, confirmed by testing
+  with the PRE-TC-073 file in place too (same failure): search_symbols(query) returns
+  SOME non-empty result for nearly any on-topic query, because the query word ''pdf''
+  matches every single real symbol''s FQN (all begin with ''Aspose.Pdf.''), so lookup''s
+  ''if search_symbols returns anything non-empty, return it immediately'' dispatch
+  never reaches the doc-fallback+composition branch for ANY realistic question about
+  this product.'
+- This is a genuinely different class of problem than TC-071/072/073's scoring/exclusion
+  fixes (each of those was correct and necessary for what it targeted) - no relevance-scoring
+  adjustment can fix it, because the issue is not WHICH result ranks highest, it is
+  that lookup treats 'search_symbols returned something non-empty' as sufficient evidence
+  of a confident symbol match, when for a natural-language sentence it is not.
+- The fix belongs in lookup.py's own dispatch order, based on the QUERY'S SHAPE -
+  a short, bare, identifier-like query (e.g. 'AddWatermarkAnnotation', 'Document',
+  'AFRelationship') is genuinely ambiguous and worth trying against search_symbols
+  first (existing, correct behavior, must not change for these). A query that reads
+  as a natural-language question (several words, and/or opens with a question/auxiliary
+  word like 'how'/'what'/'why'/'can'/'does'/'is are') should try the doc-fallback+composition
+  path FIRST, falling back to search_symbols only if the doc/example path itself has
+  nothing - never the reverse.
+- 'Implement a helper named exactly `_looks_like_a_task_question(query: str) -> bool`
+  in lookup.py (this exact name is required for the negative control below) using
+  a query-shape heuristic (a word-count threshold and/or a leading question/auxiliary
+  word check - your judgment on the exact rule, but it must correctly classify ''how
+  do I add a watermark to a PDF'' as a task question, and ''AddWatermarkAnnotation''/''Document''/''AFRelationship''
+  as NOT task questions, since existing tests depend on those staying on the symbol-first
+  path). Restructure lookup()''s body so the dispatch order is chosen by this helper:
+  task-shaped query tries doc-fallback+composition first, falls back to search_symbols
+  only if nothing found; non-task-shaped query keeps today''s existing order (search_symbols
+  first, falls back to doc-fallback+composition).'
+- Do not touch search_symbols.py, find_examples.py, search_docs.py, or lexical_index_writer.py
+  (TC-073's own uncommitted changes there are correct and will be reworked back in
+  once this lands - this card's write_paths do not include that file, so you will
+  not see those changes in your own working tree unless you check - if you do see
+  uncommitted changes to lexical_index_writer.py or its test file when you start,
+  DO NOT revert or discard them, they belong to a different card).
+actions:
+- Implement _looks_like_a_task_question and restructure lookup()'s dispatch order
+  exactly as specified.
+- 'Update/add tests in tests/mcp/tools/test_retrieval_tools.py: (1) every existing
+  test (content_type given, exact symbol match for a bare/short query, doc-fallback
+  composition for a query that was already task-shaped, honest full miss) must keep
+  passing unchanged; (2) a NEW test proving the actual fix: construct a real published
+  generation where a real symbol''s FQN happens to lexically overlap with a natural-language
+  question''s own words (mirroring the real ''pdf'' collision - e.g. a real symbol
+  under a namespace containing a common word, and a doc/example match for the same
+  word), and confirm a task-shaped query (several words, opens with ''how''/''what''/etc.)
+  now correctly returns the composed TaskAnswer instead of being captured by the incidental
+  symbol match, while a short, bare identifier query for the SAME namespace-adjacent
+  word still correctly returns the symbol match.'
+- Run the full existing test suite yourself and confirm nothing else broke.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_retrieval_tools.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-049
+min_tests: 6
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/lookup.py');s=p.read_text(encoding='utf-8');s=s.replace('_looks_like_a_task_question','_looks_like_a_task_question_DISABLED');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming _looks_like_a_task_question so it is never referenced must break
+    the new test with a NameError, proving the test genuinely exercises the query-shape
+    dispatch fix, not merely that TaskAnswer's shape exists. Self-checked end-to-end
+    against a fixture implementing the exact prescribed name before being persisted.
+evidence:
+- evidence/build/G2/TC-074/receipt.json
+closeout:
+- A natural-language task question is no longer captured by an incidental, weak symbol
+  match sharing a common word with the query.
+- A short, bare identifier/symbol-shaped query is completely unaffected.
+- Every existing lookup/search_symbols test still passes.
+- Renaming _looks_like_a_task_question fails the new test.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
