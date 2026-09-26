@@ -1,0 +1,104 @@
+id: TC-075
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix the real, final blocker TC-073''s rework (attempt 2) found and correctly
+  stopped on rather than guess at: lookup''s _compose_from_docs only ever tries find_examples
+  AFTER a search_docs match is found - but no getting_started/developer_guide/troubleshooting/faq
+  content has ever been built or published for any pilot (infra/build_chunks.py never
+  converts the furnished page''s real prose into any of the four CONTENT_TYPES), so
+  search_docs is always empty and the composition path never fires, even though find_examples
+  ALONE already returns a real, complete, self-descriptive answer (title, description,
+  and verified code together in one chunk, per TC-068''s own design).'
+depends_on:
+- TC-074
+write_paths:
+- src/foss_mcp/mcp/tools/lookup.py
+- tests/mcp/tools/test_retrieval_tools.py
+satisfies:
+- REQ-G2-049
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.2 Common tools — present identically on every instance (9 tools —
+    this table is the single authoritative registry; tool discovery, JSON schemas,
+    and generated documentation are all derived from it, never restated independently)'
+  sha256: fcc5e91a552d272bd617369066de6c312007c25806671af9c1ccbbfd6f574453
+inputs:
+- 'CONFIRMED today by TC-073''s rework worker via a real live docker-compose proof:
+  with TC-074''s dispatch-priority fix correctly in place, lookup(''how do I add a
+  watermark to a PDF'') STILL returned a bare list[SymbolMatch] (a real, legitimate
+  match this time - AnnotationCollection genuinely has an AddWatermarkAnnotation method
+  - not a spurious collision). Root cause, confirmed directly: `search_docs` returns
+  ''no published generation for this scope'' for all four CONTENT_TYPES (getting_started/developer_guide/troubleshooting/faq)
+  because nothing in this project has EVER built or published that content, for any
+  pilot. `find_examples(''watermark'')` called directly DOES correctly return the
+  real, compile-verified AddWatermarkAnnotation example. lookup.py''s own `_compose_from_docs()`
+  only calls find_examples AFTER finding a non-empty search_docs result for some content
+  type - since that''s always empty today, it always returns None, so lookup''s task-question
+  branch falls through to search_symbols every time.'
+- Building a real search_docs content pipeline (converting the furnished page's overview/content/faq
+  front-matter into real getting_started/developer_guide/troubleshooting/faq chunks)
+  is real, separate, substantial work - a new ingestion source on the scale of TC-066-069's
+  verified-example pipeline, not a quick fix, and explicitly OUT OF SCOPE for this
+  card. Do not build it.
+- 'The correct, proportionate fix for right now: `_compose_from_docs()` (in src/foss_mcp/mcp/tools/lookup.py)
+  must try find_examples INDEPENDENTLY of whether a doc match was found - not gated
+  behind it. Compose a TaskAnswer whenever EITHER doc_matches OR example is non-empty
+  (never fabricating either - doc_matches stays () and example stays None exactly
+  when each is genuinely absent, matching this project''s own existing ''honest partial
+  answer'' discipline for the example field). Only fall through to search_symbols
+  when BOTH are empty. The exact literal condition deciding this must be `if not doc_matches
+  and example is None:` (returning None, meaning ''nothing to compose, fall through'')
+  - this exact literal is required for the negative control below.'
+- Rename nothing, keep _compose_from_docs's existing name and its call sites unchanged
+  - only its internal body changes.
+actions:
+- 'Restructure _compose_from_docs() exactly as specified: search every CONTENT_TYPES
+  value for a doc match (first non-empty wins, as today), ALWAYS separately call find_examples
+  regardless of whether a doc match was found, and return a TaskAnswer whenever either
+  is non-empty - using the exact literal condition prescribed above to decide when
+  to return None instead.'
+- 'Add a real test in tests/mcp/tools/test_retrieval_tools.py reproducing today''s
+  real finding: a task-shaped query where NO doc content exists anywhere (search_docs
+  honestly empty for every content type, matching every pilot''s real current state)
+  but a real, verified example chunk exists for the same query - lookup now returns
+  a TaskAnswer with doc_matches=() and example populated with the real ExampleMatch,
+  instead of falling through to search_symbols. Keep every existing test (doc+example
+  both present, doc only, full miss, exact symbol match, content_type given) passing
+  unchanged.'
+- Run the full existing test suite yourself and confirm nothing else broke.
+- 'FINAL REQUIRED PROOF, same bounded target as before: bring up the real ingest-pdf-net
+  + serving containers (real docker compose build+up, matching TC-069''s established
+  pattern), call the real lookup tool with the real query ''how do I add a watermark
+  to a PDF'' over a real MCP session, and confirm it now returns a TaskAnswer whose
+  example field contains the real, compile-verified AddWatermarkAnnotation code. This
+  is the concrete, bounded target the whole day''s investigation has been converging
+  on - do not consider further refinements beyond making this exact real query work.
+  Tear down containers afterward regardless of outcome.'
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_retrieval_tools.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-049
+min_tests: 7
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/lookup.py');s=p.read_text(encoding='utf-8');s=s.replace('if
+    not doc_matches and example is None:','if not doc_matches:');p.write_text(s,encoding='utf-8')"
+  rationale: Narrowing the compose-or-fall-through condition back to 'if not doc_matches:'
+    (ignoring whether an example exists) must break the new test asserting an example-only
+    TaskAnswer is returned when no doc content exists - proving the test genuinely
+    exercises the decoupling fix. Self-checked end-to-end against a fixture implementing
+    the exact prescribed literal before being persisted.
+evidence:
+- evidence/build/G2/TC-075/receipt.json
+closeout:
+- A task question with a real verified example but no real doc content still gets
+  a genuinely useful composed answer, not a fallback to an incidental symbol match.
+- Every existing lookup/search_docs/search_symbols test still passes.
+- A real, live query for 'how do I add a watermark to a PDF' against the real running
+  pdf/net container returns the real, compile-verified example.
+- Narrowing the compose condition back to doc-only fails the new test.
+recovery: Re-run from a clean tree; if the network clone/build step is flaky, re-running
+  is safe and idempotent.

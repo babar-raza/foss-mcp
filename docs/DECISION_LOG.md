@@ -519,3 +519,33 @@ I add a watermark to a PDF'` must return the real, compile-verified example, liv
 real running container - not a further chase of ranking-quality refinements beyond that. If this
 still doesn't close it, the next investigation gets a fresh, specific diagnostic rather than
 another guess, matching this project's own two-equivalent-failures discipline.
+
+## 2026-09-26 — TC-074 accepted; TC-073's rework found a fourth, genuinely distinct blocker and correctly stopped again
+
+TC-074 (lookup's query-shape dispatch priority) is genuinely ACCEPTED - real double-run, negative
+control genuinely fails the suite. TC-073's rework (attempt 2) reused its own already-correct
+camelCase/BM25 work unchanged, confirmed TC-074 was merged, and re-ran the required live proof.
+
+Still not a `TaskAnswer` - but this time for a real, different, and much simpler reason, honestly
+diagnosed rather than guessed at a third time: `search_docs` has NEVER had any real content
+published, for any pilot - `infra/build_chunks.py` only ever builds symbol chunks (TC-062) and
+verified-example chunks (TC-068); nothing converts the furnished page's real `overview`/`content`/
+`faq` front-matter into any of the four `search_docs` content types. `lookup.py`'s own
+`_compose_from_docs()` only ever calls `find_examples` AFTER finding a non-empty `search_docs`
+result - since that is always empty today, composition never fires, even though `find_examples`
+called directly already returns a complete, real, self-descriptive answer (title, description, and
+verified code together, by TC-068's own chunk design). The symbol match lookup fell through to
+this time (`AnnotationCollection`) was itself genuinely legitimate, not spurious - confirming
+TC-074's own fix works correctly; this is a distinct, later-stage gap, not a regression.
+
+TC-073's worker correctly did not commit a third guess and clearly separated what's still correct
+(its own tokenizer/scorer work, still uncommitted, sitting untouched) from what's newly broken
+(a decision that belongs in `lookup.py`, not its own file).
+
+**Decision**: building a real `search_docs` content pipeline (a new ingestion source on the scale
+of TC-066-069's whole verified-example pipeline) is real, substantial, separate work - explicitly
+deferred, not attempted here. The proportionate fix for now (TC-075): decouple `find_examples`
+from requiring a prior `search_docs` match in `lookup.py` alone - compose a `TaskAnswer` whenever
+EITHER a doc match or a verified example exists, never fabricating either, falling through to
+`search_symbols` only when both are genuinely empty. TC-073 stays uncommitted, unchanged, pending
+this landing.
