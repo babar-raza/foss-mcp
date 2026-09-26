@@ -23,7 +23,7 @@ from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.publisher import publish_generation
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.find_examples import ExampleMatch
-from foss_mcp.mcp.tools.lookup import TaskAnswer, lookup
+from foss_mcp.mcp.tools.lookup import TaskAnswer, _looks_like_a_task_question, lookup
 from foss_mcp.mcp.tools.search_docs import DocMatch, search_docs
 from foss_mcp.mcp.tools.search_docs import Miss as DocsMiss
 from foss_mcp.mcp.tools.search_symbols import Miss as SymbolsMiss
@@ -362,6 +362,84 @@ works well for stamping confidential markings onto exported PDF documents.
     # And the real symbol genuinely present in the same corpus never masquerades as a match.
     symbol_result = search_symbols(store, PDF_NET_SCOPE, "watermark")
     assert isinstance(symbol_result, SymbolsMiss)
+
+
+def test_looks_like_a_task_question_classifies_by_query_shape() -> None:
+    """The exact classification the card requires: real symbol-shaped queries from the actual
+    pdf/net fixture stay NOT-task-shaped (existing tests depend on those staying on the
+    symbol-first path), while the card's own real natural-language example is task-shaped."""
+    assert _looks_like_a_task_question("how do I add a watermark to a PDF") is True
+    assert _looks_like_a_task_question("AddWatermarkAnnotation") is False
+    assert _looks_like_a_task_question("Document") is False
+    assert _looks_like_a_task_question("AFRelationship") is False
+
+
+def test_lookup_prefers_doc_composition_over_an_incidental_symbol_collision_for_a_task_question(
+    tmp_path: Path,
+) -> None:
+    """Reproduces the real 'pdf' collision TC-073's worker found live, at fixture scale: a real
+    symbol's FQN (``PdfDocument.Merge``) lexically overlaps one of a natural-language question's
+    own words (``pdf``, via camelCase sub-word splitting), purely incidentally - the symbol is
+    about merging, the question is about watermarking. Before this card, lookup's own "any
+    non-empty search_symbols result wins" dispatch order let that incidental overlap capture a
+    real task question and starve it of the doc+example answer it actually needed.
+
+    Proves BOTH halves of the card's closeout: the task-shaped question now gets the composed
+    TaskAnswer instead of the incidental symbol match, while a short, bare query for that exact
+    same overlapping symbol still correctly returns the symbol match unchanged.
+    """
+    store = _store(tmp_path)
+    real_symbol_body = """## PdfDocument.Merge
+
+FQN: PdfDocument.Merge
+Kind: Method
+Merges multiple PDF files into a single output document.
+"""
+    real_doc = make_document(
+        source_kind=SourceKind.SELF_EXTRACTED,
+        content_type="api_surface",
+        provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+        evidence_refs=(),
+        title="pdf/net API surface",
+        body=real_symbol_body,
+    )
+    _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(real_doc))
+
+    watermark_guide_doc = make_document(
+        source_kind=SourceKind.FURNISHED,
+        content_type="product_page",
+        provenance=Provenance(repository="Aspose/aspose.org", commit="x", path="content/pdf/net"),
+        evidence_refs=(),
+        title="pdf/net watermarking guide",
+        body="""## Adding a Watermark to a PDF
+
+Use PdfDocument.AddWatermarkAnnotation to add a watermark to a PDF document, stamping
+confidential markings onto every exported page.
+""",
+    )
+    _publish(store, PDF_NET_SCOPE, "furnished", chunk_document(watermark_guide_doc))
+
+    task_question = "how do I add a watermark to a PDF"
+
+    # The incidental collision is real, not hypothetical: the unrelated Merge symbol's FQN
+    # shares the word "pdf" with the question, so a naive non-empty check on search_symbols
+    # alone would (wrongly) treat this as a confident symbol match.
+    raw_symbol_result = search_symbols(store, PDF_NET_SCOPE, task_question)
+    assert isinstance(raw_symbol_result, list) and raw_symbol_result
+
+    result = lookup(store, PDF_NET_SCOPE, task_question)
+
+    assert isinstance(result, TaskAnswer)
+    assert result.scope == PDF_NET_SCOPE
+    assert isinstance(result.doc_matches, tuple) and result.doc_matches
+    assert any("watermark" in match.text.lower() for match in result.doc_matches)
+
+    # A short, bare query for the very same overlapping symbol is completely unaffected -
+    # it still resolves as a symbol lookup, exactly as before this card.
+    bare_result = lookup(store, PDF_NET_SCOPE, "PdfDocument")
+
+    assert isinstance(bare_result, list) and all(isinstance(match, SymbolMatch) for match in bare_result)
+    assert any("PdfDocument.Merge" in match.text for match in bare_result)
 
 
 def test_every_result_carries_the_scope_that_was_passed_in_never_another(tmp_path: Path) -> None:
