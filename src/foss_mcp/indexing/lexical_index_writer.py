@@ -16,10 +16,42 @@ from foss_mcp.normalization.chunker import Chunk
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
+# A standard, hardcoded English stopword set - no new dependency (no nltk, no spacy),
+# matching this project's own no-new-runtime-dependency discipline (TC-063's
+# HashingEmbeddingProvider). Covers articles, common prepositions, common pronouns,
+# common auxiliary/modal verbs, and question words - the closed-class function words
+# that carry no distinguishing lexical content of their own. tokenize() is the ONE
+# function both build_lexical_index and query_lexical_index call, so filtering here
+# fixes indexing and querying consistently.
+_STOPWORDS = frozenset(
+    {
+        "a", "about", "above", "after", "again", "against", "all", "am", "an", "and",
+        "any", "are", "aren't", "as", "at", "be", "because", "been", "before", "being",
+        "below", "between", "both", "but", "by", "can", "can't", "cannot", "could",
+        "couldn't", "did", "didn't", "do", "does", "doesn't", "doing", "don't", "down",
+        "during", "each", "few", "for", "from", "further", "had", "hadn't", "has",
+        "hasn't", "have", "haven't", "having", "he", "her", "here", "hers", "herself",
+        "him", "himself", "his", "how", "i", "if", "in", "into", "is", "isn't", "it",
+        "its", "itself", "me", "more", "most", "my", "myself", "no", "nor", "not",
+        "of", "off", "on", "once", "only", "or", "other", "our", "ours", "ourselves",
+        "out", "over", "own", "same", "she", "should", "shouldn't", "so", "some",
+        "such", "than", "that", "the", "their", "theirs", "them", "themselves",
+        "then", "there", "these", "they", "this", "those", "through", "to", "too",
+        "under", "until", "up", "very", "was", "wasn't", "we", "were", "weren't",
+        "what", "when", "where", "which", "while", "who", "whom", "why", "will",
+        "with", "won't", "would", "wouldn't", "you", "your", "yours", "yourself",
+        "yourselves",
+    }
+)
+
 
 def tokenize(text: str) -> list[str]:
-    """Lowercase, alphanumeric-run tokenizer - stdlib-only, offline."""
-    return _TOKEN_RE.findall(text.lower())
+    """Lowercase, alphanumeric-run tokenizer with English stopword filtering - stdlib-only,
+    offline. Excluding common function words keeps a natural-language query's score
+    concentrated on its actual distinguishing terms, so an honest empty Miss remains
+    reachable instead of every chunk scoring weakly-nonzero from shared stopwords alone.
+    """
+    return [token for token in _TOKEN_RE.findall(text.lower()) if token not in _STOPWORDS]
 
 
 def doc_id(generation_id: str, chunk_id: str) -> str:
