@@ -1,0 +1,92 @@
+id: TC-071
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix lookup''s composition (REQ-G2-049): a task-oriented query with no prior
+  API knowledge (e.g. ''how do I add a watermark to a PDF'') must be able to get back
+  BOTH the relevant documentation guidance AND a verified example in one answer -
+  today lookup only ever returns one underlying tool''s result and never calls find_examples
+  at all, confirmed by reading lookup.py directly on 2026-09-25.'
+depends_on:
+- TC-017a
+- TC-017b
+write_paths:
+- src/foss_mcp/mcp/tools/lookup.py
+- tests/mcp/tools/test_retrieval_tools.py
+satisfies:
+- REQ-G2-049
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.2 Common tools — present identically on every instance (9 tools —
+    this table is the single authoritative registry; tool discovery, JSON schemas,
+    and generated documentation are all derived from it, never restated independently)'
+  sha256: fcc5e91a552d272bd617369066de6c312007c25806671af9c1ccbbfd6f574453
+inputs:
+- 'CONFIRMED by reading src/foss_mcp/mcp/tools/lookup.py directly: lookup(store, scope,
+  query, *, content_type=None, top_k=10) - with content_type given, delegates entirely
+  to search_docs; with content_type omitted, tries search_symbols first (returns immediately
+  if non-empty), then each CONTENT_TYPES value via search_docs in turn, returning
+  the first non-empty list[DocMatch] as-is, or the original symbol Miss if nothing
+  matched anywhere. It never calls find_examples at all.'
+- src/foss_mcp/mcp/tools/find_examples.py already exports find_examples(store, scope,
+  query, *, top_k=5) -> list[ExampleMatch] | NoExampleFound, and ExampleMatch(scope,
+  generation_id, fqn, snippet) - already proven live today against real content (a
+  real 'watermark' query against a real published pdf/net generation returns a real,
+  compile-verified example).
+- 'Add a new frozen dataclass in lookup.py: `TaskAnswer(scope: Scope, doc_matches:
+  tuple[DocMatch, ...], example: ExampleMatch | None)`. Composition applies ONLY to
+  the doc-fallback path (content_type omitted, no symbol match, a doc match found)
+  - the exact-symbol-match path and the explicit-content_type path are UNCHANGED,
+  since an exact symbol lookup or an explicit content_type request is already a complete,
+  specific answer on its own terms, not a task query needing composition.'
+- 'In the doc-fallback branch, once a non-empty doc_result is found: call find_examples(store,
+  scope, query, top_k=1). The EXACT literal expression deciding the example field
+  must be `example_result[0] if isinstance(example_result, list) and example_result
+  else None` (this exact literal is required for the negative control below) assigned
+  to a variable named `example`, then return `TaskAnswer(scope=scope, doc_matches=tuple(doc_result),
+  example=example)` instead of the bare list. When no example exists for the query,
+  `example` is honestly None - never fabricated, matching this project''s own closed-vocabulary-miss
+  discipline.'
+- Do not change search_docs.py, search_symbols.py, or find_examples.py at all - this
+  card only changes lookup.py's own composition.
+actions:
+- Add TaskAnswer and the composition logic to lookup.py exactly as specified.
+- 'Write real tests in tests/mcp/tools/test_retrieval_tools.py (read its existing
+  real publish-then-query pattern first and follow it - a real GenerationManifestStore,
+  real publish_generation, real DeterministicEmbeddingProvider, never mocks) covering:
+  (1) content_type given - behavior completely unchanged (delegates to search_docs
+  exactly as today); (2) an exact symbol match exists - behavior completely unchanged
+  (returns list[SymbolMatch], no TaskAnswer wrapping); (3) no symbol match, a real
+  doc match exists, AND a real example chunk exists for the same query (construct
+  a synthetic published generation with one doc chunk and one Example:-bearing chunk
+  that both match the test query) - returns a TaskAnswer with doc_matches populated
+  AND example populated with the real ExampleMatch; (4) same as (3) but no example
+  chunk exists for that query - returns a TaskAnswer with doc_matches populated and
+  example=None, not fabricated; (5) a full miss (neither symbol nor doc match anywhere)
+  - behavior completely unchanged (returns the original Miss).'
+- Run the full existing test suite yourself and confirm nothing else broke.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_retrieval_tools.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-049
+min_tests: 5
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/lookup.py');s=p.read_text(encoding='utf-8');s=s.replace('example_result[0]
+    if isinstance(example_result, list) and example_result else None','None');p.write_text(s,encoding='utf-8')"
+  rationale: Forcing the example field to always be None must break the test asserting
+    a real example is genuinely attached when one exists for the query - proving the
+    test genuinely exercises composition, not merely that TaskAnswer's shape exists.
+    Self-checked end-to-end against a fixture implementing the exact prescribed literal
+    before being persisted.
+evidence:
+- evidence/build/G2/TC-071/receipt.json
+closeout:
+- A task-oriented query can get back both documentation guidance and a verified example
+  in one answer, when both exist for that query.
+- An exact symbol match and an explicit content_type request are completely unaffected.
+- No example is ever fabricated when none exists - an honest partial answer.
+- Forcing example=None unconditionally fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
