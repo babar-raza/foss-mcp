@@ -3,14 +3,21 @@ gate: G2
 lane: storage-retrieval
 purpose: 'Fix lookup''s composition (REQ-G2-049): a task-oriented query with no prior
   API knowledge (e.g. ''how do I add a watermark to a PDF'') must be able to get back
-  BOTH the relevant documentation guidance AND a verified example in one answer -
-  today lookup only ever returns one underlying tool''s result and never calls find_examples
-  at all, confirmed by reading lookup.py directly on 2026-09-25.'
+  BOTH the relevant documentation guidance AND a verified example in one answer. Attempt
+  1 correctly implemented lookup.py''s composition logic but proved, via its own negative
+  control, that the branch is architecturally unreachable: search_symbols does an
+  unfiltered lexical scan over the SAME generation find_examples''s pseudo-symbol
+  example chunks live in (both use the identical ''self_extracted'' scope key), so
+  search_symbols matches an example chunk''s own text and lookup takes the exact-symbol-match
+  branch before ever reaching doc-fallback composition. This attempt fixes the actual
+  root cause: search_symbols must exclude the honestly-labeled ''Example: <title>''
+  pseudo-symbol convention TC-068 established from its own notion of a symbol match.'
 depends_on:
 - TC-017a
 - TC-017b
 write_paths:
 - src/foss_mcp/mcp/tools/lookup.py
+- src/foss_mcp/mcp/tools/search_symbols.py
 - tests/mcp/tools/test_retrieval_tools.py
 satisfies:
 - REQ-G2-049
@@ -21,49 +28,72 @@ source_refs:
     and generated documentation are all derived from it, never restated independently)'
   sha256: fcc5e91a552d272bd617369066de6c312007c25806671af9c1ccbbfd6f574453
 inputs:
-- 'CONFIRMED by reading src/foss_mcp/mcp/tools/lookup.py directly: lookup(store, scope,
-  query, *, content_type=None, top_k=10) - with content_type given, delegates entirely
-  to search_docs; with content_type omitted, tries search_symbols first (returns immediately
-  if non-empty), then each CONTENT_TYPES value via search_docs in turn, returning
-  the first non-empty list[DocMatch] as-is, or the original symbol Miss if nothing
-  matched anywhere. It never calls find_examples at all.'
-- src/foss_mcp/mcp/tools/find_examples.py already exports find_examples(store, scope,
-  query, *, top_k=5) -> list[ExampleMatch] | NoExampleFound, and ExampleMatch(scope,
-  generation_id, fqn, snippet) - already proven live today against real content (a
-  real 'watermark' query against a real published pdf/net generation returns a real,
-  compile-verified example).
-- 'Add a new frozen dataclass in lookup.py: `TaskAnswer(scope: Scope, doc_matches:
-  tuple[DocMatch, ...], example: ExampleMatch | None)`. Composition applies ONLY to
-  the doc-fallback path (content_type omitted, no symbol match, a doc match found)
-  - the exact-symbol-match path and the explicit-content_type path are UNCHANGED,
-  since an exact symbol lookup or an explicit content_type request is already a complete,
-  specific answer on its own terms, not a task query needing composition.'
-- 'In the doc-fallback branch, once a non-empty doc_result is found: call find_examples(store,
-  scope, query, top_k=1). The EXACT literal expression deciding the example field
-  must be `example_result[0] if isinstance(example_result, list) and example_result
-  else None` (this exact literal is required for the negative control below) assigned
-  to a variable named `example`, then return `TaskAnswer(scope=scope, doc_matches=tuple(doc_result),
-  example=example)` instead of the bare list. When no example exists for the query,
-  `example` is honestly None - never fabricated, matching this project''s own closed-vocabulary-miss
-  discipline.'
-- Do not change search_docs.py, search_symbols.py, or find_examples.py at all - this
-  card only changes lookup.py's own composition.
+- 'CONFIRMED by attempt 1''s own rigorous work (reproduced empirically, not a guess):
+  search_symbols.py (src/foss_mcp/mcp/tools/search_symbols.py) does an UNFILTERED
+  lexical scan (query_lexical_index) over scope_key(scope, ''self_extracted'') - the
+  exact same generation infra/ingest.py''s real pdf/net run publishes BOTH real type-symbol
+  chunks AND TC-068''s verified-example chunks into (both published under --source-kind
+  self_extracted in the current real pipeline). find_examples.py (src/foss_mcp/mcp/tools/find_examples.py)
+  reads the SAME scope key. TC-068''s example chunks are deliberately, honestly labeled
+  with a pseudo-FQN of the exact literal shape ''Example: <title>'' (not a real class/method
+  FQN, by design - see TC-068''s own card). search_symbols has no concept of this
+  distinction and happily lexically matches an example chunk''s own descriptive text
+  (e.g. a chunk titled ''Example: Add a Watermark Annotation'' matches the query ''watermark''
+  just as strongly as a real symbol would), so lookup''s existing ''try search_symbols
+  first'' dispatch takes that branch and returns before ever reaching the doc-fallback+find_examples
+  composition path attempt 1 built.'
+- 'The fix belongs in search_symbols.py alone, and must mirror find_examples.py''s
+  own already-established pattern for the exact same problem (read find_examples.py''s
+  existing `ranked = query_lexical_index(lexical_payload, query, top_k=len(documents))`
+  line - it already searches the WHOLE corpus before filtering down, precisely to
+  avoid losing real candidates to a premature top_k cut). Apply the same pattern in
+  search_symbols(): query the whole corpus first, exclude any doc_id whose FQN (via
+  get_symbol.py''s already-exported extract_fqn(text) function - import it, do not
+  reimplement FQN parsing a second time) starts with the exact literal ''Example:
+  '', THEN truncate to the caller''s real top_k. Write this literal using SINGLE quotes
+  in the actual source: `.startswith(''Example: '')` (not double quotes) - the exact
+  literal substring startswith(''Example: '') with single quotes is required in the
+  committed file for the negative control below.'
+- 'This is a real, honest exclusion, not a workaround: search_symbols''s own module
+  docstring says it searches ''foss-mcp''s own self-extracted API surface for a symbol
+  name'' - a pseudo-symbol explicitly labeled as an example in TC-068''s own design
+  was never meant to be reported as a real symbol match. Excluding it is the CORRECT
+  reading of search_symbols''s own contract, not a special case invented for this
+  card.'
+- 'Once this filter exists, lookup.py''s own composition logic (already correctly
+  written in attempt 1 - do not change its shape) becomes genuinely reachable: a query
+  like ''watermark'' that used to incorrectly win on the symbol branch now correctly
+  returns a Miss from search_symbols (since the only lexical match was the now-excluded
+  pseudo-symbol chunk), letting lookup fall through to search_docs, find a doc match
+  (if the furnished/self_extracted corpus has one), and compose it with find_examples''s
+  real result into a TaskAnswer.'
+- Keep lookup.py's existing composition logic and its inputs from the original card
+  authoring exactly as already implemented (TaskAnswer(scope, doc_matches, example),
+  the exact literal `example_result[0] if isinstance(example_result, list) and example_result
+  else None` deciding the example field) - attempt 1's implementation of this part
+  was correct, only untestable until now.
 actions:
-- Add TaskAnswer and the composition logic to lookup.py exactly as specified.
-- 'Write real tests in tests/mcp/tools/test_retrieval_tools.py (read its existing
-  real publish-then-query pattern first and follow it - a real GenerationManifestStore,
-  real publish_generation, real DeterministicEmbeddingProvider, never mocks) covering:
-  (1) content_type given - behavior completely unchanged (delegates to search_docs
-  exactly as today); (2) an exact symbol match exists - behavior completely unchanged
-  (returns list[SymbolMatch], no TaskAnswer wrapping); (3) no symbol match, a real
-  doc match exists, AND a real example chunk exists for the same query (construct
-  a synthetic published generation with one doc chunk and one Example:-bearing chunk
-  that both match the test query) - returns a TaskAnswer with doc_matches populated
-  AND example populated with the real ExampleMatch; (4) same as (3) but no example
-  chunk exists for that query - returns a TaskAnswer with doc_matches populated and
-  example=None, not fabricated; (5) a full miss (neither symbol nor doc match anywhere)
-  - behavior completely unchanged (returns the original Miss).'
-- Run the full existing test suite yourself and confirm nothing else broke.
+- 'Fix search_symbols.py''s own matching to exclude ''Example: ''-prefixed pseudo-FQN
+  chunks, exactly as described above.'
+- 'Add a DIRECT test of this exclusion in search_symbols''s own test coverage (in
+  tests/mcp/tools/test_retrieval_tools.py): publish a generation containing one real
+  symbol chunk and one ''Example: <title>''-prefixed pseudo-symbol chunk that both
+  lexically match the same query; search_symbols(query) returns ONLY the real symbol,
+  never the pseudo-symbol. A query that ONLY the pseudo-symbol chunk matches returns
+  an honest Miss from search_symbols, not the pseudo-symbol.'
+- 'Now that this is genuinely reachable, implement (or fix, if attempt 1 left a placeholder
+  in its place) a real scenario-3 test for lookup: no real symbol matches the query,
+  a real doc match exists, AND a real example chunk exists for the same query - lookup
+  returns a TaskAnswer with doc_matches populated AND example populated with the real
+  ExampleMatch. Construct this with a real published generation containing all three
+  kinds of chunk (a real symbol, a doc chunk, an Example:-prefixed chunk) so the test
+  proves the full, real dispatch priority - not an isolated mock of any one tool.'
+- Keep every other test from attempt 1 (content_type unchanged, exact-symbol-match
+  unchanged, no-example honest miss, full miss unchanged) - this is additive plus
+  one root-cause fix, not a rewrite.
+- Run the full existing test suite yourself and confirm nothing else broke - especially
+  any existing search_symbols test that legitimately expects a REAL symbol match to
+  keep working exactly as before.
 checks:
 - command: '{python} -m pytest tests/mcp/tools/test_retrieval_tools.py -q'
   expect: exit 0
@@ -71,22 +101,27 @@ checks:
   junitxml: true
   proves:
   - REQ-G2-049
-min_tests: 5
+min_tests: 6
 network: false
 negative_control:
-  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/lookup.py');s=p.read_text(encoding='utf-8');s=s.replace('example_result[0]
-    if isinstance(example_result, list) and example_result else None','None');p.write_text(s,encoding='utf-8')"
-  rationale: Forcing the example field to always be None must break the test asserting
-    a real example is genuinely attached when one exists for the query - proving the
-    test genuinely exercises composition, not merely that TaskAnswer's shape exists.
-    Self-checked end-to-end against a fixture implementing the exact prescribed literal
-    before being persisted.
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/mcp/tools/search_symbols.py'');s=p.read_text(encoding=''utf-8'');s=s.replace(''startswith(''+chr(39)+''Example:
+    ''+chr(39)+'')'',''startswith(''+chr(39)+''Example: DISABLED_''+chr(39)+'')'');p.write_text(s,encoding=''utf-8'')"'
+  rationale: Corrupting the exclusion literal so it never matches any real pseudo-symbol
+    prefix must break BOTH the direct search_symbols exclusion test AND the lookup
+    scenario-3 composition test (since search_symbols would once again incorrectly
+    intercept the query) - proving the fix is the actual load-bearing mechanism connecting
+    both, not a coincidental pass. This replaces attempt 1's negative control, which
+    attempt 1 itself proved vacuous via gatectl review's own mechanical VACUOUS CHECKS
+    verdict - not overridden, corrected. Self-checked end-to-end against a fixture
+    implementing the exact prescribed literal before being persisted.
 evidence:
 - evidence/build/G2/TC-071/receipt.json
 closeout:
-- A task-oriented query can get back both documentation guidance and a verified example
-  in one answer, when both exist for that query.
-- An exact symbol match and an explicit content_type request are completely unaffected.
+- search_symbols never reports a TC-068-style pseudo-symbol as a real symbol match.
+- A task-oriented query can genuinely reach lookup's composition path and get back
+  both documentation guidance and a verified example in one answer, when both exist.
+- An exact real-symbol match and an explicit content_type request are completely unaffected.
 - No example is ever fabricated when none exists - an honest partial answer.
-- Forcing example=None unconditionally fails the suite.
+- Corrupting the exclusion literal fails both the direct search_symbols test and the
+  lookup composition test.
 recovery: Re-run from a clean tree; the card is idempotent from committed content.
