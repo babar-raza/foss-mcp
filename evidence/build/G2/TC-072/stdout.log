@@ -1,0 +1,158 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3fahqcqt\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3fahqcqt\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/lexical_index_writer.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3fahqcqt\.junit-0.xml"
+--- stdout ---
+.....FFFF                                                                [100%]
+================================== FAILURES ===================================
+__________ test_build_lexical_index_produces_one_document_per_chunk ___________
+
+    def test_build_lexical_index_produces_one_document_per_chunk() -> None:
+>       payload = build_lexical_index(_chunks(), ["c1", "c2"], "gen-1")
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_index_writers.py:97: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\indexing\lexical_index_writer.py:72: in build_lexical_index
+    "tokens": tokenize(chunk.text),
+              ^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'The Document class opens and saves PDF files.'
+
+    def tokenize(text: str) -> list[str]:
+        """Lowercase, alphanumeric-run tokenizer with English stopword filtering - stdlib-only,
+        offline. Excluding common function words keeps a natural-language query's score
+        concentrated on its actual distinguishing terms, so an honest empty Miss remains
+        reachable instead of every chunk scoring weakly-nonzero from shared stopwords alone.
+        """
+>       return [token for token in _TOKEN_RE.findall(text.lower()) if token not in _STOPWORDS]
+                                                                                   ^^^^^^^^^^
+E       NameError: name '_STOPWORDS' is not defined
+
+src\foss_mcp\indexing\lexical_index_writer.py:54: NameError
+____________ test_query_lexical_index_finds_the_matching_document _____________
+
+    def test_query_lexical_index_finds_the_matching_document() -> None:
+>       payload = build_lexical_index(_chunks(), ["c1", "c2"], "gen-1")
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_index_writers.py:102: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\indexing\lexical_index_writer.py:72: in build_lexical_index
+    "tokens": tokenize(chunk.text),
+              ^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'The Document class opens and saves PDF files.'
+
+    def tokenize(text: str) -> list[str]:
+        """Lowercase, alphanumeric-run tokenizer with English stopword filtering - stdlib-only,
+        offline. Excluding common function words keeps a natural-language query's score
+        concentrated on its actual distinguishing terms, so an honest empty Miss remains
+        reachable instead of every chunk scoring weakly-nonzero from shared stopwords alone.
+        """
+>       return [token for token in _TOKEN_RE.findall(text.lower()) if token not in _STOPWORDS]
+                                                                                   ^^^^^^^^^^
+E       NameError: name '_STOPWORDS' is not defined
+
+src\foss_mcp\indexing\lexical_index_writer.py:54: NameError
+________ test_tokenize_drops_stopwords_but_keeps_distinguishing_terms _________
+
+    def test_tokenize_drops_stopwords_but_keeps_distinguishing_terms() -> None:
+>       tokens = tokenize("how do I add a watermark to a PDF")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_index_writers.py:107: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'how do I add a watermark to a PDF'
+
+    def tokenize(text: str) -> list[str]:
+        """Lowercase, alphanumeric-run tokenizer with English stopword filtering - stdlib-only,
+        offline. Excluding common function words keeps a natural-language query's score
+        concentrated on its actual distinguishing terms, so an honest empty Miss remains
+        reachable instead of every chunk scoring weakly-nonzero from shared stopwords alone.
+        """
+>       return [token for token in _TOKEN_RE.findall(text.lower()) if token not in _STOPWORDS]
+                                                                                   ^^^^^^^^^^
+E       NameError: name '_STOPWORDS' is not defined
+
+src\foss_mcp\indexing\lexical_index_writer.py:54: NameError
+_ test_natural_language_query_matches_its_real_symbol_but_not_a_stopword_only_sentence _
+
+    def test_natural_language_query_matches_its_real_symbol_but_not_a_stopword_only_sentence() -> None:
+        """A real build/query round trip, no mocking: a natural-language question whose only
+        distinguishing term is the chunk's real symbol name must match it, while a different
+        sentence sharing only stopwords with that chunk's text must return no match at all -
+        proving stopword filtering lets an honest empty Miss stay reachable.
+        """
+        chunks = [
+            Chunk(
+                "AddWatermarkAnnotation",
+                "AddWatermarkAnnotation lets you add a watermark to a PDF document.",
+                "self_extracted",
+                "api_surface",
+                PROVENANCE,
+                "highest",
+                (),
+                NOT_CHECKED,
+            ),
+            Chunk(
+                "Page",
+                "A Page belongs to a PageCollection.",
+                "self_extracted",
+                "api_surface",
+                PROVENANCE,
+                "highest",
+                (),
+                NOT_CHECKED,
+            ),
+        ]
+>       payload = build_lexical_index(chunks, ["c1", "c2"], "gen-1")
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_index_writers.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\indexing\lexical_index_writer.py:72: in build_lexical_index
+    "tokens": tokenize(chunk.text),
+              ^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'AddWatermarkAnnotation lets you add a watermark to a PDF document.'
+
+    def tokenize(text: str) -> list[str]:
+        """Lowercase, alphanumeric-run tokenizer with English stopword filtering - stdlib-only,
+        offline. Excluding common function words keeps a natural-language query's score
+        concentrated on its actual distinguishing terms, so an honest empty Miss remains
+        reachable instead of every chunk scoring weakly-nonzero from shared stopwords alone.
+        """
+>       return [token for token in _TOKEN_RE.findall(text.lower()) if token not in _STOPWORDS]
+                                                                                   ^^^^^^^^^^
+E       NameError: name '_STOPWORDS' is not defined
+
+src\foss_mcp\indexing\lexical_index_writer.py:54: NameError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_index_writers.py::test_build_lexical_index_produces_one_document_per_chunk
+FAILED tests/indexing/test_index_writers.py::test_query_lexical_index_finds_the_matching_document
+FAILED tests/indexing/test_index_writers.py::test_tokenize_drops_stopwords_but_keeps_distinguishing_terms
+FAILED tests/indexing/test_index_writers.py::test_natural_language_query_matches_its_real_symbol_but_not_a_stopword_only_sentence
+
+--- stderr ---
+
