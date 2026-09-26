@@ -1,0 +1,73 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ovkg85es\.junit-0.xml"
+--- stdout ---
+...............                                                          [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ovkg85es\.junit-0.xml"
+--- stdout ---
+...............                                                          [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/lookup.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ovkg85es\.junit-0.xml"
+--- stdout ---
+...........F...                                                          [100%]
+================================== FAILURES ===================================
+_ test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-471/test_lookup_composes_example_o0')
+
+    def test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere(
+        tmp_path: Path,
+    ) -> None:
+        """TC-075: the real, final gap the day's investigation converged on. No furnished
+        getting_started/developer_guide/troubleshooting/faq content has ever been built or
+        published for any pilot - this matches every real pilot's actual current state, not a
+        contrived one - so ``search_docs`` is an honest ``Miss`` for every content type (no
+        furnished generation is published at all in this test). ``find_examples`` alone still
+        returns a real, complete, self-descriptive answer (a verified code example with its own
+        description, per TC-068's design). Before this card, ``_compose_from_docs`` only tried
+        ``find_examples`` AFTER finding a non-empty doc match, so this real, useful answer was
+        thrown away and lookup fell through to ``search_symbols`` instead. It must not, now.
+        """
+        store = _store(tmp_path)
+        pseudo_symbol_body = (
+            "# Example: Add a Watermark Annotation\n\n"
+            "FQN: Example: Add a Watermark Annotation\n"
+            "Kind: verified_example\n"
+            "Adds a watermark annotation to a document using a real, verified snippet.\n\n"
+            'Example:\ndocument.AddWatermarkAnnotation("Confidential")'
+        )
+        pseudo_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="example",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="Add a Watermark Annotation",
+            body=pseudo_symbol_body,
+        )
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(pseudo_doc))
+    
+        # Deliberately no furnished generation published at all for this scope: search_docs
+        # must be an honest miss for every content type, matching every pilot's real state today.
+    
+        result = lookup(store, PDF_NET_SCOPE, "how do I add a watermark to a PDF")
+    
+>       assert isinstance(result, TaskAnswer)
+E       assert False
+E        +  where False = isinstance(Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='how do I add a watermark to a PDF', reason="no symbol matches 'how do I add a watermark to a PDF'"), TaskAnswer)
+
+tests\mcp\tools\test_retrieval_tools.py:403: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere
+
+--- stderr ---
+
