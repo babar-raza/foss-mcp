@@ -22,6 +22,7 @@ import pytest
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.publisher import publish_generation
 from foss_mcp.mcp.routing import Scope
+from foss_mcp.mcp.tools.find_examples import ExampleMatch
 from foss_mcp.mcp.tools.lookup import TaskAnswer, lookup
 from foss_mcp.mcp.tools.search_docs import DocMatch, search_docs
 from foss_mcp.mcp.tools.search_docs import Miss as DocsMiss
@@ -135,6 +136,65 @@ def test_search_symbols_returns_an_explicit_miss_never_a_widened_result(tmp_path
     assert result.scope == PDF_NET_SCOPE
 
 
+def test_search_symbols_excludes_tc068_pseudo_symbol_chunks_from_its_own_matching(
+    tmp_path: Path,
+) -> None:
+    """TC-068's ``Example: <title>`` pseudo-symbols are published into the exact same
+    self_extracted generation search_symbols reads (see infra/build_chunks.py's own real
+    chunk shape: a heading, an ``FQN: Example: <title>`` line, then an ``Example:`` code
+    block). A pseudo-symbol is not a real symbol and search_symbols's own module docstring
+    says so - it must never be reported as a match, even when it lexically matches at least
+    as strongly as a real symbol answering the very same query.
+
+    Real regression, not a mock: one real symbol chunk and one Example:-prefixed pseudo-symbol
+    chunk are published side by side, both containing the word "watermark" in their own prose,
+    so a lexical scan with no filter would return both.
+    """
+    store = _store(tmp_path)
+    real_symbol_body = """## PdfDocument.AddWatermarkAnnotation
+
+FQN: PdfDocument.AddWatermarkAnnotation
+Kind: Method
+Adds a watermark annotation to the page.
+"""
+    pseudo_symbol_body = (
+        "# Example: Add a Watermark Annotation\n\n"
+        "FQN: Example: Add a Watermark Annotation\n"
+        "Kind: verified_example\n"
+        "Adds a watermark annotation to a document using a real, verified snippet.\n\n"
+        'Example:\ndocument.AddWatermarkAnnotation("Confidential")'
+    )
+    real_doc = make_document(
+        source_kind=SourceKind.SELF_EXTRACTED,
+        content_type="api_surface",
+        provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+        evidence_refs=(),
+        title="pdf/net API surface",
+        body=real_symbol_body,
+    )
+    pseudo_doc = make_document(
+        source_kind=SourceKind.SELF_EXTRACTED,
+        content_type="example",
+        provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+        evidence_refs=(),
+        title="Add a Watermark Annotation",
+        body=pseudo_symbol_body,
+    )
+    chunks = chunk_document(real_doc) + chunk_document(pseudo_doc)
+    _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+
+    result = search_symbols(store, PDF_NET_SCOPE, "watermark")
+
+    assert isinstance(result, list) and result
+    assert all(isinstance(match, SymbolMatch) for match in result)
+    assert all("Example: Add a Watermark Annotation" not in match.text for match in result)
+    assert any("PdfDocument.AddWatermarkAnnotation" in match.text for match in result)
+
+    pseudo_only_result = search_symbols(store, PDF_NET_SCOPE, "verified snippet")
+
+    assert isinstance(pseudo_only_result, SymbolsMiss)
+
+
 def test_search_docs_rejects_an_invalid_content_type(tmp_path: Path) -> None:
     store = _store(tmp_path)
     with pytest.raises(ValueError):
@@ -226,57 +286,82 @@ def test_lookup_returns_the_original_miss_when_nothing_resolves_at_all(tmp_path:
     assert result.scope == PDF_NET_SCOPE
 
 
-def test_lookup_prefers_an_existing_symbol_match_over_composing_even_when_a_real_example_exists(
+def test_lookup_composes_doc_guidance_with_a_real_example_when_no_real_symbol_matches(
     tmp_path: Path,
 ) -> None:
-    """REQ-G2-049 (scenario 3), and the load-bearing limit discovered while wiring it.
+    """REQ-G2-049 (scenario 3), now genuinely reachable after search_symbols excludes TC-068's
+    ``Example: <title>`` pseudo-symbols from its own matching (attempt 1's negative control had
+    proved this was architecturally impossible before that fix - it is not a mock workaround).
 
-    The card asks for a real, non-mocked test proving that a query with no symbol match, a
-    real doc match, AND a real example can compose into one TaskAnswer. That combination is
-    architecturally impossible today, verified against real components (no mocks, reproduced
-    independently before writing this test): ``find_examples`` and ``search_symbols`` both
-    read the SAME active self_extracted generation for the SAME scope via the SAME
-    ``SOURCE_KIND``/``scope_key`` (search_symbols.py, find_examples.py - both out of this
-    card's write_paths). ``find_examples`` can only ever return a real match through one of
-    two routes: an exact FQN string match (``get_symbol``) or a lexical match over
-    Example:-marked chunks (``query_lexical_index``) - and both routes require the query to
-    have positive lexical overlap with that very chunk's own text. But ``search_symbols``
-    performs the identical lexical scan over the identical, unfiltered self_extracted
-    document set, so any chunk real enough to satisfy ``find_examples`` is, by that same
-    overlap, ALSO a symbol match - meaning lookup's composition branch (gated behind a symbol
-    Miss) can never be reached for a query that would otherwise yield a real example.
-
-    This test locks that fact in as a regression rather than leaving it undiscovered: even
-    with a real, Example:-bearing self_extracted chunk AND a real furnished doc both present
-    for the same query, lookup returns the plain, unchanged ``list[SymbolMatch]`` - exactly
-    per REQ-G2-049's own unchanged-exact-symbol-match-path rule - never a TaskAnswer.
+    A real, non-mocked generation carries all three kinds of chunk for the SAME scope: a real
+    symbol (unrelated to the query, proving the miss below is genuine and not just an empty
+    corpus), an Example:-prefixed pseudo-symbol chunk that matches the query, and a furnished
+    documentation chunk that also matches the query. search_symbols now honestly misses (the
+    only lexical match is the excluded pseudo-symbol), so lookup falls through to search_docs,
+    finds the real doc match, and composes it with find_examples's own real example into one
+    TaskAnswer - never fabricating what it cannot verify.
     """
     store = _store(tmp_path)
-    symbol_body = """## AddWatermarkAnnotation
+    real_symbol_body = """## PdfDocument
 
-FQN: PdfDocument.AddWatermarkAnnotation
-Kind: Method
-Adds a watermark annotation to the page.
-
-Example:
-document.AddWatermarkAnnotation("Confidential")
+FQN: PdfDocument
+Kind: Class
+Represents a PDF document that can be loaded, edited, and saved.
 """
-    symbol_doc = make_document(
+    pseudo_symbol_body = (
+        "# Example: Add a Watermark Annotation\n\n"
+        "FQN: Example: Add a Watermark Annotation\n"
+        "Kind: verified_example\n"
+        "Adds a watermark annotation to a document using a real, verified snippet.\n\n"
+        'Example:\ndocument.AddWatermarkAnnotation("Confidential")'
+    )
+    real_doc = make_document(
         source_kind=SourceKind.SELF_EXTRACTED,
         content_type="api_surface",
         provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
         evidence_refs=(),
         title="pdf/net API surface",
-        body=symbol_body,
+        body=real_symbol_body,
     )
-    _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(symbol_doc))
-    _publish_pdf_net_docs(store)
+    pseudo_doc = make_document(
+        source_kind=SourceKind.SELF_EXTRACTED,
+        content_type="example",
+        provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+        evidence_refs=(),
+        title="Add a Watermark Annotation",
+        body=pseudo_symbol_body,
+    )
+    chunks = chunk_document(real_doc) + chunk_document(pseudo_doc)
+    _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+
+    watermark_guide_doc = make_document(
+        source_kind=SourceKind.FURNISHED,
+        content_type="product_page",
+        provenance=Provenance(repository="Aspose/aspose.org", commit="x", path="content/pdf/net"),
+        evidence_refs=(),
+        title="pdf/net watermarking guide",
+        body="""## Adding a Watermark
+
+Use PdfDocument.AddWatermarkAnnotation to overlay a watermark on every page. This approach
+works well for stamping confidential markings onto exported PDF documents.
+""",
+    )
+    _publish(store, PDF_NET_SCOPE, "furnished", chunk_document(watermark_guide_doc))
 
     result = lookup(store, PDF_NET_SCOPE, "watermark")
 
-    assert isinstance(result, list) and result
-    assert all(isinstance(match, SymbolMatch) for match in result)
-    assert any("watermark" in match.text.lower() for match in result)
+    assert isinstance(result, TaskAnswer)
+    assert result.scope == PDF_NET_SCOPE
+    assert isinstance(result.doc_matches, tuple) and result.doc_matches
+    assert all(isinstance(match, DocMatch) for match in result.doc_matches)
+    assert any("watermark" in match.text.lower() for match in result.doc_matches)
+    assert isinstance(result.example, ExampleMatch)
+    assert result.example.fqn == "Example: Add a Watermark Annotation"
+    assert 'document.AddWatermarkAnnotation("Confidential")' in result.example.snippet
+
+    # And the real symbol genuinely present in the same corpus never masquerades as a match.
+    symbol_result = search_symbols(store, PDF_NET_SCOPE, "watermark")
+    assert isinstance(symbol_result, SymbolsMiss)
 
 
 def test_every_result_carries_the_scope_that_was_passed_in_never_another(tmp_path: Path) -> None:

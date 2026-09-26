@@ -14,6 +14,13 @@ product, published as two independent generations (different ``source_kind``, he
 different generation-manifest scope key each); this module fixes ``SOURCE_KIND`` itself
 rather than reading ``scope.source_kind``, so a caller cannot point ``search_symbols`` at the
 wrong source by passing a ``Scope`` built for something else.
+
+TC-068's example chunks are published into this exact same generation, honestly labeled with
+a pseudo-FQN of the literal shape ``Example: <title>`` (never a real class/method FQN, by
+design). Those chunks are not symbols and must never be reported as one, so this module
+excludes them the same way ``find_examples.py`` already excludes real symbols from its own
+matching: query the whole corpus first (never let ``top_k`` cut candidates before filtering),
+drop anything whose FQN marks it as an example, THEN truncate to the caller's real ``top_k``.
 """
 
 from __future__ import annotations
@@ -57,9 +64,18 @@ def search_symbols(
 ) -> list[SymbolMatch] | Miss:
     """Search only ``scope``'s currently active generation's self-extracted symbol index.
 
+    TC-068's ``Example: <title>`` pseudo-symbol chunks live in this exact same generation but
+    are never real symbols, so they are excluded from this tool's own notion of a match: the
+    whole corpus is ranked first (mirroring ``find_examples.py``'s own
+    ``query_lexical_index(..., top_k=len(documents))`` pattern, so a real symbol is never lost
+    to a premature cut), pseudo-symbols are dropped, and only then is the result truncated to
+    the caller's real ``top_k``.
+
     A query with no match returns an explicit ``Miss`` - never a widened search, never a
     fallback to a different generation or scope.
     """
+    from foss_mcp.mcp.tools.get_symbol import extract_fqn
+
     key = scope_key(scope, SOURCE_KIND)
     active_generation_id = store.read_active(key)
     if active_generation_id is None:
@@ -70,11 +86,16 @@ def search_symbols(
     if not lexical_payload or not lexical_payload.get("documents"):
         return Miss(scope, query, "published generation has no symbol index")
 
-    doc_ids = query_lexical_index(lexical_payload, query, top_k=top_k)
+    documents = lexical_payload["documents"]
+    ranked = query_lexical_index(lexical_payload, query, top_k=len(documents))
+    doc_ids = [
+        doc_id
+        for doc_id in ranked
+        if not (extract_fqn(documents[doc_id]["text"]) or "").startswith('Example: ')
+    ][:top_k]
     if not doc_ids:
         return Miss(scope, query, f"no symbol matches {query!r}")
 
-    documents = lexical_payload["documents"]
     return [
         SymbolMatch(
             scope=scope,
