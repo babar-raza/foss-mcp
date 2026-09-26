@@ -35,9 +35,30 @@ def _method_line(method: Mapping[str, object]) -> str:
     return f"  - {method.get('name', '')}({params}) -> {return_type}"
 
 
+def _property_writability(prop: Mapping[str, object]) -> str | None:
+    """Resolve a property's writability honestly across the three real field shapes the
+    2026-09-26 six-fixture audit found: pdf_net's real bool ``writable``; cells_rust/pdf_go's
+    real string ``access_mode`` (the real, observed value in both fixtures is exclusively
+    ``"readwrite"`` - no ``"readonly"``/``"read_only"`` value was found in either, but one is
+    still mapped here rather than assumed impossible); and pdf_java's real property dicts,
+    most of which carry neither key at all. Returns ``None`` when the real fixture data says
+    nothing about writability, so a genuine absence is never silently written up as
+    "read-only" the way the old bare ``prop.get('writable')`` check did.
+    """
+    if "writable" in prop:
+        return "writable" if prop.get("writable") else "read-only"
+    access_mode = prop.get("access_mode")
+    if access_mode == "readwrite":
+        return "writable"
+    if access_mode in ("readonly", "read_only"):
+        return "read-only"
+    return None
+
+
 def _property_line(prop: Mapping[str, object]) -> str:
-    writability = "writable" if prop.get("writable") else "read-only"
-    return f"  - {prop.get('name', '')}: {prop.get('type', '')} ({writability})"
+    writability = _property_writability(prop)
+    suffix = f" ({writability})" if writability is not None else ""
+    return f"  - {prop.get('name', '')}: {prop.get('type', '')}{suffix}"
 
 
 def _member_line(member: Mapping[str, object]) -> str:
@@ -58,13 +79,31 @@ def _format_type_text(entry: Mapping[str, object]) -> str:
     if doc:
         lines.append(doc)
 
+    # pdf_typescript's real "constant" entries (e.g. AES_WRAP_OID) carry a real type/value
+    # directly on the entry itself - previously silently dropped entirely. Checking for a real
+    # "value" key (rather than only kind == "constant") catches this robustly even if some
+    # other pilot's constant-shaped entry omits the kind label.
+    if entry.get("kind") == "constant" or "value" in entry:
+        raw_value = entry.get("value", "")
+        raw_value = "" if raw_value is None else str(raw_value)
+        if len(raw_value) > 200:
+            raw_value = raw_value[:200] + "..."
+        lines.append("")
+        lines.append(f"Value: {entry.get('type', '')} = {raw_value}")
+
     bases = entry.get("bases") or []
     if bases:
         lines.append("")
         lines.append("Bases:")
         lines.extend(f"  - {base}" for base in bases)
 
+    # pdf_go, cells_rust, and pdf_typescript's real free-function entries carry
+    # params/return_type directly on the type entry itself (kind == "function", methods == []) -
+    # e.g. pdf_go's real AddFontFile. Treat such an entry as its own single method so its real
+    # signature is not silently dropped down to a bare "Kind: function" header.
     methods = entry.get("methods") or []
+    if not methods and ("params" in entry or "return_type" in entry):
+        methods = [entry]
     if methods:
         lines.append("")
         lines.append("Methods:")
