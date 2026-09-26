@@ -1,0 +1,87 @@
+id: TC-077
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix a real, precisely-diagnosed test-fixture defect TC-073''s third attempt
+  found: tests/mcp/tools/test_symbol_tools.py''s WITHOUT_EXAMPLE=''Border'' no longer
+  honestly satisfies its own premise (''nothing else in this generation mentions its
+  distinguishing terms either'') now that camelCase-aware tokenization (TC-073, pending)
+  correctly splits AnnotationCollection''s real ''borderColor'' parameter into the
+  standalone term ''border'' - a genuine, correct consequence of an improved tokenizer,
+  not a defect to route around.'
+depends_on:
+- TC-017b
+- TC-065
+write_paths:
+- tests/mcp/tools/test_symbol_tools.py
+satisfies:
+- REQ-G2-049
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.2 Common tools — present identically on every instance (9 tools —
+    this table is the single authoritative registry; tool discovery, JSON schemas,
+    and generated documentation are all derived from it, never restated independently)'
+  sha256: fcc5e91a552d272bd617369066de6c312007c25806671af9c1ccbbfd6f574453
+inputs:
+- 'CONFIRMED by TC-073''s third attempt via direct verification against the real committed
+  fixture: WITH_EXAMPLE=''AnnotationCollection'' (the chunk carrying this test file''s
+  own synthetic Example: block) has real methods AddSquareAnnotation/AddCircleAnnotation/AddPolygonAnnotation
+  each taking a real ''borderColor'' parameter - once tokenize() correctly splits
+  camelCase (TC-073), this chunk''s own tokens now include the standalone word ''border'',
+  which is EXACTLY WITHOUT_EXAMPLE''s own value. find_examples(''Border'') then legitimately,
+  correctly matches AnnotationCollection''s chunk instead of returning NoExampleFound
+  - the test''s premise is now factually false against real data, not a bug in the
+  tokenizer.'
+- 'TC-073''s own worker independently verified a genuinely collision-free replacement:
+  ''CompositingParameters'' - a real class_declaration in tests/fixtures/pdf_net/api_surface.json
+  with 3 methods and 3 properties (satisfying both test_get_symbol_returns_the_real_signature_for_a_known_fqn''s
+  methods assertion and test_list_members_returns_the_real_children''s properties
+  assertion, the same shape WITHOUT_EXAMPLE is already used for), whose real distinguishing
+  tokens (compositing, parameters, blend, mode, filter, type, masked) share zero overlap
+  with AnnotationCollection''s real distinguishing tokens under the real tokenizer,
+  verified directly against all 210 real fixture types with methods/properties. Re-verify
+  this yourself against the real fixture before trusting it, per this project''s own
+  standing discipline - do not take it purely on faith even though it was independently
+  confirmed.'
+- 'The exact literal change required: `WITHOUT_EXAMPLE = "Border"` -> `WITHOUT_EXAMPLE
+  = "CompositingParameters"` (module-level constant, tests/mcp/tools/test_symbol_tools.py)
+  - this exact literal is required for the negative control below. Every other usage
+  in the file derives from this one constant (by_name[WITHOUT_EXAMPLE]) and needs
+  no separate change.'
+- Do not touch WITH_EXAMPLE, the tokenizer, or any other test in this file beyond
+  what this single constant change naturally affects.
+actions:
+- Change the WITHOUT_EXAMPLE constant exactly as specified.
+- Run the full test file yourself and confirm every test that uses WITHOUT_EXAMPLE
+  still passes with the new symbol (get_symbol's real signature, list_members's real
+  children, find_examples's honest NoExampleFound).
+- Independently re-verify (do not just trust the diagnosis) that CompositingParameters's
+  real distinguishing terms share no overlap with AnnotationCollection's real terms
+  under the actual tokenizer - if you find ANY overlap, pick a different genuinely
+  collision-free real symbol instead (Dash, Margins, and SideBySideDocsComparisonResult
+  were also independently identified as candidates) and use that one.
+- Run the full existing test suite yourself and confirm nothing else broke.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_symbol_tools.py -q'
+  expect: exit 0
+  timeout_seconds: 60
+  junitxml: true
+  proves:
+  - REQ-G2-049
+min_tests: 5
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/mcp/tools/test_symbol_tools.py');s=p.read_text(encoding='utf-8');s=s.replace('WITHOUT_EXAMPLE
+    = '+chr(34)+'CompositingParameters'+chr(34),'WITHOUT_EXAMPLE = '+chr(34)+'Border'+chr(34));p.write_text(s,encoding='utf-8')"
+  rationale: Reverting WITHOUT_EXAMPLE back to the real, now-colliding 'Border' must
+    break the explicit-miss test again - proving the test's own passing state genuinely
+    depends on the corrected, collision-free symbol choice, not merely on some constant
+    existing. Self-checked end-to-end against a fixture implementing the exact prescribed
+    literal before being persisted.
+evidence:
+- evidence/build/G2/TC-077/receipt.json
+closeout:
+- WITHOUT_EXAMPLE names a real symbol whose distinguishing terms genuinely, verifiably
+  never collide with any other chunk in the test's own published generation.
+- Every test using WITHOUT_EXAMPLE still passes with its new value.
+- Reverting to 'Border' fails the suite again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
