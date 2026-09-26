@@ -489,3 +489,33 @@ concern) - run the full existing test suite, not just the new one, given how fou
 module is. REQ-G2-049/050 do not close until a realistic, full-sentence query is proven live
 against the real running container to return the composed answer, not a noisy symbol list -
 recorded now so this bar is not quietly lowered to "the unit tests pass."
+
+## 2026-09-26 — TC-072 accepted, but the stopword fix alone did not close the real gap
+
+TC-072 (stopword filtering) is genuinely ACCEPTED - real double-run, negative control genuinely
+fails the suite. Re-testing live with the exact bar set the prior entry ("a realistic, full-
+sentence query... proven live") found it was insufficient: `lookup('how do I add a watermark to
+a PDF')` still returned a noisy symbol list, not the composed answer, and this time the real
+example chunk was not even near the top.
+
+Diagnosed precisely with a direct script against the real `tokenize`/`query_lexical_index`
+functions and the real chunk text (not assumed): two distinct, confirmed causes.
+
+1. **camelCase blindness**: `tokenize()` never splits case boundaries, so
+   `AddWatermarkAnnotation` becomes one opaque token `addwatermarkannotation`. The query's
+   post-stopword term `add` therefore matches nothing in the example chunk at all.
+2. **Raw TF-IDF's length bias**: scoring divides term count by total document length with no
+   saturation. The real example chunk (~66 tokens: code, boilerplate, a 41-character commit-hash
+   token) dilutes its own `watermark` hits far below a terse ~19-token enum chunk that happens to
+   list `Watermark` once as an enum member - confirmed directly: the enum chunk outscored the
+   real example on the identical query. This is a well-documented weakness of raw TF-IDF against
+   longer relevant documents, and Okapi BM25 (standard, no new dependency) is the established fix.
+
+**Decision**: fix both in TC-073 - camelCase-aware tokenization (additive: keep the whole
+identifier token, also emit its split sub-words) and real BM25 scoring (standard k1=1.5, b=0.75)
+replacing the raw TF-IDF formula, in the same shared `lexical_index_writer.py` module. The card's
+required, bounded final proof is exactly the concrete target: `lookup`'s real answer to `'how do
+I add a watermark to a PDF'` must return the real, compile-verified example, live, against the
+real running container - not a further chase of ranking-quality refinements beyond that. If this
+still doesn't close it, the next investigation gets a fresh, specific diagnostic rather than
+another guess, matching this project's own two-equivalent-failures discipline.
