@@ -8,12 +8,16 @@ caller that gets nothing back gets an honest miss, never a widened one.
 
 REQ-G2-049: a task-oriented query with no prior API knowledge (e.g. "how do I add a watermark
 to a PDF") should be able to get back BOTH the relevant documentation guidance AND a verified
-example in one answer, when both exist. This applies ONLY to the doc-fallback path
-(``content_type`` omitted, no symbol match, a doc match found) - the exact-symbol-match path
-and the explicit-``content_type`` path are unchanged, since either one is already a complete,
-specific answer on its own terms. In that doc-fallback path, once a doc match is found, a
-``TaskAnswer`` composes it with whatever ``find_examples`` can honestly offer for the same
-query - ``example`` stays ``None``, never fabricated, when no verified example exists.
+example in one answer, when either or both exist. This applies ONLY to the doc-fallback path
+(``content_type`` omitted, no symbol match) - the exact-symbol-match path and the
+explicit-``content_type`` path are unchanged, since either one is already a complete, specific
+answer on its own terms. In that doc-fallback path, ``find_examples`` is tried independently of
+whether a doc match was found - not gated behind it, since no getting_started/developer_guide/
+troubleshooting/faq content has ever been built or published for any pilot, so a doc match is
+often genuinely absent while a real, verified example still exists for the same query. A
+``TaskAnswer`` is composed whenever EITHER a doc match OR an example is found - ``doc_matches``
+stays ``()`` and ``example`` stays ``None``, never fabricated, exactly when each is genuinely
+absent. Only when BOTH are empty does lookup fall through to ``search_symbols``.
 """
 
 from __future__ import annotations
@@ -101,26 +105,31 @@ def lookup(
       anywhere - because for a real sentence, a non-empty symbol-search result is very often
       just an incidental lexical collision (e.g. nearly every symbol's FQN in a product shares
       a common word, like "pdf", with the question itself), never genuine evidence of an
-      intentional symbol lookup. Either way, the first non-empty doc-category match composes
-      with ``find_examples`` into a ``TaskAnswer``; if nothing matches anywhere, the miss from
-      the symbol search is returned, since that is the search a bare query most specifically
-      asked for.
+      intentional symbol lookup. Either way, the first non-empty doc-category match (if any)
+      composes with whatever ``find_examples`` can independently offer for the same query into
+      a ``TaskAnswer`` - a doc match and an example are each optional, and a ``TaskAnswer`` is
+      returned as soon as either one is non-empty; if BOTH are empty, the miss from the symbol
+      search is returned, since that is the search a bare query most specifically asked for.
     """
     if content_type is not None:
         return search_docs(store, scope, query, content_type, top_k=top_k)
 
     def _compose_from_docs() -> TaskAnswer | None:
+        doc_matches: tuple[DocMatch, ...] = ()
         for candidate_type in CONTENT_TYPES:
             doc_result = search_docs(store, scope, query, candidate_type, top_k=top_k)
             if isinstance(doc_result, list) and doc_result:
-                example_result = find_examples(store, scope, query, top_k=1)
-                example = (
-                    example_result[0]
-                    if isinstance(example_result, list) and example_result
-                    else None
-                )
-                return TaskAnswer(scope=scope, doc_matches=tuple(doc_result), example=example)
-        return None
+                doc_matches = tuple(doc_result)
+                break
+
+        example_result = find_examples(store, scope, query, top_k=1)
+        example = (
+            example_result[0] if isinstance(example_result, list) and example_result else None
+        )
+
+        if not doc_matches and example is None:
+            return None
+        return TaskAnswer(scope=scope, doc_matches=doc_matches, example=example)
 
     if _looks_like_a_task_question(query):
         task_answer = _compose_from_docs()
