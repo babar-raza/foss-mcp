@@ -1,0 +1,101 @@
+id: TC-072
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix a real, deeper gap the operator''s own live testing found today, beyond
+  TC-071''s pseudo-symbol exclusion: the lexical tokenizer indexes and scores every
+  word including common English stopwords (''a'', ''to'', ''how'', ''do'', ''i'',
+  ...), so a realistic natural-language question (''how do I add a watermark to a
+  PDF'') scores weakly-nonzero against nearly every chunk in a real corpus, and search_symbols
+  never returns an honest Miss for it - defeating lookup''s composition path for exactly
+  the kind of question this whole pipeline exists to answer, confirmed live against
+  the real pdf/net container after TC-071 was accepted.'
+depends_on:
+- TC-015
+- TC-071
+write_paths:
+- src/foss_mcp/indexing/lexical_index_writer.py
+- tests/indexing/test_index_writers.py
+satisfies:
+- REQ-G2-049
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.2 Common tools — present identically on every instance (9 tools —
+    this table is the single authoritative registry; tool discovery, JSON schemas,
+    and generated documentation are all derived from it, never restated independently)'
+  sha256: fcc5e91a552d272bd617369066de6c312007c25806671af9c1ccbbfd6f574453
+inputs:
+- 'CONFIRMED by direct live testing against the real pdf/net container today, after
+  TC-071 was accepted: calling lookup(''how do I add a watermark to a PDF'') returns
+  a long list of SymbolMatch results - mostly unrelated enums (AnnotationStateModel,
+  CaptionPosition, BorderEffect, ActionType, AFRelationship, ...) - never the composed
+  TaskAnswer, because search_symbols''s own lexical query never returns empty for
+  this sentence.'
+- 'Root cause, confirmed by reading src/foss_mcp/indexing/lexical_index_writer.py
+  directly: tokenize(text) is `_TOKEN_RE = re.compile(r''[a-z0-9]+'')` applied via
+  `.findall(text.lower())` - a plain alphanumeric-run tokenizer with NO stopword filtering.
+  query_lexical_index computes a real TF-IDF-ish score and returns anything scoring
+  `> 0.0` - so a query token like ''a'', ''to'', ''how'', ''do'', or ''i'' (all of
+  which appear in a great many chunks'' text) contributes nonzero IDF-weighted score
+  to nearly every document containing it, and a multi-word natural-language query
+  accumulates enough of these weak contributions that almost nothing ever scores exactly
+  0.0. tokenize() is the ONE function both build_lexical_index (indexing) and query_lexical_index
+  (querying) call, so fixing it once fixes both consistently.'
+- 'The fix is a standard, well-known information-retrieval technique: exclude a small,
+  fixed, hardcoded set of common English stopwords from tokenize()''s output - do
+  not add a new dependency (no nltk, no spacy - a hardcoded frozenset is exactly right
+  here, matching this project''s own established no-new-runtime-dependency discipline
+  from TC-063''s HashingEmbeddingProvider). Use a real, standard, reasonably-sized
+  stopword list (the common ~40-60 term English function-word set: articles, common
+  prepositions, common pronouns, common auxiliary/modal verbs, ''how''/''what''/''why''/''when''/''where''
+  question words, etc. - use your own judgment on the exact list, but it must be a
+  genuine, recognizable standard stopword set, not an arbitrarily short or invented
+  one). Name it `_STOPWORDS` (a module-level frozenset[str]) - this exact name is
+  required for the negative control below.'
+- This is a WIDELY SHARED, foundational module (owned by TC-015, used by every pilot's
+  publisher/retrieval tests) - after your change, run the FULL existing test suite
+  (not just your own file) and confirm nothing else broke. A test asserting an EXACT
+  technical term (e.g. 'Document', 'AFRelationship', a real symbol/method name) should
+  be completely unaffected, since none of those are stopwords - if you find a test
+  that genuinely queried using ONLY stopwords (unlikely, but check), that test's own
+  query was never meaningful and should be flagged in your report, not silently patched
+  around.
+- Do not touch search_symbols.py, find_examples.py, lookup.py, or vector_index_writer.py
+  - this card is scoped to the shared tokenizer alone.
+actions:
+- Add the `_STOPWORDS` frozenset and filter it out of tokenize()'s returned token
+  list.
+- 'Write real tests in tests/indexing/test_index_writers.py: (1) tokenize(''how do
+  I add a watermark to a PDF'') no longer contains ''how''/''do''/''i''/''a''/''to''
+  but still contains ''add''/''watermark''/''pdf''; (2) a real build_lexical_index
+  + query_lexical_index round trip where a chunk''s real distinguishing content (''AddWatermarkAnnotation'')
+  is queried via a full natural-language sentence and correctly ranks/matches, while
+  a DIFFERENT sentence sharing only stopwords with that chunk''s text returns no match
+  at all (score-based, real index, no mocking).'
+- Run the FULL existing test suite (not just your own two files) yourself and confirm
+  no regressions - report exactly what you ran and its result.
+checks:
+- command: '{python} -m pytest tests/indexing/test_index_writers.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-049
+min_tests: 4
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/lexical_index_writer.py');s=p.read_text(encoding='utf-8');s=s.replace('_STOPWORDS
+    = ','_STOPWORDS_DISABLED = ');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming _STOPWORDS so it is never referenced must break the new test
+    asserting stopwords are excluded from tokenize()'s output (NameError), proving
+    the test genuinely exercises the filtering, not merely that some tokenizer exists.
+    Self-checked end-to-end against a fixture implementing the exact prescribed name
+    before being persisted.
+evidence:
+- evidence/build/G2/TC-072/receipt.json
+closeout:
+- A realistic natural-language question no longer scores nonzero against nearly every
+  chunk in a real corpus purely from shared stopwords.
+- An exact technical-term query is completely unaffected.
+- The full existing test suite still passes.
+- Renaming _STOPWORDS fails the new test.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

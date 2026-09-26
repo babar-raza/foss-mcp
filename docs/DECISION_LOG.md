@@ -454,3 +454,38 @@ valuable future enhancement for retrieval quality generally, but is not required
 description and its code can no longer be split apart - recorded here so it isn't lost, not
 pursued now to keep this fix minimal and scoped to the actual defect. TC-069 is reworked
 (attempt 2) once this lands, reusing its own already-correct, still-uncommitted infra changes.
+
+## 2026-09-26 — TC-071 accepted twice over, then a deeper real gap found by the operator's own live proof standard
+
+TC-071 attempt 1 correctly implemented lookup's TaskAnswer composition but its own negative
+control proved the branch architecturally unreachable (search_symbols's unfiltered scan matched
+TC-068's own pseudo-symbol chunks) - `gatectl review` correctly reported VACUOUS CHECKS. Revised
+and reworked as attempt 2: search_symbols now excludes the 'Example: ' pseudo-symbol convention
+from its own matching, mirroring find_examples's own established whole-corpus-then-filter
+pattern. `gatectl review` re-verified this for real (negative control genuinely fails the suite) -
+ACCEPTED.
+
+Personally re-verified live, exactly the standard set earlier today - and found a deeper gap
+this fix alone did not close. `lookup('watermark')` correctly returns real symbols now (the
+pseudo-symbol is excluded), but those real symbols (`AnnotationType.Watermark`,
+`AnnotationSelector.Visit(watermark:...)`) genuinely, honestly exist and correctly outrank the
+composed answer - not a bug. But `lookup('how do I add a watermark to a PDF')` - the realistic,
+full-sentence phrasing this whole feature exists to serve - returned a long, noisy list of
+unrelated enums (AnnotationStateModel, CaptionPosition, BorderEffect, ActionType, AFRelationship),
+never the composed answer. Root cause, confirmed by reading `lexical_index_writer.py` directly:
+`tokenize()` has no stopword filtering at all, so common words ('a', 'to', 'how', 'do', 'i') in a
+real, TF-IDF-ish scored corpus contribute enough nonzero score across nearly every chunk that
+`search_symbols` almost never returns an honest, empty Miss for a natural-language sentence -
+defeating `lookup`'s "try symbols first, then compose" dispatch for exactly the query shape a
+real, API-naive developer would actually type. TC-071's own tests did not catch this because they
+used short, deliberately controlled synthetic queries, not a realistic full sentence against the
+real, much larger real corpus - the same lesson as every other gap found today: a narrow test
+suite passing is not the same claim as the real system serving the real, worked example.
+
+**Decision**: fix `tokenize()`'s missing stopword filtering (a standard, well-known IR technique -
+a small hardcoded frozenset, no new dependency, matching TC-063's own no-new-dependency
+discipline) as TC-072, since it is shared by every pilot's lexical index (not a pdf/net-only
+concern) - run the full existing test suite, not just the new one, given how foundational this
+module is. REQ-G2-049/050 do not close until a realistic, full-sentence query is proven live
+against the real running container to return the composed answer, not a noisy symbol list -
+recorded now so this bar is not quietly lowered to "the unit tests pass."
