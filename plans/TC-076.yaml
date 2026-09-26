@@ -1,0 +1,116 @@
+id: TC-076
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix real, confirmed cross-pilot field-shape gaps in build_chunks_from_api_surface,
+  found by directly auditing all 6 real pilot extraction fixtures (operator''s explicit
+  request to check REQ-G2-049/047 against every pilot, not just pdf/net): (1) pdf_go,
+  cells_rust, and pdf_typescript''s free-function entries carry params/return_type
+  DIRECTLY on the type entry (kind=''function'', no methods list at all) - chunk_builder
+  currently only reads entry[''methods''], so every free function in these 3 pilots
+  gets a bare ''Kind: function'' header with NO signature at all; (2) pdf_typescript''s
+  ''constant'' entries carry a real type+value directly (e.g. AES_WRAP_OID) that is
+  silently dropped entirely; (3) the property writability field is named ''writable''
+  (bool) in pdf_net, ''access_mode'' (string ''readwrite'') in cells_rust/pdf_go,
+  and is ABSENT entirely in pdf_java - chunk_builder''s current `writable = prop.get(''writable'')`
+  silently mislabels every cells_rust/pdf_go property as read-only and every pdf_java
+  property too, none of which is honest.'
+depends_on:
+- TC-062
+- TC-065
+write_paths:
+- src/foss_mcp/indexing/chunk_builder.py
+- tests/indexing/test_chunk_builder.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.9 Normalized document schema (`foss_mcp.normalized_document.v1`)
+    — extended for dual sourcing and the wider content taxonomy'
+  sha256: 138349d96db696b055efab492ac8a95b98afe51007c518521af07bbe4a92ac1c
+inputs:
+- 'CONFIRMED today by directly reading all 6 real pilot fixtures (tests/fixtures/{pdf_net,slides_python,cells_rust,pdf_go,pdf_java,pdf_typescript}/api_surface.json)
+  - do not trust this summary alone, re-confirm the exact shapes yourself before writing
+  code: pdf_go and cells_rust both have real top-level entries with kind==''function''
+  whose ''methods'' list is empty but which carry ''params''/''return_type'' directly
+  on the entry itself (e.g. pdf_go''s real AddFontFile: {kind: ''function'', methods:
+  [], params: [{name: ''path'', type: ''string''}], return_type: ''''}). pdf_typescript''s
+  ENTIRE reduced fixture is exclusively kind in {''constant'', ''function''} - every
+  one of its 150 sampled entries is either a free function shaped exactly like pdf_go''s,
+  or a constant with real ''type''/''value'' fields directly on the entry (e.g. AES_WRAP_OID:
+  {kind: ''constant'', type: ''Record<number, string>'', value: ''{...real object
+  literal...}''}).'
+- 'Property writability: pdf_net uses {''writable'': true/false} (a real bool). cells_rust
+  and pdf_go instead use {''access_mode'': ''readwrite''} (a string - confirm whether
+  a ''readonly''/''read_only'' value also occurs anywhere in either real fixture before
+  writing your mapping, do not assume only one value exists). pdf_java''s real property
+  dicts have NEITHER key at all - honestly omit the writability annotation entirely
+  for these (no parenthetical), never guess ''read-only'' as a silent default the
+  way the current code effectively does today.'
+- 'Fix 1 (free-function entries) in _format_type_text: when entry.get(''methods'')
+  is empty AND the entry itself carries ''params'' or ''return_type'' as its own keys,
+  treat the entry itself as a single method for the Methods: section - the EXACT prescribed
+  line is `methods = [entry]` (this exact literal is required for the negative control
+  below), reusing the existing _method_line(method) unchanged, since it already reads
+  name/params/return_type from whatever mapping it''s given.'
+- 'Fix 2 (constant entries): when entry.get(''kind'') == ''constant'' (or, more robustly,
+  whenever ''value'' is a real key on the entry), add a ''Value:'' line: `Value: {type}
+  = {value}`, using entry.get(''type'', '''') and entry.get(''value'', ''''). Cap
+  the value''s own displayed length at a reasonable bound (e.g. 200 characters) with
+  a trailing ''...'' marker if truncated, since a real constant''s value can be a
+  large multi-line object literal - never silently pretend a truncated value is complete,
+  the marker must make truncation visible.'
+- 'Fix 3 (property writability): a new helper resolving writability honestly across
+  all three real shapes - real bool ''writable'' if present; else map real ''access_mode''
+  string values you actually observed in the fixtures (readwrite -> writable; a readonly-shaped
+  value, if you find one, -> read-only) if present; else omit the parenthetical entirely.
+  Update _property_line to use this helper instead of the current bare `prop.get(''writable'')`
+  check.'
+- Verify your fix against ALL SIX real fixtures directly (not synthetic stand-ins)
+  before considering this done - build_chunks_from_api_surface(json.load(...), title=...,
+  max_types=20) against each of pdf_net/slides_python/cells_rust/pdf_go/pdf_java/pdf_typescript
+  and inspect the real resulting chunk text for at least one free function (pdf_go/cells_rust/pdf_typescript),
+  one constant (pdf_typescript), and one property using each writability shape (pdf_net's
+  bool, cells_rust/pdf_go's access_mode, pdf_java's absent field).
+actions:
+- Implement all three fixes in chunk_builder.py exactly as specified.
+- Add real tests in tests/indexing/test_chunk_builder.py covering all three fixes,
+  each using synthetic entries shaped EXACTLY like the real fixture data you confirmed
+  above (cite which real pilot/field you're mirroring in a comment or docstring) -
+  do not invent an unrealistic shape.
+- Add a real test running build_chunks_from_api_surface against the ACTUAL committed
+  pdf_go, cells_rust, and pdf_typescript fixtures directly (real JSON files, real
+  data) and asserting at least one real free function's real name and parameters appear
+  correctly in the output chunk text - not a synthetic stand-in, the real thing.
+- Run the full existing test suite (test_chunk_builder.py, test_publisher.py, test_symbol_tools.py)
+  yourself and confirm nothing else broke - pdf/net's own existing behavior (bool
+  writable, no free functions in its own fixture) must be completely unaffected.
+checks:
+- command: '{python} -m pytest tests/indexing/test_chunk_builder.py tests/indexing/test_publisher.py
+    -q'
+  expect: exit 0
+  timeout_seconds: 180
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 6
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/chunk_builder.py');s=p.read_text(encoding='utf-8');s=s.replace('methods
+    = [entry]','methods = []');p.write_text(s,encoding='utf-8')"
+  rationale: Reverting the free-function synthesis back to an empty methods list must
+    break the new test asserting a real pdf_go/cells_rust/pdf_typescript free function's
+    real signature appears in its chunk - proving the test genuinely depends on the
+    fix, not merely that some chunk text exists. Self-checked end-to-end against a
+    fixture implementing the exact prescribed literal before being persisted.
+evidence:
+- evidence/build/G2/TC-076/receipt.json
+closeout:
+- 'A real free function in pdf_go/cells_rust/pdf_typescript now gets its real signature
+  (parameters, return type) in its own chunk, not a bare, empty ''Kind: function''
+  header.'
+- A real constant in pdf_typescript now shows its real type and value, not silence.
+- A property's writability is honestly reported across all three real field shapes
+  - never a silent, wrong default when the information is genuinely absent.
+- pdf/net's own existing behavior is completely unaffected.
+- Reverting the free-function fix fails the new test.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
