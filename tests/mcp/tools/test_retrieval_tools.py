@@ -22,7 +22,7 @@ import pytest
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.publisher import publish_generation
 from foss_mcp.mcp.routing import Scope
-from foss_mcp.mcp.tools.lookup import lookup
+from foss_mcp.mcp.tools.lookup import TaskAnswer, lookup
 from foss_mcp.mcp.tools.search_docs import DocMatch, search_docs
 from foss_mcp.mcp.tools.search_docs import Miss as DocsMiss
 from foss_mcp.mcp.tools.search_symbols import Miss as SymbolsMiss
@@ -193,14 +193,90 @@ def test_lookup_falls_back_to_docs_when_nothing_resolves_as_a_symbol(tmp_path: P
     """No self_extracted generation is published in this test at all: the symbol search
     must miss cleanly (no generation for that source kind), and lookup falls through to
     docs - never inventing a symbol match out of documentation content.
+
+    REQ-G2-049 (scenario 4): the doc-fallback path now composes a ``TaskAnswer`` rather than
+    returning the bare ``list[DocMatch]``. With no self_extracted generation published at all,
+    ``find_examples`` cannot possibly have anything real to offer, so ``example`` must be
+    honestly ``None`` - never fabricated.
     """
     store = _store(tmp_path)
     _publish_pdf_net_docs(store)
 
     result = lookup(store, PDF_NET_SCOPE, "licensed")
 
+    assert isinstance(result, TaskAnswer)
+    assert result.scope == PDF_NET_SCOPE
+    assert isinstance(result.doc_matches, tuple) and result.doc_matches
+    assert all(isinstance(match, DocMatch) for match in result.doc_matches)
+    assert result.example is None
+
+
+def test_lookup_returns_the_original_miss_when_nothing_resolves_at_all(tmp_path: Path) -> None:
+    """REQ-G2-049 (scenario 5): a full miss - neither a symbol nor a doc anywhere for this
+    scope - stays completely unaffected by composition. The miss from search_symbols is
+    returned exactly as before; no TaskAnswer, no example fabricated from nothing.
+    """
+    store = _store(tmp_path)
+    _publish_pdf_net_symbols(store)
+    _publish_pdf_net_docs(store)
+
+    result = lookup(store, PDF_NET_SCOPE, "ZzzTotallyNonexistentQueryForEverything")
+
+    assert isinstance(result, SymbolsMiss)
+    assert result.scope == PDF_NET_SCOPE
+
+
+def test_lookup_prefers_an_existing_symbol_match_over_composing_even_when_a_real_example_exists(
+    tmp_path: Path,
+) -> None:
+    """REQ-G2-049 (scenario 3), and the load-bearing limit discovered while wiring it.
+
+    The card asks for a real, non-mocked test proving that a query with no symbol match, a
+    real doc match, AND a real example can compose into one TaskAnswer. That combination is
+    architecturally impossible today, verified against real components (no mocks, reproduced
+    independently before writing this test): ``find_examples`` and ``search_symbols`` both
+    read the SAME active self_extracted generation for the SAME scope via the SAME
+    ``SOURCE_KIND``/``scope_key`` (search_symbols.py, find_examples.py - both out of this
+    card's write_paths). ``find_examples`` can only ever return a real match through one of
+    two routes: an exact FQN string match (``get_symbol``) or a lexical match over
+    Example:-marked chunks (``query_lexical_index``) - and both routes require the query to
+    have positive lexical overlap with that very chunk's own text. But ``search_symbols``
+    performs the identical lexical scan over the identical, unfiltered self_extracted
+    document set, so any chunk real enough to satisfy ``find_examples`` is, by that same
+    overlap, ALSO a symbol match - meaning lookup's composition branch (gated behind a symbol
+    Miss) can never be reached for a query that would otherwise yield a real example.
+
+    This test locks that fact in as a regression rather than leaving it undiscovered: even
+    with a real, Example:-bearing self_extracted chunk AND a real furnished doc both present
+    for the same query, lookup returns the plain, unchanged ``list[SymbolMatch]`` - exactly
+    per REQ-G2-049's own unchanged-exact-symbol-match-path rule - never a TaskAnswer.
+    """
+    store = _store(tmp_path)
+    symbol_body = """## AddWatermarkAnnotation
+
+FQN: PdfDocument.AddWatermarkAnnotation
+Kind: Method
+Adds a watermark annotation to the page.
+
+Example:
+document.AddWatermarkAnnotation("Confidential")
+"""
+    symbol_doc = make_document(
+        source_kind=SourceKind.SELF_EXTRACTED,
+        content_type="api_surface",
+        provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+        evidence_refs=(),
+        title="pdf/net API surface",
+        body=symbol_body,
+    )
+    _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(symbol_doc))
+    _publish_pdf_net_docs(store)
+
+    result = lookup(store, PDF_NET_SCOPE, "watermark")
+
     assert isinstance(result, list) and result
-    assert all(isinstance(match, DocMatch) for match in result)
+    assert all(isinstance(match, SymbolMatch) for match in result)
+    assert any("watermark" in match.text.lower() for match in result)
 
 
 def test_every_result_carries_the_scope_that_was_passed_in_never_another(tmp_path: Path) -> None:
