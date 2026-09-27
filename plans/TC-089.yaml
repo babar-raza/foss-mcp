@@ -1,0 +1,81 @@
+id: TC-089
+gate: G2
+lane: verification
+purpose: 'Re-land TC-080''s already-correct, already-verified permanent live-content
+  regression tests under a genuinely falsifying negative control - TC-080 itself is
+  retired, not because its tests were wrong (they were correct: real docker compose
+  + real dotnet build + real MCP session, all 7 tests passed twice, including the
+  2 new ones proving the composed watermark TaskAnswer and the AFRelationship enum
+  richness), but because its negative control''s mutation was too weak: appending
+  ''please answer nothing useful'' to the query left the real keywords (''watermark'',
+  ''PDF'') intact, so BM25/lexical retrieval still found and returned the exact same
+  AddWatermarkAnnotation example - the falsifier applied (the tree was genuinely dirtied)
+  but the suite still passed, a real, honest VACUOUS CHECKS verdict, not a shell-quoting
+  bug this time. This is a supervisor authoring mistake: the corruption must remove
+  the actual matching signal from the query, not just add noise around it.'
+depends_on:
+- TC-069
+- TC-075
+- TC-079
+write_paths:
+- tests/e2e/test_pdf_net_live_content.py
+satisfies:
+- REQ-G2-050
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'The real, already-committed test file (tests/e2e/test_pdf_net_live_content.py,
+  landed by TC-080''s own worker, commit 7719932) already contains both new permanent
+  tests exactly as intended: test_lookup_composes_the_real_task_answer_for_the_watermark_question
+  and test_get_symbol_returns_the_real_enum_members_for_afrelationship, both independently
+  re-verified today (`gatectl review TC-080`: clean_run 1/2 both exit 0, all 7 tests
+  pass). Do not change this test logic - it is correct.'
+- 'The ONLY required change: add a short comment directly above `REAL_TASK_QUERY =
+  "how do I add a watermark to a PDF"` noting that this exact literal is load-bearing
+  for a negative control that replaces the ENTIRE query with unrelated nonsense (not
+  merely appends noise to it) - this is a real, genuinely useful note for future readers,
+  and gives this card an honest, attributable diff distinct from TC-080''s identical
+  already-landed content.'
+- Do not touch any other part of the file.
+actions:
+- Read the real, current tests/e2e/test_pdf_net_live_content.py and confirm both new
+  tests already match the description above.
+- Add the one clarifying comment line directly above the REAL_TASK_QUERY constant,
+  as described.
+- Run the full real test suite (`python -m pytest tests/e2e/test_pdf_net_live_content.py
+  -q`) for real - real docker, real network, real dotnet build - and confirm all 7
+  tests still pass. This takes real time; budget for it.
+checks:
+- command: '{python} -m pytest tests/e2e/test_pdf_net_live_content.py -q'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G2-050
+min_tests: 7
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/e2e/test_pdf_net_live_content.py');s=p.read_text(encoding='utf-8');s=s.replace('REAL_TASK_QUERY
+    = \"how do I add a watermark to a PDF\"','REAL_TASK_QUERY = \"xyzzy quux unrelated
+    nonsense query about nothing\"');p.write_text(s,encoding='utf-8')"
+  rationale: Replacing the ENTIRE query with unrelated nonsense (removing every real
+    matching keyword, unlike TC-080's own weaker mutation which only appended noise
+    while leaving 'watermark'/'PDF' intact and still matched via lexical retrieval)
+    must make the lookup test fail - the composed answer either returns a different
+    example or none at all, breaking the assertion that the snippet contains AddWatermarkAnnotation
+    and the real source commit. Self-checked end-to-end against the REAL, current
+    file content via the actual subprocess.run(..., shell=True) path before being
+    persisted.
+evidence:
+- evidence/build/G2/TC-089/receipt.json
+closeout:
+- tests/e2e/test_pdf_net_live_content.py's permanent lookup+get_symbol regression
+  tests pass cleanly against the real, running pdf/net container, with a genuinely
+  non-vacuous negative control this time.
+- A short, honest comment documents why the exact query literal matters.
+- Replacing the query with unrelated nonsense fails the lookup test again.
+recovery: Re-run from a clean tree; if the network clone/build step is flaky, re-running
+  is safe and idempotent.
