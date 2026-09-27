@@ -15,9 +15,7 @@ from foss_mcp.indexing.example_candidates import (
     extract_candidate_examples,
 )
 
-REAL_FIXTURE = Path(
-    "tests/fixtures/furnished/pdf_net/pages/_index.md"
-)
+REAL_FIXTURE = Path("tests/fixtures/furnished/pdf_net/pages/_index.md")
 
 
 def _load_real_page() -> dict:
@@ -69,13 +67,7 @@ def test_block_with_no_code_fence_is_skipped_not_an_error() -> None:
                 },
                 {
                     "title": "Has Code",
-                    "content": (
-                        "Actually shows code this time.\n"
-                        "\n"
-                        "```csharp\n"
-                        "var x = 1;\n"
-                        "```\n"
-                    ),
+                    "content": ("Actually shows code this time.\n\n```csharp\nvar x = 1;\n```\n"),
                 },
             ]
         }

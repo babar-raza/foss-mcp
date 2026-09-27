@@ -37,8 +37,26 @@ from foss_mcp.mcp.tools.search_symbols import Miss, SymbolMatch, search_symbols
 # classifies the overwhelming majority of real task questions).
 _QUESTION_OR_AUXILIARY_WORDS = frozenset(
     {
-        "how", "what", "why", "can", "could", "does", "do", "did", "is", "are", "was",
-        "were", "should", "would", "will", "where", "when", "who", "which", "shall",
+        "how",
+        "what",
+        "why",
+        "can",
+        "could",
+        "does",
+        "do",
+        "did",
+        "is",
+        "are",
+        "was",
+        "were",
+        "should",
+        "would",
+        "will",
+        "where",
+        "when",
+        "who",
+        "which",
+        "shall",
     }
 )
 
@@ -123,9 +141,7 @@ def lookup(
                 break
 
         example_result = find_examples(store, scope, query, top_k=1)
-        example = (
-            example_result[0] if isinstance(example_result, list) and example_result else None
-        )
+        example = example_result[0] if isinstance(example_result, list) and example_result else None
 
         if not doc_matches and example is None:
             return None

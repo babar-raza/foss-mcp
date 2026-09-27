@@ -61,7 +61,9 @@ class RejectionMiddleware:
     healthcheck request is not an MCP request and carries neither header.
     """
 
-    def __init__(self, app: ASGIApp, allowed_origins: list[str], exempt_paths: frozenset[str] = frozenset()) -> None:
+    def __init__(
+        self, app: ASGIApp, allowed_origins: list[str], exempt_paths: frozenset[str] = frozenset()
+    ) -> None:
         self.app = app
         self.allowed_origins = allowed_origins
         self.exempt_paths = exempt_paths

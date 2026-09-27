@@ -75,16 +75,12 @@ def test_prepare_reference_library_builds_the_real_pinned_commit(
     assert reference_library.name == "Aspose.Pdf.Foss.csproj"
 
 
-def test_known_broken_candidate_fails_real_compile(
-    reference_library: Path, tmp_path: Path
-) -> None:
+def test_known_broken_candidate_fails_real_compile(reference_library: Path, tmp_path: Path) -> None:
     candidate = _link_annotation_candidate()
     assert "PdfAction" in candidate.code
     assert "using Aspose.Pdf.Annotations;" not in candidate.code
 
-    result = verify_dotnet_example(
-        candidate, library_csproj=reference_library, workdir=tmp_path
-    )
+    result = verify_dotnet_example(candidate, library_csproj=reference_library, workdir=tmp_path)
 
     assert isinstance(result, VerificationResult)
     assert result.candidate == candidate
@@ -101,8 +97,6 @@ def test_known_broken_candidate_compiles_once_missing_using_is_added(
     corrected_code = "using Aspose.Pdf.Annotations;\n" + candidate.code
     corrected_candidate = dataclasses.replace(candidate, code=corrected_code)
 
-    result = verify_dotnet_example(
-        corrected_candidate, library_csproj=reference_library, workdir=tmp_path
-    )
+    result = verify_dotnet_example(corrected_candidate, library_csproj=reference_library, workdir=tmp_path)
 
     assert result.verified is True, result.output

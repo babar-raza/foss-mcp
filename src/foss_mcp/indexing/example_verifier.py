@@ -86,23 +86,15 @@ def prepare_reference_library(
 
     init_result = _run(["git", "init"], cwd=workdir)
     if init_result.returncode != 0:
-        raise RuntimeError(
-            f"git init failed in {workdir}:\n"
-            f"{init_result.stdout}\n{init_result.stderr}"
-        )
+        raise RuntimeError(f"git init failed in {workdir}:\n{init_result.stdout}\n{init_result.stderr}")
 
-    remote_result = _run(
-        ["git", "remote", "add", "origin", repo_url], cwd=workdir
-    )
+    remote_result = _run(["git", "remote", "add", "origin", repo_url], cwd=workdir)
     if remote_result.returncode != 0:
         raise RuntimeError(
-            f"git remote add failed for {repo_url}:\n"
-            f"{remote_result.stdout}\n{remote_result.stderr}"
+            f"git remote add failed for {repo_url}:\n{remote_result.stdout}\n{remote_result.stderr}"
         )
 
-    fetch_result = _run(
-        ["git", "fetch", "--depth", "1", "origin", commit], cwd=workdir
-    )
+    fetch_result = _run(["git", "fetch", "--depth", "1", "origin", commit], cwd=workdir)
     if fetch_result.returncode != 0:
         raise RuntimeError(
             f"git fetch of commit {commit} from {repo_url} failed:\n"
@@ -112,8 +104,7 @@ def prepare_reference_library(
     checkout_result = _run(["git", "checkout", commit], cwd=workdir)
     if checkout_result.returncode != 0:
         raise RuntimeError(
-            f"git checkout of commit {commit} failed:\n"
-            f"{checkout_result.stdout}\n{checkout_result.stderr}"
+            f"git checkout of commit {commit} failed:\n{checkout_result.stdout}\n{checkout_result.stderr}"
         )
 
     csproj_path = workdir / csproj_relative_path
@@ -145,12 +136,8 @@ def verify_dotnet_example(
     project_dir = workdir / "candidate_project"
     project_dir.mkdir(parents=True, exist_ok=True)
 
-    csproj_content = _CANDIDATE_CSPROJ_TEMPLATE.format(
-        library_csproj=library_csproj
-    )
-    (project_dir / "candidate.csproj").write_text(
-        csproj_content, encoding="utf-8"
-    )
+    csproj_content = _CANDIDATE_CSPROJ_TEMPLATE.format(library_csproj=library_csproj)
+    (project_dir / "candidate.csproj").write_text(csproj_content, encoding="utf-8")
     (project_dir / "Program.cs").write_text(candidate.code, encoding="utf-8")
 
     result = _run(["dotnet", "build"], cwd=project_dir)

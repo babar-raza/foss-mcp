@@ -91,7 +91,7 @@ def search_symbols(
     doc_ids = [
         doc_id
         for doc_id in ranked
-        if not (extract_fqn(documents[doc_id]["text"]) or "").startswith('Example: ')
+        if not (extract_fqn(documents[doc_id]["text"]) or "").startswith("Example: ")
     ][:top_k]
     if not doc_ids:
         return Miss(scope, query, f"no symbol matches {query!r}")

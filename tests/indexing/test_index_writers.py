@@ -293,7 +293,9 @@ def _real_example_chunk_containing_watermark() -> Chunk:
     )
 
 
-def _old_raw_tf_idf_score(tokens: list[str], query_tokens: list[str], *, n_docs: int, doc_freq: dict[str, int]) -> float:
+def _old_raw_tf_idf_score(
+    tokens: list[str], query_tokens: list[str], *, n_docs: int, doc_freq: dict[str, int]
+) -> float:
     """This module's OLD (pre-TC-073) scoring formula, reproduced here only so this regression
     test can demonstrate the real ranking it used to produce - not something production code
     still calls.

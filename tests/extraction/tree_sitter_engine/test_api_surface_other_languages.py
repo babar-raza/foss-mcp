@@ -63,7 +63,9 @@ def test_typescript_inline_object_type_literal_properties_are_not_fabricated_as_
     package = tmp_path / "src"
     package.mkdir()
     (package / "shapes.ts").write_text(TYPESCRIPT, encoding="utf-8")
-    types, *_ = api_surface.extract_api_surface(get_parser("typescript"), "typescript", package, tmp_path, "widget")
+    types, *_ = api_surface.extract_api_surface(
+        get_parser("typescript"), "typescript", package, tmp_path, "widget"
+    )
     by_name = {t["name"]: t for t in types}
 
     # The real function is captured correctly as itself, with no corruption

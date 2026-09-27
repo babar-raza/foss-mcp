@@ -210,9 +210,7 @@ def test_report_index_freshness_reports_the_real_fresh_generation(session: _McpS
     against the real fixture's own real commit sha - never the pre-ingestion answer
     ("never published"/``stale=True``) every prior audit-era container gave.
     """
-    body = session.call_tool(
-        "report_index_freshness", {"current_source_commit": REAL_SOURCE_COMMIT}
-    )
+    body = session.call_tool("report_index_freshness", {"current_source_commit": REAL_SOURCE_COMMIT})
     result = body["result"]["structuredContent"]["result"]
     assert result["indexed_generation_id"] is not None
     assert result["indexed_generation_id"].startswith("pdf::net::self_extracted::")

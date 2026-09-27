@@ -11,8 +11,8 @@ verified-example pipeline (REQ-G2-048).
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 __all__ = ["CandidateExample", "extract_candidate_examples"]
 

@@ -69,8 +69,7 @@ def test_provenance_carries_the_real_repository_and_commit() -> None:
         assert chunk.provenance.commit == "deadbeefcafef00d1234567890abcdef1234567"
         assert chunk.provenance.path == "api_surface.json"
         assert chunk.evidence_refs == (
-            "example-org/Example-FOSS-for-Widgets"
-            "@deadbeefcafef00d1234567890abcdef1234567:api_surface.json",
+            "example-org/Example-FOSS-for-Widgets@deadbeefcafef00d1234567890abcdef1234567:api_surface.json",
         )
         assert chunk.source_kind == SourceKind.SELF_EXTRACTED.value
         assert chunk.content_type == "api_surface"
@@ -190,7 +189,9 @@ def test_title_is_passed_through_and_not_hardcoded() -> None:
 
 
 def test_max_types_bounds_how_many_types_are_included() -> None:
-    chunks = build_chunks_from_api_surface(SYNTHETIC_FIXTURE, title="widgets/example API surface", max_types=1)
+    chunks = build_chunks_from_api_surface(
+        SYNTHETIC_FIXTURE, title="widgets/example API surface", max_types=1
+    )
     all_text = "\n".join(chunk.text for chunk in chunks)
     assert "WidgetFactory" in all_text or "Example.Widgets.WidgetFactory" in all_text
     assert "WidgetKind" not in all_text
@@ -371,7 +372,9 @@ def test_real_free_functions_get_real_signatures_across_the_three_affected_pilot
         max_types=len(pdf_typescript_fixture["types"]),
     )
     pdf_typescript_text = "\n".join(chunk.text for chunk in pdf_typescript_chunks)
-    assert "  - A(a: Float32Array, w: number, h: number, x: number, y: number) -> number" in pdf_typescript_text
+    assert (
+        "  - A(a: Float32Array, w: number, h: number, x: number, y: number) -> number" in pdf_typescript_text
+    )
 
     # pdf_typescript's real AES_WRAP_OID constant must also carry its real value now.
     assert "Value: Record<number, string> = {" in pdf_typescript_text

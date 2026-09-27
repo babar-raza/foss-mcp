@@ -115,9 +115,7 @@ def test_load_chunks_reads_a_real_fixture_and_returns_correct_chunk_objects(tmp_
     assert chunks[1].text == "A page carries properties."
 
 
-def test_main_without_api_surface_publishes_every_loaded_chunk_unchanged(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_main_without_api_surface_publishes_every_loaded_chunk_unchanged(tmp_path: Path, monkeypatch) -> None:
     """Today's behavior, byte-for-byte: with ``--api-surface`` omitted, every chunk
     ``_load_chunks`` produced - including one with an anchor that would NOT resolve against any
     symbol index, and one with a numeric claim no symbol index would corroborate - is published
@@ -196,9 +194,7 @@ def test_main_with_api_surface_excludes_unresolvable_claims_from_what_gets_publi
     assert len(manifest.payload["vector_index"]["points"]) == 2
 
 
-def test_main_prints_the_published_generation_id(
-    tmp_path: Path, monkeypatch, capsys
-) -> None:
+def test_main_prints_the_published_generation_id(tmp_path: Path, monkeypatch, capsys) -> None:
     chunks_path = tmp_path / "chunks.json"
     manifest_store_path = tmp_path / "manifests"
     _write_chunks_fixture(chunks_path, [_chunk_entry("Document", "Document is a top-level object.")])
