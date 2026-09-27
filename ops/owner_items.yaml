@@ -51,7 +51,7 @@ owner_items:
     action set it), and the workflow has been working since at least 2026-09-24.'
   last_checked_at: '2026-09-27T00:00:00Z'
 - id: OWNER-03
-  status: OPEN
+  status: SATISFIED
   summary: 'GitHub WRITE credentials broke mid-session on 2026-09-24. An earlier
     push in this same session (commit ee6c834) succeeded normally. A later push
     (commit 92ef3f6) hung for 14+ minutes with no CI process anywhere in its tree
@@ -66,16 +66,28 @@ owner_items:
     working theory is the second one fails on the invalid token and falls through
     to GCM attempting an interactive/browser OAuth flow that can never complete in
     this non-interactive session, hanging indefinitely rather than failing fast.'
-  resume_predicate: 'An owner with a valid GitHub credential either refreshes
-    GH_TOKEN/GITHUB_TOKEN for this environment, or fixes the credential.helper
-    chain for github.com so it fails fast instead of hanging. Test with `timeout 25
-    git push --dry-run origin main` - resolved when that returns 0 quickly rather
-    than exit 124.'
+  resume_predicate: 'RESOLVED 2026-09-27: `gh auth status` now reports a valid,
+    logged-in token (scopes gist/read:org/repo) - the 401 is gone. `timeout 25
+    git push --dry-run origin main` no longer hangs (exit 124) - it now runs the
+    real pre-push hook (scripts/ci_check.sh) to completion in ~10-15 minutes, well
+    past the original 25s test window, which is why the first re-check this session
+    looked inconclusive until re-run with a 1500s timeout. The dry-run''s real,
+    complete result: lint/format/pytest/gatectl all genuinely ran (no auth hang
+    anywhere in the trace) and reported real, legitimate failures unrelated to
+    credentials - see TC-079 (lint/format debt) and the 2026-09-27 DECISION_LOG
+    entry. The credential problem itself is gone; only real CI hygiene remains
+    before a clean push, which is separate, already-tracked work, not an owner
+    item.'
   consumed_by:
   - NONE
   recorded_at: '2026-09-24T16:10:00Z'
-  note: 'Does not block local work: commits land and verify normally, only the
-    push to origin is affected. Local commits accumulate and will be pushed once
-    this is resolved. Every future git push/fetch against an authenticated remote
-    in this session must be wrapped in `timeout N` - an unbounded git network call
-    can hang for the rest of the session otherwise, exactly as this one did.'
+  note: 'Did not block local work while open: commits landed and verified normally,
+    only the push to origin was affected. RESOLVED 2026-09-27 - cause unknown (the
+    operator did not report taking an action, and no session action could refresh
+    a GitHub token), but independently, repeatedly confirmed working via
+    `gh auth status` and a real, complete pre-push hook run that reached pytest
+    and gatectl without any auth-stage hang. Every git push/fetch against an
+    authenticated remote should still be wrapped in `timeout N` as a general
+    safety practice, now sized for the REAL hook runtime (multiple minutes, not
+    25s) given how large this project''s test suite has grown.'
+  last_checked_at: '2026-09-27T00:00:00Z'
