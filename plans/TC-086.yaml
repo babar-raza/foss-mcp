@@ -1,0 +1,80 @@
+id: TC-086
+gate: G2
+lane: verification
+purpose: 'Fix a real, pre-existing staleness bug in tests/infra/test_docker_compose_multi_instance.py
+  (TC-023''s own topology-sanity suite), exposed by TC-085''s independent re-verification
+  today: TC-064 legitimately added an 8th top-level docker-compose service, `ingest-pdf-net`
+  (a one-shot ingestion/build init job with no `ports` or `environment` keys - it
+  is not a per-pilot serving instance), but never updated this test file''s `_load_services()`
+  to exclude it. `_load_services()` returns ALL top-level services indiscriminately,
+  so 6 of 7 tests in this file now fail on the currently-committed docker-compose.yml
+  with KeyError on `ports`/`environment` or a wrong count of 8 - confirmed today via
+  `git stash` that this is genuinely pre-existing (fails identically on HEAD with
+  zero uncommitted changes), not caused by TC-085''s own diff or any concurrent session''s
+  edit.'
+depends_on:
+- TC-023
+- TC-064
+write_paths:
+- tests/infra/test_docker_compose_multi_instance.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'CONFIRMED today by reading docker-compose.yml directly: it has 8 top-level services
+  - the 7 real per-pilot serving instances (`serving`, `serving-pdf-typescript`, `serving-pdf-cpp`,
+  `serving-pdf-java`, `serving-pdf-go`, `serving-slides-python`, `serving-cells-rust`)
+  plus `ingest-pdf-net`, added by TC-064 (`git log -S ingest-pdf-net` confirms this),
+  a one-shot build/ingestion init job with `build`, `image`, `volumes`, `entrypoint`
+  keys but genuinely no `ports` and no `environment` key at all - structurally different
+  from a serving instance, not a bug in docker-compose.yml.'
+- 'The fix belongs in `_load_services()`''s own filtering, not in docker-compose.yml:
+  this test file''s own docstring already states its purpose is ''one independently-runnable
+  service per G2 pilot, each publishing a distinct host port'' - `ingest-pdf-net`
+  publishes no port at all, so filtering `_load_services()` to only services that
+  declare a `ports` key is the correct, principled, self-documenting exclusion criterion
+  (matches the file''s own stated purpose exactly), not an arbitrary name-based exclusion.'
+- 'Exact required change: `_load_services()` must return only `{name: svc for name,
+  svc in doc[''services''].items() if ''ports'' in svc}` (this exact expression is
+  required for the negative control below) instead of the raw, unfiltered `doc[''services'']`.'
+- Do not touch docker-compose.yml (outside this card's write_paths and not the source
+  of the defect) or any other file.
+actions:
+- Edit `_load_services()` in tests/infra/test_docker_compose_multi_instance.py to
+  filter to only services declaring a `ports` key, exactly as described.
+- Run the full file's test suite and confirm all 7 tests pass against the real, currently
+  committed docker-compose.yml (which genuinely has 8 services, 7 of them real serving
+  instances).
+- Confirm test_exactly_seven_services now correctly counts 7 (the real serving instances),
+  not 8.
+checks:
+- command: '{python} -m pytest tests/infra/test_docker_compose_multi_instance.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 1
+network: false
+negative_control:
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''tests/infra/test_docker_compose_multi_instance.py'');s=p.read_text(encoding=''utf-8'');s=s.replace(''return
+    {name: svc for name, svc in doc[\''services\''].items() if \''ports\'' in svc}'',''return
+    doc[\''services\'']'');p.write_text(s,encoding=''utf-8'')"'
+  rationale: Reverting _load_services() back to returning the raw, unfiltered doc['services']
+    must reintroduce all 6 failures against the real, 8-service docker-compose.yml,
+    proving the fix genuinely depends on the new filter rather than passing for an
+    unrelated reason. Self-checked end-to-end against a fixture implementing the exact
+    prescribed filter expression before being persisted.
+evidence:
+- evidence/build/G2/TC-086/receipt.json
+closeout:
+- tests/infra/test_docker_compose_multi_instance.py passes cleanly against the real,
+  currently-committed 8-service docker-compose.yml.
+- The fix is a principled, docstring-consistent filter (services declaring a `ports`
+  key), not an arbitrary name-based exclusion.
+- Reverting the filter fails all 6 previously-failing tests again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
