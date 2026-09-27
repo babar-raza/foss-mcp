@@ -1,0 +1,169 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_candidates.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_dzt0d91\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_candidates.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_dzt0d91\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/example_candidates.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_candidates.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_dzt0d91\.junit-0.xml"
+--- stdout ---
+FFFFFFFF                                                                 [100%]
+================================== FAILURES ===================================
+___ test_extracts_title_description_language_and_code_from_synthetic_block ____
+
+    def test_extracts_title_description_language_and_code_from_synthetic_block() -> None:
+        page = {
+            "single": {
+                "block": [
+                    {
+                        "title": "Open a Widget and Frobnicate It",
+                        "content": (
+                            "Open an existing widget and frobnicate its first gear.\n"
+                            "\n"
+                            "```python\n"
+                            "widget = Widget.open('input.widget')\n"
+                            "widget.frobnicate()\n"
+                            "```\n"
+                        ),
+                    }
+                ]
+            }
+        }
+    
+        result = extract_candidate_examples(page)
+    
+>       assert result == [
+            CandidateExample(
+                title="Open a Widget and Frobnicate It",
+                description="Open an existing widget and frobnicate its first gear.",
+                language="python",
+                code="widget = Widget.open('input.widget')\nwidget.frobnicate()",
+            )
+        ]
+E       assert [] == [CandidateExa...robnicate()")]
+E         
+E         Right contains one more item: CandidateExample(title='Open a Widget and Frobnicate It', description='Open an existing widget and frobnicate its first gear.', language='python', code="widget = Widget.open('input.widget')\nwidget.frobnicate()")
+E         Use -v to get more diff
+
+tests\indexing\test_example_candidates.py:55: AssertionError
+____________ test_block_with_no_code_fence_is_skipped_not_an_error ____________
+
+    def test_block_with_no_code_fence_is_skipped_not_an_error() -> None:
+        page = {
+            "single": {
+                "block": [
+                    {
+                        "title": "Just Prose, No Code",
+                        "content": "This block describes something but never shows any code.",
+                    },
+                    {
+                        "title": "Has Code",
+                        "content": ("Actually shows code this time.\n\n```csharp\nvar x = 1;\n```\n"),
+                    },
+                ]
+            }
+        }
+    
+        result = extract_candidate_examples(page)
+    
+>       assert len(result) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\indexing\test_example_candidates.py:83: AssertionError
+_ test_real_fixture_extracts_three_candidates_including_real_watermark_example _
+
+    def test_real_fixture_extracts_three_candidates_including_real_watermark_example() -> None:
+        page = _load_real_page()
+    
+        result = extract_candidate_examples(page)
+    
+>       assert len(result) == 3
+E       assert 0 == 3
+E        +  where 0 = len([])
+
+tests\indexing\test_example_candidates.py:94: AssertionError
+__________ test_real_fixture_pdf_java_extracts_three_java_candidates __________
+
+    def test_real_fixture_pdf_java_extracts_three_java_candidates() -> None:
+        page = _load_page(FIXTURE_ROOT / "pdf_java" / "pages" / "_index.md")
+    
+        result = extract_candidate_examples(page)
+    
+>       assert len(result) == 3
+E       assert 0 == 3
+E        +  where 0 = len([])
+
+tests\indexing\test_example_candidates.py:111: AssertionError
+____ test_real_fixture_pdf_typescript_extracts_four_typescript_candidates _____
+
+    def test_real_fixture_pdf_typescript_extracts_four_typescript_candidates() -> None:
+        page = _load_page(FIXTURE_ROOT / "pdf_typescript" / "pages" / "_index.md")
+    
+        result = extract_candidate_examples(page)
+    
+>       assert len(result) == 4
+E       assert 0 == 4
+E        +  where 0 = len([])
+
+tests\indexing\test_example_candidates.py:140: AssertionError
+____________ test_real_fixture_pdf_go_extracts_four_go_candidates _____________
+
+    def test_real_fixture_pdf_go_extracts_four_go_candidates() -> None:
+        page = _load_page(FIXTURE_ROOT / "pdf_go" / "pages" / "_index.md")
+    
+        result = extract_candidate_examples(page)
+    
+>       assert len(result) == 4
+E       assert 0 == 4
+E        +  where 0 = len([])
+
+tests\indexing\test_example_candidates.py:162: AssertionError
+_________ test_real_fixture_cells_rust_extracts_three_rust_candidates _________
+
+    def test_real_fixture_cells_rust_extracts_three_rust_candidates() -> None:
+        page = _load_page(FIXTURE_ROOT / "cells_rust" / "pages" / "_index.md")
+    
+        result = extract_candidate_examples(page)
+    
+>       assert len(result) == 3
+E       assert 0 == 3
+E        +  where 0 = len([])
+
+tests\indexing\test_example_candidates.py:184: AssertionError
+_______ test_real_fixture_slides_python_extracts_two_python_candidates ________
+
+    def test_real_fixture_slides_python_extracts_two_python_candidates() -> None:
+        page = _load_page(FIXTURE_ROOT / "slides_python" / "pages" / "_index.md")
+    
+        result = extract_candidate_examples(page)
+    
+>       assert len(result) == 2
+E       assert 0 == 2
+E        +  where 0 = len([])
+
+tests\indexing\test_example_candidates.py:208: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_example_candidates.py::test_extracts_title_description_language_and_code_from_synthetic_block
+FAILED tests/indexing/test_example_candidates.py::test_block_with_no_code_fence_is_skipped_not_an_error
+FAILED tests/indexing/test_example_candidates.py::test_real_fixture_extracts_three_candidates_including_real_watermark_example
+FAILED tests/indexing/test_example_candidates.py::test_real_fixture_pdf_java_extracts_three_java_candidates
+FAILED tests/indexing/test_example_candidates.py::test_real_fixture_pdf_typescript_extracts_four_typescript_candidates
+FAILED tests/indexing/test_example_candidates.py::test_real_fixture_pdf_go_extracts_four_go_candidates
+FAILED tests/indexing/test_example_candidates.py::test_real_fixture_cells_rust_extracts_three_rust_candidates
+FAILED tests/indexing/test_example_candidates.py::test_real_fixture_slides_python_extracts_two_python_candidates
+
+--- stderr ---
+
