@@ -1,0 +1,832 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_pdf_net_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-27lcz7r4\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_pdf_net_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-27lcz7r4\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/e2e/test_pdf_net_live_content.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_pdf_net_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-27lcz7r4\.junit-0.xml"
+--- stdout ---
+EEEEEEE                                                                  [100%]
+=================================== ERRORS ====================================
+___ ERROR at setup of test_readyz_is_ready_after_the_real_ingestion_publish ___
+
+    @pytest.fixture(scope="module")
+    def real_generation() -> Iterator[None]:
+        """The real, live first publish: build and run the one-shot ``ingest-pdf-net`` service to
+        completion (this IS the real ingestion the 2026-09-25 audit found never ran anywhere), then
+        bring up ``serving`` against the SAME named volume it just published into.
+    
+        ``docker compose down -v`` first, per the card's own recovery note, so this is idempotent
+        against any stale volume state left by a prior run.
+        """
+        _compose("down", "-v", "--remove-orphans")
+        try:
+            ingest = _compose(
+                "up",
+                "--build",
+                "--exit-code-from",
+                "ingest-pdf-net",
+                "ingest-pdf-net",
+                timeout=INGEST_TIMEOUT_SECONDS,
+            )
+>           assert ingest.returncode == 0, (ingest.stdout + ingest.stderr)[-4000:]
+E           AssertionError: #1 [internal] load local bake definitions
+E             #1 reading from stdin 685B done
+E             #1 DONE 0.0s
+E             
+E             #2 [internal] load build definition from Dockerfile.ingestion
+E             #2 transferring dockerfile: 4.12kB 0.0s done
+E             #2 DONE 0.1s
+E             
+E             #3 [internal] load metadata for docker.io/library/python:3.13-slim
+E             #3 DONE 0.1s
+E             
+E             #4 [internal] load .dockerignore
+E             #4 transferring context: 2B 0.0s done
+E             #4 DONE 0.0s
+E             
+E             #5 [internal] load build context
+E             #5 DONE 0.0s
+E             
+E             #6 [ 1/12] FROM docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74
+E             #6 resolve docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74 0.1s done
+E             #6 DONE 0.1s
+E             
+E             #5 [internal] load build context
+E             #5 transferring context: 1.88MB 0.6s done
+E             #5 DONE 0.6s
+E             
+E             #7 [ 6/12] COPY src/ ./src/
+E             #7 CACHED
+E             
+E             #8 [ 7/12] COPY config/ ./config/
+E             #8 CACHED
+E             
+E             #9 [10/12] COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+E             #9 CACHED
+E             
+E             #10 [ 2/12] WORKDIR /app
+E             #10 CACHED
+E             
+E             #11 [ 5/12] RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+E             #11 CACHED
+E             
+E             #12 [ 9/12] COPY infra/build_chunks.py ./infra/build_chunks.py
+E             #12 CACHED
+E             
+E             #13 [ 3/12] RUN apt-get update     && apt-get install -y --no-install-recommends git curl ca-certificates     && rm -rf /var/lib/apt/lists/*     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh     && chmod +x /tmp/dotnet-install.sh     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet     && rm /tmp/dotnet-install.sh
+E             #13 CACHED
+E             
+E             #14 [ 4/12] COPY requirements.lock ./requirements.lock
+E             #14 CACHED
+E             
+E             #15 [ 8/12] COPY infra/ingest.py ./infra/ingest.py
+E             #15 CACHED
+E             
+E             #16 [11/12] COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
+E             #16 CACHED
+E             
+E             #17 [12/12] RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data
+E             #17 CACHED
+E             
+E             #18 exporting to image
+E             #18 exporting layers 0.0s done
+E             #18 exporting manifest sha256:779f5f14fe689ee2b925eac90655535de91cb5844b86f3e5d90c9af167c9d85c done
+E             #18 exporting config sha256:1b60932809ad2bb9c66f17c7daa70147d64672abf8e9a0717c289f93a5831f38 done
+E             #18 exporting attestation manifest sha256:a77a73f4722e9635814f50e95385a886f6b1540780b4d1600b530e2051c324ba
+E             #18 exporting attestation manifest sha256:a77a73f4722e9635814f50e95385a886f6b1540780b4d1600b530e2051c324ba 0.2s done
+E             #18 exporting manifest list sha256:250d13c47bd8153a419df46d9f0877ab9a8dd28b6474894efa2eb7afa6740d73
+E             #18 exporting manifest list sha256:250d13c47bd8153a419df46d9f0877ab9a8dd28b6474894efa2eb7afa6740d73 0.0s done
+E             #18 naming to docker.io/library/foss-mcp-ingestion:local done
+E             #18 unpacking to docker.io/library/foss-mcp-ingestion:local 0.0s done
+E             #18 DONE 0.4s
+E             
+E             #19 resolving provenance for metadata file
+E             #19 DONE 0.1s
+E             Attaching to ingest-pdf-net-1
+E             
+E             [Kingest-pdf-net-1 exited with code 137
+E              foss-mcp-ingestion:local  Built
+E              Network foss-mcp-e2e-tc064_default  Creating
+E              Network foss-mcp-e2e-tc064_default  Created
+E              Volume foss-mcp-e2e-tc064_manifests-pdf-net  Creating
+E              Volume foss-mcp-e2e-tc064_manifests-pdf-net  Created
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Creating
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Created
+E             [31m[1mAborting on container exit...[0m
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopping
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopped
+E             
+E             
+E           assert 137 == 0
+E            +  where 137 = CompletedProcess(args=['docker', 'compose', '-p', 'foss-mcp-e2e-tc064', '-f', 'H:\\Users\\prora\\OneDrive\\Documents\\... Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopping\n Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopped\n\n').returncode
+
+tests\e2e\test_pdf_net_live_content.py:159: AssertionError
+_ ERROR at setup of test_report_index_freshness_reports_the_real_fresh_generation _
+
+    @pytest.fixture(scope="module")
+    def real_generation() -> Iterator[None]:
+        """The real, live first publish: build and run the one-shot ``ingest-pdf-net`` service to
+        completion (this IS the real ingestion the 2026-09-25 audit found never ran anywhere), then
+        bring up ``serving`` against the SAME named volume it just published into.
+    
+        ``docker compose down -v`` first, per the card's own recovery note, so this is idempotent
+        against any stale volume state left by a prior run.
+        """
+        _compose("down", "-v", "--remove-orphans")
+        try:
+            ingest = _compose(
+                "up",
+                "--build",
+                "--exit-code-from",
+                "ingest-pdf-net",
+                "ingest-pdf-net",
+                timeout=INGEST_TIMEOUT_SECONDS,
+            )
+>           assert ingest.returncode == 0, (ingest.stdout + ingest.stderr)[-4000:]
+E           AssertionError: #1 [internal] load local bake definitions
+E             #1 reading from stdin 685B done
+E             #1 DONE 0.0s
+E             
+E             #2 [internal] load build definition from Dockerfile.ingestion
+E             #2 transferring dockerfile: 4.12kB 0.0s done
+E             #2 DONE 0.1s
+E             
+E             #3 [internal] load metadata for docker.io/library/python:3.13-slim
+E             #3 DONE 0.1s
+E             
+E             #4 [internal] load .dockerignore
+E             #4 transferring context: 2B 0.0s done
+E             #4 DONE 0.0s
+E             
+E             #5 [internal] load build context
+E             #5 DONE 0.0s
+E             
+E             #6 [ 1/12] FROM docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74
+E             #6 resolve docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74 0.1s done
+E             #6 DONE 0.1s
+E             
+E             #5 [internal] load build context
+E             #5 transferring context: 1.88MB 0.6s done
+E             #5 DONE 0.6s
+E             
+E             #7 [ 6/12] COPY src/ ./src/
+E             #7 CACHED
+E             
+E             #8 [ 7/12] COPY config/ ./config/
+E             #8 CACHED
+E             
+E             #9 [10/12] COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+E             #9 CACHED
+E             
+E             #10 [ 2/12] WORKDIR /app
+E             #10 CACHED
+E             
+E             #11 [ 5/12] RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+E             #11 CACHED
+E             
+E             #12 [ 9/12] COPY infra/build_chunks.py ./infra/build_chunks.py
+E             #12 CACHED
+E             
+E             #13 [ 3/12] RUN apt-get update     && apt-get install -y --no-install-recommends git curl ca-certificates     && rm -rf /var/lib/apt/lists/*     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh     && chmod +x /tmp/dotnet-install.sh     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet     && rm /tmp/dotnet-install.sh
+E             #13 CACHED
+E             
+E             #14 [ 4/12] COPY requirements.lock ./requirements.lock
+E             #14 CACHED
+E             
+E             #15 [ 8/12] COPY infra/ingest.py ./infra/ingest.py
+E             #15 CACHED
+E             
+E             #16 [11/12] COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
+E             #16 CACHED
+E             
+E             #17 [12/12] RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data
+E             #17 CACHED
+E             
+E             #18 exporting to image
+E             #18 exporting layers 0.0s done
+E             #18 exporting manifest sha256:779f5f14fe689ee2b925eac90655535de91cb5844b86f3e5d90c9af167c9d85c done
+E             #18 exporting config sha256:1b60932809ad2bb9c66f17c7daa70147d64672abf8e9a0717c289f93a5831f38 done
+E             #18 exporting attestation manifest sha256:a77a73f4722e9635814f50e95385a886f6b1540780b4d1600b530e2051c324ba
+E             #18 exporting attestation manifest sha256:a77a73f4722e9635814f50e95385a886f6b1540780b4d1600b530e2051c324ba 0.2s done
+E             #18 exporting manifest list sha256:250d13c47bd8153a419df46d9f0877ab9a8dd28b6474894efa2eb7afa6740d73
+E             #18 exporting manifest list sha256:250d13c47bd8153a419df46d9f0877ab9a8dd28b6474894efa2eb7afa6740d73 0.0s done
+E             #18 naming to docker.io/library/foss-mcp-ingestion:local done
+E             #18 unpacking to docker.io/library/foss-mcp-ingestion:local 0.0s done
+E             #18 DONE 0.4s
+E             
+E             #19 resolving provenance for metadata file
+E             #19 DONE 0.1s
+E             Attaching to ingest-pdf-net-1
+E             
+E             [Kingest-pdf-net-1 exited with code 137
+E              foss-mcp-ingestion:local  Built
+E              Network foss-mcp-e2e-tc064_default  Creating
+E              Network foss-mcp-e2e-tc064_default  Created
+E              Volume foss-mcp-e2e-tc064_manifests-pdf-net  Creating
+E              Volume foss-mcp-e2e-tc064_manifests-pdf-net  Created
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Creating
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Created
+E             [31m[1mAborting on container exit...[0m
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopping
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopped
+E             
+E             
+E           assert 137 == 0
+E            +  where 137 = CompletedProcess(args=['docker', 'compose', '-p', 'foss-mcp-e2e-tc064', '-f', 'H:\\Users\\prora\\OneDrive\\Documents\\... Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopping\n Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopped\n\n').returncode
+
+tests\e2e\test_pdf_net_live_content.py:159: AssertionError
+_ ERROR at setup of test_search_symbols_returns_real_content_from_the_real_fixture _
+
+    @pytest.fixture(scope="module")
+    def real_generation() -> Iterator[None]:
+        """The real, live first publish: build and run the one-shot ``ingest-pdf-net`` service to
+        completion (this IS the real ingestion the 2026-09-25 audit found never ran anywhere), then
+        bring up ``serving`` against the SAME named volume it just published into.
+    
+        ``docker compose down -v`` first, per the card's own recovery note, so this is idempotent
+        against any stale volume state left by a prior run.
+        """
+        _compose("down", "-v", "--remove-orphans")
+        try:
+            ingest = _compose(
+                "up",
+                "--build",
+                "--exit-code-from",
+                "ingest-pdf-net",
+                "ingest-pdf-net",
+                timeout=INGEST_TIMEOUT_SECONDS,
+            )
+>           assert ingest.returncode == 0, (ingest.stdout + ingest.stderr)[-4000:]
+E           AssertionError: #1 [internal] load local bake definitions
+E             #1 reading from stdin 685B done
+E             #1 DONE 0.0s
+E             
+E             #2 [internal] load build definition from Dockerfile.ingestion
+E             #2 transferring dockerfile: 4.12kB 0.0s done
+E             #2 DONE 0.1s
+E             
+E             #3 [internal] load metadata for docker.io/library/python:3.13-slim
+E             #3 DONE 0.1s
+E             
+E             #4 [internal] load .dockerignore
+E             #4 transferring context: 2B 0.0s done
+E             #4 DONE 0.0s
+E             
+E             #5 [internal] load build context
+E             #5 DONE 0.0s
+E             
+E             #6 [ 1/12] FROM docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74
+E             #6 resolve docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74 0.1s done
+E             #6 DONE 0.1s
+E             
+E             #5 [internal] load build context
+E             #5 transferring context: 1.88MB 0.6s done
+E             #5 DONE 0.6s
+E             
+E             #7 [ 6/12] COPY src/ ./src/
+E             #7 CACHED
+E             
+E             #8 [ 7/12] COPY config/ ./config/
+E             #8 CACHED
+E             
+E             #9 [10/12] COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+E             #9 CACHED
+E             
+E             #10 [ 2/12] WORKDIR /app
+E             #10 CACHED
+E             
+E             #11 [ 5/12] RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+E             #11 CACHED
+E             
+E             #12 [ 9/12] COPY infra/build_chunks.py ./infra/build_chunks.py
+E             #12 CACHED
+E             
+E             #13 [ 3/12] RUN apt-get update     && apt-get install -y --no-install-recommends git curl ca-certificates     && rm -rf /var/lib/apt/lists/*     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh     && chmod +x /tmp/dotnet-install.sh     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet     && rm /tmp/dotnet-install.sh
+E             #13 CACHED
+E             
+E             #14 [ 4/12] COPY requirements.lock ./requirements.lock
+E             #14 CACHED
+E             
+E             #15 [ 8/12] COPY infra/ingest.py ./infra/ingest.py
+E             #15 CACHED
+E             
+E             #16 [11/12] COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
+E             #16 CACHED
+E             
+E             #17 [12/12] RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data
+E             #17 CACHED
+E             
+E             #18 exporting to image
+E             #18 exporting layers 0.0s done
+E             #18 exporting manifest sha256:779f5f14fe689ee2b925eac90655535de91cb5844b86f3e5d90c9af167c9d85c done
+E             #18 exporting config sha256:1b60932809ad2bb9c66f17c7daa70147d64672abf8e9a0717c289f93a5831f38 done
+E             #18 exporting attestation manifest sha256:a77a73f4722e9635814f50e95385a886f6b1540780b4d1600b530e2051c324ba
+E             #18 exporting attestation manifest sha256:a77a73f4722e9635814f50e95385a886f6b1540780b4d1600b530e2051c324ba 0.2s done
+E             #18 exporting manifest list sha256:250d13c47bd8153a419df46d9f0877ab9a8dd28b6474894efa2eb7afa6740d73
+E             #18 exporting manifest list sha256:250d13c47bd8153a419df46d9f0877ab9a8dd28b6474894efa2eb7afa6740d73 0.0s done
+E             #18 naming to docker.io/library/foss-mcp-ingestion:local done
+E             #18 unpacking to docker.io/library/foss-mcp-ingestion:local 0.0s done
+E             #18 DONE 0.4s
+E             
+E             #19 resolving provenance for metadata file
+E             #19 DONE 0.1s
+E             Attaching to ingest-pdf-net-1
+E             
+E             [Kingest-pdf-net-1 exited with code 137
+E              foss-mcp-ingestion:local  Built
+E              Network foss-mcp-e2e-tc064_default  Creating
+E              Network foss-mcp-e2e-tc064_default  Created
+E              Volume foss-mcp-e2e-tc064_manifests-pdf-net  Creating
+E              Volume foss-mcp-e2e-tc064_manifests-pdf-net  Created
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Creating
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Created
+E             [31m[1mAborting on container exit...[0m
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopping
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopped
+E             
+E             
+E           assert 137 == 0
+E            +  where 137 = CompletedProcess(args=['docker', 'compose', '-p', 'foss-mcp-e2e-tc064', '-f', 'H:\\Users\\prora\\OneDrive\\Documents\\... Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopping\n Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopped\n\n').returncode
+
+tests\e2e\test_pdf_net_live_content.py:159: AssertionError
+__ ERROR at setup of test_lookup_returns_real_content_from_the_real_fixture ___
+
+    @pytest.fixture(scope="module")
+    def real_generation() -> Iterator[None]:
+        """The real, live first publish: build and run the one-shot ``ingest-pdf-net`` service to
+        completion (this IS the real ingestion the 2026-09-25 audit found never ran anywhere), then
+        bring up ``serving`` against the SAME named volume it just published into.
+    
+        ``docker compose down -v`` first, per the card's own recovery note, so this is idempotent
+        against any stale volume state left by a prior run.
+        """
+        _compose("down", "-v", "--remove-orphans")
+        try:
+            ingest = _compose(
+                "up",
+                "--build",
+                "--exit-code-from",
+                "ingest-pdf-net",
+                "ingest-pdf-net",
+                timeout=INGEST_TIMEOUT_SECONDS,
+            )
+>           assert ingest.returncode == 0, (ingest.stdout + ingest.stderr)[-4000:]
+E           AssertionError: #1 [internal] load local bake definitions
+E             #1 reading from stdin 685B done
+E             #1 DONE 0.0s
+E             
+E             #2 [internal] load build definition from Dockerfile.ingestion
+E             #2 transferring dockerfile: 4.12kB 0.0s done
+E             #2 DONE 0.1s
+E             
+E             #3 [internal] load metadata for docker.io/library/python:3.13-slim
+E             #3 DONE 0.1s
+E             
+E             #4 [internal] load .dockerignore
+E             #4 transferring context: 2B 0.0s done
+E             #4 DONE 0.0s
+E             
+E             #5 [internal] load build context
+E             #5 DONE 0.0s
+E             
+E             #6 [ 1/12] FROM docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74
+E             #6 resolve docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74 0.1s done
+E             #6 DONE 0.1s
+E             
+E             #5 [internal] load build context
+E             #5 transferring context: 1.88MB 0.6s done
+E             #5 DONE 0.6s
+E             
+E             #7 [ 6/12] COPY src/ ./src/
+E             #7 CACHED
+E             
+E             #8 [ 7/12] COPY config/ ./config/
+E             #8 CACHED
+E             
+E             #9 [10/12] COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+E             #9 CACHED
+E             
+E             #10 [ 2/12] WORKDIR /app
+E             #10 CACHED
+E             
+E             #11 [ 5/12] RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+E             #11 CACHED
+E             
+E             #12 [ 9/12] COPY infra/build_chunks.py ./infra/build_chunks.py
+E             #12 CACHED
+E             
+E             #13 [ 3/12] RUN apt-get update     && apt-get install -y --no-install-recommends git curl ca-certificates     && rm -rf /var/lib/apt/lists/*     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh     && chmod +x /tmp/dotnet-install.sh     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet     && rm /tmp/dotnet-install.sh
+E             #13 CACHED
+E             
+E             #14 [ 4/12] COPY requirements.lock ./requirements.lock
+E             #14 CACHED
+E             
+E             #15 [ 8/12] COPY infra/ingest.py ./infra/ingest.py
+E             #15 CACHED
+E             
+E             #16 [11/12] COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
+E             #16 CACHED
+E             
+E             #17 [12/12] RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data
+E             #17 CACHED
+E             
+E             #18 exporting to image
+E             #18 exporting layers 0.0s done
+E             #18 exporting manifest sha256:779f5f14fe689ee2b925eac90655535de91cb5844b86f3e5d90c9af167c9d85c done
+E             #18 exporting config sha256:1b60932809ad2bb9c66f17c7daa70147d64672abf8e9a0717c289f93a5831f38 done
+E             #18 exporting attestation manifest sha256:a77a73f4722e9635814f50e95385a886f6b1540780b4d1600b530e2051c324ba
+E             #18 exporting attestation manifest sha256:a77a73f4722e9635814f50e95385a886f6b1540780b4d1600b530e2051c324ba 0.2s done
+E             #18 exporting manifest list sha256:250d13c47bd8153a419df46d9f0877ab9a8dd28b6474894efa2eb7afa6740d73
+E             #18 exporting manifest list sha256:250d13c47bd8153a419df46d9f0877ab9a8dd28b6474894efa2eb7afa6740d73 0.0s done
+E             #18 naming to docker.io/library/foss-mcp-ingestion:local done
+E             #18 unpacking to docker.io/library/foss-mcp-ingestion:local 0.0s done
+E             #18 DONE 0.4s
+E             
+E             #19 resolving provenance for metadata file
+E             #19 DONE 0.1s
+E             Attaching to ingest-pdf-net-1
+E             
+E             [Kingest-pdf-net-1 exited with code 137
+E              foss-mcp-ingestion:local  Built
+E              Network foss-mcp-e2e-tc064_default  Creating
+E              Network foss-mcp-e2e-tc064_default  Created
+E              Volume foss-mcp-e2e-tc064_manifests-pdf-net  Creating
+E              Volume foss-mcp-e2e-tc064_manifests-pdf-net  Created
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Creating
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Created
+E             [31m[1mAborting on container exit...[0m
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopping
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopped
+E             
+E             
+E           assert 137 == 0
+E            +  where 137 = CompletedProcess(args=['docker', 'compose', '-p', 'foss-mcp-e2e-tc064', '-f', 'H:\\Users\\prora\\OneDrive\\Documents\\... Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopping\n Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopped\n\n').returncode
+
+tests\e2e\test_pdf_net_live_content.py:159: AssertionError
+_ ERROR at setup of test_find_examples_returns_the_real_compile_verified_watermark_example _
+
+    @pytest.fixture(scope="module")
+    def real_generation() -> Iterator[None]:
+        """The real, live first publish: build and run the one-shot ``ingest-pdf-net`` service to
+        completion (this IS the real ingestion the 2026-09-25 audit found never ran anywhere), then
+        bring up ``serving`` against the SAME named volume it just published into.
+    
+        ``docker compose down -v`` first, per the card's own recovery note, so this is idempotent
+        against any stale volume state left by a prior run.
+        """
+        _compose("down", "-v", "--remove-orphans")
+        try:
+            ingest = _compose(
+                "up",
+                "--build",
+                "--exit-code-from",
+                "ingest-pdf-net",
+                "ingest-pdf-net",
+                timeout=INGEST_TIMEOUT_SECONDS,
+            )
+>           assert ingest.returncode == 0, (ingest.stdout + ingest.stderr)[-4000:]
+E           AssertionError: #1 [internal] load local bake definitions
+E             #1 reading from stdin 685B done
+E             #1 DONE 0.0s
+E             
+E             #2 [internal] load build definition from Dockerfile.ingestion
+E             #2 transferring dockerfile: 4.12kB 0.0s done
+E             #2 DONE 0.1s
+E             
+E             #3 [internal] load metadata for docker.io/library/python:3.13-slim
+E             #3 DONE 0.1s
+E             
+E             #4 [internal] load .dockerignore
+E             #4 transferring context: 2B 0.0s done
+E             #4 DONE 0.0s
+E             
+E             #5 [internal] load build context
+E             #5 DONE 0.0s
+E             
+E             #6 [ 1/12] FROM docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74
+E             #6 resolve docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74 0.1s done
+E             #6 DONE 0.1s
+E             
+E             #5 [internal] load build context
+E             #5 transferring context: 1.88MB 0.6s done
+E             #5 DONE 0.6s
+E             
+E             #7 [ 6/12] COPY src/ ./src/
+E             #7 CACHED
+E             
+E             #8 [ 7/12] COPY config/ ./config/
+E             #8 CACHED
+E             
+E             #9 [10/12] COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+E             #9 CACHED
+E             
+E             #10 [ 2/12] WORKDIR /app
+E             #10 CACHED
+E             
+E             #11 [ 5/12] RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+E             #11 CACHED
+E             
+E             #12 [ 9/12] COPY infra/build_chunks.py ./infra/build_chunks.py
+E             #12 CACHED
+E             
+E             #13 [ 3/12] RUN apt-get update     && apt-get install -y --no-install-recommends git curl ca-certificates     && rm -rf /var/lib/apt/lists/*     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh     && chmod +x /tmp/dotnet-install.sh     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet     && rm /tmp/dotnet-install.sh
+E             #13 CACHED
+E             
+E             #14 [ 4/12] COPY requirements.lock ./requirements.lock
+E             #14 CACHED
+E             
+E             #15 [ 8/12] COPY infra/ingest.py ./infra/ingest.py
+E             #15 CACHED
+E             
+E             #16 [11/12] COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
+E             #16 CACHED
+E             
+E             #17 [12/12] RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data
+E             #17 CACHED
+E             
+E             #18 exporting to image
+E             #18 exporting layers 0.0s done
+E             #18 exporting manifest sha256:779f5f14fe689ee2b925eac90655535de91cb5844b86f3e5d90c9af167c9d85c done
+E             #18 exporting config sha256:1b60932809ad2bb9c66f17c7daa70147d64672abf8e9a0717c289f93a5831f38 done
+E             #18 exporting attestation manifest sha256:a77a73f4722e9635814f50e95385a886f6b1540780b4d1600b530e2051c324ba
+E             #18 exporting attestation manifest sha256:a77a73f4722e9635814f50e95385a886f6b1540780b4d1600b530e2051c324ba 0.2s done
+E             #18 exporting manifest list sha256:250d13c47bd8153a419df46d9f0877ab9a8dd28b6474894efa2eb7afa6740d73
+E             #18 exporting manifest list sha256:250d13c47bd8153a419df46d9f0877ab9a8dd28b6474894efa2eb7afa6740d73 0.0s done
+E             #18 naming to docker.io/library/foss-mcp-ingestion:local done
+E             #18 unpacking to docker.io/library/foss-mcp-ingestion:local 0.0s done
+E             #18 DONE 0.4s
+E             
+E             #19 resolving provenance for metadata file
+E             #19 DONE 0.1s
+E             Attaching to ingest-pdf-net-1
+E             
+E             [Kingest-pdf-net-1 exited with code 137
+E              foss-mcp-ingestion:local  Built
+E              Network foss-mcp-e2e-tc064_default  Creating
+E              Network foss-mcp-e2e-tc064_default  Created
+E              Volume foss-mcp-e2e-tc064_manifests-pdf-net  Creating
+E              Volume foss-mcp-e2e-tc064_manifests-pdf-net  Created
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Creating
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Created
+E             [31m[1mAborting on container exit...[0m
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopping
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopped
+E             
+E             
+E           assert 137 == 0
+E            +  where 137 = CompletedProcess(args=['docker', 'compose', '-p', 'foss-mcp-e2e-tc064', '-f', 'H:\\Users\\prora\\OneDrive\\Documents\\... Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopping\n Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopped\n\n').returncode
+
+tests\e2e\test_pdf_net_live_content.py:159: AssertionError
+_ ERROR at setup of test_lookup_composes_the_real_task_answer_for_the_watermark_question _
+
+    @pytest.fixture(scope="module")
+    def real_generation() -> Iterator[None]:
+        """The real, live first publish: build and run the one-shot ``ingest-pdf-net`` service to
+        completion (this IS the real ingestion the 2026-09-25 audit found never ran anywhere), then
+        bring up ``serving`` against the SAME named volume it just published into.
+    
+        ``docker compose down -v`` first, per the card's own recovery note, so this is idempotent
+        against any stale volume state left by a prior run.
+        """
+        _compose("down", "-v", "--remove-orphans")
+        try:
+            ingest = _compose(
+                "up",
+                "--build",
+                "--exit-code-from",
+                "ingest-pdf-net",
+                "ingest-pdf-net",
+                timeout=INGEST_TIMEOUT_SECONDS,
+            )
+>           assert ingest.returncode == 0, (ingest.stdout + ingest.stderr)[-4000:]
+E           AssertionError: #1 [internal] load local bake definitions
+E             #1 reading from stdin 685B done
+E             #1 DONE 0.0s
+E             
+E             #2 [internal] load build definition from Dockerfile.ingestion
+E             #2 transferring dockerfile: 4.12kB 0.0s done
+E             #2 DONE 0.1s
+E             
+E             #3 [internal] load metadata for docker.io/library/python:3.13-slim
+E             #3 DONE 0.1s
+E             
+E             #4 [internal] load .dockerignore
+E             #4 transferring context: 2B 0.0s done
+E             #4 DONE 0.0s
+E             
+E             #5 [internal] load build context
+E             #5 DONE 0.0s
+E             
+E             #6 [ 1/12] FROM docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74
+E             #6 resolve docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74 0.1s done
+E             #6 DONE 0.1s
+E             
+E             #5 [internal] load build context
+E             #5 transferring context: 1.88MB 0.6s done
+E             #5 DONE 0.6s
+E             
+E             #7 [ 6/12] COPY src/ ./src/
+E             #7 CACHED
+E             
+E             #8 [ 7/12] COPY config/ ./config/
+E             #8 CACHED
+E             
+E             #9 [10/12] COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+E             #9 CACHED
+E             
+E             #10 [ 2/12] WORKDIR /app
+E             #10 CACHED
+E             
+E             #11 [ 5/12] RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+E             #11 CACHED
+E             
+E             #12 [ 9/12] COPY infra/build_chunks.py ./infra/build_chunks.py
+E             #12 CACHED
+E             
+E             #13 [ 3/12] RUN apt-get update     && apt-get install -y --no-install-recommends git curl ca-certificates     && rm -rf /var/lib/apt/lists/*     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh     && chmod +x /tmp/dotnet-install.sh     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet     && rm /tmp/dotnet-install.sh
+E             #13 CACHED
+E             
+E             #14 [ 4/12] COPY requirements.lock ./requirements.lock
+E             #14 CACHED
+E             
+E             #15 [ 8/12] COPY infra/ingest.py ./infra/ingest.py
+E             #15 CACHED
+E             
+E             #16 [11/12] COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
+E             #16 CACHED
+E             
+E             #17 [12/12] RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data
+E             #17 CACHED
+E             
+E             #18 exporting to image
+E             #18 exporting layers 0.0s done
+E             #18 exporting manifest sha256:779f5f14fe689ee2b925eac90655535de91cb5844b86f3e5d90c9af167c9d85c done
+E             #18 exporting config sha256:1b60932809ad2bb9c66f17c7daa70147d64672abf8e9a0717c289f93a5831f38 done
+E             #18 exporting attestation manifest sha256:a77a73f4722e9635814f50e95385a886f6b1540780b4d1600b530e2051c324ba
+E             #18 exporting attestation manifest sha256:a77a73f4722e9635814f50e95385a886f6b1540780b4d1600b530e2051c324ba 0.2s done
+E             #18 exporting manifest list sha256:250d13c47bd8153a419df46d9f0877ab9a8dd28b6474894efa2eb7afa6740d73
+E             #18 exporting manifest list sha256:250d13c47bd8153a419df46d9f0877ab9a8dd28b6474894efa2eb7afa6740d73 0.0s done
+E             #18 naming to docker.io/library/foss-mcp-ingestion:local done
+E             #18 unpacking to docker.io/library/foss-mcp-ingestion:local 0.0s done
+E             #18 DONE 0.4s
+E             
+E             #19 resolving provenance for metadata file
+E             #19 DONE 0.1s
+E             Attaching to ingest-pdf-net-1
+E             
+E             [Kingest-pdf-net-1 exited with code 137
+E              foss-mcp-ingestion:local  Built
+E              Network foss-mcp-e2e-tc064_default  Creating
+E              Network foss-mcp-e2e-tc064_default  Created
+E              Volume foss-mcp-e2e-tc064_manifests-pdf-net  Creating
+E              Volume foss-mcp-e2e-tc064_manifests-pdf-net  Created
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Creating
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Created
+E             [31m[1mAborting on container exit...[0m
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopping
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopped
+E             
+E             
+E           assert 137 == 0
+E            +  where 137 = CompletedProcess(args=['docker', 'compose', '-p', 'foss-mcp-e2e-tc064', '-f', 'H:\\Users\\prora\\OneDrive\\Documents\\... Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopping\n Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopped\n\n').returncode
+
+tests\e2e\test_pdf_net_live_content.py:159: AssertionError
+_ ERROR at setup of test_get_symbol_returns_the_real_enum_members_for_afrelationship _
+
+    @pytest.fixture(scope="module")
+    def real_generation() -> Iterator[None]:
+        """The real, live first publish: build and run the one-shot ``ingest-pdf-net`` service to
+        completion (this IS the real ingestion the 2026-09-25 audit found never ran anywhere), then
+        bring up ``serving`` against the SAME named volume it just published into.
+    
+        ``docker compose down -v`` first, per the card's own recovery note, so this is idempotent
+        against any stale volume state left by a prior run.
+        """
+        _compose("down", "-v", "--remove-orphans")
+        try:
+            ingest = _compose(
+                "up",
+                "--build",
+                "--exit-code-from",
+                "ingest-pdf-net",
+                "ingest-pdf-net",
+                timeout=INGEST_TIMEOUT_SECONDS,
+            )
+>           assert ingest.returncode == 0, (ingest.stdout + ingest.stderr)[-4000:]
+E           AssertionError: #1 [internal] load local bake definitions
+E             #1 reading from stdin 685B done
+E             #1 DONE 0.0s
+E             
+E             #2 [internal] load build definition from Dockerfile.ingestion
+E             #2 transferring dockerfile: 4.12kB 0.0s done
+E             #2 DONE 0.1s
+E             
+E             #3 [internal] load metadata for docker.io/library/python:3.13-slim
+E             #3 DONE 0.1s
+E             
+E             #4 [internal] load .dockerignore
+E             #4 transferring context: 2B 0.0s done
+E             #4 DONE 0.0s
+E             
+E             #5 [internal] load build context
+E             #5 DONE 0.0s
+E             
+E             #6 [ 1/12] FROM docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74
+E             #6 resolve docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74 0.1s done
+E             #6 DONE 0.1s
+E             
+E             #5 [internal] load build context
+E             #5 transferring context: 1.88MB 0.6s done
+E             #5 DONE 0.6s
+E             
+E             #7 [ 6/12] COPY src/ ./src/
+E             #7 CACHED
+E             
+E             #8 [ 7/12] COPY config/ ./config/
+E             #8 CACHED
+E             
+E             #9 [10/12] COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+E             #9 CACHED
+E             
+E             #10 [ 2/12] WORKDIR /app
+E             #10 CACHED
+E             
+E             #11 [ 5/12] RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+E             #11 CACHED
+E             
+E             #12 [ 9/12] COPY infra/build_chunks.py ./infra/build_chunks.py
+E             #12 CACHED
+E             
+E             #13 [ 3/12] RUN apt-get update     && apt-get install -y --no-install-recommends git curl ca-certificates     && rm -rf /var/lib/apt/lists/*     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh     && chmod +x /tmp/dotnet-install.sh     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet     && rm /tmp/dotnet-install.sh
+E             #13 CACHED
+E             
+E             #14 [ 4/12] COPY requirements.lock ./requirements.lock
+E             #14 CACHED
+E             
+E             #15 [ 8/12] COPY infra/ingest.py ./infra/ingest.py
+E             #15 CACHED
+E             
+E             #16 [11/12] COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
+E             #16 CACHED
+E             
+E             #17 [12/12] RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data
+E             #17 CACHED
+E             
+E             #18 exporting to image
+E             #18 exporting layers 0.0s done
+E             #18 exporting manifest sha256:779f5f14fe689ee2b925eac90655535de91cb5844b86f3e5d90c9af167c9d85c done
+E             #18 exporting config sha256:1b60932809ad2bb9c66f17c7daa70147d64672abf8e9a0717c289f93a5831f38 done
+E             #18 exporting attestation manifest sha256:a77a73f4722e9635814f50e95385a886f6b1540780b4d1600b530e2051c324ba
+E             #18 exporting attestation manifest sha256:a77a73f4722e9635814f50e95385a886f6b1540780b4d1600b530e2051c324ba 0.2s done
+E             #18 exporting manifest list sha256:250d13c47bd8153a419df46d9f0877ab9a8dd28b6474894efa2eb7afa6740d73
+E             #18 exporting manifest list sha256:250d13c47bd8153a419df46d9f0877ab9a8dd28b6474894efa2eb7afa6740d73 0.0s done
+E             #18 naming to docker.io/library/foss-mcp-ingestion:local done
+E             #18 unpacking to docker.io/library/foss-mcp-ingestion:local 0.0s done
+E             #18 DONE 0.4s
+E             
+E             #19 resolving provenance for metadata file
+E             #19 DONE 0.1s
+E             Attaching to ingest-pdf-net-1
+E             
+E             [Kingest-pdf-net-1 exited with code 137
+E              foss-mcp-ingestion:local  Built
+E              Network foss-mcp-e2e-tc064_default  Creating
+E              Network foss-mcp-e2e-tc064_default  Created
+E              Volume foss-mcp-e2e-tc064_manifests-pdf-net  Creating
+E              Volume foss-mcp-e2e-tc064_manifests-pdf-net  Created
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Creating
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Created
+E             [31m[1mAborting on container exit...[0m
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopping
+E              Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopped
+E             
+E             
+E           assert 137 == 0
+E            +  where 137 = CompletedProcess(args=['docker', 'compose', '-p', 'foss-mcp-e2e-tc064', '-f', 'H:\\Users\\prora\\OneDrive\\Documents\\... Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopping\n Container foss-mcp-e2e-tc064-ingest-pdf-net-1  Stopped\n\n').returncode
+
+tests\e2e\test_pdf_net_live_content.py:159: AssertionError
+=========================== short test summary info ===========================
+ERROR tests/e2e/test_pdf_net_live_content.py::test_readyz_is_ready_after_the_real_ingestion_publish
+ERROR tests/e2e/test_pdf_net_live_content.py::test_report_index_freshness_reports_the_real_fresh_generation
+ERROR tests/e2e/test_pdf_net_live_content.py::test_search_symbols_returns_real_content_from_the_real_fixture
+ERROR tests/e2e/test_pdf_net_live_content.py::test_lookup_returns_real_content_from_the_real_fixture
+ERROR tests/e2e/test_pdf_net_live_content.py::test_find_examples_returns_the_real_compile_verified_watermark_example
+ERROR tests/e2e/test_pdf_net_live_content.py::test_lookup_composes_the_real_task_answer_for_the_watermark_question
+ERROR tests/e2e/test_pdf_net_live_content.py::test_get_symbol_returns_the_real_enum_members_for_afrelationship
+
+--- stderr ---
+
