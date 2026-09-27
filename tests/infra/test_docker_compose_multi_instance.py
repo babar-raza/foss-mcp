@@ -35,7 +35,7 @@ def _load_services() -> dict:
     with COMPOSE_PATH.open("r", encoding="utf-8") as f:
         doc = yaml.safe_load(f)
     assert "services" in doc, "docker-compose.yml has no top-level 'services' key"
-    return doc["services"]
+    return {name: svc for name, svc in doc["services"].items() if "ports" in svc}
 
 
 def _port_mapping(service: dict) -> tuple[str, str]:
