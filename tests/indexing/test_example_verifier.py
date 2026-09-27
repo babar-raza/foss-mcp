@@ -1,12 +1,13 @@
 """Tests for src/foss_mcp/indexing/example_verifier.py (REQ-G2-048).
 
-Real network, real git clone, real dotnet build - twice, once for the
-reference library and once per candidate. Nothing here is mocked: the whole
-point of this card is that a candidate example's verdict comes from a real
-compiler, not from a guess about what it should do.
+Real network, real git clone, real toolchain builds/execution - nothing
+here is mocked: the whole point of this card is that a candidate example's
+verdict comes from a real compiler or interpreter, not from a guess about
+what it should do.
 
-This is genuinely slow (shallow clone + NuGet restore + two dotnet builds)
-and requires network access and a .NET 8 SDK.
+This is genuinely slow (shallow clones + a pip install into a fresh venv,
+a cargo build pulling ~90 crates, and two go builds) and requires network
+access plus a Python 3, a Rust/cargo, and a Go toolchain.
 """
 
 from __future__ import annotations
@@ -15,88 +16,260 @@ import dataclasses
 from pathlib import Path
 
 import pytest
-import yaml
 
-from foss_mcp.indexing.example_candidates import (
-    CandidateExample,
-    extract_candidate_examples,
-)
+from foss_mcp.indexing.example_candidates import CandidateExample
 from foss_mcp.indexing.example_verifier import (
     VerificationResult,
-    prepare_reference_library,
-    verify_dotnet_example,
+    prepare_go_library,
+    prepare_python_library,
+    prepare_rust_library,
+    verify_go_example,
+    verify_python_example,
+    verify_rust_example,
 )
 
-# Pinned exactly as indexed - matches config/products/pdf/net.yaml's
-# `repository` and tests/fixtures/pdf_net/api_surface.json's own
-# `source_commit`. Never "latest".
-REPOSITORY = "aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET"
-COMMIT = "b7172877651413cff57a8bfe41fb8a8befb2406b"
-CSPROJ_RELATIVE_PATH = "src/Aspose.Pdf.Foss.csproj"
+# --- slides/python -----------------------------------------------------
+# Pinned exactly as indexed - matches tests/fixtures/slides_python/api_surface.json's
+# own `source_commit`. Never "latest".
+PYTHON_REPOSITORY = "aspose-slides-foss/Aspose.Slides-FOSS-for-Python"
+PYTHON_COMMIT = "4e63447ba79d1c27a5192844847d9f872c5b92ad"
 
-REAL_FIXTURE = Path("tests/fixtures/furnished/pdf_net/pages/_index.md")
+_PYTHON_WORKING_CODE = """\
+import aspose.slides_foss as slides
+from aspose.slides_foss.export import SaveFormat
 
-LINK_ANNOTATION_TITLE = "Open a PDF, Add a Link Annotation, and Save"
+with slides.Presentation() as prs:
+    slide = prs.slides[0]
+    assert len(prs.slides) == 1
+    prs.save("output.pptx", SaveFormat.PPTX)
+"""
+
+_PYTHON_BROKEN_CODE = """\
+import aspose.slides_foss as slides
+
+with slides.Presentation() as prs:
+    slide = prs.slides[0]
+    undefined_function_call_that_does_not_exist()
+"""
+
+# --- cells/rust ----------------------------------------------------------
+# Pinned exactly as indexed. This repo's default branch is `master`, not
+# `main` - irrelevant once pinned to the exact commit below.
+RUST_REPOSITORY = "aspose-cells-foss/Aspose.Cells-FOSS-for-Rust"
+RUST_COMMIT = "1a6004af47b1ef15385f9d36d381a8172428cc7e"
+RUST_CRATE_NAME = "aspose-cells-foss-rust"
+
+_RUST_WORKING_CODE = """\
+use aspose_cells_foss_rust::Workbook;
+
+fn main() {
+    let mut workbook = Workbook::new();
+    {
+        let mut worksheets = workbook.get_worksheets_mut();
+        let sheet = worksheets.get(0).expect("sheet 0 exists");
+        let mut cells = sheet.get_cells_mut();
+        cells
+            .get("A1")
+            .expect("A1 cell")
+            .put_value_string("Hello")
+            .expect("set value");
+    }
+    workbook.save("output.xlsx").expect("save workbook");
+}
+"""
+
+_RUST_BROKEN_CODE = """\
+use aspose_cells_foss_rust::Workbook;
+
+fn main() {
+    let mut workbook = Workbook::new();
+    workbook.frobnicate_nonexistent_method_that_does_not_exist();
+}
+"""
+
+# --- pdf/go ----------------------------------------------------------------
+# Pinned exactly as indexed. Note the dash in the repo name, not a dot.
+GO_REPOSITORY = "aspose-pdf-foss/Aspose-PDF-FOSS-for-Go"
+GO_COMMIT = "286484d235196d65c9a458c5eff3d3d6539216dc"
+GO_MODULE_PATH = "github.com/aspose-pdf-foss/aspose-pdf-foss-for-go"
+
+_GO_WORKING_CODE = """\
+package main
+
+import (
+\t"log"
+
+\tpdf "github.com/aspose-pdf-foss/aspose-pdf-foss-for-go"
+)
+
+func main() {
+\tdoc := pdf.NewDocument(595, 842)
+\tif err := doc.Save("output.pdf"); err != nil {
+\t\tlog.Fatalf("save: %v", err)
+\t}
+}
+"""
+
+_GO_BROKEN_CODE = """\
+package main
+
+import (
+\tpdf "github.com/aspose-pdf-foss/aspose-pdf-foss-for-go"
+)
+
+func main() {
+\tdoc := pdf.NewDocument(595, 842)
+\tdoc.FrobnicateNonexistentMethodThatDoesNotExist()
+}
+"""
 
 
-def _load_real_page() -> dict:
-    text = REAL_FIXTURE.read_text(encoding="utf-8")
-    front_matter = text.split("---", 2)[1]
-    parsed = yaml.safe_load(front_matter)
-    assert isinstance(parsed, dict)
-    return parsed
+def _candidate(title: str, language: str, code: str) -> CandidateExample:
+    return CandidateExample(title=title, description="", language=language, code=code)
 
 
-def _link_annotation_candidate() -> CandidateExample:
-    """The real, already-known-broken candidate from TC-066's real
-    extraction of the real furnished fixture: it uses `PdfAction` without
-    importing `Aspose.Pdf.Annotations`.
-    """
-    page = _load_real_page()
-    candidates = extract_candidate_examples(page)
-    return next(c for c in candidates if c.title == LINK_ANNOTATION_TITLE)
+# --- Python fixtures/tests -------------------------------------------------
 
 
 @pytest.fixture(scope="module")
-def reference_library(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    workdir = tmp_path_factory.mktemp("pdf_net_reference")
-    return prepare_reference_library(
-        repository=REPOSITORY,
-        commit=COMMIT,
-        csproj_relative_path=CSPROJ_RELATIVE_PATH,
+def python_venv(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    workdir = tmp_path_factory.mktemp("slides_python_reference")
+    return prepare_python_library(
+        repository=PYTHON_REPOSITORY,
+        commit=PYTHON_COMMIT,
         workdir=workdir,
     )
 
 
-def test_prepare_reference_library_builds_the_real_pinned_commit(
-    reference_library: Path,
-) -> None:
-    assert reference_library.exists()
-    assert reference_library.name == "Aspose.Pdf.Foss.csproj"
+def test_prepare_python_library_installs_the_real_pinned_commit(python_venv: Path) -> None:
+    assert python_venv.exists()
+    assert python_venv.stem == "python"
 
 
-def test_known_broken_candidate_fails_real_compile(reference_library: Path, tmp_path: Path) -> None:
-    candidate = _link_annotation_candidate()
-    assert "PdfAction" in candidate.code
-    assert "using Aspose.Pdf.Annotations;" not in candidate.code
+def test_python_known_working_candidate_runs_clean(python_venv: Path, tmp_path: Path) -> None:
+    candidate = _candidate("Create a presentation", "python", _PYTHON_WORKING_CODE)
 
-    result = verify_dotnet_example(candidate, library_csproj=reference_library, workdir=tmp_path)
+    result = verify_python_example(candidate, venv_python=python_venv, workdir=tmp_path)
 
     assert isinstance(result, VerificationResult)
     assert result.candidate == candidate
+    assert result.verified is True, result.output
+
+
+def test_python_known_broken_candidate_fails_with_real_exception(python_venv: Path, tmp_path: Path) -> None:
+    candidate = _candidate("Broken presentation", "python", _PYTHON_BROKEN_CODE)
+
+    result = verify_python_example(candidate, venv_python=python_venv, workdir=tmp_path)
+
     assert result.verified is False
-    assert "PdfAction" in result.output or "CS0103" in result.output
+    assert "NameError" in result.output
+    assert "undefined_function_call_that_does_not_exist" in result.output
 
 
-def test_known_broken_candidate_compiles_once_missing_using_is_added(
-    reference_library: Path, tmp_path: Path
-) -> None:
-    candidate = _link_annotation_candidate()
-    # The real extracted candidate's code, plus the one missing line -
-    # never a hand-written, different snippet.
-    corrected_code = "using Aspose.Pdf.Annotations;\n" + candidate.code
+# --- Rust fixtures/tests -----------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def rust_library(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    workdir = tmp_path_factory.mktemp("cells_rust_reference")
+    return prepare_rust_library(
+        repository=RUST_REPOSITORY,
+        commit=RUST_COMMIT,
+        workdir=workdir,
+    )
+
+
+def test_prepare_rust_library_builds_the_real_pinned_commit(rust_library: Path) -> None:
+    assert rust_library.exists()
+    assert (rust_library / "Cargo.toml").exists()
+
+
+def test_rust_known_working_candidate_builds_clean(rust_library: Path, tmp_path: Path) -> None:
+    candidate = _candidate("Write a cell", "rust", _RUST_WORKING_CODE)
+
+    result = verify_rust_example(
+        candidate,
+        library_crate_name=RUST_CRATE_NAME,
+        library_dir=rust_library,
+        workdir=tmp_path,
+    )
+
+    assert isinstance(result, VerificationResult)
+    assert result.candidate == candidate
+    assert result.verified is True, result.output
+
+
+def test_rust_known_broken_candidate_fails_real_compile(rust_library: Path, tmp_path: Path) -> None:
+    candidate = _candidate("Broken cell", "rust", _RUST_BROKEN_CODE)
+
+    result = verify_rust_example(
+        candidate,
+        library_crate_name=RUST_CRATE_NAME,
+        library_dir=rust_library,
+        workdir=tmp_path,
+    )
+
+    assert result.verified is False
+    assert "E0599" in result.output or "frobnicate_nonexistent_method_that_does_not_exist" in result.output
+
+
+# --- Go fixtures/tests -------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def go_library(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    workdir = tmp_path_factory.mktemp("pdf_go_reference")
+    return prepare_go_library(
+        repository=GO_REPOSITORY,
+        commit=GO_COMMIT,
+        workdir=workdir,
+    )
+
+
+def test_prepare_go_library_builds_the_real_pinned_commit(go_library: Path) -> None:
+    assert go_library.exists()
+    assert (go_library / "go.mod").exists()
+
+
+def test_go_known_working_candidate_builds_clean(go_library: Path, tmp_path: Path) -> None:
+    candidate = _candidate("Create a blank document", "go", _GO_WORKING_CODE)
+
+    result = verify_go_example(
+        candidate,
+        module_path=GO_MODULE_PATH,
+        library_dir=go_library,
+        workdir=tmp_path,
+    )
+
+    assert isinstance(result, VerificationResult)
+    assert result.candidate == candidate
+    assert result.verified is True, result.output
+
+
+def test_go_known_broken_candidate_fails_real_compile(go_library: Path, tmp_path: Path) -> None:
+    candidate = _candidate("Broken document", "go", _GO_BROKEN_CODE)
+
+    result = verify_go_example(
+        candidate,
+        module_path=GO_MODULE_PATH,
+        library_dir=go_library,
+        workdir=tmp_path,
+    )
+
+    assert result.verified is False
+    assert "FrobnicateNonexistentMethodThatDoesNotExist" in result.output
+
+
+def test_dataclasses_replace_still_works_on_candidate_example(python_venv: Path, tmp_path: Path) -> None:
+    """Sanity check mirroring the pdf/net suite's own use of
+    dataclasses.replace to build a corrected variant from a real
+    candidate, kept here so a future change to CandidateExample's shape
+    is caught by every language's suite, not just pdf/net's.
+    """
+    candidate = _candidate("Broken presentation", "python", _PYTHON_BROKEN_CODE)
+    corrected_code = _PYTHON_WORKING_CODE
     corrected_candidate = dataclasses.replace(candidate, code=corrected_code)
 
-    result = verify_dotnet_example(corrected_candidate, library_csproj=reference_library, workdir=tmp_path)
+    result = verify_python_example(corrected_candidate, venv_python=python_venv, workdir=tmp_path)
 
     assert result.verified is True, result.output
