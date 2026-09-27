@@ -67,6 +67,10 @@ REAL_EXAMPLE_SYMBOL = "AddWatermarkAnnotation"
 # multiple times today, to make ``lookup`` compose a real ``TaskAnswer`` carrying the real
 # AddWatermarkAnnotation example above. This exact string is required verbatim - the card's
 # own negative control corrupts it, and that corruption must break this test's assertions.
+# TC-089: this literal is load-bearing for a genuinely falsifying negative control that
+# replaces the ENTIRE query with unrelated nonsense (not merely appends noise to it), so the
+# real matching keywords ("watermark", "PDF") are actually removed and the lookup assertions
+# below actually break.
 REAL_TASK_QUERY = "how do I add a watermark to a PDF"
 
 # REQ-G2-047 (TC-080 companion): the real enum FQN (``class_import``, not the bare ``name``)
