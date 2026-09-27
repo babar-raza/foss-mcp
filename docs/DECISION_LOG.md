@@ -619,3 +619,49 @@ across sessions/model changes - this exact class of defect (an identity check ti
 model name rather than to the actual behavioral contract, i.e. "produces a Co-Authored-By Claude
 trailer and isn't tagged for this card") should be watched for elsewhere in this project's own
 tooling if a future session changes which model plays which role again.
+
+## 2026-09-27 — TC-079 exposed pre-existing debt outside its own scope; corrected via TC-083, not by editing TC-079
+TC-079 (ruff lint/format cleanup, `G2/REQ-G2-047`) landed as commit `7b5d11d0` with its own 14
+declared `write_paths` genuinely clean - independently reconfirmed by re-running `ruff check`/
+`ruff format --check` scoped to exactly those 14 files against the pinned `gatectl` worktree venv
+(ruff 0.16.6): both exit 0.
+
+`gatectl review TC-079` nonetheless reported `REWORK REQUIRED`, because TC-079's check is
+deliberately whole-repo (`ruff check . && ruff format --check .` - REQ-G2-047 means the repo is
+actually clean, not just TC-079's own files), and the fresh pinned worktree surfaced two real,
+pre-existing findings in files TC-079 never declared and correctly did not touch:
+`src/foss_mcp/extraction/manifest_reader.py` (TC-022, UP036 - a dead `sys.version_info>=(3,11)`
+tomllib/tomli branch, invisible under whatever older ruff patch version was active when TC-022 was
+accepted) and `tests/infra/test_docker_compose_multi_instance.py` (TC-023, B007 - an unused loop
+variable).
+
+Per this project's card-immutability design, `verify`/`scope` always read a card's content as of
+its `issue_rev` (`ops/instructions.jsonl`'s pinned `card_sha256`/`issue_rev`), so editing
+`plans/TC-079.yaml` after dispatch cannot change what gets checked - confirmed directly (`review`
+printed `card as of: 62dedb05e3fd`, TC-079's original issue rev, unaffected by any later edit to
+the file). This is deliberate: it stops a card's own check from being silently weakened post-hoc to
+force a pass, and it applies to the supervisor exactly as much as to a worker.
+
+**Decision**: leave TC-079 exactly as issued and committed. Author a small, separately-scoped
+follow-up card, **TC-083**, `write_paths: [src/foss_mcp/extraction/manifest_reader.py]` only, to
+fix the UP036 finding. `test_docker_compose_multi_instance.py`'s B007 finding is deliberately left
+untouched by TC-083 too: reading a live `git diff` on that file today showed a second, concurrently
+active Claude Code session already had that exact rename (`name`->`_name`) applied in its own
+uncommitted working tree - fixing it under TC-083 would have raced that session's in-flight work.
+Once TC-083 lands, `gatectl review TC-079` should pass for real, since both files it never claimed
+will then be clean too.
+
+**A second, self-caught mistake in TC-083's own authoring**: its first committed version listed
+`depends_on: [TC-022, TC-079]` - but TC-083 exists specifically to fix the very thing blocking
+TC-079's own acceptance, so naming TC-079 made TC-083 wait on a card that was, transitively, waiting
+on TC-083. This is the identical class of circular-dependency mistake made and fixed earlier the
+same day for TC-077/TC-078 (see above) - a narrative "this relates to" dependency mistaken for a
+real scope dependency. Caught immediately via `gatectl next` returning `NONE` with TC-083 the only
+uncommitted-work card in the graph; fixed by removing `TC-079` from `depends_on` (commit `6d43681`),
+since TC-083's actual scope (`manifest_reader.py`) never overlaps TC-079's `write_paths` at all.
+
+**Standing lesson**: a card authored specifically to unblock another card's acceptance must never
+list that other card in `depends_on` - the relationship it needs to record is narrative
+(`purpose`/`inputs` text), not a DAG edge, whenever the two cards' `write_paths` are disjoint.
+Before committing any new card, check whether it exists *because* another card is stuck, and if so,
+verify `depends_on` does not point back at it.
