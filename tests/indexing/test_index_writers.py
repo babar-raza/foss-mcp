@@ -10,12 +10,24 @@ production behavior.
 from __future__ import annotations
 
 import hashlib
+import json
+import math
+from collections import Counter
 from collections.abc import Sequence
+from pathlib import Path
 
+import yaml
+
+from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
+from foss_mcp.indexing.example_candidates import extract_candidate_examples
 from foss_mcp.indexing.lexical_index_writer import build_lexical_index, doc_id, query_lexical_index, tokenize
 from foss_mcp.indexing.vector_index_writer import build_vector_index, point_id, query_vector_index
-from foss_mcp.normalization.chunker import Chunk
-from foss_mcp.normalization.document_schema import NOT_CHECKED, Provenance
+from foss_mcp.normalization.chunker import Chunk, chunk_document
+from foss_mcp.normalization.document_schema import NOT_CHECKED, Provenance, SourceKind, make_document
+
+FIXTURES_DIR = Path(__file__).resolve().parents[1] / "fixtures"
+PDF_NET_API_SURFACE = FIXTURES_DIR / "pdf_net" / "api_surface.json"
+PDF_NET_FURNISHED_PAGE = FIXTURES_DIR / "furnished" / "pdf_net" / "pages" / "_index.md"
 
 
 class DeterministicEmbeddingProvider:
@@ -150,3 +162,204 @@ def test_natural_language_query_matches_its_real_symbol_but_not_a_stopword_only_
     # and return no match at all.
     no_match = query_lexical_index(payload, "how do I get to the store", top_k=5)
     assert no_match == []
+
+
+# --- TC-073: camelCase/PascalCase tokenization + Okapi BM25 -----------------------------------
+#
+# Real identifiers below (AddWatermarkAnnotation, GetOrCreateMetadata, AFRelationship) are pulled
+# directly from tests/fixtures/pdf_net/api_surface.json - probed against the real regex before
+# being trusted, per this project's own standing discipline against guessing at pattern-matching
+# behavior (see lexical_index_writer._CASE_SPLIT_RE's own docstring comment).
+
+
+def _pdf_net_fixture() -> dict:
+    return json.loads(PDF_NET_API_SURFACE.read_text(encoding="utf-8"))
+
+
+def _real_identifiers_from_fixture() -> dict[str, str]:
+    """A handful of real identifiers straight from the committed pdf/net fixture, covering
+    PascalCase (multi-word), an acronym-prefixed PascalCase name, and a plain lowercase name -
+    exactly the shapes the case-split regex was probed against before being trusted.
+    """
+    fixture = _pdf_net_fixture()
+    names: dict[str, str] = {}
+    for entry in fixture["types"]:
+        name = entry.get("name", "")
+        if name == "AFRelationship":
+            names["acronym_prefixed"] = name
+        for method in entry.get("methods") or []:
+            method_name = method.get("name", "")
+            if method_name == "AddWatermarkAnnotation":
+                names["pascal_case"] = method_name
+            if method_name == "GetOrCreateMetadata":
+                names["pascal_case_with_stopword"] = method_name
+    assert names.keys() == {"acronym_prefixed", "pascal_case", "pascal_case_with_stopword"}
+    return names
+
+
+def test_tokenize_splits_camelcase_and_pascalcase_identifiers_into_subwords() -> None:
+    """Real identifiers from the committed pdf/net fixture - a natural-language query built
+    from an identifier's constituent words must be able to match it, in addition to the whole,
+    merged identifier still matching an exact-identifier query.
+    """
+    names = _real_identifiers_from_fixture()
+
+    tokens = tokenize(names["pascal_case"])
+    assert names["pascal_case"].lower() in tokens  # AddWatermarkAnnotation, merged
+    assert "add" in tokens
+    assert "watermark" in tokens
+    assert "annotation" in tokens
+
+    # GetOrCreateMetadata - "Or" is itself an English stopword; splitting must not smuggle it
+    # back in as a distinguishing term.
+    tokens = tokenize(names["pascal_case_with_stopword"])
+    assert names["pascal_case_with_stopword"].lower() in tokens
+    assert "get" in tokens
+    assert "create" in tokens
+    assert "metadata" in tokens
+    assert "or" not in tokens
+
+    # AFRelationship - a leading run of capitals immediately before a Titlecase word is kept
+    # together as one acronym unit ("af"), not split letter by letter.
+    tokens = tokenize(names["acronym_prefixed"])
+    assert names["acronym_prefixed"].lower() in tokens
+    assert "af" in tokens
+    assert "relationship" in tokens
+
+    # An ALL-CAPS acronym with nothing following it, and a plain lowercase identifier, are each
+    # left as a single token - splitting only ever ADDS tokens, it never fragments a name that
+    # has no internal case boundary.
+    assert tokenize("URI") == ["uri"]
+    assert tokenize("watermark") == ["watermark"]
+
+
+def _real_enum_chunk_containing_watermark() -> Chunk:
+    """The real ``ArtifactSubtype`` enum chunk, built by this project's own real
+    ``build_chunks_from_api_surface`` (TC-062/TC-065) from the committed pdf/net fixture, sliced
+    to that one type. A real, short (member-list-only) chunk that happens to contain the
+    distinguishing term "watermark" once, as one of its enum member names - the exact real shape
+    the supervisor's own diagnostic script found outranking a much longer, genuinely more
+    relevant example chunk under the old raw-TF-IDF scoring.
+    """
+    fixture = _pdf_net_fixture()
+    (entry,) = [t for t in fixture["types"] if t.get("name") == "ArtifactSubtype"]
+    assert entry["kind"] == "enum_declaration"
+    assert any(member.get("name") == "Watermark" for member in entry["enum_members"])
+    sliced_fixture = {**fixture, "types": [entry]}
+    (chunk,) = build_chunks_from_api_surface(sliced_fixture, title="pdf/net", max_types=1)
+    return chunk
+
+
+def _real_example_chunk_containing_watermark() -> Chunk:
+    """The real, compile-verified "Add a Watermark Annotation" example chunk, built the same
+    way ``infra/build_chunks.py`` (TC-068/TC-069/TC-070) builds a verified example chunk from a
+    real furnished page's real candidate - description, real code, and the trailing
+    ``Source-Commit:`` line included, minus only the real ``verify_dotnet_example`` compile step
+    itself (which needs a live container - REQ-G2-049's own live proof exercises that separately;
+    this unit test's concern is scoring, not compilation).
+    """
+    front_matter = PDF_NET_FURNISHED_PAGE.read_text(encoding="utf-8").split("---", 2)[1]
+    page = yaml.safe_load(front_matter)
+    (candidate,) = [c for c in extract_candidate_examples(page) if c.title == "Add a Watermark Annotation"]
+    commit = "b7172877651413cff57a8bfe41fb8a8befb2406b"
+    doc = make_document(
+        source_kind=SourceKind.FURNISHED,
+        content_type="example",
+        provenance=Provenance(
+            repository="aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET",
+            commit=commit,
+            path=str(PDF_NET_FURNISHED_PAGE),
+        ),
+        evidence_refs=(f"aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET@{commit}",),
+        title=candidate.title,
+        body=(
+            f"# Example: {candidate.title}\n\n"
+            f"FQN: Example: {candidate.title}\n"
+            f"Kind: verified_example\n"
+            f"{candidate.description}\n\n"
+            f"Example:\n{candidate.code}"
+        ),
+    )
+    (chunk,) = chunk_document(doc)
+    return Chunk(
+        chunk.section_title,
+        f"{chunk.text}\nSource-Commit: {commit}",
+        chunk.source_kind,
+        chunk.content_type,
+        chunk.provenance,
+        chunk.trust_tier,
+        chunk.evidence_refs,
+        chunk.validation,
+    )
+
+
+def _old_raw_tf_idf_score(tokens: list[str], query_tokens: list[str], *, n_docs: int, doc_freq: dict[str, int]) -> float:
+    """This module's OLD (pre-TC-073) scoring formula, reproduced here only so this regression
+    test can demonstrate the real ranking it used to produce - not something production code
+    still calls.
+    """
+    tf = Counter(tokens)
+    score = 0.0
+    for term in query_tokens:
+        count = tf.get(term)
+        if not count:
+            continue
+        idf = math.log((n_docs + 1) / (doc_freq.get(term, 0) + 1)) + 1.0
+        score += (count / len(tokens)) * idf
+    return score
+
+
+def test_bm25_ranks_the_longer_real_example_over_the_shorter_real_enum_match() -> None:
+    """Reproduces today's real finding: a real ~19-token enum chunk (ArtifactSubtype, containing
+    "watermark" once as a member name) against a real, longer example chunk (containing
+    "watermark" several times, but diluted by real code, boilerplate, and a 41-character
+    commit-hash token) - both real, both containing the query's one matching term. Under the OLD
+    raw-TF-IDF-ish formula the short, only-incidentally-matching enum chunk out-scored the long,
+    genuinely relevant example chunk purely from dividing by raw document length. Under BM25 the
+    example chunk must rank first instead.
+    """
+    enum_chunk = _real_enum_chunk_containing_watermark()
+    example_chunk = _real_example_chunk_containing_watermark()
+
+    payload = build_lexical_index([enum_chunk, example_chunk], ["enum_c", "example_c"], "gen-1")
+    query_tokens = tokenize("watermark")
+
+    enum_tokens = payload["documents"][doc_id("gen-1", "enum_c")]["tokens"]
+    example_tokens = payload["documents"][doc_id("gen-1", "example_c")]["tokens"]
+    n_docs = len(payload["documents"])
+    doc_freq = payload["doc_freq"]
+
+    old_enum_score = _old_raw_tf_idf_score(enum_tokens, query_tokens, n_docs=n_docs, doc_freq=doc_freq)
+    old_example_score = _old_raw_tf_idf_score(example_tokens, query_tokens, n_docs=n_docs, doc_freq=doc_freq)
+    # The real regression this card fixes: under the old formula, the short enum chunk actually
+    # outranks the long, genuinely relevant example chunk.
+    assert old_enum_score > old_example_score
+
+    bm25_order = query_lexical_index(payload, "watermark", top_k=5)
+    assert bm25_order[0] == doc_id("gen-1", "example_c")
+
+
+def test_bm25_exact_rare_term_query_still_returns_the_correct_chunk() -> None:
+    """BM25 must not regress exact, rare-term matching: querying the real, distinctive symbol
+    name "AFRelationship" must still return its own chunk first, ahead of an unrelated chunk
+    that shares no distinguishing term with it.
+    """
+    fixture = _pdf_net_fixture()
+    (af_entry,) = [t for t in fixture["types"] if t.get("name") == "AFRelationship"]
+    assert af_entry["kind"] == "enum_declaration"
+    sliced_fixture = {**fixture, "types": [af_entry]}
+    (af_chunk,) = build_chunks_from_api_surface(sliced_fixture, title="pdf/net", max_types=1)
+
+    unrelated_chunk = Chunk(
+        "Page",
+        "A Page belongs to a PageCollection.",
+        "self_extracted",
+        "api_surface",
+        af_chunk.provenance,
+        "highest",
+        (),
+        NOT_CHECKED,
+    )
+
+    payload = build_lexical_index([af_chunk, unrelated_chunk], ["af_c", "page_c"], "gen-1")
+    assert query_lexical_index(payload, "AFRelationship", top_k=5) == [doc_id("gen-1", "af_c")]
