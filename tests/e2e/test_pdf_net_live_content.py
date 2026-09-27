@@ -63,6 +63,18 @@ REAL_SOURCE_COMMIT = "b7172877651413cff57a8bfe41fb8a8befb2406b"
 # candidate's real code uses - never a guess at what a container might return.
 REAL_EXAMPLE_SYMBOL = "AddWatermarkAnnotation"
 
+# REQ-G2-050 (TC-080): the exact literal, API-naive task question CONFIRMED live, by hand,
+# multiple times today, to make ``lookup`` compose a real ``TaskAnswer`` carrying the real
+# AddWatermarkAnnotation example above. This exact string is required verbatim - the card's
+# own negative control corrupts it, and that corruption must break this test's assertions.
+REAL_TASK_QUERY = "how do I add a watermark to a PDF"
+
+# REQ-G2-047 (TC-080 companion): the real enum FQN (``class_import``, not the bare ``name``)
+# TC-011's own real fixture carries for Aspose.Pdf.AFRelationship, and one of its 7 real
+# enum_members - real, distinctive values a stub or an empty index could never produce.
+REAL_ENUM_FQN = "Aspose.Pdf.AFRelationship"
+REAL_ENUM_MEMBER = "EncryptedPayload"
+
 VALID_HEADERS = {
     "Accept": "application/json, text/event-stream",
     "Content-Type": "application/json",
@@ -257,3 +269,42 @@ def test_find_examples_returns_the_real_compile_verified_watermark_example(
     result = body["result"]["structuredContent"]["result"]
     assert isinstance(result, list) and result, f"expected real ExampleMatch(es), got a Miss: {result}"
     assert any(REAL_EXAMPLE_SYMBOL in match["snippet"] for match in result), result
+
+
+def test_lookup_composes_the_real_task_answer_for_the_watermark_question(
+    session: _McpSession,
+) -> None:
+    """REQ-G2-050 (TC-080): the developer-context vision's own concrete target, now a PERMANENT,
+    automated test - not only the supervisor's repeated manual, ephemeral hand-verification.
+
+    The real ``lookup`` tool (never ``find_examples`` directly - a caller with no prior API
+    knowledge asking a real, API-naive task question) with the EXACT literal query CONFIRMED
+    live, by hand, multiple times today: through the real running pdf/net container, this reads
+    as a task question (``_looks_like_a_task_question``), so ``lookup`` composes a real
+    ``TaskAnswer`` - ``doc_matches`` (empty here, since no getting_started/developer_guide/
+    troubleshooting/faq content has ever been published for this pilot) plus the same real,
+    compile-verified ``AddWatermarkAnnotation`` example ``find_examples`` itself proves above,
+    carrying the real source commit ``infra/build_chunks.py`` appends to every real chunk's text.
+    """
+    body = session.call_tool("lookup", {"query": REAL_TASK_QUERY})
+    result = body["result"]["structuredContent"]["result"]
+    assert isinstance(result, dict), f"expected a composed TaskAnswer, got: {result}"
+    assert "doc_matches" in result and "example" in result, result
+    assert result["example"] is not None, f"expected a real, verified example, got none: {result}"
+    snippet = result["example"]["snippet"]
+    assert REAL_EXAMPLE_SYMBOL in snippet, snippet
+    assert REAL_SOURCE_COMMIT in snippet, snippet
+
+
+def test_get_symbol_returns_the_real_enum_members_for_afrelationship(session: _McpSession) -> None:
+    """REQ-G2-047's own live proof, now a permanent artifact alongside REQ-G2-050's: the real
+    running pdf/net container's ``get_symbol`` for the real ``Aspose.Pdf.AFRelationship`` enum
+    (TC-011's own real fixture, first entry, well within ``build_chunks_from_api_surface``'s
+    default ``max_types=20``) returns its real 7 enum members - not a stub, not an empty index.
+    """
+    body = session.call_tool("get_symbol", {"fqn": REAL_ENUM_FQN})
+    result = body["result"]["structuredContent"]["result"]
+    assert isinstance(result, dict) and "members" in result, f"expected a real SymbolSignature: {result}"
+    members = result["members"]
+    assert isinstance(members, list) and members, f"expected real enum members, got none: {result}"
+    assert any(member.startswith(REAL_ENUM_MEMBER) for member in members), members
