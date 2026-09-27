@@ -1,0 +1,82 @@
+id: TC-084
+gate: G2
+lane: storage-retrieval
+purpose: 'Confirm, with real tests against real fixtures, that TC-066''s extract_candidate_examples
+  (REQ-G2-048''s first stage) genuinely works for the 5 remaining pilots with a real
+  extraction fixture - not merely pdf/net, its only currently-tested pilot. This is
+  real replication toward the operator''s explicit goal (''all pilots working exactly
+  as we proved pdf/net'') and was independently confirmed today by direct inspection:
+  each of tests/fixtures/furnished/{pdf_java,pdf_typescript,pdf_go,cells_rust,slides_python}/pages/_index.md
+  uses the identical `single.block[].content` YAML shape pdf_net uses, each with its
+  own real, language-tagged fenced code blocks (pdf_java: 3 real ```java blocks; pdf_typescript:
+  4 ```typescript; pdf_go: 4 ```go; cells_rust: 3 ```rust; slides_python: 2 ```python)
+  - extract_candidate_examples''s own implementation is already language-agnostic
+  (a single regex over fence syntax, no per-language branching), so this card is confirmation-and-regression-test
+  authorship, not a known code change - if a real gap surfaces, fix it honestly rather
+  than skip it.'
+depends_on:
+- TC-066
+- TC-079
+write_paths:
+- src/foss_mcp/indexing/example_candidates.py
+- tests/indexing/test_example_candidates.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'CONFIRMED today by direct inspection of each real fixture file: all 5 non-pdf_net
+  furnished fixtures with a real extraction fixture (pdf_java, pdf_typescript, pdf_go,
+  cells_rust, slides_python - pdf_cpp has no furnished fixture at all, separately
+  blocked on TC-057) use the exact same `single: {block: [{title, content}, ...]}`
+  YAML shape as pdf_net''s own tests/fixtures/furnished/pdf_net/pages/_index.md, with
+  each block''s `content` containing real prose followed by one real fenced code block
+  tagged with the pilot''s own language (java/typescript/go/rust/python respectively).'
+- 'extract_candidate_examples (src/foss_mcp/indexing/example_candidates.py) is already
+  generic: a single regex (_FENCE_RE) matches any ``` fence regardless of language
+  tag, with no per-language special-casing anywhere in the module. The expectation,
+  to be confirmed not assumed, is that it already extracts correct candidates for
+  all 5 additional pilots with zero source changes - write REAL tests reading each
+  real fixture file, running it through the real yaml.safe_load + extract_candidate_examples
+  path (mirror test_example_candidates.py''s own existing test_real_fixture_extracts_three_candidates_including_real_watermark_example
+  test for pdf_net exactly), and assert the real expected candidate count and at least
+  one specific, real, hand-verified title/language/code-substring per pilot (read
+  each fixture yourself to pick a real, correct assertion target - do not guess).'
+- If any real gap is found (e.g. a language-specific fence quirk, a block shape that
+  doesn't fit `single.block[].content`), fix example_candidates.py honestly and minimally
+  - do not adjust a fixture or a test to paper over a real extraction defect.
+actions:
+- Read each of the 5 real fixture files' _index.md yourself before writing any assertion.
+- Add one real test per pilot (5 new tests minimum) to tests/indexing/test_example_candidates.py,
+  each loading the real fixture via yaml.safe_load and calling the real extract_candidate_examples,
+  asserting a real, specific, fixture-verified expectation (count, and at least one
+  real title/language/code substring).
+- Run the full existing test file and confirm nothing regressed.
+checks:
+- command: '{python} -m pytest tests/indexing/test_example_candidates.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 5
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_candidates.py');s=p.read_text(encoding='utf-8');s=s.replace('single
+    = page.get(\'single\', {})','single = {}');p.write_text(s,encoding='utf-8')"
+  rationale: Forcing `single` to always be empty must make every fixture-based test
+    fail (zero candidates extracted from any real page), proving the new tests genuinely
+    exercise real extraction rather than passing for an unrelated reason. Self-checked
+    end-to-end against a fixture implementing the exact prescribed literal before
+    being persisted.
+evidence:
+- evidence/build/G2/TC-084/receipt.json
+closeout:
+- extract_candidate_examples is now proven, by real test, to work against all 6 pilots
+  with a real extraction fixture (pdf/net plus these 5) - not merely assumed generic.
+- Any real gap found was fixed honestly, not papered over.
+- Forcing single to empty fails every new fixture-based test.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
