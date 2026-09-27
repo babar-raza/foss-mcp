@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "card": "TC-085",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-27T05:43:58Z",
+  "base_rev": "1064f3b7ebd07ca1d234f3bb5bd3f06c6fb90c88",
+  "head_rev": "6fa55f1fb3acf735ac9e85908f225505f535c823",
+  "card_sha256": "35e53a2ca9b518d8b89279b75c7bdee180f81020e93eb30ae493e3621ba3ef11",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "pyproject.toml",
+      "scripts/pilot_manual_export.py",
+      "src/foss_mcp/extraction/run_extraction.py",
+      "tests/extraction/test_run_extraction_python.py",
+      "tests/extraction/tree_sitter_engine/test_package_root.py",
+      "tests/infra/test_docker_compose_multi_instance.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m ruff check . && {python} -m ruff format --check . && {python} -m pytest tests/infra/test_docker_compose_multi_instance.py tests/extraction/test_run_extraction_python.py tests/extraction/tree_sitter_engine/test_package_root.py -q",
+          "exit_code": 1,
+          "duration_s": 25.654,
+          "stdout_sha256": "463bd288356b1b71c70ea3ef83d7e244a06965825a69dc0186e6aeb1ea9b5de7",
+          "tests": 21,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 6
+        }
+      ],
+      "all_passed": false
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m ruff check . && {python} -m ruff format --check . && {python} -m pytest tests/infra/test_docker_compose_multi_instance.py tests/extraction/test_run_extraction_python.py tests/extraction/tree_sitter_engine/test_package_root.py -q",
+          "exit_code": 1,
+          "duration_s": 23.998,
+          "stdout_sha256": "463bd288356b1b71c70ea3ef83d7e244a06965825a69dc0186e6aeb1ea9b5de7",
+          "tests": 21,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 6
+        }
+      ],
+      "all_passed": false
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('tests/infra/test_docker_compose_multi_instance.py');s=p.read_text(encoding='utf-8');s=s.replace('for _name, svc in services.items():','for name, svc in services.items():');p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "applied": false,
+    "patch_applied_failed": false,
+    "exit_codes": []
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": false,
+  "reason": "checks failed: {python} -m ruff check . && {python} -m ruff format --check . && {python} -m pytest tests/infra/test_docker_compose_multi_instance.py tests/extraction/test_run_extraction_python.py tests/extraction/tree_sitter_engine/test_package_root.py -q; negative-control patch did not apply"
+}

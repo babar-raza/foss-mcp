@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "card": "TC-079",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-27T05:56:30Z",
+  "base_rev": "62dedb05e3fd676f13eb0160179851247e944366",
+  "head_rev": "24b8c9912c0e06846fe67ea0de4c88fdd930602f",
+  "card_sha256": "78f3de320cb0a04139e2a3fcd77240c27759467767175fbdd249f035d2f2cc6f",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/serve_http.py",
+      "src/foss_mcp/indexing/example_candidates.py",
+      "src/foss_mcp/indexing/example_verifier.py",
+      "src/foss_mcp/indexing/lexical_index_writer.py",
+      "src/foss_mcp/mcp/tools/lookup.py",
+      "src/foss_mcp/mcp/tools/search_symbols.py",
+      "tests/e2e/test_pdf_net_live_content.py",
+      "tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py",
+      "tests/indexing/test_chunk_builder.py",
+      "tests/indexing/test_example_candidates.py",
+      "tests/indexing/test_example_verifier.py",
+      "tests/indexing/test_index_writers.py",
+      "tests/infra/test_build_chunks.py",
+      "tests/infra/test_ingest.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m ruff check . && {python} -m ruff format --check .",
+          "exit_code": 0,
+          "duration_s": 1.025,
+          "stdout_sha256": "7ee08ad8de992730010e6d596cb5bff16b14c87e49a09b16d4d5ee027b09e58d"
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m ruff check . && {python} -m ruff format --check .",
+          "exit_code": 0,
+          "duration_s": 0.519,
+          "stdout_sha256": "7ee08ad8de992730010e6d596cb5bff16b14c87e49a09b16d4d5ee027b09e58d"
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_candidates.py');s=p.read_text(encoding='utf-8');s=s.replace('from collections.abc import Mapping','from typing import Mapping');p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "43a670081e49879b6cfbf15668005eefc267509d68406dbf2cfe19b8f8c77b33",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/indexing/example_candidates.py"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

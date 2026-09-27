@@ -1,0 +1,123 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_docker_compose_multi_instance.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-71la7oyr\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_docker_compose_multi_instance.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-71la7oyr\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/infra/test_docker_compose_multi_instance.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_docker_compose_multi_instance.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-71la7oyr\.junit-0.xml"
+--- stdout ---
+FFFFFF.                                                                  [100%]
+================================== FAILURES ===================================
+_________________________ test_exactly_seven_services _________________________
+
+    def test_exactly_seven_services():
+        services = _load_services()
+>       assert len(services) == 7, (
+            f"expected exactly 7 services (one per G2 pilot), found {len(services)}: {sorted(services)}"
+        )
+E       AssertionError: expected exactly 7 services (one per G2 pilot), found 8: ['ingest-pdf-net', 'serving', 'serving-cells-rust', 'serving-pdf-cpp', 'serving-pdf-go', 'serving-pdf-java', 'serving-pdf-typescript', 'serving-slides-python']
+E       assert 8 == 7
+E        +  where 8 = len({'ingest-pdf-net': {'build': {'context': '.', 'dockerfile': 'Dockerfile.ingestion'}, 'image': 'foss-mcp-ingestion:loca...image': 'foss-mcp-serving:local', 'command': ['python', '/app/infra/serve_http.py'], 'ports': ['8082:8080'], ...}, ...})
+
+tests\infra\test_docker_compose_multi_instance.py:52: AssertionError
+____________ test_family_platform_pairs_match_pinned_list_exactly _____________
+
+    def test_family_platform_pairs_match_pinned_list_exactly():
+        services = _load_services()
+        found_pairs = []
+        for _name, svc in services.items():
+>           env = svc["environment"]
+                  ^^^^^^^^^^^^^^^^^^
+E           KeyError: 'environment'
+
+tests\infra\test_docker_compose_multi_instance.py:61: KeyError
+______________________ test_all_host_ports_are_distinct _______________________
+
+    def test_all_host_ports_are_distinct():
+        services = _load_services()
+>       host_ports = [int(_port_mapping(svc)[0]) for svc in services.values()]
+                          ^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_docker_compose_multi_instance.py:71: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = {'build': {'context': '.', 'dockerfile': 'Dockerfile.ingestion'}, 'image': 'foss-mcp-ingestion:local', 'volumes': ['manifests-pdf-net:/data/manifests'], 'entrypoint': ['sh', '-c'], ...}
+
+    def _port_mapping(service: dict) -> tuple[str, str]:
+>       ports = service["ports"]
+                ^^^^^^^^^^^^^^^^
+E       KeyError: 'ports'
+
+tests\infra\test_docker_compose_multi_instance.py:44: KeyError
+________________ test_host_ports_are_exactly_8080_through_8086 ________________
+
+    def test_host_ports_are_exactly_8080_through_8086():
+        services = _load_services()
+>       host_ports = {int(_port_mapping(svc)[0]) for svc in services.values()}
+                          ^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_docker_compose_multi_instance.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = {'build': {'context': '.', 'dockerfile': 'Dockerfile.ingestion'}, 'image': 'foss-mcp-ingestion:local', 'volumes': ['manifests-pdf-net:/data/manifests'], 'entrypoint': ['sh', '-c'], ...}
+
+    def _port_mapping(service: dict) -> tuple[str, str]:
+>       ports = service["ports"]
+                ^^^^^^^^^^^^^^^^
+E       KeyError: 'ports'
+
+tests\infra\test_docker_compose_multi_instance.py:44: KeyError
+_______________ test_every_service_maps_to_container_port_8080 ________________
+
+    def test_every_service_maps_to_container_port_8080():
+        services = _load_services()
+        for name, svc in services.items():
+>           _, container = _port_mapping(svc)
+                           ^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_docker_compose_multi_instance.py:87: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+service = {'build': {'context': '.', 'dockerfile': 'Dockerfile.ingestion'}, 'image': 'foss-mcp-ingestion:local', 'volumes': ['manifests-pdf-net:/data/manifests'], 'entrypoint': ['sh', '-c'], ...}
+
+    def _port_mapping(service: dict) -> tuple[str, str]:
+>       ports = service["ports"]
+                ^^^^^^^^^^^^^^^^
+E       KeyError: 'ports'
+
+tests\infra\test_docker_compose_multi_instance.py:44: KeyError
+______________ test_source_kind_is_self_extracted_for_all_seven _______________
+
+    def test_source_kind_is_self_extracted_for_all_seven():
+        services = _load_services()
+        for name, svc in services.items():
+>           assert svc["environment"]["FOSS_MCP_SOURCE_KIND"] == "self_extracted", (
+                   ^^^^^^^^^^^^^^^^^^
+                f"{name}: FOSS_MCP_SOURCE_KIND must be self_extracted for every pilot"
+            )
+E           KeyError: 'environment'
+
+tests\infra\test_docker_compose_multi_instance.py:97: KeyError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_docker_compose_multi_instance.py::test_exactly_seven_services
+FAILED tests/infra/test_docker_compose_multi_instance.py::test_family_platform_pairs_match_pinned_list_exactly
+FAILED tests/infra/test_docker_compose_multi_instance.py::test_all_host_ports_are_distinct
+FAILED tests/infra/test_docker_compose_multi_instance.py::test_host_ports_are_exactly_8080_through_8086
+FAILED tests/infra/test_docker_compose_multi_instance.py::test_every_service_maps_to_container_port_8080
+FAILED tests/infra/test_docker_compose_multi_instance.py::test_source_kind_is_self_extracted_for_all_seven
+
+--- stderr ---
+

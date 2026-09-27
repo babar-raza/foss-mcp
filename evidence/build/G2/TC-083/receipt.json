@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "card": "TC-083",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-27T05:29:14Z",
+  "base_rev": "6d436815d5d2a10ceef0a278c6fc772e6d1e7228",
+  "head_rev": "b05f27661b43cec984ceff309f339f988d508d6c",
+  "card_sha256": "68377b027a1519a5580d85e941dee43ac9c758d3fcf3921e5e8f9511168f64f6",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/extraction/manifest_reader.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m ruff check src/foss_mcp/extraction/manifest_reader.py && {python} -m pytest tests/extraction/test_manifest_reader_ecosystems.py -q",
+          "exit_code": 0,
+          "duration_s": 1.822,
+          "stdout_sha256": "c826500776304d5983a95a0d705841bde22204a5b4e8dfd1c3cd7470aa5863fd",
+          "tests": 15,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m ruff check src/foss_mcp/extraction/manifest_reader.py && {python} -m pytest tests/extraction/test_manifest_reader_ecosystems.py -q",
+          "exit_code": 0,
+          "duration_s": 1.518,
+          "stdout_sha256": "c826500776304d5983a95a0d705841bde22204a5b4e8dfd1c3cd7470aa5863fd",
+          "tests": 15,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/extraction/manifest_reader.py');s=p.read_text(encoding='utf-8');s=s.replace('import tomllib','import sys\\n    if sys.version_info >= (3, 11):\\n        import tomllib\\n    else:\\n        import tomli as tomllib  # type: ignore[no-redef]', 1);p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "465c6c1c4e23002762cd946945d5932e101a416c773e9581674e2cbb054ae261",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/manifest_reader.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
