@@ -48,15 +48,14 @@ def _port_mapping(service: dict) -> tuple[str, str]:
 def test_exactly_seven_services():
     services = _load_services()
     assert len(services) == 7, (
-        f"expected exactly 7 services (one per G2 pilot), found {len(services)}: "
-        f"{sorted(services)}"
+        f"expected exactly 7 services (one per G2 pilot), found {len(services)}: {sorted(services)}"
     )
 
 
 def test_family_platform_pairs_match_pinned_list_exactly():
     services = _load_services()
     found_pairs = []
-    for name, svc in services.items():
+    for _name, svc in services.items():
         env = svc["environment"]
         found_pairs.append((env["FOSS_MCP_FAMILY"], env["FOSS_MCP_PLATFORM"]))
     assert sorted(found_pairs) == sorted(EXPECTED_PAIRS), (

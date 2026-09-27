@@ -61,7 +61,7 @@ def _write_package(root: Path) -> None:
     """A src-layout python package: a marker file, module-level classes/functions with
     docstrings, an ``__all__``, a private name, a re-export, and one unresolvable re-export.
     """
-    (root / "pyproject.toml").write_text("[project]\nname = \"widgets\"\n", encoding="utf-8")
+    (root / "pyproject.toml").write_text('[project]\nname = "widgets"\n', encoding="utf-8")
     pkg = root / "src" / "widgets"
     pkg.mkdir(parents=True)
     (pkg / "__init__.py").write_text(PACKAGE_INIT, encoding="utf-8")
@@ -153,7 +153,9 @@ def test_unresolved_reexport_surfaces_rather_than_being_dropped(tmp_path: Path) 
     assert any("unresolved-reexport" in item and "Nothing" in item for item in unresolved)
 
 
-def test_never_calls_get_parser_for_a_python_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_never_calls_get_parser_for_a_python_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _write_package(tmp_path)
 
     def _boom(*_args: object, **_kwargs: object) -> None:

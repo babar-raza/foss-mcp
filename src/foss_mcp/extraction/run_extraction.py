@@ -158,9 +158,7 @@ def _extract_python_surface(clone_root: Path) -> tuple[list[dict[str, Any]], lis
     return _python_types_from_surface(surface), list(surface.unresolved)
 
 
-def extract_from_clone(
-    clone_root: Path, manifest: dict[str, Any]
-) -> tuple[list[dict[str, Any]], list[str]]:
+def extract_from_clone(clone_root: Path, manifest: dict[str, Any]) -> tuple[list[dict[str, Any]], list[str]]:
     """Run the engine over an already-cloned checkout, per the manifest's declared platform.
 
     Returns ``(types, unresolved)``. A python manifest never reaches ``_LANGUAGE_BY_PLATFORM``,

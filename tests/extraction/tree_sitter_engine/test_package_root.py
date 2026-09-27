@@ -54,9 +54,7 @@ def test_python_namespace_package_root_is_the_top_level_namespace_dir(tmp_path: 
     the top-level namespace directory itself, not the nested subpackage and
     not the repo root.
     """
-    (tmp_path / "pyproject.toml").write_text(
-        "[project]\nname = 'aspose-slides-foss'\n", encoding="utf-8"
-    )
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'aspose-slides-foss'\n", encoding="utf-8")
     namespace_dir = tmp_path / "aspose"
     namespace_dir.mkdir()
     nested_pkg = namespace_dir / "slides_foss"

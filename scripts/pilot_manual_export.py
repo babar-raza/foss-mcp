@@ -256,7 +256,9 @@ def main() -> None:
 
     print_banner()
     if args.local_clone is not None:
-        manifest = export_local_subtree(args.local_clone, args.repository, args.subtree, args.ref, args.output)
+        manifest = export_local_subtree(
+            args.local_clone, args.repository, args.subtree, args.ref, args.output
+        )
     else:
         manifest = export_subtree(args.repository, args.subtree, args.ref, args.output)
     print(
