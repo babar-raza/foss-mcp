@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 import urllib.request
 from base64 import b64decode
 from dataclasses import dataclass
@@ -55,10 +54,8 @@ def _load_toml(text: str) -> dict:
     not this reader's).
     """
     try:
-        if sys.version_info >= (3, 11):
-            import tomllib
-        else:
-            import tomli as tomllib  # type: ignore[no-redef]
+        import tomllib
+
         data = tomllib.loads(text)
     except Exception:
         return {}
