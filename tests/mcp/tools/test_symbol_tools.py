@@ -31,7 +31,7 @@ PDF_NET_SCOPE = Scope(family="pdf", platform="net")
 # find_examples's exact-match-first behaviour and its "no example here" honesty are both
 # provable against real published content.
 WITH_EXAMPLE = "AnnotationCollection"
-WITHOUT_EXAMPLE = "Border"
+WITHOUT_EXAMPLE = "CompositingParameters"
 
 
 def _format_signature(entry: dict) -> str:
