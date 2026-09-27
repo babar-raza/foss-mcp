@@ -26,25 +26,30 @@ owner_items:
     that expires when credentials are restored.'
   last_checked_at: '2026-09-24T00:00:00Z'
 - id: OWNER-02
-  status: OPEN
+  status: SATISFIED
   summary: 'GitHub is source of truth; .github/workflows/mirror-gitlab.yml pushes
     main+tags to gitlab.recruitize.ai/sialkot/cantt-smallize/aspose-foss-dev-context-mcp.git
-    on every push, authenticating via the GITLAB_TOKEN repo secret. That secret''s
-    existence cannot be verified from this session: `gh auth status` reports the
-    configured GH_TOKEN is invalid (HTTP 401), so `gh secret list` and `gh run list`
-    both fail here. A local `gitlab` git remote also exists but authenticates with
-    the same invalid credentials - irrelevant to the CI-based mirror, which pushes
-    over HTTPS with the secret embedded in the URL, not through a named remote.'
-  resume_predicate: 'An owner with valid GitHub credentials confirms GITLAB_TOKEN
-    is set as a repository secret (Settings > Secrets and variables > Actions) with
-    write access to the GitLab project, then triggers the workflow once (push to
-    main, or `gh workflow run mirror-gitlab.yml`) and confirms it succeeds. Until
-    then the mirror workflow exists in the tree but has never been proven to run.'
+    on every push, authenticating via the GITLAB_TOKEN repo secret.'
+  resume_predicate: 'RESOLVED 2026-09-27: `gh secret list -R babar-raza/foss-mcp`
+    confirms GITLAB_TOKEN is set (since 2026-09-16, before gh auth was even
+    restored). `gh run list --workflow mirror-gitlab.yml` shows repeated real
+    successes since 2026-09-24 (every push auto-triggers it). Manually triggered
+    via `gh workflow run mirror-gitlab.yml --ref main` and confirmed success with
+    a real log: "Everything up-to-date" - a genuine authenticated push to GitLab,
+    not a masked failure (an invalid token fails loudly here by design, per the
+    workflow''s own non-forced-push comment). GitHub Actions secrets are
+    architecturally write-only (no `gh secret get`, no API to read a value back,
+    for anyone, ever) - this was verified by triggering the real workflow and
+    reading its real result, never by reading the secret''s value.'
   consumed_by:
   - NONE
   recorded_at: '2026-09-24T00:00:00Z'
   note: 'Non-blocking for the mission: nothing in G0-G4 depends on GitLab being in
-    sync. This is purely an operator-requested sync mechanism between two remotes.'
+    sync. This is purely an operator-requested sync mechanism between two remotes.
+    RESOLVED 2026-09-27 - GITLAB_TOKEN was apparently configured directly by the
+    operator (only a human with dashboard access could have set it; no session
+    action set it), and the workflow has been working since at least 2026-09-24.'
+  last_checked_at: '2026-09-27T00:00:00Z'
 - id: OWNER-03
   status: OPEN
   summary: 'GitHub WRITE credentials broke mid-session on 2026-09-24. An earlier
