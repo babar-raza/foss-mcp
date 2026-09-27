@@ -1,0 +1,114 @@
+id: TC-081
+gate: G2
+lane: storage-retrieval
+purpose: 'Extend the real, isolated compile-verification pipeline (REQ-G2-048, proven
+  live for pdf/net''s .NET toolchain by TC-067-069/075/078) to three more real pilots''
+  ecosystems - Python (slides/python), Rust (cells/rust), Go (pdf/go) - the three
+  with the simplest, most standard build tooling, confirmed by a real, hands-on clone+build
+  of each real repo today, not assumed. This is real replication toward the operator''s
+  explicit goal: all pilots working exactly as proven for pdf/net.'
+depends_on:
+- TC-067
+- TC-079
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_example_verifier.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'CONFIRMED today by a real, hands-on clone+build of each real pinned repository
+  (not assumed): slides/python is `aspose-slides-foss/Aspose.Slides-FOSS-for-Python`
+  @ 4e63447ba79d1c27a5192844847d9f872c5b92ad (matches tests/fixtures/slides_python/api_surface.json''s
+  own source_commit - confirm this yourself) - manifest pyproject.toml, `pip install
+  -e .` builds cleanly (only dependency lxml>=4.9, prebuilt wheel, no compiler needed),
+  real importable package is `import aspose.slides_foss`. cells/rust is `aspose-cells-foss/Aspose.Cells-FOSS-for-Rust`
+  @ 1a6004af47b1ef15385f9d36d381a8172428cc7e - manifest Cargo.toml, crate name `aspose-cells-foss-rust`
+  (lib name `aspose_cells_foss_rust`, what you `use` in code), `cargo build` builds
+  cleanly (pulls ~90 crates; note: this repo''s default branch is `master` not `main`,
+  irrelevant once pinned to the exact commit above). pdf/go is `aspose-pdf-foss/Aspose-PDF-FOSS-for-Go`
+  @ 286484d235196d65c9a458c5eff3d3d6539216dc - manifest go.mod, module `github.com/aspose-pdf-foss/aspose-pdf-foss-for-go`,
+  package `asposepdf`, `go build ./...` builds cleanly with zero external dependencies.'
+- 'Mirror src/foss_mcp/indexing/example_verifier.py''s ALREADY-ESTABLISHED, working
+  pattern for pdf/net exactly (read the real current file first: prepare_reference_library''s
+  git init/remote-add/fetch --depth 1/checkout plumbing for fetching one exact pinned
+  commit shallowly, then verify_dotnet_example''s shape of building a throwaway consumer
+  project referencing the built library and checking the real subprocess exit code)
+  - do not invent a different git-fetching approach for the new languages.'
+- 'For each language, write TWO functions mirroring prepare_reference_library/verify_dotnet_example''s
+  split: `prepare_python_library`/`verify_python_example`, `prepare_rust_library`/`verify_rust_example`,
+  `prepare_go_library`/`verify_go_example` (these three exact names are required,
+  `verify_go_example` specifically for the negative control below).'
+- Python's real verification bar is different from the others - Python has no separate
+  compile step, so `verify_python_example` must actually RUN the candidate code (a
+  real subprocess, isolated, disposable - matching this project's own established
+  rule that snippet execution belongs at ingestion/validation time in a disposable
+  environment, never inside the serving process, mission plan section 9) inside a
+  venv that has the real library installed (`pip install -e <cloned repo path>` into
+  a fresh venv created via `python -m venv`), and check the real subprocess exit code
+  and stderr - a real exception during execution means verified=False, exactly like
+  a real compile error for the other languages. `prepare_python_library` creates the
+  venv and installs the real library once; `verify_python_example` runs the candidate
+  script against it.
+- 'Rust: `prepare_rust_library` clones+builds via `cargo build` in the cloned repo
+  directory (proving the real library itself builds). `verify_rust_example` creates
+  a throwaway crate (a minimal Cargo.toml with a path dependency on the built library
+  crate by its real name `aspose-cells-foss-rust`, matching the real repo''s own declared
+  crate name) containing the candidate''s code as its `src/main.rs`, runs `cargo build`
+  there, and checks the real exit code.'
+- 'Go: `prepare_go_library` clones the repo (go build itself doesn''t need a separate
+  ''prepare'' step the way .NET/Rust do since Go modules resolve directly, but keep
+  the same two-function shape for consistency with the other languages and TC-067''s
+  own precedent - prepare can simply confirm `go build ./...` succeeds in the cloned
+  repo). `verify_go_example` creates a throwaway module using a `replace` directive
+  pointing at the cloned repo''s real module path `github.com/aspose-pdf-foss/aspose-pdf-foss-for-go`,
+  containing the candidate''s code as its `main.go`, runs `go build`, and checks the
+  real exit code.'
+- Do not touch verify_dotnet_example/prepare_reference_library (pdf/net's own, already
+  working) or any of Java/TypeScript's ecosystems - those are separate, later cards.
+actions:
+- Implement all three languages' prepare/verify function pairs exactly as specified.
+- 'Write REAL tests in tests/indexing/test_example_verifier.py for each language:
+  real clone+build of the real pinned repository above, a real KNOWN-WORKING candidate
+  snippet (construct one yourself using a real, documented API call from each library
+  - verify it actually compiles/runs before trusting it, per this project''s own standing
+  discipline - e.g. for Python, something using aspose.slides_foss''s real top-level
+  API; for Rust, aspose_cells_foss_rust''s real Workbook type; for Go, asposepdf''s
+  real NewDocument function - the recon today already confirmed each of these works,
+  reuse that exact confirmed shape) verifies True, and a deliberately broken variant
+  (an undefined name/type) verifies False with a real compiler/interpreter error in
+  its output.'
+- Run the full existing test suite yourself and confirm nothing else broke.
+checks:
+- command: '{python} -m pytest tests/indexing/test_example_verifier.py -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 6
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    verify_go_example','def verify_go_example_DISABLED');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming verify_go_example so it is never referenced must break every
+    test exercising it with a NameError, proving the tests genuinely exercise this
+    concrete new function, not merely that some verification mechanism exists. Self-checked
+    end-to-end against a fixture implementing the exact prescribed name before being
+    persisted.
+evidence:
+- evidence/build/G2/TC-081/receipt.json
+closeout:
+- Real, isolated compile/execute verification now exists for Python, Rust, and Go
+  candidate examples, mirroring pdf/net's already-proven pattern exactly.
+- A known-working real candidate verifies True for each language; a deliberately broken
+  one verifies False with a real error.
+- pdf/net's own verify_dotnet_example is completely unaffected.
+- Renaming verify_go_example fails the suite.
+recovery: Re-run from a clean tree; if a network clone/build step is flaky (cargo's
+  own crates.io fetch is known to have transient errors, confirmed today - cargo auto-retries),
+  re-running is safe and idempotent.
