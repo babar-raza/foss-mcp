@@ -1,0 +1,83 @@
+id: TC-078
+gate: G2
+lane: storage-retrieval
+purpose: Land TC-073's own already-correct, already-repeatedly-verified work (camelCase/PascalCase-aware
+  tokenization + real Okapi BM25 scoring in lexical_index_writer.py) as a fresh commit.
+  TC-073 itself exhausted its 3-attempt cap not because its own code was ever wrong
+  - every attempt's own tests and negative control passed identically every time -
+  but because each attempt honestly surfaced a genuinely different, real, EXTERNAL
+  blocker in a different card's file (TC-074's dispatch-priority bug, TC-075's composition-decoupling
+  gap, TC-077's stale test-fixture assumption), each already found, diagnosed, fixed,
+  and accepted. This card carries the same, unchanged diff to a commit now that every
+  external blocker is resolved.
+depends_on:
+- TC-015
+- TC-072
+- TC-077
+write_paths:
+- src/foss_mcp/indexing/lexical_index_writer.py
+- tests/indexing/test_index_writers.py
+satisfies:
+- REQ-G2-049
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.2 Common tools — present identically on every instance (9 tools —
+    this table is the single authoritative registry; tool discovery, JSON schemas,
+    and generated documentation are all derived from it, never restated independently)'
+  sha256: fcc5e91a552d272bd617369066de6c312007c25806671af9c1ccbbfd6f574453
+inputs:
+- 'The real diff you need is ALREADY SITTING, uncommitted, in the working tree right
+  now - `git diff src/foss_mcp/indexing/lexical_index_writer.py tests/indexing/test_index_writers.py`
+  shows it. Read it in full first. This is the exact same, unchanged work TC-073''s
+  three attempts each independently re-verified as correct: a _CASE_SPLIT_RE-based
+  camelCase/PascalCase sub-word splitter (probed against real identifiers from tests/fixtures/pdf_net/api_surface.json
+  before being trusted), a standard English _STOPWORDS frozenset (from TC-072, already
+  committed and unaffected here), and real Okapi BM25 scoring (_BM25_K1=1.5, _BM25_B=0.75)
+  replacing the old raw TF-IDF-ish formula. Do NOT rewrite, redesign, or second-guess
+  this - your job is to confirm it is still correct given everything that has landed
+  since, and commit it.'
+- 'Everything that blocked TC-073''s own three attempts is now independently accepted
+  and committed: TC-074 (lookup''s query-shape dispatch priority, commit ae412e3),
+  TC-075 (lookup composes an example-only answer when no doc content exists, commit
+  b34902a), TC-076 (cross-pilot chunk_builder field-shape fixes, commit f4c008a),
+  TC-077 (test_symbol_tools.py''s WITHOUT_EXAMPLE fixed to a genuinely collision-free
+  real symbol, commit 183ecb6). Confirm each is a real ancestor of your current HEAD
+  via `git log --oneline` before trusting this.'
+- Do not touch any other file - your write_paths are exactly the two files this diff
+  already touches.
+actions:
+- Confirm the uncommitted diff in your two write_paths is exactly what you expect
+  (real camelCase splitting + real BM25, no half-finished state) - if it looks incomplete
+  or corrupted in any way, stop and report rather than committing something broken.
+- Run tests/indexing/test_index_writers.py yourself and confirm all tests pass.
+- Run the FULL existing test suite yourself (not just your own two files) and confirm
+  there are NO new failures caused by this diff - specifically confirm tests/mcp/tools/test_symbol_tools.py
+  now passes completely (TC-077's fix should have resolved the one real regression
+  every prior attempt found).
+- Self-check the negative control (renaming _BM25_K1) breaks the suite, then restore
+  clean.
+- Commit exactly as this card specifies.
+checks:
+- command: '{python} -m pytest tests/indexing/test_index_writers.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-049
+min_tests: 12
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/lexical_index_writer.py');s=p.read_text(encoding='utf-8');s=s.replace('_BM25_K1
+    = ','_BM25_K1_DISABLED = ');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming _BM25_K1 so it is never referenced must break every BM25-dependent
+    test with a NameError, exactly as it did identically across all three of TC-073's
+    own attempts. Self-checked end-to-end against a fixture implementing the exact
+    prescribed name before being persisted.
+evidence:
+- evidence/build/G2/TC-078/receipt.json
+closeout:
+- camelCase/PascalCase sub-word splitting and real BM25 scoring are committed in lexical_index_writer.py,
+  unchanged from TC-073's own repeatedly-verified work.
+- The full existing test suite passes with no new failures.
+- Renaming _BM25_K1 fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

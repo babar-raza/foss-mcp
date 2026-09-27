@@ -549,3 +549,32 @@ from requiring a prior `search_docs` match in `lookup.py` alone - compose a `Tas
 EITHER a doc match or a verified example exists, never fabricating either, falling through to
 `search_symbols` only when both are genuinely empty. TC-073 stays uncommitted, unchanged, pending
 this landing.
+
+## 2026-09-27 — TC-073 retired at its 3-attempt cap; TC-077 fixed the last blocker; work carried forward as TC-078
+
+TC-075 and TC-076 both landed and were independently ACCEPTED. TC-073's third attempt then
+correctly, precisely diagnosed the real cross-card blocker it had found: `tests/mcp/tools/
+test_symbol_tools.py`'s `WITHOUT_EXAMPLE = "Border"` no longer honestly satisfied its own
+no-collision premise once camelCase splitting correctly began treating `AnnotationCollection`'s
+real `borderColor` parameter as containing the standalone word "border" - a correct consequence
+of a real improvement, not a defect. TC-073's own worker independently verified a genuinely
+collision-free replacement (`CompositingParameters`, checked against all 210 real fixture types
+with methods/properties). This was fixed and accepted as **TC-077** (commit 183ecb6).
+
+Attempting to resume TC-073 for a clean confirmation commit, `gatectl instruct` refused: TC-073
+had already used all 3 permitted attempts (each one legitimate and distinct - the FQN/pdf
+collision, the missing-docs-content gap, and this test-fixture staleness - never the same guess
+twice, and never a defect in TC-073's own code, which passed identically every single time). The
+mechanical 3-attempt cap does not distinguish "repeated wrong guesses" from "one correct fix,
+blocked three times by three different, real, external, now-resolved issues" - a real, narrow
+gap in the cap's own design, worth noting rather than silently working around.
+
+**Decision**: per this project's own "change the evidence, not the guess" principle, TC-073 is
+retired without ever producing an accepted commit - not because its work was wrong (it was
+correct from attempt 1 onward, verified identically every time), but because its own card
+identity is spent. `plans/TC-073.yaml` is deleted; nothing is lost, since every attempt's full
+diagnosis is already permanently recorded here and in `ops/status.jsonl`'s append-only log. The
+exact same, unchanged diff (camelCase/PascalCase tokenization + real Okapi BM25 scoring in
+`lexical_index_writer.py`) is carried forward as **TC-078**, a fresh card whose own three
+dependencies (TC-072, TC-074-077's chain) are now all genuinely satisfied, so its negative control
+is finally provably load-bearing rather than vacuous against the current committed history.
