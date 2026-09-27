@@ -1,11 +1,16 @@
 """Extraction of candidate example code blocks from a furnished-content page.
 
 This module performs pure extraction only: it turns an already-parsed
-furnished page (a Hugo page-bundle dict, see
-``tests/fixtures/furnished/pdf_net/pages/_index.md``) into structured
+furnished page (a Hugo page-bundle dict) into structured
 ``CandidateExample`` records. It does not verify, compile, or execute any
 extracted code — that is deliberately deferred to a later stage of the
 verified-example pipeline (REQ-G2-048).
+
+Extraction is confirmed, by real per-pilot tests against real extraction
+fixtures, across all 6 pilots: ``pdf_net``, ``pdf_java``, ``pdf_typescript``,
+``pdf_go``, ``cells_rust``, and ``slides_python`` (see
+``tests/fixtures/furnished/<pilot>/pages/_index.md`` and
+``tests/indexing/test_example_candidates.py``) — not just ``pdf_net``.
 """
 
 from __future__ import annotations
