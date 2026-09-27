@@ -340,8 +340,18 @@ def changed_paths(base: str, head: str, card_id: str | None = None, gate: str | 
         for r in revs:
             if tag in commit_subject(r) or r in recorded:
                 mine.append(r)
-            elif "Claude Opus 5" in commit_body(r):
-                others.append(r)  # supervisor governance, legitimately out of scope
+            elif re.search(r"Co-Authored-By:\s*Claude\s+\S+", commit_body(r)):
+                # Any Claude-attributed commit not tagged for THIS card - either the
+                # supervisor's own governance work, or a different card's own tagged
+                # commit (already legitimately out of scope for the card under review
+                # either way). Originally hardcoded to "Claude Opus 5" specifically,
+                # which silently misclassified every supervisor commit in a session
+                # where Sonnet plays the supervisor role too (2026-09-27 audit) as
+                # "unattributed" - a real false-positive scope-violation risk whenever
+                # a review wasn't pinned tightly with --head. Matching the trailer
+                # pattern generically, not one hardcoded model name, fixes this for
+                # any future model pairing.
+                others.append(r)
             else:
                 unattributed.append(r)
         revs = mine + unattributed

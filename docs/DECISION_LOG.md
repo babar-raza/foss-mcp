@@ -578,3 +578,44 @@ exact same, unchanged diff (camelCase/PascalCase tokenization + real Okapi BM25 
 `lexical_index_writer.py`) is carried forward as **TC-078**, a fresh card whose own three
 dependencies (TC-072, TC-074-077's chain) are now all genuinely satisfied, so its negative control
 is finally provably load-bearing rather than vacuous against the current committed history.
+
+## 2026-09-27 — Real bug found in gatectl.py itself: the supervisor-commit recognizer was hardcoded to the wrong model name
+
+TC-078 landed and was genuinely ACCEPTED. Re-reviewing TC-077 afterward (to resolve its own
+order-dependent negative control now that TC-078's tokenizer exists) surfaced a scope
+VIOLATION: three real, legitimate supervisor commits ("claims neither this card nor the
+supervisor") were being blamed on TC-077 purely because they landed in the diff range between
+TC-077's dispatch and the current tip.
+
+Root cause, confirmed by reading `ops/gatectl.py`'s `changed_paths()` directly: the function
+recognizes a commit as legitimate supervisor governance (safe to exclude from a card's own scope
+check) by testing `"Claude Opus 5" in commit_body(r)` - a literal, hardcoded model name. This
+session's supervisor role has been played by Sonnet 5 throughout (this session's own model), so
+every single one of this session's real supervisor commits carries `Co-Authored-By: Claude Sonnet
+5`, never matching that check. The bug was invisible until now specifically because almost every
+prior card review this session was pinned with an explicit `--head <worker's own commit>` override
+(the established fix for the unrelated "rework-dispatch commit in diff range" issue, TC-025
+onward), which happened to never include any of the supervisor's own later commits in the checked
+range. TC-077 is the first review this session run without such an override, exposing it.
+
+**This was a real, structural risk for the ENTIRE session**: any card reviewed without a `--head`
+pin, with supervisor commits landing in its diff range, could have been falsely rejected on scope
+grounds - or, in the opposite and more dangerous direction, a genuinely out-of-scope WORKER commit
+for a different card could theoretically have been misread depending on exact commit ordering.
+Every card actually accepted this session used a `--head` override or had no intervening
+supervisor commits, so no prior ACCEPTED verdict is retroactively in question - but this was closer
+to luck than design.
+
+**Fix**: generalized the check from the literal string `"Claude Opus 5"` to a regex matching any
+`Co-Authored-By: Claude <model>` trailer (`ops/gatectl.py`'s `changed_paths()`). Verified: `ops/
+tests/` (68 tests) still pass unchanged, and `gatectl review TC-077` now correctly reports `scope:
+ok` and reaches a genuine ACCEPTED verdict (negative control still genuinely fails the suite,
+confirmed independently). This is supervisor-owned tooling (`ops/gatectl.py owns every verdict` -
+AGENTS.md), fixed directly rather than through a worker card, matching how this exact file was
+originally authored during bootstrap.
+
+**Standing lesson**: a hardcoded reference to "the model currently playing a role" is fragile
+across sessions/model changes - this exact class of defect (an identity check tied to a specific
+model name rather than to the actual behavioral contract, i.e. "produces a Co-Authored-By Claude
+trailer and isn't tagged for this card") should be watched for elsewhere in this project's own
+tooling if a future session changes which model plays which role again.
