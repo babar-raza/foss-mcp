@@ -1,0 +1,78 @@
+id: TC-090
+gate: G2
+lane: storage-retrieval
+purpose: 'Re-land TC-084''s already-correct, already-verified cross-pilot extract_candidate_examples
+  confirmation tests under a genuinely falsifying negative control - TC-084 itself
+  is retired, not because its 5 new tests were wrong (they were correct: `gatectl
+  review TC-084` showed clean_run 1/2 both exit 0 with all 8 tests passing, and TC-084''s
+  own worker independently caught and reported the exact same quoting bug found here),
+  but because its negative control''s mutate script used single-quoted `page.get(''single'',
+  {})` while the real, already-committed file uses double quotes throughout - the
+  same class of cmd.exe-argv-quoting authoring mistake as TC-086''s retirement earlier
+  today. TC-084''s own worker, per its write_paths, correctly could not fix plans/TC-084.yaml
+  itself and instead reported the finding honestly - this card acts on that report.'
+depends_on:
+- TC-066
+- TC-079
+write_paths:
+- src/foss_mcp/indexing/example_candidates.py
+- tests/indexing/test_example_candidates.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'The real, already-committed tests/indexing/test_example_candidates.py (landed by
+  TC-084''s own worker, commit cbc1f6c) already contains all 5 new per-pilot tests
+  exactly as intended, independently re-verified today (`gatectl review TC-084`: clean_run
+  1/2 both exit 0, all 8 tests pass). Do not change this test file''s logic - it is
+  correct.'
+- 'The real, current example_candidates.py line is: `single = page.get("single", {})`
+  - DOUBLE-quoted, matching this file''s own existing style throughout. TC-084''s
+  own worker independently confirmed via manual testing (correctly quote-matched)
+  that forcing this to always be empty genuinely breaks every fixture-based test (zero
+  candidates extracted).'
+- 'The ONLY required source change: update the module''s own docstring (currently
+  says ''see tests/fixtures/furnished/pdf_net/pages/_index.md'' as if pdf_net were
+  the only tested pilot) to note that extraction is now confirmed across all 6 pilots
+  with a real extraction fixture, not just pdf_net - a real, genuinely useful, non-redundant
+  update reflecting the newly-established fact, giving this card an honest, attributable
+  diff.'
+- Do not change extract_candidate_examples's actual logic - it is already correct.
+actions:
+- Read the real, current src/foss_mcp/indexing/example_candidates.py and tests/indexing/test_example_candidates.py
+  and confirm both already match the description above.
+- Update the module docstring as described - a small, real, accurate change, not filler.
+- Run `python -m pytest tests/indexing/test_example_candidates.py -q` and confirm
+  all 8 tests still pass.
+checks:
+- command: '{python} -m pytest tests/indexing/test_example_candidates.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 5
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_candidates.py');s=p.read_text(encoding='utf-8');s=s.replace('single
+    = page.get(\"single\", {})','single = {}');p.write_text(s,encoding='utf-8')"
+  rationale: Forcing `single` to always be empty (matching the real file's actual
+    double-quote style, unlike TC-084's own single-quoted mutate string which silently
+    failed to apply) must make every fixture-based test fail (zero candidates extracted
+    from any real page), proving the tests genuinely exercise real extraction rather
+    than passing for an unrelated reason. Self-checked end-to-end against the REAL,
+    current file content via the actual subprocess.run(..., shell=True) path before
+    being persisted - exactly the verification step TC-084's own authoring skipped.
+evidence:
+- evidence/build/G2/TC-090/receipt.json
+closeout:
+- extract_candidate_examples is proven, by real test, to work against all 6 pilots
+  with a real extraction fixture, with a genuinely non-vacuous negative control this
+  time.
+- The module docstring accurately reflects this confirmed, multi-pilot coverage.
+- Forcing single to empty fails every fixture-based test again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
