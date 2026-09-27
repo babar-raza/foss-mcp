@@ -31,6 +31,8 @@ EXPECTED_PAIRS = [
 EXPECTED_HOST_PORTS = {8080, 8081, 8082, 8083, 8084, 8085, 8086}
 
 
+# A service with no "ports" key is a one-shot build/ingestion job (e.g. ingest-pdf-net),
+# not a per-pilot serving instance, so it is excluded here rather than counted below.
 def _load_services() -> dict:
     with COMPOSE_PATH.open("r", encoding="utf-8") as f:
         doc = yaml.safe_load(f)
