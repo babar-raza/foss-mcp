@@ -1,0 +1,106 @@
+id: TC-079
+gate: G2
+lane: verification
+purpose: 'Fix real, accumulated lint/format debt found by running the pre-push hook''s
+  own scripts/ci_check.sh for real (as part of an operator-requested credential diagnostic):
+  one real ruff UP035 error (typing.Mapping should be collections.abc.Mapping) and
+  13 files not matching ruff format''s canonical style - both genuinely block a real
+  push today, confirmed by actually running the hook, not assumed. Purely mechanical,
+  no behavior change - ruff format never changes semantics, and typing.Mapping vs
+  collections.abc.Mapping are interchangeable for a type-hint-only import.'
+depends_on:
+- TC-019a
+- TC-059
+- TC-060
+- TC-061
+- TC-066
+- TC-067
+- TC-069
+- TC-070
+- TC-071
+- TC-075
+- TC-076
+- TC-078
+write_paths:
+- infra/serve_http.py
+- src/foss_mcp/indexing/example_candidates.py
+- src/foss_mcp/indexing/example_verifier.py
+- src/foss_mcp/indexing/lexical_index_writer.py
+- src/foss_mcp/mcp/tools/lookup.py
+- src/foss_mcp/mcp/tools/search_symbols.py
+- tests/e2e/test_pdf_net_live_content.py
+- tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py
+- tests/indexing/test_chunk_builder.py
+- tests/indexing/test_example_candidates.py
+- tests/indexing/test_example_verifier.py
+- tests/indexing/test_index_writers.py
+- tests/infra/test_build_chunks.py
+- tests/infra/test_ingest.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 11.2 Family-wise public GitHub distribution — preserved as a required
+    outcome, not deferred'
+  sha256: 230a252ade7d0c7eaf969af89192636e0905f79b15b780f65ad8797efbe5f427
+inputs:
+- 'CONFIRMED today by actually running `python -m ruff check .` and `python -m ruff
+  format --check .` (using the pinned venv at .gatectl-worktrees/venv-<hash>/Scripts/python.exe)
+  against the real current tree: exactly one ruff lint error (UP035 in src/foss_mcp/indexing/example_candidates.py,
+  `from typing import Mapping` should be `from collections.abc import Mapping`) and
+  exactly these 13 files not matching ruff''s canonical formatting: infra/serve_http.py,
+  src/foss_mcp/indexing/example_verifier.py, src/foss_mcp/indexing/lexical_index_writer.py,
+  src/foss_mcp/mcp/tools/lookup.py, src/foss_mcp/mcp/tools/search_symbols.py, tests/e2e/test_pdf_net_live_content.py,
+  tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py, tests/indexing/test_chunk_builder.py,
+  tests/indexing/test_example_candidates.py, tests/indexing/test_example_verifier.py,
+  tests/indexing/test_index_writers.py, tests/infra/test_build_chunks.py, tests/infra/test_ingest.py.'
+- Fix via `python -m ruff check --fix .` (the one real UP035 error) then `python -m
+  ruff format .` (all 13 files) - both are the exact, standard, deterministic tools
+  this project's own pre-push hook already runs, not a hand-edit. Re-run both in --check
+  mode afterward and confirm zero remaining issues across the WHOLE repo, not just
+  these files - do not leave any other pre-existing issue newly introduced by concurrent
+  work unaddressed if it happens to also be trivially fixable this same way, but do
+  not expand scope beyond what ruff itself reports as fixable.
+- This touches files owned by many prior cards - your write_paths list every one,
+  but you are making a PURELY MECHANICAL, semantically-inert change (formatting +
+  one equivalent import source) to each, never touching any actual logic. If ruff's
+  own --fix or format pass produces anything beyond whitespace/import-source changes
+  in ANY file, stop and report rather than committing an unexpected semantic change.
+- There is a SECOND, independent Claude Code session concurrently active in this repository
+  - none of your 13 files are among its currently-known active edits, but check `git
+  status`/`git diff` on each before touching it regardless, per this project's standing
+  discipline.
+actions:
+- Run `python -m ruff check --fix .` then `python -m ruff format .` using the pinned
+  venv.
+- Run `python -m ruff check .` and `python -m ruff format --check .` again and confirm
+  both report zero issues across the whole repository.
+- Run the full existing test suite yourself and confirm no behavior changed - every
+  test that passed before must still pass identically (formatting/import-source changes
+  must never affect test outcomes).
+- Diff each changed file yourself and confirm every change is whitespace/line-wrapping
+  or the one import-source equivalence - nothing else.
+checks:
+- command: '{python} -m ruff check . && {python} -m ruff format --check .'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: false
+  proves:
+  - REQ-G2-047
+min_tests: 1
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_candidates.py');s=p.read_text(encoding='utf-8');s=s.replace('from
+    collections.abc import Mapping','from typing import Mapping');p.write_text(s,encoding='utf-8')"
+  rationale: Reverting the UP035 fix back to the old typing.Mapping import must make
+    ruff check fail again, proving the check command genuinely verifies real, current
+    lint cleanliness rather than merely running without error for unrelated reasons.
+    Self-checked end-to-end against a fixture implementing the exact prescribed import
+    statement before being persisted.
+evidence:
+- evidence/build/G2/TC-079/receipt.json
+closeout:
+- The whole repository is ruff-check-clean and ruff-format-clean.
+- No test behavior changed - every change was whitespace/import-source only.
+- Reverting the UP035 fix fails ruff check again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
