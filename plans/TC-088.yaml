@@ -1,0 +1,87 @@
+id: TC-088
+gate: G2
+lane: verification
+purpose: 'Re-land TC-086''s already-correct, already-verified _load_services() fix
+  under a corrected negative control, and add one short, genuinely useful clarifying
+  comment - TC-086 itself is retired, not because its product fix was wrong (it was
+  correct: `gatectl review TC-086` showed clean_run 1/2 both exit 0 with all 7 tests
+  passing), but because its own negative_control''s `mutate` script used a SINGLE-quoted
+  `doc[''services'']`/`''ports''` search target while the real, already-committed
+  file uses DOUBLE quotes throughout - the string .replace() silently matched nothing,
+  so the falsifier left the file''s actual logic unchanged (though it did dirty the
+  tree in a harmless way) and `verify` correctly reported VACUOUS CHECKS. Root cause
+  traced today, empirically, one level deeper than the quote-style mismatch itself:
+  `gatectl` invokes a string `mutate` command via `subprocess.run(cmd, shell=True)`,
+  which on Windows means cmd.exe, and a RAW unescaped double-quote embedded inside
+  the outer double-quoted `-c "..."` argument truncates argv parsing early - confirmed
+  by direct experiment before writing this card. This is a supervisor authoring mistake
+  (TC-086''s own self-check used a hand-typed single-quoted fixture instead of verifying
+  the mutate string against the real file''s actual byte content first), not a defect
+  in the fix itself.'
+depends_on:
+- TC-023
+- TC-064
+write_paths:
+- tests/infra/test_docker_compose_multi_instance.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'The real, already-committed `_load_services()` (confirmed today by reading the
+  file directly) is: `return {name: svc for name, svc in doc["services"].items() if
+  "ports" in svc}` - DOUBLE-quoted throughout, matching this file''s own existing
+  style (e.g. `service["ports"]` in `_port_mapping`, already double-quoted before
+  this fix existed). This filter is already functionally correct and independently
+  verified: all 7 tests in this file pass against the real, currently-committed 8-service
+  docker-compose.yml.'
+- 'Add exactly one short comment line directly above `_load_services()` explaining
+  WHY the filter checks for a `ports` key specifically (the non-obvious rationale:
+  a service declaring no `ports` key is a one-shot build/ingestion job like `ingest-pdf-net`,
+  not a per-pilot serving instance - this is the actual distinguishing fact, not an
+  arbitrary name-based exclusion). This is a real, minor, genuinely useful addition
+  (not filler) that gives this card an honest, attributable diff distinct from TC-086''s
+  identical already-landed fix.'
+- Do not change the filter logic itself - it is already correct. Do not touch docker-compose.yml
+  or any other file.
+actions:
+- Read the real, current tests/infra/test_docker_compose_multi_instance.py and confirm
+  `_load_services()` already matches the description above exactly.
+- Add the one clarifying comment line directly above the function, as described.
+- Run `python -m pytest tests/infra/test_docker_compose_multi_instance.py -q` and
+  confirm all 7 tests still pass.
+checks:
+- command: '{python} -m pytest tests/infra/test_docker_compose_multi_instance.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 1
+network: false
+negative_control:
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''tests/infra/test_docker_compose_multi_instance.py'');s=p.read_text(encoding=''utf-8'');s=s.replace(''return
+    {name: svc for name, svc in doc[\"services\"].items() if \"ports\" in svc}'',''return
+    doc[\"services\"]'');p.write_text(s,encoding=''utf-8'')"'
+  rationale: Reverting _load_services() back to the raw, unfiltered doc["services"]
+    (matching the real file's actual double-quote style, unlike TC-086's own single-quoted
+    mutate string which silently failed to apply) must reintroduce all 6 pre-existing
+    failures against the real, 8-service docker-compose.yml, proving the check genuinely
+    depends on the filter rather than passing for an unrelated reason. Self-checked
+    end-to-end against the REAL, current file content (not a hand-typed fixture) before
+    being persisted, including empirically confirming the mutate command's own shell-quoting
+    actually mutates the tree under Windows cmd.exe (the exact step TC-086's own authoring
+    skipped).
+evidence:
+- evidence/build/G2/TC-088/receipt.json
+closeout:
+- tests/infra/test_docker_compose_multi_instance.py passes cleanly against the real,
+  currently-committed 8-service docker-compose.yml, with a genuinely non-vacuous negative
+  control this time.
+- A short, honest comment now documents the filter's real rationale.
+- Reverting the filter (double-quote-accurate this time) fails all 6 previously-failing
+  tests again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
