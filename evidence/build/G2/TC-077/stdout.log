@@ -1,6 +1,6 @@
 
 ===== CLEAN RUN 1 =====
-$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_symbol_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ve_hq9wc\.junit-0.xml"
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_symbol_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-guk8n7qq\.junit-0.xml"
 --- stdout ---
 .........                                                                [100%]
 
@@ -8,7 +8,7 @@ $ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e
 
 
 ===== CLEAN RUN 2 =====
-$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_symbol_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ve_hq9wc\.junit-0.xml"
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_symbol_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-guk8n7qq\.junit-0.xml"
 --- stdout ---
 .........                                                                [100%]
 
@@ -17,9 +17,29 @@ $ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e
 
 ===== NEGATIVE CONTROL (checks MUST now fail) =====
 mutated: M tests/mcp/tools/test_symbol_tools.py, ?? .junit-0.xml
-$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_symbol_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ve_hq9wc\.junit-0.xml"
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_symbol_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-guk8n7qq\.junit-0.xml"
 --- stdout ---
-.........                                                                [100%]
+.......F.                                                                [100%]
+================================== FAILURES ===================================
+___ test_find_examples_returns_an_explicit_miss_when_nothing_has_an_example ___
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-621/test_find_examples_returns_an_0')
+
+    def test_find_examples_returns_an_explicit_miss_when_nothing_has_an_example(tmp_path: Path) -> None:
+        store = _store(tmp_path)
+        _publish_pdf_net_symbols(store)
+    
+        # WITHOUT_EXAMPLE resolves as a real symbol (exact match) but carries no Example: block,
+        # and nothing else in this generation mentions its distinguishing terms either.
+        result = find_examples(store, PDF_NET_SCOPE, WITHOUT_EXAMPLE)
+    
+>       assert isinstance(result, NoExampleFound)
+E       assert False
+E        +  where False = isinstance([ExampleMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_e...ion', snippet='var annotations = page.Annotations;\nannotations.AddTextAnnotation(rect, "A note", "Reviewer", true);')], NoExampleFound)
+
+tests\mcp\tools\test_symbol_tools.py:273: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_symbol_tools.py::test_find_examples_returns_an_explicit_miss_when_nothing_has_an_example
 
 --- stderr ---
 

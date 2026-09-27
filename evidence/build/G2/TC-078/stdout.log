@@ -1,0 +1,304 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-a_fbs2ww\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-a_fbs2ww\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/lexical_index_writer.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-a_fbs2ww\.junit-0.xml"
+--- stdout ---
+......F.F.FF                                                             [100%]
+================================== FAILURES ===================================
+____________ test_query_lexical_index_finds_the_matching_document _____________
+
+    def test_query_lexical_index_finds_the_matching_document() -> None:
+        payload = build_lexical_index(_chunks(), ["c1", "c2"], "gen-1")
+>       assert query_lexical_index(payload, "PageCollection", top_k=1) == [doc_id("gen-1", "c2")]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_index_writers.py:115: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+payload = {'generation_id': 'gen-1', 'documents': {'gen-1::doc::c1': {'chunk_id': 'c1', 'tokens': ['document', 'class', 'opens',... 'text': 'A Page belongs to a PageCollection.'}}, 'doc_freq': {'opens': 1, 'files': 1, 'class': 1, 'document': 1, ...}}
+query_text = 'PageCollection', top_k = 1
+
+    def query_lexical_index(payload: dict, query_text: str, top_k: int = 5) -> list[str]:
+        """The ``top_k`` document ids most relevant to ``query_text`` under standard Okapi BM25.
+    
+        BM25 replaces this module's earlier raw-TF-IDF-ish score (count / doc length) *
+        idf, which had no saturation and so divided a real code example's matching-term
+        density down by its own boilerplate length, unfairly losing to a much shorter,
+        more tangentially related chunk. BM25's saturating term-frequency component and
+        length normalization relative to the corpus average (``avgdl``) fix that while
+        still ranking an exact, rare term highly.
+        """
+        query_tokens = tokenize(query_text)
+        documents: dict[str, dict] = payload["documents"]
+        doc_freq: dict[str, int] = payload["doc_freq"]
+        n_docs = max(len(documents), 1)
+        doc_lengths = [len(document["tokens"]) for document in documents.values()]
+        avgdl = (sum(doc_lengths) / len(doc_lengths)) if doc_lengths else 1.0
+        if avgdl <= 0.0:
+            avgdl = 1.0
+        scored: list[tuple[float, str]] = []
+        for identifier, document in documents.items():
+            tokens = document["tokens"]
+            doc_len = len(tokens)
+            if not doc_len:
+                continue
+            tf = Counter(tokens)
+            score = 0.0
+            for term in query_tokens:
+                count = tf.get(term)
+                if not count:
+                    continue
+                df = doc_freq.get(term, 0)
+                idf = math.log((n_docs - df + 0.5) / (df + 0.5) + 1)
+>               denominator = count + _BM25_K1 * (1 - _BM25_B + _BM25_B * doc_len / avgdl)
+                                      ^^^^^^^^
+E               NameError: name '_BM25_K1' is not defined
+
+src\foss_mcp\indexing\lexical_index_writer.py:155: NameError
+_ test_natural_language_query_matches_its_real_symbol_but_not_a_stopword_only_sentence _
+
+    def test_natural_language_query_matches_its_real_symbol_but_not_a_stopword_only_sentence() -> None:
+        """A real build/query round trip, no mocking: a natural-language question whose only
+        distinguishing term is the chunk's real symbol name must match it, while a different
+        sentence sharing only stopwords with that chunk's text must return no match at all -
+        proving stopword filtering lets an honest empty Miss stay reachable.
+        """
+        chunks = [
+            Chunk(
+                "AddWatermarkAnnotation",
+                "AddWatermarkAnnotation lets you add a watermark to a PDF document.",
+                "self_extracted",
+                "api_surface",
+                PROVENANCE,
+                "highest",
+                (),
+                NOT_CHECKED,
+            ),
+            Chunk(
+                "Page",
+                "A Page belongs to a PageCollection.",
+                "self_extracted",
+                "api_surface",
+                PROVENANCE,
+                "highest",
+                (),
+                NOT_CHECKED,
+            ),
+        ]
+        payload = build_lexical_index(chunks, ["c1", "c2"], "gen-1")
+    
+>       matches = query_lexical_index(payload, "how do I add a watermark to a PDF", top_k=5)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_index_writers.py:156: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+payload = {'generation_id': 'gen-1', 'documents': {'gen-1::doc::c1': {'chunk_id': 'c1', 'tokens': ['addwatermarkannotation', 'le...'text': 'A Page belongs to a PageCollection.'}}, 'doc_freq': {'lets': 1, 'watermark': 1, 'document': 1, 'pdf': 1, ...}}
+query_text = 'how do I add a watermark to a PDF', top_k = 5
+
+    def query_lexical_index(payload: dict, query_text: str, top_k: int = 5) -> list[str]:
+        """The ``top_k`` document ids most relevant to ``query_text`` under standard Okapi BM25.
+    
+        BM25 replaces this module's earlier raw-TF-IDF-ish score (count / doc length) *
+        idf, which had no saturation and so divided a real code example's matching-term
+        density down by its own boilerplate length, unfairly losing to a much shorter,
+        more tangentially related chunk. BM25's saturating term-frequency component and
+        length normalization relative to the corpus average (``avgdl``) fix that while
+        still ranking an exact, rare term highly.
+        """
+        query_tokens = tokenize(query_text)
+        documents: dict[str, dict] = payload["documents"]
+        doc_freq: dict[str, int] = payload["doc_freq"]
+        n_docs = max(len(documents), 1)
+        doc_lengths = [len(document["tokens"]) for document in documents.values()]
+        avgdl = (sum(doc_lengths) / len(doc_lengths)) if doc_lengths else 1.0
+        if avgdl <= 0.0:
+            avgdl = 1.0
+        scored: list[tuple[float, str]] = []
+        for identifier, document in documents.items():
+            tokens = document["tokens"]
+            doc_len = len(tokens)
+            if not doc_len:
+                continue
+            tf = Counter(tokens)
+            score = 0.0
+            for term in query_tokens:
+                count = tf.get(term)
+                if not count:
+                    continue
+                df = doc_freq.get(term, 0)
+                idf = math.log((n_docs - df + 0.5) / (df + 0.5) + 1)
+>               denominator = count + _BM25_K1 * (1 - _BM25_B + _BM25_B * doc_len / avgdl)
+                                      ^^^^^^^^
+E               NameError: name '_BM25_K1' is not defined
+
+src\foss_mcp\indexing\lexical_index_writer.py:155: NameError
+__ test_bm25_ranks_the_longer_real_example_over_the_shorter_real_enum_match ___
+
+    def test_bm25_ranks_the_longer_real_example_over_the_shorter_real_enum_match() -> None:
+        """Reproduces today's real finding: a real ~19-token enum chunk (ArtifactSubtype, containing
+        "watermark" once as a member name) against a real, longer example chunk (containing
+        "watermark" several times, but diluted by real code, boilerplate, and a 41-character
+        commit-hash token) - both real, both containing the query's one matching term. Under the OLD
+        raw-TF-IDF-ish formula the short, only-incidentally-matching enum chunk out-scored the long,
+        genuinely relevant example chunk purely from dividing by raw document length. Under BM25 the
+        example chunk must rank first instead.
+        """
+        enum_chunk = _real_enum_chunk_containing_watermark()
+        example_chunk = _real_example_chunk_containing_watermark()
+    
+        payload = build_lexical_index([enum_chunk, example_chunk], ["enum_c", "example_c"], "gen-1")
+        query_tokens = tokenize("watermark")
+    
+        enum_tokens = payload["documents"][doc_id("gen-1", "enum_c")]["tokens"]
+        example_tokens = payload["documents"][doc_id("gen-1", "example_c")]["tokens"]
+        n_docs = len(payload["documents"])
+        doc_freq = payload["doc_freq"]
+    
+        old_enum_score = _old_raw_tf_idf_score(enum_tokens, query_tokens, n_docs=n_docs, doc_freq=doc_freq)
+        old_example_score = _old_raw_tf_idf_score(example_tokens, query_tokens, n_docs=n_docs, doc_freq=doc_freq)
+        # The real regression this card fixes: under the old formula, the short enum chunk actually
+        # outranks the long, genuinely relevant example chunk.
+        assert old_enum_score > old_example_score
+    
+>       bm25_order = query_lexical_index(payload, "watermark", top_k=5)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_index_writers.py:338: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+payload = {'generation_id': 'gen-1', 'documents': {'gen-1::doc::enum_c': {'chunk_id': 'enum_c', 'tokens': ['fqn', 'aspose', 'pdf...51413cff57a8bfe41fb8a8befb2406b'}}, 'doc_freq': {'artifactsubtype': 1, 'subtype': 1, 'watermark': 2, 'batesn': 1, ...}}
+query_text = 'watermark', top_k = 5
+
+    def query_lexical_index(payload: dict, query_text: str, top_k: int = 5) -> list[str]:
+        """The ``top_k`` document ids most relevant to ``query_text`` under standard Okapi BM25.
+    
+        BM25 replaces this module's earlier raw-TF-IDF-ish score (count / doc length) *
+        idf, which had no saturation and so divided a real code example's matching-term
+        density down by its own boilerplate length, unfairly losing to a much shorter,
+        more tangentially related chunk. BM25's saturating term-frequency component and
+        length normalization relative to the corpus average (``avgdl``) fix that while
+        still ranking an exact, rare term highly.
+        """
+        query_tokens = tokenize(query_text)
+        documents: dict[str, dict] = payload["documents"]
+        doc_freq: dict[str, int] = payload["doc_freq"]
+        n_docs = max(len(documents), 1)
+        doc_lengths = [len(document["tokens"]) for document in documents.values()]
+        avgdl = (sum(doc_lengths) / len(doc_lengths)) if doc_lengths else 1.0
+        if avgdl <= 0.0:
+            avgdl = 1.0
+        scored: list[tuple[float, str]] = []
+        for identifier, document in documents.items():
+            tokens = document["tokens"]
+            doc_len = len(tokens)
+            if not doc_len:
+                continue
+            tf = Counter(tokens)
+            score = 0.0
+            for term in query_tokens:
+                count = tf.get(term)
+                if not count:
+                    continue
+                df = doc_freq.get(term, 0)
+                idf = math.log((n_docs - df + 0.5) / (df + 0.5) + 1)
+>               denominator = count + _BM25_K1 * (1 - _BM25_B + _BM25_B * doc_len / avgdl)
+                                      ^^^^^^^^
+E               NameError: name '_BM25_K1' is not defined
+
+src\foss_mcp\indexing\lexical_index_writer.py:155: NameError
+_______ test_bm25_exact_rare_term_query_still_returns_the_correct_chunk _______
+
+    def test_bm25_exact_rare_term_query_still_returns_the_correct_chunk() -> None:
+        """BM25 must not regress exact, rare-term matching: querying the real, distinctive symbol
+        name "AFRelationship" must still return its own chunk first, ahead of an unrelated chunk
+        that shares no distinguishing term with it.
+        """
+        fixture = _pdf_net_fixture()
+        (af_entry,) = [t for t in fixture["types"] if t.get("name") == "AFRelationship"]
+        assert af_entry["kind"] == "enum_declaration"
+        sliced_fixture = {**fixture, "types": [af_entry]}
+        (af_chunk,) = build_chunks_from_api_surface(sliced_fixture, title="pdf/net", max_types=1)
+    
+        unrelated_chunk = Chunk(
+            "Page",
+            "A Page belongs to a PageCollection.",
+            "self_extracted",
+            "api_surface",
+            af_chunk.provenance,
+            "highest",
+            (),
+            NOT_CHECKED,
+        )
+    
+        payload = build_lexical_index([af_chunk, unrelated_chunk], ["af_c", "page_c"], "gen-1")
+>       assert query_lexical_index(payload, "AFRelationship", top_k=5) == [doc_id("gen-1", "af_c")]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_index_writers.py:365: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+payload = {'generation_id': 'gen-1', 'documents': {'gen-1::doc::af_c': {'chunk_id': 'af_c', 'tokens': ['fqn', 'aspose', 'pdf', '...t': 'A Page belongs to a PageCollection.'}}, 'doc_freq': {'encrypted': 1, 'pdf': 1, 'relationship': 1, 'data': 1, ...}}
+query_text = 'AFRelationship', top_k = 5
+
+    def query_lexical_index(payload: dict, query_text: str, top_k: int = 5) -> list[str]:
+        """The ``top_k`` document ids most relevant to ``query_text`` under standard Okapi BM25.
+    
+        BM25 replaces this module's earlier raw-TF-IDF-ish score (count / doc length) *
+        idf, which had no saturation and so divided a real code example's matching-term
+        density down by its own boilerplate length, unfairly losing to a much shorter,
+        more tangentially related chunk. BM25's saturating term-frequency component and
+        length normalization relative to the corpus average (``avgdl``) fix that while
+        still ranking an exact, rare term highly.
+        """
+        query_tokens = tokenize(query_text)
+        documents: dict[str, dict] = payload["documents"]
+        doc_freq: dict[str, int] = payload["doc_freq"]
+        n_docs = max(len(documents), 1)
+        doc_lengths = [len(document["tokens"]) for document in documents.values()]
+        avgdl = (sum(doc_lengths) / len(doc_lengths)) if doc_lengths else 1.0
+        if avgdl <= 0.0:
+            avgdl = 1.0
+        scored: list[tuple[float, str]] = []
+        for identifier, document in documents.items():
+            tokens = document["tokens"]
+            doc_len = len(tokens)
+            if not doc_len:
+                continue
+            tf = Counter(tokens)
+            score = 0.0
+            for term in query_tokens:
+                count = tf.get(term)
+                if not count:
+                    continue
+                df = doc_freq.get(term, 0)
+                idf = math.log((n_docs - df + 0.5) / (df + 0.5) + 1)
+>               denominator = count + _BM25_K1 * (1 - _BM25_B + _BM25_B * doc_len / avgdl)
+                                      ^^^^^^^^
+E               NameError: name '_BM25_K1' is not defined
+
+src\foss_mcp\indexing\lexical_index_writer.py:155: NameError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_index_writers.py::test_query_lexical_index_finds_the_matching_document
+FAILED tests/indexing/test_index_writers.py::test_natural_language_query_matches_its_real_symbol_but_not_a_stopword_only_sentence
+FAILED tests/indexing/test_index_writers.py::test_bm25_ranks_the_longer_real_example_over_the_shorter_real_enum_match
+FAILED tests/indexing/test_index_writers.py::test_bm25_exact_rare_term_query_still_returns_the_correct_chunk
+
+--- stderr ---
+
