@@ -1,0 +1,82 @@
+id: TC-083
+gate: G2
+lane: verification
+purpose: Fix a real, pre-existing ruff UP036 finding in manifest_reader.py (TC-022's
+  file, target-version py313 makes its sys.version_info>=(3,11) tomllib/tomli branch
+  dead code) that TC-079's own fresh-pinned-venv, whole-repo ruff check exposed for
+  the first time under ruff 0.16.6 - it was invisible under whatever older ruff was
+  active when TC-022 was originally accepted, and TC-079's own write_paths correctly
+  excluded it since it is not one of TC-079's declared files. This is the one narrow,
+  remaining reason `gatectl review TC-079` could not yet report a clean whole-repo
+  check; TC-079's own 14 files are independently reconfirmed 100% clean under the
+  pinned venv (scoped ruff check + format --check, both exit 0). NOT touching tests/infra/test_docker_compose_multi_instance.py's
+  own separate pre-existing B007 finding (also exposed by the same run) - a concurrent,
+  second Claude Code session has that exact fix already applied in its own uncommitted
+  working tree (`for name, svc in ...` -> `for _name, svc in ...`, confirmed by reading
+  `git diff` on that file directly today) - touching it now would race that session's
+  own in-flight work.
+depends_on:
+- TC-022
+- TC-079
+write_paths:
+- src/foss_mcp/extraction/manifest_reader.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'CONFIRMED today: `ruff check src/foss_mcp/extraction/manifest_reader.py` (pinned
+  venv, ruff 0.16.6) reports exactly one finding - UP036 ''Version block is outdated
+  for minimum Python version'' at the `if sys.version_info >= (3, 11):` branch inside
+  `_load_toml`. pyproject.toml pins `target-version = "py313"`, so this branch''s
+  else-clause (`import tomli as tomllib`) can never execute - tomllib is unconditionally
+  available at 3.13+. `tomli` is not a declared dependency anywhere in pyproject.toml,
+  confirming the else-branch was always dead weight, not live fallback behavior.'
+- 'The only correct fix is deletion of the dead branch, not a version bump or ignore
+  rule: replace the `if sys.version_info >= (3, 11): import tomllib else: import tomli
+  as tomllib` block with a single unconditional `import tomllib`, and remove the now-unused
+  top-level `import sys` (grep confirms `sys.` is used nowhere else in the file).'
+- Purely mechanical, zero behavior change on this target Python version - tomllib
+  is what actually ran on every real invocation already, since this project only ever
+  runs on 3.13. tests/extraction/test_manifest_reader_ecosystems.py already exercises
+  `_load_toml`/`read_python_manifest` and must continue passing unchanged.
+- Do not touch tests/infra/test_docker_compose_multi_instance.py or any other file
+  - the concurrent session's own in-flight fix there is out of scope and must not
+  be raced.
+actions:
+- 'Edit src/foss_mcp/extraction/manifest_reader.py exactly as described: remove the
+  dead version branch, keep a single unconditional `import tomllib`, remove the unused
+  `import sys`.'
+- Run `{python} -m ruff check src/foss_mcp/extraction/manifest_reader.py` and confirm
+  zero findings.
+- Run the existing tests/extraction/test_manifest_reader_ecosystems.py and confirm
+  it still passes unchanged.
+checks:
+- command: '{python} -m ruff check src/foss_mcp/extraction/manifest_reader.py && {python}
+    -m pytest tests/extraction/test_manifest_reader_ecosystems.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 1
+network: false
+negative_control:
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/extraction/manifest_reader.py'');s=p.read_text(encoding=''utf-8'');s=s.replace(''import
+    tomllib'',''import sys\n    if sys.version_info >= (3, 11):\n        import tomllib\n    else:\n        import
+    tomli as tomllib  # type: ignore[no-redef]'', 1);p.write_text(s,encoding=''utf-8'')"'
+  rationale: Reintroducing the dead sys.version_info branch must make ruff check fail
+    with UP036 again, proving the check genuinely verifies the real, current lint
+    state of this file rather than passing for unrelated reasons. Self-checked end-to-end
+    against a fixture implementing the exact prescribed import before being persisted.
+evidence:
+- evidence/build/G2/TC-083/receipt.json
+closeout:
+- manifest_reader.py is ruff-check-clean (UP036 resolved).
+- tests/extraction/test_manifest_reader_ecosystems.py passes unchanged.
+- tests/infra/test_docker_compose_multi_instance.py was not touched.
+- Reintroducing the dead version branch fails ruff check again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
