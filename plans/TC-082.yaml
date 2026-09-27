@@ -1,0 +1,109 @@
+id: TC-082
+gate: G2
+lane: storage-retrieval
+purpose: Extend the real, isolated compile-verification pipeline (REQ-G2-048) to the
+  remaining two working pilots' ecosystems - Java (pdf/java) and TypeScript (pdf/typescript)
+  - completing coverage of all 6 pilots with a real extraction fixture (pdf/cpp remains
+  separately blocked on its own unresolved extraction bug, TC-057). Real repo/build
+  details confirmed today via a real, hands-on clone+build of each pinned repository.
+depends_on:
+- TC-067
+- TC-081
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_example_verifier.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'CONFIRMED today by a real, hands-on clone+build of each real pinned repository:
+  pdf/java is `aspose-pdf-foss/Aspose.PDF-FOSS-for-Java` @ db2d3f0622f035825419c6d46727022064f39f15
+  (matches tests/fixtures/pdf_java/api_surface.json''s own source_commit - confirm
+  yourself) - manifest pom.xml, groupId org.aspose, artifactId aspose-pdf-foss. REAL,
+  CONFIRMED GOTCHA: this machine has NO `mvn` on PATH at all - Maven must be downloaded
+  (a real, working URL confirmed today: https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.zip
+  - the versioned dlcdn.apache.org URL 404s, use the archive.apache.org one) and unzipped
+  into a scratch/workdir location, then invoked by its own full path. SECOND REAL
+  GOTCHA: `mvn package -DskipTests` FAILS on this real repo (283 test-source files
+  fail to compile against the 943 main classes, even though skipping test EXECUTION
+  was requested, not test COMPILATION) - the commands confirmed working today are
+  `mvn compile` (library only) or `mvn package -Dmaven.test.skip=true` (skips compiling
+  tests too, produces a real jar). Use `mvn package -Dmaven.test.skip=true` so a real
+  jar exists for `javac -cp <jar>` to reference. On Windows, referencing the packaged
+  jar as classpath works reliably; referencing the raw target/classes directory was
+  found to fail from Git Bash even with a correct path - always build and reference
+  the packaged jar.'
+- 'pdf/typescript is `aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript` @ 155bfc7a33f0ba23fb4252b6ba201828b02a5b9d
+  - manifest package.json, real package name `@asposefoss/pdf`, build script `npm
+  run clean && tsc -p tsconfig.build.json` - confirmed working today as `npm install
+  && npx tsc -p tsconfig.build.json`, producing dist/*.js + *.d.ts. Real API note:
+  `Document`''s constructor is PRIVATE - candidates must use the real static factory
+  `Document.New()`, not `new Document()`.'
+- 'Mirror src/foss_mcp/indexing/example_verifier.py''s already-established pattern
+  for pdf/net exactly (read the real current file first, including TC-081''s newly-added
+  Python/Rust/Go functions for the established multi-language shape) - two functions
+  per language: `prepare_java_library`/`verify_java_example`, `prepare_typescript_library`/`verify_typescript_example`
+  (these exact names required, `verify_typescript_example` specifically for the negative
+  control below).'
+- 'Java: `prepare_java_library` downloads Maven if not already available (check for
+  an existing `mvn` on PATH first, fall back to downloading/unzipping the confirmed
+  real URL above into workdir only if absent - do not re-download if a usable mvn
+  already exists), then runs `mvn package -Dmaven.test.skip=true` in the cloned repo,
+  returning the real built jar''s path. `verify_java_example` writes the candidate''s
+  code as a real .java file (candidates are expected to be a complete, compilable
+  Java file including its own class declaration - confirm this matches the shape TC-066-style
+  candidate extraction would realistically produce for Java, adjust if the real furnished
+  content''s Java snippets are shaped differently, e.g. bare statements needing a
+  wrapper class/main method - check the real tests/fixtures/furnished/pdf_java/pages/
+  content yourself before assuming), compiles it with `javac -cp <jar>`, and checks
+  the real exit code.'
+- 'TypeScript: `prepare_typescript_library` runs `npm install` then `npx tsc -p tsconfig.build.json`
+  in the cloned repo, confirming dist/ is produced. `verify_typescript_example` writes
+  the candidate''s code as a real .ts file importing from the built dist/ output,
+  type-checks/compiles it with `npx tsc` against the repo''s own tsconfig (or a minimal
+  one referencing dist/*.d.ts), and checks the real exit code.'
+- Do not touch pdf/net's, slides/python's, cells/rust's, or pdf/go's own functions
+  (verify_dotnet_example, verify_python_example, verify_rust_example, verify_go_example)
+  - purely additive.
+actions:
+- Implement both languages' prepare/verify function pairs exactly as specified, checking
+  the real furnished-content fixture shape for each before assuming a candidate's
+  exact code structure.
+- 'Write REAL tests for each language: real clone+build of the real pinned repository,
+  a real KNOWN-WORKING candidate you construct and verify yourself first (Java: something
+  using org.aspose.pdf.Document''s real no-arg constructor, confirmed working today;
+  TypeScript: something using the real Document.New() static factory, confirmed working
+  today) verifies True, and a deliberately broken variant verifies False with a real
+  compiler error in its output.'
+- Run the full existing test suite yourself and confirm nothing else broke.
+checks:
+- command: '{python} -m pytest tests/indexing/test_example_verifier.py -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 4
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    verify_typescript_example','def verify_typescript_example_DISABLED');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming verify_typescript_example so it is never referenced must break
+    every test exercising it with a NameError, proving the tests genuinely exercise
+    this concrete new function. Self-checked end-to-end against a fixture implementing
+    the exact prescribed name before being persisted.
+evidence:
+- evidence/build/G2/TC-082/receipt.json
+closeout:
+- Real, isolated compile verification now exists for Java and TypeScript candidate
+  examples, mirroring pdf/net's already-proven pattern.
+- All 6 pilots with a real extraction fixture now have real verified-example infrastructure
+  available (pdf/cpp remains separately blocked).
+- A known-working real candidate verifies True for each language; a deliberately broken
+  one verifies False with a real error.
+- Renaming verify_typescript_example fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
