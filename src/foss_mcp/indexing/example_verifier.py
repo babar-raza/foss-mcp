@@ -691,6 +691,67 @@ def prepare_go_library(
     return workdir
 
 
+_GO_PACKAGE_DECLARATION_RE = re.compile(r"(?m)^\s*package\s+\w+")
+
+
+def _wrap_go_fragment_if_needed(code: str, module_path: str) -> str:
+    """Wrap a bare Go statement fragment in a minimal compilable
+    ``package main`` + ``func main()`` shell; compile a complete file
+    exactly as given.
+
+    Every one of pdf/go's real furnished-content candidates (confirmed by
+    reading ``tests/fixtures/furnished/pdf_go/pages/_index.md``) is a bare
+    statement fragment like ``doc, _ := pdf.Open("input.pdf")`` with no
+    ``package``, ``import``, or ``func main`` of its own - the same shape
+    pdf/java's own furnished content has, which ``verify_java_example``
+    already handles by wrapping only when no ``public class`` is present.
+    This mirrors that pattern for Go: a fragment already containing a
+    top-level ``package`` declaration is a complete file and is compiled
+    as-is, unwrapped; anything else is treated as a bare fragment and
+    wrapped.
+
+    The real published Go package at ``module_path`` is named
+    ``asposepdf``, not ``pdf`` (confirmed by cloning
+    ``aspose-pdf-foss/Aspose-PDF-FOSS-for-Go`` at its pinned commit
+    ``286484d235196d65c9a458c5eff3d3d6539216dc`` and reading its own
+    top-level ``.go`` files' ``package`` declarations directly) - but every
+    real furnished candidate uses the qualifier ``pdf.`` throughout,
+    matching this same repository's own documented install instructions
+    (``tests/fixtures/furnished/pdf_go/pages/_index.md``'s own FAQ:
+    "Import it with an alias in your source files using ``import pdf
+    "github.com/aspose-pdf-foss/aspose-pdf-foss-for-go"``"). The import
+    below therefore always aliases the import as ``pdf`` regardless of the
+    package's own real declared name, which Go's import aliasing supports
+    unconditionally - confirmed by actually compiling a hand-built wrapped
+    example against the real cloned module before this was written.
+
+    Go fails to compile on an unused import, so ``"fmt"`` is included only
+    if the fragment text actually contains ``fmt.`` (a simple substring
+    check, matching this project's own pragmatic style elsewhere - no full
+    Go parse needed - and confirmed real: an unconditional ``"fmt"``
+    import against a fragment that never uses it fails with `"fmt"
+    imported and not used`), and the pdf import only if the fragment
+    contains its ``pdf.`` qualifier (always true for pdf/go's real content
+    today, but kept honest rather than unconditional).
+    """
+    if _GO_PACKAGE_DECLARATION_RE.search(code) is not None:
+        return code
+
+    import_lines = []
+    if "fmt." in code:
+        import_lines.append('\t"fmt"')
+    if "pdf." in code:
+        import_lines.append(f'\tpdf "{module_path}"')
+
+    import_block = ""
+    if import_lines:
+        import_block = "import (\n" + "\n".join(import_lines) + "\n)\n\n"
+
+    indented = "\n".join(f"\t{line}" if line.strip() else line for line in code.splitlines())
+
+    return f"package main\n\n{import_block}func main() {{\n{indented}\n}}\n"
+
+
 def verify_go_example(
     candidate: CandidateExample,
     *,
@@ -701,6 +762,15 @@ def verify_go_example(
     """Build ``candidate.code`` as ``main.go`` in a throwaway module that
     ``replace``s ``module_path`` with ``library_dir`` (the cloned
     reference module), and report the real ``go build`` outcome.
+
+    Real furnished pdf/go content is a bare statement fragment with no
+    ``package``/``import``/``func main`` of its own (confirmed by reading
+    the real ``tests/fixtures/furnished/pdf_go/pages/_index.md`` content) -
+    not a full compilable Go file. A candidate with no top-level ``package``
+    declaration of its own is therefore wrapped by
+    ``_wrap_go_fragment_if_needed`` in a minimal ``package main`` +
+    ``func main()`` shell; a candidate that already declares its own
+    ``package`` is compiled as-is.
 
     The literal comparison determining ``verified`` is intentionally exact
     (``verified = result.returncode == 0``), matching ``verify_dotnet_example``.
@@ -713,7 +783,8 @@ def verify_go_example(
         library_dir=library_dir.resolve().as_posix(),
     )
     (project_dir / "go.mod").write_text(go_mod_content, encoding="utf-8")
-    (project_dir / "main.go").write_text(candidate.code, encoding="utf-8")
+    wrapped_code = _wrap_go_fragment_if_needed(candidate.code, module_path)
+    (project_dir / "main.go").write_text(wrapped_code, encoding="utf-8")
 
     result = _run(["go", "build", "./..."], cwd=project_dir)
 

@@ -382,6 +382,70 @@ def test_go_known_broken_candidate_fails_real_compile(go_library: Path, tmp_path
     assert "FrobnicateNonexistentMethodThatDoesNotExist" in result.output
 
 
+# Real, bare-fragment furnished content copied verbatim from the "Split and
+# Merge PDFs" example in tests/fixtures/furnished/pdf_go/pages/_index.md -
+# no package/import/func main of its own, the real shape TC-100's own live
+# E2E run found every one of pdf/go's 4 real furnished candidates share.
+# Before _wrap_go_fragment_if_needed existed, writing this verbatim as
+# main.go failed identically with
+# `main.go:1:1: expected 'package', found doc` - this is REQ-G2-048's own
+# concrete proof the fix closes that real gap, not a synthetic unit test.
+_GO_FRAGMENT_WORKING_CODE = """\
+doc, _ := pdf.Open("input.pdf")
+pages, _ := doc.Split()
+for i, p := range pages {
+    p.Save(fmt.Sprintf("page%03d.pdf", i+1))
+}
+doc2, _ := pdf.Open("file2.pdf")
+doc.Append(doc2)
+doc.Save("merged.pdf")
+"""
+
+_GO_FRAGMENT_BROKEN_CODE = """\
+doc, _ := pdf.Open("input.pdf")
+pages, _ := doc.Split()
+for i, p := range pages {
+    p.Save(fmt.Sprintf("page%03d.pdf", i+1))
+}
+doc.FrobnicateNonexistentMethodThatDoesNotExist()
+"""
+
+
+def test_go_real_furnished_fragment_candidate_verifies_true(go_library: Path, tmp_path: Path) -> None:
+    """pdf/go's own real furnished-content candidate (a bare statement
+    fragment with no package/import/func main of its own) now genuinely
+    compiles once wrapped, against the real pinned reference module.
+    """
+    candidate = _candidate("Split and Merge PDFs", "go", _GO_FRAGMENT_WORKING_CODE)
+
+    result = verify_go_example(
+        candidate,
+        module_path=GO_MODULE_PATH,
+        library_dir=go_library,
+        workdir=tmp_path,
+    )
+
+    assert isinstance(result, VerificationResult)
+    assert result.candidate == candidate
+    assert result.verified is True, result.output
+
+
+def test_go_real_furnished_fragment_broken_variant_fails_real_compile(
+    go_library: Path, tmp_path: Path
+) -> None:
+    candidate = _candidate("Split and Merge PDFs (broken)", "go", _GO_FRAGMENT_BROKEN_CODE)
+
+    result = verify_go_example(
+        candidate,
+        module_path=GO_MODULE_PATH,
+        library_dir=go_library,
+        workdir=tmp_path,
+    )
+
+    assert result.verified is False
+    assert "FrobnicateNonexistentMethodThatDoesNotExist" in result.output
+
+
 # --- Java fixtures/tests ------------------------------------------------
 
 
