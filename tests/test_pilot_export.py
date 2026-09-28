@@ -36,6 +36,7 @@ CELLS_RUST_BUNDLE = Path(__file__).parent / "fixtures" / "furnished" / "cells_ru
 PDF_GO_BUNDLE = Path(__file__).parent / "fixtures" / "furnished" / "pdf_go"
 PDF_JAVA_BUNDLE = Path(__file__).parent / "fixtures" / "furnished" / "pdf_java"
 PDF_TYPESCRIPT_BUNDLE = Path(__file__).parent / "fixtures" / "furnished" / "pdf_typescript"
+CELLS_CPP_BUNDLE = Path(__file__).parent / "fixtures" / "furnished" / "cells_cpp"
 _COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
@@ -343,3 +344,17 @@ def test_the_committed_pdf_typescript_bundle_is_real_and_verifies_clean() -> Non
         assert _COMMIT_SHA.match(entry["source_commit"])
     assert _COMMIT_SHA.match(manifest["source_commit"])
     assert verify_bundle(PDF_TYPESCRIPT_BUNDLE) == []
+
+
+# --- TC-095: the real, committed cells/cpp bundle exported from Aspose/aspose.org ---
+
+
+def test_the_committed_cells_cpp_bundle_is_real_and_verifies_clean() -> None:
+    manifest = json.loads((CELLS_CPP_BUNDLE / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["source_repository"] == "Aspose/aspose.org"
+    assert manifest["source_subtree"] == "content/products.aspose.org/en/cells/cpp"
+    assert manifest["files"], "the cells/cpp bundle exported nothing"
+    for entry in manifest["files"]:
+        assert _COMMIT_SHA.match(entry["source_commit"])
+    assert _COMMIT_SHA.match(manifest["source_commit"])
+    assert verify_bundle(CELLS_CPP_BUNDLE) == []
