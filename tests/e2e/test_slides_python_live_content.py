@@ -37,68 +37,54 @@ pdf/typescript's, pdf/java's, or pdf/go's:
   ``Methods:`` line (no entry in this fixture's own ``max_types=20`` slice carries a non-empty
   ``bases`` list either, so there is no ``Bases:`` line to assert alongside it, unlike pdf/go's
   ``BarcodeField``).
-- ``REAL_EXAMPLE_SYMBOL``/``REAL_TASK_QUERY``: a REAL, REPRODUCIBLE GAP was found here, confirmed
-  today both by a real, hands-on host-level run of the full ``infra/build_chunks.py`` CLI and
-  independently reproduced through the full containerized ``docker compose up --build
+- ``REAL_EXAMPLE_SYMBOL``/``REAL_TASK_QUERY``: TC-101's own worker found a real, reproducible gap
+  here, confirmed both by a real, hands-on host-level run of the full ``infra/build_chunks.py``
+  CLI and independently reproduced through the full containerized ``docker compose up --build
   ingest-slides-python`` below, against this pilot's own real, committed furnished page
   (``tests/fixtures/furnished/slides_python/pages/_index.md``). That page has 2 real candidates;
   ``build_chunks.py`` itself reports **"verified 1/2 candidate examples"** - "Create a
   Presentation and Add a Shape" really runs end to end against the pinned commit with
   ``verify_python_example`` (a real venv + a real ``pip install -e`` + a real interpreter run),
-  while "Format Text and Apply a Fill Effect" genuinely fails: it opens ``output.pptx`` (a file
-  only the FIRST candidate's own isolated run ever produces), so run independently - exactly how
-  ``verify_python_example`` runs every candidate - it raises a real, honest
-  ``FileNotFoundError: Package file not found: output.pptx`` (confirmed both host-level and
-  through the real containerized ingestion run's own log). This part is expected and correct: it
-  matches pdf/java's own "1/3 candidates" pattern, not a defect.
+  while "Format Text and Apply a Fill Effect" genuinely fails (it opens ``output.pptx``, a file
+  only the FIRST candidate's own isolated run ever produces, so run independently it raises a
+  real, honest ``FileNotFoundError``). This part is expected and correct: it matches pdf/java's
+  own "1/3 candidates" pattern, not a defect.
 
-  The genuine, REPRODUCIBLE gap is a DIFFERENT, later stage: even though "Create a Presentation
-  and Add a Shape" really compiles/runs, its real chunk is STILL dropped before publish, by the
-  citation-validation authority path (``foss_mcp.normalization.citation``, out of this card's own
-  ``write_paths``: only ``docker-compose.yml`` and this file). That candidate's own real
-  description text (in the furnished page itself) cites two BARE, unqualified inline-code method
-  names - `` `add_auto_shape()` `` and `` `add_text_frame()` `` (the trailing ``()`` is stripped
-  by ``find_symbol_anchors``, leaving the bare anchors ``add_auto_shape``/``add_text_frame``) -
-  neither of which is a declaration ``symbol_index_from_api_surface`` ever registers: that index
-  only ever registers ``ClassName``/``ClassName.MethodName`` anchors (never a bare, unqualified
-  method name), and neither one is a real top-level class name either, so both anchors fail to
-  resolve (``anchor_resolves`` returns ``UNSUPPORTED`` for ``add_auto_shape``) - confirmed by a
-  real, isolated ``validate_document``/``citable_chunks`` call against this exact chunk, not
-  merely the aggregate CLI count. ``validate_chunk`` sets the WHOLE example chunk's own
-  verdict to the worst one any of its claims earned, so this real, run-verified example is
-  excluded from ``citable_chunks`` entirely - the published generation ends up with ZERO example
-  chunks, confirmed both by inspecting the real local manifest store directly (21 chunks written
-  by ``build_chunks.py``, only 20 published by ``ingest.py``) and by the real MCP-over-HTTP tests
-  below against the real running container. This is a genuine, reproducible gap in how the
-  furnished-content authoring convention (bare inline-code method-name citations) interacts with
-  ``symbol_index_from_api_surface``'s own fully-qualified-only anchor convention - out of this
-  card's own ``write_paths`` - not a wording problem this test can fix by trying a different
-  query, and not something this card may silently paper over (AGENTS.md: "Never weaken a check to
-  make it pass" and "rather than assert something you have not actually observed").
+  TC-101's worker also found that, even though "Create a Presentation and Add a Shape" really
+  compiled/ran, its real chunk was STILL dropped before publish by the citation-validation
+  authority path (``foss_mcp.normalization.citation``): its own real description text cites two
+  bare, unqualified inline-code method names - `` `add_auto_shape()` `` and `` `add_text_frame()`
+  `` (the trailing ``()`` stripped by ``find_symbol_anchors``) - that
+  ``symbol_index_from_api_surface`` never registers as anchors (that index only ever registers
+  ``ClassName``/``ClassName.MethodName`` anchors, never a bare, unqualified method name), so both
+  anchors failed to resolve and ``validate_chunk`` set the whole example chunk's own verdict to
+  the worst one any of its claims earned - excluding this real, run-verified example from
+  ``citable_chunks`` entirely. The published generation used to end up with ZERO example chunks
+  as a result (21 chunks written by ``build_chunks.py``, only 20 published by ``ingest.py``).
 
-  Consequently, for THIS pilot too, ``find_examples``/``lookup`` cannot honestly be asserted to
-  return a compile-verified example - there genuinely is none in the real published generation.
-  ``REAL_EXAMPLE_SYMBOL`` is still recorded below - ``add_auto_shape`` (``slide.shapes.
-  add_auto_shape(...)``, the real, distinctive method call in the furnished page's "Create a
-  Presentation and Add a Shape" candidate, the topic ``REAL_TASK_QUERY`` naturally asks about) -
-  purely for traceability of which real candidate this card evaluated, and is deliberately never
-  asserted to appear anywhere in a tool response. ``REAL_TASK_QUERY`` ("how do I insert a
-  rectangle into a pptx file") is the exact literal, API-naive task question CONFIRMED live, by
-  hand, today, through both a real local generation and the real running slides-python container,
-  to make ``lookup`` correctly and HONESTLY compose no fabricated ``TaskAnswer`` at all (no doc
-  content has ever been published for this pilot either, so ``_compose_from_docs`` finds nothing
-  to compose) and fall back, exactly as ``src/foss_mcp/mcp/tools/lookup.py`` documents, to the
-  real, honest ``Miss`` from ``search_symbols`` itself - proving the real production path never
-  invents an example it cannot back, even though that means REQ-G2-050's "a real, composed lookup
-  task-answer returns a real, genuinely verified example" bar is NOT met for slides/python today.
-  (Several other natural phrasings of this same task - e.g. "how do I add a rectangle to a
-  presentation" - were tried first and instead returned real but merely INCIDENTAL
-  ``search_symbols`` lexical matches, since common English words like "shape"/"slide" appear
-  verbatim in several published class docstrings; "how do I insert a rectangle into a pptx file"
-  is the one phrasing confirmed, by hand, to produce a genuine, honest ``Miss`` instead.) This gap
-  should be tracked as a follow-up card against ``symbol_index_from_api_surface`` (recognizing a
-  bare method-name anchor unambiguously owned by exactly one class) or against the furnished-page
-  authoring convention itself, which TC-101's own ``write_paths`` cannot touch.
+  G2/TC-105 fixed exactly this gap: ``foss_mcp.normalization.citation`` now exempts a
+  compile-verified example chunk's own bare-method-name claims from the symbol-anchor check, so
+  this real, run-verified example now genuinely survives publish. This file's own worker (TC-107)
+  independently confirmed that today, first-hand: a real, hands-on re-run of the full
+  containerized ``docker compose up --build ingest-slides-python`` pipeline below reports the
+  SAME real, published generation now carrying this chunk (21 chunks written, 21 published), and
+  real MCP-over-HTTP queries against the real running ``serving-slides-python`` container return
+  its real content for both ``find_examples`` and ``lookup``.
+
+  ``REAL_EXAMPLE_SYMBOL`` is ``add_auto_shape`` (``slide.shapes.add_auto_shape(...)``), the real,
+  distinctive method call in the furnished page's "Create a Presentation and Add a Shape"
+  candidate - confirmed today to appear verbatim in the real snippet text both ``find_examples``
+  and ``lookup`` now return for this pilot. ``REAL_TASK_QUERY`` ("how do I insert a rectangle into
+  a pptx file") is the exact literal, API-naive task question this file has always used; confirmed
+  today, by hand, through the real running slides-python container, that ``lookup`` now composes a
+  real, genuine ``TaskAnswer`` for it - ``doc_matches`` empty (no doc content has ever been
+  published for this pilot), ``example`` carrying this same real, compile-verified example, its
+  snippet containing both ``REAL_EXAMPLE_SYMBOL`` and the real source commit
+  ``4e63447ba79d1c27a5192844847d9f872c5b92ad`` - never a fabricated match, and never a fallback to
+  the ``search_symbols`` Miss this pilot used to return for this exact query. This closes
+  REQ-G2-050 for slides/python for real, matching every other pilot's own complete bar
+  (pdf/net's ``test_lookup_composes_the_real_task_answer_for_the_watermark_question`` and its
+  siblings).
 
 network: true on this card, for exactly this reason - everything here talks to containers this
 file itself builds, starts and tears down.
@@ -148,30 +134,33 @@ REAL_SOURCE_COMMIT = "4e63447ba79d1c27a5192844847d9f872c5b92ad"
 REAL_SYMBOL_FQN = "aspose.slides_foss.AutoShape.AutoShape"
 REAL_METHOD_FRAGMENT = "add_text_frame() -> void"
 
-# REQ-G2-048 (TC-091/TC-097 pattern): a real, hands-on run of the full containerized
+# REQ-G2-048 (TC-091/TC-097/TC-105 pattern): a real, hands-on run of the full containerized
 # ingest-slides-python pipeline (below) reports "verified 1/2 candidate examples" for this
-# pilot's real furnished page (tests/fixtures/furnished/slides_python/pages/_index.md) - but the
-# one real, run-verified candidate ("Create a Presentation and Add a Shape") is STILL dropped
+# pilot's real furnished page (tests/fixtures/furnished/slides_python/pages/_index.md); the one
+# real, run-verified candidate ("Create a Presentation and Add a Shape") used to be dropped
 # before publish by the citation-validation authority path, because its own real description
 # text cites two bare, unqualified inline-code method names (`add_auto_shape()`/
 # `add_text_frame()`) that this project's own symbol_index_from_api_surface never registers as
-# anchors (see the module docstring for the full, confirmed mechanism). The real published
-# generation therefore has ZERO example chunks. ``add_auto_shape`` (``slide.shapes.
-# add_auto_shape(...)``) is the real, distinctive method call in that one real, run-verified-but-
-# uncitable candidate; it is real and it is genuinely absent from the published index, and this
-# file honestly proves the absence rather than fabricating a match.
+# anchors - G2/TC-105 exempted a compile-verified example chunk's own bare-method-name claims
+# from that check, so this real chunk now genuinely survives publish (see the module docstring
+# for the full, confirmed mechanism). ``add_auto_shape`` (``slide.shapes.add_auto_shape(...)``)
+# is the real, distinctive method call in that candidate; confirmed today, by hand, through the
+# real running slides-python container, to appear verbatim in the real snippet find_examples/
+# lookup now return.
 REAL_EXAMPLE_SYMBOL = "add_auto_shape"
 
 # REQ-G2-050 (TC-080/TC-089/TC-098/TC-099/TC-100 pattern): the exact literal, API-naive task
 # question CONFIRMED live, by hand, today, through both a real local generation and the real
-# running slides-python container: because this pilot has zero citable examples (see above) and
-# zero published doc content, `lookup` composes no TaskAnswer at all for this query and correctly
-# falls through to the real, honest Miss `search_symbols` itself returns - never a fabricated
-# TaskAnswer, and never a merely-incidental lexical match either (several other natural phrasings
-# of this same task were tried first and returned real but incidental search_symbols hits
-# instead, since common English words like "shape"/"slide" appear verbatim in several published
-# class docstrings - see the module docstring). This exact string is required verbatim - the
-# card's own negative control corrupts it, and that corruption must break this test's assertions.
+# running slides-python container: now that TC-105 fixed the citation-validation gap above, this
+# pilot has one real citable example (see REAL_EXAMPLE_SYMBOL), so `lookup` composes a real
+# TaskAnswer for this query - doc_matches empty (zero published doc content for this pilot),
+# example carrying the real, compile-verified "Create a Presentation and Add a Shape" example -
+# never a fabricated TaskAnswer, and never a merely-incidental lexical match either (several
+# other natural phrasings of this same task were tried first, during TC-101, and returned real
+# but incidental search_symbols hits instead, since common English words like "shape"/"slide"
+# appear verbatim in several published class docstrings - see the module docstring). This exact
+# string is required verbatim - the card's own negative control corrupts it, and that corruption
+# must break this test's assertions.
 REAL_TASK_QUERY = "how do I insert a rectangle into a pptx file"
 
 VALID_HEADERS = {
@@ -361,44 +350,47 @@ def test_lookup_returns_real_content_from_the_real_fixture(session: _McpSession)
     assert any(REAL_SYMBOL in match["text"] for match in result), result
 
 
-def test_find_examples_honestly_reports_no_example_for_slides_python(session: _McpSession) -> None:
-    """The real, confirmed OTHER side of REQ-G2-048 for this pilot: because this pilot's one
-    real, run-verified furnished-page candidate is still dropped before publish by the
-    citation-validation authority path (a genuine, reproduced gap - see the module docstring),
-    the real running ``serving-slides-python`` container's ``find_examples`` genuinely has no
-    verified snippet to offer for this real, on-topic query - and says so honestly
-    (``NoExampleFound``), rather than fabricating one. Proving this explicit, real ``Miss`` shape
-    (never a silently-empty list, and never a stub match) through the FULL containerized
-    production path is itself real evidence: it shows the real running container serves genuine
-    content for other tools (proven by every other test in this file) while never inventing
-    content it cannot back for this one.
+def test_find_examples_returns_the_real_compile_verified_shape_example(
+    session: _McpSession,
+) -> None:
+    """REQ-G2-048, now closed for real for this pilot: G2/TC-105 fixed the citation-validation
+    gap TC-101 found (a compile-verified example chunk's own bare-method-name claims, e.g.
+    `add_auto_shape()`, used to sink the WHOLE chunk's verdict even though the example genuinely
+    ran end to end - see the module docstring), so the real running ``serving-slides-python``
+    container's ``find_examples`` now returns the one real, compile-verified "Create a
+    Presentation and Add a Shape" example for this real, on-topic query - proven through the FULL
+    containerized production path (a real ``docker compose up --build ingest-slides-python``
+    below, not merely TC-105's own host-level replay), not a stub, and not a silently-empty list.
     """
     body = session.call_tool("find_examples", {"query": "create a presentation and add a shape"})
     result = body["result"]["structuredContent"]["result"]
-    assert isinstance(result, dict), f"expected a real, explicit Miss, got: {result}"
-    assert result.get("query") == "create a presentation and add a shape", result
+    assert isinstance(result, list) and result, f"expected real ExampleMatch(es), got a Miss: {result}"
+    assert any(REAL_EXAMPLE_SYMBOL in match["snippet"] for match in result), result
+    assert any(REAL_SOURCE_COMMIT in match["snippet"] for match in result), result
 
 
-def test_lookup_never_fabricates_a_task_answer_for_the_rectangle_question(
+def test_lookup_composes_the_real_task_answer_for_the_rectangle_question(
     session: _McpSession,
 ) -> None:
-    """REQ-G2-050 (TC-080/TC-089/TC-098/TC-099/TC-100 pattern), proven HONESTLY for
-    slides/python: this pilot currently has neither a citable example (see module docstring) nor
-    any published doc content, so the real running container's ``lookup`` composes no
-    ``TaskAnswer`` for this real, API-naive task question - ``_compose_from_docs`` (src/foss_mcp/
-    mcp/tools/lookup.py) finds nothing on either side and returns ``None``, so ``lookup``
-    correctly falls back to the real, honest ``Miss`` its own ``search_symbols`` call produces
-    (confirmed, by hand, to be a genuine miss rather than an incidental lexical collision - see
-    module docstring). This is the correct, non-fabricating behaviour the production code itself
-    documents ("never a fabricated one") - REQ-G2-050's full "a real, composed lookup task-answer
-    returns a real, genuinely verified example" bar is NOT met for slides/python today, and this
-    test proves that honestly rather than asserting a match this card never actually observed.
+    """REQ-G2-050 (TC-080/TC-089/TC-098/TC-099/TC-100 pattern), now met for real for
+    slides/python too: now that TC-105's fix lets this pilot's one real, compile-verified example
+    survive publish (see module docstring), the real running container's ``lookup`` composes a
+    real ``TaskAnswer`` for this real, API-naive task question - ``doc_matches`` empty (no
+    getting_started/developer_guide/troubleshooting/faq content has ever been published for this
+    pilot), ``example`` carrying the same real, compile-verified "Create a Presentation and Add a
+    Shape" example ``find_examples`` itself proves above, its snippet carrying both the real
+    symbol and the real source commit ``infra/build_chunks.py`` appends to every real chunk's
+    text - never a fabricated ``TaskAnswer``, and never the honest-but-incomplete ``Miss`` this
+    exact query used to fall back to before TC-105's fix.
     """
     body = session.call_tool("lookup", {"query": REAL_TASK_QUERY})
     result = body["result"]["structuredContent"]["result"]
-    assert isinstance(result, dict), f"expected a real, explicit Miss (no TaskAnswer to compose): {result}"
-    assert result.get("query") == REAL_TASK_QUERY, result
-    assert "reason" in result, result
+    assert isinstance(result, dict), f"expected a composed TaskAnswer, got: {result}"
+    assert "doc_matches" in result and "example" in result, result
+    assert result["example"] is not None, f"expected a real, verified example, got none: {result}"
+    snippet = result["example"]["snippet"]
+    assert REAL_EXAMPLE_SYMBOL in snippet, snippet
+    assert REAL_SOURCE_COMMIT in snippet, snippet
 
 
 def test_get_symbol_returns_the_real_type_spec_for_autoshape(session: _McpSession) -> None:
