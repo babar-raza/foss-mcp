@@ -10,15 +10,21 @@ nothing else.
 
 Originally proven for pdf/net's .NET toolchain
 (``prepare_reference_library``/``verify_dotnet_example``, untouched below).
-Extended here to three more pilots with the same git-fetch plumbing and the
-same prepare/verify split: Python (slides/python), Rust (cells/rust), and
-Go (pdf/go).
+Extended to three more pilots with the same git-fetch plumbing and the same
+prepare/verify split: Python (slides/python), Rust (cells/rust), and Go
+(pdf/go). Extended again here to the last two pilots with a real extraction
+fixture: Java (pdf/java) and TypeScript (pdf/typescript) - completing all 6
+(pdf/cpp remains separately blocked on its own unresolved extraction bug).
 """
 
 from __future__ import annotations
 
+import re
+import shutil
 import subprocess
 import sys
+import urllib.request
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,6 +40,10 @@ __all__ = [
     "verify_rust_example",
     "prepare_go_library",
     "verify_go_example",
+    "prepare_java_library",
+    "verify_java_example",
+    "prepare_typescript_library",
+    "verify_typescript_example",
 ]
 
 _OUTPUT_TRUNCATE_CHARS = 8000
@@ -419,6 +429,296 @@ def verify_go_example(
     (project_dir / "main.go").write_text(candidate.code, encoding="utf-8")
 
     result = _run(["go", "build", "./..."], cwd=project_dir)
+
+    verified = result.returncode == 0
+    output = _truncate(f"{result.stdout}\n{result.stderr}")
+
+    return VerificationResult(candidate=candidate, verified=verified, output=output)
+
+
+# --- pdf/java --------------------------------------------------------------
+
+_MAVEN_VERSION = "3.9.9"
+_MAVEN_DOWNLOAD_URL = (
+    "https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/"
+    "apache-maven-3.9.9-bin.zip"
+)
+
+_JAVA_PUBLIC_CLASS_RE = re.compile(r"public\s+(?:final\s+|abstract\s+)?class\s+(\w+)")
+
+
+def _find_or_download_maven(workdir: Path) -> Path:
+    """Return a real, invocable ``mvn`` executable: the one already on
+    PATH if present, else a freshly downloaded-and-unzipped Maven
+    distribution cached under ``workdir``.
+
+    This machine has no ``mvn`` on PATH at all, confirmed by a real,
+    hands-on check (``shutil.which("mvn")`` returns ``None``), so the
+    download path is real, not theoretical. The versioned
+    ``dlcdn.apache.org`` URL for this release 404s; only the
+    ``archive.apache.org`` URL above was confirmed to actually serve the
+    3.9.9 binary distribution.
+
+    Raises ``RuntimeError`` if the download does not produce the expected
+    executable.
+    """
+    on_path = shutil.which("mvn")
+    if on_path is not None:
+        return Path(on_path)
+
+    maven_home = workdir / f"apache-maven-{_MAVEN_VERSION}"
+    mvn_executable = maven_home / "bin" / ("mvn.cmd" if sys.platform == "win32" else "mvn")
+    if mvn_executable.exists():
+        return mvn_executable
+
+    workdir.mkdir(parents=True, exist_ok=True)
+    archive_path = workdir / "apache-maven.zip"
+    with urllib.request.urlopen(_MAVEN_DOWNLOAD_URL) as response:
+        archive_path.write_bytes(response.read())
+
+    with zipfile.ZipFile(archive_path) as archive:
+        archive.extractall(workdir)
+
+    if not mvn_executable.exists():
+        raise RuntimeError(
+            f"Maven download from {_MAVEN_DOWNLOAD_URL} into {workdir} did not "
+            f"produce the expected executable at {mvn_executable}"
+        )
+
+    return mvn_executable
+
+
+def _select_built_jar(target_dir: Path) -> Path:
+    """Return the real packaged jar in ``target_dir``, excluding the
+    ``-sources.jar`` and ``-javadoc.jar`` side artifacts Maven also
+    produces alongside it.
+    """
+    candidates = sorted(
+        path
+        for path in target_dir.glob("*.jar")
+        if not path.name.endswith("-sources.jar") and not path.name.endswith("-javadoc.jar")
+    )
+    if not candidates:
+        raise RuntimeError(f"no packaged jar (excluding sources/javadoc) found in {target_dir}")
+    return candidates[0]
+
+
+def prepare_java_library(
+    repository: str,
+    commit: str,
+    workdir: Path,
+) -> Path:
+    """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``,
+    ensure a real, invocable Maven is available (checking PATH first,
+    downloading only if absent), build the reference library once, and
+    return the real packaged jar's path.
+
+    ``mvn package -DskipTests`` FAILS on this real repository: it skips
+    test *execution* but not test *compilation*, and 283 test-source
+    files fail to compile against the 943 main classes. This uses
+    ``mvn package -Dmaven.test.skip=true`` instead, which skips compiling
+    tests too and produces a real jar - confirmed working today by a real,
+    hands-on build. The packaged jar (not the raw ``target/classes``
+    directory) is what gets returned: referencing ``target/classes``
+    directly as a classpath entry was found to fail from Git Bash on this
+    machine even with a correct path.
+
+    Raises ``RuntimeError`` on any real failure (clone, checkout, Maven
+    acquisition, or build).
+    """
+    repo_dir = workdir / "repo"
+    _clone_pinned_commit(repository, commit, repo_dir)
+
+    mvn_executable = _find_or_download_maven(workdir / "maven")
+
+    build_result = _run(
+        [str(mvn_executable), "package", "-Dmaven.test.skip=true"],
+        cwd=repo_dir,
+    )
+    if build_result.returncode != 0:
+        raise RuntimeError(
+            f"reference library at {repository}@{commit} failed to build cleanly:\n"
+            f"{build_result.stdout}\n{build_result.stderr}"
+        )
+
+    return _select_built_jar(repo_dir / "target")
+
+
+def verify_java_example(
+    candidate: CandidateExample,
+    *,
+    library_jar: Path,
+    workdir: Path,
+) -> VerificationResult:
+    """Compile ``candidate.code`` against ``library_jar`` (the real
+    packaged reference jar) with ``javac``, and report the real compiler
+    outcome.
+
+    Real furnished pdf/java content is a complete, self-contained
+    statement block already wrapped in a ``try (Document doc = ...)``
+    block - not a full compilable Java file with its own class
+    declaration (confirmed by reading the real
+    ``tests/fixtures/furnished/pdf_java/pages/`` content). A candidate
+    with no ``public class`` of its own is therefore wrapped here in a
+    minimal ``Candidate`` class with a ``main`` method and a wildcard
+    ``org.aspose.pdf`` import; a candidate that already declares its own
+    public class is compiled as-is, named after that class.
+
+    The literal comparison determining ``verified`` is intentionally
+    exact (``verified = result.returncode == 0``), matching
+    ``verify_dotnet_example``.
+    """
+    project_dir = workdir / "candidate_project"
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    match = _JAVA_PUBLIC_CLASS_RE.search(candidate.code)
+    if match is not None:
+        class_name = match.group(1)
+        source = candidate.code
+    else:
+        class_name = "Candidate"
+        indented = "\n".join(
+            f"        {line}" if line.strip() else line for line in candidate.code.splitlines()
+        )
+        source = (
+            "import org.aspose.pdf.*;\n\n"
+            f"public class {class_name} {{\n"
+            "    public static void main(String[] args) throws Exception {\n"
+            f"{indented}\n"
+            "    }\n"
+            "}\n"
+        )
+
+    source_path = project_dir / f"{class_name}.java"
+    source_path.write_text(source, encoding="utf-8")
+
+    result = _run(
+        ["javac", "-cp", str(library_jar), source_path.name],
+        cwd=project_dir,
+    )
+
+    verified = result.returncode == 0
+    output = _truncate(f"{result.stdout}\n{result.stderr}")
+
+    return VerificationResult(candidate=candidate, verified=verified, output=output)
+
+
+# --- pdf/typescript ----------------------------------------------------------
+
+_TS_TSCONFIG_TEMPLATE = """{{
+  "compilerOptions": {{
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {{
+      "{package_name}": ["{dist_index}"]
+    }}
+  }},
+  "include": ["candidate.ts"]
+}}
+"""
+
+
+def prepare_typescript_library(
+    repository: str,
+    commit: str,
+    workdir: Path,
+) -> Path:
+    """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``,
+    ``npm install`` its own dependencies, and build it once with
+    ``npx tsc -p tsconfig.build.json`` (confirmed working today), producing
+    real ``dist/*.js`` + ``*.d.ts`` output. Returns the cloned repo's own
+    root - where ``dist/`` and its already-installed
+    ``node_modules/typescript`` live - for ``verify_typescript_example`` to
+    depend on and type-check against.
+
+    ``npm``/``npx`` are resolved via ``shutil.which`` rather than invoked
+    by bare name: on this machine they are ``.CMD`` wrapper scripts, not
+    ``.exe`` files, and a bare name in an argv list with ``shell=False``
+    is not found by Windows' ``CreateProcess`` the way a real ``.exe`` on
+    PATH is - confirmed by a real, hands-on reproduction.
+
+    Raises ``RuntimeError`` on any real failure (clone, checkout, install,
+    or build).
+    """
+    repo_dir = workdir / "repo"
+    _clone_pinned_commit(repository, commit, repo_dir)
+
+    npm_executable = shutil.which("npm")
+    if npm_executable is None:
+        raise RuntimeError("npm is not available on PATH")
+    npx_executable = shutil.which("npx")
+    if npx_executable is None:
+        raise RuntimeError("npx is not available on PATH")
+
+    install_result = _run([npm_executable, "install"], cwd=repo_dir)
+    if install_result.returncode != 0:
+        raise RuntimeError(
+            f"npm install for {repository}@{commit} failed:\n"
+            f"{install_result.stdout}\n{install_result.stderr}"
+        )
+
+    build_result = _run([npx_executable, "tsc", "-p", "tsconfig.build.json"], cwd=repo_dir)
+    if build_result.returncode != 0:
+        raise RuntimeError(
+            f"reference library at {repository}@{commit} failed to build cleanly:\n"
+            f"{build_result.stdout}\n{build_result.stderr}"
+        )
+
+    dist_dir = repo_dir / "dist"
+    if not dist_dir.is_dir() or not any(dist_dir.iterdir()):
+        raise RuntimeError(f"npm run build did not produce dist/ output in {dist_dir}")
+
+    return repo_dir
+
+
+def verify_typescript_example(
+    candidate: CandidateExample,
+    *,
+    library_dir: Path,
+    package_name: str,
+    workdir: Path,
+) -> VerificationResult:
+    """Type-check ``candidate.code`` as a real ``.ts`` file importing
+    ``package_name`` from ``library_dir``'s built ``dist/`` output, and
+    report the real outcome.
+
+    A minimal throwaway ``tsconfig.json`` maps ``package_name`` straight
+    at ``dist/index`` via ``paths`` (``moduleResolution: "bundler"``), so
+    no second ``npm install`` is needed per candidate. Compiling is done
+    with the reference library's own already-installed TypeScript
+    compiler (``library_dir/node_modules/typescript``), invoked via
+    ``node`` directly rather than through the ``.CMD`` wrapper, run with
+    ``--noEmit`` so this is real type-checking against the real built
+    ``.d.ts`` output, not code generation.
+
+    The literal comparison determining ``verified`` is intentionally
+    exact (``verified = result.returncode == 0``), matching
+    ``verify_dotnet_example``.
+    """
+    project_dir = workdir / "candidate_project"
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    (project_dir / "candidate.ts").write_text(candidate.code, encoding="utf-8")
+
+    dist_index = (library_dir / "dist" / "index").resolve().as_posix()
+    tsconfig_content = _TS_TSCONFIG_TEMPLATE.format(
+        package_name=package_name,
+        dist_index=dist_index,
+    )
+    (project_dir / "tsconfig.json").write_text(tsconfig_content, encoding="utf-8")
+
+    tsc_entrypoint = library_dir / "node_modules" / "typescript" / "lib" / "tsc.js"
+
+    result = _run(
+        ["node", str(tsc_entrypoint), "-p", "tsconfig.json"],
+        cwd=project_dir,
+    )
 
     verified = result.returncode == 0
     output = _truncate(f"{result.stdout}\n{result.stderr}")

@@ -6,8 +6,10 @@ verdict comes from a real compiler or interpreter, not from a guess about
 what it should do.
 
 This is genuinely slow (shallow clones + a pip install into a fresh venv,
-a cargo build pulling ~90 crates, and two go builds) and requires network
-access plus a Python 3, a Rust/cargo, and a Go toolchain.
+a cargo build pulling ~90 crates, two go builds, a real Maven build - which
+may itself first download and unzip a Maven distribution - and an npm
+install + tsc build) and requires network access plus a Python 3, a
+Rust/cargo, a Go, a JDK/javac, and a Node/npm toolchain.
 """
 
 from __future__ import annotations
@@ -21,11 +23,15 @@ from foss_mcp.indexing.example_candidates import CandidateExample
 from foss_mcp.indexing.example_verifier import (
     VerificationResult,
     prepare_go_library,
+    prepare_java_library,
     prepare_python_library,
     prepare_rust_library,
+    prepare_typescript_library,
     verify_go_example,
+    verify_java_example,
     verify_python_example,
     verify_rust_example,
+    verify_typescript_example,
 )
 
 # --- slides/python -----------------------------------------------------
@@ -121,6 +127,57 @@ func main() {
 \tdoc := pdf.NewDocument(595, 842)
 \tdoc.FrobnicateNonexistentMethodThatDoesNotExist()
 }
+"""
+
+
+# --- pdf/java ------------------------------------------------------------
+# Pinned exactly as indexed - matches tests/fixtures/pdf_java/api_surface.json's
+# own `source_commit`.
+JAVA_REPOSITORY = "aspose-pdf-foss/Aspose.PDF-FOSS-for-Java"
+JAVA_COMMIT = "db2d3f0622f035825419c6d46727022064f39f15"
+
+# Real furnished pdf/java content (tests/fixtures/furnished/pdf_java/pages/_index.md)
+# is a bare, self-contained statement block already wrapped in a
+# `try (Document doc = ...)` block - not a full compilable Java file with its
+# own class declaration - so these deliberately omit a class declaration to
+# exercise verify_java_example's real wrapping logic.
+_JAVA_WORKING_CODE = """\
+try (Document doc = new Document()) {
+    Page page = doc.getPages().add();
+    doc.save("output.pdf");
+}
+"""
+
+_JAVA_BROKEN_CODE = """\
+try (Document doc = new Document()) {
+    Page page = doc.getPages().add();
+    doc.frobnicateNonexistentMethodThatDoesNotExist();
+    doc.save("output.pdf");
+}
+"""
+
+# --- pdf/typescript --------------------------------------------------------
+# Pinned exactly as indexed - matches tests/fixtures/pdf_typescript/api_surface.json's
+# own `source_commit`.
+TYPESCRIPT_REPOSITORY = "aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript"
+TYPESCRIPT_COMMIT = "155bfc7a33f0ba23fb4252b6ba201828b02a5b9d"
+TYPESCRIPT_PACKAGE_NAME = "@asposefoss/pdf"
+
+# Document's constructor is private - real candidates must use the static
+# factory Document.New(), confirmed by reading src/document.ts.
+_TYPESCRIPT_WORKING_CODE = """\
+import { Document, PageFormat } from '@asposefoss/pdf';
+
+const doc = Document.New(PageFormat.A4);
+doc.Pages[0].AddText('Hello', 72, 720, { fontSize: 14 });
+doc.WriteTo('scratch.pdf');
+"""
+
+_TYPESCRIPT_BROKEN_CODE = """\
+import { Document, PageFormat } from '@asposefoss/pdf';
+
+const doc = Document.New(PageFormat.A4);
+doc.frobnicateNonexistentMethodThatDoesNotExist();
 """
 
 
@@ -258,6 +315,99 @@ def test_go_known_broken_candidate_fails_real_compile(go_library: Path, tmp_path
 
     assert result.verified is False
     assert "FrobnicateNonexistentMethodThatDoesNotExist" in result.output
+
+
+# --- Java fixtures/tests ------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def java_jar(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    workdir = tmp_path_factory.mktemp("pdf_java_reference")
+    return prepare_java_library(
+        repository=JAVA_REPOSITORY,
+        commit=JAVA_COMMIT,
+        workdir=workdir,
+    )
+
+
+def test_prepare_java_library_builds_the_real_pinned_commit(java_jar: Path) -> None:
+    assert java_jar.exists()
+    assert java_jar.suffix == ".jar"
+    assert not java_jar.name.endswith("-sources.jar")
+    assert not java_jar.name.endswith("-javadoc.jar")
+
+
+def test_java_known_working_candidate_compiles_clean(java_jar: Path, tmp_path: Path) -> None:
+    candidate = _candidate("Create a document", "java", _JAVA_WORKING_CODE)
+
+    result = verify_java_example(candidate, library_jar=java_jar, workdir=tmp_path)
+
+    assert isinstance(result, VerificationResult)
+    assert result.candidate == candidate
+    assert result.verified is True, result.output
+
+
+def test_java_known_broken_candidate_fails_real_compile(java_jar: Path, tmp_path: Path) -> None:
+    candidate = _candidate("Broken document", "java", _JAVA_BROKEN_CODE)
+
+    result = verify_java_example(candidate, library_jar=java_jar, workdir=tmp_path)
+
+    assert result.verified is False
+    assert "frobnicateNonexistentMethodThatDoesNotExist" in result.output
+
+
+# --- TypeScript fixtures/tests -------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def typescript_library(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    workdir = tmp_path_factory.mktemp("pdf_typescript_reference")
+    return prepare_typescript_library(
+        repository=TYPESCRIPT_REPOSITORY,
+        commit=TYPESCRIPT_COMMIT,
+        workdir=workdir,
+    )
+
+
+def test_prepare_typescript_library_builds_the_real_pinned_commit(typescript_library: Path) -> None:
+    assert typescript_library.exists()
+    assert (typescript_library / "package.json").exists()
+    dist_dir = typescript_library / "dist"
+    assert dist_dir.is_dir()
+    assert any(dist_dir.iterdir())
+
+
+def test_typescript_known_working_candidate_type_checks_clean(
+    typescript_library: Path, tmp_path: Path
+) -> None:
+    candidate = _candidate("Create a new PDF from scratch", "typescript", _TYPESCRIPT_WORKING_CODE)
+
+    result = verify_typescript_example(
+        candidate,
+        library_dir=typescript_library,
+        package_name=TYPESCRIPT_PACKAGE_NAME,
+        workdir=tmp_path,
+    )
+
+    assert isinstance(result, VerificationResult)
+    assert result.candidate == candidate
+    assert result.verified is True, result.output
+
+
+def test_typescript_known_broken_candidate_fails_real_type_check(
+    typescript_library: Path, tmp_path: Path
+) -> None:
+    candidate = _candidate("Broken PDF creation", "typescript", _TYPESCRIPT_BROKEN_CODE)
+
+    result = verify_typescript_example(
+        candidate,
+        library_dir=typescript_library,
+        package_name=TYPESCRIPT_PACKAGE_NAME,
+        workdir=tmp_path,
+    )
+
+    assert result.verified is False
+    assert "TS2339" in result.output or "frobnicateNonexistentMethodThatDoesNotExist" in result.output
 
 
 def test_dataclasses_replace_still_works_on_candidate_example(python_venv: Path, tmp_path: Path) -> None:
