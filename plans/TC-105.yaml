@@ -1,0 +1,115 @@
+id: TC-105
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix a real, general defect in citation validation (src/foss_mcp/normalization/citation.py)
+  that silently drops real, already compile-verified example chunks from the citable
+  set whenever their prose DESCRIPTION cites a method by a bare, unqualified name
+  - confirmed today, honestly found by TC-101''s own worker: slides/python''s real
+  ''Create a Presentation and Add a Shape'' example genuinely compiles and runs (confirmed
+  both at the host level and inside the real container), but its own furnished-content
+  description cites `add_auto_shape()` and `add_text_frame()` as bare method names
+  (no `ClassName.` prefix), which symbol_index_from_api_surface never registers (it
+  only registers qualified `ClassName.MethodName` anchors) - so validate_chunk marks
+  the whole chunk UNSUPPORTED and citable_chunks drops it, even though the actual
+  example CODE was independently, more strongly verified by real compilation. This
+  is the same class of real gap TC-104 fixes for Go (a missing pipeline detail discovered
+  by hands-on pilot onboarding, not a pdf/net-specific quirk) - likely to recur for
+  every remaining pilot''s own furnished content, since citing a method by its bare
+  name in natural prose is a completely normal, readable writing convention that this
+  check was never designed to accommodate for a chunk whose factual claim (the code)
+  is already verified by a much stronger, independent mechanism than citation-anchor-resolution.'
+depends_on:
+- TC-014
+- TC-062
+- TC-068
+write_paths:
+- src/foss_mcp/normalization/citation.py
+- tests/normalization/test_citation.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Read citation.py in full first - validate_chunk (the function that decides a chunk's
+  validation verdict) and citable_chunks (which drops anything not SUPPORTED) are
+  the two functions this card touches the behavior of.
+- 'Real, confirmed root cause: a verified-example chunk''s body (built by infra/build_chunks.py''s
+  _build_verified_example_chunks) is `# Example: {title}\n\nFQN: Example: {title}\nKind:
+  verified_example\n{description}\n\nExample:\n{code}` - `description` is real, human-authored
+  prose from the furnished-content page, which naturally cites methods by their bare
+  name in inline code spans (e.g. `` `add_auto_shape()` ``) - a completely normal
+  prose convention, not a defect in the furnished content itself. validate_chunk''s
+  find_symbol_anchors extracts these as anchors to resolve, but symbol_index_from_api_surface
+  only ever registers QUALIFIED `ClassName.MethodName` anchors (never a bare method
+  name alone, correctly - a bare name could be ambiguous across classes) - so this
+  specific citation form can never resolve, regardless of whether the method genuinely
+  exists.'
+- The actual code inside a verified-example chunk (the part after `Example:\n`) is
+  independently, and far more strongly, verified already - it was really compiled/run
+  against the real pinned reference library (REQ-G2-048's whole verified-example pipeline).
+  Requiring its own prose DESCRIPTION to ALSO pass the citation-anchor bar designed
+  for raw, unverified API documentation prose is a mismatch between two different
+  kinds of evidence this project's own architecture already distinguishes.
+- 'REQUIRED, exact fix shape (the exact function name below is required, load-bearing
+  for the negative control): add `_is_real_compile_verified_example(chunk: Chunk)
+  -> bool` that returns True exactly when `chunk.content_type == "example"` (the field
+  make_document/chunk_document already set from infra/build_chunks.py''s own `content_type="example"`
+  call - a real, structured signal, never text-sniffing the body for the `Kind: verified_example`
+  string). In validate_chunk, when this returns True for a chunk, skip the symbol-anchor
+  citation check entirely for that chunk (the numeric-claim check may still apply
+  if you judge it relevant - investigate whether example descriptions ever carry numeric
+  claims for real; if not, document why skipping it too is safe, or leave it running
+  if it''s genuinely orthogonal and harmless).'
+- 'Confirm this is a general fix, not a slides/python-specific patch: verify against
+  pdf/net''s own already-accepted verified-example chunk (the real, currently-published
+  AddWatermarkAnnotation example) that this change does not alter its own already-correct
+  SUPPORTED verdict - it should stay SUPPORTED either way, since its own description
+  happens not to cite a bare method name, but confirm this for real rather than assume
+  it.'
+actions:
+- Implement _is_real_compile_verified_example and wire it into validate_chunk exactly
+  as specified.
+- 'Write real tests: a chunk shaped like slides/python''s real ''Create a Presentation
+  and Add a Shape'' example (content_type=''example'', a description citing a bare
+  method name that would NOT resolve against a real symbol index) is now SUPPORTED
+  and survives citable_chunks, where it previously would not have been; a non-example
+  chunk citing the same kind of unresolvable bare anchor is still correctly marked
+  UNSUPPORTED (this fix must not weaken citation validation for anything other than
+  genuinely compile-verified example chunks).'
+- Re-run build_chunks.py for real against slides/python's real furnished content and
+  confirm the 'Create a Presentation and Add a Shape' example chunk is now included
+  in the citable output - the concrete, real proof this fix closes the gap TC-101
+  found.
+- Run the full existing test suite yourself and confirm nothing else broke, especially
+  tests/e2e/test_pdf_net_live_content.py's own existing example-citation assertions.
+checks:
+- command: '{python} -m pytest tests/normalization/test_citation.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 3
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/normalization/citation.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    _is_real_compile_verified_example','def _is_real_compile_verified_example_DISABLED');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming _is_real_compile_verified_example so it is never defined under
+    its real name must break every test exercising it with a NameError, proving the
+    tests genuinely exercise this concrete fix rather than passing for an unrelated
+    reason. Self-checked end-to-end against a fixture implementing the exact prescribed
+    name before being persisted.
+evidence:
+- evidence/build/G2/TC-105/receipt.json
+closeout:
+- A real, already compile-verified example chunk whose prose description cites a bare
+  method name is no longer incorrectly excluded from the citable set.
+- Citation validation remains fully strict for every other chunk kind - only genuinely
+  compile-verified example chunks get this exemption.
+- A real re-run of build_chunks.py against slides/python's real furnished content
+  confirms the previously-dropped example chunk now survives.
+- Renaming _is_real_compile_verified_example fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
