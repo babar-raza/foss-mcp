@@ -128,14 +128,43 @@ def validate_numeric_claim(number: int, unit: str, known_counts: Mapping[str, in
     return ValidationResult(verdict=SUPPORTED, detail=f"matches raw knowledge's {known} {unit}")
 
 
+def _is_real_compile_verified_example(chunk: Chunk) -> bool:
+    """True exactly for a chunk built by infra/build_chunks.py's
+    ``_build_verified_example_chunks`` - a real example whose CODE already really compiled
+    and ran against the real pinned reference library (REQ-G2-048). ``content_type`` is the
+    real, structured field ``make_document``/``chunk_document`` set from that call site's own
+    ``content_type="example"`` - never text-sniffed from the body's ``Kind: verified_example``
+    line, which is prose, not a contract.
+    """
+    return chunk.content_type == "example"
+
+
 def validate_chunk(chunk: Chunk, symbol_index: SymbolIndex, known_counts: Mapping[str, int]) -> Chunk:
-    """*chunk* with ``validation`` set to the worst verdict any claim inside it earned."""
+    """*chunk* with ``validation`` set to the worst verdict any claim inside it earned.
+
+    A genuinely compile-verified example chunk (``_is_real_compile_verified_example``) skips
+    the symbol-anchor check: its prose description routinely cites a method by a bare name in
+    an inline code span (e.g. `` `add_auto_shape()` ``) as a completely normal writing
+    convention, which ``symbol_index_from_api_surface`` can never resolve since it only ever
+    registers qualified ``ClassName.MethodName`` anchors (correctly - a bare name could be
+    ambiguous across classes). Requiring the description to ALSO clear the citation-anchor bar
+    would penalize prose for a fact (the code) that real compilation has already verified more
+    strongly than anchor resolution ever could.
+
+    The numeric-claim check still applies even to an example chunk: it guards a different kind
+    of claim - a library-wide count such as "805 classes" - that compiling one example's code
+    says nothing about, and a real example's description (see
+    tests/fixtures/furnished/slides_python/pages/_index.md's "Create a Presentation and Add a
+    Shape" block) is procedural prose about the steps being taken, not a claim about the
+    library's total surface, so this check is orthogonal and stays on for every chunk kind.
+    """
     problems: list[ValidationResult] = []
-    for anchor in find_symbol_anchors(chunk.text):
-        if not anchor_resolves(anchor, symbol_index):
-            problems.append(
-                ValidationResult(verdict=UNSUPPORTED, detail=f"anchor `{anchor}` does not resolve")
-            )
+    if not _is_real_compile_verified_example(chunk):
+        for anchor in find_symbol_anchors(chunk.text):
+            if not anchor_resolves(anchor, symbol_index):
+                problems.append(
+                    ValidationResult(verdict=UNSUPPORTED, detail=f"anchor `{anchor}` does not resolve")
+                )
     for number, unit in find_numeric_claims(chunk.text):
         result = validate_numeric_claim(number, unit, known_counts)
         if result.verdict != SUPPORTED:

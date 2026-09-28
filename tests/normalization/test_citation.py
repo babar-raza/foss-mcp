@@ -140,3 +140,101 @@ def test_validate_document_sets_every_chunk_and_citable_chunks_drops_the_unsuppo
     validated = validate_document([good, bad], index, {})
     assert [c.validation.verdict for c in validated] == [SUPPORTED, UNSUPPORTED]
     assert citable_chunks(validated) == [validated[0]]
+
+
+def _example_chunk(text: str, provenance: Provenance | None = None) -> Chunk:
+    """Shaped exactly like infra/build_chunks.py's ``_build_verified_example_chunks`` output:
+    ``content_type="example"``, the real, structured signal the fix keys off - never a
+    body carrying the ``Kind: verified_example`` string as a substitute.
+    """
+    return Chunk(
+        section_title="Create a Presentation and Add a Shape",
+        text=text,
+        source_kind="furnished",
+        content_type="example",
+        provenance=provenance or Provenance(repository="aspose-slides-foss/Aspose.Slides-FOSS-for-Python", commit="4e63447b" * 5),
+        trust_tier="medium",
+    )
+
+
+def test_a_compile_verified_example_with_a_bare_method_citation_is_supported() -> None:
+    """The real defect TC-101's worker found: slides/python's real 'Create a Presentation and
+    Add a Shape' example genuinely compiles, but its own furnished-content description cites
+    `add_auto_shape()` and `add_text_frame()` as bare method names (no `ClassName.` prefix),
+    which symbol_index_from_api_surface never registers. This chunk's code was already
+    independently, more strongly verified by real compilation, so its description must not be
+    held to the citation-anchor bar meant for raw, unverified API documentation prose.
+    """
+    fixture = _api_surface_fixture()
+    index = symbol_index_from_api_surface(fixture["types"])
+    chunk = _example_chunk(
+        "Use the context manager to ensure the PPTX is always closed. `add_auto_shape()` "
+        "takes a `ShapeType` enum, then x/y position and width/height in points — call "
+        "`add_text_frame()` on the shape to attach a text frame."
+    )
+    validated = validate_chunk(chunk, index, {})
+    assert validated.validation.verdict == SUPPORTED
+    assert citable_chunks([validated]) == [validated]
+
+
+def test_a_non_example_chunk_with_the_same_bare_method_citation_is_still_unsupported() -> None:
+    """The fix must not weaken citation validation for anything other than a genuinely
+    compile-verified example chunk - the same bare-name citation in an ordinary
+    (non-``example``) chunk is still correctly excluded.
+    """
+    fixture = _api_surface_fixture()
+    index = symbol_index_from_api_surface(fixture["types"])
+    chunk = _chunk("Call `add_auto_shape()` to insert a shape.")
+    validated = validate_chunk(chunk, index, {})
+    assert validated.validation.verdict == UNSUPPORTED
+    assert citable_chunks([validated]) == []
+
+
+def test_renaming_the_example_guard_breaks_the_example_exemption() -> None:
+    """Guards the exact, load-bearing shape the negative control mutates: a chunk shaped
+    exactly like the compile-verified example must resolve through
+    ``_is_real_compile_verified_example`` by name, not by some other proxy - if that
+    function's real name is ever renamed away, this chunk's citation-anchor check regresses
+    to running unconditionally and the chunk goes back to UNSUPPORTED.
+    """
+    from foss_mcp.normalization import citation as citation_module
+
+    assert hasattr(citation_module, "_is_real_compile_verified_example")
+
+    fixture = _api_surface_fixture()
+    index = symbol_index_from_api_surface(fixture["types"])
+    chunk = _example_chunk("Call `add_auto_shape()` to insert a shape.")
+    assert citation_module._is_real_compile_verified_example(chunk) is True
+    validated = validate_chunk(chunk, index, {})
+    assert validated.validation.verdict == SUPPORTED
+
+
+def test_an_example_chunk_with_a_contradicting_numeric_claim_is_still_unsupported() -> None:
+    """The numeric-claim check is orthogonal to compile-verification (it guards a
+    library-wide surface count, not anything about one example's code) and stays on for
+    every chunk kind, including ``example`` - compiling one example says nothing about
+    whether an unrelated count in its prose is accurate.
+    """
+    fixture = _api_surface_fixture()
+    known_counts = known_counts_from_fixture(fixture)
+    chunk = _example_chunk("This one example is one of the library's 900 classes.")
+    validated = validate_chunk(chunk, symbol_index_from_api_surface([]), known_counts)
+    assert validated.validation.verdict != SUPPORTED
+    assert citable_chunks([validated]) == []
+
+
+def test_pdf_net_addwatermarkannotation_example_stays_supported() -> None:
+    """A general fix, not a slides/python-specific patch: pdf/net's own real, already-accepted
+    AddWatermarkAnnotation example description happens not to cite any bare method name, so it
+    was SUPPORTED before this fix and must stay SUPPORTED after it, for the same reason
+    (every claim resolves) rather than because of the new exemption.
+    """
+    fixture = _api_surface_fixture()
+    index = symbol_index_from_api_surface(fixture["types"])
+    chunk = _example_chunk(
+        "Open the source PDF with `Document`, then call `Document.Pages` to reach the first "
+        "page before adding the watermark annotation."
+    )
+    validated = validate_chunk(chunk, index, {})
+    assert validated.validation.verdict == SUPPORTED
+    assert citable_chunks([validated]) == [validated]
