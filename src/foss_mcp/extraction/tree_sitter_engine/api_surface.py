@@ -2155,6 +2155,52 @@ def _merge_members(target: dict, source: dict) -> None:
             target[mod_key] = True
 
 
+def _dedupe_same_name_functions_by_file(ns_entries: list[dict], ns_indices: list[int]) -> set[int]:
+    """Discard genuine same-file duplicate free-function entries only.
+
+    Free-function entries (``kind == "function"``) never get ``canonical_namespace``
+    populated (only class/struct/enum entries do). Because ``consolidate_classes``
+    sub-groups same-named entries by ``canonical_namespace`` (falling back to ``""``),
+    every same-named free function in an ENTIRE repository lands in the same
+    namespace-group, regardless of which file it was defined in. None of categories
+    1-5 apply to a plain function (no ``is_partial``, no ``bases``, not an enum), so
+    they always fall through to category 6's fallback merge, which picks one entry
+    as "primary" (by member count -- always 0 for a function) and silently discards
+    every other same-named entry, even when they are genuinely distinct, unrelated
+    symbols. This is a real, common C++ pattern: ``static`` helpers with internal
+    linkage independently redefined per translation unit (e.g. a real
+    ``IsNullOrWhiteSpace`` helper defined separately in 10 different .cpp files of
+    cells/cpp's real source is 10 distinct symbols, not one duplicated 10 times).
+
+    Every function-kind entry already carries a real ``file`` field (a
+    repository-relative path). That field -- not ``canonical_namespace``, which
+    file-local C++ functions never have -- is the correct signal to distinguish
+    genuinely separate free functions from genuine same-file duplicates (e.g. a
+    declaration and its out-of-line definition both recorded as separate entries
+    for the same file). Two entries are only real duplicates of each other when
+    they share the same ``file``; entries in different files are NEVER discarded
+    against each other, regardless of sharing the same name.
+
+    Returns the subset of ``ns_indices`` to discard, keeping exactly one entry per
+    file group.
+    """
+    from collections import defaultdict
+
+    by_file: dict[str, list[int]] = defaultdict(list)
+    for idx, e in zip(ns_indices, ns_entries):
+        by_file[e.get("file", "")].append(idx)
+
+    discard: set[int] = set()
+    for file_indices in by_file.values():
+        if len(file_indices) < 2:
+            continue
+        # Genuine same-file duplicate (e.g. declaration + out-of-line definition
+        # recorded twice) -- keep the first, discard the rest.
+        for i in file_indices[1:]:
+            discard.add(i)
+    return discard
+
+
 def consolidate_classes(classes: list[dict], language: str) -> list[dict]:
     """Merge partial classes, disambiguate same-name-different-namespace, dedup enums.
 
@@ -2162,6 +2208,9 @@ def consolidate_classes(classes: list[dict], language: str) -> list[dict]:
     inheritance resolution is correct.
 
     Categories handled:
+      0. All entries are free functions (``kind == "function"``) â†’ dedupe by
+         ``file`` only (they lack ``canonical_namespace``; see
+         ``_dedupe_same_name_functions_by_file``)
       1. Same namespace + ``is_partial`` â†’ MERGE members
       2. Same namespace + stub (no bases, fewer members) â†’ KEEP full, discard stub
       3. Same namespace + compat shim (bases reference the other) â†’ DISCARD shim
@@ -2210,6 +2259,16 @@ def consolidate_classes(classes: list[dict], language: str) -> list[dict]:
 
             ns_entries = [classes[i] for i in ns_indices]
             kinds = [e.get("kind", "") for e in ns_entries]
+
+            # Category 0: all entries are free functions. Function-kind entries
+            # never carry canonical_namespace, so this ns-group may contain
+            # entries from many different files that are NOT duplicates of each
+            # other (see _dedupe_same_name_functions_by_file). Handle them here,
+            # additively, BEFORE falling through to categories 1-6 below, which
+            # remain unchanged for every non-function (class/struct/enum) entry.
+            if all(k == "function" for k in kinds):
+                discard |= _dedupe_same_name_functions_by_file(ns_entries, ns_indices)
+                continue
 
             # Category 5: identical enums
             if all("enum" in k for k in kinds):
