@@ -1,0 +1,74 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_container_build.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-uv_h2xpw\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_container_build.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-uv_h2xpw\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M Dockerfile.ingestion, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_container_build.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-uv_h2xpw\.junit-0.xml"
+--- stdout ---
+.......F                                                                 [100%]
+================================== FAILURES ===================================
+___ test_a_real_docker_build_of_the_ingestion_image_has_all_pilot_fixtures ____
+
+    def test_a_real_docker_build_of_the_ingestion_image_has_all_pilot_fixtures() -> None:
+        """REQ-G2-050 (TC-103): TC-098's own worker found that Dockerfile.ingestion only ever
+        COPYed pdf/net's own fixture files, so every other pilot's ingest-<pilot> compose service
+        failed immediately with FileNotFoundError. This proves the 10 new COPY lines (2 per pilot,
+        for pdf/typescript, pdf/java, pdf/go, slides/python, cells/rust) genuinely land their
+        fixture files at the exact destinations each pilot's own build_chunks.py
+        --api-surface/--furnished-page flags expect, INSIDE a really-built image - not just that
+        the Dockerfile text looks right.
+        """
+        image_tag = "foss-mcp-ingestion:test-build-fixtures"
+        pilots = ("pdf_typescript", "pdf_java", "pdf_go", "slides_python", "cells_rust")
+        expected_paths = [f"/app/fixtures/{pilot}/api_surface.json" for pilot in pilots] + [
+            f"/app/fixtures/furnished/{pilot}/pages/_index.md" for pilot in pilots
+        ]
+        try:
+            build_result = subprocess.run(
+                ["docker", "build", "-f", "Dockerfile.ingestion", "-t", image_tag, "."],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=1800,
+            )
+            assert build_result.returncode == 0, (build_result.stdout + build_result.stderr)[-6000:]
+    
+            for path in expected_paths:
+                run_result = subprocess.run(
+                    ["docker", "run", "--rm", "--entrypoint", "test", image_tag, "-f", path],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=60,
+                )
+>               assert run_result.returncode == 0, (
+                    f"expected fixture missing at {path}: "
+                    + (run_result.stdout + run_result.stderr)[-2000:]
+                )
+E               AssertionError: expected fixture missing at /app/fixtures/pdf_typescript/api_surface.json: 
+E               assert 1 == 0
+E                +  where 1 = CompletedProcess(args=['docker', 'run', '--rm', '--entrypoint', 'test', 'foss-mcp-ingestion:test-build-fixtures', '-f', '/app/fixtures/pdf_typescript/api_surface.json'], returncode=1, stdout='', stderr='').returncode
+
+tests\test_container_build.py:164: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_container_build.py::test_a_real_docker_build_of_the_ingestion_image_has_all_pilot_fixtures
+
+--- stderr ---
+
