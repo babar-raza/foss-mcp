@@ -112,6 +112,22 @@ COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
 # the container - the same real, committed fixture TC-068's own host-level test already
 # proved against.
 COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
+
+# REQ-G2-050 (TC-103): the same two fixture files as pdf/net above, for each of the 5
+# remaining original pilots - TC-098's own worker found that this image only ever COPYed
+# pdf/net's own fixtures, so every other pilot's ingest-<pilot> compose service failed
+# immediately with FileNotFoundError. Purely additive; pdf/net's own lines above are
+# untouched.
+COPY tests/fixtures/pdf_typescript/api_surface.json ./fixtures/pdf_typescript/api_surface.json
+COPY tests/fixtures/furnished/pdf_typescript/pages/_index.md ./fixtures/furnished/pdf_typescript/pages/_index.md
+COPY tests/fixtures/pdf_java/api_surface.json ./fixtures/pdf_java/api_surface.json
+COPY tests/fixtures/furnished/pdf_java/pages/_index.md ./fixtures/furnished/pdf_java/pages/_index.md
+COPY tests/fixtures/pdf_go/api_surface.json ./fixtures/pdf_go/api_surface.json
+COPY tests/fixtures/furnished/pdf_go/pages/_index.md ./fixtures/furnished/pdf_go/pages/_index.md
+COPY tests/fixtures/slides_python/api_surface.json ./fixtures/slides_python/api_surface.json
+COPY tests/fixtures/furnished/slides_python/pages/_index.md ./fixtures/furnished/slides_python/pages/_index.md
+COPY tests/fixtures/cells_rust/api_surface.json ./fixtures/cells_rust/api_surface.json
+COPY tests/fixtures/furnished/cells_rust/pages/_index.md ./fixtures/furnished/cells_rust/pages/_index.md
 ENV PYTHONPATH=/app/src
 
 # Same fix as Dockerfile.serving's own /data/manifests (TC-019a): the non-root user below

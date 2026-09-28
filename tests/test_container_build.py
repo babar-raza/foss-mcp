@@ -124,3 +124,46 @@ def test_a_real_docker_build_of_the_ingestion_image_has_working_toolchains() -> 
             )
     finally:
         subprocess.run(["docker", "rmi", "-f", image_tag], capture_output=True, text=True)
+
+
+def test_a_real_docker_build_of_the_ingestion_image_has_all_pilot_fixtures() -> None:
+    """REQ-G2-050 (TC-103): TC-098's own worker found that Dockerfile.ingestion only ever
+    COPYed pdf/net's own fixture files, so every other pilot's ingest-<pilot> compose service
+    failed immediately with FileNotFoundError. This proves the 10 new COPY lines (2 per pilot,
+    for pdf/typescript, pdf/java, pdf/go, slides/python, cells/rust) genuinely land their
+    fixture files at the exact destinations each pilot's own build_chunks.py
+    --api-surface/--furnished-page flags expect, INSIDE a really-built image - not just that
+    the Dockerfile text looks right.
+    """
+    image_tag = "foss-mcp-ingestion:test-build-fixtures"
+    pilots = ("pdf_typescript", "pdf_java", "pdf_go", "slides_python", "cells_rust")
+    expected_paths = [f"/app/fixtures/{pilot}/api_surface.json" for pilot in pilots] + [
+        f"/app/fixtures/furnished/{pilot}/pages/_index.md" for pilot in pilots
+    ]
+    try:
+        build_result = subprocess.run(
+            ["docker", "build", "-f", "Dockerfile.ingestion", "-t", image_tag, "."],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=1800,
+        )
+        assert build_result.returncode == 0, (build_result.stdout + build_result.stderr)[-6000:]
+
+        for path in expected_paths:
+            run_result = subprocess.run(
+                ["docker", "run", "--rm", "--entrypoint", "test", image_tag, "-f", path],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=60,
+            )
+            assert run_result.returncode == 0, (
+                f"expected fixture missing at {path}: "
+                + (run_result.stdout + run_result.stderr)[-2000:]
+            )
+    finally:
+        subprocess.run(["docker", "rmi", "-f", image_tag], capture_output=True, text=True)
