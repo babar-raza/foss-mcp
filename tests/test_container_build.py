@@ -10,6 +10,7 @@ local build - nothing is fetched at check time beyond what the build itself need
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -63,7 +64,7 @@ def test_the_helm_chart_never_disables_network_policy() -> None:
 
 
 def test_a_real_docker_build_of_the_serving_image_succeeds() -> None:
-    image_tag = "foss-mcp-serving:test-build"
+    image_tag = f"foss-mcp-serving:test-build-{os.getpid()}"
     try:
         result = subprocess.run(
             ["docker", "build", "-f", "Dockerfile.serving", "-t", image_tag, "."],
@@ -87,7 +88,7 @@ def test_a_real_docker_build_of_the_ingestion_image_has_working_toolchains() -> 
     own version command in a real container - not just that the Dockerfile has right-looking
     RUN lines.
     """
-    image_tag = "foss-mcp-ingestion:test-build"
+    image_tag = f"foss-mcp-ingestion:test-build-{os.getpid()}"
     version_commands = [
         ["node", "--version"],
         ["npm", "--version"],
@@ -134,7 +135,7 @@ def test_a_real_docker_build_of_the_ingestion_image_has_all_pilot_fixtures() -> 
     --api-surface/--furnished-page flags expect, INSIDE a really-built image - not just that
     the Dockerfile text looks right.
     """
-    image_tag = "foss-mcp-ingestion:test-build-fixtures"
+    image_tag = f"foss-mcp-ingestion:test-build-fixtures-{os.getpid()}"
     pilots = ("pdf_typescript", "pdf_java", "pdf_go", "slides_python", "cells_rust")
     expected_paths = [f"/app/fixtures/{pilot}/api_surface.json" for pilot in pilots] + [
         f"/app/fixtures/furnished/{pilot}/pages/_index.md" for pilot in pilots
