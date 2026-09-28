@@ -1,0 +1,145 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_container_build.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-9de1dol_\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_container_build.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-9de1dol_\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M Dockerfile.ingestion, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_container_build.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-9de1dol_\.junit-0.xml"
+--- stdout ---
+......F                                                                  [100%]
+================================== FAILURES ===================================
+___ test_a_real_docker_build_of_the_ingestion_image_has_working_toolchains ____
+
+    def test_a_real_docker_build_of_the_ingestion_image_has_working_toolchains() -> None:
+        """REQ-G2-048 (TC-097): Dockerfile.ingestion was generalized to add real toolchains
+        for the 4 remaining original pilots that need one beyond the base image's own python3
+        (pdf/typescript, pdf/java, pdf/go, cells/rust - slides/python needs nothing extra).
+        This proves each toolchain genuinely works INSIDE the built image, by really running its
+        own version command in a real container - not just that the Dockerfile has right-looking
+        RUN lines.
+        """
+        image_tag = "foss-mcp-ingestion:test-build"
+        version_commands = [
+            ["node", "--version"],
+            ["npm", "--version"],
+            ["java", "-version"],
+            ["mvn", "--version"],
+            ["go", "version"],
+            ["cargo", "--version"],
+            ["rustc", "--version"],
+        ]
+        try:
+            build_result = subprocess.run(
+                ["docker", "build", "-f", "Dockerfile.ingestion", "-t", image_tag, "."],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=1800,
+            )
+>           assert build_result.returncode == 0, (build_result.stdout + build_result.stderr)[-6000:]
+E           AssertionError: #0 building with "desktop-linux" instance using docker driver
+E             
+E             #1 [internal] load build definition from Dockerfile.ingestion
+E             #1 transferring dockerfile: 8.02kB done
+E             #1 DONE 0.0s
+E             
+E             #2 [internal] load metadata for docker.io/library/python:3.13-slim
+E             #2 DONE 0.0s
+E             
+E             #3 [internal] load .dockerignore
+E             #3 transferring context: 2B done
+E             #3 DONE 0.0s
+E             
+E             #4 [ 1/16] FROM docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74
+E             #4 resolve docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74 0.0s done
+E             #4 DONE 0.0s
+E             
+E             #5 [internal] load build context
+E             #5 transferring context: 1.89MB 0.1s done
+E             #5 DONE 0.2s
+E             
+E             #6 [ 6/16] RUN curl -fsSL "https://go.dev/dl/go1.27.1.linux-amd64.tar.gz" -o /tmp/go.tar.gz     && tar -xzf /tmp/go.tar.gz -C /usr/local     && rm /tmp/go.tar.gz
+E             #6 CACHED
+E             
+E             #7 [12/16] COPY infra/ingest.py ./infra/ingest.py
+E             #7 CACHED
+E             
+E             #8 [ 9/16] RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+E             #8 CACHED
+E             
+E             #9 [ 3/16] RUN apt-get update     && apt-get install -y --no-install-recommends git curl ca-certificates     && rm -rf /var/lib/apt/lists/*     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh     && chmod +x /tmp/dotnet-install.sh     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet     && rm /tmp/dotnet-install.sh
+E             #9 CACHED
+E             
+E             #10 [ 5/16] RUN apt-get update     && apt-get install -y --no-install-recommends openjdk-21-jdk maven     && rm -rf /var/lib/apt/lists/*
+E             #10 CACHED
+E             
+E             #11 [ 4/16] RUN curl -fsSL "https://nodejs.org/dist/v24.21.0/node-v24.21.0-linux-x64.tar.gz" -o /tmp/node.tar.gz     && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1     && rm /tmp/node.tar.gz
+E             #11 CACHED
+E             
+E             #12 [ 8/16] COPY requirements.lock ./requirements.lock
+E             #12 CACHED
+E             
+E             #13 [ 7/16] RUN apt-get update     && apt-get install -y --no-install-recommends build-essential     && rm -rf /var/lib/apt/lists/*     && curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o /tmp/rustup-init.sh     && chmod +x /tmp/rustup-init.sh     && /tmp/rustup-init.sh -y --profile minimal --default-toolchain stable --no-modify-path     && rm /tmp/rustup-init.sh     && chmod -R a+w "/usr/local/rustup" "/usr/local/cargo"
+E             #13 CACHED
+E             
+E             #14 [14/16] COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+E             #14 CACHED
+E             
+E             #15 [13/16] COPY infra/build_chunks.py ./infra/build_chunks.py
+E             #15 CACHED
+E             
+E             #16 [11/16] COPY config/ ./config/
+E             #16 CACHED
+E             
+E             #17 [ 2/16] WORKDIR /app
+E             #17 CACHED
+E             
+E             #18 [10/16] COPY src/ ./src/
+E             #18 CACHED
+E             
+E             #19 [15/16] COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
+E             #19 CACHED
+E             
+E             #20 [16/16] RUN useradd_DISABLED --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data
+E             #20 0.244 /bin/sh: 1: useradd_DISABLED: not found
+E             #20 ERROR: process "/bin/sh -c useradd_DISABLED --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data" did not complete successfully: exit code: 127
+E             ------
+E              > [16/16] RUN useradd_DISABLED --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data:
+E             0.244 /bin/sh: 1: useradd_DISABLED: not found
+E             ------
+E             Dockerfile.ingestion:122
+E             --------------------
+E              121 |     # ownership (root), and the first real write inside the container fails with PermissionError.
+E              122 | >>> RUN useradd_DISABLED --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp \
+E              123 | >>>     && mkdir -p /data/manifests \
+E              124 | >>>     && chown -R foss-mcp:foss-mcp /data
+E              125 |     USER foss-mcp
+E             --------------------
+E             ERROR: failed to build: failed to solve: process "/bin/sh -c useradd_DISABLED --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data" did not complete successfully: exit code: 127
+E             
+E             View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/vz500bk10m30p0bcosc1ak097
+E             
+E           assert 1 == 0
+E            +  where 1 = CompletedProcess(args=['docker', 'build', '-f', 'Dockerfile.ingestion', '-t', 'foss-mcp-ingestion:test-build', '.'], r...: 127\n\nView build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/vz500bk10m30p0bcosc1ak097\n').returncode
+
+tests\test_container_build.py:110: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_container_build.py::test_a_real_docker_build_of_the_ingestion_image_has_working_toolchains
+
+--- stderr ---
+

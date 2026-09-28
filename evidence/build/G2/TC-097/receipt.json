@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "card": "TC-097",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-28T10:02:14Z",
+  "base_rev": "55ccc31e906fed0828f2f0e88d53727e52f2bc9a",
+  "head_rev": "52268e3d64f1f8a616053fd989d27ef09548dc0a",
+  "card_sha256": "dea764e713a12d4bec86ef790e80fdcfdb056dd6c0b63b33edf1336e41d29708",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "Dockerfile.ingestion",
+      "tests/test_container_build.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/test_container_build.py -q",
+          "exit_code": 0,
+          "duration_s": 514.898,
+          "stdout_sha256": "83a1593c5b5783693fe3006d1f6597bcb4f3a5968f23b59481ee09a0477f910a",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/test_container_build.py -q",
+          "exit_code": 0,
+          "duration_s": 35.849,
+          "stdout_sha256": "83a1593c5b5783693fe3006d1f6597bcb4f3a5968f23b59481ee09a0477f910a",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('Dockerfile.ingestion');s=p.read_text(encoding='utf-8');s=s.replace('RUN useradd --create-home --uid 10001','RUN useradd_DISABLED --create-home --uid 10001');p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "feb0f2094c82d29c47628e68540c221db754a022d324a8293a928e1dd5f90121",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M Dockerfile.ingestion",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
