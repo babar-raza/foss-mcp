@@ -119,8 +119,7 @@ def test_a_real_docker_build_of_the_ingestion_image_has_working_toolchains() -> 
                 timeout=60,
             )
             assert run_result.returncode == 0, (
-                f"{' '.join(command)} failed: "
-                + (run_result.stdout + run_result.stderr)[-2000:]
+                f"{' '.join(command)} failed: " + (run_result.stdout + run_result.stderr)[-2000:]
             )
     finally:
         subprocess.run(["docker", "rmi", "-f", image_tag], capture_output=True, text=True)
@@ -162,8 +161,7 @@ def test_a_real_docker_build_of_the_ingestion_image_has_all_pilot_fixtures() -> 
                 timeout=60,
             )
             assert run_result.returncode == 0, (
-                f"expected fixture missing at {path}: "
-                + (run_result.stdout + run_result.stderr)[-2000:]
+                f"expected fixture missing at {path}: " + (run_result.stdout + run_result.stderr)[-2000:]
             )
     finally:
         subprocess.run(["docker", "rmi", "-f", image_tag], capture_output=True, text=True)

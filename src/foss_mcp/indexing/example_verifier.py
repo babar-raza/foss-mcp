@@ -727,8 +727,7 @@ def verify_go_example(
 
 _MAVEN_VERSION = "3.9.9"
 _MAVEN_DOWNLOAD_URL = (
-    "https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/"
-    "apache-maven-3.9.9-bin.zip"
+    "https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.zip"
 )
 
 _JAVA_PUBLIC_CLASS_RE = re.compile(r"public\s+(?:final\s+|abstract\s+)?class\s+(\w+)")
@@ -946,8 +945,7 @@ def prepare_typescript_library(
     install_result = _run([npm_executable, "install"], cwd=repo_dir)
     if install_result.returncode != 0:
         raise RuntimeError(
-            f"npm install for {repository}@{commit} failed:\n"
-            f"{install_result.stdout}\n{install_result.stderr}"
+            f"npm install for {repository}@{commit} failed:\n{install_result.stdout}\n{install_result.stderr}"
         )
 
     build_result = _run([npx_executable, "tsc", "-p", "tsconfig.build.json"], cwd=repo_dir)

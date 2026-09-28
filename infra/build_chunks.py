@@ -257,7 +257,12 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    furnished_args = (args.furnished_page, args.library_repository, args.library_commit, args.library_platform)
+    furnished_args = (
+        args.furnished_page,
+        args.library_repository,
+        args.library_commit,
+        args.library_platform,
+    )
     if any(furnished_args) and not all(furnished_args):
         parser.error(
             "--furnished-page, --library-repository, --library-commit, and --library-platform "

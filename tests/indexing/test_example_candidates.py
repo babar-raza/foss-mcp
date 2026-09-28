@@ -120,10 +120,7 @@ def test_real_fixture_pdf_java_extracts_three_java_candidates() -> None:
     assert all(isinstance(c.code, str) and c.code for c in result)
 
     widget = next(c for c in result if c.title == "Create a Document with Widget Annotation")
-    assert (
-        "WidgetAnnotation w = new WidgetAnnotation(page, new Rectangle(0, 0, 100, 50));"
-        in widget.code
-    )
+    assert "WidgetAnnotation w = new WidgetAnnotation(page, new Rectangle(0, 0, 100, 50));" in widget.code
 
     radio = next(c for c in result if c.title == "Create a Form with Radio Buttons")
     assert 'radio.setValue("Option2");' in radio.code
@@ -172,8 +169,8 @@ def test_real_fixture_pdf_go_extracts_four_go_candidates() -> None:
     assert all(isinstance(c.code, str) and c.code for c in result)
 
     forms = next(c for c in result if c.title == "Fill AcroForm Fields")
-    assert '(*pdf.TextBoxField)' in forms.code
-    assert '(*pdf.CheckboxField)' in forms.code
+    assert "(*pdf.TextBoxField)" in forms.code
+    assert "(*pdf.CheckboxField)" in forms.code
 
 
 def test_real_fixture_cells_rust_extracts_three_rust_candidates() -> None:
@@ -194,10 +191,7 @@ def test_real_fixture_cells_rust_extracts_three_rust_candidates() -> None:
 
     workbook = next(c for c in result if c.title == "Create, Save, and Reload a Workbook")
     assert "let mut workbook = Workbook::new();" in workbook.code
-    assert (
-        'put_formula_with_cached_value("=F1*2", CellValue::Number(20.0))?;'
-        in workbook.code
-    )
+    assert 'put_formula_with_cached_value("=F1*2", CellValue::Number(20.0))?;' in workbook.code
 
 
 def test_real_fixture_slides_python_extracts_two_python_candidates() -> None:

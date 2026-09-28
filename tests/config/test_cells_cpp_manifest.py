@@ -77,8 +77,15 @@ def test_schedule_cron_hour_differs_from_every_other_pilot():
     pdf/typescript 14:00, pdf/cpp (being retired) 16:00. This manifest must
     use a distinct hour so ingestion schedules do not collide."""
     manifest = _load_manifest()
-    taken_hours = {"0 4 * * *", "0 6 * * *", "0 8 * * *", "0 10 * * *",
-                   "0 12 * * *", "0 14 * * *", "0 16 * * *"}
+    taken_hours = {
+        "0 4 * * *",
+        "0 6 * * *",
+        "0 8 * * *",
+        "0 10 * * *",
+        "0 12 * * *",
+        "0 14 * * *",
+        "0 16 * * *",
+    }
     assert manifest["schedule"]["cron"] not in taken_hours
 
 

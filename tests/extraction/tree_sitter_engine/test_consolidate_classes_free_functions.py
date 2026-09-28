@@ -319,9 +319,7 @@ def cells_cpp_free_functions(cells_cpp_checkout: Path) -> list[dict[str, Any]]:
     """
     pkg_root = package_root.detect_package_root(cells_cpp_checkout, "cpp")
     parser = get_parser("cpp")
-    types, *_rest = api_surface.extract_api_surface(
-        parser, "cpp", pkg_root, cells_cpp_checkout, "cells"
-    )
+    types, *_rest = api_surface.extract_api_surface(parser, "cpp", pkg_root, cells_cpp_checkout, "cells")
     return [t for t in types if t.get("kind") == "function"]
 
 

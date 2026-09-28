@@ -82,14 +82,25 @@ VALID_ARGUMENTS = {
 
 
 def _compose(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["docker", "compose", "-p", PROJECT_NAME, "-f", str(COMPOSE_FILE), *args],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
+    """Retries on transient Docker daemon errors ("removal ... is already in
+    progress", "network ... not found") seen when a preceding module's ``down``
+    returns before the daemon has actually finished the async container/network
+    teardown - common on a machine running several unrelated docker-compose stacks.
+    """
+    result: subprocess.CompletedProcess[str] | None = None
+    for attempt in range(3):
+        result = subprocess.run(
+            ["docker", "compose", "-p", PROJECT_NAME, "-f", str(COMPOSE_FILE), *args],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if result.returncode == 0 or "Error response from daemon" not in result.stderr:
+            return result
+        time.sleep(2 * (attempt + 1))
+    return result
 
 
 def _initialize_body(request_id: int = 0) -> dict:
