@@ -1,0 +1,75 @@
+id: TC-103
+gate: G2
+lane: transport-deployment
+purpose: 'Add the missing COPY lines to Dockerfile.ingestion for the 5 remaining original
+  pilots'' own real fixture files - a real, correctly-diagnosed gap TC-098''s own
+  worker found and honestly reported rather than fixing outside its declared scope:
+  the image currently only COPYs pdf/net''s own api_surface.json + furnished page,
+  so every other pilot''s ingest-<pilot> service fails immediately with FileNotFoundError.
+  Fixing this once, for all 5 pilots at once, avoids hitting the identical gap 4 more
+  times as TC-099-102 each dispatch.'
+depends_on:
+- TC-018
+- TC-064
+- TC-069
+- TC-097
+write_paths:
+- Dockerfile.ingestion
+- tests/test_container_build.py
+satisfies:
+- REQ-G2-050
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'The real, current gap, confirmed today: Dockerfile.ingestion has exactly 2 COPY
+  lines for fixture data (COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+  and the matching furnished-page line) - nothing for any other pilot. TC-098''s own
+  worker ran the real ingest-pdf-typescript container and got FileNotFoundError: ''/app/fixtures/pdf_typescript/api_surface.json''
+  - a real, confirmed, reproducible defect, not a guess.'
+- 'Add exactly 2 new COPY lines per pilot, mirroring the existing pdf_net lines''
+  exact shape (source tests/fixtures/<pilot>/... , destination ./fixtures/<pilot>/...
+  - WORKDIR /app makes this resolve to /app/fixtures/<pilot>/... inside the container,
+  matching what every ingest-<pilot> service''s own build_chunks.py --api-surface/--furnished-page
+  flags already expect) for: pdf_typescript, pdf_java, pdf_go, slides_python, cells_rust.
+  Exact required destination for pdf_typescript specifically (load-bearing for this
+  card''s negative control): ./fixtures/pdf_typescript/api_surface.json - use the
+  identical naming convention for the other 4 pilots'' own destinations.'
+- Do not touch the existing pdf_net COPY lines, the dotnet install block, the toolchain
+  layers TC-097 just added, the non-root USER setup, HEALTHCHECK, or ENTRYPOINT -
+  purely additive.
+actions:
+- Add the 10 new COPY lines (2 per pilot x 5 pilots) to Dockerfile.ingestion exactly
+  as specified.
+- 'Add a new real test to tests/test_container_build.py: build the real ingestion
+  image for real, then run a real container asserting (e.g. via `test -f`) that all
+  10 new fixture files exist at their real COPY destinations inside the built image
+  - proof the COPY lines actually work, not just that the Dockerfile text looks right.'
+- Run the full existing tests/test_container_build.py suite for real and confirm nothing
+  regresses (pdf/net's own path and the serving-image build must stay unaffected).
+checks:
+- command: '{python} -m pytest tests/test_container_build.py -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-050
+min_tests: 1
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('Dockerfile.ingestion');s=p.read_text(encoding='utf-8');s=s.replace('./fixtures/pdf_typescript/api_surface.json','./fixtures/pdf_typescript_DISABLED/api_surface.json');p.write_text(s,encoding='utf-8')"
+  rationale: Corrupting pdf_typescript's own real COPY destination path must make
+    the new real-build test fail (the file no longer lands where the test checks for
+    it), proving the test genuinely verifies a real, specific COPY destination rather
+    than passing for an unrelated reason. Self-checked end-to-end against a fixture
+    implementing the exact prescribed path before being persisted.
+evidence:
+- evidence/build/G2/TC-103/receipt.json
+closeout:
+- All 5 remaining pilots' fixture files are now present inside the built ingestion
+  image at the exact paths their own ingest-<pilot> compose service already expects.
+- pdf/net's own ingestion path and the serving image build are both completely unaffected.
+- Corrupting pdf_typescript's COPY destination fails the new real-build test again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
