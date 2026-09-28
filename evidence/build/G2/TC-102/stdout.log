@@ -1,0 +1,783 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_cells_rust_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tnqb3wm4\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_cells_rust_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tnqb3wm4\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/e2e/test_cells_rust_live_content.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_cells_rust_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tnqb3wm4\.junit-0.xml"
+--- stdout ---
+EEEEEEE                                                                  [100%]
+=================================== ERRORS ====================================
+___ ERROR at setup of test_readyz_is_ready_after_the_real_ingestion_publish ___
+
+    @pytest.fixture(scope="module")
+    def real_generation() -> Iterator[None]:
+        """The real, live first publish: build and run the one-shot ``ingest-cells-rust`` service to
+        completion, then bring up ``serving-cells-rust`` against the SAME named volume it just
+        published into.
+    
+        ``docker compose down -v`` first, so this is idempotent against any stale volume state left
+        by a prior run. A distinct ``PROJECT_NAME`` (``foss-mcp-e2e-tc102``) and only these two
+        services are ever brought up, so this never collides with pdf/net's, pdf/typescript's,
+        pdf/java's, pdf/go's, slides/python's, or any other pilot's own concurrent E2E run.
+        """
+        _compose("down", "-v", "--remove-orphans")
+        try:
+            ingest = _compose(
+                "up",
+                "--build",
+                "--exit-code-from",
+                "ingest-cells-rust",
+                "ingest-cells-rust",
+                timeout=INGEST_TIMEOUT_SECONDS,
+            )
+>           assert ingest.returncode == 0, (ingest.stdout + ingest.stderr)[-4000:]
+E           AssertionError: fra/ingest.py
+E             #15 CACHED
+E             
+E             #16 [19/26] COPY tests/fixtures/furnished/pdf_java/pages/_index.md ./fixtures/furnished/pdf_java/pages/_index.md
+E             #16 CACHED
+E             
+E             #17 [14/26] COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+E             #17 CACHED
+E             
+E             #18 [ 3/26] RUN apt-get update     && apt-get install -y --no-install-recommends git curl ca-certificates     && rm -rf /var/lib/apt/lists/*     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh     && chmod +x /tmp/dotnet-install.sh     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet     && rm /tmp/dotnet-install.sh
+E             #18 CACHED
+E             
+E             #19 [25/26] COPY tests/fixtures/furnished/cells_rust/pages/_index.md ./fixtures/furnished/cells_rust/pages/_index.md
+E             #19 CACHED
+E             
+E             #20 [ 7/26] RUN apt-get update     && apt-get install -y --no-install-recommends build-essential     && rm -rf /var/lib/apt/lists/*     && curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o /tmp/rustup-init.sh     && chmod +x /tmp/rustup-init.sh     && /tmp/rustup-init.sh -y --profile minimal --default-toolchain stable --no-modify-path     && rm /tmp/rustup-init.sh     && chmod -R a+w "/usr/local/rustup" "/usr/local/cargo"
+E             #20 CACHED
+E             
+E             #21 [15/26] COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
+E             #21 CACHED
+E             
+E             #22 [17/26] COPY tests/fixtures/furnished/pdf_typescript/pages/_index.md ./fixtures/furnished/pdf_typescript/pages/_index.md
+E             #22 CACHED
+E             
+E             #23 [16/26] COPY tests/fixtures/pdf_typescript/api_surface.json ./fixtures/pdf_typescript/api_surface.json
+E             #23 CACHED
+E             
+E             #24 [ 9/26] RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+E             #24 CACHED
+E             
+E             #25 [20/26] COPY tests/fixtures/pdf_go/api_surface.json ./fixtures/pdf_go/api_surface.json
+E             #25 CACHED
+E             
+E             #26 [ 4/26] RUN curl -fsSL "https://nodejs.org/dist/v24.21.0/node-v24.21.0-linux-x64.tar.gz" -o /tmp/node.tar.gz     && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1     && rm /tmp/node.tar.gz
+E             #26 CACHED
+E             
+E             #27 [13/26] COPY infra/build_chunks.py ./infra/build_chunks.py
+E             #27 CACHED
+E             
+E             #28 [21/26] COPY tests/fixtures/furnished/pdf_go/pages/_index.md ./fixtures/furnished/pdf_go/pages/_index.md
+E             #28 CACHED
+E             
+E             #29 [23/26] COPY tests/fixtures/furnished/slides_python/pages/_index.md ./fixtures/furnished/slides_python/pages/_index.md
+E             #29 CACHED
+E             
+E             #30 [ 5/26] RUN apt-get update     && apt-get install -y --no-install-recommends openjdk-21-jdk maven     && rm -rf /var/lib/apt/lists/*
+E             #30 CACHED
+E             
+E             #31 [26/26] RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data
+E             #31 CACHED
+E             
+E             #32 exporting to image
+E             #32 exporting layers 0.0s done
+E             #32 exporting manifest sha256:88fba6aa5a80d92dd94004c5414f0d9ee5b75f0d3b61666e6a9cd34b6ba66ad3 done
+E             #32 exporting config sha256:0d8c09467b8e9b47e76822570bf8a20162050ad212538e2540f8308b619f953b done
+E             #32 exporting attestation manifest sha256:a7fe24ed374456b539e7a687c6fcd6942171729173061e92e87a808d6c85a20c 0.0s done
+E             #32 exporting manifest list sha256:4c4da3427cc2a01d419ec1e740d34dc26d8affe8622c12bacac7de264a66d9c9 0.0s done
+E             #32 naming to docker.io/library/foss-mcp-ingestion:local
+E             #32 naming to docker.io/library/foss-mcp-ingestion:local done
+E             #32 unpacking to docker.io/library/foss-mcp-ingestion:local 0.0s done
+E             #32 DONE 0.3s
+E             
+E             #33 resolving provenance for metadata file
+E             #33 DONE 0.0s
+E             Attaching to ingest-cells-rust-1
+E             
+E             [Kingest-cells-rust-1 exited with code 137
+E              foss-mcp-ingestion:local  Built
+E              Network foss-mcp-e2e-tc102_default  Creating
+E              Network foss-mcp-e2e-tc102_default  Created
+E              Volume foss-mcp-e2e-tc102_manifests-cells-rust  Creating
+E              Volume foss-mcp-e2e-tc102_manifests-cells-rust  Created
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Creating
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Created
+E             [31m[1mAborting on container exit...[0m
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopping
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopped
+E             
+E             
+E           assert 137 == 0
+E            +  where 137 = CompletedProcess(args=['docker', 'compose', '-p', 'foss-mcp-e2e-tc102', '-f', 'H:\\Users\\prora\\OneDrive\\Documents\\...iner foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopping\n Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopped\n\n').returncode
+
+tests\e2e\test_cells_rust_live_content.py:218: AssertionError
+_ ERROR at setup of test_report_index_freshness_reports_the_real_fresh_generation _
+
+    @pytest.fixture(scope="module")
+    def real_generation() -> Iterator[None]:
+        """The real, live first publish: build and run the one-shot ``ingest-cells-rust`` service to
+        completion, then bring up ``serving-cells-rust`` against the SAME named volume it just
+        published into.
+    
+        ``docker compose down -v`` first, so this is idempotent against any stale volume state left
+        by a prior run. A distinct ``PROJECT_NAME`` (``foss-mcp-e2e-tc102``) and only these two
+        services are ever brought up, so this never collides with pdf/net's, pdf/typescript's,
+        pdf/java's, pdf/go's, slides/python's, or any other pilot's own concurrent E2E run.
+        """
+        _compose("down", "-v", "--remove-orphans")
+        try:
+            ingest = _compose(
+                "up",
+                "--build",
+                "--exit-code-from",
+                "ingest-cells-rust",
+                "ingest-cells-rust",
+                timeout=INGEST_TIMEOUT_SECONDS,
+            )
+>           assert ingest.returncode == 0, (ingest.stdout + ingest.stderr)[-4000:]
+E           AssertionError: fra/ingest.py
+E             #15 CACHED
+E             
+E             #16 [19/26] COPY tests/fixtures/furnished/pdf_java/pages/_index.md ./fixtures/furnished/pdf_java/pages/_index.md
+E             #16 CACHED
+E             
+E             #17 [14/26] COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+E             #17 CACHED
+E             
+E             #18 [ 3/26] RUN apt-get update     && apt-get install -y --no-install-recommends git curl ca-certificates     && rm -rf /var/lib/apt/lists/*     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh     && chmod +x /tmp/dotnet-install.sh     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet     && rm /tmp/dotnet-install.sh
+E             #18 CACHED
+E             
+E             #19 [25/26] COPY tests/fixtures/furnished/cells_rust/pages/_index.md ./fixtures/furnished/cells_rust/pages/_index.md
+E             #19 CACHED
+E             
+E             #20 [ 7/26] RUN apt-get update     && apt-get install -y --no-install-recommends build-essential     && rm -rf /var/lib/apt/lists/*     && curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o /tmp/rustup-init.sh     && chmod +x /tmp/rustup-init.sh     && /tmp/rustup-init.sh -y --profile minimal --default-toolchain stable --no-modify-path     && rm /tmp/rustup-init.sh     && chmod -R a+w "/usr/local/rustup" "/usr/local/cargo"
+E             #20 CACHED
+E             
+E             #21 [15/26] COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
+E             #21 CACHED
+E             
+E             #22 [17/26] COPY tests/fixtures/furnished/pdf_typescript/pages/_index.md ./fixtures/furnished/pdf_typescript/pages/_index.md
+E             #22 CACHED
+E             
+E             #23 [16/26] COPY tests/fixtures/pdf_typescript/api_surface.json ./fixtures/pdf_typescript/api_surface.json
+E             #23 CACHED
+E             
+E             #24 [ 9/26] RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+E             #24 CACHED
+E             
+E             #25 [20/26] COPY tests/fixtures/pdf_go/api_surface.json ./fixtures/pdf_go/api_surface.json
+E             #25 CACHED
+E             
+E             #26 [ 4/26] RUN curl -fsSL "https://nodejs.org/dist/v24.21.0/node-v24.21.0-linux-x64.tar.gz" -o /tmp/node.tar.gz     && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1     && rm /tmp/node.tar.gz
+E             #26 CACHED
+E             
+E             #27 [13/26] COPY infra/build_chunks.py ./infra/build_chunks.py
+E             #27 CACHED
+E             
+E             #28 [21/26] COPY tests/fixtures/furnished/pdf_go/pages/_index.md ./fixtures/furnished/pdf_go/pages/_index.md
+E             #28 CACHED
+E             
+E             #29 [23/26] COPY tests/fixtures/furnished/slides_python/pages/_index.md ./fixtures/furnished/slides_python/pages/_index.md
+E             #29 CACHED
+E             
+E             #30 [ 5/26] RUN apt-get update     && apt-get install -y --no-install-recommends openjdk-21-jdk maven     && rm -rf /var/lib/apt/lists/*
+E             #30 CACHED
+E             
+E             #31 [26/26] RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data
+E             #31 CACHED
+E             
+E             #32 exporting to image
+E             #32 exporting layers 0.0s done
+E             #32 exporting manifest sha256:88fba6aa5a80d92dd94004c5414f0d9ee5b75f0d3b61666e6a9cd34b6ba66ad3 done
+E             #32 exporting config sha256:0d8c09467b8e9b47e76822570bf8a20162050ad212538e2540f8308b619f953b done
+E             #32 exporting attestation manifest sha256:a7fe24ed374456b539e7a687c6fcd6942171729173061e92e87a808d6c85a20c 0.0s done
+E             #32 exporting manifest list sha256:4c4da3427cc2a01d419ec1e740d34dc26d8affe8622c12bacac7de264a66d9c9 0.0s done
+E             #32 naming to docker.io/library/foss-mcp-ingestion:local
+E             #32 naming to docker.io/library/foss-mcp-ingestion:local done
+E             #32 unpacking to docker.io/library/foss-mcp-ingestion:local 0.0s done
+E             #32 DONE 0.3s
+E             
+E             #33 resolving provenance for metadata file
+E             #33 DONE 0.0s
+E             Attaching to ingest-cells-rust-1
+E             
+E             [Kingest-cells-rust-1 exited with code 137
+E              foss-mcp-ingestion:local  Built
+E              Network foss-mcp-e2e-tc102_default  Creating
+E              Network foss-mcp-e2e-tc102_default  Created
+E              Volume foss-mcp-e2e-tc102_manifests-cells-rust  Creating
+E              Volume foss-mcp-e2e-tc102_manifests-cells-rust  Created
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Creating
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Created
+E             [31m[1mAborting on container exit...[0m
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopping
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopped
+E             
+E             
+E           assert 137 == 0
+E            +  where 137 = CompletedProcess(args=['docker', 'compose', '-p', 'foss-mcp-e2e-tc102', '-f', 'H:\\Users\\prora\\OneDrive\\Documents\\...iner foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopping\n Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopped\n\n').returncode
+
+tests\e2e\test_cells_rust_live_content.py:218: AssertionError
+_ ERROR at setup of test_search_symbols_returns_real_content_from_the_real_fixture _
+
+    @pytest.fixture(scope="module")
+    def real_generation() -> Iterator[None]:
+        """The real, live first publish: build and run the one-shot ``ingest-cells-rust`` service to
+        completion, then bring up ``serving-cells-rust`` against the SAME named volume it just
+        published into.
+    
+        ``docker compose down -v`` first, so this is idempotent against any stale volume state left
+        by a prior run. A distinct ``PROJECT_NAME`` (``foss-mcp-e2e-tc102``) and only these two
+        services are ever brought up, so this never collides with pdf/net's, pdf/typescript's,
+        pdf/java's, pdf/go's, slides/python's, or any other pilot's own concurrent E2E run.
+        """
+        _compose("down", "-v", "--remove-orphans")
+        try:
+            ingest = _compose(
+                "up",
+                "--build",
+                "--exit-code-from",
+                "ingest-cells-rust",
+                "ingest-cells-rust",
+                timeout=INGEST_TIMEOUT_SECONDS,
+            )
+>           assert ingest.returncode == 0, (ingest.stdout + ingest.stderr)[-4000:]
+E           AssertionError: fra/ingest.py
+E             #15 CACHED
+E             
+E             #16 [19/26] COPY tests/fixtures/furnished/pdf_java/pages/_index.md ./fixtures/furnished/pdf_java/pages/_index.md
+E             #16 CACHED
+E             
+E             #17 [14/26] COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+E             #17 CACHED
+E             
+E             #18 [ 3/26] RUN apt-get update     && apt-get install -y --no-install-recommends git curl ca-certificates     && rm -rf /var/lib/apt/lists/*     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh     && chmod +x /tmp/dotnet-install.sh     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet     && rm /tmp/dotnet-install.sh
+E             #18 CACHED
+E             
+E             #19 [25/26] COPY tests/fixtures/furnished/cells_rust/pages/_index.md ./fixtures/furnished/cells_rust/pages/_index.md
+E             #19 CACHED
+E             
+E             #20 [ 7/26] RUN apt-get update     && apt-get install -y --no-install-recommends build-essential     && rm -rf /var/lib/apt/lists/*     && curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o /tmp/rustup-init.sh     && chmod +x /tmp/rustup-init.sh     && /tmp/rustup-init.sh -y --profile minimal --default-toolchain stable --no-modify-path     && rm /tmp/rustup-init.sh     && chmod -R a+w "/usr/local/rustup" "/usr/local/cargo"
+E             #20 CACHED
+E             
+E             #21 [15/26] COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
+E             #21 CACHED
+E             
+E             #22 [17/26] COPY tests/fixtures/furnished/pdf_typescript/pages/_index.md ./fixtures/furnished/pdf_typescript/pages/_index.md
+E             #22 CACHED
+E             
+E             #23 [16/26] COPY tests/fixtures/pdf_typescript/api_surface.json ./fixtures/pdf_typescript/api_surface.json
+E             #23 CACHED
+E             
+E             #24 [ 9/26] RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+E             #24 CACHED
+E             
+E             #25 [20/26] COPY tests/fixtures/pdf_go/api_surface.json ./fixtures/pdf_go/api_surface.json
+E             #25 CACHED
+E             
+E             #26 [ 4/26] RUN curl -fsSL "https://nodejs.org/dist/v24.21.0/node-v24.21.0-linux-x64.tar.gz" -o /tmp/node.tar.gz     && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1     && rm /tmp/node.tar.gz
+E             #26 CACHED
+E             
+E             #27 [13/26] COPY infra/build_chunks.py ./infra/build_chunks.py
+E             #27 CACHED
+E             
+E             #28 [21/26] COPY tests/fixtures/furnished/pdf_go/pages/_index.md ./fixtures/furnished/pdf_go/pages/_index.md
+E             #28 CACHED
+E             
+E             #29 [23/26] COPY tests/fixtures/furnished/slides_python/pages/_index.md ./fixtures/furnished/slides_python/pages/_index.md
+E             #29 CACHED
+E             
+E             #30 [ 5/26] RUN apt-get update     && apt-get install -y --no-install-recommends openjdk-21-jdk maven     && rm -rf /var/lib/apt/lists/*
+E             #30 CACHED
+E             
+E             #31 [26/26] RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data
+E             #31 CACHED
+E             
+E             #32 exporting to image
+E             #32 exporting layers 0.0s done
+E             #32 exporting manifest sha256:88fba6aa5a80d92dd94004c5414f0d9ee5b75f0d3b61666e6a9cd34b6ba66ad3 done
+E             #32 exporting config sha256:0d8c09467b8e9b47e76822570bf8a20162050ad212538e2540f8308b619f953b done
+E             #32 exporting attestation manifest sha256:a7fe24ed374456b539e7a687c6fcd6942171729173061e92e87a808d6c85a20c 0.0s done
+E             #32 exporting manifest list sha256:4c4da3427cc2a01d419ec1e740d34dc26d8affe8622c12bacac7de264a66d9c9 0.0s done
+E             #32 naming to docker.io/library/foss-mcp-ingestion:local
+E             #32 naming to docker.io/library/foss-mcp-ingestion:local done
+E             #32 unpacking to docker.io/library/foss-mcp-ingestion:local 0.0s done
+E             #32 DONE 0.3s
+E             
+E             #33 resolving provenance for metadata file
+E             #33 DONE 0.0s
+E             Attaching to ingest-cells-rust-1
+E             
+E             [Kingest-cells-rust-1 exited with code 137
+E              foss-mcp-ingestion:local  Built
+E              Network foss-mcp-e2e-tc102_default  Creating
+E              Network foss-mcp-e2e-tc102_default  Created
+E              Volume foss-mcp-e2e-tc102_manifests-cells-rust  Creating
+E              Volume foss-mcp-e2e-tc102_manifests-cells-rust  Created
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Creating
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Created
+E             [31m[1mAborting on container exit...[0m
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopping
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopped
+E             
+E             
+E           assert 137 == 0
+E            +  where 137 = CompletedProcess(args=['docker', 'compose', '-p', 'foss-mcp-e2e-tc102', '-f', 'H:\\Users\\prora\\OneDrive\\Documents\\...iner foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopping\n Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopped\n\n').returncode
+
+tests\e2e\test_cells_rust_live_content.py:218: AssertionError
+__ ERROR at setup of test_lookup_returns_real_content_from_the_real_fixture ___
+
+    @pytest.fixture(scope="module")
+    def real_generation() -> Iterator[None]:
+        """The real, live first publish: build and run the one-shot ``ingest-cells-rust`` service to
+        completion, then bring up ``serving-cells-rust`` against the SAME named volume it just
+        published into.
+    
+        ``docker compose down -v`` first, so this is idempotent against any stale volume state left
+        by a prior run. A distinct ``PROJECT_NAME`` (``foss-mcp-e2e-tc102``) and only these two
+        services are ever brought up, so this never collides with pdf/net's, pdf/typescript's,
+        pdf/java's, pdf/go's, slides/python's, or any other pilot's own concurrent E2E run.
+        """
+        _compose("down", "-v", "--remove-orphans")
+        try:
+            ingest = _compose(
+                "up",
+                "--build",
+                "--exit-code-from",
+                "ingest-cells-rust",
+                "ingest-cells-rust",
+                timeout=INGEST_TIMEOUT_SECONDS,
+            )
+>           assert ingest.returncode == 0, (ingest.stdout + ingest.stderr)[-4000:]
+E           AssertionError: fra/ingest.py
+E             #15 CACHED
+E             
+E             #16 [19/26] COPY tests/fixtures/furnished/pdf_java/pages/_index.md ./fixtures/furnished/pdf_java/pages/_index.md
+E             #16 CACHED
+E             
+E             #17 [14/26] COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+E             #17 CACHED
+E             
+E             #18 [ 3/26] RUN apt-get update     && apt-get install -y --no-install-recommends git curl ca-certificates     && rm -rf /var/lib/apt/lists/*     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh     && chmod +x /tmp/dotnet-install.sh     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet     && rm /tmp/dotnet-install.sh
+E             #18 CACHED
+E             
+E             #19 [25/26] COPY tests/fixtures/furnished/cells_rust/pages/_index.md ./fixtures/furnished/cells_rust/pages/_index.md
+E             #19 CACHED
+E             
+E             #20 [ 7/26] RUN apt-get update     && apt-get install -y --no-install-recommends build-essential     && rm -rf /var/lib/apt/lists/*     && curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o /tmp/rustup-init.sh     && chmod +x /tmp/rustup-init.sh     && /tmp/rustup-init.sh -y --profile minimal --default-toolchain stable --no-modify-path     && rm /tmp/rustup-init.sh     && chmod -R a+w "/usr/local/rustup" "/usr/local/cargo"
+E             #20 CACHED
+E             
+E             #21 [15/26] COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
+E             #21 CACHED
+E             
+E             #22 [17/26] COPY tests/fixtures/furnished/pdf_typescript/pages/_index.md ./fixtures/furnished/pdf_typescript/pages/_index.md
+E             #22 CACHED
+E             
+E             #23 [16/26] COPY tests/fixtures/pdf_typescript/api_surface.json ./fixtures/pdf_typescript/api_surface.json
+E             #23 CACHED
+E             
+E             #24 [ 9/26] RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+E             #24 CACHED
+E             
+E             #25 [20/26] COPY tests/fixtures/pdf_go/api_surface.json ./fixtures/pdf_go/api_surface.json
+E             #25 CACHED
+E             
+E             #26 [ 4/26] RUN curl -fsSL "https://nodejs.org/dist/v24.21.0/node-v24.21.0-linux-x64.tar.gz" -o /tmp/node.tar.gz     && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1     && rm /tmp/node.tar.gz
+E             #26 CACHED
+E             
+E             #27 [13/26] COPY infra/build_chunks.py ./infra/build_chunks.py
+E             #27 CACHED
+E             
+E             #28 [21/26] COPY tests/fixtures/furnished/pdf_go/pages/_index.md ./fixtures/furnished/pdf_go/pages/_index.md
+E             #28 CACHED
+E             
+E             #29 [23/26] COPY tests/fixtures/furnished/slides_python/pages/_index.md ./fixtures/furnished/slides_python/pages/_index.md
+E             #29 CACHED
+E             
+E             #30 [ 5/26] RUN apt-get update     && apt-get install -y --no-install-recommends openjdk-21-jdk maven     && rm -rf /var/lib/apt/lists/*
+E             #30 CACHED
+E             
+E             #31 [26/26] RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data
+E             #31 CACHED
+E             
+E             #32 exporting to image
+E             #32 exporting layers 0.0s done
+E             #32 exporting manifest sha256:88fba6aa5a80d92dd94004c5414f0d9ee5b75f0d3b61666e6a9cd34b6ba66ad3 done
+E             #32 exporting config sha256:0d8c09467b8e9b47e76822570bf8a20162050ad212538e2540f8308b619f953b done
+E             #32 exporting attestation manifest sha256:a7fe24ed374456b539e7a687c6fcd6942171729173061e92e87a808d6c85a20c 0.0s done
+E             #32 exporting manifest list sha256:4c4da3427cc2a01d419ec1e740d34dc26d8affe8622c12bacac7de264a66d9c9 0.0s done
+E             #32 naming to docker.io/library/foss-mcp-ingestion:local
+E             #32 naming to docker.io/library/foss-mcp-ingestion:local done
+E             #32 unpacking to docker.io/library/foss-mcp-ingestion:local 0.0s done
+E             #32 DONE 0.3s
+E             
+E             #33 resolving provenance for metadata file
+E             #33 DONE 0.0s
+E             Attaching to ingest-cells-rust-1
+E             
+E             [Kingest-cells-rust-1 exited with code 137
+E              foss-mcp-ingestion:local  Built
+E              Network foss-mcp-e2e-tc102_default  Creating
+E              Network foss-mcp-e2e-tc102_default  Created
+E              Volume foss-mcp-e2e-tc102_manifests-cells-rust  Creating
+E              Volume foss-mcp-e2e-tc102_manifests-cells-rust  Created
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Creating
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Created
+E             [31m[1mAborting on container exit...[0m
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopping
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopped
+E             
+E             
+E           assert 137 == 0
+E            +  where 137 = CompletedProcess(args=['docker', 'compose', '-p', 'foss-mcp-e2e-tc102', '-f', 'H:\\Users\\prora\\OneDrive\\Documents\\...iner foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopping\n Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopped\n\n').returncode
+
+tests\e2e\test_cells_rust_live_content.py:218: AssertionError
+_ ERROR at setup of test_find_examples_returns_the_real_compile_verified_workbook_example _
+
+    @pytest.fixture(scope="module")
+    def real_generation() -> Iterator[None]:
+        """The real, live first publish: build and run the one-shot ``ingest-cells-rust`` service to
+        completion, then bring up ``serving-cells-rust`` against the SAME named volume it just
+        published into.
+    
+        ``docker compose down -v`` first, so this is idempotent against any stale volume state left
+        by a prior run. A distinct ``PROJECT_NAME`` (``foss-mcp-e2e-tc102``) and only these two
+        services are ever brought up, so this never collides with pdf/net's, pdf/typescript's,
+        pdf/java's, pdf/go's, slides/python's, or any other pilot's own concurrent E2E run.
+        """
+        _compose("down", "-v", "--remove-orphans")
+        try:
+            ingest = _compose(
+                "up",
+                "--build",
+                "--exit-code-from",
+                "ingest-cells-rust",
+                "ingest-cells-rust",
+                timeout=INGEST_TIMEOUT_SECONDS,
+            )
+>           assert ingest.returncode == 0, (ingest.stdout + ingest.stderr)[-4000:]
+E           AssertionError: fra/ingest.py
+E             #15 CACHED
+E             
+E             #16 [19/26] COPY tests/fixtures/furnished/pdf_java/pages/_index.md ./fixtures/furnished/pdf_java/pages/_index.md
+E             #16 CACHED
+E             
+E             #17 [14/26] COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+E             #17 CACHED
+E             
+E             #18 [ 3/26] RUN apt-get update     && apt-get install -y --no-install-recommends git curl ca-certificates     && rm -rf /var/lib/apt/lists/*     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh     && chmod +x /tmp/dotnet-install.sh     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet     && rm /tmp/dotnet-install.sh
+E             #18 CACHED
+E             
+E             #19 [25/26] COPY tests/fixtures/furnished/cells_rust/pages/_index.md ./fixtures/furnished/cells_rust/pages/_index.md
+E             #19 CACHED
+E             
+E             #20 [ 7/26] RUN apt-get update     && apt-get install -y --no-install-recommends build-essential     && rm -rf /var/lib/apt/lists/*     && curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o /tmp/rustup-init.sh     && chmod +x /tmp/rustup-init.sh     && /tmp/rustup-init.sh -y --profile minimal --default-toolchain stable --no-modify-path     && rm /tmp/rustup-init.sh     && chmod -R a+w "/usr/local/rustup" "/usr/local/cargo"
+E             #20 CACHED
+E             
+E             #21 [15/26] COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
+E             #21 CACHED
+E             
+E             #22 [17/26] COPY tests/fixtures/furnished/pdf_typescript/pages/_index.md ./fixtures/furnished/pdf_typescript/pages/_index.md
+E             #22 CACHED
+E             
+E             #23 [16/26] COPY tests/fixtures/pdf_typescript/api_surface.json ./fixtures/pdf_typescript/api_surface.json
+E             #23 CACHED
+E             
+E             #24 [ 9/26] RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+E             #24 CACHED
+E             
+E             #25 [20/26] COPY tests/fixtures/pdf_go/api_surface.json ./fixtures/pdf_go/api_surface.json
+E             #25 CACHED
+E             
+E             #26 [ 4/26] RUN curl -fsSL "https://nodejs.org/dist/v24.21.0/node-v24.21.0-linux-x64.tar.gz" -o /tmp/node.tar.gz     && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1     && rm /tmp/node.tar.gz
+E             #26 CACHED
+E             
+E             #27 [13/26] COPY infra/build_chunks.py ./infra/build_chunks.py
+E             #27 CACHED
+E             
+E             #28 [21/26] COPY tests/fixtures/furnished/pdf_go/pages/_index.md ./fixtures/furnished/pdf_go/pages/_index.md
+E             #28 CACHED
+E             
+E             #29 [23/26] COPY tests/fixtures/furnished/slides_python/pages/_index.md ./fixtures/furnished/slides_python/pages/_index.md
+E             #29 CACHED
+E             
+E             #30 [ 5/26] RUN apt-get update     && apt-get install -y --no-install-recommends openjdk-21-jdk maven     && rm -rf /var/lib/apt/lists/*
+E             #30 CACHED
+E             
+E             #31 [26/26] RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data
+E             #31 CACHED
+E             
+E             #32 exporting to image
+E             #32 exporting layers 0.0s done
+E             #32 exporting manifest sha256:88fba6aa5a80d92dd94004c5414f0d9ee5b75f0d3b61666e6a9cd34b6ba66ad3 done
+E             #32 exporting config sha256:0d8c09467b8e9b47e76822570bf8a20162050ad212538e2540f8308b619f953b done
+E             #32 exporting attestation manifest sha256:a7fe24ed374456b539e7a687c6fcd6942171729173061e92e87a808d6c85a20c 0.0s done
+E             #32 exporting manifest list sha256:4c4da3427cc2a01d419ec1e740d34dc26d8affe8622c12bacac7de264a66d9c9 0.0s done
+E             #32 naming to docker.io/library/foss-mcp-ingestion:local
+E             #32 naming to docker.io/library/foss-mcp-ingestion:local done
+E             #32 unpacking to docker.io/library/foss-mcp-ingestion:local 0.0s done
+E             #32 DONE 0.3s
+E             
+E             #33 resolving provenance for metadata file
+E             #33 DONE 0.0s
+E             Attaching to ingest-cells-rust-1
+E             
+E             [Kingest-cells-rust-1 exited with code 137
+E              foss-mcp-ingestion:local  Built
+E              Network foss-mcp-e2e-tc102_default  Creating
+E              Network foss-mcp-e2e-tc102_default  Created
+E              Volume foss-mcp-e2e-tc102_manifests-cells-rust  Creating
+E              Volume foss-mcp-e2e-tc102_manifests-cells-rust  Created
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Creating
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Created
+E             [31m[1mAborting on container exit...[0m
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopping
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopped
+E             
+E             
+E           assert 137 == 0
+E            +  where 137 = CompletedProcess(args=['docker', 'compose', '-p', 'foss-mcp-e2e-tc102', '-f', 'H:\\Users\\prora\\OneDrive\\Documents\\...iner foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopping\n Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopped\n\n').returncode
+
+tests\e2e\test_cells_rust_live_content.py:218: AssertionError
+_ ERROR at setup of test_lookup_composes_the_real_task_answer_for_the_workbook_question _
+
+    @pytest.fixture(scope="module")
+    def real_generation() -> Iterator[None]:
+        """The real, live first publish: build and run the one-shot ``ingest-cells-rust`` service to
+        completion, then bring up ``serving-cells-rust`` against the SAME named volume it just
+        published into.
+    
+        ``docker compose down -v`` first, so this is idempotent against any stale volume state left
+        by a prior run. A distinct ``PROJECT_NAME`` (``foss-mcp-e2e-tc102``) and only these two
+        services are ever brought up, so this never collides with pdf/net's, pdf/typescript's,
+        pdf/java's, pdf/go's, slides/python's, or any other pilot's own concurrent E2E run.
+        """
+        _compose("down", "-v", "--remove-orphans")
+        try:
+            ingest = _compose(
+                "up",
+                "--build",
+                "--exit-code-from",
+                "ingest-cells-rust",
+                "ingest-cells-rust",
+                timeout=INGEST_TIMEOUT_SECONDS,
+            )
+>           assert ingest.returncode == 0, (ingest.stdout + ingest.stderr)[-4000:]
+E           AssertionError: fra/ingest.py
+E             #15 CACHED
+E             
+E             #16 [19/26] COPY tests/fixtures/furnished/pdf_java/pages/_index.md ./fixtures/furnished/pdf_java/pages/_index.md
+E             #16 CACHED
+E             
+E             #17 [14/26] COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+E             #17 CACHED
+E             
+E             #18 [ 3/26] RUN apt-get update     && apt-get install -y --no-install-recommends git curl ca-certificates     && rm -rf /var/lib/apt/lists/*     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh     && chmod +x /tmp/dotnet-install.sh     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet     && rm /tmp/dotnet-install.sh
+E             #18 CACHED
+E             
+E             #19 [25/26] COPY tests/fixtures/furnished/cells_rust/pages/_index.md ./fixtures/furnished/cells_rust/pages/_index.md
+E             #19 CACHED
+E             
+E             #20 [ 7/26] RUN apt-get update     && apt-get install -y --no-install-recommends build-essential     && rm -rf /var/lib/apt/lists/*     && curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o /tmp/rustup-init.sh     && chmod +x /tmp/rustup-init.sh     && /tmp/rustup-init.sh -y --profile minimal --default-toolchain stable --no-modify-path     && rm /tmp/rustup-init.sh     && chmod -R a+w "/usr/local/rustup" "/usr/local/cargo"
+E             #20 CACHED
+E             
+E             #21 [15/26] COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
+E             #21 CACHED
+E             
+E             #22 [17/26] COPY tests/fixtures/furnished/pdf_typescript/pages/_index.md ./fixtures/furnished/pdf_typescript/pages/_index.md
+E             #22 CACHED
+E             
+E             #23 [16/26] COPY tests/fixtures/pdf_typescript/api_surface.json ./fixtures/pdf_typescript/api_surface.json
+E             #23 CACHED
+E             
+E             #24 [ 9/26] RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+E             #24 CACHED
+E             
+E             #25 [20/26] COPY tests/fixtures/pdf_go/api_surface.json ./fixtures/pdf_go/api_surface.json
+E             #25 CACHED
+E             
+E             #26 [ 4/26] RUN curl -fsSL "https://nodejs.org/dist/v24.21.0/node-v24.21.0-linux-x64.tar.gz" -o /tmp/node.tar.gz     && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1     && rm /tmp/node.tar.gz
+E             #26 CACHED
+E             
+E             #27 [13/26] COPY infra/build_chunks.py ./infra/build_chunks.py
+E             #27 CACHED
+E             
+E             #28 [21/26] COPY tests/fixtures/furnished/pdf_go/pages/_index.md ./fixtures/furnished/pdf_go/pages/_index.md
+E             #28 CACHED
+E             
+E             #29 [23/26] COPY tests/fixtures/furnished/slides_python/pages/_index.md ./fixtures/furnished/slides_python/pages/_index.md
+E             #29 CACHED
+E             
+E             #30 [ 5/26] RUN apt-get update     && apt-get install -y --no-install-recommends openjdk-21-jdk maven     && rm -rf /var/lib/apt/lists/*
+E             #30 CACHED
+E             
+E             #31 [26/26] RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data
+E             #31 CACHED
+E             
+E             #32 exporting to image
+E             #32 exporting layers 0.0s done
+E             #32 exporting manifest sha256:88fba6aa5a80d92dd94004c5414f0d9ee5b75f0d3b61666e6a9cd34b6ba66ad3 done
+E             #32 exporting config sha256:0d8c09467b8e9b47e76822570bf8a20162050ad212538e2540f8308b619f953b done
+E             #32 exporting attestation manifest sha256:a7fe24ed374456b539e7a687c6fcd6942171729173061e92e87a808d6c85a20c 0.0s done
+E             #32 exporting manifest list sha256:4c4da3427cc2a01d419ec1e740d34dc26d8affe8622c12bacac7de264a66d9c9 0.0s done
+E             #32 naming to docker.io/library/foss-mcp-ingestion:local
+E             #32 naming to docker.io/library/foss-mcp-ingestion:local done
+E             #32 unpacking to docker.io/library/foss-mcp-ingestion:local 0.0s done
+E             #32 DONE 0.3s
+E             
+E             #33 resolving provenance for metadata file
+E             #33 DONE 0.0s
+E             Attaching to ingest-cells-rust-1
+E             
+E             [Kingest-cells-rust-1 exited with code 137
+E              foss-mcp-ingestion:local  Built
+E              Network foss-mcp-e2e-tc102_default  Creating
+E              Network foss-mcp-e2e-tc102_default  Created
+E              Volume foss-mcp-e2e-tc102_manifests-cells-rust  Creating
+E              Volume foss-mcp-e2e-tc102_manifests-cells-rust  Created
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Creating
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Created
+E             [31m[1mAborting on container exit...[0m
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopping
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopped
+E             
+E             
+E           assert 137 == 0
+E            +  where 137 = CompletedProcess(args=['docker', 'compose', '-p', 'foss-mcp-e2e-tc102', '-f', 'H:\\Users\\prora\\OneDrive\\Documents\\...iner foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopping\n Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopped\n\n').returncode
+
+tests\e2e\test_cells_rust_live_content.py:218: AssertionError
+_ ERROR at setup of test_get_symbol_returns_the_real_enum_members_for_autoshapetype _
+
+    @pytest.fixture(scope="module")
+    def real_generation() -> Iterator[None]:
+        """The real, live first publish: build and run the one-shot ``ingest-cells-rust`` service to
+        completion, then bring up ``serving-cells-rust`` against the SAME named volume it just
+        published into.
+    
+        ``docker compose down -v`` first, so this is idempotent against any stale volume state left
+        by a prior run. A distinct ``PROJECT_NAME`` (``foss-mcp-e2e-tc102``) and only these two
+        services are ever brought up, so this never collides with pdf/net's, pdf/typescript's,
+        pdf/java's, pdf/go's, slides/python's, or any other pilot's own concurrent E2E run.
+        """
+        _compose("down", "-v", "--remove-orphans")
+        try:
+            ingest = _compose(
+                "up",
+                "--build",
+                "--exit-code-from",
+                "ingest-cells-rust",
+                "ingest-cells-rust",
+                timeout=INGEST_TIMEOUT_SECONDS,
+            )
+>           assert ingest.returncode == 0, (ingest.stdout + ingest.stderr)[-4000:]
+E           AssertionError: fra/ingest.py
+E             #15 CACHED
+E             
+E             #16 [19/26] COPY tests/fixtures/furnished/pdf_java/pages/_index.md ./fixtures/furnished/pdf_java/pages/_index.md
+E             #16 CACHED
+E             
+E             #17 [14/26] COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+E             #17 CACHED
+E             
+E             #18 [ 3/26] RUN apt-get update     && apt-get install -y --no-install-recommends git curl ca-certificates     && rm -rf /var/lib/apt/lists/*     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh     && chmod +x /tmp/dotnet-install.sh     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet     && rm /tmp/dotnet-install.sh
+E             #18 CACHED
+E             
+E             #19 [25/26] COPY tests/fixtures/furnished/cells_rust/pages/_index.md ./fixtures/furnished/cells_rust/pages/_index.md
+E             #19 CACHED
+E             
+E             #20 [ 7/26] RUN apt-get update     && apt-get install -y --no-install-recommends build-essential     && rm -rf /var/lib/apt/lists/*     && curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o /tmp/rustup-init.sh     && chmod +x /tmp/rustup-init.sh     && /tmp/rustup-init.sh -y --profile minimal --default-toolchain stable --no-modify-path     && rm /tmp/rustup-init.sh     && chmod -R a+w "/usr/local/rustup" "/usr/local/cargo"
+E             #20 CACHED
+E             
+E             #21 [15/26] COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
+E             #21 CACHED
+E             
+E             #22 [17/26] COPY tests/fixtures/furnished/pdf_typescript/pages/_index.md ./fixtures/furnished/pdf_typescript/pages/_index.md
+E             #22 CACHED
+E             
+E             #23 [16/26] COPY tests/fixtures/pdf_typescript/api_surface.json ./fixtures/pdf_typescript/api_surface.json
+E             #23 CACHED
+E             
+E             #24 [ 9/26] RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+E             #24 CACHED
+E             
+E             #25 [20/26] COPY tests/fixtures/pdf_go/api_surface.json ./fixtures/pdf_go/api_surface.json
+E             #25 CACHED
+E             
+E             #26 [ 4/26] RUN curl -fsSL "https://nodejs.org/dist/v24.21.0/node-v24.21.0-linux-x64.tar.gz" -o /tmp/node.tar.gz     && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1     && rm /tmp/node.tar.gz
+E             #26 CACHED
+E             
+E             #27 [13/26] COPY infra/build_chunks.py ./infra/build_chunks.py
+E             #27 CACHED
+E             
+E             #28 [21/26] COPY tests/fixtures/furnished/pdf_go/pages/_index.md ./fixtures/furnished/pdf_go/pages/_index.md
+E             #28 CACHED
+E             
+E             #29 [23/26] COPY tests/fixtures/furnished/slides_python/pages/_index.md ./fixtures/furnished/slides_python/pages/_index.md
+E             #29 CACHED
+E             
+E             #30 [ 5/26] RUN apt-get update     && apt-get install -y --no-install-recommends openjdk-21-jdk maven     && rm -rf /var/lib/apt/lists/*
+E             #30 CACHED
+E             
+E             #31 [26/26] RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp     && mkdir -p /data/manifests     && chown -R foss-mcp:foss-mcp /data
+E             #31 CACHED
+E             
+E             #32 exporting to image
+E             #32 exporting layers 0.0s done
+E             #32 exporting manifest sha256:88fba6aa5a80d92dd94004c5414f0d9ee5b75f0d3b61666e6a9cd34b6ba66ad3 done
+E             #32 exporting config sha256:0d8c09467b8e9b47e76822570bf8a20162050ad212538e2540f8308b619f953b done
+E             #32 exporting attestation manifest sha256:a7fe24ed374456b539e7a687c6fcd6942171729173061e92e87a808d6c85a20c 0.0s done
+E             #32 exporting manifest list sha256:4c4da3427cc2a01d419ec1e740d34dc26d8affe8622c12bacac7de264a66d9c9 0.0s done
+E             #32 naming to docker.io/library/foss-mcp-ingestion:local
+E             #32 naming to docker.io/library/foss-mcp-ingestion:local done
+E             #32 unpacking to docker.io/library/foss-mcp-ingestion:local 0.0s done
+E             #32 DONE 0.3s
+E             
+E             #33 resolving provenance for metadata file
+E             #33 DONE 0.0s
+E             Attaching to ingest-cells-rust-1
+E             
+E             [Kingest-cells-rust-1 exited with code 137
+E              foss-mcp-ingestion:local  Built
+E              Network foss-mcp-e2e-tc102_default  Creating
+E              Network foss-mcp-e2e-tc102_default  Created
+E              Volume foss-mcp-e2e-tc102_manifests-cells-rust  Creating
+E              Volume foss-mcp-e2e-tc102_manifests-cells-rust  Created
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Creating
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Created
+E             [31m[1mAborting on container exit...[0m
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopping
+E              Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopped
+E             
+E             
+E           assert 137 == 0
+E            +  where 137 = CompletedProcess(args=['docker', 'compose', '-p', 'foss-mcp-e2e-tc102', '-f', 'H:\\Users\\prora\\OneDrive\\Documents\\...iner foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopping\n Container foss-mcp-e2e-tc102-ingest-cells-rust-1  Stopped\n\n').returncode
+
+tests\e2e\test_cells_rust_live_content.py:218: AssertionError
+=========================== short test summary info ===========================
+ERROR tests/e2e/test_cells_rust_live_content.py::test_readyz_is_ready_after_the_real_ingestion_publish
+ERROR tests/e2e/test_cells_rust_live_content.py::test_report_index_freshness_reports_the_real_fresh_generation
+ERROR tests/e2e/test_cells_rust_live_content.py::test_search_symbols_returns_real_content_from_the_real_fixture
+ERROR tests/e2e/test_cells_rust_live_content.py::test_lookup_returns_real_content_from_the_real_fixture
+ERROR tests/e2e/test_cells_rust_live_content.py::test_find_examples_returns_the_real_compile_verified_workbook_example
+ERROR tests/e2e/test_cells_rust_live_content.py::test_lookup_composes_the_real_task_answer_for_the_workbook_question
+ERROR tests/e2e/test_cells_rust_live_content.py::test_get_symbol_returns_the_real_enum_members_for_autoshapetype
+
+--- stderr ---
+
