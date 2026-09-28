@@ -1,0 +1,52 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_pdf_go_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qsji1ud_\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_pdf_go_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qsji1ud_\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/e2e/test_pdf_go_live_content.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_pdf_go_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qsji1ud_\.junit-0.xml"
+--- stdout ---
+.....F.                                                                  [100%]
+================================== FAILURES ===================================
+_ test_lookup_composes_the_real_task_answer_for_the_split_and_merge_question __
+
+session = <tests.e2e.test_pdf_go_live_content._McpSession object at 0x0000021CCDF59A70>
+
+    def test_lookup_composes_the_real_task_answer_for_the_split_and_merge_question(
+        session: _McpSession,
+    ) -> None:
+        """REQ-G2-050 (TC-080/TC-089/TC-098/TC-099/TC-106 pattern), now fully met for pdf/go: the
+        real ``lookup`` tool (never ``find_examples`` directly - a caller with no prior API knowledge
+        asking a real, API-naive task question) with the EXACT literal query CONFIRMED live, by hand,
+        today, through the real running pdf/go container: this reads as a task question
+        (``_looks_like_a_task_question``), and now that pdf/go has a real, compile-verified example
+        (TC-104's fix), ``lookup`` composes a real ``TaskAnswer`` - ``doc_matches`` (empty here, since
+        no getting_started/developer_guide/troubleshooting/faq content has ever been published for
+        this pilot) plus the same real, compile-verified "Split and Merge PDFs" example
+        ``find_examples`` itself proves above, carrying the real source commit
+        ``infra/build_chunks.py`` appends to every real chunk's text - never the honest-but-incomplete
+        ``Miss`` this file asserted before TC-104's fix.
+        """
+>       body = session.call_tool("lookup", {"query": REAL_TASK_QUERY})
+                                                     ^^^^^^^^^^^^^^^
+E       NameError: name 'REAL_TASK_QUERY' is not defined
+
+tests\e2e\test_pdf_go_live_content.py:353: NameError
+=========================== short test summary info ===========================
+FAILED tests/e2e/test_pdf_go_live_content.py::test_lookup_composes_the_real_task_answer_for_the_split_and_merge_question
+
+--- stderr ---
+
