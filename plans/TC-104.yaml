@@ -1,0 +1,105 @@
+id: TC-104
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix a real, confirmed defect in verify_go_example: it writes candidate.code
+  verbatim as main.go with no wrapping, but every one of pdf/go''s real furnished-content
+  candidates is a bare Go statement fragment (no `package`, no `import`, no `func
+  main`) - confirmed today by TC-100''s own worker, both at the host level and through
+  a real containerized ingest-pdf-go run: all 4 real candidates fail identically with
+  `main.go:1:1: expected ''package'', found doc`. TC-100''s own live E2E test was
+  correctly adapted to assert this honest Miss rather than fabricate a match - this
+  card is the real fix that should let pdf/go serve a genuine, compile-verified example,
+  matching every other pilot''s own bar. Mirrors verify_java_example''s already-established
+  fragment-wrapping pattern (a public-class regex; wrap only if no class declaration
+  is found) - the same shape, adapted for Go''s stricter unused-import rules.'
+depends_on:
+- TC-081
+- TC-096
+- TC-100
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_example_verifier.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'The real, confirmed fragment shape (read tests/fixtures/furnished/pdf_go/pages/_index.md
+  yourself to see all 4): bare statements like `doc, _ := pdf.Open("input.pdf")` ...
+  `doc.Save("merged.pdf")`, using the package qualifier `pdf.` throughout, and one
+  candidate also uses `fmt.Sprintf`. None declare `package`, `import`, or `func main`
+  themselves.'
+- 'REQUIRED, exact fix shape (the exact function name below is required, load-bearing
+  for the negative control): add `_wrap_go_fragment_if_needed(code: str, module_path:
+  str) -> str` that: detects whether `code` already has a top-level `package ` declaration
+  (a complete file - compile as-is, unwrapped) versus a bare fragment (no `package`
+  line - wrap it). For a bare fragment, wrap as `package main\n\nimport (\n\t"fmt"\n\t<real
+  pdf import path>\n)\n\nfunc main() {\n<indented fragment>\n}\n` - but Go fails to
+  compile on an unused import, so include the `"fmt"` import line ONLY if the fragment
+  text actually contains `fmt.` (a simple substring check is sufficient, matching
+  this project''s own pragmatic style elsewhere - no full Go parse needed), and include
+  the real pdf import ONLY if the fragment contains the package qualifier it introduces
+  (always true for pdf/go''s real content today, but keep the check honest rather
+  than unconditional).'
+- You must determine the REAL import path/alias for the `pdf` package qualifier yourself,
+  by hands-on investigation of the actual cloned aspose-pdf-foss/Aspose-PDF-FOSS-for-Go
+  repository at its pinned commit 286484d235196d65c9a458c5eff3d3d6539216dc (find the
+  real .go source file(s) declaring `package pdf` or similar, and the real import
+  path a consumer needs - do not assume it is simply the bare module_path string;
+  a prior session's own recon separately noted the module's real Go package name might
+  be `asposepdf`, not `pdf`, despite the real furnished snippets using the qualifier
+  `pdf.` - resolve this real discrepancy by actually reading the repo's source, e.g.
+  via a real import alias `import pdf "<real import path>"` if the underlying package
+  name differs from the alias the furnished content assumes, or by confirming the
+  package genuinely is named `pdf`. Do not guess; verify by actually compiling a real,
+  hand-built known-working wrapped example against the real cloned module before finalizing.
+- Call _wrap_go_fragment_if_needed from inside verify_go_example, replacing its current
+  unconditional `(project_dir / "main.go").write_text(candidate.code, ...)` with the
+  wrapped result.
+- Add a real test proving pdf/go's own real furnished-content candidates now genuinely
+  verify True (at least the first one, the Split/merge example) against the real pinned
+  repository - this is the concrete proof this fix actually closes the gap TC-100
+  found, not just a synthetic unit test.
+- Do not touch any other language's prepare_*/verify_* pair - purely additive to Go's
+  own function.
+actions:
+- Investigate the real cloned pdf/go repository to determine the correct import path/alias
+  for the `pdf` package qualifier.
+- Implement _wrap_go_fragment_if_needed exactly as specified and wire it into verify_go_example.
+- Add a real test using one of pdf/go's own real furnished-content candidates (read
+  it from tests/fixtures/furnished/pdf_go/pages/_index.md yourself) verifying True
+  against the real pinned repository, plus a deliberately broken variant verifying
+  False with a real compiler error.
+- Run the full existing test suite yourself and confirm nothing else broke, especially
+  the other 6 languages' own verify_* functions.
+checks:
+- command: '{python} -m pytest tests/indexing/test_example_verifier.py -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 2
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    _wrap_go_fragment_if_needed','def _wrap_go_fragment_if_needed_DISABLED');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming _wrap_go_fragment_if_needed so it is never defined under its
+    real name must break every test exercising it (and verify_go_example itself, once
+    wired in) with a NameError, proving the tests genuinely exercise this concrete
+    fix. Self-checked end-to-end against a fixture implementing the exact prescribed
+    name before being persisted.
+evidence:
+- evidence/build/G2/TC-104/receipt.json
+closeout:
+- verify_go_example now correctly wraps bare Go statement fragments before compiling,
+  matching every other language's own real furnished-content shape handling.
+- At least one of pdf/go's own real furnished-content candidates now genuinely verifies
+  True against the real pinned repository.
+- Every other language's own verifier is completely unaffected.
+- Renaming _wrap_go_fragment_if_needed fails the suite.
+recovery: Re-run from a clean tree; if the real clone/build step is flaky, re-running
+  is safe and idempotent.
