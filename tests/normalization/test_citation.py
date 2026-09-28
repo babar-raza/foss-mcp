@@ -152,7 +152,8 @@ def _example_chunk(text: str, provenance: Provenance | None = None) -> Chunk:
         text=text,
         source_kind="furnished",
         content_type="example",
-        provenance=provenance or Provenance(repository="aspose-slides-foss/Aspose.Slides-FOSS-for-Python", commit="4e63447b" * 5),
+        provenance=provenance
+        or Provenance(repository="aspose-slides-foss/Aspose.Slides-FOSS-for-Python", commit="4e63447b" * 5),
         trust_tier="medium",
     )
 
