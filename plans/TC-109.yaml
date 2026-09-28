@@ -1,0 +1,85 @@
+id: TC-109
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix a real, independently-confirmed routing bug in search_docs.py that makes
+  it structurally dead for every pilot regardless of content: it sets its own SOURCE_KIND
+  = "furnished" and looks up documents under scope key "<family>::<platform>::furnished"
+  - but every pilot''s real ingestion (infra/ingest.py, invoked from every ingest-<pilot>
+  docker-compose service) publishes under source_kind="self_extracted", and no serving-<pilot>
+  service anywhere is configured to deploy source_kind=furnished. search_docs therefore
+  always returns an explicit Miss ("no published generation for this scope") for every
+  pilot today, confirmed by a comprehensive live MCP verification pass across all
+  6 pilots (2026-09-28) that exercised all 9 tools directly against real running containers.
+  search_symbols.py already gets this right (SOURCE_KIND = "self_extracted", already
+  reused by find_examples.py) - this card makes search_docs.py match that already-correct,
+  already-proven pattern. This is Card A of a 2-bug pipeline (Card D, TC-112, fixes
+  the second bug: no doc content is built yet) - fixing this alone does not make search_docs
+  return content, but is a necessary, independently-testable, independently-valuable
+  fix on its own (proves the routing is correct before content exists to route to).'
+depends_on:
+- TC-017a
+- TC-071
+- TC-074
+- TC-075
+write_paths:
+- src/foss_mcp/mcp/tools/search_docs.py
+- tests/mcp/tools/test_retrieval_tools.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Real, confirmed root cause: search_docs.py line 26 sets SOURCE_KIND = "furnished",
+  computed into a scope key via scope_key(scope, SOURCE_KIND) (imported from search_symbols.py).
+  Every real ingest-<pilot> docker-compose service runs infra/ingest.py --source-kind
+  self_extracted; every serving-<pilot> service pins FOSS_MCP_SOURCE_KIND: self_extracted.
+  Nothing anywhere publishes to or serves the "furnished" scope key - it is unreachable
+  by construction, not merely empty.'
+- 'Fix: change SOURCE_KIND = "furnished" to SOURCE_KIND = "self_extracted" in search_docs.py
+  - the exact literal already used by search_symbols.py (do not import it from there
+  either way; matching this project''s convention of each tool module owning its own
+  SOURCE_KIND constant, confirmed by reading search_symbols.py''s own top-level SOURCE_KIND
+  = "self_extracted" line).'
+- 'This fix alone does NOT make search_docs return real content yet (no doc chunks
+  are built until Card D, TC-112, lands) - but it must be independently provable:
+  write a real test that manually publishes a document chunk into a test GenerationManifestStore
+  under source_kind="self_extracted" (mirroring this project''s own existing in-memory-store
+  test pattern - check tests/mcp/tools/test_retrieval_tools.py''s existing fixtures/helpers
+  first) and asserts search_docs now finds it - before this fix, an identical test
+  would time out in an eternal Miss no matter what content exists, because it''s checking
+  the wrong scope key entirely.'
+- Do not touch classify_content_type, CONTENT_TYPES, or any other part of search_docs.py
+  - purely the one constant.
+actions:
+- Change search_docs.py's SOURCE_KIND constant exactly as specified.
+- Add a real test to tests/mcp/tools/test_retrieval_tools.py proving search_docs now
+  finds a document published under source_kind=self_extracted.
+- Run the full existing test file and confirm nothing else broke.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_retrieval_tools.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 1
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/search_docs.py');s=p.read_text(encoding='utf-8');s=s.replace('SOURCE_KIND
+    = \"self_extracted\"','SOURCE_KIND = \"furnished\"');p.write_text(s,encoding='utf-8')"
+  rationale: Reverting SOURCE_KIND back to "furnished" must make the new test fail
+    (the published document becomes unreachable again), proving the test genuinely
+    depends on the corrected scope key rather than passing for an unrelated reason.
+    Self-checked end-to-end against a fixture implementing the exact prescribed literal
+    before being persisted.
+evidence:
+- evidence/build/G2/TC-109/receipt.json
+closeout:
+- search_docs.py looks up the same scope key every pilot actually publishes to and
+  serves.
+- A real test proves a document published under self_extracted is now found.
+- Reverting to "furnished" fails the new test again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

@@ -1,0 +1,101 @@
+id: TC-111
+gate: G2
+lane: storage-retrieval
+purpose: 'Generalize citation-anchor resolution to recognize a bare method/property
+  name (no ClassName. prefix) when it is GLOBALLY UNAMBIGUOUS - exactly one declaration
+  across the entire symbol index carries that member name. Real furnished prose routinely
+  cites methods conversationally by bare name (confirmed today by reading real fixture
+  content: pdf/net''s content.block[1] cites `AddTextAnnotation`, `AddLinkAnnotation`,
+  `AddHighlightAnnotation`, `AddWatermarkAnnotation`, `AddRedactAnnotation` with no
+  class prefix; pdf/typescript''s content.block[3] and cells/rust''s content.block[1]
+  show the identical real pattern) - these are correct, real, non-fabricated method
+  names (the same ones each pilot''s own compile-verified examples call), but symbol_index_from_api_surface
+  only ever registers qualified ClassName.MethodName anchors, so today''s citation
+  validation would incorrectly mark this real prose UNSUPPORTED and drop it. This
+  is NOT the same fix as TC-105''s - TC-105 exempts already-compile-verified example
+  code from anchor checking entirely; this card instead makes the anchor-resolution
+  mechanism itself smarter for ordinary prose that has no independent verification
+  and must still legitimately pass citation validation. A name shared by two or more
+  classes must still, correctly, stay unresolved - this generalizes, never weakens,
+  the existing ambiguity rule.'
+depends_on:
+- TC-010a
+- TC-105
+- TC-108
+write_paths:
+- src/foss_mcp/extraction/claim_id_bridge.py
+- src/foss_mcp/normalization/citation.py
+- tests/normalization/test_citation.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Read src/foss_mcp/extraction/claim_id_bridge.py in full first - SymbolIndex already
+  stores an internal dict from anchor string to Declaration list (self._by_anchor:
+  dict[str, list[Declaration]]). Registered anchors are always either a bare class
+  name ("ClassName") or a qualified member name ("ClassName.Member") - never a bare
+  member name alone (confirmed by re-reading citation.py''s own symbol_index_from_api_surface,
+  which only ever appends f"{name}.{method_name}"/f"{name}.{prop_name}", never a bare
+  member).'
+- 'REQUIRED, exact shape (the exact method name is load-bearing for the negative control):
+  add a new PUBLIC method on SymbolIndex itself (matching the class''s own existing
+  responsibility for anchor lookup logic - do not put this logic in citation.py instead):
+  `unambiguous_qualified_anchor_for_bare_member(self, bare_name: str) -> str | None`.
+  Implementation: scan self._by_anchor''s own keys for every registered anchor ending
+  in f".{bare_name}" (a real qualified member match); if EXACTLY ONE such anchor exists,
+  return it; if zero or two-or-more, return None (never guesses among ambiguous candidates
+  - the exact same discipline anchor_resolves already applies for a fully-qualified
+  anchor with multiple overloads).'
+- 'In citation.py''s validate_chunk (or find_symbol_anchors''s own resolution call
+  site - your judgment on the cleanest integration point, but do not change symbol_index_from_api_surface''s
+  own qualified-only registration policy, and do not change anchor_resolves''s own
+  existing exact-match behavior): when a bare-name anchor (no dot in it) fails the
+  existing anchor_resolves check, fall back to symbol_index.unambiguous_qualified_anchor_for_bare_member(anchor)
+  - if it returns a real qualified anchor, treat the original bare anchor as resolved
+  (SUPPORTED); otherwise the anchor stays UNSUPPORTED exactly as today.'
+- 'Required real regression tests, using the exact real bare-name citations already
+  confirmed in this project''s own fixtures today: a bare method name backed by exactly
+  one real declaration across the index now resolves; a bare method name backed by
+  TWO OR MORE classes (construct a real, deliberately ambiguous fixture - e.g. two
+  different classes both declaring a method named identically) still correctly stays
+  unresolved; a fully-qualified anchor''s own existing exact-match behavior is completely
+  unaffected (re-run pdf/net''s own real AddWatermarkAnnotation-shaped chunk, already
+  covered by an existing test, and confirm it still resolves via the ORIGINAL exact-match
+  path, not accidentally via the new bare-member fallback).'
+actions:
+- Implement unambiguous_qualified_anchor_for_bare_member on SymbolIndex exactly as
+  specified.
+- Wire the fallback into citation.py's own anchor-resolution path.
+- Write the required real regression tests, including a deliberately ambiguous two-class
+  fixture proving the ambiguity rule still holds.
+- Run the full existing test suite yourself and confirm nothing regresses, especially
+  every currently-accepted example-chunk citation test.
+checks:
+- command: '{python} -m pytest tests/normalization/test_citation.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 4
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/claim_id_bridge.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    unambiguous_qualified_anchor_for_bare_member','def unambiguous_qualified_anchor_for_bare_member_DISABLED');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming unambiguous_qualified_anchor_for_bare_member so it is never
+    defined under its real name must break every test exercising it with an AttributeError/NameError,
+    proving the tests genuinely exercise this concrete new method. Self-checked end-to-end
+    against a fixture implementing the exact prescribed name before being persisted.
+evidence:
+- evidence/build/G2/TC-111/receipt.json
+closeout:
+- A bare method/property name that is globally unambiguous now resolves for citation
+  purposes; one shared by 2+ classes correctly still does not.
+- Every existing, already-accepted citation test (including pdf/net's own real example)
+  is completely unaffected.
+- Renaming the new method fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

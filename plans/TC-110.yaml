@@ -1,0 +1,95 @@
+id: TC-110
+gate: G2
+lane: storage-retrieval
+purpose: Add extract_doc_sections/DocCandidate, a pure-extraction module that turns
+  a furnished-content page's real overview/content/faq front matter into structured
+  documentation candidates - mirroring example_candidates.py's own already-accepted
+  extract_candidate_examples/CandidateExample shape exactly (TC-066 precedent). This
+  is Card B of a multi-card pipeline closing the real, confirmed gap that search_docs
+  (one of this project's 9 advertised MCP tools) has never had any real content to
+  search, for any pilot, ever - real, substantial prose already sits unused in all
+  6 pilots' own committed furnished-content fixtures today.
+depends_on:
+- TC-014
+- TC-066
+write_paths:
+- src/foss_mcp/indexing/doc_candidates.py
+- tests/indexing/test_doc_candidates.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Read all 6 pilots'' real committed furnished pages yourself first (tests/fixtures/furnished/{pdf_net,pdf_typescript,pdf_java,pdf_go,slides_python,cells_rust}/pages/_index.md)
+  - do not assume uniform shape. Each has a real `overview` (enable + title + content,
+  all 6 have enable: true) and a real `content.block[]` list (title_left/content_left/title_right/content_right
+  pairs, all 6 have content.enable: true). `faq` varies - confirmed today that pdf_java''s
+  own fixture has faq.enable: false; handle this gracefully (skip, not an error),
+  mirroring extract_candidate_examples''s own defensive isinstance/missing-key handling
+  - verify each of the other 5 pilots'' own faq.enable value yourself, do not assume
+  they all have real FAQ content just because pdf_java doesn''t.'
+- 'REQUIRED, exact shape (the function name is load-bearing for the negative control):
+  `extract_doc_sections(page: Mapping[str, object]) -> list[DocCandidate]` and a frozen
+  dataclass `DocCandidate(title: str, body: str, origin: str)` where origin is one
+  of "overview"/"content"/"faq", for traceability only.'
+- 'Extraction rules: one DocCandidate per enabled overview (title=overview[''title''],
+  body=overview[''content''], origin=''overview''). Two DocCandidates per content
+  block (title_left/content_left as one, title_right/content_right as the other) for
+  every block in content.block[] when content.enable is true. One DocCandidate per
+  real faq.list[] entry when faq.enable is true, with body formatted EXACTLY as f"FAQ:
+  {question}\n\n{answer}" - this "FAQ: " prefix is load-bearing, not decorative: search_docs.classify_content_type
+  only buckets content_type="faq" when the chunk''s own text contains the literal
+  substring "faq" or "frequently asked" (checked yourself in search_docs.py''s own
+  _CONTENT_TYPE_HINTS), and a real FAQ answer''s own prose typically contains neither
+  word - without this prefix, every real FAQ candidate would silently misclassify
+  as developer_guide (the classifier''s own default) and the FAQ content_type would
+  stay permanently empty even where real FAQ content exists.'
+- 'Do NOT add a synthetic markdown ''#'' heading to any candidate''s body - chunker.chunk_document
+  splits on heading syntax and MOVES the heading text into Chunk.section_title, DROPPING
+  it from Chunk.text - and classify_content_type only ever inspects the persisted
+  text field (confirmed: build_lexical_index never persists content_type or section_title,
+  only text/tokens/chunk_id). A synthetic heading would silently remove real classification
+  signal. Leave body as raw, heading-free prose so chunk_document''s own paragraph-splitting
+  path handles it.'
+- 'This module belongs in src/foss_mcp/indexing (matches docs/REPOSITORY_LAYOUT.md''s
+  own description of that package: ''building... indexes over normalized/furnished
+  content''), not infra/ - pure extraction, unit-testable directly against fixture
+  dicts, exactly matching example_candidates.py''s own placement and its own test
+  file''s own pattern (tests/indexing/test_example_candidates.py) - read that test
+  file as your template.'
+actions:
+- Implement DocCandidate/extract_doc_sections exactly as specified.
+- Write real tests against all 6 pilots' own real committed fixtures (mirroring test_example_candidates.py's
+  own real-per-pilot-fixture pattern, never synthetic dicts only) - assert real, specific
+  titles/content substrings you actually observed by reading each fixture, and specifically
+  confirm pdf_java's real faq.enable=false is handled gracefully (zero faq-origin
+  candidates, no error).
+- Run the full existing test suite yourself and confirm nothing regresses.
+checks:
+- command: '{python} -m pytest tests/indexing/test_doc_candidates.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 6
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/doc_candidates.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    extract_doc_sections','def extract_doc_sections_DISABLED');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming extract_doc_sections so it is never defined under its real name
+    must break every test importing/calling it with an ImportError/NameError, proving
+    the tests genuinely exercise this concrete new function. Self-checked end-to-end
+    against a fixture implementing the exact prescribed name before being persisted.
+evidence:
+- evidence/build/G2/TC-110/receipt.json
+closeout:
+- extract_doc_sections correctly extracts real overview/content/faq candidates from
+  all 6 pilots' own real furnished fixtures, gracefully skipping disabled sections.
+- The FAQ prefix convention and heading-free body convention are both real, verified,
+  and documented in the module's own docstring.
+- Renaming extract_doc_sections fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

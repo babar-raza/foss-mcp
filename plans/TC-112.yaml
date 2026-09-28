@@ -1,0 +1,111 @@
+id: TC-112
+gate: G2
+lane: storage-retrieval
+purpose: Wire the new _build_doc_chunks function into infra/build_chunks.py's main(),
+  actually publishing real documentation chunks from each pilot's own furnished-content
+  overview/content/faq sections (TC-110's extract_doc_sections) into the same self_extracted
+  generation every pilot's ingest-<pilot> docker-compose service already publishes
+  - closing REQ-G2-047's real, confirmed gap (search_docs has never had any real content,
+  for any pilot, since this project's own inception). Depends on TC-109 (search_docs'
+  own scope-routing fix, so the published content is even reachable) and TC-111 (unambiguous
+  bare-member-name citation resolution, so real prose citing bare method names - confirmed
+  present in pdf/net's, pdf/typescript's, and cells/rust's own real content specifically
+  - is not silently dropped by citable_chunks). Because every pilot's docker-compose.yml
+  already passes --furnished-page (and the other 3 required --library-* flags) to
+  build_chunks.py, NO docker-compose.yml changes are needed for any pilot - the very
+  next real ingestion run on a branch with this card lands will start publishing real
+  doc content automatically.
+depends_on:
+- TC-064
+- TC-068
+- TC-070
+- TC-079
+- TC-091
+- TC-110
+- TC-111
+write_paths:
+- infra/build_chunks.py
+- tests/infra/test_build_chunks.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Read infra/build_chunks.py in full first - specifically _build_verified_example_chunks
+  (the existing furnished-page chunk-building path this new function must mirror in
+  construction style, though genuinely simpler - no compile-verification sandbox,
+  prose is never compiled) and main()''s own existing ''if args.furnished_page is
+  not None: chunks = chunks + _build_verified_example_chunks(args)'' line, which you
+  are extending, not replacing.'
+- 'REQUIRED, exact shape (the function name is load-bearing for the negative control):
+  `_build_doc_chunks(page: dict, args: argparse.Namespace) -> list[Chunk]`. For each
+  DocCandidate TC-110''s extract_doc_sections returns, build a real Document via make_document(source_kind=SourceKind.FURNISHED,
+  content_type="doc", provenance=Provenance(repository=args.library_repository, commit=args.library_commit,
+  path=str(args.furnished_page)), evidence_refs=(f"{args.library_repository}@{args.library_commit}",),
+  title=candidate.title, body=candidate.body) then chunk_document(doc) - mirroring
+  _build_verified_example_chunks''s own real call shape exactly (read it first, match
+  its argument names/order).'
+- 'IMPORTANT: content_type="doc" here is the CHUNK''s own build-time content_type
+  field (document_schema.py''s own Document/Chunk dataclass field) - confirmed today
+  that nothing downstream currently reads this field back (search_docs.classify_content_type
+  re-derives its own category purely from chunk text at query time, never from this
+  field), so its exact value is not load-bearing for search_docs itself, BUT it MUST
+  NOT be the literal string "example" - citation.py''s TC-105 exemption (_is_real_compile_verified_example)
+  checks exactly chunk.content_type == "example" and would wrongly exempt real, unverified
+  doc prose from citation checking if this collided - use "doc" exactly, not "example".'
+- 'Wire the call into main(): `page = _load_furnished_page(args.furnished_page)` (reuse
+  the same load already happening for the verified-example path - check whether it''s
+  already loaded once and reusable, or called twice; avoid a redundant duplicate file
+  read if the existing code structure makes reuse natural) then `chunks = chunks +
+  _build_verified_example_chunks(args) + _build_doc_chunks(page, args)` whenever args.furnished_page
+  is not None - purely additive to the existing branch.'
+- 'Required real proof: for a real fixture (use pdf/net''s own real furnished page,
+  already the established reference fixture throughout this project), after real extraction
+  + real chunking + a real citable_chunks pass (import and call symbol_index_from_api_surface/validate_document/citable_chunks
+  for real, exactly as infra/ingest.py itself does, not a mock), assert that AT LEAST
+  ONE chunk from each of the overview/content origins survives as citable (faq may
+  legitimately be empty for pilots whose own faq.enable is false - do not assert faq
+  survives for pdf/net specifically without first confirming pdf/net''s own real faq.enable
+  value yourself).'
+- Do not touch _build_verified_example_chunks, the symbol-chunk path (build_chunks_from_api_surface),
+  or main()'s own --library-platform dispatch (TC-091) - purely additive.
+actions:
+- Implement _build_doc_chunks exactly as specified and wire it into main().
+- Write the required real proof test against pdf/net's own real furnished fixture,
+  replaying the real citable_chunks validation path.
+- Run the full existing test suite yourself and confirm nothing regresses, especially
+  the existing pdf/net byte-identical dotnet-path test and every other pilot's own
+  already-passing build_chunks.py test.
+checks:
+- command: '{python} -m pytest tests/infra/test_build_chunks.py -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 2
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('infra/build_chunks.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    _build_doc_chunks','def _build_doc_chunks_DISABLED');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming _build_doc_chunks so it is never defined under its real name
+    must break every test exercising it, and the new proof test specifically, with
+    a NameError/AttributeError, proving the tests genuinely exercise this concrete
+    new function. Self-checked end-to-end against a fixture implementing the exact
+    prescribed name before being persisted.
+evidence:
+- evidence/build/G2/TC-112/receipt.json
+closeout:
+- infra/build_chunks.py now builds and includes real documentation chunks from every
+  pilot's own furnished-content overview/content/faq sections, with zero docker-compose.yml
+  changes needed for any pilot.
+- A real, replayed citable_chunks pass proves at least one overview and one content-derived
+  doc chunk survive citation validation for pdf/net's own real fixture.
+- Every existing, already-passing test (dotnet byte-identical path, every pilot's
+  own verified-example path) is completely unaffected.
+- Renaming _build_doc_chunks fails the suite.
+recovery: Re-run from a clean tree; if a network clone/build step is flaky, re-running
+  is safe and idempotent.
