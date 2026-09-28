@@ -1,4 +1,4 @@
-"""Tests for infra/build_chunks.py (REQ-G2-048, TC-068, TC-070).
+"""Tests for infra/build_chunks.py (REQ-G2-048, TC-068, TC-070, TC-091).
 
 Real end-to-end: a real furnished-content fixture, a real git clone of the
 pinned pdf/net reference library (via example_verifier.prepare_reference_library),
@@ -9,6 +9,12 @@ compile-verified example becomes a citable chunk.
 This is genuinely slow (shallow clone + NuGet restore + up to 4 dotnet builds:
 one for the reference library, one per candidate example) and requires network
 access and a .NET 8 SDK.
+
+TC-091 adds a second real end-to-end test proving the --library-platform dispatch layer for
+a non-dotnet pilot (slides/python): a real git clone + venv + `pip install -e` of the pinned
+reference library (via example_verifier.prepare_python_library), and a real Python subprocess
+execution per candidate example (via example_verifier.verify_python_example). This one also
+requires network access, plus a Python interpreter capable of creating a venv.
 """
 
 from __future__ import annotations
@@ -163,6 +169,8 @@ def test_furnished_page_adds_real_compile_verified_example_chunks(
             LIBRARY_REPOSITORY,
             "--library-commit",
             LIBRARY_COMMIT,
+            "--library-platform",
+            "dotnet",
             "--library-csproj",
             LIBRARY_CSPROJ,
         ]
@@ -254,8 +262,11 @@ def test_furnished_page_adds_real_compile_verified_example_chunks(
 
 
 def test_furnished_flags_are_all_required_together(tmp_path: Path) -> None:
-    """Giving only some of the four furnished-path flags is a usage error, not a
-    silent partial behavior - argparse's own error path, no network or dotnet needed.
+    """Giving only some of the four furnished-path flags (--furnished-page,
+    --library-repository, --library-commit, --library-platform - REQ-G2-048/TC-091 replaced
+    --library-csproj with the more general --library-platform in this required group) is a
+    usage error, not a silent partial behavior - argparse's own error path, no network or
+    dotnet needed.
     """
     out_path = tmp_path / "chunks.json"
 
@@ -273,3 +284,108 @@ def test_furnished_flags_are_all_required_together(tmp_path: Path) -> None:
                 # library-* flags deliberately omitted
             ]
         )
+
+
+def test_furnished_platform_specific_required_flag_is_enforced(tmp_path: Path) -> None:
+    """REQ-G2-048/TC-091: --library-platform dotnet without the dotnet-specific
+    --library-csproj flag is a usage error with a clear message naming the missing flag -
+    argparse's own error path, no network or dotnet needed.
+    """
+    out_path = tmp_path / "chunks.json"
+
+    with pytest.raises(SystemExit):
+        _run_main(
+            [
+                "--api-surface",
+                str(API_SURFACE),
+                "--title",
+                "Aspose.PDF FOSS for .NET",
+                "--out",
+                str(out_path),
+                "--furnished-page",
+                str(FURNISHED_PAGE),
+                "--library-repository",
+                LIBRARY_REPOSITORY,
+                "--library-commit",
+                LIBRARY_COMMIT,
+                "--library-platform",
+                "dotnet",
+                # --library-csproj deliberately omitted
+            ]
+        )
+
+
+# --- slides/python (REQ-G2-048/TC-091 dispatch layer) -----------------------------------
+
+SLIDES_PYTHON_FURNISHED_PAGE = Path("tests/fixtures/furnished/slides_python/pages/_index.md")
+
+# Pinned exactly as TC-081's own inputs used - the same real, non-mocked commit already
+# proven to prepare_python_library/verify_python_example cleanly.
+SLIDES_PYTHON_LIBRARY_REPOSITORY = "aspose-slides-foss/Aspose.Slides-FOSS-for-Python"
+SLIDES_PYTHON_LIBRARY_COMMIT = "4e63447ba79d1c27a5192844847d9f872c5b92ad"
+
+
+def test_furnished_page_dispatches_to_real_verify_python_example_for_slides_python(
+    tmp_path: Path,
+) -> None:
+    """Real end-to-end, non-dotnet proof that the new --library-platform dispatch layer
+    genuinely reaches verify_python_example (not just a mocked/unit-tested dispatch dict):
+    a real furnished slides/python fixture, a real git clone + venv + `pip install -e` of the
+    pinned reference library (example_verifier.prepare_python_library), and a real Python
+    subprocess execution of each candidate (example_verifier.verify_python_example).
+
+    This is the card's explicit acceptance bar for the dispatch mechanism itself (AGENTS.md's
+    2026-09-25 "Integration and liveness" section): a real, non-dotnet platform actually
+    invoked through this CLI, not merely unit-tested in isolation. The other 4 non-dotnet
+    platforms get their own live E2E proof in future cards, once each pilot's own
+    docker-compose ingestion service is wired up.
+    """
+    out_path = tmp_path / "chunks.json"
+
+    _run_main(
+        [
+            "--api-surface",
+            str(API_SURFACE),
+            "--title",
+            "Aspose.PDF FOSS for .NET",
+            "--out",
+            str(out_path),
+            "--furnished-page",
+            str(SLIDES_PYTHON_FURNISHED_PAGE),
+            "--library-repository",
+            SLIDES_PYTHON_LIBRARY_REPOSITORY,
+            "--library-commit",
+            SLIDES_PYTHON_LIBRARY_COMMIT,
+            "--library-platform",
+            "python",
+            # no extra platform-specific flag needed for python
+        ]
+    )
+
+    produced = json.loads(out_path.read_text(encoding="utf-8"))
+    chunks = produced["chunks"]
+
+    example_chunks = [c for c in chunks if c["content_type"] == "example"]
+    assert example_chunks, (
+        "expected at least one real slides/python candidate example to really "
+        f"execute-verify against {SLIDES_PYTHON_LIBRARY_REPOSITORY}@{SLIDES_PYTHON_LIBRARY_COMMIT} "
+        "via the --library-platform python dispatch path, but none did"
+    )
+
+    # Every emitted example chunk's source_kind is "furnished", and its provenance is the
+    # slides/python library's own repository/commit - not the pdf/net --api-surface fixture's.
+    for chunk in example_chunks:
+        assert chunk["source_kind"] == "furnished"
+        assert chunk["provenance"]["repository"] == SLIDES_PYTHON_LIBRARY_REPOSITORY
+        assert chunk["provenance"]["commit"] == SLIDES_PYTHON_LIBRARY_COMMIT
+        assert chunk["text"].splitlines()[-1] == f"Source-Commit: {SLIDES_PYTHON_LIBRARY_COMMIT}"
+
+    # A real, recognizable fragment of the real slides/python fixture's own code - not a
+    # synthetic placeholder - proving verify_python_example really ran real candidate code.
+    all_example_text = "\n".join(c["text"] for c in example_chunks)
+    assert "aspose.slides_foss" in all_example_text
+
+    print(f"real slides/python chunks.json: {len(example_chunks)} example chunks")
+    for chunk in example_chunks:
+        print("---- example chunk ----")
+        print(chunk["text"])

@@ -22,13 +22,21 @@ the fixture's ``source_commit``) so it can never drift from what the chunk was a
 from.
 
 REQ-G2-048 (TC-068) adds a second, optional path alongside the type-based one above: when
-``--furnished-page`` (plus the three ``--library-*`` coordinates) is given, candidate examples
+``--furnished-page`` (plus the ``--library-*`` coordinates) is given, candidate examples
 are extracted from a furnished-content page (``foss_mcp.indexing.example_candidates``), each is
 compiled for real in an isolated sandbox against the pinned reference library
 (``foss_mcp.indexing.example_verifier``), and only a candidate that actually compiles becomes a
 citable example chunk. An unverified candidate is silently excluded - a candidate failing real
 compilation is the pipeline working correctly, not a defect. This whole path is skipped, and
 output is byte-for-byte identical to before, when ``--furnished-page`` is omitted.
+
+REQ-G2-048 (TC-091) generalizes that path with a new required ``--library-platform`` flag
+(dotnet/python/rust/go/java/typescript) that dispatches to the matching real
+``prepare_<lang>_library``/``verify_<lang>_example`` pair from
+``foss_mcp.indexing.example_verifier`` (TC-081/082), via the ``_PLATFORM_DISPATCH`` table below.
+``--library-platform dotnet`` (plus the pre-existing ``--library-csproj``) reproduces the
+original pdf/net-only behavior byte-for-byte; the other five platforms were previously
+unreachable from this CLI even though their prepare/verify functions already existed.
 """
 
 from __future__ import annotations
@@ -43,9 +51,103 @@ import yaml
 
 from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
 from foss_mcp.indexing.example_candidates import extract_candidate_examples
-from foss_mcp.indexing.example_verifier import prepare_reference_library, verify_dotnet_example
+from foss_mcp.indexing.example_verifier import (
+    prepare_go_library,
+    prepare_java_library,
+    prepare_python_library,
+    prepare_reference_library,
+    prepare_rust_library,
+    prepare_typescript_library,
+    verify_dotnet_example,
+    verify_go_example,
+    verify_java_example,
+    verify_python_example,
+    verify_rust_example,
+    verify_typescript_example,
+)
 from foss_mcp.normalization.chunker import Chunk, chunk_document
 from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
+
+# REQ-G2-048 (TC-091): the single, centrally-readable mapping from --library-platform to how
+# to prepare and verify a candidate example for that pilot. Each entry is
+# (prepare, verify, verify_kwargs) where:
+#   - prepare(args, workdir) -> "prepared library" object (a Path in every case here, but its
+#     meaning differs per platform: a built csproj file for dotnet, a venv python executable
+#     for python, a cloned+built library directory for rust/go/typescript, a packaged jar for
+#     java). Every real prepare_<lang>_library function takes the same (repository, commit,
+#     workdir) positional shape except dotnet's prepare_reference_library, which also takes
+#     csproj_relative_path - that one difference is handled explicitly here, inline, rather
+#     than forcing a fake uniform signature onto it.
+#   - verify is the real verify_<lang>_example function, called uniformly as
+#     verify(candidate, workdir=candidate_workdir, **verify_kwargs(prepared, args)).
+#   - verify_kwargs(prepared, args) -> dict of the extra keyword-only arguments verify needs
+#     beyond candidate/workdir, built from the prepared library plus (for rust/go/typescript)
+#     a platform-specific CLI flag.
+_PLATFORM_DISPATCH = {
+    "dotnet": {
+        "prepare": lambda args, workdir: prepare_reference_library(
+            args.library_repository, args.library_commit, args.library_csproj, workdir
+        ),
+        "verify": verify_dotnet_example,
+        "verify_kwargs": lambda prepared, args: {"library_csproj": prepared},
+    },
+    "python": {
+        "prepare": lambda args, workdir: prepare_python_library(
+            args.library_repository, args.library_commit, workdir
+        ),
+        "verify": verify_python_example,
+        "verify_kwargs": lambda prepared, args: {"venv_python": prepared},
+    },
+    "rust": {
+        "prepare": lambda args, workdir: prepare_rust_library(
+            args.library_repository, args.library_commit, workdir
+        ),
+        "verify": verify_rust_example,
+        "verify_kwargs": lambda prepared, args: {
+            "library_crate_name": args.library_crate_name,
+            "library_dir": prepared,
+        },
+    },
+    "go": {
+        "prepare": lambda args, workdir: prepare_go_library(
+            args.library_repository, args.library_commit, workdir
+        ),
+        "verify": verify_go_example,
+        "verify_kwargs": lambda prepared, args: {
+            "module_path": args.library_module_path,
+            "library_dir": prepared,
+        },
+    },
+    "java": {
+        "prepare": lambda args, workdir: prepare_java_library(
+            args.library_repository, args.library_commit, workdir
+        ),
+        "verify": verify_java_example,
+        "verify_kwargs": lambda prepared, args: {"library_jar": prepared},
+    },
+    "typescript": {
+        "prepare": lambda args, workdir: prepare_typescript_library(
+            args.library_repository, args.library_commit, workdir
+        ),
+        "verify": verify_typescript_example,
+        "verify_kwargs": lambda prepared, args: {
+            "library_dir": prepared,
+            "package_name": args.library_package_name,
+        },
+    },
+}
+
+# REQ-G2-048 (TC-091): which extra CLI flag (beyond --library-repository/--library-commit) is
+# required for a given --library-platform, and its attribute name on the parsed args - keyed
+# only for platforms that actually need one. python and java need no extra flag: their verify_*
+# functions' extra kwarg (venv_python, library_jar) comes from their own prepare_*_library's
+# return value, never a new CLI input.
+_PLATFORM_REQUIRED_FLAGS: dict[str, tuple[str, str]] = {
+    "dotnet": ("library_csproj", "--library-csproj"),
+    "rust": ("library_crate_name", "--library-crate-name"),
+    "go": ("library_module_path", "--library-module-path"),
+    "typescript": ("library_package_name", "--library-package-name"),
+}
 
 
 def _with_source_commit_line(chunk: Chunk) -> Chunk:
@@ -67,25 +169,28 @@ def _build_verified_example_chunks(args: argparse.Namespace) -> list[Chunk]:
     """Extract, really compile-verify, and chunk every candidate example from
     ``--furnished-page`` - an unverified candidate is silently excluded, never published,
     never logged as an error.
+
+    Dispatches to the real prepare/verify pair for ``args.library_platform`` via
+    ``_PLATFORM_DISPATCH`` (REQ-G2-048/TC-091). For ``--library-platform dotnet`` this calls
+    ``prepare_reference_library``/``verify_dotnet_example`` with exactly the same arguments as
+    before this dispatch layer existed - byte-identical behavior for the real, currently-running
+    pdf/net production path.
     """
     page = _load_furnished_page(args.furnished_page)
     candidates = extract_candidate_examples(page)
 
+    platform_dispatch = _PLATFORM_DISPATCH[args.library_platform]
+
     library_workdir = Path(tempfile.mkdtemp(prefix="build_chunks_library_"))
-    library_csproj = prepare_reference_library(
-        args.library_repository,
-        args.library_commit,
-        args.library_csproj,
-        library_workdir,
-    )
+    prepared_library = platform_dispatch["prepare"](args, library_workdir)
+    verify_kwargs = platform_dispatch["verify_kwargs"](prepared_library, args)
+    verify = platform_dispatch["verify"]
 
     verified_chunks: list[Chunk] = []
     verified_count = 0
     for candidate in candidates:
         candidate_workdir = Path(tempfile.mkdtemp(prefix="build_chunks_candidate_"))
-        verification_result = verify_dotnet_example(
-            candidate, library_csproj=library_csproj, workdir=candidate_workdir
-        )
+        verification_result = verify(candidate, workdir=candidate_workdir, **verify_kwargs)
         if verification_result.verified:
             verified_count += 1
             doc = make_document(
@@ -128,16 +233,43 @@ def main() -> None:
     parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
     parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
     parser.add_argument(
-        "--library-csproj", default=None, help="pinned reference library's repository-relative csproj path"
+        "--library-platform",
+        choices=sorted(_PLATFORM_DISPATCH),
+        default=None,
+        help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+        "verification to",
+    )
+    parser.add_argument(
+        "--library-csproj",
+        default=None,
+        help="pinned reference library's repository-relative csproj path (dotnet only)",
+    )
+    parser.add_argument(
+        "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+    )
+    parser.add_argument(
+        "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+    )
+    parser.add_argument(
+        "--library-package-name",
+        default=None,
+        help="pinned reference package's npm package name (typescript only)",
     )
     args = parser.parse_args()
 
-    furnished_args = (args.furnished_page, args.library_repository, args.library_commit, args.library_csproj)
+    furnished_args = (args.furnished_page, args.library_repository, args.library_commit, args.library_platform)
     if any(furnished_args) and not all(furnished_args):
         parser.error(
-            "--furnished-page, --library-repository, --library-commit, and --library-csproj "
+            "--furnished-page, --library-repository, --library-commit, and --library-platform "
             "must all be given together"
         )
+
+    if args.furnished_page is not None:
+        required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+        if required_flag is not None:
+            attr_name, flag_name = required_flag
+            if getattr(args, attr_name) is None:
+                parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
 
     fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
     chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
