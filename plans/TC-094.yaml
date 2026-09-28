@@ -1,0 +1,95 @@
+id: TC-094
+gate: G2
+lane: extraction
+purpose: Run run_extraction.py's cpp path for real against cells/cpp's actual public
+  repository and pin the result as a reproducible offline fixture, exactly as TC-011/TC-025/TC-032
+  did for pdf/net, slides/python, and cells/rust. TC-092 already fixed the real, general
+  consolidate_classes() free-function collapse bug that would otherwise silently corrupt
+  this fixture's C++ free-function data - this card produces the first real, correct
+  C++ fixture that benefits from that fix.
+depends_on:
+- TC-010
+- TC-010b
+- TC-051
+- TC-092
+- TC-093
+write_paths:
+- tests/extraction/test_cells_cpp_extraction.py
+- tests/fixtures/cells_cpp/**
+satisfies:
+- REQ-G2-012
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'run_extraction.py already has a fully generic CLI and API for this, unchanged since
+  TC-011: extract_pinned_repository(manifest_path) clones shallowly, extracts, and
+  returns an artifact; reduce_fixture(artifact, max_types=300) makes a deterministic,
+  size-bounded subset. CLI: `python -m foss_mcp.extraction.run_extraction <manifest>
+  <output> [--max-types N]`. Do NOT modify run_extraction.py, package_root.py, or
+  any tree-sitter engine file - this card is run-and-pin only.'
+- 'The manifest to pass is config/products/cells/cpp.yaml (TC-093, already committed)
+  - it pins repository: aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp, platform: cpp.
+  clone_shallow uses `git clone --depth 1` against the remote''s real default branch
+  (`main`, confirmed) - no special handling needed.'
+- 'CONFIRMED today by direct research (a separate pass that fixed TC-092): this repo''s
+  real include/src layout is nested one level down (Aspose.Cells.Foss.Cpp/{include,src}/aspose/cells_foss/),
+  not at repo root, so package_root._detect_cpp_root() falls through to returning
+  the repo root itself (neither repo/include nor repo/src exists at top level). Extraction
+  still runs successfully and produces plausible, real data (verified: 554 raw entries
+  -> ~392 after consolidation using an earlier, buggy build; expect a different, corrected
+  count now that TC-092''s fix is in place) - this is a known, non-blocking quirk
+  to note in your report, not a defect to fix in this card (package_root.py is outside
+  this card''s write_paths).'
+- IF THE LIVE EXTRACTION REVEALS A REAL, NEW DEFECT outside this card's write_paths
+  - STOP, do not commit a broken/empty fixture, and report the exact defect with your
+  diagnosis instead of patching a file outside your write_paths. This is the CORRECT
+  outcome if it happens, matching how TC-025/TC-026 and TC-057 each handled a real
+  extraction-time discovery.
+- Commit a REDUCED fixture, not the whole surface - representative subset, under about
+  2MB. Use the CLI's default --max-types unless the real output needs a smaller cap.
+- The test file must run fully OFFLINE against the committed fixture only - never
+  re-invoke extraction or reach the network from the test itself.
+actions:
+- Run `python -m foss_mcp.extraction.run_extraction config/products/cells/cpp.yaml
+  tests/fixtures/cells_cpp/api_surface.json` for real (network access is available
+  to you for this one-time generation step).
+- 'IF it succeeds with real, non-empty content: write tests/extraction/test_cells_cpp_extraction.py
+  mirroring tests/extraction/test_cells_rust_extraction.py''s structure - the fixture
+  parses and has the expected shape; records the exact 40-hex source commit and the
+  repository matches the pinned manifest; is non-empty; contains real C++ type/symbol
+  names and real kind values you actually observed in your own run (do not guess or
+  invent names); at least one entry has non-empty `bases` (proving TC-010b''s inheritance
+  fix still holds); free-function entries with the same name in different files both
+  survive (spot-check one real example from your own run, proving TC-092''s fix is
+  actually reflected in this real fixture, not just in isolated unit tests).'
+- 'IF it fails or produces a 0-type/empty result: diagnose the real root cause, do
+  NOT commit anything, and report the defect in full instead.'
+checks:
+- command: '{python} -m pytest tests/extraction/test_cells_cpp_extraction.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-012
+min_tests: 5
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/cells_cpp/api_surface.json');p.write_text('{}',encoding='utf-8')"
+  rationale: Emptying the pinned fixture must break the suite - a test that passes
+    against an empty artifact is asserting the file exists, not that a real extraction
+    ran. Same shape as TC-011/TC-025/TC-032's own falsifiers, self-checked end-to-end
+    before being persisted.
+evidence:
+- evidence/build/G2/TC-094/receipt.json
+closeout:
+- A real extraction ran against the real public cells/cpp repo, OR a real defect was
+  honestly diagnosed and reported instead of papered over.
+- 'If a fixture was committed: it records the exact source commit and matches the
+  pinned manifest; at least one real cross-file same-named free-function pair both
+  survive (TC-092''s fix reflected in real data); emptying it fails the suite.'
+recovery: Re-run from a clean tree; if the live clone/extraction step is not reproducible
+  offline, the committed fixture and test are still idempotent from committed content
+  alone.
