@@ -1,0 +1,95 @@
+id: TC-097
+gate: G2
+lane: transport-deployment
+purpose: Generalize Dockerfile.ingestion to include every language toolchain the verified-example
+  pipeline (REQ-G2-048) needs at real ingestion time - currently it only has git/curl/dotnet
+  (pdf/net's own needs, from TC-064/069). The other 5 original pilots (pdf/typescript,
+  pdf/java, pdf/go, slides/python, cells/rust) each need their own real toolchain
+  inside this SAME shared image (this project ships exactly two Dockerfiles, never
+  a third - tests/test_container_build.py already enforces this) so their own ingest-<pilot>
+  compose service can actually run build_chunks.py's real compile-verification path
+  for real furnished-content examples, not just type/symbol data. This card is toolchain-only
+  - it does not wire any new ingest-<pilot> service into docker-compose.yml (that
+  is 5 separate, following cards, one per pilot).
+depends_on:
+- TC-018
+- TC-064
+- TC-069
+write_paths:
+- Dockerfile.ingestion
+- tests/test_container_build.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Read the current Dockerfile.ingestion in full first - it is python:3.13-slim based,
+  already installs git/curl/ca-certificates plus a real .NET 8 SDK via Microsoft''s
+  dotnet-install.sh (chosen over apt because Debian trixie''s own repos don''t reliably
+  carry a current dotnet-sdk-8.0 package - this reasoning, recorded in the file''s
+  own comments, is a template for how you should choose each new toolchain''s own
+  install method: prefer the distro''s apt package if a real, current-enough version
+  exists; otherwise use the language''s own official installer/tarball, exactly as
+  dotnet did.'
+- 'Toolchains needed, one per remaining original pilot, confirmed by reading src/foss_mcp/indexing/example_verifier.py''s
+  own prepare_*_library functions: (1) pdf/typescript needs Node.js + npm (npx tsc).
+  (2) pdf/java needs a JDK (11+) and Maven. (3) pdf/go needs a Go toolchain. (4) slides/python
+  needs nothing extra beyond the base image''s own python3 (venv + pip already work;
+  its own dependency, lxml, has a prebuilt wheel, no compiler needed - confirmed by
+  TC-081''s own recon). (5) cells/rust needs a Rust toolchain (rustup/cargo) AND a
+  C linker (build-essential or equivalent) - Rust on Linux needs a system linker even
+  for a pure-Rust crate.'
+- For each toolchain, verify the REAL, current apt package availability yourself on
+  the actual python:3.13-slim (Debian trixie) base before choosing an install method
+  - do not assume; if `apt-cache policy <package>` (after `apt-get update`) shows
+  a current-enough version, prefer it (simpler, matches this project's own general
+  preference); otherwise use the official installer (rustup.rs's install script for
+  Rust, go.dev's official Linux tarball for Go, similarly for Node.js if apt's version
+  is too old, or Debian's own openjdk/maven packages if current enough).
+- Every apt-get layer must still `rm -rf /var/lib/apt/lists/*` afterward (existing
+  pattern in the file) to keep the image lean - this is a real, existing convention,
+  not new.
+- Do not touch the existing dotnet install block, the non-root USER setup, the HEALTHCHECK,
+  or the ENTRYPOINT - purely additive toolchain layers.
+actions:
+- Add the 4 new toolchains (Node.js/npm, JDK+Maven, Go, Rust+build-essential) to Dockerfile.ingestion,
+  choosing each install method per the real apt-availability check described above.
+- 'Add a new real test to tests/test_container_build.py, mirroring test_a_real_docker_build_of_the_serving_image_succeeds''s
+  exact pattern but for Dockerfile.ingestion: build the real image for real, then
+  run a real container invoking each new toolchain''s own version command (e.g. `node
+  --version`, `npm --version`, `java -version`, `mvn --version`, `go version`, `cargo
+  --version`, `rustc --version`) and assert every one exits 0 - this is the real proof
+  the toolchain actually works inside the built image, not just that the Dockerfile
+  has the right-looking RUN lines.'
+- Run the full existing tests/test_container_build.py suite for real and confirm nothing
+  regresses (the existing serving-image build test must still pass unchanged).
+checks:
+- command: '{python} -m pytest tests/test_container_build.py -q'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 1
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('Dockerfile.ingestion');s=p.read_text(encoding='utf-8');s=s.replace('RUN
+    useradd --create-home --uid 10001','RUN useradd_DISABLED --create-home --uid 10001');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming the useradd instruction breaks the real docker build itself
+    (the RUN line fails, image build fails), proving the new real-build test genuinely
+    builds the image for real rather than passing for an unrelated reason (e.g. only
+    checking file text). Self-checked end-to-end against a fixture implementing the
+    exact prescribed marker before being persisted.
+evidence:
+- evidence/build/G2/TC-097/receipt.json
+closeout:
+- Dockerfile.ingestion has real, working Node.js/npm, JDK+Maven, Go, and Rust toolchains,
+  verified by actually running each one's version command inside a real built container.
+- The existing pdf/net ingestion path and the serving image build are both completely
+  unaffected.
+- Breaking the useradd instruction fails the new real-build test again.
+recovery: Re-run from a clean tree; if a package download is flaky, re-running is
+  safe and idempotent.
