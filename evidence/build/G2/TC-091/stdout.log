@@ -1,0 +1,482 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_build_chunks.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3z5y07x6\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_build_chunks.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3z5y07x6\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/build_chunks.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_build_chunks.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3z5y07x6\.junit-0.xml"
+--- stdout ---
+FFFFF                                                                    [100%]
+================================== FAILURES ===================================
+_ test_api_surface_only_path_is_byte_identical_to_before_the_furnished_flags __
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-834/test_api_surface_only_path_is_0')
+
+    def test_api_surface_only_path_is_byte_identical_to_before_the_furnished_flags(
+        tmp_path: Path,
+    ) -> None:
+        """The pre-existing --api-surface-only path (TC-064's own real production ingestion)
+        must be completely unaffected by this card's change: running main() with only the
+        original flags must produce exactly the output build_chunks_from_api_surface plus
+        the Source-Commit line convention already produced, with no furnished/example
+        content anywhere in it.
+        """
+        out_path = tmp_path / "chunks.json"
+    
+>       _run_main(
+            [
+                "--api-surface",
+                str(API_SURFACE),
+                "--title",
+                "Aspose.PDF FOSS for .NET",
+                "--out",
+                str(out_path),
+            ]
+        )
+
+tests\infra\test_build_chunks.py:81: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=20)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform-DISABLED",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript only)",
+        )
+        args = parser.parse_args()
+    
+>       furnished_args = (args.furnished_page, args.library_repository, args.library_commit, args.library_platform)
+                                                                                             ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Namespace' object has no attribute 'library_platform'
+
+infra\build_chunks.py:260: AttributeError
+________ test_furnished_page_adds_real_compile_verified_example_chunks ________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-834/test_furnished_page_adds_real_0')
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000001243AEB3A80>, _basetemp=WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-834'), _retention_count=3, _retention_policy='all')
+
+    def test_furnished_page_adds_real_compile_verified_example_chunks(
+        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory
+    ) -> None:
+        """Real end-to-end: real furnished fixture -> real candidate extraction -> real
+        isolated dotnet compile verification -> only a really-verified candidate becomes
+        a citable chunk, alongside the existing type-based chunks.
+    
+        The ground truth this test checks against is itself determined empirically, by
+        independently running the exact same real compile-verification path
+        (example_verifier.prepare_reference_library / verify_dotnet_example) a second time -
+        never an assumed/hardcoded count of how many of the 3 real candidates verify. This
+        is deliberately strict about correspondence (a real, independently-verified
+        candidate's own distinctive code must appear; a real, independently-unverified
+        candidate's own distinctive code must NOT appear) so that publishing an unverified
+        candidate instead of a verified one - exactly what inverting the verified-guard does -
+        is a real, detected failure, not merely "some chunk with an Example: marker exists".
+        """
+        page = _load_real_page()
+        candidates = extract_candidate_examples(page)
+        assert {c.title for c in candidates} == set(_DISTINCTIVE_CODE_MARKER)
+    
+        ground_truth_library_workdir = tmp_path_factory.mktemp("tc068_ground_truth_library")
+        ground_truth_library_csproj = prepare_reference_library(
+            repository=LIBRARY_REPOSITORY,
+            commit=LIBRARY_COMMIT,
+            csproj_relative_path=LIBRARY_CSPROJ,
+            workdir=ground_truth_library_workdir,
+        )
+        ground_truth_verified_titles = set()
+        for candidate in candidates:
+            candidate_workdir = tmp_path_factory.mktemp("tc068_ground_truth_candidate")
+            result = verify_dotnet_example(
+                candidate, library_csproj=ground_truth_library_csproj, workdir=candidate_workdir
+            )
+            if result.verified:
+                ground_truth_verified_titles.add(candidate.title)
+        assert ground_truth_verified_titles, "expected at least one real candidate to independently verify"
+        print(f"ground truth (independent real compile pass): verified={sorted(ground_truth_verified_titles)}")
+    
+        out_path = tmp_path / "chunks.json"
+>       _run_main(
+            [
+                "--api-surface",
+                str(API_SURFACE),
+                "--title",
+                "Aspose.PDF FOSS for .NET",
+                "--out",
+                str(out_path),
+                "--furnished-page",
+                str(FURNISHED_PAGE),
+                "--library-repository",
+                LIBRARY_REPOSITORY,
+                "--library-commit",
+                LIBRARY_COMMIT,
+                "--library-platform",
+                "dotnet",
+                "--library-csproj",
+                LIBRARY_CSPROJ,
+            ]
+        )
+
+tests\infra\test_build_chunks.py:158: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=20)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform-DISABLED",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript only)",
+        )
+        args = parser.parse_args()
+    
+>       furnished_args = (args.furnished_page, args.library_repository, args.library_commit, args.library_platform)
+                                                                                             ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Namespace' object has no attribute 'library_platform'
+
+infra\build_chunks.py:260: AttributeError
+---------------------------- Captured stdout call -----------------------------
+ground truth (independent real compile pass): verified=['Add a Watermark Annotation']
+_______________ test_furnished_flags_are_all_required_together ________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-834/test_furnished_flags_are_all_r0')
+
+    def test_furnished_flags_are_all_required_together(tmp_path: Path) -> None:
+        """Giving only some of the four furnished-path flags (--furnished-page,
+        --library-repository, --library-commit, --library-platform - REQ-G2-048/TC-091 replaced
+        --library-csproj with the more general --library-platform in this required group) is a
+        usage error, not a silent partial behavior - argparse's own error path, no network or
+        dotnet needed.
+        """
+        out_path = tmp_path / "chunks.json"
+    
+        with pytest.raises(SystemExit):
+>           _run_main(
+                [
+                    "--api-surface",
+                    str(API_SURFACE),
+                    "--title",
+                    "Aspose.PDF FOSS for .NET",
+                    "--out",
+                    str(out_path),
+                    "--furnished-page",
+                    str(FURNISHED_PAGE),
+                    # library-* flags deliberately omitted
+                ]
+            )
+
+tests\infra\test_build_chunks.py:274: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=20)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform-DISABLED",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript only)",
+        )
+        args = parser.parse_args()
+    
+>       furnished_args = (args.furnished_page, args.library_repository, args.library_commit, args.library_platform)
+                                                                                             ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Namespace' object has no attribute 'library_platform'
+
+infra\build_chunks.py:260: AttributeError
+_________ test_furnished_platform_specific_required_flag_is_enforced __________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-834/test_furnished_platform_specif0')
+
+    def test_furnished_platform_specific_required_flag_is_enforced(tmp_path: Path) -> None:
+        """REQ-G2-048/TC-091: --library-platform dotnet without the dotnet-specific
+        --library-csproj flag is a usage error with a clear message naming the missing flag -
+        argparse's own error path, no network or dotnet needed.
+        """
+        out_path = tmp_path / "chunks.json"
+    
+        with pytest.raises(SystemExit):
+>           _run_main(
+                [
+                    "--api-surface",
+                    str(API_SURFACE),
+                    "--title",
+                    "Aspose.PDF FOSS for .NET",
+                    "--out",
+                    str(out_path),
+                    "--furnished-page",
+                    str(FURNISHED_PAGE),
+                    "--library-repository",
+                    LIBRARY_REPOSITORY,
+                    "--library-commit",
+                    LIBRARY_COMMIT,
+                    "--library-platform",
+                    "dotnet",
+                    # --library-csproj deliberately omitted
+                ]
+            )
+
+tests\infra\test_build_chunks.py:297: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=20)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform-DISABLED",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript only)",
+        )
+        args = parser.parse_args()
+    
+>       furnished_args = (args.furnished_page, args.library_repository, args.library_commit, args.library_platform)
+                                                                                             ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Namespace' object has no attribute 'library_platform'
+
+infra\build_chunks.py:260: AttributeError
+_ test_furnished_page_dispatches_to_real_verify_python_example_for_slides_python _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-834/test_furnished_page_dispatches0')
+
+    def test_furnished_page_dispatches_to_real_verify_python_example_for_slides_python(
+        tmp_path: Path,
+    ) -> None:
+        """Real end-to-end, non-dotnet proof that the new --library-platform dispatch layer
+        genuinely reaches verify_python_example (not just a mocked/unit-tested dispatch dict):
+        a real furnished slides/python fixture, a real git clone + venv + `pip install -e` of the
+        pinned reference library (example_verifier.prepare_python_library), and a real Python
+        subprocess execution of each candidate (example_verifier.verify_python_example).
+    
+        This is the card's explicit acceptance bar for the dispatch mechanism itself (AGENTS.md's
+        2026-09-25 "Integration and liveness" section): a real, non-dotnet platform actually
+        invoked through this CLI, not merely unit-tested in isolation. The other 4 non-dotnet
+        platforms get their own live E2E proof in future cards, once each pilot's own
+        docker-compose ingestion service is wired up.
+        """
+        out_path = tmp_path / "chunks.json"
+    
+>       _run_main(
+            [
+                "--api-surface",
+                str(API_SURFACE),
+                "--title",
+                "Aspose.PDF FOSS for .NET",
+                "--out",
+                str(out_path),
+                "--furnished-page",
+                str(SLIDES_PYTHON_FURNISHED_PAGE),
+                "--library-repository",
+                SLIDES_PYTHON_LIBRARY_REPOSITORY,
+                "--library-commit",
+                SLIDES_PYTHON_LIBRARY_COMMIT,
+                "--library-platform",
+                "python",
+                # no extra platform-specific flag needed for python
+            ]
+        )
+
+tests\infra\test_build_chunks.py:345: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=20)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform-DISABLED",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript only)",
+        )
+        args = parser.parse_args()
+    
+>       furnished_args = (args.furnished_page, args.library_repository, args.library_commit, args.library_platform)
+                                                                                             ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Namespace' object has no attribute 'library_platform'
+
+infra\build_chunks.py:260: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_build_chunks.py::test_api_surface_only_path_is_byte_identical_to_before_the_furnished_flags
+FAILED tests/infra/test_build_chunks.py::test_furnished_page_adds_real_compile_verified_example_chunks
+FAILED tests/infra/test_build_chunks.py::test_furnished_flags_are_all_required_together
+FAILED tests/infra/test_build_chunks.py::test_furnished_platform_specific_required_flag_is_enforced
+FAILED tests/infra/test_build_chunks.py::test_furnished_page_dispatches_to_real_verify_python_example_for_slides_python
+
+--- stderr ---
+

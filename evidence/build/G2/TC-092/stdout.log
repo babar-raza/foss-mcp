@@ -1,0 +1,520 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/ tests/extraction/ -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gwcj3ivp\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 48%]
+........................................................................ [ 96%]
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/ tests/extraction/ -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gwcj3ivp\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 48%]
+........................................................................ [ 96%]
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/api_surface.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/ tests/extraction/ -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gwcj3ivp\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 48%]
+.....................................FFF....EE.......................... [ 96%]
+.....                                                                    [100%]
+=================================== ERRORS ====================================
+_ ERROR at setup of test_real_cells_cpp_isnullorwhitespace_no_longer_collapsed _
+
+cells_cpp_checkout = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-837/cells_cpp_tc0920')
+
+    @pytest.fixture(scope="module")
+    def cells_cpp_free_functions(cells_cpp_checkout: Path) -> list[dict[str, Any]]:
+        """Run this project's real extraction engine once over the real, pinned
+        cells/cpp checkout and return the surviving free-function entries, shared
+        by both real-data assertions below so the (slow) real clone + real parse
+        of ~375 real C++ files only happens once per test session.
+        """
+        pkg_root = package_root.detect_package_root(cells_cpp_checkout, "cpp")
+        parser = get_parser("cpp")
+>       types, *_rest = api_surface.extract_api_surface(
+            parser, "cpp", pkg_root, cells_cpp_checkout, "cells"
+        )
+
+tests\extraction\tree_sitter_engine\test_consolidate_classes_free_functions.py:322: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\extraction\tree_sitter_engine\api_surface.py:3994: in extract_api_surface
+    classes = consolidate_classes(classes, language)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+classes = [{'name': 'FormatConditionCollection', 'kind': 'function', 'doc': '', 'file': 'Aspose.Cells.Foss.Cpp/src/aspose/cells_...unction', 'doc': '', 'file': 'Aspose.Cells.Foss.Cpp/src/aspose/cells_foss/DisplayTextDateFormatSupport.cpp', ...}, ...]
+language = 'cpp'
+
+    def consolidate_classes(classes: list[dict], language: str) -> list[dict]:
+        """Merge partial classes, disambiguate same-name-different-namespace, dedup enums.
+    
+        Must run BEFORE ``_flatten_inheritance`` so the by-name dict used for
+        inheritance resolution is correct.
+    
+        Categories handled:
+          0. All entries are free functions (``kind == "function"``) Ã¢â€ â€™ dedupe by
+             ``file`` only (they lack ``canonical_namespace``; see
+             ``_dedupe_same_name_functions_by_file``)
+          1. Same namespace + ``is_partial`` Ã¢â€ â€™ MERGE members
+          2. Same namespace + stub (no bases, fewer members) Ã¢â€ â€™ KEEP full, discard stub
+          3. Same namespace + compat shim (bases reference the other) Ã¢â€ â€™ DISCARD shim
+          4. Different namespace Ã¢â€ â€™ KEEP BOTH (distinct ``class_import``)
+          5. Identical enums (same enum_members or both empty) Ã¢â€ â€™ DEDUP
+          6. Fallback (no namespace, same visibility) Ã¢â€ â€™ MERGE (backward compat)
+    
+        Returns a new list.
+        """
+        from collections import Counter, defaultdict
+    
+        name_counts = Counter(c.get("name", "") for c in classes)
+        # Fast path: if no duplicates at all, return as-is
+        dup_names = {n for n, cnt in name_counts.items() if cnt > 1 and n}
+        if not dup_names:
+            return list(classes)
+    
+        groups: dict[str, list[int]] = defaultdict(list)
+        for i, c in enumerate(classes):
+            n = c.get("name", "")
+            if n in dup_names:
+                groups[n].append(i)
+    
+        discard: set[int] = set()
+        merge_count = 0
+    
+        for name, indices in groups.items():
+            entries = [classes[i] for i in indices]
+    
+            # Sub-group by canonical_namespace (or class_import minus name)
+            ns_groups: dict[str, list[int]] = defaultdict(list)
+            for idx in indices:
+                e = classes[idx]
+                ns = e.get("canonical_namespace", "")
+                if not ns:
+                    ci = e.get("class_import", "")
+                    if ci and ci != e.get("name", ""):
+                        ns = ci.rsplit(".", 1)[0] if "." in ci else ""
+                ns_groups[ns].append(idx)
+    
+            # If all entries share the same namespace (or all empty), handle as same-ns
+            # If they differ, keep all (different namespaces = different types)
+            for ns, ns_indices in ns_groups.items():
+                if len(ns_indices) < 2:
+                    continue
+    
+                ns_entries = [classes[i] for i in ns_indices]
+                kinds = [e.get("kind", "") for e in ns_entries]
+    
+                # Category 0: all entries are free functions. Function-kind entries
+                # never carry canonical_namespace, so this ns-group may contain
+                # entries from many different files that are NOT duplicates of each
+                # other (see _dedupe_same_name_functions_by_file). Handle them here,
+                # additively, BEFORE falling through to categories 1-6 below, which
+                # remain unchanged for every non-function (class/struct/enum) entry.
+                if all(k == "function" for k in kinds):
+>                   discard |= _dedupe_same_name_functions_by_file(ns_entries, ns_indices)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                   NameError: name '_dedupe_same_name_functions_by_file' is not defined
+
+src\foss_mcp\extraction\tree_sitter_engine\api_surface.py:2270: NameError
+_ ERROR at setup of test_real_cells_cpp_free_function_count_increases_substantially _
+
+cells_cpp_checkout = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-837/cells_cpp_tc0920')
+
+    @pytest.fixture(scope="module")
+    def cells_cpp_free_functions(cells_cpp_checkout: Path) -> list[dict[str, Any]]:
+        """Run this project's real extraction engine once over the real, pinned
+        cells/cpp checkout and return the surviving free-function entries, shared
+        by both real-data assertions below so the (slow) real clone + real parse
+        of ~375 real C++ files only happens once per test session.
+        """
+        pkg_root = package_root.detect_package_root(cells_cpp_checkout, "cpp")
+        parser = get_parser("cpp")
+>       types, *_rest = api_surface.extract_api_surface(
+            parser, "cpp", pkg_root, cells_cpp_checkout, "cells"
+        )
+
+tests\extraction\tree_sitter_engine\test_consolidate_classes_free_functions.py:322: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\extraction\tree_sitter_engine\api_surface.py:3994: in extract_api_surface
+    classes = consolidate_classes(classes, language)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+classes = [{'name': 'FormatConditionCollection', 'kind': 'function', 'doc': '', 'file': 'Aspose.Cells.Foss.Cpp/src/aspose/cells_...unction', 'doc': '', 'file': 'Aspose.Cells.Foss.Cpp/src/aspose/cells_foss/DisplayTextDateFormatSupport.cpp', ...}, ...]
+language = 'cpp'
+
+    def consolidate_classes(classes: list[dict], language: str) -> list[dict]:
+        """Merge partial classes, disambiguate same-name-different-namespace, dedup enums.
+    
+        Must run BEFORE ``_flatten_inheritance`` so the by-name dict used for
+        inheritance resolution is correct.
+    
+        Categories handled:
+          0. All entries are free functions (``kind == "function"``) Ã¢â€ â€™ dedupe by
+             ``file`` only (they lack ``canonical_namespace``; see
+             ``_dedupe_same_name_functions_by_file``)
+          1. Same namespace + ``is_partial`` Ã¢â€ â€™ MERGE members
+          2. Same namespace + stub (no bases, fewer members) Ã¢â€ â€™ KEEP full, discard stub
+          3. Same namespace + compat shim (bases reference the other) Ã¢â€ â€™ DISCARD shim
+          4. Different namespace Ã¢â€ â€™ KEEP BOTH (distinct ``class_import``)
+          5. Identical enums (same enum_members or both empty) Ã¢â€ â€™ DEDUP
+          6. Fallback (no namespace, same visibility) Ã¢â€ â€™ MERGE (backward compat)
+    
+        Returns a new list.
+        """
+        from collections import Counter, defaultdict
+    
+        name_counts = Counter(c.get("name", "") for c in classes)
+        # Fast path: if no duplicates at all, return as-is
+        dup_names = {n for n, cnt in name_counts.items() if cnt > 1 and n}
+        if not dup_names:
+            return list(classes)
+    
+        groups: dict[str, list[int]] = defaultdict(list)
+        for i, c in enumerate(classes):
+            n = c.get("name", "")
+            if n in dup_names:
+                groups[n].append(i)
+    
+        discard: set[int] = set()
+        merge_count = 0
+    
+        for name, indices in groups.items():
+            entries = [classes[i] for i in indices]
+    
+            # Sub-group by canonical_namespace (or class_import minus name)
+            ns_groups: dict[str, list[int]] = defaultdict(list)
+            for idx in indices:
+                e = classes[idx]
+                ns = e.get("canonical_namespace", "")
+                if not ns:
+                    ci = e.get("class_import", "")
+                    if ci and ci != e.get("name", ""):
+                        ns = ci.rsplit(".", 1)[0] if "." in ci else ""
+                ns_groups[ns].append(idx)
+    
+            # If all entries share the same namespace (or all empty), handle as same-ns
+            # If they differ, keep all (different namespaces = different types)
+            for ns, ns_indices in ns_groups.items():
+                if len(ns_indices) < 2:
+                    continue
+    
+                ns_entries = [classes[i] for i in ns_indices]
+                kinds = [e.get("kind", "") for e in ns_entries]
+    
+                # Category 0: all entries are free functions. Function-kind entries
+                # never carry canonical_namespace, so this ns-group may contain
+                # entries from many different files that are NOT duplicates of each
+                # other (see _dedupe_same_name_functions_by_file). Handle them here,
+                # additively, BEFORE falling through to categories 1-6 below, which
+                # remain unchanged for every non-function (class/struct/enum) entry.
+                if all(k == "function" for k in kinds):
+>                   discard |= _dedupe_same_name_functions_by_file(ns_entries, ns_indices)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                   NameError: name '_dedupe_same_name_functions_by_file' is not defined
+
+src\foss_mcp\extraction\tree_sitter_engine\api_surface.py:2270: NameError
+================================== FAILURES ===================================
+________ test_same_name_functions_in_three_different_files_all_survive ________
+
+    def test_same_name_functions_in_three_different_files_all_survive() -> None:
+        """Reproduces the exact real bug shape: 3 entries, kind="function", the
+        same bare name, no canonical_namespace, but 3 DIFFERENT `file` values.
+    
+        Before this fix, category 6's fallback merge collapsed all 3 into 1
+        (arbitrarily "primary" by member count, always 0 for a function). Real
+        C++ file-local `static` helpers with this exact shape are genuinely
+        distinct, unrelated symbols and must never be discarded against each
+        other.
+        """
+        entries = [
+            _function_entry("IsNullOrWhiteSpace", "src/text_utils.cpp"),
+            _function_entry("IsNullOrWhiteSpace", "src/parsing/lexer.cpp"),
+            _function_entry("IsNullOrWhiteSpace", "src/io/reader.cpp"),
+        ]
+    
+>       result = consolidate_classes(entries, "cpp")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\tree_sitter_engine\test_consolidate_classes_free_functions.py:100: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+classes = [{'name': 'IsNullOrWhiteSpace', 'kind': 'function', 'doc': '', 'file': 'src/text_utils.cpp', ...}, {'name': 'IsNullOrW...sing/lexer.cpp', ...}, {'name': 'IsNullOrWhiteSpace', 'kind': 'function', 'doc': '', 'file': 'src/io/reader.cpp', ...}]
+language = 'cpp'
+
+    def consolidate_classes(classes: list[dict], language: str) -> list[dict]:
+        """Merge partial classes, disambiguate same-name-different-namespace, dedup enums.
+    
+        Must run BEFORE ``_flatten_inheritance`` so the by-name dict used for
+        inheritance resolution is correct.
+    
+        Categories handled:
+          0. All entries are free functions (``kind == "function"``) Ã¢â€ â€™ dedupe by
+             ``file`` only (they lack ``canonical_namespace``; see
+             ``_dedupe_same_name_functions_by_file``)
+          1. Same namespace + ``is_partial`` Ã¢â€ â€™ MERGE members
+          2. Same namespace + stub (no bases, fewer members) Ã¢â€ â€™ KEEP full, discard stub
+          3. Same namespace + compat shim (bases reference the other) Ã¢â€ â€™ DISCARD shim
+          4. Different namespace Ã¢â€ â€™ KEEP BOTH (distinct ``class_import``)
+          5. Identical enums (same enum_members or both empty) Ã¢â€ â€™ DEDUP
+          6. Fallback (no namespace, same visibility) Ã¢â€ â€™ MERGE (backward compat)
+    
+        Returns a new list.
+        """
+        from collections import Counter, defaultdict
+    
+        name_counts = Counter(c.get("name", "") for c in classes)
+        # Fast path: if no duplicates at all, return as-is
+        dup_names = {n for n, cnt in name_counts.items() if cnt > 1 and n}
+        if not dup_names:
+            return list(classes)
+    
+        groups: dict[str, list[int]] = defaultdict(list)
+        for i, c in enumerate(classes):
+            n = c.get("name", "")
+            if n in dup_names:
+                groups[n].append(i)
+    
+        discard: set[int] = set()
+        merge_count = 0
+    
+        for name, indices in groups.items():
+            entries = [classes[i] for i in indices]
+    
+            # Sub-group by canonical_namespace (or class_import minus name)
+            ns_groups: dict[str, list[int]] = defaultdict(list)
+            for idx in indices:
+                e = classes[idx]
+                ns = e.get("canonical_namespace", "")
+                if not ns:
+                    ci = e.get("class_import", "")
+                    if ci and ci != e.get("name", ""):
+                        ns = ci.rsplit(".", 1)[0] if "." in ci else ""
+                ns_groups[ns].append(idx)
+    
+            # If all entries share the same namespace (or all empty), handle as same-ns
+            # If they differ, keep all (different namespaces = different types)
+            for ns, ns_indices in ns_groups.items():
+                if len(ns_indices) < 2:
+                    continue
+    
+                ns_entries = [classes[i] for i in ns_indices]
+                kinds = [e.get("kind", "") for e in ns_entries]
+    
+                # Category 0: all entries are free functions. Function-kind entries
+                # never carry canonical_namespace, so this ns-group may contain
+                # entries from many different files that are NOT duplicates of each
+                # other (see _dedupe_same_name_functions_by_file). Handle them here,
+                # additively, BEFORE falling through to categories 1-6 below, which
+                # remain unchanged for every non-function (class/struct/enum) entry.
+                if all(k == "function" for k in kinds):
+>                   discard |= _dedupe_same_name_functions_by_file(ns_entries, ns_indices)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                   NameError: name '_dedupe_same_name_functions_by_file' is not defined
+
+src\foss_mcp\extraction\tree_sitter_engine\api_surface.py:2270: NameError
+___________ test_same_name_functions_in_the_same_file_dedupe_to_one ___________
+
+    def test_same_name_functions_in_the_same_file_dedupe_to_one() -> None:
+        """A genuine same-file duplicate (e.g. a declaration recorded twice, or a
+        forward declaration plus its definition both captured as separate
+        entries for the identical file) must still collapse to 1 -- the fix must
+        not weaken real same-file dedup, only stop discarding across files.
+        """
+        entries = [
+            _function_entry("Flush", "src/io/writer.cpp", line=10),
+            _function_entry("Flush", "src/io/writer.cpp", line=42),
+        ]
+    
+>       result = consolidate_classes(entries, "cpp")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\tree_sitter_engine\test_consolidate_classes_free_functions.py:124: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+classes = [{'name': 'Flush', 'kind': 'function', 'doc': '', 'file': 'src/io/writer.cpp', ...}, {'name': 'Flush', 'kind': 'function', 'doc': '', 'file': 'src/io/writer.cpp', ...}]
+language = 'cpp'
+
+    def consolidate_classes(classes: list[dict], language: str) -> list[dict]:
+        """Merge partial classes, disambiguate same-name-different-namespace, dedup enums.
+    
+        Must run BEFORE ``_flatten_inheritance`` so the by-name dict used for
+        inheritance resolution is correct.
+    
+        Categories handled:
+          0. All entries are free functions (``kind == "function"``) Ã¢â€ â€™ dedupe by
+             ``file`` only (they lack ``canonical_namespace``; see
+             ``_dedupe_same_name_functions_by_file``)
+          1. Same namespace + ``is_partial`` Ã¢â€ â€™ MERGE members
+          2. Same namespace + stub (no bases, fewer members) Ã¢â€ â€™ KEEP full, discard stub
+          3. Same namespace + compat shim (bases reference the other) Ã¢â€ â€™ DISCARD shim
+          4. Different namespace Ã¢â€ â€™ KEEP BOTH (distinct ``class_import``)
+          5. Identical enums (same enum_members or both empty) Ã¢â€ â€™ DEDUP
+          6. Fallback (no namespace, same visibility) Ã¢â€ â€™ MERGE (backward compat)
+    
+        Returns a new list.
+        """
+        from collections import Counter, defaultdict
+    
+        name_counts = Counter(c.get("name", "") for c in classes)
+        # Fast path: if no duplicates at all, return as-is
+        dup_names = {n for n, cnt in name_counts.items() if cnt > 1 and n}
+        if not dup_names:
+            return list(classes)
+    
+        groups: dict[str, list[int]] = defaultdict(list)
+        for i, c in enumerate(classes):
+            n = c.get("name", "")
+            if n in dup_names:
+                groups[n].append(i)
+    
+        discard: set[int] = set()
+        merge_count = 0
+    
+        for name, indices in groups.items():
+            entries = [classes[i] for i in indices]
+    
+            # Sub-group by canonical_namespace (or class_import minus name)
+            ns_groups: dict[str, list[int]] = defaultdict(list)
+            for idx in indices:
+                e = classes[idx]
+                ns = e.get("canonical_namespace", "")
+                if not ns:
+                    ci = e.get("class_import", "")
+                    if ci and ci != e.get("name", ""):
+                        ns = ci.rsplit(".", 1)[0] if "." in ci else ""
+                ns_groups[ns].append(idx)
+    
+            # If all entries share the same namespace (or all empty), handle as same-ns
+            # If they differ, keep all (different namespaces = different types)
+            for ns, ns_indices in ns_groups.items():
+                if len(ns_indices) < 2:
+                    continue
+    
+                ns_entries = [classes[i] for i in ns_indices]
+                kinds = [e.get("kind", "") for e in ns_entries]
+    
+                # Category 0: all entries are free functions. Function-kind entries
+                # never carry canonical_namespace, so this ns-group may contain
+                # entries from many different files that are NOT duplicates of each
+                # other (see _dedupe_same_name_functions_by_file). Handle them here,
+                # additively, BEFORE falling through to categories 1-6 below, which
+                # remain unchanged for every non-function (class/struct/enum) entry.
+                if all(k == "function" for k in kinds):
+>                   discard |= _dedupe_same_name_functions_by_file(ns_entries, ns_indices)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                   NameError: name '_dedupe_same_name_functions_by_file' is not defined
+
+src\foss_mcp\extraction\tree_sitter_engine\api_surface.py:2270: NameError
+__________ test_mix_of_cross_file_survivors_and_same_file_duplicate ___________
+
+    def test_mix_of_cross_file_survivors_and_same_file_duplicate() -> None:
+        """A combined, more realistic case: 3 files share the name, one of which
+        also has a genuine same-file duplicate. Expect 3 survivors total (one per
+        file), not 4 (raw) and not 1 (the old bug).
+        """
+        entries = [
+            _function_entry("Reset", "src/a.cpp", line=1),
+            _function_entry("Reset", "src/a.cpp", line=2),  # same-file duplicate
+            _function_entry("Reset", "src/b.cpp"),
+            _function_entry("Reset", "src/c.cpp"),
+        ]
+    
+>       result = consolidate_classes(entries, "cpp")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\tree_sitter_engine\test_consolidate_classes_free_functions.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+classes = [{'name': 'Reset', 'kind': 'function', 'doc': '', 'file': 'src/a.cpp', ...}, {'name': 'Reset', 'kind': 'function', 'do...ion', 'doc': '', 'file': 'src/b.cpp', ...}, {'name': 'Reset', 'kind': 'function', 'doc': '', 'file': 'src/c.cpp', ...}]
+language = 'cpp'
+
+    def consolidate_classes(classes: list[dict], language: str) -> list[dict]:
+        """Merge partial classes, disambiguate same-name-different-namespace, dedup enums.
+    
+        Must run BEFORE ``_flatten_inheritance`` so the by-name dict used for
+        inheritance resolution is correct.
+    
+        Categories handled:
+          0. All entries are free functions (``kind == "function"``) Ã¢â€ â€™ dedupe by
+             ``file`` only (they lack ``canonical_namespace``; see
+             ``_dedupe_same_name_functions_by_file``)
+          1. Same namespace + ``is_partial`` Ã¢â€ â€™ MERGE members
+          2. Same namespace + stub (no bases, fewer members) Ã¢â€ â€™ KEEP full, discard stub
+          3. Same namespace + compat shim (bases reference the other) Ã¢â€ â€™ DISCARD shim
+          4. Different namespace Ã¢â€ â€™ KEEP BOTH (distinct ``class_import``)
+          5. Identical enums (same enum_members or both empty) Ã¢â€ â€™ DEDUP
+          6. Fallback (no namespace, same visibility) Ã¢â€ â€™ MERGE (backward compat)
+    
+        Returns a new list.
+        """
+        from collections import Counter, defaultdict
+    
+        name_counts = Counter(c.get("name", "") for c in classes)
+        # Fast path: if no duplicates at all, return as-is
+        dup_names = {n for n, cnt in name_counts.items() if cnt > 1 and n}
+        if not dup_names:
+            return list(classes)
+    
+        groups: dict[str, list[int]] = defaultdict(list)
+        for i, c in enumerate(classes):
+            n = c.get("name", "")
+            if n in dup_names:
+                groups[n].append(i)
+    
+        discard: set[int] = set()
+        merge_count = 0
+    
+        for name, indices in groups.items():
+            entries = [classes[i] for i in indices]
+    
+            # Sub-group by canonical_namespace (or class_import minus name)
+            ns_groups: dict[str, list[int]] = defaultdict(list)
+            for idx in indices:
+                e = classes[idx]
+                ns = e.get("canonical_namespace", "")
+                if not ns:
+                    ci = e.get("class_import", "")
+                    if ci and ci != e.get("name", ""):
+                        ns = ci.rsplit(".", 1)[0] if "." in ci else ""
+                ns_groups[ns].append(idx)
+    
+            # If all entries share the same namespace (or all empty), handle as same-ns
+            # If they differ, keep all (different namespaces = different types)
+            for ns, ns_indices in ns_groups.items():
+                if len(ns_indices) < 2:
+                    continue
+    
+                ns_entries = [classes[i] for i in ns_indices]
+                kinds = [e.get("kind", "") for e in ns_entries]
+    
+                # Category 0: all entries are free functions. Function-kind entries
+                # never carry canonical_namespace, so this ns-group may contain
+                # entries from many different files that are NOT duplicates of each
+                # other (see _dedupe_same_name_functions_by_file). Handle them here,
+                # additively, BEFORE falling through to categories 1-6 below, which
+                # remain unchanged for every non-function (class/struct/enum) entry.
+                if all(k == "function" for k in kinds):
+>                   discard |= _dedupe_same_name_functions_by_file(ns_entries, ns_indices)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                   NameError: name '_dedupe_same_name_functions_by_file' is not defined
+
+src\foss_mcp\extraction\tree_sitter_engine\api_surface.py:2270: NameError
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py::test_same_name_functions_in_three_different_files_all_survive
+FAILED tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py::test_same_name_functions_in_the_same_file_dedupe_to_one
+FAILED tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py::test_mix_of_cross_file_survivors_and_same_file_duplicate
+ERROR tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py::test_real_cells_cpp_isnullorwhitespace_no_longer_collapsed
+ERROR tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py::test_real_cells_cpp_free_function_count_increases_substantially
+
+--- stderr ---
+
