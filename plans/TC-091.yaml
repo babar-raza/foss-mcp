@@ -1,0 +1,137 @@
+id: TC-091
+gate: G2
+lane: storage-retrieval
+purpose: 'Generalize infra/build_chunks.py''s verified-example path (REQ-G2-048) to
+  dispatch by platform instead of being hardcoded to .NET (prepare_reference_library/verify_dotnet_example
+  called unconditionally). TC-081/082 already landed real prepare_<lang>_library/verify_<lang>_example
+  function pairs for all 6 pilots with a real extraction fixture in src/foss_mcp/indexing/example_verifier.py
+  - this card is the missing dispatch layer that lets build_chunks.py actually call
+  the right pair for a given pilot, which is a real, necessary prerequisite before
+  any pilot besides pdf/net can be wired into docker-compose ingestion. Read AGENTS.md''s
+  own 2026-09-25 ''Integration and liveness'' addendum before starting: a real, callable
+  function that nothing in a production entrypoint ever dispatches to is exactly the
+  failure class that section exists to prevent - this card''s own acceptance bar includes
+  a real, non-dotnet platform actually being invoked end-to-end through this CLI,
+  not just unit-tested in isolation.'
+depends_on:
+- TC-018
+- TC-019a
+- TC-023
+- TC-064
+- TC-068
+- TC-069
+- TC-070
+- TC-079
+- TC-081
+- TC-082
+write_paths:
+- infra/build_chunks.py
+- tests/infra/test_build_chunks.py
+- docker-compose.yml
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Read src/foss_mcp/indexing/example_verifier.py''s real, current function signatures
+  yourself before writing any dispatch code (they differ per language, confirmed today):
+  prepare_reference_library(repository, commit, csproj_relative_path, workdir) ->
+  Path; verify_dotnet_example(candidate, *, library_csproj, workdir); prepare_python_library(repository,
+  commit, workdir) -> Path; verify_python_example(candidate, *, venv_python, workdir);
+  prepare_rust_library(repository, commit, workdir) -> Path; verify_rust_example(candidate,
+  *, library_crate_name, library_dir, workdir); prepare_go_library(repository, commit,
+  workdir) -> Path; verify_go_example(candidate, *, module_path, library_dir, workdir);
+  prepare_java_library(repository, commit, workdir) -> Path; verify_java_example(candidate,
+  *, library_jar, workdir); prepare_typescript_library(repository, commit, workdir)
+  -> Path; verify_typescript_example(candidate, *, library_dir, package_name, workdir).'
+- 'Add a new required CLI flag `--library-platform` (one of: dotnet, python, rust,
+  go, java, typescript) - required together with the existing --furnished-page/--library-repository/--library-commit
+  group (extend the existing ''must all be given together'' validation to include
+  it). `--library-csproj` stays required ONLY for platform=dotnet (it is a .NET-specific
+  concept, not a generic one). Add three NEW platform-specific optional flags, each
+  required only for its own platform (validate this explicitly, with a clear parser.error
+  message naming which flag is missing for which platform): `--library-crate-name`
+  (rust), `--library-module-path` (go), `--library-package-name` (typescript). Python
+  and Java need no extra flag beyond repository/commit - their verify_* functions''
+  extra kwarg (venv_python, library_jar) comes from their own prepare_*_library''s
+  return value, not a new CLI input.'
+- Build a dispatch table (a dict keyed by platform name, or an equivalent explicit
+  if/elif dispatch - your choice, but it must be a single, obvious, centrally-readable
+  mapping, not scattered special-casing) from platform name to its (prepare_function,
+  verify_function, extra_verify_kwargs_builder). Each prepare function's positional
+  (repository, commit, workdir) call is uniform except dotnet's extra csproj_relative_path
+  argument - handle that one explicitly, don't force a fake uniform signature onto
+  it.
+- 'CRITICAL INVARIANT: the existing dotnet path (--library-platform dotnet plus the
+  existing --library-csproj flag) must produce BYTE-IDENTICAL output to before this
+  change, for the exact same real fixture/inputs docker-compose.yml already uses in
+  production (tests/fixtures/furnished/pdf_net/pages/_index.md, aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET
+  @ b7172877651413cff57a8bfe41fb8a8befb2406b, src/Aspose.Pdf.Foss.csproj) - the existing
+  test test_furnished_page_adds_real_compile_verified_example_chunks already proves
+  this real path end-to-end; update it only to add the new required --library-platform
+  dotnet flag to its invocation, do not change its assertions.'
+- docker-compose.yml's real ingest-pdf-net service invokes this script (grep 'build_chunks.py'
+  docker-compose.yml to find it) - add `--library-platform dotnet` to its existing
+  argument list. This is the one real, currently-running production caller; it must
+  keep working exactly as before, just with the one new required flag added.
+- 'Add ONE new real, end-to-end test proving the dispatch mechanism genuinely works
+  for a NON-dotnet platform - use slides/python (the fastest real ecosystem: no compiler,
+  `pip install -e` only) via tests/fixtures/furnished/slides_python/pages/_index.md,
+  the real pinned commit from TC-081''s own inputs (aspose-slides-foss/Aspose.Slides-FOSS-for-Python
+  @ 4e63447ba79d1c27a5192844847d9f872c5b92ad, no --library-csproj/--library-crate-name/etc.
+  needed for python). This must be a REAL end-to-end run of the actual CLI script
+  (subprocess or main()), not a mocked dispatch-table unit test - the whole point
+  is proving the CLI genuinely reaches and calls verify_python_example for real, not
+  just that a dispatch dict has the right key. Do not add real end-to-end tests for
+  the other 4 platforms in this card - those get their own live E2E proof when each
+  pilot''s own docker-compose ingestion service is wired up (separate, future cards);
+  one non-dotnet platform proven for real here is enough to prove the dispatch layer
+  itself is real, not a class of theatre this project explicitly flags as a risk (AGENTS.md''s
+  own 2026-09-25 ''Integration and liveness'' section).'
+actions:
+- Implement the --library-platform dispatch exactly as specified.
+- Update docker-compose.yml's real ingest-pdf-net invocation with the new required
+  flag.
+- Update the existing dotnet-path test to add the new required flag; add the new real
+  slides/python end-to-end test.
+- Run the full existing test_build_chunks.py suite for real and confirm everything
+  passes, including the byte-identical dotnet-path assertion.
+- Run the full existing test suite yourself and confirm nothing else broke.
+checks:
+- command: '{python} -m pytest tests/infra/test_build_chunks.py -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 5
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('infra/build_chunks.py');s=p.read_text(encoding='utf-8');s=s.replace('--library-platform','--library-platform-DISABLED');p.write_text(s,encoding='utf-8')"
+  rationale: Corrupting every occurrence of the required --library-platform flag's
+    own literal spelling must break argparse's recognition of it wherever it is defined
+    (add_argument) and consumed (args.library_platform / the furnished-flags validation),
+    failing both the existing dotnet-path test (now invoked with --library-platform
+    dotnet) and the new slides/python dispatch test, proving the tests genuinely depend
+    on this exact required flag rather than passing for an unrelated reason. Deliberately
+    targets the flag's own literal string rather than an import statement or other
+    implementation-detail this card's own refactor will necessarily restructure -
+    self-checked against a realistic synthetic fixture (the real file does not contain
+    this new flag yet, by design) via the actual subprocess.run(..., shell=True) path
+    before being persisted.
+evidence:
+- evidence/build/G2/TC-091/receipt.json
+closeout:
+- infra/build_chunks.py dispatches to the correct prepare/verify pair by --library-platform
+  for all 6 pilots' functions, not hardcoded to .NET.
+- The real, currently-running pdf/net docker-compose ingestion path is unaffected
+  (byte-identical output, confirmed by the existing real E2E test with only the new
+  required flag added).
+- A real, non-mocked end-to-end run proves the dispatch genuinely reaches verify_python_example
+  for slides/python - not just a unit-tested dispatch dict.
+- Breaking the dotnet import aliasing fails the dotnet-path test again.
+recovery: Re-run from a clean tree; if a network clone/build step is flaky, re-running
+  is safe and idempotent.
