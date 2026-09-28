@@ -1,0 +1,122 @@
+id: TC-102
+gate: G2
+lane: transport-deployment
+purpose: Wire cells/rust's real ingestion into docker-compose and prove it live, exactly
+  mirroring TC-064/069/080/089's own pattern for pdf/net - a real docker compose up
+  of a new one-shot ingest-cells-rust service (build_chunks.py + ingest.py, using
+  cells/rust's own already-verified real extraction fixture, furnished content, and
+  verified-example library coordinates) publishing into a real named volume the existing
+  serving-cells-rust service mounts, then a real MCP-over-HTTP session proving real
+  content comes back - including a real, composed task-answer with a genuine compile-verified
+  example, the same developer-context bar pdf/net was proven against.
+depends_on:
+- TC-101
+write_paths:
+- docker-compose.yml
+- tests/e2e/test_cells_rust_live_content.py
+satisfies:
+- REQ-G2-050
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Read tests/e2e/test_pdf_net_live_content.py in full FIRST and mirror its exact structure
+  (compose helpers, _McpSession, real /readyz polling, teardown even on failure) -
+  do not reinvent the container lifecycle or session handling. Your new file is tests/e2e/test_cells_rust_live_content.py,
+  using host port 8086 (this pilot's own already-assigned port in docker-compose.yml's
+  serving-cells-rust service - confirm this yourself by reading docker-compose.yml)
+  instead of pdf/net's 8080, and only brings up ingest-cells-rust + serving-cells-rust
+  (never the other 12 services) - use a distinct PROJECT_NAME (e.g. 'foss-mcp-e2e-tc-102')
+  so this test's own docker-compose project never collides with pdf/net's or another
+  pilot's own E2E test running concurrently.
+- 'Add a new named volume `manifests-cells-rust` and a new one-shot `ingest-cells-rust`
+  service to docker-compose.yml, mirroring `ingest-pdf-net`''s exact shape (Dockerfile.ingestion
+  build, entrypoint sh -c chaining build_chunks.py then ingest.py). Real, already-verified
+  coordinates for this pilot''s own build_chunks.py invocation: --api-surface /app/fixtures/cells_rust/api_surface.json
+  --title "cells/rust API surface" --max-types 20 --furnished-page /app/fixtures/furnished/cells_rust/pages/_index.md
+  --library-repository aspose-cells-foss/Aspose.Cells-FOSS-for-Rust --library-commit
+  1a6004af47b1ef15385f9d36d381a8172428cc7e --library-platform rust --library-crate-name
+  aspose-cells-foss-rust --out /tmp/cells_rust_chunks.json ; then ingest.py --family
+  cells --platform rust --source-kind self_extracted --chunks /tmp/cells_rust_chunks.json
+  --manifest-store /data/manifests --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+  --api-surface /app/fixtures/cells_rust/api_surface.json --held-by ingestion-cells-rust.
+  You must also add COPY lines to Dockerfile.ingestion for this pilot''s own fixture
+  files (mirroring the existing pdf_net COPY lines) if they are not already baked
+  into the image - check the current Dockerfile.ingestion yourself first (COPY tests/fixtures/pdf_net/...
+  lines are pdf/net-specific and must not be assumed to cover other pilots).'
+- 'Wire the SAME `manifests-cells-rust` volume into the EXISTING `serving-cells-rust`
+  service (it currently has no volumes: key at all - add one, do not touch its other
+  fields: ports/environment/build must stay exactly as they are).'
+- 'Real, already-accepted source data for this pilot (do not re-derive or re-verify
+  these, just use them): extraction fixture at tests/fixtures/cells_rust/api_surface.json,
+  furnished content at tests/fixtures/furnished/cells_rust/pages/_index.md, verified-example
+  function pair already accepted in src/foss_mcp/indexing/example_verifier.py, build_chunks.py''s
+  --library-platform dispatch already accepted (TC-091).'
+- You must discover this pilot's OWN real, distinctive test values yourself - never
+  copy pdf/net's own REAL_SYMBOL/REAL_EXAMPLE_SYMBOL/REAL_TASK_QUERY values, they
+  are meaningless for a different pilot's different real data. Read the real committed
+  api_surface.json fixture yourself to pick a real type/symbol name (mirroring pdf/net's
+  own AFRelationship - a real, distinctive, well within max-types=20 entry) for REAL_SYMBOL,
+  and its own real source_commit for REAL_SOURCE_COMMIT. Read the real committed furnished-content
+  page yourself to pick ONE real candidate example (title + a real, distinctive API
+  call/method name from its own code) for REAL_EXAMPLE_SYMBOL, and formulate a natural,
+  API-naive task question matching that candidate's real topic for REAL_TASK_QUERY
+  (these EXACT constant names are required, matching pdf_net's own test file's naming
+  convention - REAL_TASK_QUERY specifically is load-bearing for this card's own negative
+  control, which renames its assignment, not its value).
+- Bring the real containers up for real and verify the composed lookup answer actually
+  returns your chosen candidate's real example BEFORE finalizing your test assertions
+  - if the query doesn't compose the intended answer on the first try, iterate on
+  the query wording (this project's own lexical retrieval can be sensitive to exact
+  phrasing overlap with the real indexed content, confirmed multiple times this session)
+  rather than assert something you have not actually observed.
+- This is a real, substantial docker/network operation (an image build with several
+  language toolchains, a real git clone, a real per-language compile) - budget real
+  time, matching pdf/net's own 1500s ingest timeout as a starting point, adjust if
+  your own real run needs more.
+actions:
+- Add the new volume + ingest service + serving-volume wiring to docker-compose.yml
+  exactly as specified.
+- Write tests/e2e/test_cells_rust_live_content.py mirroring test_pdf_net_live_content.py's
+  exact structure and test shape (readyz, freshness, search_symbols, lookup-by-symbol,
+  find_examples, lookup-composed-task-answer, get_symbol) using this pilot's own real,
+  self-discovered values throughout.
+- Run the real E2E test yourself (real docker compose up, real ingestion, real MCP
+  session) and confirm every assertion passes against real, observed content before
+  committing.
+checks:
+- command: '{python} -m pytest tests/e2e/test_cells_rust_live_content.py -q'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G2-050
+min_tests: 6
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/e2e/test_cells_rust_live_content.py');s=p.read_text(encoding='utf-8');s=s.replace('REAL_TASK_QUERY
+    = ','REAL_TASK_QUERY_DISABLED = ');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming the REAL_TASK_QUERY assignment (to REAL_TASK_QUERY_DISABLED)
+    leaves every later reference to REAL_TASK_QUERY undefined, breaking the composed-task-answer
+    test with a NameError - proving the test genuinely depends on this concrete constant
+    rather than passing for an unrelated reason. This targets the constant's own required
+    name (mandated in this card's inputs), not its value or any other implementation
+    detail the worker's own real discovery process determines - robust regardless
+    of which real query the worker finds works. Self-checked end-to-end against a
+    realistic synthetic fixture (the real file doesn't exist yet, since this card
+    creates it) via the actual subprocess.run(..., shell=True) path before being persisted.
+evidence:
+- evidence/build/G2/TC-102/receipt.json
+closeout:
+- cells/rust is ingested and served for real through docker-compose, proven by a real
+  MCP-over-HTTP session against the real running container.
+- A real, composed lookup task-answer returns a real, genuinely verified example from
+  this pilot's own real content - the same developer-context bar pdf/net has.
+- pdf/net's own ingestion/serving and every other pilot's own compose service are
+  completely unaffected.
+- Renaming REAL_TASK_QUERY's assignment fails the suite again.
+recovery: Re-run from a clean tree; if a network clone/build/compose step is flaky,
+  re-running is safe and idempotent (the fixture's own `down -v` start makes every
+  run start from a clean volume state).
