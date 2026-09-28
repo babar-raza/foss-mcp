@@ -1,0 +1,416 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/normalization/test_citation.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d65t3wv2\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/normalization/test_citation.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d65t3wv2\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/normalization/citation.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/normalization/test_citation.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d65t3wv2\.junit-0.xml"
+--- stdout ---
+FF...F..FFFFFF                                                           [100%]
+================================== FAILURES ===================================
+____________________ test_a_resolving_anchor_is_supported _____________________
+
+    def test_a_resolving_anchor_is_supported() -> None:
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        resolvable = fixture["types"][0]["name"]
+>       chunk = validate_chunk(_chunk(f"See `{resolvable}` for details."), index, {})
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\normalization\test_citation.py:66: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+chunk = Chunk(section_title='Overview', text='See `AFRelationship` for details.', source_kind='furnished', content_type='produ...4199e', path=''), trust_tier='medium', evidence_refs=(), validation=ValidationResult(verdict='not_checked', detail=''))
+symbol_index = <foss_mcp.extraction.claim_id_bridge.SymbolIndex object at 0x000001CDBCFD56A0>
+known_counts = {}
+
+    def validate_chunk(chunk: Chunk, symbol_index: SymbolIndex, known_counts: Mapping[str, int]) -> Chunk:
+        """*chunk* with ``validation`` set to the worst verdict any claim inside it earned.
+    
+        A genuinely compile-verified example chunk (``_is_real_compile_verified_example``) skips
+        the symbol-anchor check: its prose description routinely cites a method by a bare name in
+        an inline code span (e.g. `` `add_auto_shape()` ``) as a completely normal writing
+        convention, which ``symbol_index_from_api_surface`` can never resolve since it only ever
+        registers qualified ``ClassName.MethodName`` anchors (correctly - a bare name could be
+        ambiguous across classes). Requiring the description to ALSO clear the citation-anchor bar
+        would penalize prose for a fact (the code) that real compilation has already verified more
+        strongly than anchor resolution ever could.
+    
+        The numeric-claim check still applies even to an example chunk: it guards a different kind
+        of claim - a library-wide count such as "805 classes" - that compiling one example's code
+        says nothing about, and a real example's description (see
+        tests/fixtures/furnished/slides_python/pages/_index.md's "Create a Presentation and Add a
+        Shape" block) is procedural prose about the steps being taken, not a claim about the
+        library's total surface, so this check is orthogonal and stays on for every chunk kind.
+        """
+        problems: list[ValidationResult] = []
+>       if not _is_real_compile_verified_example(chunk):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_is_real_compile_verified_example' is not defined
+
+src\foss_mcp\normalization\citation.py:162: NameError
+____________ test_a_non_resolving_anchor_is_excluded_or_qualified _____________
+
+    def test_a_non_resolving_anchor_is_excluded_or_qualified() -> None:
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+>       chunk = validate_chunk(_chunk("See `TotallyMadeUpClassName` for details."), index, {})
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\normalization\test_citation.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+chunk = Chunk(section_title='Overview', text='See `TotallyMadeUpClassName` for details.', source_kind='furnished', content_typ...4199e', path=''), trust_tier='medium', evidence_refs=(), validation=ValidationResult(verdict='not_checked', detail=''))
+symbol_index = <foss_mcp.extraction.claim_id_bridge.SymbolIndex object at 0x000001CDBCE9E850>
+known_counts = {}
+
+    def validate_chunk(chunk: Chunk, symbol_index: SymbolIndex, known_counts: Mapping[str, int]) -> Chunk:
+        """*chunk* with ``validation`` set to the worst verdict any claim inside it earned.
+    
+        A genuinely compile-verified example chunk (``_is_real_compile_verified_example``) skips
+        the symbol-anchor check: its prose description routinely cites a method by a bare name in
+        an inline code span (e.g. `` `add_auto_shape()` ``) as a completely normal writing
+        convention, which ``symbol_index_from_api_surface`` can never resolve since it only ever
+        registers qualified ``ClassName.MethodName`` anchors (correctly - a bare name could be
+        ambiguous across classes). Requiring the description to ALSO clear the citation-anchor bar
+        would penalize prose for a fact (the code) that real compilation has already verified more
+        strongly than anchor resolution ever could.
+    
+        The numeric-claim check still applies even to an example chunk: it guards a different kind
+        of claim - a library-wide count such as "805 classes" - that compiling one example's code
+        says nothing about, and a real example's description (see
+        tests/fixtures/furnished/slides_python/pages/_index.md's "Create a Presentation and Add a
+        Shape" block) is procedural prose about the steps being taken, not a claim about the
+        library's total surface, so this check is orthogonal and stays on for every chunk kind.
+        """
+        problems: list[ValidationResult] = []
+>       if not _is_real_compile_verified_example(chunk):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_is_real_compile_verified_example' is not defined
+
+src\foss_mcp\normalization\citation.py:162: NameError
+___ test_the_805_classes_sentence_is_excluded_or_qualified_as_a_whole_chunk ___
+
+    def test_the_805_classes_sentence_is_excluded_or_qualified_as_a_whole_chunk() -> None:
+        """Isolated to the numeric claim alone (no symbol anchors), so this is unambiguously the
+        numeric-claim rule doing the work, not an unrelated anchor failure.
+        """
+        known_counts = known_counts_from_fixture(_api_surface_fixture())
+>       chunk = validate_chunk(
+            _chunk("The library exposes 805 classes."),
+            symbol_index_from_api_surface([]),
+            known_counts,
+        )
+
+tests\normalization\test_citation.py:109: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+chunk = Chunk(section_title='Overview', text='The library exposes 805 classes.', source_kind='furnished', content_type='produc...4199e', path=''), trust_tier='medium', evidence_refs=(), validation=ValidationResult(verdict='not_checked', detail=''))
+symbol_index = <foss_mcp.extraction.claim_id_bridge.SymbolIndex object at 0x000001CDBCFC1810>
+known_counts = {'types': 899}
+
+    def validate_chunk(chunk: Chunk, symbol_index: SymbolIndex, known_counts: Mapping[str, int]) -> Chunk:
+        """*chunk* with ``validation`` set to the worst verdict any claim inside it earned.
+    
+        A genuinely compile-verified example chunk (``_is_real_compile_verified_example``) skips
+        the symbol-anchor check: its prose description routinely cites a method by a bare name in
+        an inline code span (e.g. `` `add_auto_shape()` ``) as a completely normal writing
+        convention, which ``symbol_index_from_api_surface`` can never resolve since it only ever
+        registers qualified ``ClassName.MethodName`` anchors (correctly - a bare name could be
+        ambiguous across classes). Requiring the description to ALSO clear the citation-anchor bar
+        would penalize prose for a fact (the code) that real compilation has already verified more
+        strongly than anchor resolution ever could.
+    
+        The numeric-claim check still applies even to an example chunk: it guards a different kind
+        of claim - a library-wide count such as "805 classes" - that compiling one example's code
+        says nothing about, and a real example's description (see
+        tests/fixtures/furnished/slides_python/pages/_index.md's "Create a Presentation and Add a
+        Shape" block) is procedural prose about the steps being taken, not a claim about the
+        library's total surface, so this check is orthogonal and stays on for every chunk kind.
+        """
+        problems: list[ValidationResult] = []
+>       if not _is_real_compile_verified_example(chunk):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_is_real_compile_verified_example' is not defined
+
+src\foss_mcp\normalization\citation.py:162: NameError
+_ test_validate_document_sets_every_chunk_and_citable_chunks_drops_the_unsupported _
+
+    def test_validate_document_sets_every_chunk_and_citable_chunks_drops_the_unsupported() -> None:
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        good = _chunk(f"See `{fixture['types'][0]['name']}`.")
+        bad = _chunk("See `NotARealClass`.")
+>       validated = validate_document([good, bad], index, {})
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\normalization\test_citation.py:140: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\normalization\citation.py:182: in validate_document
+    return [validate_chunk(chunk, symbol_index, known_counts) for chunk in chunks]
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+chunk = Chunk(section_title='Overview', text='See `AFRelationship`.', source_kind='furnished', content_type='product_page', pr...4199e', path=''), trust_tier='medium', evidence_refs=(), validation=ValidationResult(verdict='not_checked', detail=''))
+symbol_index = <foss_mcp.extraction.claim_id_bridge.SymbolIndex object at 0x000001CDBD1E0E90>
+known_counts = {}
+
+    def validate_chunk(chunk: Chunk, symbol_index: SymbolIndex, known_counts: Mapping[str, int]) -> Chunk:
+        """*chunk* with ``validation`` set to the worst verdict any claim inside it earned.
+    
+        A genuinely compile-verified example chunk (``_is_real_compile_verified_example``) skips
+        the symbol-anchor check: its prose description routinely cites a method by a bare name in
+        an inline code span (e.g. `` `add_auto_shape()` ``) as a completely normal writing
+        convention, which ``symbol_index_from_api_surface`` can never resolve since it only ever
+        registers qualified ``ClassName.MethodName`` anchors (correctly - a bare name could be
+        ambiguous across classes). Requiring the description to ALSO clear the citation-anchor bar
+        would penalize prose for a fact (the code) that real compilation has already verified more
+        strongly than anchor resolution ever could.
+    
+        The numeric-claim check still applies even to an example chunk: it guards a different kind
+        of claim - a library-wide count such as "805 classes" - that compiling one example's code
+        says nothing about, and a real example's description (see
+        tests/fixtures/furnished/slides_python/pages/_index.md's "Create a Presentation and Add a
+        Shape" block) is procedural prose about the steps being taken, not a claim about the
+        library's total surface, so this check is orthogonal and stays on for every chunk kind.
+        """
+        problems: list[ValidationResult] = []
+>       if not _is_real_compile_verified_example(chunk):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_is_real_compile_verified_example' is not defined
+
+src\foss_mcp\normalization\citation.py:162: NameError
+__ test_a_compile_verified_example_with_a_bare_method_citation_is_supported ___
+
+    def test_a_compile_verified_example_with_a_bare_method_citation_is_supported() -> None:
+        """The real defect TC-101's worker found: slides/python's real 'Create a Presentation and
+        Add a Shape' example genuinely compiles, but its own furnished-content description cites
+        `add_auto_shape()` and `add_text_frame()` as bare method names (no `ClassName.` prefix),
+        which symbol_index_from_api_surface never registers. This chunk's code was already
+        independently, more strongly verified by real compilation, so its description must not be
+        held to the citation-anchor bar meant for raw, unverified API documentation prose.
+        """
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        chunk = _example_chunk(
+            "Use the context manager to ensure the PPTX is always closed. `add_auto_shape()` "
+            "takes a `ShapeType` enum, then x/y position and width/height in points â€” call "
+            "`add_text_frame()` on the shape to attach a text frame."
+        )
+>       validated = validate_chunk(chunk, index, {})
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\normalization\test_citation.py:175: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+chunk = Chunk(section_title='Create a Presentation and Add a Shape', text='Use the context manager to ensure the PPTX is alway...3447b', path=''), trust_tier='medium', evidence_refs=(), validation=ValidationResult(verdict='not_checked', detail=''))
+symbol_index = <foss_mcp.extraction.claim_id_bridge.SymbolIndex object at 0x000001CDBD1E0C30>
+known_counts = {}
+
+    def validate_chunk(chunk: Chunk, symbol_index: SymbolIndex, known_counts: Mapping[str, int]) -> Chunk:
+        """*chunk* with ``validation`` set to the worst verdict any claim inside it earned.
+    
+        A genuinely compile-verified example chunk (``_is_real_compile_verified_example``) skips
+        the symbol-anchor check: its prose description routinely cites a method by a bare name in
+        an inline code span (e.g. `` `add_auto_shape()` ``) as a completely normal writing
+        convention, which ``symbol_index_from_api_surface`` can never resolve since it only ever
+        registers qualified ``ClassName.MethodName`` anchors (correctly - a bare name could be
+        ambiguous across classes). Requiring the description to ALSO clear the citation-anchor bar
+        would penalize prose for a fact (the code) that real compilation has already verified more
+        strongly than anchor resolution ever could.
+    
+        The numeric-claim check still applies even to an example chunk: it guards a different kind
+        of claim - a library-wide count such as "805 classes" - that compiling one example's code
+        says nothing about, and a real example's description (see
+        tests/fixtures/furnished/slides_python/pages/_index.md's "Create a Presentation and Add a
+        Shape" block) is procedural prose about the steps being taken, not a claim about the
+        library's total surface, so this check is orthogonal and stays on for every chunk kind.
+        """
+        problems: list[ValidationResult] = []
+>       if not _is_real_compile_verified_example(chunk):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_is_real_compile_verified_example' is not defined
+
+src\foss_mcp\normalization\citation.py:162: NameError
+_ test_a_non_example_chunk_with_the_same_bare_method_citation_is_still_unsupported _
+
+    def test_a_non_example_chunk_with_the_same_bare_method_citation_is_still_unsupported() -> None:
+        """The fix must not weaken citation validation for anything other than a genuinely
+        compile-verified example chunk - the same bare-name citation in an ordinary
+        (non-``example``) chunk is still correctly excluded.
+        """
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        chunk = _chunk("Call `add_auto_shape()` to insert a shape.")
+>       validated = validate_chunk(chunk, index, {})
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\normalization\test_citation.py:188: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+chunk = Chunk(section_title='Overview', text='Call `add_auto_shape()` to insert a shape.', source_kind='furnished', content_ty...4199e', path=''), trust_tier='medium', evidence_refs=(), validation=ValidationResult(verdict='not_checked', detail=''))
+symbol_index = <foss_mcp.extraction.claim_id_bridge.SymbolIndex object at 0x000001CDBDCEDB50>
+known_counts = {}
+
+    def validate_chunk(chunk: Chunk, symbol_index: SymbolIndex, known_counts: Mapping[str, int]) -> Chunk:
+        """*chunk* with ``validation`` set to the worst verdict any claim inside it earned.
+    
+        A genuinely compile-verified example chunk (``_is_real_compile_verified_example``) skips
+        the symbol-anchor check: its prose description routinely cites a method by a bare name in
+        an inline code span (e.g. `` `add_auto_shape()` ``) as a completely normal writing
+        convention, which ``symbol_index_from_api_surface`` can never resolve since it only ever
+        registers qualified ``ClassName.MethodName`` anchors (correctly - a bare name could be
+        ambiguous across classes). Requiring the description to ALSO clear the citation-anchor bar
+        would penalize prose for a fact (the code) that real compilation has already verified more
+        strongly than anchor resolution ever could.
+    
+        The numeric-claim check still applies even to an example chunk: it guards a different kind
+        of claim - a library-wide count such as "805 classes" - that compiling one example's code
+        says nothing about, and a real example's description (see
+        tests/fixtures/furnished/slides_python/pages/_index.md's "Create a Presentation and Add a
+        Shape" block) is procedural prose about the steps being taken, not a claim about the
+        library's total surface, so this check is orthogonal and stays on for every chunk kind.
+        """
+        problems: list[ValidationResult] = []
+>       if not _is_real_compile_verified_example(chunk):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_is_real_compile_verified_example' is not defined
+
+src\foss_mcp\normalization\citation.py:162: NameError
+________ test_renaming_the_example_guard_breaks_the_example_exemption _________
+
+    def test_renaming_the_example_guard_breaks_the_example_exemption() -> None:
+        """Guards the exact, load-bearing shape the negative control mutates: a chunk shaped
+        exactly like the compile-verified example must resolve through
+        ``_is_real_compile_verified_example`` by name, not by some other proxy - if that
+        function's real name is ever renamed away, this chunk's citation-anchor check regresses
+        to running unconditionally and the chunk goes back to UNSUPPORTED.
+        """
+        from foss_mcp.normalization import citation as citation_module
+    
+>       assert hasattr(citation_module, "_is_real_compile_verified_example")
+E       AssertionError: assert False
+E        +  where False = hasattr(<module 'foss_mcp.normalization.citation' from 'H:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\wt-d65t3wv2\\src\\foss_mcp\\normalization\\citation.py'>, '_is_real_compile_verified_example')
+
+tests\normalization\test_citation.py:202: AssertionError
+_ test_an_example_chunk_with_a_contradicting_numeric_claim_is_still_unsupported _
+
+    def test_an_example_chunk_with_a_contradicting_numeric_claim_is_still_unsupported() -> None:
+        """The numeric-claim check is orthogonal to compile-verification (it guards a
+        library-wide surface count, not anything about one example's code) and stays on for
+        every chunk kind, including ``example`` - compiling one example says nothing about
+        whether an unrelated count in its prose is accurate.
+        """
+        fixture = _api_surface_fixture()
+        known_counts = known_counts_from_fixture(fixture)
+        chunk = _example_chunk("This one example is one of the library's 900 classes.")
+>       validated = validate_chunk(chunk, symbol_index_from_api_surface([]), known_counts)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\normalization\test_citation.py:221: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+chunk = Chunk(section_title='Create a Presentation and Add a Shape', text="This one example is one of the library's 900 classe...3447b', path=''), trust_tier='medium', evidence_refs=(), validation=ValidationResult(verdict='not_checked', detail=''))
+symbol_index = <foss_mcp.extraction.claim_id_bridge.SymbolIndex object at 0x000001CDBD3197B0>
+known_counts = {'types': 899}
+
+    def validate_chunk(chunk: Chunk, symbol_index: SymbolIndex, known_counts: Mapping[str, int]) -> Chunk:
+        """*chunk* with ``validation`` set to the worst verdict any claim inside it earned.
+    
+        A genuinely compile-verified example chunk (``_is_real_compile_verified_example``) skips
+        the symbol-anchor check: its prose description routinely cites a method by a bare name in
+        an inline code span (e.g. `` `add_auto_shape()` ``) as a completely normal writing
+        convention, which ``symbol_index_from_api_surface`` can never resolve since it only ever
+        registers qualified ``ClassName.MethodName`` anchors (correctly - a bare name could be
+        ambiguous across classes). Requiring the description to ALSO clear the citation-anchor bar
+        would penalize prose for a fact (the code) that real compilation has already verified more
+        strongly than anchor resolution ever could.
+    
+        The numeric-claim check still applies even to an example chunk: it guards a different kind
+        of claim - a library-wide count such as "805 classes" - that compiling one example's code
+        says nothing about, and a real example's description (see
+        tests/fixtures/furnished/slides_python/pages/_index.md's "Create a Presentation and Add a
+        Shape" block) is procedural prose about the steps being taken, not a claim about the
+        library's total surface, so this check is orthogonal and stays on for every chunk kind.
+        """
+        problems: list[ValidationResult] = []
+>       if not _is_real_compile_verified_example(chunk):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_is_real_compile_verified_example' is not defined
+
+src\foss_mcp\normalization\citation.py:162: NameError
+_________ test_pdf_net_addwatermarkannotation_example_stays_supported _________
+
+    def test_pdf_net_addwatermarkannotation_example_stays_supported() -> None:
+        """A general fix, not a slides/python-specific patch: pdf/net's own real, already-accepted
+        AddWatermarkAnnotation example description happens not to cite any bare method name, so it
+        was SUPPORTED before this fix and must stay SUPPORTED after it, for the same reason
+        (every claim resolves) rather than because of the new exemption.
+        """
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        chunk = _example_chunk(
+            "Open the source PDF with `Document`, then call `Document.Pages` to reach the first "
+            "page before adding the watermark annotation."
+        )
+>       validated = validate_chunk(chunk, index, {})
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\normalization\test_citation.py:238: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+chunk = Chunk(section_title='Create a Presentation and Add a Shape', text='Open the source PDF with `Document`, then call `Doc...3447b', path=''), trust_tier='medium', evidence_refs=(), validation=ValidationResult(verdict='not_checked', detail=''))
+symbol_index = <foss_mcp.extraction.claim_id_bridge.SymbolIndex object at 0x000001CDBD31B8A0>
+known_counts = {}
+
+    def validate_chunk(chunk: Chunk, symbol_index: SymbolIndex, known_counts: Mapping[str, int]) -> Chunk:
+        """*chunk* with ``validation`` set to the worst verdict any claim inside it earned.
+    
+        A genuinely compile-verified example chunk (``_is_real_compile_verified_example``) skips
+        the symbol-anchor check: its prose description routinely cites a method by a bare name in
+        an inline code span (e.g. `` `add_auto_shape()` ``) as a completely normal writing
+        convention, which ``symbol_index_from_api_surface`` can never resolve since it only ever
+        registers qualified ``ClassName.MethodName`` anchors (correctly - a bare name could be
+        ambiguous across classes). Requiring the description to ALSO clear the citation-anchor bar
+        would penalize prose for a fact (the code) that real compilation has already verified more
+        strongly than anchor resolution ever could.
+    
+        The numeric-claim check still applies even to an example chunk: it guards a different kind
+        of claim - a library-wide count such as "805 classes" - that compiling one example's code
+        says nothing about, and a real example's description (see
+        tests/fixtures/furnished/slides_python/pages/_index.md's "Create a Presentation and Add a
+        Shape" block) is procedural prose about the steps being taken, not a claim about the
+        library's total surface, so this check is orthogonal and stays on for every chunk kind.
+        """
+        problems: list[ValidationResult] = []
+>       if not _is_real_compile_verified_example(chunk):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_is_real_compile_verified_example' is not defined
+
+src\foss_mcp\normalization\citation.py:162: NameError
+=========================== short test summary info ===========================
+FAILED tests/normalization/test_citation.py::test_a_resolving_anchor_is_supported
+FAILED tests/normalization/test_citation.py::test_a_non_resolving_anchor_is_excluded_or_qualified
+FAILED tests/normalization/test_citation.py::test_the_805_classes_sentence_is_excluded_or_qualified_as_a_whole_chunk
+FAILED tests/normalization/test_citation.py::test_validate_document_sets_every_chunk_and_citable_chunks_drops_the_unsupported
+FAILED tests/normalization/test_citation.py::test_a_compile_verified_example_with_a_bare_method_citation_is_supported
+FAILED tests/normalization/test_citation.py::test_a_non_example_chunk_with_the_same_bare_method_citation_is_still_unsupported
+FAILED tests/normalization/test_citation.py::test_renaming_the_example_guard_breaks_the_example_exemption
+FAILED tests/normalization/test_citation.py::test_an_example_chunk_with_a_contradicting_numeric_claim_is_still_unsupported
+FAILED tests/normalization/test_citation.py::test_pdf_net_addwatermarkannotation_example_stays_supported
+
+--- stderr ---
+
