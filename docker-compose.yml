@@ -47,12 +47,18 @@ x-serving-base: &serving-base
 # `ingest-slides-python` service below (which publishes into it) and `serving-slides-python`
 # (which reads it). Scope is slides/python only; every other pilot's own volume/service above and
 # below is unaffected.
+#
+# G2/TC-102: cells/rust's own equivalent, same shape - shared between the one-shot
+# `ingest-cells-rust` service below (which publishes into it) and `serving-cells-rust` (which
+# reads it). Scope is cells/rust only; every other pilot's own volume/service above and below is
+# unaffected.
 volumes:
   manifests-pdf-net:
   manifests-pdf-typescript:
   manifests-pdf-java:
   manifests-pdf-go:
   manifests-slides-python:
+  manifests-cells-rust:
 
 services:
   # G2/TC-064: the real, live first publish for pdf/net - a one-shot init job, not a
@@ -322,10 +328,54 @@ services:
       FOSS_MCP_PLATFORM: python
       FOSS_MCP_SOURCE_KIND: self_extracted
 
+  # G2/TC-102: cells/rust's real, live first publish - a one-shot init job, not a long-running
+  # service, mirroring `ingest-pdf-net`/`ingest-pdf-typescript`/`ingest-pdf-java`/`ingest-pdf-go`/
+  # `ingest-slides-python` above exactly. Builds real Chunk objects from this pilot's real
+  # committed fixture (infra/build_chunks.py, build_chunks_from_api_surface) plus real,
+  # compile-verified examples extracted from its own furnished content (--library-platform rust
+  # dispatches to prepare_rust_library/verify_rust_example, TC-091 - a real git clone of the
+  # pinned reference crate, a real `cargo build` of it, then a real `cargo build` per candidate
+  # example, using the Rust 1.98.1 toolchain (rustup) + build-essential already installed in
+  # Dockerfile.ingestion, TC-097), then publishes them through the real CAS/citation-validation
+  # authority path (infra/ingest.py) using the real HashingEmbeddingProvider - into the SAME named
+  # volume `serving-cells-rust` below reads.
+  ingest-cells-rust:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-cells-rust:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/cells_rust/api_surface.json
+        --title "cells/rust API surface"
+        --max-types 20
+        --furnished-page /app/fixtures/furnished/cells_rust/pages/_index.md
+        --library-repository aspose-cells-foss/Aspose.Cells-FOSS-for-Rust
+        --library-commit 1a6004af47b1ef15385f9d36d381a8172428cc7e
+        --library-platform rust
+        --library-crate-name aspose-cells-foss-rust
+        --out /tmp/cells_rust_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family cells
+        --platform rust
+        --source-kind self_extracted
+        --chunks /tmp/cells_rust_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/cells_rust/api_surface.json
+        --held-by ingestion-cells-rust
+
   serving-cells-rust:
     <<: *serving-base
     ports:
       - "8086:8080"
+    volumes:
+      - manifests-cells-rust:/data/manifests
     environment:
       FOSS_MCP_FAMILY: cells
       FOSS_MCP_PLATFORM: rust
