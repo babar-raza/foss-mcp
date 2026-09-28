@@ -1,0 +1,122 @@
+id: TC-096
+gate: G2
+lane: storage-retrieval
+purpose: 'Add the LAST missing language pair to the verified-example pipeline (REQ-G2-048):
+  prepare_cpp_library/verify_cpp_example, for cells/cpp (the 7th pilot). C++ has no
+  existing verifier - unlike the other 5 languages, this is genuinely new work needing
+  a real C/C++ compiler toolchain. A sibling project on this same machine (repository-presenter)
+  has ALREADY installed and VERIFIED a working toolchain for this exact repo - reuse
+  it, do not attempt to install a new one.'
+depends_on:
+- TC-067
+- TC-079
+- TC-081
+- TC-082
+- TC-092
+- TC-093
+- TC-094
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_example_verifier.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'A shared, cross-project toolchain registry already exists at C:\tools\rp-toolchains\TOOLCHAIN_PATHS.txt
+  (installed and maintained by lanes in the sibling repository-presenter project,
+  deliberately NOT on PATH - read this file yourself for the complete, current picture
+  before writing any code). Key facts from it, confirmed as of 2026-09-27: `vcvarsall.bat`
+  at C:\tools\rp-toolchains\vs-buildtools\VC\Auxiliary\Build\vcvarsall.bat (MSVC 19.44.35229
+  for x64) was directly verified to build aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp''s
+  own UNMODIFIED CMakeLists.txt cleanly (cmake -G Ninja, all 192 targets) - this is
+  the exact repository and commit family this card targets. GCC (winlibs, at C:\tools\rp-toolchains\winlibs\mingw64\bin\)
+  and Clang (at C:\tools\rp-toolchains\llvm-19.1.7\...\bin\) BOTH FAIL on this exact
+  repo''s own source (a trigraph literal in NumberFormat.cpp:30, `{13, "# ??/??"}`,
+  trips `-Werror=trigraphs` under the project''s own non-MSVC compile flags; MSVC
+  has no equivalent diagnostic). USE MSVC (cl.exe via vcvarsall), NOT GCC/Clang, for
+  this reason - confirmed, not a preference.'
+- 'Usage pattern (from the registry file, follow it exactly): call `vcvarsall.bat
+  x64` from a subprocess whose PATH already includes vswhere.exe''s directory (C:\Program
+  Files (x86)\Microsoft Visual Studio\Installer) - this sets INCLUDE/LIB/LIBPATH and
+  prepends cl.exe''s own directory to PATH for that subprocess only. Capture these
+  env vars (e.g. by running `"<vcvarsall>" x64 && set` in a real cmd.exe subprocess
+  and parsing the output, or an equivalent reliable technique) and inject them into
+  the SUBPROCESS env for every cmake/ninja/cl invocation - never modify this machine''s
+  actual user or system PATH/environment, matching the registry file''s own stated
+  discipline. cmake is at C:\tools\rp-toolchains\winlibs\mingw64\bin\cmake.exe (GCC/MinGW-bundled
+  cmake binary, but usable to drive an MSVC build too via -G Ninja -DCMAKE_CXX_COMPILER=<cl.exe
+  path resolved after vcvarsall>) and ninja is at C:\tools\rp-toolchains\ninja\ninja.exe.'
+- Mirror src/foss_mcp/indexing/example_verifier.py's already-established pattern exactly
+  - read the current file first, including the shared `_clone_pinned_commit` helper
+  (reuse it, do not duplicate git plumbing) and _find_or_download_maven's own pattern
+  of 'check for a usable tool first, only bootstrap if genuinely absent' (though here
+  the tool is not absent, just not on PATH - the registry file itself is your discovery
+  mechanism, no download step is needed).
+- 'REQUIRED, exact function names (the second one is load-bearing for the negative
+  control): `prepare_cpp_library(repository: str, commit: str, workdir: Path) -> Path`
+  and `verify_cpp_example(candidate: CandidateExample, *, library_dir: Path, include_dir:
+  Path, workdir: Path) -> VerificationResult` (parameter names are a reasonable default
+  matching this project''s own convention of passing whatever a language''s toolchain
+  actually needs - adjust them ONLY if your real, hands-on build run reveals a genuinely
+  different artifact shape is needed; if you do adjust, keep verify_cpp_example''s
+  own name exactly as given).'
+- 'Real, hands-on investigation required before deciding exact prepare/verify behavior:
+  actually run `cmake -G Ninja` + `ninja` (with the MSVC environment injected) against
+  a real clone of aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp at the exact pinned
+  commit already used and verified today, 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2
+  (matching tests/fixtures/cells_cpp/api_surface.json''s own source_commit), and see
+  for real what output artifact (a .lib file, its real path/name) the build actually
+  produces - do not guess this. Note the real, nested include layout confirmed by
+  TC-094''s own extraction run (Aspose.Cells.Foss.Cpp/include/aspose/cells_foss/...)
+  - this is the real include root a candidate''s #include directives need to resolve
+  against.'
+- The real furnished-content candidates for cells/cpp (check tests/fixtures/furnished/cells_cpp/pages/_index.md
+  yourself) may be complete, self-contained snippets or bare statement blocks needing
+  a wrapper main() - confirm the real shape before assuming, exactly as TC-082 had
+  to for pdf/java's Java snippets.
+- Do not touch any other language's prepare_*/verify_* pair - purely additive.
+actions:
+- Read C:\tools\rp-toolchains\TOOLCHAIN_PATHS.txt in full first.
+- 'Do a real, hands-on probe: clone cells/cpp at the pinned commit, activate the MSVC
+  environment via vcvarsall, run cmake+ninja for real, and observe the real output
+  artifact and any real build quirks - before writing prepare_cpp_library/verify_cpp_example''s
+  final implementation.'
+- Implement both functions exactly per the investigation's real findings.
+- 'Write REAL tests in tests/indexing/test_example_verifier.py: a real clone+build
+  of the real pinned repo, a real KNOWN-WORKING candidate you construct and verify
+  yourself first (using a real, documented API call from cells/cpp''s real headers)
+  verifies True, and a deliberately broken variant verifies False with a real MSVC
+  compiler error in its output.'
+- Run the full existing test suite yourself and confirm nothing else broke.
+checks:
+- command: '{python} -m pytest tests/indexing/test_example_verifier.py -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 2
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    verify_cpp_example','def verify_cpp_example_DISABLED');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming verify_cpp_example so it is never referenced must break every
+    test exercising it with a NameError, proving the tests genuinely exercise this
+    concrete new function. Self-checked end-to-end against a fixture implementing
+    the exact prescribed name before being persisted.
+evidence:
+- evidence/build/G2/TC-096/receipt.json
+closeout:
+- Real, isolated MSVC-based compile verification now exists for cells/cpp candidate
+  examples - the last of all 7 pilots to get one.
+- A known-working real candidate verifies True; a deliberately broken one verifies
+  False with a real MSVC error.
+- Every other language's own verifier is completely unaffected.
+- Renaming verify_cpp_example fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
+  If the shared toolchain registry's paths have changed, re-read C:\tools\rp-toolchains\TOOLCHAIN_PATHS.txt
+  for the current state before assuming the paths above are stale.
