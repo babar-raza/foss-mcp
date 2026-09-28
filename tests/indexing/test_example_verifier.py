@@ -7,9 +7,12 @@ what it should do.
 
 This is genuinely slow (shallow clones + a pip install into a fresh venv,
 a cargo build pulling ~90 crates, two go builds, a real Maven build - which
-may itself first download and unzip a Maven distribution - and an npm
-install + tsc build) and requires network access plus a Python 3, a
-Rust/cargo, a Go, a JDK/javac, and a Node/npm toolchain.
+may itself first download and unzip a Maven distribution - an npm
+install + tsc build, and a real MSVC cmake+ninja build of a ~190-target C++
+static library) and requires network access plus a Python 3, a Rust/cargo,
+a Go, a JDK/javac, a Node/npm toolchain, and (Windows only) the MSVC build
+tools already installed at C:\\tools\\rp-toolchains per
+C:\\tools\\rp-toolchains\\TOOLCHAIN_PATHS.txt.
 """
 
 from __future__ import annotations
@@ -22,11 +25,13 @@ import pytest
 from foss_mcp.indexing.example_candidates import CandidateExample
 from foss_mcp.indexing.example_verifier import (
     VerificationResult,
+    prepare_cpp_library,
     prepare_go_library,
     prepare_java_library,
     prepare_python_library,
     prepare_rust_library,
     prepare_typescript_library,
+    verify_cpp_example,
     verify_go_example,
     verify_java_example,
     verify_python_example,
@@ -178,6 +183,66 @@ import { Document, PageFormat } from '@asposefoss/pdf';
 
 const doc = Document.New(PageFormat.A4);
 doc.frobnicateNonexistentMethodThatDoesNotExist();
+"""
+
+
+# --- cells/cpp -------------------------------------------------------------
+# Pinned exactly as indexed - matches tests/fixtures/cells_cpp/api_surface.json's
+# own `source_commit`.
+CPP_REPOSITORY = "aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp"
+CPP_COMMIT = "9f852d0ff1cfdad2d661556d6b87a8eff8c063a2"
+
+# The real furnished cells/cpp content (tests/fixtures/furnished/cells_cpp/pages/_index.md)
+# is a complete, self-contained snippet with its own #includes and int main() -
+# unlike pdf/java's bare statement block. That real snippet is itself missing
+# `#include "aspose/cells_foss/WorksheetCollection.h"` (Workbook.h only
+# forward-declares WorksheetCollection, so operator[] is not visible from it
+# alone) - a real gap this module's own real MSVC compile step is meant to
+# catch, so it is added here deliberately for the KNOWN-WORKING candidate.
+_CPP_WORKING_CODE = """\
+#include "aspose/cells_foss/Workbook.h"
+#include "aspose/cells_foss/WorksheetCollection.h"
+#include "aspose/cells_foss/Worksheet.h"
+#include "aspose/cells_foss/Cell.h"
+#include "aspose/cells_foss/Style.h"
+#include "aspose/cells_foss/Color.h"
+#include "aspose/cells_foss/Font.h"
+using namespace Aspose::Cells_FOSS;
+int main() {
+    Workbook workbook;
+    Worksheet& sheet = workbook.GetWorksheets()[0];
+    sheet.SetName("Products");
+    sheet.GetCells()["A1"].PutValue("Product");
+    sheet.GetCells()["B1"].PutValue("Price");
+    sheet.GetCells()["A2"].PutValue("Apple");
+    sheet.GetCells()["B2"].PutValue(2.99);
+    sheet.GetCells()["B4"].SetFormula("=SUM(B2:B3)");
+    Style headerStyle = sheet.GetCells()["A1"].GetStyle();
+    Font font;
+    font.SetBold(true);
+    font.SetColor(Color::FromArgb(255, 255, 255, 255));
+    headerStyle.SetFont(font);
+    headerStyle.SetForegroundColor(Color::FromArgb(255, 34, 120, 212));
+    sheet.GetCells()["A1"].SetStyle(headerStyle);
+    workbook.Save("products.xlsx");
+    return 0;
+}
+"""
+
+_CPP_BROKEN_CODE = """\
+#include "aspose/cells_foss/Workbook.h"
+#include "aspose/cells_foss/WorksheetCollection.h"
+#include "aspose/cells_foss/Worksheet.h"
+#include "aspose/cells_foss/Cell.h"
+using namespace Aspose::Cells_FOSS;
+int main() {
+    Workbook workbook;
+    Worksheet& sheet = workbook.GetWorksheets()[0];
+    sheet.GetCells()["A1"].PutValue("Hello");
+    sheet.FrobnicateNonexistentMethodThatDoesNotExist();
+    workbook.Save("output.xlsx");
+    return 0;
+}
 """
 
 
@@ -408,6 +473,63 @@ def test_typescript_known_broken_candidate_fails_real_type_check(
 
     assert result.verified is False
     assert "TS2339" in result.output or "frobnicateNonexistentMethodThatDoesNotExist" in result.output
+
+
+# --- C++ fixtures/tests -----------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def cpp_library(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    workdir = tmp_path_factory.mktemp("cells_cpp_reference")
+    return prepare_cpp_library(
+        repository=CPP_REPOSITORY,
+        commit=CPP_COMMIT,
+        workdir=workdir,
+    )
+
+
+@pytest.fixture(scope="module")
+def cpp_include_dir(cpp_library: Path) -> Path:
+    return cpp_library / "Aspose.Cells.Foss.Cpp" / "include"
+
+
+def test_prepare_cpp_library_builds_the_real_pinned_commit(cpp_library: Path) -> None:
+    assert cpp_library.exists()
+    library_artifact = cpp_library / "Aspose.Cells.Foss.Cpp" / "_build" / "aspose_cells_foss.lib"
+    assert library_artifact.exists()
+
+
+def test_cpp_known_working_candidate_builds_clean(
+    cpp_library: Path, cpp_include_dir: Path, tmp_path: Path
+) -> None:
+    candidate = _candidate("Create a styled workbook", "cpp", _CPP_WORKING_CODE)
+
+    result = verify_cpp_example(
+        candidate,
+        library_dir=cpp_library,
+        include_dir=cpp_include_dir,
+        workdir=tmp_path,
+    )
+
+    assert isinstance(result, VerificationResult)
+    assert result.candidate == candidate
+    assert result.verified is True, result.output
+
+
+def test_cpp_known_broken_candidate_fails_real_compile(
+    cpp_library: Path, cpp_include_dir: Path, tmp_path: Path
+) -> None:
+    candidate = _candidate("Broken worksheet", "cpp", _CPP_BROKEN_CODE)
+
+    result = verify_cpp_example(
+        candidate,
+        library_dir=cpp_library,
+        include_dir=cpp_include_dir,
+        workdir=tmp_path,
+    )
+
+    assert result.verified is False
+    assert "C2039" in result.output or "FrobnicateNonexistentMethodThatDoesNotExist" in result.output
 
 
 def test_dataclasses_replace_still_works_on_candidate_example(python_venv: Path, tmp_path: Path) -> None:

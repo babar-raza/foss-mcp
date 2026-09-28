@@ -13,12 +13,21 @@ Originally proven for pdf/net's .NET toolchain
 Extended to three more pilots with the same git-fetch plumbing and the same
 prepare/verify split: Python (slides/python), Rust (cells/rust), and Go
 (pdf/go). Extended again here to the last two pilots with a real extraction
-fixture: Java (pdf/java) and TypeScript (pdf/typescript) - completing all 6
-(pdf/cpp remains separately blocked on its own unresolved extraction bug).
+fixture: Java (pdf/java) and TypeScript (pdf/typescript) - completing 6 of 7.
+Extended a final time to the 7th and last pilot, C++ (cells/cpp) - the only
+pilot with no prior verifier at all, since it needs a real C/C++ compiler
+toolchain rather than a language-native package manager. A sibling project
+on this same machine (repository-presenter) already installed and verified
+a working MSVC toolchain for this exact repository
+(``C:\\tools\\rp-toolchains\\TOOLCHAIN_PATHS.txt``); GCC and Clang (also
+available via that same registry) both FAIL on this repo's own source (a
+trigraph literal in ``NumberFormat.cpp`` trips ``-Werror=trigraphs`` under
+their non-MSVC compile flags), confirmed real and not a preference.
 """
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -44,6 +53,8 @@ __all__ = [
     "verify_java_example",
     "prepare_typescript_library",
     "verify_typescript_example",
+    "prepare_cpp_library",
+    "verify_cpp_example",
 ]
 
 _OUTPUT_TRUNCATE_CHARS = 8000
@@ -183,6 +194,282 @@ def verify_dotnet_example(
     (project_dir / "Program.cs").write_text(candidate.code, encoding="utf-8")
 
     result = _run(["dotnet", "build"], cwd=project_dir)
+
+    verified = result.returncode == 0
+    output = _truncate(f"{result.stdout}\n{result.stderr}")
+
+    return VerificationResult(candidate=candidate, verified=verified, output=output)
+
+
+# --- cells/cpp ---------------------------------------------------------------
+#
+# Real, hands-on toolchain facts confirmed today by cloning
+# aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp at its pinned commit and
+# actually running cmake -G Ninja + ninja against it with MSVC:
+#
+#   - The pinned repo has NO top-level CMakeLists.txt; the library's own
+#     CMakeLists.txt (project `aspose_cells_foss_cpp`, library target
+#     `aspose_cells_foss`, a STATIC library) lives in the
+#     ``Aspose.Cells.Foss.Cpp`` subdirectory. Its own public headers live
+#     under ``Aspose.Cells.Foss.Cpp/include/aspose/cells_foss/*.h`` - the
+#     real, nested include layout TC-094's extraction run had already
+#     confirmed.
+#   - Configuring with no CMAKE_BUILD_TYPE set (Ninja's single-config
+#     default) makes the project's own toolchain-detect.cmake select MSVC's
+#     debug, dynamic runtime (``/MDd``). A candidate compiled with cl.exe's
+#     own bare default (``/MT``, static release) then fails to LINK against
+#     it with LNK2038 runtime-library mismatches - not a candidate code
+#     defect. Building with ``-DCMAKE_BUILD_TYPE=Release`` (MSVC's dynamic
+#     release runtime, ``/MD``) and compiling every candidate with ``/MD``
+#     keeps both sides in agreement; confirmed by a real link that only
+#     succeeds once both are ``/MD``.
+#   - The real output artifact is a plain ``.lib`` file at the build
+#     directory's own root (Ninja's single-config generator does not nest
+#     output under a per-configuration subdirectory the way the Visual
+#     Studio generator would): ``aspose_cells_foss.lib``.
+#   - Building the bare ``aspose_cells_foss`` target (rather than Ninja's
+#     default "all") builds only the library's own ~190 object/link steps,
+#     skipping the project's own ``tests`` subdirectory the top-level
+#     CMakeLists.txt also enables - keeping this fast.
+#   - The real furnished content at
+#     ``tests/fixtures/furnished/cells_cpp/pages/_index.md`` is a complete,
+#     self-contained snippet with its own ``#include``s and ``int main()``
+#     - not a bare statement block needing a wrapper, unlike pdf/java's own
+#     furnished content. No wrapping is done here; a candidate is compiled
+#     exactly as given. (That real snippet is itself missing a needed
+#     ``#include "aspose/cells_foss/WorksheetCollection.h"`` - ``Workbook.h``
+#     only forward-declares that class, so ``WorksheetCollection::operator[]``
+#     is not visible from it alone - which a real MSVC compile of it
+#     genuinely catches; this module does not paper over that, since a
+#     candidate that fails to compile as furnished is exactly what
+#     verification exists to catch.)
+
+_CPP_VCVARSALL = Path(r"C:\tools\rp-toolchains\vs-buildtools\VC\Auxiliary\Build\vcvarsall.bat")
+_CPP_VSWHERE_DIR = Path(r"C:\Program Files (x86)\Microsoft Visual Studio\Installer")
+_CPP_NINJA_EXECUTABLE = Path(r"C:\tools\rp-toolchains\ninja\ninja.exe")
+_CPP_CMAKE_EXECUTABLE = Path(r"C:\tools\rp-toolchains\winlibs\mingw64\bin\cmake.exe")
+
+_CPP_LIBRARY_SUBDIR = "Aspose.Cells.Foss.Cpp"
+_CPP_LIBRARY_TARGET = "aspose_cells_foss"
+_CPP_LIBRARY_ARTIFACT_NAME = "aspose_cells_foss.lib"
+_CPP_BUILD_DIRNAME = "_build"
+
+_CL_EXE_PATH_RE = re.compile(r"^(.*\bcl\.exe)\s*$", re.MULTILINE)
+
+
+@dataclass(frozen=True)
+class _MsvcEnvironment:
+    """The real, subprocess-scoped MSVC x64 environment - never written to
+    this machine's actual PATH/environment.
+    """
+
+    env: dict[str, str]
+    cl_exe: Path
+
+
+def _msvc_environment(workdir: Path) -> _MsvcEnvironment:
+    """Activate the real MSVC x64 developer environment by running
+    ``vcvarsall.bat x64`` in a disposable ``cmd.exe`` subprocess and parsing
+    its own ``set`` output, exactly as
+    ``C:\\tools\\rp-toolchains\\TOOLCHAIN_PATHS.txt`` documents.
+
+    Returns a full environment dict (a copy of this process's own
+    ``os.environ``, with ``INCLUDE``/``LIB``/``LIBPATH`` set from
+    vcvarsall's own output and cl.exe's real resolved directory plus the
+    real Windows SDK ``bin`` directory - needed for ``rc.exe``/``mt.exe``
+    during linking, confirmed necessary by a real failed link without it -
+    prepended to ``PATH``) for the caller to pass as
+    ``subprocess.run(..., env=...)``. This machine's own PATH/environment is
+    never modified; everything here is scoped to the returned dict.
+
+    Raises ``RuntimeError`` if vcvarsall.bat fails, or if
+    INCLUDE/LIB/LIBPATH/the Windows SDK bin directory/cl.exe's own path
+    cannot be resolved from its real output.
+    """
+    workdir.mkdir(parents=True, exist_ok=True)
+    script_path = workdir / "_activate_msvc.bat"
+    script_path.write_text(
+        "@echo off\r\n"
+        f'call "{_CPP_VCVARSALL}" x64\r\n'
+        "echo ---MSVC-ENV-START---\r\n"
+        "set\r\n"
+        "echo ---MSVC-ENV-END---\r\n"
+        "where cl.exe\r\n",
+        encoding="utf-8",
+    )
+
+    launch_env = dict(os.environ)
+    launch_env["PATH"] = f"{_CPP_VSWHERE_DIR};{launch_env.get('PATH', '')}"
+
+    result = subprocess.run(
+        ["cmd.exe", "/c", str(script_path)],
+        cwd=workdir,
+        capture_output=True,
+        text=True,
+        env=launch_env,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"vcvarsall.bat x64 failed:\n{result.stdout}\n{result.stderr}")
+
+    output = result.stdout
+    if "---MSVC-ENV-START---" not in output or "---MSVC-ENV-END---" not in output:
+        raise RuntimeError(f"vcvarsall.bat x64 produced unexpected output:\n{output}\n{result.stderr}")
+
+    env_block = output.split("---MSVC-ENV-START---", 1)[1].split("---MSVC-ENV-END---", 1)[0]
+    captured: dict[str, str] = {}
+    for line in env_block.splitlines():
+        key, sep, value = line.partition("=")
+        if sep:
+            captured[key.strip()] = value
+
+    for required_key in ("INCLUDE", "LIB", "LIBPATH", "WindowsSdkVerBinPath"):
+        if not captured.get(required_key):
+            raise RuntimeError(f"vcvarsall.bat x64 did not set {required_key}:\n{output}")
+
+    after_env_block = output.split("---MSVC-ENV-END---", 1)[1]
+    cl_match = _CL_EXE_PATH_RE.search(after_env_block)
+    if cl_match is None:
+        raise RuntimeError(f"could not resolve cl.exe from `where cl.exe`:\n{after_env_block}")
+    cl_exe = Path(cl_match.group(1).strip())
+    if not cl_exe.exists():
+        raise RuntimeError(f"resolved cl.exe path does not exist: {cl_exe}")
+
+    sdk_bin_dir = Path(captured["WindowsSdkVerBinPath"].strip().rstrip("\\")) / "x64"
+
+    env = dict(os.environ)
+    env["INCLUDE"] = captured["INCLUDE"]
+    env["LIB"] = captured["LIB"]
+    env["LIBPATH"] = captured["LIBPATH"]
+    env["PATH"] = f"{cl_exe.parent};{sdk_bin_dir};{env.get('PATH', '')}"
+
+    return _MsvcEnvironment(env=env, cl_exe=cl_exe)
+
+
+def prepare_cpp_library(repository: str, commit: str, workdir: Path) -> Path:
+    """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``,
+    activate a real MSVC x64 environment, and build the real
+    ``aspose_cells_foss`` static-library CMake target once with
+    ``cmake -G Ninja`` + ``ninja`` (MSVC specifically - GCC/Clang both fail
+    on this repo's own trigraph literal under their non-MSVC compile
+    flags, confirmed real by
+    ``C:\\tools\\rp-toolchains\\TOOLCHAIN_PATHS.txt``).
+
+    Returns ``workdir`` - the cloned repo's own root, matching
+    ``prepare_rust_library``'s/``prepare_go_library``'s own convention of
+    returning the prepared root directly. Under it,
+    ``Aspose.Cells.Foss.Cpp/include`` is the real header root a candidate's
+    ``#include`` directives resolve against, and
+    ``Aspose.Cells.Foss.Cpp/_build/aspose_cells_foss.lib`` is the real
+    built static library - both real, hands-on-confirmed paths
+    ``verify_cpp_example`` derives from ``library_dir``/``include_dir``.
+
+    Raises ``RuntimeError`` on any real failure (clone, checkout, MSVC
+    environment activation, cmake configure, or ninja build).
+    """
+    _clone_pinned_commit(repository, commit, workdir)
+
+    library_source_dir = workdir / _CPP_LIBRARY_SUBDIR
+    build_dir = library_source_dir / _CPP_BUILD_DIRNAME
+    build_dir.mkdir(parents=True, exist_ok=True)
+
+    msvc = _msvc_environment(workdir / "_msvc_env_prepare")
+    build_env = dict(msvc.env)
+    build_env["PATH"] = f"{_CPP_NINJA_EXECUTABLE.parent};{build_env.get('PATH', '')}"
+
+    configure_result = subprocess.run(
+        [
+            str(_CPP_CMAKE_EXECUTABLE),
+            "-G",
+            "Ninja",
+            "-DCMAKE_BUILD_TYPE=Release",
+            f"-DCMAKE_CXX_COMPILER={msvc.cl_exe}",
+            str(library_source_dir),
+        ],
+        cwd=build_dir,
+        capture_output=True,
+        text=True,
+        env=build_env,
+    )
+    if configure_result.returncode != 0:
+        raise RuntimeError(
+            f"cmake configure of {repository}@{commit} ({_CPP_LIBRARY_SUBDIR}) failed:\n"
+            f"{configure_result.stdout}\n{configure_result.stderr}"
+        )
+
+    build_result = subprocess.run(
+        [str(_CPP_NINJA_EXECUTABLE), _CPP_LIBRARY_TARGET],
+        cwd=build_dir,
+        capture_output=True,
+        text=True,
+        env=build_env,
+    )
+    if build_result.returncode != 0:
+        raise RuntimeError(
+            f"ninja build of {_CPP_LIBRARY_TARGET} for {repository}@{commit} failed:\n"
+            f"{build_result.stdout}\n{build_result.stderr}"
+        )
+
+    library_artifact = build_dir / _CPP_LIBRARY_ARTIFACT_NAME
+    if not library_artifact.exists():
+        raise RuntimeError(
+            f"ninja reported success building {_CPP_LIBRARY_TARGET} but {library_artifact} was not produced"
+        )
+
+    return workdir
+
+
+def verify_cpp_example(
+    candidate: CandidateExample,
+    *,
+    library_dir: Path,
+    include_dir: Path,
+    workdir: Path,
+) -> VerificationResult:
+    """Compile and link ``candidate.code`` as a real, throwaway ``.cpp``
+    file against the pre-built static library under ``library_dir`` (a
+    ``prepare_cpp_library`` root -
+    ``Aspose.Cells.Foss.Cpp/_build/aspose_cells_foss.lib`` under it) and
+    ``include_dir`` (the header root, e.g. ``Aspose.Cells.Foss.Cpp/include``
+    under that same root), using the same real MSVC toolchain, and report
+    the real ``cl.exe`` outcome.
+
+    Compiled with ``/MD`` to match the reference library's own ``Release``
+    build (dynamic, non-debug runtime) - confirmed by a real, hands-on
+    reproduction that a mismatched runtime (the library's own CMake default
+    of ``/MDd`` vs. cl.exe's own bare default of ``/MT``) fails at LINK time
+    with LNK2038 errors, not at candidate compile time, so both sides must
+    agree.
+
+    The literal comparison determining ``verified`` is intentionally exact
+    (``verified = result.returncode == 0``), matching every other pilot.
+    """
+    project_dir = workdir / "candidate_project"
+    project_dir.mkdir(parents=True, exist_ok=True)
+    source_path = project_dir / "candidate.cpp"
+    source_path.write_text(candidate.code, encoding="utf-8")
+
+    library_artifact = library_dir / _CPP_LIBRARY_SUBDIR / _CPP_BUILD_DIRNAME / _CPP_LIBRARY_ARTIFACT_NAME
+    output_exe = project_dir / "candidate.exe"
+
+    msvc = _msvc_environment(workdir / "_msvc_env_verify")
+
+    result = subprocess.run(
+        [
+            str(msvc.cl_exe),
+            "/nologo",
+            "/EHsc",
+            "/std:c++17",
+            "/MD",
+            f"/I{include_dir}",
+            str(source_path),
+            str(library_artifact),
+            f"/Fe:{output_exe}",
+        ],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        env=msvc.env,
+    )
 
     verified = result.returncode == 0
     output = _truncate(f"{result.stdout}\n{result.stderr}")
