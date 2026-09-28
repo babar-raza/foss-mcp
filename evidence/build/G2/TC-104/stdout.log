@@ -1,0 +1,273 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-z7jlssf5\.junit-0.xml"
+--- stdout ---
+.....................                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-z7jlssf5\.junit-0.xml"
+--- stdout ---
+.....................                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/example_verifier.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-z7jlssf5\.junit-0.xml"
+--- stdout ---
+.......FFFF..........                                                    [100%]
+================================== FAILURES ===================================
+________________ test_go_known_working_candidate_builds_clean _________________
+
+go_library = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-916/pdf_go_reference0')
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-916/test_go_known_working_candidat0')
+
+    def test_go_known_working_candidate_builds_clean(go_library: Path, tmp_path: Path) -> None:
+        candidate = _candidate("Create a blank document", "go", _GO_WORKING_CODE)
+    
+>       result = verify_go_example(
+            candidate,
+            module_path=GO_MODULE_PATH,
+            library_dir=go_library,
+            workdir=tmp_path,
+        )
+
+tests\indexing\test_example_verifier.py:359: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = CandidateExample(title='Create a blank document', description='', language='go', code='package main\n\nimport (\n\t"lo...df.NewDocument(595, 842)\n\tif err := doc.Save("output.pdf"); err != nil {\n\t\tlog.Fatalf("save: %v", err)\n\t}\n}\n')
+module_path = 'github.com/aspose-pdf-foss/aspose-pdf-foss-for-go'
+library_dir = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-916/pdf_go_reference0')
+workdir = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-916/test_go_known_working_candidat0')
+
+    def verify_go_example(
+        candidate: CandidateExample,
+        *,
+        module_path: str,
+        library_dir: Path,
+        workdir: Path,
+    ) -> VerificationResult:
+        """Build ``candidate.code`` as ``main.go`` in a throwaway module that
+        ``replace``s ``module_path`` with ``library_dir`` (the cloned
+        reference module), and report the real ``go build`` outcome.
+    
+        Real furnished pdf/go content is a bare statement fragment with no
+        ``package``/``import``/``func main`` of its own (confirmed by reading
+        the real ``tests/fixtures/furnished/pdf_go/pages/_index.md`` content) -
+        not a full compilable Go file. A candidate with no top-level ``package``
+        declaration of its own is therefore wrapped by
+        ``_wrap_go_fragment_if_needed`` in a minimal ``package main`` +
+        ``func main()`` shell; a candidate that already declares its own
+        ``package`` is compiled as-is.
+    
+        The literal comparison determining ``verified`` is intentionally exact
+        (``verified = result.returncode == 0``), matching ``verify_dotnet_example``.
+        """
+        project_dir = workdir / "candidate_project"
+        project_dir.mkdir(parents=True, exist_ok=True)
+    
+        go_mod_content = _CANDIDATE_GO_MOD_TEMPLATE.format(
+            module_path=module_path,
+            library_dir=library_dir.resolve().as_posix(),
+        )
+        (project_dir / "go.mod").write_text(go_mod_content, encoding="utf-8")
+>       wrapped_code = _wrap_go_fragment_if_needed(candidate.code, module_path)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_wrap_go_fragment_if_needed' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:786: NameError
+______________ test_go_known_broken_candidate_fails_real_compile ______________
+
+go_library = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-916/pdf_go_reference0')
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-916/test_go_known_broken_candidate0')
+
+    def test_go_known_broken_candidate_fails_real_compile(go_library: Path, tmp_path: Path) -> None:
+        candidate = _candidate("Broken document", "go", _GO_BROKEN_CODE)
+    
+>       result = verify_go_example(
+            candidate,
+            module_path=GO_MODULE_PATH,
+            library_dir=go_library,
+            workdir=tmp_path,
+        )
+
+tests\indexing\test_example_verifier.py:374: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = CandidateExample(title='Broken document', description='', language='go', code='package main\n\nimport (\n\tpdf "github...go"\n)\n\nfunc main() {\n\tdoc := pdf.NewDocument(595, 842)\n\tdoc.FrobnicateNonexistentMethodThatDoesNotExist()\n}\n')
+module_path = 'github.com/aspose-pdf-foss/aspose-pdf-foss-for-go'
+library_dir = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-916/pdf_go_reference0')
+workdir = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-916/test_go_known_broken_candidate0')
+
+    def verify_go_example(
+        candidate: CandidateExample,
+        *,
+        module_path: str,
+        library_dir: Path,
+        workdir: Path,
+    ) -> VerificationResult:
+        """Build ``candidate.code`` as ``main.go`` in a throwaway module that
+        ``replace``s ``module_path`` with ``library_dir`` (the cloned
+        reference module), and report the real ``go build`` outcome.
+    
+        Real furnished pdf/go content is a bare statement fragment with no
+        ``package``/``import``/``func main`` of its own (confirmed by reading
+        the real ``tests/fixtures/furnished/pdf_go/pages/_index.md`` content) -
+        not a full compilable Go file. A candidate with no top-level ``package``
+        declaration of its own is therefore wrapped by
+        ``_wrap_go_fragment_if_needed`` in a minimal ``package main`` +
+        ``func main()`` shell; a candidate that already declares its own
+        ``package`` is compiled as-is.
+    
+        The literal comparison determining ``verified`` is intentionally exact
+        (``verified = result.returncode == 0``), matching ``verify_dotnet_example``.
+        """
+        project_dir = workdir / "candidate_project"
+        project_dir.mkdir(parents=True, exist_ok=True)
+    
+        go_mod_content = _CANDIDATE_GO_MOD_TEMPLATE.format(
+            module_path=module_path,
+            library_dir=library_dir.resolve().as_posix(),
+        )
+        (project_dir / "go.mod").write_text(go_mod_content, encoding="utf-8")
+>       wrapped_code = _wrap_go_fragment_if_needed(candidate.code, module_path)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_wrap_go_fragment_if_needed' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:786: NameError
+___________ test_go_real_furnished_fragment_candidate_verifies_true ___________
+
+go_library = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-916/pdf_go_reference0')
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-916/test_go_real_furnished_fragmen0')
+
+    def test_go_real_furnished_fragment_candidate_verifies_true(go_library: Path, tmp_path: Path) -> None:
+        """pdf/go's own real furnished-content candidate (a bare statement
+        fragment with no package/import/func main of its own) now genuinely
+        compiles once wrapped, against the real pinned reference module.
+        """
+        candidate = _candidate("Split and Merge PDFs", "go", _GO_FRAGMENT_WORKING_CODE)
+    
+>       result = verify_go_example(
+            candidate,
+            module_path=GO_MODULE_PATH,
+            library_dir=go_library,
+            workdir=tmp_path,
+        )
+
+tests\indexing\test_example_verifier.py:421: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = CandidateExample(title='Split and Merge PDFs', description='', language='go', code='doc, _ := pdf.Open("input.pdf")\np...ve(fmt.Sprintf("page%03d.pdf", i+1))\n}\ndoc2, _ := pdf.Open("file2.pdf")\ndoc.Append(doc2)\ndoc.Save("merged.pdf")\n')
+module_path = 'github.com/aspose-pdf-foss/aspose-pdf-foss-for-go'
+library_dir = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-916/pdf_go_reference0')
+workdir = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-916/test_go_real_furnished_fragmen0')
+
+    def verify_go_example(
+        candidate: CandidateExample,
+        *,
+        module_path: str,
+        library_dir: Path,
+        workdir: Path,
+    ) -> VerificationResult:
+        """Build ``candidate.code`` as ``main.go`` in a throwaway module that
+        ``replace``s ``module_path`` with ``library_dir`` (the cloned
+        reference module), and report the real ``go build`` outcome.
+    
+        Real furnished pdf/go content is a bare statement fragment with no
+        ``package``/``import``/``func main`` of its own (confirmed by reading
+        the real ``tests/fixtures/furnished/pdf_go/pages/_index.md`` content) -
+        not a full compilable Go file. A candidate with no top-level ``package``
+        declaration of its own is therefore wrapped by
+        ``_wrap_go_fragment_if_needed`` in a minimal ``package main`` +
+        ``func main()`` shell; a candidate that already declares its own
+        ``package`` is compiled as-is.
+    
+        The literal comparison determining ``verified`` is intentionally exact
+        (``verified = result.returncode == 0``), matching ``verify_dotnet_example``.
+        """
+        project_dir = workdir / "candidate_project"
+        project_dir.mkdir(parents=True, exist_ok=True)
+    
+        go_mod_content = _CANDIDATE_GO_MOD_TEMPLATE.format(
+            module_path=module_path,
+            library_dir=library_dir.resolve().as_posix(),
+        )
+        (project_dir / "go.mod").write_text(go_mod_content, encoding="utf-8")
+>       wrapped_code = _wrap_go_fragment_if_needed(candidate.code, module_path)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_wrap_go_fragment_if_needed' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:786: NameError
+______ test_go_real_furnished_fragment_broken_variant_fails_real_compile ______
+
+go_library = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-916/pdf_go_reference0')
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-916/test_go_real_furnished_fragmen1')
+
+    def test_go_real_furnished_fragment_broken_variant_fails_real_compile(
+        go_library: Path, tmp_path: Path
+    ) -> None:
+        candidate = _candidate("Split and Merge PDFs (broken)", "go", _GO_FRAGMENT_BROKEN_CODE)
+    
+>       result = verify_go_example(
+            candidate,
+            module_path=GO_MODULE_PATH,
+            library_dir=go_library,
+            workdir=tmp_path,
+        )
+
+tests\indexing\test_example_verifier.py:438: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = CandidateExample(title='Split and Merge PDFs (broken)', description='', language='go', code='doc, _ := pdf.Open("input...= range pages {\n    p.Save(fmt.Sprintf("page%03d.pdf", i+1))\n}\ndoc.FrobnicateNonexistentMethodThatDoesNotExist()\n')
+module_path = 'github.com/aspose-pdf-foss/aspose-pdf-foss-for-go'
+library_dir = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-916/pdf_go_reference0')
+workdir = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-916/test_go_real_furnished_fragmen1')
+
+    def verify_go_example(
+        candidate: CandidateExample,
+        *,
+        module_path: str,
+        library_dir: Path,
+        workdir: Path,
+    ) -> VerificationResult:
+        """Build ``candidate.code`` as ``main.go`` in a throwaway module that
+        ``replace``s ``module_path`` with ``library_dir`` (the cloned
+        reference module), and report the real ``go build`` outcome.
+    
+        Real furnished pdf/go content is a bare statement fragment with no
+        ``package``/``import``/``func main`` of its own (confirmed by reading
+        the real ``tests/fixtures/furnished/pdf_go/pages/_index.md`` content) -
+        not a full compilable Go file. A candidate with no top-level ``package``
+        declaration of its own is therefore wrapped by
+        ``_wrap_go_fragment_if_needed`` in a minimal ``package main`` +
+        ``func main()`` shell; a candidate that already declares its own
+        ``package`` is compiled as-is.
+    
+        The literal comparison determining ``verified`` is intentionally exact
+        (``verified = result.returncode == 0``), matching ``verify_dotnet_example``.
+        """
+        project_dir = workdir / "candidate_project"
+        project_dir.mkdir(parents=True, exist_ok=True)
+    
+        go_mod_content = _CANDIDATE_GO_MOD_TEMPLATE.format(
+            module_path=module_path,
+            library_dir=library_dir.resolve().as_posix(),
+        )
+        (project_dir / "go.mod").write_text(go_mod_content, encoding="utf-8")
+>       wrapped_code = _wrap_go_fragment_if_needed(candidate.code, module_path)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_wrap_go_fragment_if_needed' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:786: NameError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_example_verifier.py::test_go_known_working_candidate_builds_clean
+FAILED tests/indexing/test_example_verifier.py::test_go_known_broken_candidate_fails_real_compile
+FAILED tests/indexing/test_example_verifier.py::test_go_real_furnished_fragment_candidate_verifies_true
+FAILED tests/indexing/test_example_verifier.py::test_go_real_furnished_fragment_broken_variant_fails_real_compile
+
+--- stderr ---
+
