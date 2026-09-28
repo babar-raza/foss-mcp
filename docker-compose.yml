@@ -33,9 +33,15 @@ x-serving-base: &serving-base
 # `ingest-pdf-typescript` service below (which publishes into it) and `serving-pdf-typescript`
 # (which reads it). Scope is pdf/typescript only; every other pilot's own volume/service above
 # and below is unaffected.
+#
+# G2/TC-099: pdf/java's own equivalent, same shape - shared between the one-shot
+# `ingest-pdf-java` service below (which publishes into it) and `serving-pdf-java` (which reads
+# it). Scope is pdf/java only; every other pilot's own volume/service above and below is
+# unaffected.
 volumes:
   manifests-pdf-net:
   manifests-pdf-typescript:
+  manifests-pdf-java:
 
 services:
   # G2/TC-064: the real, live first publish for pdf/net - a one-shot init job, not a
@@ -150,10 +156,52 @@ services:
       FOSS_MCP_PLATFORM: cpp
       FOSS_MCP_SOURCE_KIND: self_extracted
 
+  # G2/TC-099: pdf/java's real, live first publish - a one-shot init job, not a long-running
+  # service, mirroring `ingest-pdf-net`/`ingest-pdf-typescript` above exactly. Builds real Chunk
+  # objects from this pilot's real committed fixture (infra/build_chunks.py,
+  # build_chunks_from_api_surface) plus real, compile-verified examples extracted from its own
+  # furnished content (--library-platform java dispatches to
+  # prepare_java_library/verify_java_example, TC-091 - a real Maven build of the pinned
+  # reference library, then a real javac compile per candidate, both using the OpenJDK 21 + Maven
+  # 3.9.9 already installed in Dockerfile.ingestion), then publishes them through the real
+  # CAS/citation-validation authority path (infra/ingest.py) using the real
+  # HashingEmbeddingProvider - into the SAME named volume `serving-pdf-java` below reads.
+  ingest-pdf-java:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-pdf-java:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/pdf_java/api_surface.json
+        --title "pdf/java API surface"
+        --max-types 20
+        --furnished-page /app/fixtures/furnished/pdf_java/pages/_index.md
+        --library-repository aspose-pdf-foss/Aspose.PDF-FOSS-for-Java
+        --library-commit db2d3f0622f035825419c6d46727022064f39f15
+        --library-platform java
+        --out /tmp/pdf_java_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family pdf
+        --platform java
+        --source-kind self_extracted
+        --chunks /tmp/pdf_java_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/pdf_java/api_surface.json
+        --held-by ingestion-pdf-java
+
   serving-pdf-java:
     <<: *serving-base
     ports:
       - "8083:8080"
+    volumes:
+      - manifests-pdf-java:/data/manifests
     environment:
       FOSS_MCP_FAMILY: pdf
       FOSS_MCP_PLATFORM: java
