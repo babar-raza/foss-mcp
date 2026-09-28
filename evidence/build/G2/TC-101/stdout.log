@@ -1,0 +1,52 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_slides_python_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g_8n9lby\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_slides_python_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g_8n9lby\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/e2e/test_slides_python_live_content.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_slides_python_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g_8n9lby\.junit-0.xml"
+--- stdout ---
+.....F.                                                                  [100%]
+================================== FAILURES ===================================
+____ test_lookup_never_fabricates_a_task_answer_for_the_rectangle_question ____
+
+session = <tests.e2e.test_slides_python_live_content._McpSession object at 0x00000194E99C1940>
+
+    def test_lookup_never_fabricates_a_task_answer_for_the_rectangle_question(
+        session: _McpSession,
+    ) -> None:
+        """REQ-G2-050 (TC-080/TC-089/TC-098/TC-099/TC-100 pattern), proven HONESTLY for
+        slides/python: this pilot currently has neither a citable example (see module docstring) nor
+        any published doc content, so the real running container's ``lookup`` composes no
+        ``TaskAnswer`` for this real, API-naive task question - ``_compose_from_docs`` (src/foss_mcp/
+        mcp/tools/lookup.py) finds nothing on either side and returns ``None``, so ``lookup``
+        correctly falls back to the real, honest ``Miss`` its own ``search_symbols`` call produces
+        (confirmed, by hand, to be a genuine miss rather than an incidental lexical collision - see
+        module docstring). This is the correct, non-fabricating behaviour the production code itself
+        documents ("never a fabricated one") - REQ-G2-050's full "a real, composed lookup task-answer
+        returns a real, genuinely verified example" bar is NOT met for slides/python today, and this
+        test proves that honestly rather than asserting a match this card never actually observed.
+        """
+>       body = session.call_tool("lookup", {"query": REAL_TASK_QUERY})
+                                                     ^^^^^^^^^^^^^^^
+E       NameError: name 'REAL_TASK_QUERY' is not defined
+
+tests\e2e\test_slides_python_live_content.py:397: NameError
+=========================== short test summary info ===========================
+FAILED tests/e2e/test_slides_python_live_content.py::test_lookup_never_fabricates_a_task_answer_for_the_rectangle_question
+
+--- stderr ---
+
