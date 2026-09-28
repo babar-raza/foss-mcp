@@ -42,11 +42,17 @@ x-serving-base: &serving-base
 # G2/TC-100: pdf/go's own equivalent, same shape - shared between the one-shot `ingest-pdf-go`
 # service below (which publishes into it) and `serving-pdf-go` (which reads it). Scope is pdf/go
 # only; every other pilot's own volume/service above and below is unaffected.
+#
+# G2/TC-101: slides/python's own equivalent, same shape - shared between the one-shot
+# `ingest-slides-python` service below (which publishes into it) and `serving-slides-python`
+# (which reads it). Scope is slides/python only; every other pilot's own volume/service above and
+# below is unaffected.
 volumes:
   manifests-pdf-net:
   manifests-pdf-typescript:
   manifests-pdf-java:
   manifests-pdf-go:
+  manifests-slides-python:
 
 services:
   # G2/TC-064: the real, live first publish for pdf/net - a one-shot init job, not a
@@ -264,10 +270,53 @@ services:
       FOSS_MCP_PLATFORM: go
       FOSS_MCP_SOURCE_KIND: self_extracted
 
+  # G2/TC-101: slides/python's real, live first publish - a one-shot init job, not a
+  # long-running service, mirroring `ingest-pdf-net`/`ingest-pdf-typescript`/`ingest-pdf-java`/
+  # `ingest-pdf-go` above exactly. Builds real Chunk objects from this pilot's real committed
+  # fixture (infra/build_chunks.py, build_chunks_from_api_surface) plus real, run-verified
+  # examples extracted from its own furnished content (--library-platform python dispatches to
+  # prepare_python_library/verify_python_example, TC-091 - a real git clone of the pinned
+  # reference library, a real venv, a real `pip install -e`, then a real interpreter run per
+  # candidate, using the base python3 toolchain already present in Dockerfile.ingestion), then
+  # publishes them through the real CAS/citation-validation authority path (infra/ingest.py) using
+  # the real HashingEmbeddingProvider - into the SAME named volume `serving-slides-python` below
+  # reads.
+  ingest-slides-python:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-slides-python:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/slides_python/api_surface.json
+        --title "slides/python API surface"
+        --max-types 20
+        --furnished-page /app/fixtures/furnished/slides_python/pages/_index.md
+        --library-repository aspose-slides-foss/Aspose.Slides-FOSS-for-Python
+        --library-commit 4e63447ba79d1c27a5192844847d9f872c5b92ad
+        --library-platform python
+        --out /tmp/slides_python_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family slides
+        --platform python
+        --source-kind self_extracted
+        --chunks /tmp/slides_python_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/slides_python/api_surface.json
+        --held-by ingestion-slides-python
+
   serving-slides-python:
     <<: *serving-base
     ports:
       - "8085:8080"
+    volumes:
+      - manifests-slides-python:/data/manifests
     environment:
       FOSS_MCP_FAMILY: slides
       FOSS_MCP_PLATFORM: python
