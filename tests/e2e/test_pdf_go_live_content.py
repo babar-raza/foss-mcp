@@ -29,47 +29,37 @@ pdf/typescript's, or pdf/java's:
   adaptation rather than pdf/net's/pdf/java's enum-``get_symbol`` shape: there is no
   ``REAL_ENUM_FQN``/``REAL_ENUM_MEMBER`` pair for this pilot; the ``get_symbol`` test below
   instead asserts the real ``BarcodeField`` type_spec's own ``Bases:``/``Methods:`` lines.
-- ``REAL_EXAMPLE_SYMBOL``/``REAL_TASK_QUERY``: a REAL, REPRODUCIBLE GAP was found here, confirmed
-  today by a real, hands-on run of the full ``infra/build_chunks.py`` CLI (host-level, then
-  independently reproduced through the full containerized ``docker compose up --build
-  ingest-pdf-go`` below) against this pilot's own real, committed furnished page
-  (``tests/fixtures/furnished/pdf_go/pages/_index.md``): **0 of its 4 real candidates
-  compile-verify** ("verified 0/4 candidate examples"). Every one of the 4 real code fences in
-  that page is a bare Go statement fragment (e.g. ``doc, _ := pdf.Open("input.pdf")`` ... with no
-  ``package``/``import``/``func main`` of its own) - unlike pdf/net's C# (which supports
-  top-level statements directly) or pdf/java's ``verify_java_example`` (which explicitly detects
-  a candidate with no ``public class`` of its own and wraps it in a synthetic ``Candidate`` class
-  plus ``main`` method + wildcard import before compiling, confirmed by reading
-  ``src/foss_mcp/indexing/example_verifier.py``'s own docstring and code for
-  ``verify_java_example``), ``verify_go_example`` (same file) has NO equivalent wrapping step: it
-  writes ``candidate.code`` verbatim as ``main.go``, so every one of pdf/go's 4 real fragment-only
-  candidates fails identically with ``main.go:1:1: expected 'package', found doc`` - confirmed by
-  a real, isolated ``verify_go_example`` call against each of the 4 real candidates individually,
-  not merely the aggregate CLI count. This is a genuine, reproducible gap in
-  ``verify_go_example`` itself (out of this card's own ``write_paths``: only ``docker-compose.yml``
-  and this file), not a wording problem this test can fix by trying a different query, and not
-  something this card may silently paper over (AGENTS.md: "Never weaken a check to make it pass"
-  and "rather than assert something you have not actually observed").
+- ``REAL_EXAMPLE_SYMBOL``/``REAL_TASK_QUERY``: TC-100's own worker found a REAL, REPRODUCIBLE GAP
+  here - at the time, a real, hands-on run of the full ``infra/build_chunks.py`` CLI against this
+  pilot's own real, committed furnished page (``tests/fixtures/furnished/pdf_go/pages/_index.md``)
+  showed **0 of its 4 real candidates compile-verifying** ("verified 0/4 candidate examples"),
+  because every one of the 4 real code fences in that page is a bare Go statement fragment (e.g.
+  ``doc, _ := pdf.Open("input.pdf")`` ... with no ``package``/``import``/``func main`` of its
+  own) and ``verify_go_example`` (``src/foss_mcp/indexing/example_verifier.py``) had no
+  fragment-wrapping step analogous to ``verify_java_example``'s.
 
-  Consequently, for THIS pilot only, ``find_examples``/``lookup`` cannot honestly be asserted to
-  return a compile-verified example - there genuinely is none in the real published generation
-  (confirmed both by a real host-level ``find_examples``/``lookup`` call against the real local
-  manifest store, and by the real MCP-over-HTTP tests below against the real running container).
-  ``REAL_EXAMPLE_SYMBOL`` is still recorded below - ``Split`` (``doc.Split()``, the real,
-  distinctive method call in the furnished page's "Split and Merge PDFs" candidate, the topic
-  ``REAL_TASK_QUERY`` naturally asks about) - purely for traceability of which real candidate this
-  card evaluated, and is deliberately never asserted to appear anywhere in a tool response.
+  TC-104 fixed this for real: ``verify_go_example`` now wraps a bare fragment (synthetic
+  ``package``/``import``/``func main``) before compiling it, exactly as ``verify_java_example``
+  already did for Java. TC-106 (this card) confirmed the fix live, hands-on, through the FULL
+  containerized ``docker compose up --build ingest-pdf-go`` path below, today: the real ingestion
+  log now reads **"verified 4/4 candidate examples"** - all 4 of pdf/go's real furnished
+  candidates, including the "Split and Merge PDFs" one, now genuinely compile-verify.
+
+  Consequently, for this pilot, ``find_examples``/``lookup`` now DO return real, compile-verified
+  content, confirmed by a real MCP-over-HTTP query against the real running ``serving-pdf-go``
+  container below (never assumed - the exact response was observed first-hand before either test
+  was rewritten). ``REAL_EXAMPLE_SYMBOL`` is ``doc.Split()`` - the real, distinctive method call
+  in the furnished page's "Split and Merge PDFs" candidate, confirmed present verbatim in the real
+  ``find_examples``/``lookup`` snippet text returned by the real running container.
   ``REAL_TASK_QUERY`` ("how do I split and merge PDF documents") is the exact literal, API-naive
-  task question CONFIRMED live, by hand, today, through both a real local generation and the real
-  running pdf/go container, to make ``lookup`` correctly and HONESTLY compose no fabricated
-  ``TaskAnswer`` at all (no doc content has ever been published for this pilot either, so
-  ``_compose_from_docs`` finds nothing to compose) and fall back, exactly as
-  ``src/foss_mcp/mcp/tools/lookup.py`` documents, to the real, honest ``Miss`` from
-  ``search_symbols`` - proving the real production path never invents an example it cannot back,
-  even though that means REQ-G2-050's "a real, composed lookup task-answer returns a real,
-  genuinely verified example" bar is NOT met for pdf/go today. This gap should be tracked as a
-  follow-up card against ``verify_go_example`` (fragment-wrapping analogous to
-  ``verify_java_example``'s), which TC-100's own ``write_paths`` cannot touch.
+  task question CONFIRMED live, by hand, today, through the real running pdf/go container, to make
+  ``lookup`` correctly compose a real ``TaskAnswer`` - ``doc_matches`` empty (no doc content has
+  ever been published for this pilot), ``example`` carrying the real, compile-verified "Split and
+  Merge PDFs" snippet, with the real source commit ``286484d235196d65c9a458c5eff3d3d6539216dc`` -
+  never a fabricated one, and never the honest-but-incomplete ``Miss`` this file asserted before
+  TC-104's fix. REQ-G2-050's "a real, composed lookup task-answer returns a real, genuinely
+  verified example" bar is now fully met for pdf/go, matching every other pilot's own complete
+  bar.
 
 network: true on this card, for exactly this reason - everything here talks to containers this
 file itself builds, starts and tears down.
@@ -117,26 +107,28 @@ REAL_SOURCE_COMMIT = "286484d235196d65c9a458c5eff3d3d6539216dc"
 REAL_BASE_FRAGMENT = "Bases:\n  - TextBoxField"
 REAL_METHOD_FRAGMENT = "SetSymbology(s: BarcodeSymbology) -> error"
 
-# REQ-G2-048 (TC-091/TC-097 pattern) - recorded here purely for traceability, NEVER asserted to
-# appear in a real tool response: a real, hands-on run of the full containerized
-# ingest-pdf-go pipeline (below) reports "verified 0/4 candidate examples" for this pilot's real
-# furnished page (tests/fixtures/furnished/pdf_go/pages/_index.md). All 4 real candidates are
-# bare Go statement fragments with no package/import/func main of their own, and
-# verify_go_example (src/foss_mcp/indexing/example_verifier.py) - unlike verify_java_example -
-# has no fragment-wrapping step, so every one fails identically with
-# "expected 'package', found doc". ``Split`` (``doc.Split()``) is the real, distinctive method
-# call in the "Split and Merge PDFs" candidate this card evaluated; it is real and it is genuinely
-# absent from the published index, and this file honestly proves the absence rather than
-# fabricating a match.
-REAL_EXAMPLE_SYMBOL = "Split"
+# REQ-G2-048 (TC-091/TC-097/TC-104/TC-106 pattern): TC-104 fixed verify_go_example
+# (src/foss_mcp/indexing/example_verifier.py) to wrap a bare Go statement fragment (synthetic
+# package/import/func main) before compiling it, exactly as verify_java_example already did for
+# Java. TC-106 confirmed live, hands-on, through a real, full containerized
+# `docker compose up --build ingest-pdf-go` run: the real ingestion log now reads "verified 4/4
+# candidate examples" for this pilot's real furnished page
+# (tests/fixtures/furnished/pdf_go/pages/_index.md) - all 4 real candidates, up from 0/4 before
+# TC-104. ``doc.Split()`` is the real, distinctive method call in the "Split and Merge PDFs"
+# candidate, confirmed present verbatim in the real find_examples/lookup snippet text returned by
+# the real running serving-pdf-go container (observed first-hand before this file was rewritten,
+# never assumed).
+REAL_EXAMPLE_SYMBOL = "doc.Split()"
 
-# REQ-G2-050 (TC-080/TC-089/TC-098/TC-099 pattern): the exact literal, API-naive task question
-# matching REAL_EXAMPLE_SYMBOL's own real topic. CONFIRMED live, by hand, today, through both a
-# real local generation and the real running pdf/go container: because this pilot has zero
-# compile-verified examples and zero published doc content, `lookup` composes no TaskAnswer at
-# all for this query and correctly falls through to the real, honest Miss `search_symbols`
-# itself returns - never a fabricated TaskAnswer. This exact string is required verbatim - the
-# card's own negative control corrupts it, and that corruption must break this test's assertions.
+# REQ-G2-050 (TC-080/TC-089/TC-098/TC-099/TC-106 pattern): the exact literal, API-naive task
+# question matching REAL_EXAMPLE_SYMBOL's own real topic. CONFIRMED live, by hand, today, through
+# the real running pdf/go container: because pdf/go now has a real, compile-verified example for
+# this topic (see REAL_EXAMPLE_SYMBOL above), `lookup` composes a real TaskAnswer - empty
+# doc_matches (no doc content has ever been published for this pilot) plus the real,
+# compile-verified "Split and Merge PDFs" example, carrying the real source commit
+# REAL_SOURCE_COMMIT - rather than falling through to a bare Miss. This exact string is required
+# verbatim - the card's own negative control corrupts it, and that corruption must break this
+# test's assertions.
 REAL_TASK_QUERY = "how do I split and merge PDF documents"
 
 VALID_HEADERS = {
@@ -326,42 +318,46 @@ def test_lookup_returns_real_content_from_the_real_fixture(session: _McpSession)
     assert any(REAL_SYMBOL in match["text"] for match in result), result
 
 
-def test_find_examples_honestly_reports_no_example_for_pdf_go(session: _McpSession) -> None:
-    """The real, confirmed OTHER side of REQ-G2-048 for this pilot: because every one of
-    pdf/go's 4 real furnished-page candidates fails real compile-verification (0/4 - see the
-    module docstring for the exact, reproduced ``verify_go_example`` gap), the real running
-    ``serving-pdf-go`` container's ``find_examples`` genuinely has no verified snippet to offer
-    for this real, on-topic query - and says so honestly (``NoExampleFound``), rather than
-    fabricating one. Proving this explicit, real ``Miss`` shape (never a silently-empty list, and
-    never a stub match) through the FULL containerized production path is itself real evidence:
-    it shows the real running container serves genuine content for other tools (proven by every
-    other test in this file) while never inventing content it cannot back for this one.
+def test_find_examples_returns_the_real_compile_verified_split_and_merge_example(
+    session: _McpSession,
+) -> None:
+    """REQ-G2-048 (TC-104/TC-106), proven positively for pdf/go for the first time: now that
+    ``verify_go_example`` wraps a bare Go statement fragment before compiling it (TC-104's real
+    fix), the real running ``serving-pdf-go`` container's ``find_examples`` returns a real,
+    non-empty list of compile-verified snippets for this real, on-topic query - including the
+    real "Split and Merge PDFs" candidate, whose real, distinctive ``doc.Split()`` method call
+    this test asserts verbatim, confirmed present in the real response observed first-hand before
+    this test was written (never assumed).
     """
     body = session.call_tool("find_examples", {"query": "split and merge pdf documents"})
     result = body["result"]["structuredContent"]["result"]
-    assert isinstance(result, dict), f"expected a real, explicit Miss, got: {result}"
-    assert result.get("query") == "split and merge pdf documents", result
+    assert isinstance(result, list) and result, f"expected real ExampleMatch(es), got a Miss: {result}"
+    assert any(REAL_EXAMPLE_SYMBOL in match["snippet"] for match in result), result
 
 
-def test_lookup_never_fabricates_a_task_answer_for_the_split_and_merge_question(
+def test_lookup_composes_the_real_task_answer_for_the_split_and_merge_question(
     session: _McpSession,
 ) -> None:
-    """REQ-G2-050 (TC-080/TC-089/TC-098/TC-099 pattern), proven HONESTLY for pdf/go: this pilot
-    currently has neither a compile-verified example (0/4, see module docstring) nor any
-    published doc content, so the real running container's ``lookup`` composes no ``TaskAnswer``
-    for this real, API-naive task question - ``_compose_from_docs`` (src/foss_mcp/mcp/tools/
-    lookup.py) finds nothing on either side and returns ``None``, so ``lookup`` correctly falls
-    back to the real, honest ``Miss`` its own ``search_symbols`` call produces. This is the
-    correct, non-fabricating behaviour the production code itself documents ("never a fabricated
-    one") - REQ-G2-050's full "a real, composed lookup task-answer returns a real, genuinely
-    verified example" bar is NOT met for pdf/go today, and this test proves that honestly rather
-    than asserting a match this card never actually observed.
+    """REQ-G2-050 (TC-080/TC-089/TC-098/TC-099/TC-106 pattern), now fully met for pdf/go: the
+    real ``lookup`` tool (never ``find_examples`` directly - a caller with no prior API knowledge
+    asking a real, API-naive task question) with the EXACT literal query CONFIRMED live, by hand,
+    today, through the real running pdf/go container: this reads as a task question
+    (``_looks_like_a_task_question``), and now that pdf/go has a real, compile-verified example
+    (TC-104's fix), ``lookup`` composes a real ``TaskAnswer`` - ``doc_matches`` (empty here, since
+    no getting_started/developer_guide/troubleshooting/faq content has ever been published for
+    this pilot) plus the same real, compile-verified "Split and Merge PDFs" example
+    ``find_examples`` itself proves above, carrying the real source commit
+    ``infra/build_chunks.py`` appends to every real chunk's text - never the honest-but-incomplete
+    ``Miss`` this file asserted before TC-104's fix.
     """
     body = session.call_tool("lookup", {"query": REAL_TASK_QUERY})
     result = body["result"]["structuredContent"]["result"]
-    assert isinstance(result, dict), f"expected a real, explicit Miss (no TaskAnswer to compose): {result}"
-    assert result.get("query") == REAL_TASK_QUERY, result
-    assert "reason" in result, result
+    assert isinstance(result, dict), f"expected a composed TaskAnswer, got: {result}"
+    assert "doc_matches" in result and "example" in result, result
+    assert result["example"] is not None, f"expected a real, verified example, got none: {result}"
+    snippet = result["example"]["snippet"]
+    assert REAL_EXAMPLE_SYMBOL in snippet, snippet
+    assert REAL_SOURCE_COMMIT in snippet, snippet
 
 
 def test_get_symbol_returns_the_real_type_spec_for_barcode_field(session: _McpSession) -> None:
