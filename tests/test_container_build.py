@@ -77,3 +77,50 @@ def test_a_real_docker_build_of_the_serving_image_succeeds() -> None:
         assert result.returncode == 0, (result.stdout + result.stderr)[-6000:]
     finally:
         subprocess.run(["docker", "rmi", "-f", image_tag], capture_output=True, text=True)
+
+
+def test_a_real_docker_build_of_the_ingestion_image_has_working_toolchains() -> None:
+    """REQ-G2-048 (TC-097): Dockerfile.ingestion was generalized to add real toolchains
+    for the 4 remaining original pilots that need one beyond the base image's own python3
+    (pdf/typescript, pdf/java, pdf/go, cells/rust - slides/python needs nothing extra).
+    This proves each toolchain genuinely works INSIDE the built image, by really running its
+    own version command in a real container - not just that the Dockerfile has right-looking
+    RUN lines.
+    """
+    image_tag = "foss-mcp-ingestion:test-build"
+    version_commands = [
+        ["node", "--version"],
+        ["npm", "--version"],
+        ["java", "-version"],
+        ["mvn", "--version"],
+        ["go", "version"],
+        ["cargo", "--version"],
+        ["rustc", "--version"],
+    ]
+    try:
+        build_result = subprocess.run(
+            ["docker", "build", "-f", "Dockerfile.ingestion", "-t", image_tag, "."],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=1800,
+        )
+        assert build_result.returncode == 0, (build_result.stdout + build_result.stderr)[-6000:]
+
+        for command in version_commands:
+            run_result = subprocess.run(
+                ["docker", "run", "--rm", "--entrypoint", command[0], image_tag, *command[1:]],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=60,
+            )
+            assert run_result.returncode == 0, (
+                f"{' '.join(command)} failed: "
+                + (run_result.stdout + run_result.stderr)[-2000:]
+            )
+    finally:
+        subprocess.run(["docker", "rmi", "-f", image_tag], capture_output=True, text=True)

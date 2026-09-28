@@ -35,6 +35,67 @@ ENV PATH="/usr/share/dotnet:${PATH}" \
     DOTNET_NOLOGO=1 \
     DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 
+# REQ-G2-048 (TC-097): pdf/typescript's ingestion path (build_chunks.py's
+# --library-typescript flag) needs Node.js + npm to run `npx tsc` against candidate
+# examples. Checked apt-cache policy on this exact base image first: trixie's own
+# nodejs package resolves to 20.19.2 ("Iron"), a line already past Node's own Active
+# LTS window by the time this card was written (confirmed against
+# https://nodejs.org/dist/index.json's own LTS entries - the current Active LTS is
+# Node 24 "Krypton"). The same "distro package is stale" situation as dotnet above,
+# so Node's own officially published Linux tarball is used instead; npm ships
+# bundled inside it, so no separate npm install/package is needed. .tar.gz (not
+# .tar.xz) is used because this slim base has no `xz` binary and GNU tar here has no
+# built-in liblzma support, only zlib (gzip) - confirmed by hand against this exact
+# image.
+ARG NODE_VERSION=24.21.0
+RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" -o /tmp/node.tar.gz \
+    && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1 \
+    && rm /tmp/node.tar.gz
+
+# REQ-G2-048 (TC-097): pdf/java's ingestion path needs a JDK (11+) and Maven to
+# `mvn`-compile candidate examples. Unlike Node/Go/Rust's fast release cadence,
+# OpenJDK ships multi-year LTS lines - trixie's own openjdk-21-jdk (21.0.12, an
+# actively supported LTS release) and its own maven (3.9.9, the current 3.x line)
+# are both genuinely current, confirmed by apt-cache policy against this exact base
+# image, so apt is used directly here (this project's own stated preference
+# whenever the distro package really is current enough).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openjdk-21-jdk maven \
+    && rm -rf /var/lib/apt/lists/*
+
+# REQ-G2-048 (TC-097): pdf/go's ingestion path needs a real Go toolchain to
+# `go build`/`go vet` candidate examples. trixie's own golang-go package resolves to
+# 1.24 (~early 2025), already behind upstream's current 1.27 line (confirmed against
+# https://go.dev/VERSION?m=text) - the same "distro package is stale" situation as
+# dotnet and Node above. go.dev's own official Linux tarball is used instead.
+ARG GO_VERSION=1.27.1
+RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tar.gz \
+    && tar -xzf /tmp/go.tar.gz -C /usr/local \
+    && rm /tmp/go.tar.gz
+ENV PATH="/usr/local/go/bin:${PATH}"
+
+# REQ-G2-048 (TC-097): cells/rust's ingestion path needs a real Rust toolchain
+# (rustc + cargo) AND a system C linker - even a pure-Rust crate needs one on Linux.
+# trixie's own rustc/cargo resolve to 1.85.1 (~Feb 2025), already well behind
+# upstream's current 1.98 line (confirmed against https://endoflife.date/rust) - the
+# same "distro package is stale" situation as dotnet, Node, and Go above. Rust's own
+# official rustup.rs install script is used instead (non-interactive -y), installed
+# into a shared location (not the default $HOME/.cargo) so the non-root foss-mcp
+# user created below can use it too - the same pattern the official Rust Docker
+# image itself uses. build-essential supplies the linker (cc/ld) rustc needs at
+# link time, even for a pure-Rust crate.
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH="/usr/local/cargo/bin:${PATH}"
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o /tmp/rustup-init.sh \
+    && chmod +x /tmp/rustup-init.sh \
+    && /tmp/rustup-init.sh -y --profile minimal --default-toolchain stable --no-modify-path \
+    && rm /tmp/rustup-init.sh \
+    && chmod -R a+w "$RUSTUP_HOME" "$CARGO_HOME"
+
 # Hash-verified install: every dependency, and its transitive closure, is pinned by exact
 # sha256 in requirements.lock. --require-hashes refuses to install anything that isn't.
 COPY requirements.lock ./requirements.lock
