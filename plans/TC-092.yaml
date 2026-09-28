@@ -1,0 +1,129 @@
+id: TC-092
+gate: G2
+lane: extraction
+purpose: 'Fix a real, general defect in consolidate_classes() (src/foss_mcp/extraction/tree_sitter_engine/api_surface.py:2158)
+  that silently discards a large fraction of real free functions in EVERY non-trivial
+  C++ repository - confirmed today by direct instrumentation against 4 real repos,
+  not assumed: pdf/cpp lost 52% of its real free functions (the exact bug that stalled
+  TC-057 at its 3-attempt cap), cells/cpp lost 46%, slides/cpp lost 69%. This is NOT
+  a pdf/cpp-specific problem and switching to a different C++ product does not avoid
+  it - confirmed by reproducing the identical failure mode (real, independent, per-file
+  free functions with internal linkage - e.g. `static` helpers redefined per translation
+  unit, a common, idiomatic real C++ pattern - being incorrectly collapsed into one
+  entry) against three separate real repositories. This fix, not a product swap, is
+  the actual prerequisite for onboarding any C++ pilot.'
+depends_on:
+- TC-010
+- TC-010b
+- TC-051
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'ROOT CAUSE, confirmed today: free-function dict entries (kind=="function") never
+  get `canonical_namespace` populated (only class/struct/enum entries do). In consolidate_classes(),
+  entries are sub-grouped by canonical_namespace (falling back to ""), so ANY two
+  free functions anywhere in the whole repository sharing a bare name fall into the
+  same group regardless of which file they''re in. None of categories 1-5 apply to
+  a plain function entry (no is_partial, no bases, not an enum), so they always hit
+  category 6''s fallback, which picks one entry (by member count - meaningless for
+  a function, always 0) as "primary" and silently discards every other same-named
+  entry, even when they are genuinely distinct, unrelated symbols (e.g. `static bool
+  IsNullOrWhiteSpace(...)` independently defined in 10 different .cpp files of cells/cpp''s
+  real source - each is its own separate symbol with internal linkage, not a duplicate).'
+- Every function-kind entry already carries a real `file` field (a repository-relative
+  path, confirmed present at api_surface.py lines ~1412/1446/3870 where function entries
+  are constructed) - this is the correct, already-available signal to distinguish
+  genuinely separate free functions that canonical_namespace cannot, since C++ file-local
+  functions have no namespace at all.
+- 'REQUIRED, exact fix shape (the exact name below is required, load-bearing for the
+  negative control): add a new function `_dedupe_same_name_functions_by_file(ns_entries:
+  list[dict], ns_indices: list[int]) -> set[int]` that: groups ns_indices by each
+  entry''s `file` field; within any file-group containing MORE than one entry (a genuine
+  same-file duplicate - e.g. a declaration + out-of-line definition recorded twice),
+  discard all but one; entries in DIFFERENT files are NEVER discarded against each
+  other, regardless of name. Call this function inside consolidate_classes()''s existing
+  per-namespace loop (`for ns, ns_indices in ns_groups.items():`), specifically when
+  `all(e.get("kind") == "function" for e in ns_entries)`, BEFORE falling through to
+  categories 1-6 (which must remain completely unchanged for non-function entries
+  - this is an ADDITIVE branch, not a rewrite of the class-consolidation logic).'
+- 'Two required, real proofs - not just a synthetic unit test: (1) A new direct unit
+  test file, tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py,
+  calling consolidate_classes() directly with a small, hand-built list of dict entries
+  reproducing the exact real bug shape: at least 3 entries with kind="function", the
+  same name, empty canonical_namespace, but 3 DIFFERENT file values - assert all 3
+  survive (today, with the bug, only 1 would). Also test the same-file case (2 entries,
+  same name, same file) still correctly dedupes to 1. Also test that non-function
+  entries (classes/structs/enums) are completely unaffected - run a case that exercises
+  categories 1-6 as they exist today and assert identical behavior to before this
+  change. (2) A REAL end-to-end regression against real cells/cpp data, confirmed
+  today by direct instrumentation: cloning `aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp`
+  at pinned commit `9f852d0ff1cfdad2d661556d6b87a8eff8c063a2` and running this project''s
+  real extraction pipeline currently finds 353 raw free functions, collapsed to 192
+  by the current bug (61 colliding names, worst case `IsNullOrWhiteSpace` 10->1).
+  After this fix, re-run the same real extraction and assert: the surviving free-function
+  count is now much higher than 192 (at least 300, allowing for legitimate same-file
+  dedup - do not assert exactly 353, some real same-file duplicates may still correctly
+  collapse), AND specifically assert `IsNullOrWhiteSpace` now appears as multiple
+  (at least 5) distinct entries with different `file` values, not collapsed to 1.
+  This test needs network access to clone the real repository - mark it accordingly
+  if this project''s test suite has a convention for that (check existing tests that
+  clone real repos, e.g. in tests/indexing/test_example_verifier.py, for the established
+  pattern).'
+- This bug is general (affects any language whose free-function-equivalent entries
+  lack canonical_namespace), not C++-specific, though C++ is the only currently-affected
+  case since it's the only language with unonboarded real free-function-heavy pilots.
+  Run the FULL existing test suite for other languages (Python/Go/Rust/Java/TypeScript/.NET
+  extraction tests) and confirm nothing regresses - if any existing accepted pilot's
+  own extraction fixture changes output as a result of this fix, investigate and report
+  honestly rather than assume it's fine.
+actions:
+- Read consolidate_classes() in full (api_surface.py, function starts at line 2158)
+  before writing any code.
+- Implement _dedupe_same_name_functions_by_file exactly as specified and wire it into
+  consolidate_classes()'s existing per-namespace loop, additively.
+- Write the new direct unit test file exactly as specified.
+- Run the real cells/cpp end-to-end regression exactly as specified, using the real,
+  pinned commit given above.
+- Run the full existing extraction test suite (tests/extraction/) and confirm nothing
+  regresses for any other language.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/ tests/extraction/
+    -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 4
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    _dedupe_same_name_functions_by_file','def _dedupe_same_name_functions_by_file_DISABLED');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming _dedupe_same_name_functions_by_file so it is never defined under
+    its real name must break every test exercising it with a NameError, proving the
+    tests genuinely exercise this concrete fix rather than merely that some function-handling
+    code path exists. This exact function name is mandated in the card's own inputs
+    specifically so this negative control is robust to the worker's internal implementation
+    choices, unlike a mutate targeting an arbitrary line of implementation logic.
+    Self-checked end-to-end against a fixture implementing the exact prescribed name
+    before being persisted.
+evidence:
+- evidence/build/G2/TC-092/receipt.json
+closeout:
+- consolidate_classes() no longer discards genuinely distinct, same-named free functions
+  across different files - proven both by a direct unit test and a real end-to-end
+  run against cells/cpp showing the real IsNullOrWhiteSpace collapse (10->1) is fixed.
+- All other languages' existing extraction behavior is completely unchanged.
+- Renaming _dedupe_same_name_functions_by_file fails the new tests again.
+- This is the real, root-cause fix that was blocking C++ pilot onboarding generally
+  - not specific to pdf/cpp, and not avoidable by a product swap alone.
+recovery: Re-run from a clean tree; if the real cells/cpp clone is flaky, re-running
+  is safe and idempotent.
