@@ -1,0 +1,70 @@
+id: TC-108
+gate: G2
+lane: verification
+purpose: 'Fix real, accumulated ruff-format debt in tests/normalization/test_citation.py
+  found by actually running the real pre-push hook (scripts/ci_check.sh) before pushing
+  today''s pilot-replication work to origin/main: one line TC-105''s own worker left
+  un-reformatted (a long provenance= keyword argument that ruff format wraps onto
+  its own line at this project''s line-length). Purely mechanical, no behavior change
+  - confirmed via `ruff check .` reporting zero lint issues repo-wide and `ruff format
+  --check .` reporting exactly this one file, nothing else.'
+depends_on:
+- TC-014
+- TC-105
+write_paths:
+- tests/normalization/test_citation.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'CONFIRMED today by actually running `python -m ruff format --check .` against the
+  real current tree: exactly one file needs reformatting, tests/normalization/test_citation.py
+  - a single provenance= keyword argument line that exceeds this project''s line-length
+  and must be wrapped, matching ruff format''s own deterministic output. `python -m
+  ruff check .` reports zero lint issues repo-wide - this is a pure format fix, not
+  a lint fix.'
+- Fix via `python -m ruff format tests/normalization/test_citation.py` - the exact,
+  standard, deterministic tool this project's own pre-push hook already runs, not
+  a hand-edit. Re-run in --check mode afterward and confirm zero remaining issues.
+- This is a purely mechanical, semantically-inert change (line-wrapping only) to a
+  test file TC-105 already landed - if ruff format's own pass produces anything beyond
+  whitespace/line-wrapping, stop and report rather than committing an unexpected semantic
+  change.
+actions:
+- Run `python -m ruff format tests/normalization/test_citation.py` using the pinned
+  venv.
+- Run `python -m ruff format --check tests/normalization/test_citation.py` again and
+  confirm zero issues.
+- Run the full existing tests/normalization/test_citation.py suite and confirm no
+  behavior changed - every test that passed before must still pass identically.
+checks:
+- command: '{python} -m ruff format --check tests/normalization/test_citation.py &&
+    {python} -m pytest tests/normalization/test_citation.py -q'
+  expect: exit 0
+  timeout_seconds: 60
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 1
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/normalization/test_citation.py');s=p.read_text(encoding='utf-8');s=s.replace('        provenance=provenance\n        or
+    Provenance(repository=\"aspose-slides-foss/Aspose.Slides-FOSS-for-Python\", commit=\"4e63447b\"
+    * 5),','        provenance=provenance or Provenance(repository=\"aspose-slides-foss/Aspose.Slides-FOSS-for-Python\",
+    commit=\"4e63447b\" * 5),');p.write_text(s,encoding='utf-8')"
+  rationale: Reverting the reformatted line back to its original, over-long, unformatted
+    shape must make ruff format --check fail again, proving the check command genuinely
+    verifies real, current format cleanliness rather than passing for an unrelated
+    reason. Self-checked end-to-end against a fixture implementing the exact prescribed
+    lines before being persisted.
+evidence:
+- evidence/build/G2/TC-108/receipt.json
+closeout:
+- tests/normalization/test_citation.py is ruff-format-clean.
+- No test behavior changed - the only change is line-wrapping.
+- Reverting the format fix fails ruff format --check again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
