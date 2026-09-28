@@ -1,0 +1,93 @@
+id: TC-117
+gate: G2
+lane: transport-deployment
+purpose: Add a real, live smoke test proving slides/python's own real documentation
+  content (published by TC-112's real _build_doc_chunks, reachable via TC-109's search_docs
+  scope-routing fix) is genuinely served through the FULL containerized production
+  path - not just at the unit-test level (TC-112's own check replays validation offline;
+  this proves a real, running serving-slides-python container actually returns it
+  over a real MCP-over-HTTP session, exactly the same bar this project's own AGENTS.md
+  'Integration and liveness' section requires - a module being real is never itself
+  proof it is actually wired into what a real client reaches). This card only touches
+  the test file - no docker-compose.yml change is needed, since --furnished-page (and
+  the other 3 required --library-* flags) are already passed by slides/python's own
+  ingest-slides-python service today.
+depends_on:
+- TC-101
+- TC-107
+- TC-109
+- TC-112
+write_paths:
+- tests/e2e/test_slides_python_live_content.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Read the current tests/e2e/test_slides_python_live_content.py in full first - mirror
+  its existing structure exactly (compose helpers, _McpSession, real /readyz polling)
+  - do not reinvent the container lifecycle.
+- Bring up the real containers for real (this pilot's own already-established ingest+serving
+  compose lifecycle) and query search_docs directly, and lookup, for real, to discover
+  first-hand what real doc content now comes back - do not assume the exact text,
+  observe it. Try all 4 content_types (getting_started/developer_guide/troubleshooting/faq)
+  - developer_guide is the classifier's own default and most likely to have real content;
+  troubleshooting is expected to be a permanent, correct Miss for every pilot today
+  (no committed furnished content anywhere touches that category) - do not treat a
+  troubleshooting Miss as a defect.
+- 'Add ONE new real test asserting search_docs returns real, non-empty content for
+  at least one real content_type + a real query matching that pilot''s own real overview
+  or content prose (pick a real, distinctive substring you actually observed - never
+  invent one). Required constant name (load-bearing for this card''s own negative
+  control, matching the established project convention exactly): REAL_DOC_QUERY, plus
+  whatever additional constants you need (REAL_DOC_CONTENT_TYPE, REAL_DOC_FRAGMENT)
+  named however is clearest.'
+- Also assert, in the same or a companion test, that lookup's own doc_matches field
+  is now genuinely non-empty for a real, API-naive query matching real doc content
+  (previously always [] for every pilot, confirmed by this project's own earlier comprehensive
+  live verification pass) - this is the concrete, final proof the whole pipeline (TC-109
+  through TC-112 plus this card) closes the real gap end to end, through a real MCP
+  client's own eyes.
+- If your first-choice query doesn't surface the real content you expect, iterate
+  on the wording rather than assert something you have not actually observed - this
+  project's own lexical retrieval is genuinely sensitive to exact phrasing overlap,
+  confirmed repeatedly earlier in this same project.
+actions:
+- Bring up the real containers and observe real search_docs/lookup output for this
+  pilot's own real doc content.
+- Add the new test(s) exactly as specified, using only real, observed values.
+- Run the real E2E test suite yourself and confirm every test passes against real,
+  observed content, including all pre-existing tests in the file.
+checks:
+- command: '{python} -m pytest tests/e2e/test_slides_python_live_content.py -q'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 8
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/e2e/test_slides_python_live_content.py');s=p.read_text(encoding='utf-8');s=s.replace('REAL_DOC_QUERY
+    = ','REAL_DOC_QUERY_DISABLED = ');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming the REAL_DOC_QUERY assignment leaves every later reference to
+    it undefined, breaking the new doc-content test with a NameError - proving the
+    test genuinely depends on this concrete constant rather than passing for an unrelated
+    reason. Implementation-independent of the exact real content this card's own worker
+    discovers. Self-checked against a realistic synthetic fixture via the real subprocess.run(...,
+    shell=True) path before being persisted.
+evidence:
+- evidence/build/G2/TC-117/receipt.json
+closeout:
+- slides/python's real documentation content (from its own furnished-content overview/content
+  sections) is now genuinely served through the full containerized production path
+  - search_docs returns real content, and lookup's doc_matches is genuinely non-empty
+  for a real query.
+- troubleshooting correctly remains an honest Miss (no regression from asserting fabricated
+  content there).
+- Renaming REAL_DOC_QUERY's assignment fails the suite again.
+recovery: Re-run from a clean tree; if a network clone/build/compose step is flaky,
+  re-running is safe and idempotent.
