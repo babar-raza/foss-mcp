@@ -53,13 +53,38 @@ pdf/typescript's, or pdf/java's:
   ``find_examples``/``lookup`` snippet text returned by the real running container.
   ``REAL_TASK_QUERY`` ("how do I split and merge PDF documents") is the exact literal, API-naive
   task question CONFIRMED live, by hand, today, through the real running pdf/go container, to make
-  ``lookup`` correctly compose a real ``TaskAnswer`` - ``doc_matches`` empty (no doc content has
-  ever been published for this pilot), ``example`` carrying the real, compile-verified "Split and
-  Merge PDFs" snippet, with the real source commit ``286484d235196d65c9a458c5eff3d3d6539216dc`` -
-  never a fabricated one, and never the honest-but-incomplete ``Miss`` this file asserted before
-  TC-104's fix. REQ-G2-050's "a real, composed lookup task-answer returns a real, genuinely
-  verified example" bar is now fully met for pdf/go, matching every other pilot's own complete
-  bar.
+  ``lookup`` correctly compose a real ``TaskAnswer`` - ``example`` carrying the real,
+  compile-verified "Split and Merge PDFs" snippet, with the real source commit
+  ``286484d235196d65c9a458c5eff3d3d6539216dc`` - never a fabricated one, and never the
+  honest-but-incomplete ``Miss`` this file asserted before TC-104's fix. (As of TC-116 below,
+  this same query's own words also happen to lexically overlap this pilot's own real
+  "getting_started" doc content, so ``doc_matches`` for THIS particular query is no longer
+  empty either - a real, incidental overlap, not something this test needs to assert either way;
+  this test only ever asserted ``example``, never ``doc_matches``, so nothing here changes.)
+  REQ-G2-050's "a real, composed lookup task-answer returns a real, genuinely verified example"
+  bar is now fully met for pdf/go, matching every other pilot's own complete bar.
+- ``REAL_DOC_QUERY``/``REAL_DOC_CONTENT_TYPE``/``REAL_DOC_FRAGMENT`` (REQ-G2-047, TC-116): real
+  doc content, observed live through this exact container by hand on 2026-09-29, now genuinely
+  published and served. pdf/go's own furnished-content page (regenerated from
+  repository-presenter's real sealed candidate via TC-119, same mechanism as pdf/net's,
+  pdf/typescript's, and pdf/java's) carries a real "Installation, Dependencies, and Quick Start"
+  content block whose own real prose contains the literal substrings "install "/"installation"/
+  "quick start" - ``classify_content_type``'s own ``getting_started`` hint words - so THIS
+  chunk genuinely buckets "getting_started", not "developer_guide" (where pdf/net's own "Scope
+  and Limitations" content landed) and not "troubleshooting" (where pdf/java's own "Scope and
+  Limitations" content landed, on account of THAT pilot's own incidental wording). This is a
+  third, distinct real outcome for a third real pilot - confirmed live, by hand, by querying
+  every one of the 4 real content_types against this exact running container: querying
+  content_type="getting_started" for "installation" returns exactly these 2 real "FQN: Doc:
+  Installation, Dependencies, and Quick Start" chunks (and no others) - never a guess at what a
+  container might return. pdf/go's own real "Scope and Limitations" content block (also present)
+  lands in "developer_guide" instead - confirmed live, never assumed.
+- ``REAL_DOC_TASK_QUERY`` (REQ-G2-047, TC-116): the real, API-naive task question CONFIRMED
+  live, by hand, on 2026-09-29, to make lookup's own doc-fallback path (``_compose_from_docs``)
+  surface the SAME real "getting_started"-classified chunks above as ``doc_matches``, with
+  ``example`` genuinely ``None`` (this exact query matches no real verified example) - never
+  ``()`` as every prior comprehensive live verification pass found for every pilot, for every
+  query, before TC-109 through TC-112 (and TC-113/TC-114/TC-115/this card) closed the gap.
 
 network: true on this card, for exactly this reason - everything here talks to containers this
 file itself builds, starts and tears down.
@@ -123,13 +148,41 @@ REAL_EXAMPLE_SYMBOL = "doc.Split()"
 # REQ-G2-050 (TC-080/TC-089/TC-098/TC-099/TC-106 pattern): the exact literal, API-naive task
 # question matching REAL_EXAMPLE_SYMBOL's own real topic. CONFIRMED live, by hand, today, through
 # the real running pdf/go container: because pdf/go now has a real, compile-verified example for
-# this topic (see REAL_EXAMPLE_SYMBOL above), `lookup` composes a real TaskAnswer - empty
-# doc_matches (no doc content has ever been published for this pilot) plus the real,
-# compile-verified "Split and Merge PDFs" example, carrying the real source commit
+# this topic (see REAL_EXAMPLE_SYMBOL above), `lookup` composes a real TaskAnswer carrying the
+# real, compile-verified "Split and Merge PDFs" example, carrying the real source commit
 # REAL_SOURCE_COMMIT - rather than falling through to a bare Miss. This exact string is required
 # verbatim - the card's own negative control corrupts it, and that corruption must break this
-# test's assertions.
+# test's assertions. (This query's own words also incidentally lexically overlap this pilot's own
+# real "getting_started" doc content published by TC-116 below, so doc_matches for this exact
+# query is no longer empty either - real, confirmed live, and irrelevant to this test, which only
+# ever asserts on `example`.)
 REAL_TASK_QUERY = "how do I split and merge PDF documents"
+
+# REQ-G2-047 (TC-116): real doc content, observed live through this exact container by hand on
+# 2026-09-29, now genuinely published and served. pdf/go's own furnished-content page
+# (regenerated from repository-presenter's real sealed candidate via TC-119, same as pdf/net's,
+# pdf/typescript's, and pdf/java's) carries a real "Installation, Dependencies, and Quick Start"
+# content block whose own real prose trips classify_content_type's own "install "/"installation"/
+# "quick start" getting_started hint words - so THIS chunk genuinely buckets "getting_started",
+# a THIRD distinct real outcome (pdf/net landed in "developer_guide", pdf/java landed in
+# "troubleshooting" - see TC-113/TC-115). Confirmed live, by hand, by querying every one of the 4
+# real content_types against this exact running container: content_type="getting_started" for
+# "installation" returns exactly these 2 real "FQN: Doc: Installation, Dependencies, and Quick
+# Start" chunks (and no others) - never a guess at what a container might return.
+REAL_DOC_QUERY = "installation"
+REAL_DOC_CONTENT_TYPE = "getting_started"
+REAL_DOC_FRAGMENT = "go get github.com/aspose-pdf-foss/aspose-pdf-foss-for-go"
+
+# REQ-G2-047 (TC-116): the real, API-naive task question CONFIRMED live, by hand, on 2026-09-29,
+# to make lookup's own doc-fallback path (_compose_from_docs) surface the SAME real
+# "getting_started"-classified chunk above as doc_matches - never [] as every prior comprehensive
+# live verification pass found for every pilot, for every query, before TC-109 through TC-112
+# (and TC-113/TC-114/TC-115/this card) closed the gap. This query's own words have zero lexical
+# overlap with any real verified example in this fixture (confirmed live: example=None for this
+# exact query, run by hand against the real running container), so this is also a real, live
+# instance of a TaskAnswer composed from a doc match alone, with example genuinely None - never
+# fabricated.
+REAL_DOC_TASK_QUERY = "how do I get started with this library"
 
 VALID_HEADERS = {
     "Accept": "application/json, text/event-stream",
@@ -343,12 +396,14 @@ def test_lookup_composes_the_real_task_answer_for_the_split_and_merge_question(
     asking a real, API-naive task question) with the EXACT literal query CONFIRMED live, by hand,
     today, through the real running pdf/go container: this reads as a task question
     (``_looks_like_a_task_question``), and now that pdf/go has a real, compile-verified example
-    (TC-104's fix), ``lookup`` composes a real ``TaskAnswer`` - ``doc_matches`` (empty here, since
-    no getting_started/developer_guide/troubleshooting/faq content has ever been published for
-    this pilot) plus the same real, compile-verified "Split and Merge PDFs" example
-    ``find_examples`` itself proves above, carrying the real source commit
-    ``infra/build_chunks.py`` appends to every real chunk's text - never the honest-but-incomplete
-    ``Miss`` this file asserted before TC-104's fix.
+    (TC-104's fix), ``lookup`` composes a real ``TaskAnswer`` carrying the same real,
+    compile-verified "Split and Merge PDFs" example ``find_examples`` itself proves above,
+    carrying the real source commit ``infra/build_chunks.py`` appends to every real chunk's text
+    - never the honest-but-incomplete ``Miss`` this file asserted before TC-104's fix. This test
+    only asserts on ``example`` - since TC-116, this exact query's own words also incidentally
+    overlap this pilot's own real "getting_started" doc content, so ``doc_matches`` is no longer
+    empty either, but that is real, confirmed-live, incidental behavior this test does not need
+    to pin down (the dedicated doc-matches proof below uses its own distinct query instead).
     """
     body = session.call_tool("lookup", {"query": REAL_TASK_QUERY})
     result = body["result"]["structuredContent"]["result"]
@@ -374,3 +429,59 @@ def test_get_symbol_returns_the_real_type_spec_for_barcode_field(session: _McpSe
     assert result["kind"] == "type_spec", result
     assert REAL_BASE_FRAGMENT in result["raw_text"], result
     assert REAL_METHOD_FRAGMENT in result["raw_text"], result
+
+
+# ---------------------------------------------------------------------
+# REQ-G2-047 (TC-116): pdf/go's own real documentation content (TC-112's real _build_doc_chunks,
+# reachable via TC-109's search_docs routing fix, no longer confused for a real symbol by
+# search_symbols since TC-120) genuinely served through the FULL containerized production path -
+# not merely replayed offline by TC-112's own unit-level check. Sourced from this pilot's own
+# real furnished page, regenerated from repository-presenter's real sealed candidate via TC-119
+# (faq.enable is real-confirmed False both before and after that regeneration, so only the
+# overview/content sections ever produce a doc candidate here).
+# ---------------------------------------------------------------------
+
+
+def test_search_docs_returns_real_furnished_content_for_pdf_go(session: _McpSession) -> None:
+    """``search_docs`` with an explicit ``content_type`` for a real, distinctive query returns
+    real, non-empty documentation content from pdf/go's own real, regenerated furnished page
+    (TC-119) - never the "no published generation for this scope"/empty-index Miss every content
+    tool call gave before TC-112 wired real doc chunks into ingestion.
+
+    ``getting_started`` is deliberately used here - a THIRD distinct outcome from pdf/net's
+    ``developer_guide`` (TC-113) and pdf/java's ``troubleshooting`` (TC-115): this pilot's own
+    real "Installation, Dependencies, and Quick Start" content block trips
+    ``classify_content_type``'s own "install "/"installation"/"quick start" hint words (confirmed
+    live, by hand, against the real running container - every one of the 4 real content_types was
+    queried, not assumed), so this real chunk genuinely buckets "getting_started" rather than the
+    classifier's own "developer_guide" default.
+    """
+    body = session.call_tool(
+        "search_docs", {"query": REAL_DOC_QUERY, "content_type": REAL_DOC_CONTENT_TYPE}
+    )
+    result = body["result"]["structuredContent"]["result"]
+    assert isinstance(result, list) and result, f"expected real doc matches, got a Miss: {result}"
+    assert all(match["content_type"] == REAL_DOC_CONTENT_TYPE for match in result), result
+    assert any(REAL_DOC_FRAGMENT in match["text"] for match in result), result
+    assert any(match["text"].startswith("FQN: Doc: ") for match in result), result
+
+
+def test_lookup_returns_real_doc_matches_for_an_api_naive_query(session: _McpSession) -> None:
+    """The concrete, final proof the whole pipeline (TC-109 through TC-112, TC-113, TC-114,
+    TC-115, plus this card) closes the real gap end to end for pdf/go too, through a real MCP
+    client's own eyes: ``lookup``'s doc-fallback path (``_compose_from_docs``) now genuinely
+    composes a ``TaskAnswer`` whose ``doc_matches`` is non-empty for a real, API-naive query -
+    previously ``()`` for every pilot, for every query, confirmed by this project's own earlier
+    comprehensive live verification pass (see ``lookup.py``'s own module docstring, REQ-G2-049).
+
+    This real query matches no real verified example (confirmed live: ``example`` is ``None``),
+    so this is also a real, live instance of a ``TaskAnswer`` composed from a doc match alone,
+    never fabricated.
+    """
+    body = session.call_tool("lookup", {"query": REAL_DOC_TASK_QUERY})
+    result = body["result"]["structuredContent"]["result"]
+    assert isinstance(result, dict), f"expected a composed TaskAnswer, got: {result}"
+    assert "doc_matches" in result and "example" in result, result
+    doc_matches = result["doc_matches"]
+    assert isinstance(doc_matches, list) and doc_matches, f"expected real doc_matches, got none: {result}"
+    assert any(REAL_DOC_FRAGMENT in match["text"] for match in doc_matches), doc_matches
