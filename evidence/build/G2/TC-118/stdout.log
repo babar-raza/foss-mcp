@@ -1,0 +1,74 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_cells_rust_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-anyoyoqc\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_cells_rust_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-anyoyoqc\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/e2e/test_cells_rust_live_content.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_cells_rust_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-anyoyoqc\.junit-0.xml"
+--- stdout ---
+.......FF.                                                               [100%]
+================================== FAILURES ===================================
+_______ test_search_docs_returns_real_furnished_content_for_cells_rust ________
+
+session = <tests.e2e.test_cells_rust_live_content._McpSession object at 0x000001FD387AB790>
+
+    def test_search_docs_returns_real_furnished_content_for_cells_rust(session: _McpSession) -> None:
+        """``search_docs`` with an explicit ``content_type`` for a real, distinctive query returns
+        real, non-empty documentation content from cells/rust's own real furnished page - never the
+        "no published generation for this scope"/empty-index Miss every content tool call gave before
+        TC-112 wired real doc chunks into ingestion.
+    
+        ``getting_started`` is confirmed live, by hand, against the real running container: this
+        pilot's own real "Required Package Dependencies" chunk (under the "Installation, Dependencies,
+        and Quick Start" content block) lists a real, distinctive crate pin - `` `roxmltree 0.20` `` -
+        and inherits ``getting_started`` from its own candidate title line ("Installation,
+        Dependencies, and Quick Start"), which ``_build_doc_chunks`` prepends to every chunk split
+        from that block.
+        """
+        body = session.call_tool(
+>           "search_docs", {"query": REAL_DOC_QUERY, "content_type": REAL_DOC_CONTENT_TYPE}
+                                     ^^^^^^^^^^^^^^
+        )
+E       NameError: name 'REAL_DOC_QUERY' is not defined
+
+tests\e2e\test_cells_rust_live_content.py:453: NameError
+_ test_search_docs_troubleshooting_is_an_honest_miss_for_the_dependency_query _
+
+session = <tests.e2e.test_cells_rust_live_content._McpSession object at 0x000001FD387AB8A0>
+
+    def test_search_docs_troubleshooting_is_an_honest_miss_for_the_dependency_query(
+        session: _McpSession,
+    ) -> None:
+        """``troubleshooting`` correctly stays an honest ``Miss`` for this same query - confirmed
+        live, by hand, against the real running container: the real ``roxmltree`` crate pin chunk
+        genuinely classifies as ``getting_started`` (asserted above), never as ``troubleshooting`` too,
+        so a caller who explicitly asks for ``troubleshooting`` content for this query gets a real,
+        honest absence rather than the same content silently duplicated across categories. (This
+        pilot's own "Scope and Limitations" block DOES publish a separate, real troubleshooting chunk
+        of its own - confirmed live - but that chunk shares no lexical overlap with "roxmltree", so
+        this query specifically still misses it.)
+        """
+>       body = session.call_tool("search_docs", {"query": REAL_DOC_QUERY, "content_type": "troubleshooting"})
+                                                          ^^^^^^^^^^^^^^
+E       NameError: name 'REAL_DOC_QUERY' is not defined
+
+tests\e2e\test_cells_rust_live_content.py:474: NameError
+=========================== short test summary info ===========================
+FAILED tests/e2e/test_cells_rust_live_content.py::test_search_docs_returns_real_furnished_content_for_cells_rust
+FAILED tests/e2e/test_cells_rust_live_content.py::test_search_docs_troubleshooting_is_an_honest_miss_for_the_dependency_query
+
+--- stderr ---
+
