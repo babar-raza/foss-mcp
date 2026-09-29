@@ -1,0 +1,250 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qo3tutk8\.junit-0.xml"
+--- stdout ---
+................                                                         [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qo3tutk8\.junit-0.xml"
+--- stdout ---
+................                                                         [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_docs.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qo3tutk8\.junit-0.xml"
+--- stdout ---
+....FFF.F...F.F.                                                         [100%]
+================================== FAILURES ===================================
+______ test_search_docs_finds_a_document_published_under_self_extracted _______
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-950/test_search_docs_finds_a_docum0')
+
+    def test_search_docs_finds_a_document_published_under_self_extracted(tmp_path: Path) -> None:
+        """TC-109 (G2/REQ-G2-047): the real, independently-confirmed routing bug this card fixes.
+    
+        search_docs.py computed its scope key from ``SOURCE_KIND = "furnished"``, but every real
+        ingest-<pilot> pipeline (``infra/ingest.py``) publishes, and every serving-<pilot> deployment
+        serves, ``source_kind="self_extracted"`` only - nothing anywhere ever published to
+        "furnished", so search_docs always returned an explicit ``Miss`` for every pilot regardless
+        of what content existed. This test manually publishes ONE document chunk under
+        ``source_kind="self_extracted"`` - the exact scope key search_docs now reads - and proves
+        search_docs finds it. Before this fix (``SOURCE_KIND = "furnished"``), this identical
+        publish+query would return an eternal ``Miss`` no matter what content exists, because it
+        would be checking the wrong scope key entirely (see this card's own ``negative_control``,
+        which reverts the constant and expects exactly this test to fail as a result).
+        """
+        store = _store(tmp_path)
+        doc = make_document(
+            source_kind=SourceKind.FURNISHED,
+            content_type="product_page",
+            provenance=Provenance(repository="Aspose/aspose.org", commit="x", path="content/pdf/net"),
+            evidence_refs=(),
+            title="pdf/net getting started",
+            body="## Getting Started\n\nInstall the package via NuGet to get started quickly.",
+        )
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(doc))
+    
+        result = search_docs(store, PDF_NET_SCOPE, "install", "getting_started")
+    
+>       assert isinstance(result, list) and result
+E       AssertionError: assert (False)
+E        +  where False = isinstance(Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='install', content_type='getting_started', reason='no published generation for this scope'), list)
+
+tests\mcp\tools\test_retrieval_tools.py:248: AssertionError
+_______________ test_content_type_genuinely_partitions_results ________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-950/test_content_type_genuinely_pa0')
+
+    def test_content_type_genuinely_partitions_results(tmp_path: Path) -> None:
+        """The same term, filtered to the WRONG category, misses even though it would match if
+        the filter were dropped - this is what proves genuine partitioning, not just "no match
+        anywhere"."""
+        store = _store(tmp_path)
+        _publish_pdf_net_docs(store)
+    
+        hit = search_docs(store, PDF_NET_SCOPE, "document", "developer_guide")
+        miss = search_docs(store, PDF_NET_SCOPE, "document", "faq")
+    
+>       assert isinstance(hit, list) and hit
+E       AssertionError: assert (False)
+E        +  where False = isinstance(Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='document', content_type='developer_guide', reason='no published generation for this scope'), list)
+
+tests\mcp\tools\test_retrieval_tools.py:263: AssertionError
+_ test_getting_started_and_troubleshooting_are_genuinely_different_partitions _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-950/test_getting_started_and_troub0')
+
+    def test_getting_started_and_troubleshooting_are_genuinely_different_partitions(tmp_path: Path) -> None:
+        store = _store(tmp_path)
+        _publish_pdf_net_docs(store)
+    
+        getting_started = search_docs(store, PDF_NET_SCOPE, "install", "getting_started")
+        wrong_category = search_docs(store, PDF_NET_SCOPE, "install", "troubleshooting")
+    
+>       assert isinstance(getting_started, list) and getting_started
+E       AssertionError: assert (False)
+E        +  where False = isinstance(Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='install', content_type='getting_started', reason='no published generation for this scope'), list)
+
+tests\mcp\tools\test_retrieval_tools.py:276: AssertionError
+______ test_lookup_dispatches_to_search_docs_when_content_type_is_given _______
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-950/test_lookup_dispatches_to_sear1')
+
+    def test_lookup_dispatches_to_search_docs_when_content_type_is_given(tmp_path: Path) -> None:
+        store = _store(tmp_path)
+        _publish_pdf_net_docs(store)
+    
+        result = lookup(store, PDF_NET_SCOPE, "install", content_type="getting_started")
+    
+>       assert isinstance(result, list) and all(isinstance(match, DocMatch) for match in result)
+E       AssertionError: assert (False)
+E        +  where False = isinstance(Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='install', content_type='getting_started', reason='no published generation for this scope'), list)
+
+tests\mcp\tools\test_retrieval_tools.py:297: AssertionError
+_ test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-950/test_lookup_composes_example_o0')
+
+    def test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere(
+        tmp_path: Path,
+    ) -> None:
+        """TC-075: the real, final gap the day's investigation converged on. No furnished
+        getting_started/developer_guide/troubleshooting/faq content has ever been built or
+        published for any pilot - this matches every real pilot's actual current state, not a
+        contrived one. ``find_examples`` alone still returns a real, complete, self-descriptive
+        answer (a verified code example with its own description, per TC-068's design). Before
+        this card, ``_compose_from_docs`` only tried ``find_examples`` AFTER finding a non-empty
+        doc match, so this real, useful answer was thrown away and lookup fell through to
+        ``search_symbols`` instead. It must not, now.
+    
+        TC-109 (G2/REQ-G2-047) UPDATE: search_docs now correctly reads the SAME generation
+        search_symbols and find_examples already did (its routing bug is what this card fixes),
+        rather than a "furnished" scope key nothing ever actually published to. One real
+        consequence, reproduced here rather than hidden: search_docs.py's own ``classify_content_type``
+        has no exclusion for TC-068's ``Example: <title>`` pseudo-symbol chunks (unlike
+        search_symbols.py, which excludes them by design - see its module docstring), so this
+        pseudo-symbol chunk - lacking any of the getting_started/troubleshooting/faq keyword hints -
+        falls into search_docs's default "developer_guide" bucket and IS now found there too. The
+        example-only promise this test is named for still holds (``result.example`` is populated
+        correctly, verbatim, never fabricated); what no longer holds is the total ABSENCE of a doc
+        match, since search_docs cannot yet tell a pseudo-symbol chunk apart from real documentation
+        prose. Extending that exclusion belongs to a future card - it is not part of search_docs.py's
+        one-constant fix TC-109 makes, and touching classify_content_type is explicitly out of this
+        card's scope.
+        """
+        store = _store(tmp_path)
+        pseudo_symbol_body = (
+            "# Example: Add a Watermark Annotation\n\n"
+            "FQN: Example: Add a Watermark Annotation\n"
+            "Kind: verified_example\n"
+            "Adds a watermark annotation to a document using a real, verified snippet.\n\n"
+            'Example:\ndocument.AddWatermarkAnnotation("Confidential")'
+        )
+        pseudo_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="example",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="Add a Watermark Annotation",
+            body=pseudo_symbol_body,
+        )
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(pseudo_doc))
+    
+        # No REAL documentation content is published for this scope - only the pseudo-symbol
+        # chunk above - matching every real pilot's actual current state today.
+    
+        result = lookup(store, PDF_NET_SCOPE, "how do I add a watermark to a PDF")
+    
+        assert isinstance(result, TaskAnswer)
+        assert result.scope == PDF_NET_SCOPE
+        # search_docs (post-TC-109) now finds this exact pseudo-symbol chunk too, mislabeled as
+        # "developer_guide" content - see the docstring above for why that is a real, separately-
+        # scoped gap rather than something this card silently papered over.
+>       assert isinstance(result.doc_matches, tuple) and result.doc_matches
+E       assert (True and ())
+E        +  where True = isinstance((), tuple)
+E        +    where () = TaskAnswer(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), doc_matches=(), example=ExampleMat...nnotation to a document using a real, verified snippet.\n\nExample:\ndocument.AddWatermarkAnnotation("Confidential")')).doc_matches
+E        +  and   () = TaskAnswer(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), doc_matches=(), example=ExampleMat...nnotation to a document using a real, verified snippet.\n\nExample:\ndocument.AddWatermarkAnnotation("Confidential")')).doc_matches
+
+tests\mcp\tools\test_retrieval_tools.py:500: AssertionError
+_ test_lookup_prefers_doc_composition_over_an_incidental_symbol_collision_for_a_task_question _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-950/test_lookup_prefers_doc_compos0')
+
+    def test_lookup_prefers_doc_composition_over_an_incidental_symbol_collision_for_a_task_question(
+        tmp_path: Path,
+    ) -> None:
+        """Reproduces the real 'pdf' collision TC-073's worker found live, at fixture scale: a real
+        symbol's FQN (``PdfDocument.Merge``) lexically overlaps one of a natural-language question's
+        own words (``pdf``, via camelCase sub-word splitting), purely incidentally - the symbol is
+        about merging, the question is about watermarking. Before this card, lookup's own "any
+        non-empty search_symbols result wins" dispatch order let that incidental overlap capture a
+        real task question and starve it of the doc+example answer it actually needed.
+    
+        Proves BOTH halves of the card's closeout: the task-shaped question now gets the composed
+        TaskAnswer instead of the incidental symbol match, while a short, bare query for that exact
+        same overlapping symbol still correctly returns the symbol match unchanged.
+        """
+        store = _store(tmp_path)
+        real_symbol_body = """## PdfDocument.Merge
+    
+    FQN: PdfDocument.Merge
+    Kind: Method
+    Merges multiple PDF files into a single output document.
+    """
+        real_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="api_surface",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="pdf/net API surface",
+            body=real_symbol_body,
+        )
+        watermark_guide_doc = make_document(
+            source_kind=SourceKind.FURNISHED,
+            content_type="product_page",
+            provenance=Provenance(repository="Aspose/aspose.org", commit="x", path="content/pdf/net"),
+            evidence_refs=(),
+            title="pdf/net watermarking guide",
+            body="""## Adding a Watermark to a PDF
+    
+    Use PdfDocument.AddWatermarkAnnotation to add a watermark to a PDF document, stamping
+    confidential markings onto every exported page.
+    """,
+        )
+        # One combined publish, matching every real pilot's actual shape (TC-109, G2/REQ-G2-047):
+        # there is no separate "furnished" scope key for search_docs to read anymore.
+        chunks = chunk_document(real_doc) + chunk_document(watermark_guide_doc)
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+    
+        task_question = "how do I add a watermark to a PDF"
+    
+        # The incidental collision is real, not hypothetical: the unrelated Merge symbol's FQN
+        # shares the word "pdf" with the question, so a naive non-empty check on search_symbols
+        # alone would (wrongly) treat this as a confident symbol match.
+        raw_symbol_result = search_symbols(store, PDF_NET_SCOPE, task_question)
+        assert isinstance(raw_symbol_result, list) and raw_symbol_result
+    
+        result = lookup(store, PDF_NET_SCOPE, task_question)
+    
+>       assert isinstance(result, TaskAnswer)
+E       AssertionError: assert False
+E        +  where False = isinstance([SymbolMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_ex...ba4d4cf131004', text='FQN: PdfDocument.Merge\nKind: Method\nMerges multiple PDF files into a single output document.')], TaskAnswer)
+
+tests\mcp\tools\test_retrieval_tools.py:573: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_docs_finds_a_document_published_under_self_extracted
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_content_type_genuinely_partitions_results
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_getting_started_and_troubleshooting_are_genuinely_different_partitions
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_lookup_dispatches_to_search_docs_when_content_type_is_given
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_lookup_prefers_doc_composition_over_an_incidental_symbol_collision_for_a_task_question
+
+--- stderr ---
+
