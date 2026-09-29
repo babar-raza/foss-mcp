@@ -23,7 +23,7 @@ from foss_mcp.indexing.lexical_index_writer import query_lexical_index
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.search_symbols import scope_key
 
-SOURCE_KIND = "furnished"
+SOURCE_KIND = "self_extracted"
 
 CONTENT_TYPES = ("getting_started", "developer_guide", "troubleshooting", "faq")
 

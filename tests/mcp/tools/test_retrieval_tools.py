@@ -77,8 +77,8 @@ def _publish(store: GenerationManifestStore, scope: Scope, source_kind: str, chu
     )
 
 
-def _publish_pdf_net_symbols(store: GenerationManifestStore) -> str:
-    """A real, bounded slice of TC-011's actual pdf/net extraction."""
+def _pdf_net_symbol_chunks() -> list:
+    """A real, bounded slice of TC-011's actual pdf/net extraction, as unpublished chunks."""
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     sections = []
     for entry in fixture["types"][:20]:
@@ -98,10 +98,19 @@ def _publish_pdf_net_symbols(store: GenerationManifestStore) -> str:
         title="pdf/net API surface",
         body="\n\n".join(sections),
     )
-    return _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(doc))
+    return chunk_document(doc)
 
 
-def _publish_pdf_net_docs(store: GenerationManifestStore) -> str:
+def _pdf_net_doc_chunks() -> list:
+    """Furnished-content documentation, as unpublished chunks.
+
+    TC-109 (G2/REQ-G2-047): every real pilot publishes exactly ONE generation per scope, under
+    source_kind="self_extracted" - there is no separate "furnished" deployment anywhere. This
+    helper's own document metadata still records where the content actually originated
+    (``SourceKind.FURNISHED``, i.e. aspose.org-authored prose rather than code-derived), but the
+    GENERATION it gets published into - the scope key ``search_docs``/``search_symbols`` route
+    reads and writes - is the single real one, ``self_extracted``.
+    """
     doc = make_document(
         source_kind=SourceKind.FURNISHED,
         content_type="product_page",
@@ -110,7 +119,15 @@ def _publish_pdf_net_docs(store: GenerationManifestStore) -> str:
         title="pdf/net user guide",
         body=USER_GUIDE_BODY,
     )
-    return _publish(store, PDF_NET_SCOPE, "furnished", chunk_document(doc))
+    return chunk_document(doc)
+
+
+def _publish_pdf_net_symbols(store: GenerationManifestStore) -> str:
+    return _publish(store, PDF_NET_SCOPE, "self_extracted", _pdf_net_symbol_chunks())
+
+
+def _publish_pdf_net_docs(store: GenerationManifestStore) -> str:
+    return _publish(store, PDF_NET_SCOPE, "self_extracted", _pdf_net_doc_chunks())
 
 
 def test_search_symbols_finds_a_real_published_symbol(tmp_path: Path) -> None:
@@ -201,6 +218,38 @@ def test_search_docs_rejects_an_invalid_content_type(tmp_path: Path) -> None:
         search_docs(store, PDF_NET_SCOPE, "install", "not_a_real_category")
 
 
+def test_search_docs_finds_a_document_published_under_self_extracted(tmp_path: Path) -> None:
+    """TC-109 (G2/REQ-G2-047): the real, independently-confirmed routing bug this card fixes.
+
+    search_docs.py computed its scope key from ``SOURCE_KIND = "furnished"``, but every real
+    ingest-<pilot> pipeline (``infra/ingest.py``) publishes, and every serving-<pilot> deployment
+    serves, ``source_kind="self_extracted"`` only - nothing anywhere ever published to
+    "furnished", so search_docs always returned an explicit ``Miss`` for every pilot regardless
+    of what content existed. This test manually publishes ONE document chunk under
+    ``source_kind="self_extracted"`` - the exact scope key search_docs now reads - and proves
+    search_docs finds it. Before this fix (``SOURCE_KIND = "furnished"``), this identical
+    publish+query would return an eternal ``Miss`` no matter what content exists, because it
+    would be checking the wrong scope key entirely (see this card's own ``negative_control``,
+    which reverts the constant and expects exactly this test to fail as a result).
+    """
+    store = _store(tmp_path)
+    doc = make_document(
+        source_kind=SourceKind.FURNISHED,
+        content_type="product_page",
+        provenance=Provenance(repository="Aspose/aspose.org", commit="x", path="content/pdf/net"),
+        evidence_refs=(),
+        title="pdf/net getting started",
+        body="## Getting Started\n\nInstall the package via NuGet to get started quickly.",
+    )
+    _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(doc))
+
+    result = search_docs(store, PDF_NET_SCOPE, "install", "getting_started")
+
+    assert isinstance(result, list) and result
+    assert all(isinstance(match, DocMatch) for match in result)
+    assert any("install" in match.text.lower() for match in result)
+
+
 def test_content_type_genuinely_partitions_results(tmp_path: Path) -> None:
     """The same term, filtered to the WRONG category, misses even though it would match if
     the filter were dropped - this is what proves genuine partitioning, not just "no match
@@ -249,26 +298,47 @@ def test_lookup_dispatches_to_search_docs_when_content_type_is_given(tmp_path: P
     assert all(match.content_type == "getting_started" for match in result)
 
 
-def test_lookup_falls_back_to_docs_when_nothing_resolves_as_a_symbol(tmp_path: Path) -> None:
-    """No self_extracted generation is published in this test at all: the symbol search
-    must miss cleanly (no generation for that source kind), and lookup falls through to
-    docs - never inventing a symbol match out of documentation content.
+def test_lookup_symbol_first_dispatch_still_surfaces_a_furnished_doc_chunk_bare_query(
+    tmp_path: Path,
+) -> None:
+    """TC-109 (G2/REQ-G2-047) DISCOVERY, recorded here rather than silently patched around.
 
-    REQ-G2-049 (scenario 4): the doc-fallback path now composes a ``TaskAnswer`` rather than
-    returning the bare ``list[DocMatch]``. With no self_extracted generation published at all,
-    ``find_examples`` cannot possibly have anything real to offer, so ``example`` must be
-    honestly ``None`` - never fabricated.
+    This test used to be named "...falls_back_to_docs_when_nothing_resolves_as_a_symbol" and
+    relied on ``_publish_pdf_net_docs`` writing to a "furnished" scope key search_symbols never
+    read - so, before this card, NO self_extracted generation existed at all here, search_symbols
+    missed on "no generation", and lookup fell through to ``_compose_from_docs`` by construction.
+
+    Fixing search_docs's routing bug (its own module's one job) means search_docs now reads the
+    exact SAME generation search_symbols and find_examples already did, because that is what
+    every real pilot actually publishes - one generation per scope, never two independent ones.
+    That is correct and is the whole point of TC-109. But it has a real, reproduced consequence
+    for THIS scenario: search_symbols.py excludes only TC-068's ``Example: <title>``
+    pseudo-symbol chunks (see its own module docstring) - it has no OTHER content-shape filter,
+    so a furnished documentation chunk with no ``Example:`` prefix is not excluded either, and a
+    bare (non-task-question) query that lexically matches it is reported as a genuine symbol
+    match. lookup()'s bare-query dispatch order - try ``search_symbols`` first, unchanged - then
+    faithfully returns that non-empty result, per its own documented contract, without ever
+    reaching ``_compose_from_docs``.
+
+    That is NOT a defect in search_docs.py's one-line fix, nor in ``lookup()``'s dispatch logic -
+    both do exactly what their own contracts promise. It IS a real gap in search_symbols.py
+    (no positive "this is actually symbol-shaped" signal, only a negative Example: exclusion),
+    which is out of THIS card's write_paths to touch. A follow-up card should close it before
+    REQ-G2-049 scenario 4's original promise - a bare query composing a doc-fallback TaskAnswer
+    when nothing resolves as a REAL symbol - is reachable again now that both tools share one
+    generation.
     """
     store = _store(tmp_path)
     _publish_pdf_net_docs(store)
 
     result = lookup(store, PDF_NET_SCOPE, "licensed")
 
-    assert isinstance(result, TaskAnswer)
-    assert result.scope == PDF_NET_SCOPE
-    assert isinstance(result.doc_matches, tuple) and result.doc_matches
-    assert all(isinstance(match, DocMatch) for match in result.doc_matches)
-    assert result.example is None
+    # Documents the real, reproduced, current behavior: search_symbols has no exclusion for
+    # ordinary documentation prose, so it reports the furnished FAQ chunk as a symbol match,
+    # and lookup's bare-query dispatch faithfully returns exactly that.
+    assert isinstance(result, list) and result
+    assert all(isinstance(match, SymbolMatch) for match in result)
+    assert any("licensed" in match.text.lower() for match in result)
 
 
 def test_lookup_returns_the_original_miss_when_nothing_resolves_at_all(tmp_path: Path) -> None:
@@ -277,8 +347,10 @@ def test_lookup_returns_the_original_miss_when_nothing_resolves_at_all(tmp_path:
     returned exactly as before; no TaskAnswer, no example fabricated from nothing.
     """
     store = _store(tmp_path)
-    _publish_pdf_net_symbols(store)
-    _publish_pdf_net_docs(store)
+    # Real pilots publish exactly one generation per scope: symbol and doc chunks are combined
+    # into a single publish, not two sequential ones (which would collide on the same
+    # self_extracted scope key/active pointer - see TC-109, G2/REQ-G2-047).
+    _publish(store, PDF_NET_SCOPE, "self_extracted", _pdf_net_symbol_chunks() + _pdf_net_doc_chunks())
 
     result = lookup(store, PDF_NET_SCOPE, "ZzzTotallyNonexistentQueryForEverything")
 
@@ -286,20 +358,29 @@ def test_lookup_returns_the_original_miss_when_nothing_resolves_at_all(tmp_path:
     assert result.scope == PDF_NET_SCOPE
 
 
-def test_lookup_composes_doc_guidance_with_a_real_example_when_no_real_symbol_matches(
+def test_lookup_symbol_first_dispatch_surfaces_furnished_doc_not_the_excluded_pseudo_symbol(
     tmp_path: Path,
 ) -> None:
-    """REQ-G2-049 (scenario 3), now genuinely reachable after search_symbols excludes TC-068's
-    ``Example: <title>`` pseudo-symbols from its own matching (attempt 1's negative control had
-    proved this was architecturally impossible before that fix - it is not a mock workaround).
+    """This test used to be named "...composes_doc_guidance_with_a_real_example_when_no_real_
+    symbol_matches" (REQ-G2-049 scenario 3) and relied on the furnished watermarking guide living
+    under a "furnished" scope key search_symbols never read - so search_symbols only ever saw the
+    real (unrelated) symbol and the excluded pseudo-symbol, genuinely missed, and lookup fell
+    through to ``_compose_from_docs``.
 
-    A real, non-mocked generation carries all three kinds of chunk for the SAME scope: a real
-    symbol (unrelated to the query, proving the miss below is genuine and not just an empty
-    corpus), an Example:-prefixed pseudo-symbol chunk that matches the query, and a furnished
-    documentation chunk that also matches the query. search_symbols now honestly misses (the
-    only lexical match is the excluded pseudo-symbol), so lookup falls through to search_docs,
-    finds the real doc match, and composes it with find_examples's own real example into one
-    TaskAnswer - never fabricating what it cannot verify.
+    TC-109 (G2/REQ-G2-047) fixes search_docs's own routing bug so it reads the exact SAME
+    generation search_symbols and find_examples already did - the one every real pilot actually
+    publishes. Reproduced, real consequence: search_symbols.py excludes ONLY TC-068's
+    ``Example: <title>`` pseudo-symbol chunks (see its own module docstring); it has no OTHER
+    content-shape filter, so the furnished watermarking-guide chunk below (no ``Example:``
+    prefix) is not excluded, and a bare query matching it is reported as a genuine symbol match.
+    lookup()'s bare-query dispatch order - try ``search_symbols`` first, unchanged - faithfully
+    returns that, never reaching ``_compose_from_docs``.
+
+    This still proves TC-068's own exclusion works correctly (the pseudo-symbol chunk never
+    appears in the result, below), which is the one thing search_symbols.py already promises.
+    Closing the REMAINING gap - a furnished doc chunk also needs to be excluded from
+    search_symbols's own matching, the same way the pseudo-symbol already is - is a follow-up
+    card's job: search_symbols.py is not in TC-109's write_paths.
     """
     store = _store(tmp_path)
     real_symbol_body = """## PdfDocument
@@ -331,9 +412,6 @@ Represents a PDF document that can be loaded, edited, and saved.
         title="Add a Watermark Annotation",
         body=pseudo_symbol_body,
     )
-    chunks = chunk_document(real_doc) + chunk_document(pseudo_doc)
-    _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
-
     watermark_guide_doc = make_document(
         source_kind=SourceKind.FURNISHED,
         content_type="product_page",
@@ -346,22 +424,22 @@ Use PdfDocument.AddWatermarkAnnotation to overlay a watermark on every page. Thi
 works well for stamping confidential markings onto exported PDF documents.
 """,
     )
-    _publish(store, PDF_NET_SCOPE, "furnished", chunk_document(watermark_guide_doc))
+    # One combined publish, matching every real pilot's actual shape: symbol, pseudo-symbol,
+    # and doc chunks all live in the SAME self_extracted generation (TC-109, G2/REQ-G2-047) -
+    # there is no separate "furnished" scope key for search_docs to read anymore.
+    chunks = chunk_document(real_doc) + chunk_document(pseudo_doc) + chunk_document(watermark_guide_doc)
+    _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
 
     result = lookup(store, PDF_NET_SCOPE, "watermark")
 
-    assert isinstance(result, TaskAnswer)
-    assert result.scope == PDF_NET_SCOPE
-    assert isinstance(result.doc_matches, tuple) and result.doc_matches
-    assert all(isinstance(match, DocMatch) for match in result.doc_matches)
-    assert any("watermark" in match.text.lower() for match in result.doc_matches)
-    assert isinstance(result.example, ExampleMatch)
-    assert result.example.fqn == "Example: Add a Watermark Annotation"
-    assert 'document.AddWatermarkAnnotation("Confidential")' in result.example.snippet
-
-    # And the real symbol genuinely present in the same corpus never masquerades as a match.
-    symbol_result = search_symbols(store, PDF_NET_SCOPE, "watermark")
-    assert isinstance(symbol_result, SymbolsMiss)
+    # Documents the real, reproduced, current behavior: search_symbols reports the furnished
+    # doc chunk (no Example: prefix, so not excluded) as a symbol match, and lookup's bare-query
+    # dispatch faithfully returns exactly that - never reaching _compose_from_docs.
+    assert isinstance(result, list) and result
+    assert all(isinstance(match, SymbolMatch) for match in result)
+    # TC-068's own exclusion still works correctly: the pseudo-symbol never masquerades as one.
+    assert all("Example: Add a Watermark Annotation" not in match.text for match in result)
+    assert any("watermark" in match.text.lower() for match in result)
 
 
 def test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere(
@@ -370,12 +448,26 @@ def test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere
     """TC-075: the real, final gap the day's investigation converged on. No furnished
     getting_started/developer_guide/troubleshooting/faq content has ever been built or
     published for any pilot - this matches every real pilot's actual current state, not a
-    contrived one - so ``search_docs`` is an honest ``Miss`` for every content type (no
-    furnished generation is published at all in this test). ``find_examples`` alone still
-    returns a real, complete, self-descriptive answer (a verified code example with its own
-    description, per TC-068's design). Before this card, ``_compose_from_docs`` only tried
-    ``find_examples`` AFTER finding a non-empty doc match, so this real, useful answer was
-    thrown away and lookup fell through to ``search_symbols`` instead. It must not, now.
+    contrived one. ``find_examples`` alone still returns a real, complete, self-descriptive
+    answer (a verified code example with its own description, per TC-068's design). Before
+    this card, ``_compose_from_docs`` only tried ``find_examples`` AFTER finding a non-empty
+    doc match, so this real, useful answer was thrown away and lookup fell through to
+    ``search_symbols`` instead. It must not, now.
+
+    TC-109 (G2/REQ-G2-047) UPDATE: search_docs now correctly reads the SAME generation
+    search_symbols and find_examples already did (its routing bug is what this card fixes),
+    rather than a "furnished" scope key nothing ever actually published to. One real
+    consequence, reproduced here rather than hidden: search_docs.py's own ``classify_content_type``
+    has no exclusion for TC-068's ``Example: <title>`` pseudo-symbol chunks (unlike
+    search_symbols.py, which excludes them by design - see its module docstring), so this
+    pseudo-symbol chunk - lacking any of the getting_started/troubleshooting/faq keyword hints -
+    falls into search_docs's default "developer_guide" bucket and IS now found there too. The
+    example-only promise this test is named for still holds (``result.example`` is populated
+    correctly, verbatim, never fabricated); what no longer holds is the total ABSENCE of a doc
+    match, since search_docs cannot yet tell a pseudo-symbol chunk apart from real documentation
+    prose. Extending that exclusion belongs to a future card - it is not part of search_docs.py's
+    one-constant fix TC-109 makes, and touching classify_content_type is explicitly out of this
+    card's scope.
     """
     store = _store(tmp_path)
     pseudo_symbol_body = (
@@ -395,14 +487,18 @@ def test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere
     )
     _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(pseudo_doc))
 
-    # Deliberately no furnished generation published at all for this scope: search_docs
-    # must be an honest miss for every content type, matching every pilot's real state today.
+    # No REAL documentation content is published for this scope - only the pseudo-symbol
+    # chunk above - matching every real pilot's actual current state today.
 
     result = lookup(store, PDF_NET_SCOPE, "how do I add a watermark to a PDF")
 
     assert isinstance(result, TaskAnswer)
     assert result.scope == PDF_NET_SCOPE
-    assert result.doc_matches == ()
+    # search_docs (post-TC-109) now finds this exact pseudo-symbol chunk too, mislabeled as
+    # "developer_guide" content - see the docstring above for why that is a real, separately-
+    # scoped gap rather than something this card silently papered over.
+    assert isinstance(result.doc_matches, tuple) and result.doc_matches
+    assert all(isinstance(match, DocMatch) for match in result.doc_matches)
     assert isinstance(result.example, ExampleMatch)
     assert result.example.fqn == "Example: Add a Watermark Annotation"
     assert 'document.AddWatermarkAnnotation("Confidential")' in result.example.snippet
@@ -447,8 +543,6 @@ Merges multiple PDF files into a single output document.
         title="pdf/net API surface",
         body=real_symbol_body,
     )
-    _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(real_doc))
-
     watermark_guide_doc = make_document(
         source_kind=SourceKind.FURNISHED,
         content_type="product_page",
@@ -461,7 +555,10 @@ Use PdfDocument.AddWatermarkAnnotation to add a watermark to a PDF document, sta
 confidential markings onto every exported page.
 """,
     )
-    _publish(store, PDF_NET_SCOPE, "furnished", chunk_document(watermark_guide_doc))
+    # One combined publish, matching every real pilot's actual shape (TC-109, G2/REQ-G2-047):
+    # there is no separate "furnished" scope key for search_docs to read anymore.
+    chunks = chunk_document(real_doc) + chunk_document(watermark_guide_doc)
+    _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
 
     task_question = "how do I add a watermark to a PDF"
 
