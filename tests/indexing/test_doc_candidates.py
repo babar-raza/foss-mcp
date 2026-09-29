@@ -203,40 +203,58 @@ def test_malformed_entries_are_skipped_not_an_error() -> None:
 # ---------------------------------------------------------------------------
 # Real per-pilot fixture tests. Titles/substrings below were read directly
 # from each pilot's own committed tests/fixtures/furnished/<pilot>/pages/_index.md.
+#
+# TC-119 regenerated 5 of the 6 pilots' furnished fixtures from
+# repository-presenter's own sealed candidates (pdf_typescript's own fixture
+# was deliberately NOT regenerated - see its own test below, unchanged).
+# repository-presenter's README template has no FAQ section at all, so every
+# one of these 5 pilots now has faq.enable: false and yields zero FAQ-origin
+# candidates - not just pdf_java's, as before TC-119.
 # ---------------------------------------------------------------------------
+
+
+def _real_doc_candidates_for_pilot(pilot_dir_name: str) -> list[DocCandidate]:
+    """Load a pilot's real, committed furnished fixture and extract its real
+    documentation candidates via ``extract_doc_sections``, for real.
+
+    Every real-fixture test below calls this instead of loading and
+    extracting its own fixture inline, so the fix is robust to exactly which
+    real values each test ends up asserting.
+    """
+    page = _load_page(FIXTURE_ROOT / pilot_dir_name / "pages" / "_index.md")
+    return extract_doc_sections(page)
 
 
 def test_real_fixture_pdf_net_extracts_overview_content_and_faq() -> None:
     page = _load_page(FIXTURE_ROOT / "pdf_net" / "pages" / "_index.md")
+    assert page["faq"]["enable"] is False
 
-    result = extract_doc_sections(page)
+    result = _real_doc_candidates_for_pilot("pdf_net")
 
-    # 1 overview + 4 content blocks * 2 + 5 faq entries = 14
-    assert len(result) == 14
+    # 1 overview + 3 content candidates (one left/right pair, one
+    # title_left-only "Scope and Limitations" block) + 0 faq = 4
+    assert len(result) == 4
 
     overview = [c for c in result if c.origin == "overview"]
     assert len(overview) == 1
-    assert overview[0].title == "Free MIT-Licensed .NET Library for PDF Creation and Manipulation"
-    # The confirmed-uncorroborated numeric claim OQ-001 is about; must survive
-    # extraction verbatim (citation gating is a different card's job).
-    assert "805 classes" in overview[0].body
+    assert overview[0].title == "Aspose.PDF FOSS for .NET"
     assert not overview[0].body.lstrip().startswith("#")
 
     content = [c for c in result if c.origin == "content"]
-    assert len(content) == 8
+    assert len(content) == 3
     content_titles = [c.title for c in content]
-    assert "Document Structure and Page Management" in content_titles
-    assert "Common Document Processing Scenarios" in content_titles
-    watermark_block = next(c for c in content if c.title == "Document Review and Collaboration Scenarios")
-    assert "AddWatermarkAnnotation" in watermark_block.body
+    assert content_titles == [
+        "Installation, Dependencies, and Quick Start",
+        "Key Capabilities and API Reference",
+        "Scope and Limitations",
+    ]
+    api_reference = next(c for c in content if c.title == "Key Capabilities and API Reference")
+    assert "899 types" in api_reference.body
+    scope = next(c for c in content if c.title == "Scope and Limitations")
+    assert "System.Drawing.Common" in scope.body
 
     faq = [c for c in result if c.origin == "faq"]
-    assert len(faq) == 5
-    faq_titles = [c.title for c in faq]
-    assert "What is the licensing model for Aspose.PDF FOSS for .NET?" in faq_titles
-    licensing = next(c for c in faq if c.title == "What is the licensing model for Aspose.PDF FOSS for .NET?")
-    assert licensing.body.startswith("FAQ: What is the licensing model for Aspose.PDF FOSS for .NET?\n\n")
-    assert "MIT License" in licensing.body
+    assert faq == []
 
 
 def test_real_fixture_pdf_java_faq_disabled_yields_zero_faq_candidates() -> None:
@@ -246,21 +264,27 @@ def test_real_fixture_pdf_java_faq_disabled_yields_zero_faq_candidates() -> None
     # trusting the assertion below.
     assert page["faq"]["enable"] is False
 
-    result = extract_doc_sections(page)
+    result = _real_doc_candidates_for_pilot("pdf_java")
 
-    # 1 overview + 3 content blocks * 2 + 0 faq = 7
-    assert len(result) == 7
+    # 1 overview + 3 content candidates + 0 faq = 4
+    assert len(result) == 4
     assert [c for c in result if c.origin == "faq"] == []
 
     overview = next(c for c in result if c.origin == "overview")
-    assert overview.title == "Free MIT-Licensed Java Library for PDF Creation and Manipulation"
-    assert "527 classes" in overview.body
+    assert overview.title == "Aspose.PDF FOSS for Java"
 
     content = [c for c in result if c.origin == "content"]
-    assert len(content) == 6
+    assert len(content) == 3
     content_titles = [c.title for c in content]
-    assert "Annotations and Form Fields" in content_titles
-    assert "Document Review and Collaboration" in content_titles
+    assert content_titles == [
+        "Installation, Dependencies, and Quick Start",
+        "Key Capabilities and API Reference",
+        "Scope and Limitations",
+    ]
+    api_reference = next(c for c in content if c.title == "Key Capabilities and API Reference")
+    assert "1158 types" in api_reference.body
+    scope = next(c for c in content if c.title == "Scope and Limitations")
+    assert "org.aspose:aspose-pdf-foss" in scope.body
 
 
 def test_real_fixture_pdf_typescript_extracts_overview_content_and_faq() -> None:
@@ -292,78 +316,97 @@ def test_real_fixture_pdf_typescript_extracts_overview_content_and_faq() -> None
 def test_real_fixture_pdf_go_extracts_overview_content_and_faq() -> None:
     page = _load_page(FIXTURE_ROOT / "pdf_go" / "pages" / "_index.md")
 
-    assert page["faq"]["enable"] is True
+    # pdf_go used to have faq.enable: true with 5 real FAQ entries; TC-119's
+    # regeneration replaced it with repository-presenter's own README
+    # content, which has no FAQ section at all.
+    assert page["faq"]["enable"] is False
 
-    result = extract_doc_sections(page)
+    result = _real_doc_candidates_for_pilot("pdf_go")
 
-    # 1 overview + 6 content blocks * 2 + 5 faq entries = 18
-    assert len(result) == 18
+    # 1 overview + 3 content candidates + 0 faq = 4
+    assert len(result) == 4
 
     overview = next(c for c in result if c.origin == "overview")
-    assert overview.title == "Aspose.PDF FOSS — Open Source Go PDF Library"
+    assert overview.title == "Aspose PDF FOSS for Go"
 
     content = [c for c in result if c.origin == "content"]
-    assert len(content) == 12
+    assert len(content) == 3
     content_titles = [c.title for c in content]
-    assert "Bookmarks and Navigation" in content_titles
-    assert "Tables and Structured Layout" in content_titles
+    assert content_titles == [
+        "Installation, Dependencies, and Quick Start",
+        "Key Capabilities and API Reference",
+        "Scope and Limitations",
+    ]
+    api_reference = next(c for c in content if c.title == "Key Capabilities and API Reference")
+    assert "244 types" in api_reference.body
+    scope = next(c for c in content if c.title == "Scope and Limitations")
+    assert "Aspose PDF FOSS for Go provides a Go API" in scope.body
 
     faq = [c for c in result if c.origin == "faq"]
-    assert len(faq) == 5
-    go_version = next(c for c in faq if c.title == "What Go version is required?")
-    assert go_version.body.startswith("FAQ: What Go version is required?\n\n")
-    assert "Go 1.24" in go_version.body
+    assert faq == []
 
 
-def test_real_fixture_slides_python_extracts_overview_content_and_eight_faq_entries() -> None:
+def test_real_fixture_slides_python_extracts_overview_content_and_zero_faq_entries() -> None:
     page = _load_page(FIXTURE_ROOT / "slides_python" / "pages" / "_index.md")
 
-    assert page["faq"]["enable"] is True
+    # slides_python used to have faq.enable: true with 8 real FAQ entries;
+    # TC-119's regeneration replaced it with repository-presenter's own
+    # README content, which has no FAQ section at all.
+    assert page["faq"]["enable"] is False
 
-    result = extract_doc_sections(page)
+    result = _real_doc_candidates_for_pilot("slides_python")
 
-    # 1 overview + 2 content blocks * 2 + 8 faq entries = 13
-    assert len(result) == 13
+    # 1 overview + 3 content candidates + 0 faq = 4
+    assert len(result) == 4
 
     overview = next(c for c in result if c.origin == "overview")
-    assert overview.title == "Open-Source Python Library for PowerPoint Presentations"
-    assert "lxml" in overview.body
+    assert overview.title == "Aspose.Slides FOSS for Python"
 
     content = [c for c in result if c.origin == "content"]
-    assert len(content) == 4
+    assert len(content) == 3
     content_titles = [c.title for c in content]
-    assert "Presentation and Slide API" in content_titles
-    assert "Developer Experience" in content_titles
+    assert content_titles == [
+        "Installation, Dependencies, and Quick Start",
+        "Key Capabilities and API Reference",
+        "Scope and Limitations",
+    ]
+    api_reference = next(c for c in content if c.title == "Key Capabilities and API Reference")
+    assert "516 types" in api_reference.body
+    scope = next(c for c in content if c.title == "Scope and Limitations")
+    assert "OOXML" in scope.body
 
     faq = [c for c in result if c.origin == "faq"]
-    assert len(faq) == 8
-    roundtrip = next(c for c in faq if c.title == "Will round-tripping a PPTX destroy unknown content?")
-    assert roundtrip.body.startswith("FAQ: Will round-tripping a PPTX destroy unknown content?\n\n")
-    assert "never lost" in roundtrip.body
+    assert faq == []
 
 
 def test_real_fixture_cells_rust_extracts_overview_content_and_faq() -> None:
     page = _load_page(FIXTURE_ROOT / "cells_rust" / "pages" / "_index.md")
 
-    assert page["faq"]["enable"] is True
+    # cells_rust used to have faq.enable: true with 5 real FAQ entries;
+    # TC-119's regeneration replaced it with repository-presenter's own
+    # README content, which has no FAQ section at all.
+    assert page["faq"]["enable"] is False
 
-    result = extract_doc_sections(page)
+    result = _real_doc_candidates_for_pilot("cells_rust")
 
-    # 1 overview + 5 content blocks * 2 + 5 faq entries = 16
-    assert len(result) == 16
+    # 1 overview + 3 content candidates + 0 faq = 4
+    assert len(result) == 4
 
     overview = next(c for c in result if c.origin == "overview")
-    assert overview.title == "Aspose.Cells FOSS — Open Source Rust Library"
-    assert "Workbook" in overview.body
+    assert overview.title == "Aspose.Cells FOSS for Rust"
 
     content = [c for c in result if c.origin == "content"]
-    assert len(content) == 10
+    assert len(content) == 3
     content_titles = [c.title for c in content]
-    assert "Charts, Pictures, and Shapes" in content_titles
-    assert "Data Analysis and Protection" in content_titles
+    assert content_titles == [
+        "Installation, Dependencies, and Quick Start",
+        "Key Capabilities and API Reference",
+        "Scope and Limitations",
+    ]
+    api_reference = next(c for c in content if c.title == "Key Capabilities and API Reference")
+    assert "213 types" in api_reference.body
+    scope = next(c for c in content if c.title == "Scope and Limitations")
+    assert "Rust 2021 edition" in scope.body
 
     faq = [c for c in result if c.origin == "faq"]
-    assert len(faq) == 5
-    cargo = next(c for c in faq if c.title == "How do I install the crate?")
-    assert cargo.body.startswith("FAQ: How do I install the crate?\n\n")
-    assert "Cargo.toml" in cargo.body
+    assert faq == []

@@ -1,19 +1,21 @@
 """Citation resolution proves traceability, not correctness (plan 8.10).
 
-OQ-001: the furnished products.aspose.org page for pdf/net asserts the library "exposes 805
-classes"; foss-mcp's own extraction found 899 TYPES (all kinds combined, TC-011's fixture), and
-the *reduced* fixture's own kind breakdown is a property of an arbitrary alphabetic prefix, not
-of the real population, so it cannot corroborate a narrower claim like "805 classes" either way.
-These tests use that exact real sentence, not a synthetic stand-in, and prove the system refuses
-to serve it as a citable fact - it does not have to resolve whether 805 is right.
+OQ-001: the furnished products.aspose.org page for pdf/net once asserted the library
+"exposes 805 classes"; foss-mcp's own extraction found 899 TYPES (all kinds combined,
+TC-011's fixture), and the *reduced* fixture's own kind breakdown is a property of an
+arbitrary alphabetic prefix, not of the real population, so it cannot corroborate a
+narrower claim like "805 classes" either way. TC-119 later regenerated the real furnished
+pdf/net fixture from repository-presenter's own sealed candidates, replacing the old
+aspose.org-copied prose (including this sentence) with real README-derived content. These
+tests use that exact original sentence, preserved as a hardcoded synthetic regression
+fixture rather than read live off the fixture, and prove the system refuses to serve it as
+a citable fact - it does not have to resolve whether 805 was ever right.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-
-import yaml
 
 from foss_mcp.normalization.chunker import Chunk
 from foss_mcp.normalization.citation import (
@@ -36,16 +38,6 @@ FIXTURE_ROOT = Path(__file__).parents[1] / "fixtures"
 
 def _api_surface_fixture() -> dict:
     return json.loads((FIXTURE_ROOT / "pdf_net" / "api_surface.json").read_text(encoding="utf-8"))
-
-
-def _furnished_overview_text() -> str:
-    """The real furnished pdf/net page's overview prose - contains the real "805 classes"
-    sentence OQ-001 names. Parsed with ``safe_load_all`` because the Hugo page bundle's
-    trailing ``---`` starts a second, empty YAML document.
-    """
-    text = (FIXTURE_ROOT / "furnished" / "pdf_net" / "pages" / "_index.md").read_text(encoding="utf-8")
-    page = next(yaml.safe_load_all(text))
-    return page["overview"]["content"]
 
 
 def _chunk(text: str, provenance: Provenance | None = None) -> Chunk:
@@ -89,12 +81,24 @@ def test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count(
     """The exact defect OQ-001 names: 'classes' is not among what a reduced fixture can
     confidently vouch for (see known_counts_from_fixture), so the real claim is
     insufficient_evidence - never silently treated as either confirmed or refuted.
+
+    This once read the sentence live out of the real furnished pdf/net page's overview
+    prose. TC-119 regenerated that fixture from repository-presenter's own sealed
+    candidates, and the real overview no longer contains this sentence at all - it now
+    holds real README-derived content instead of the old aspose.org copy. OQ-001's real
+    historical scenario (a furnished page asserting a precise, uncorroborated numeric
+    claim) is preserved here as a permanent, hardcoded synthetic regression fixture -
+    mirroring test_the_805_classes_sentence_is_excluded_or_qualified_as_a_whole_chunk's
+    own already-correct pattern - using the exact original sentence so the defect class
+    keeps being guarded even though the live fixture that once exhibited it has moved on.
     """
     known_counts = known_counts_from_fixture(_api_surface_fixture())
     assert "classes" not in known_counts
     assert known_counts["types"] == 899
 
-    claims = find_numeric_claims(_furnished_overview_text())
+    historical_805_classes_sentence = "The library exposes 805 classes."
+
+    claims = find_numeric_claims(historical_805_classes_sentence)
     assert (805, "classes") in claims
 
     result = validate_numeric_claim(805, "classes", known_counts)
