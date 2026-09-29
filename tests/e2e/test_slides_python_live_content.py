@@ -86,6 +86,34 @@ pdf/typescript's, pdf/java's, or pdf/go's:
   (pdf/net's ``test_lookup_composes_the_real_task_answer_for_the_watermark_question`` and its
   siblings).
 
+- ``REAL_DOC_QUERY``/``REAL_DOC_CONTENT_TYPE``/``REAL_DOC_FRAGMENT`` (REQ-G2-047, TC-117): real
+  doc content, observed live through this exact container by hand on 2026-09-29, now genuinely
+  published and served. slides/python's own furnished-content page (regenerated from
+  repository-presenter's real sealed candidate via TC-119, same mechanism as the other pilots)
+  carries a real "Installation, Dependencies, and Quick Start" content block whose own
+  "Required Package Dependencies" section lists a real, distinctive package pin - `` `lxml>=4.9`
+  ``. Confirmed live, by hand, by querying every one of the 4 real content_types against this
+  exact running container: content_type="getting_started" for "lxml" returns exactly one real
+  "FQN: Doc: Installation, Dependencies, and Quick Start" chunk whose own text is the literal
+  "- `lxml>=4.9`" (and no others) - never a guess at what a container might return. This is a
+  FOURTH distinct real outcome across this project's own pilots so far (pdf/net landed in
+  "developer_guide", pdf/java landed in "troubleshooting", pdf/go landed in "getting_started" via
+  its own "install "/"quick start" wording - see TC-113/TC-115/TC-116); this pilot's own real
+  "Scope and Limitations" content block also lands in "developer_guide" (confirmed live: it
+  trips no getting_started/troubleshooting/faq hint word except where it literally names
+  "troubleshooting-relevant scope boundaries", which DOES land that one specific chunk in
+  "troubleshooting" instead - confirmed live too), so a bare content_type="troubleshooting" query
+  is not a universal Miss for this pilot the way it is for some others; this file only pins down
+  what it actually observed (the "lxml" dependency pin, genuinely "getting_started"), not every
+  other chunk's own classification.
+- ``REAL_DOC_TASK_QUERY`` (REQ-G2-047, TC-117): the real, API-naive task question CONFIRMED live,
+  by hand, on 2026-09-29, to make lookup's own doc-fallback path (``_compose_from_docs``) surface
+  the SAME real "getting_started"-classified ``lxml`` chunk above as ``doc_matches``, with
+  ``example`` genuinely ``None`` (this exact query matches no real verified example - confirmed
+  live, ``find_examples`` itself returns a bare Miss for it) - never ``()`` as every prior
+  comprehensive live verification pass found for every pilot, for every query, before TC-109
+  through TC-112 (and TC-113/TC-114/TC-115/TC-116/this card) closed the gap.
+
 network: true on this card, for exactly this reason - everything here talks to containers this
 file itself builds, starts and tears down.
 """
@@ -162,6 +190,29 @@ REAL_EXAMPLE_SYMBOL = "add_auto_shape"
 # string is required verbatim - the card's own negative control corrupts it, and that corruption
 # must break this test's assertions.
 REAL_TASK_QUERY = "how do I insert a rectangle into a pptx file"
+
+# REQ-G2-047 (TC-117): real doc content, observed live through this exact container by hand on
+# 2026-09-29, now genuinely published and served. slides/python's own furnished-content page
+# carries a real "Installation, Dependencies, and Quick Start" content block whose own "Required
+# Package Dependencies" section lists a real, distinctive package pin - `lxml>=4.9`. Confirmed
+# live, by hand, by querying every one of the 4 real content_types against this exact running
+# container: content_type="getting_started" for "lxml" returns exactly this one real "FQN: Doc:
+# Installation, Dependencies, and Quick Start" chunk whose own text is "- `lxml>=4.9`" (and no
+# others) - never a guess at what a container might return.
+REAL_DOC_QUERY = "lxml"
+REAL_DOC_CONTENT_TYPE = "getting_started"
+REAL_DOC_FRAGMENT = "lxml>=4.9"
+
+# REQ-G2-047 (TC-117): the real, API-naive task question CONFIRMED live, by hand, on 2026-09-29,
+# to make lookup's own doc-fallback path (_compose_from_docs) surface the SAME real
+# "getting_started"-classified lxml chunk above as doc_matches - never [] as every prior
+# comprehensive live verification pass found for every pilot, for every query, before TC-109
+# through TC-112 (and TC-113/TC-114/TC-115/TC-116/this card) closed the gap. This query's own
+# words have zero lexical overlap with this pilot's own one real verified example (confirmed
+# live: example=None for this exact query, run by hand against the real running container - even
+# find_examples on its own returns a bare Miss for it), so this is also a real, live instance of
+# a TaskAnswer composed from a doc match alone, with example genuinely None - never fabricated.
+REAL_DOC_TASK_QUERY = "does this library require lxml"
 
 VALID_HEADERS = {
     "Accept": "application/json, text/event-stream",
@@ -407,3 +458,73 @@ def test_get_symbol_returns_the_real_type_spec_for_autoshape(session: _McpSessio
     assert isinstance(result, dict) and "raw_text" in result, f"expected a real SymbolSignature: {result}"
     assert result["kind"] == "class", result
     assert REAL_METHOD_FRAGMENT in result["raw_text"], result
+
+
+# ---------------------------------------------------------------------
+# REQ-G2-047 (TC-117): slides/python's own real documentation content (TC-112's real
+# _build_doc_chunks, reachable via TC-109's search_docs routing fix, no longer confused for a
+# real symbol by search_symbols since TC-120) genuinely served through the FULL containerized
+# production path - not merely replayed offline by TC-112's own unit-level check. Sourced from
+# this pilot's own real furnished page, regenerated from repository-presenter's real sealed
+# candidate via TC-119.
+# ---------------------------------------------------------------------
+
+
+def test_search_docs_returns_real_furnished_content_for_slides_python(session: _McpSession) -> None:
+    """``search_docs`` with an explicit ``content_type`` for a real, distinctive query returns
+    real, non-empty documentation content from slides/python's own real, regenerated furnished
+    page (TC-119) - never the "no published generation for this scope"/empty-index Miss every
+    content tool call gave before TC-112 wired real doc chunks into ingestion.
+
+    ``getting_started`` is confirmed live, by hand, against the real running container: this
+    pilot's own real "Required Package Dependencies" chunk (under the "Installation,
+    Dependencies, and Quick Start" content block) lists a real, distinctive package pin -
+    `` `lxml>=4.9` `` - and that chunk's own text never happens to contain any
+    ``developer_guide``/``troubleshooting``/``faq`` hint word, so it genuinely buckets
+    ``getting_started`` instead of the classifier's own ``developer_guide`` default.
+    """
+    body = session.call_tool(
+        "search_docs", {"query": REAL_DOC_QUERY, "content_type": REAL_DOC_CONTENT_TYPE}
+    )
+    result = body["result"]["structuredContent"]["result"]
+    assert isinstance(result, list) and result, f"expected real doc matches, got a Miss: {result}"
+    assert all(match["content_type"] == REAL_DOC_CONTENT_TYPE for match in result), result
+    assert any(REAL_DOC_FRAGMENT in match["text"] for match in result), result
+    assert any(match["text"].startswith("FQN: Doc: ") for match in result), result
+
+
+def test_search_docs_troubleshooting_is_an_honest_miss_for_the_dependency_query(
+    session: _McpSession,
+) -> None:
+    """``troubleshooting`` correctly stays an honest ``Miss`` for this same query - confirmed
+    live, by hand, against the real running container: the real ``lxml`` dependency pin chunk
+    genuinely classifies as ``getting_started`` (asserted above), never as ``troubleshooting``
+    too, so a caller who explicitly asks for ``troubleshooting`` content for this query gets a
+    real, honest absence rather than the same content silently duplicated across categories.
+    """
+    body = session.call_tool("search_docs", {"query": REAL_DOC_QUERY, "content_type": "troubleshooting"})
+    result = body["result"]["structuredContent"]["result"]
+    assert isinstance(result, dict) and "reason" in result, f"expected an honest Miss, got: {result}"
+
+
+def test_lookup_returns_real_doc_matches_for_an_api_naive_query(session: _McpSession) -> None:
+    """The concrete, final proof the whole pipeline (TC-109 through TC-112, TC-113, TC-114,
+    TC-115, TC-116, plus this card) closes the real gap end to end for slides/python too, through
+    a real MCP client's own eyes: ``lookup``'s doc-fallback path (``_compose_from_docs``) now
+    genuinely composes a ``TaskAnswer`` whose ``doc_matches`` is non-empty for a real, API-naive
+    query - previously ``()`` for every pilot, for every query, confirmed by this project's own
+    earlier comprehensive live verification pass (see ``lookup.py``'s own module docstring,
+    REQ-G2-049).
+
+    This real query matches no real verified example (confirmed live: ``example`` is ``None``),
+    so this is also a real, live instance of a ``TaskAnswer`` composed from a doc match alone,
+    never fabricated.
+    """
+    body = session.call_tool("lookup", {"query": REAL_DOC_TASK_QUERY})
+    result = body["result"]["structuredContent"]["result"]
+    assert isinstance(result, dict), f"expected a composed TaskAnswer, got: {result}"
+    assert "doc_matches" in result and "example" in result, result
+    doc_matches = result["doc_matches"]
+    assert isinstance(doc_matches, list) and doc_matches, f"expected real doc_matches, got none: {result}"
+    assert any(REAL_DOC_FRAGMENT in match["text"] for match in doc_matches), doc_matches
+    assert result["example"] is None, f"expected no verified example for this query, got: {result['example']}"
