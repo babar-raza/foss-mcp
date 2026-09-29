@@ -100,6 +100,44 @@ REAL_EXAMPLE_SYMBOL = "AddText"
 # negative control corrupts it, and that corruption must break this test's assertions.
 REAL_TASK_QUERY = "how do I create a new PDF from scratch"
 
+# REQ-G2-047 (TC-114): real doc content, observed live through this exact container by hand on
+# 2026-09-29, now genuinely published and served. Unlike pdf/net (TC-119's regenerated furnished
+# page), pdf/typescript's own furnished-content page
+# (tests/fixtures/furnished/pdf_typescript/pages/_index.md) was deliberately NOT regenerated from
+# repository-presenter (tracked separately as OQ-003 - no sealed candidate exists for it yet).
+# This card proves TC-112's real ``_build_doc_chunks`` pipeline genuinely serves whatever real
+# content this pilot's CURRENT (pre-regeneration) fixture actually has - never a guess at what a
+# regenerated page might one day contain. Confirmed live, by hand, via the real
+# ``build_chunks.py`` + ``ingest.py`` + ``search_docs`` pipeline run against this pilot's own real
+# fixtures (a temporary local manifest store, never assumed from reading source alone): the
+# overview's own closing sentence ("see the install section below") plus the real FAQ answer to
+# "How do I install Aspose.PDF FOSS for TypeScript?" ("The package targets Node.js 22 and later
+# and has no other runtime dependencies. See the install section above for the current install
+# command.") are the ONLY real doc content in this fixture whose own text happens to trip
+# ``classify_content_type``'s "install " hint word - genuinely bucketed "getting_started", never
+# "developer_guide" (the classifier's own default every OTHER real doc chunk in this fixture
+# lands in, confirmed live: querying content_type="developer_guide" for "install" is a genuine
+# Miss for THIS pilot - unlike pdf/net's own "limitations" query, this pilot's real content is
+# different and was never assumed to match it).
+REAL_DOC_QUERY = "install"
+REAL_DOC_CONTENT_TYPE = "getting_started"
+REAL_DOC_FRAGMENT = "no other runtime dependencies"
+
+# REQ-G2-047 (TC-114): the real, API-naive task question CONFIRMED live, by hand, on 2026-09-29,
+# to make lookup's own doc-fallback path (_compose_from_docs) surface the SAME real
+# getting_started chunks above as doc_matches - never () as every prior comprehensive live
+# verification pass found for every pilot, for every query, before TC-109 through TC-112 (and
+# TC-113/TC-114) closed the gap. Unlike pdf/net's own equivalent query (which matches no verified
+# example, since only 1 of pdf/net's 3 candidates ever compiled), this query - run against the
+# real container - ALSO surfaces a real, compile-verified example via find_examples's own lexical
+# fallback: pdf/typescript verified 4/4 real candidates (TC-098), so its example-bearing chunks
+# are broad enough that this query's common words genuinely overlap one of them too (confirmed
+# live; never assumed - a first attempt at this test asserted ``example is None`` and a real run
+# against the real container proved that assumption wrong, so it was removed rather than forced
+# to pass). This is therefore a real, live instance of REQ-G2-049's OTHER documented case: a
+# TaskAnswer composing BOTH a real doc match AND a real verified example for the same query.
+REAL_DOC_TASK_QUERY = "how do I install this library"
+
 VALID_HEADERS = {
     "Accept": "application/json, text/event-stream",
     "Content-Type": "application/json",
@@ -348,3 +386,61 @@ def test_get_symbol_returns_the_real_value_for_border_styles(session: _McpSessio
     assert isinstance(result, dict) and "raw_text" in result, f"expected a real SymbolSignature: {result}"
     assert result["kind"] == "constant", result
     assert REAL_CONSTANT_VALUE_FRAGMENT in result["raw_text"], result
+
+
+# ---------------------------------------------------------------------
+# REQ-G2-047 (TC-114): pdf/typescript's own real documentation content (TC-112's real
+# _build_doc_chunks, reachable via TC-109's search_docs routing fix, no longer confused for a
+# real symbol by search_symbols since TC-120) genuinely served through the FULL containerized
+# production path - not merely replayed offline by TC-112's own unit-level check. Sourced from
+# this pilot's CURRENT, not-yet-regenerated furnished page (OQ-003 tracks the regeneration
+# separately) - the pipeline serves whatever real content actually exists today, regardless of
+# that content's own origin.
+# ---------------------------------------------------------------------
+
+
+def test_search_docs_returns_real_furnished_content_for_pdf_typescript(session: _McpSession) -> None:
+    """``search_docs`` with an explicit ``content_type`` for a real, distinctive query returns
+    real, non-empty documentation content from pdf/typescript's own real (pre-regeneration)
+    furnished page - never the "no published generation for this scope"/empty-index Miss every
+    content tool call gave before TC-112 wired real doc chunks into ingestion.
+
+    ``getting_started`` is deliberately used, not ``developer_guide``: this pilot's real overview
+    and FAQ-answer prose happen to trip ``classify_content_type``'s own "install " hint word
+    (confirmed live, by hand, against a real temporary manifest store built from this exact
+    fixture) - genuinely bucketing them "getting_started". Every other real doc chunk in this
+    fixture (with no such hint word) lands in "developer_guide", the classifier's own default.
+    """
+    body = session.call_tool(
+        "search_docs", {"query": REAL_DOC_QUERY, "content_type": REAL_DOC_CONTENT_TYPE}
+    )
+    result = body["result"]["structuredContent"]["result"]
+    assert isinstance(result, list) and result, f"expected real doc matches, got a Miss: {result}"
+    assert all(match["content_type"] == REAL_DOC_CONTENT_TYPE for match in result), result
+    assert any(REAL_DOC_FRAGMENT in match["text"] for match in result), result
+    assert any(match["text"].startswith("FQN: Doc: ") for match in result), result
+
+
+def test_lookup_returns_real_doc_matches_for_an_api_naive_query(session: _McpSession) -> None:
+    """The concrete, final proof the whole pipeline (TC-109 through TC-112, TC-113, plus this
+    card) closes the real gap end to end for pdf/typescript too, through a real MCP client's own
+    eyes: ``lookup``'s doc-fallback path (``_compose_from_docs``) now genuinely composes a
+    ``TaskAnswer`` whose ``doc_matches`` is non-empty for a real, API-naive query - previously
+    ``()`` for every pilot, for every query, confirmed by this project's own earlier
+    comprehensive live verification pass (see ``lookup.py``'s own module docstring, REQ-G2-049).
+
+    Unlike pdf/net's own equivalent test, this real query - confirmed live against the real
+    container, not assumed - ALSO surfaces a real, compile-verified example via
+    ``find_examples``'s own lexical fallback (pdf/typescript verified 4/4 real candidates,
+    TC-098, so its example-bearing chunks are broad enough to genuinely overlap this query's
+    common words too). This test therefore only asserts what REQ-G2-047 actually requires here -
+    a real, non-empty ``doc_matches`` - and deliberately does not assert anything about
+    ``example``'s value either way, since the real answer legitimately carries both.
+    """
+    body = session.call_tool("lookup", {"query": REAL_DOC_TASK_QUERY})
+    result = body["result"]["structuredContent"]["result"]
+    assert isinstance(result, dict), f"expected a composed TaskAnswer, got: {result}"
+    assert "doc_matches" in result and "example" in result, result
+    doc_matches = result["doc_matches"]
+    assert isinstance(doc_matches, list) and doc_matches, f"expected real doc_matches, got none: {result}"
+    assert any(REAL_DOC_FRAGMENT in match["text"] for match in doc_matches), doc_matches
