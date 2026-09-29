@@ -1,0 +1,101 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_generate_furnished_page.py tests/indexing/test_example_candidates.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pkzkv7uh\.junit-0.xml"
+--- stdout ---
+.....................................                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_generate_furnished_page.py tests/indexing/test_example_candidates.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pkzkv7uh\.junit-0.xml"
+--- stdout ---
+.....................................                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/generate_furnished_page.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_generate_furnished_page.py tests/indexing/test_example_candidates.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pkzkv7uh\.junit-0.xml"
+--- stdout ---
+FFFFF................................                                    [100%]
+================================== FAILURES ===================================
+_______ test_sealed_candidate_doc_fields_parses_the_real_expected_shape _______
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-972/test_sealed_candidate_doc_fiel0')
+
+    def test_sealed_candidate_doc_fields_parses_the_real_expected_shape(tmp_path: Path) -> None:
+        _write_synthetic_sealed_candidate(tmp_path, "widget-org/widget-foss", "abc123deadbeef", _SYNTHETIC_README)
+    
+>       fields, commit = gen.sealed_candidate_doc_fields("widget-org/widget-foss", tmp_path)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.generate_furnished_page' has no attribute 'sealed_candidate_doc_fields'. Did you mean: 'sealed_candidate_doc_fields_DISABLED'?
+
+tests\infra\test_generate_furnished_page.py:161: AttributeError
+__ test_sealed_candidate_doc_fields_raises_clear_error_when_current_missing ___
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-972/test_sealed_candidate_doc_fiel1')
+
+    def test_sealed_candidate_doc_fields_raises_clear_error_when_current_missing(tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError) as excinfo:
+>           gen.sealed_candidate_doc_fields("widget-org/widget-foss", tmp_path)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: module 'infra.generate_furnished_page' has no attribute 'sealed_candidate_doc_fields'. Did you mean: 'sealed_candidate_doc_fields_DISABLED'?
+
+tests\infra\test_generate_furnished_page.py:195: AttributeError
+___ test_sealed_candidate_doc_fields_raises_clear_error_when_readme_missing ___
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-972/test_sealed_candidate_doc_fiel2')
+
+    def test_sealed_candidate_doc_fields_raises_clear_error_when_readme_missing(tmp_path: Path) -> None:
+        candidate_dir = tmp_path / "candidates" / "widget-org__widget-foss"
+        candidate_dir.mkdir(parents=True)
+        (candidate_dir / "CURRENT").write_text("abc123deadbeef", encoding="utf-8")
+        # No README.md written at candidate_dir/abc123deadbeef/.
+    
+        with pytest.raises(FileNotFoundError) as excinfo:
+>           gen.sealed_candidate_doc_fields("widget-org/widget-foss", tmp_path)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: module 'infra.generate_furnished_page' has no attribute 'sealed_candidate_doc_fields'. Did you mean: 'sealed_candidate_doc_fields_DISABLED'?
+
+tests\infra\test_generate_furnished_page.py:208: AttributeError
+_ test_sealed_candidate_doc_fields_raises_when_a_required_section_is_missing __
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-972/test_sealed_candidate_doc_fiel3')
+
+    def test_sealed_candidate_doc_fields_raises_when_a_required_section_is_missing(tmp_path: Path) -> None:
+        broken_readme = _SYNTHETIC_README.replace("## Scope and Limitations", "## Something Else Entirely")
+        _write_synthetic_sealed_candidate(tmp_path, "widget-org/widget-foss", "abc123deadbeef", broken_readme)
+    
+        with pytest.raises(KeyError) as excinfo:
+>           gen.sealed_candidate_doc_fields("widget-org/widget-foss", tmp_path)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: module 'infra.generate_furnished_page' has no attribute 'sealed_candidate_doc_fields'. Did you mean: 'sealed_candidate_doc_fields_DISABLED'?
+
+tests\infra\test_generate_furnished_page.py:220: AttributeError
+_______ test_scope_and_limitations_block_classifies_as_troubleshooting ________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-972/test_scope_and_limitations_blo0')
+
+    def test_scope_and_limitations_block_classifies_as_troubleshooting(tmp_path: Path) -> None:
+        """The card's own explicit requirement: check search_docs's real hints first so the
+        Scope and Limitations block's own retained TEXT (never a heading that
+        chunk_document would strip away) actually classifies as troubleshooting.
+        """
+        _write_synthetic_sealed_candidate(tmp_path, "widget-org/widget-foss", "abc123deadbeef", _SYNTHETIC_README)
+    
+>       fields, _ = gen.sealed_candidate_doc_fields("widget-org/widget-foss", tmp_path)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.generate_furnished_page' has no attribute 'sealed_candidate_doc_fields'. Did you mean: 'sealed_candidate_doc_fields_DISABLED'?
+
+tests\infra\test_generate_furnished_page.py:233: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_generate_furnished_page.py::test_sealed_candidate_doc_fields_parses_the_real_expected_shape
+FAILED tests/infra/test_generate_furnished_page.py::test_sealed_candidate_doc_fields_raises_clear_error_when_current_missing
+FAILED tests/infra/test_generate_furnished_page.py::test_sealed_candidate_doc_fields_raises_clear_error_when_readme_missing
+FAILED tests/infra/test_generate_furnished_page.py::test_sealed_candidate_doc_fields_raises_when_a_required_section_is_missing
+FAILED tests/infra/test_generate_furnished_page.py::test_scope_and_limitations_block_classifies_as_troubleshooting
+
+--- stderr ---
+
