@@ -19,6 +19,7 @@ requires network access, plus a Python interpreter capable of creating a venv.
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -27,8 +28,15 @@ import pytest
 import yaml
 
 import infra.build_chunks as build_chunks
+from foss_mcp.indexing.doc_candidates import extract_doc_sections
 from foss_mcp.indexing.example_candidates import extract_candidate_examples
 from foss_mcp.indexing.example_verifier import prepare_reference_library, verify_dotnet_example
+from foss_mcp.normalization.citation import (
+    citable_chunks,
+    known_counts_from_fixture,
+    symbol_index_from_api_surface,
+    validate_document,
+)
 
 API_SURFACE = Path("tests/fixtures/pdf_net/api_surface.json")
 FURNISHED_PAGE = Path("tests/fixtures/furnished/pdf_net/pages/_index.md")
@@ -259,6 +267,116 @@ def test_furnished_page_adds_real_compile_verified_example_chunks(
     for chunk in example_chunks:
         print("---- example chunk ----")
         print(chunk["text"])
+
+    # REQ-G2-047 (TC-112): the real production entrypoint's --furnished-page branch now
+    # ALSO publishes real documentation chunks alongside the type-based and example chunks
+    # above, additively, in the same run - proving the wiring into main() itself (AGENTS.md's
+    # "Integration and liveness": a call site in the real entrypoint file, not just a passing
+    # unit test of the function in isolation).
+    doc_chunks = [c for c in chunks if c["content_type"] == "doc"]
+    assert doc_chunks, "expected main()'s --furnished-page branch to publish real doc chunks too"
+    assert all(c["source_kind"] == "furnished" for c in doc_chunks)
+    for chunk in doc_chunks:
+        first_line = chunk["text"].splitlines()[0]
+        assert first_line.startswith("FQN: Doc: "), chunk["text"]
+        assert chunk["provenance"]["repository"] == LIBRARY_REPOSITORY
+        assert chunk["provenance"]["commit"] == LIBRARY_COMMIT
+        assert chunk["text"].splitlines()[-1] == f"Source-Commit: {LIBRARY_COMMIT}"
+
+
+# --- REQ-G2-047 (TC-112): real documentation chunks (TC-110's extract_doc_sections) --------
+
+
+def _doc_build_args() -> argparse.Namespace:
+    return argparse.Namespace(
+        furnished_page=FURNISHED_PAGE,
+        library_repository=LIBRARY_REPOSITORY,
+        library_commit=LIBRARY_COMMIT,
+    )
+
+
+def _marker_title(chunk_text: str) -> str:
+    first_line = chunk_text.splitlines()[0]
+    assert first_line.startswith("FQN: Doc: "), chunk_text
+    return first_line[len("FQN: Doc: ") :]
+
+
+def test_build_doc_chunks_marker_shape_and_content_type(tmp_path: Path) -> None:
+    """Real, offline (no network/dotnet needed - _build_doc_chunks never compiles anything):
+    every chunk built from pdf/net's own real furnished page carries the exact required
+    ``FQN: Doc: {candidate.title}\\n`` marker line (load-bearing for TC-120's own
+    search_symbols.py exclusion), a "doc" content_type (never "example" - citation.py's
+    _is_real_compile_verified_example checks exactly that literal string), and "furnished"
+    source_kind/provenance pointing at the real pinned library.
+    """
+    page = _load_real_page()
+    args = _doc_build_args()
+
+    candidates = extract_doc_sections(page)
+    assert candidates, "expected pdf/net's real furnished page to yield real doc candidates"
+    real_titles = {c.title for c in candidates}
+
+    doc_chunks = build_chunks._build_doc_chunks(page, args)
+    assert doc_chunks
+
+    for chunk in doc_chunks:
+        assert chunk.content_type == "doc"
+        assert chunk.content_type != "example"
+        assert chunk.source_kind == "furnished"
+        assert chunk.provenance.repository == LIBRARY_REPOSITORY
+        assert chunk.provenance.commit == LIBRARY_COMMIT
+        assert chunk.provenance.path == str(FURNISHED_PAGE)
+        title = _marker_title(chunk.text)
+        assert title in real_titles
+
+    # The real overview candidate's own body (a mermaid diagram, no blank lines) produces
+    # exactly one paragraph-based chunk (chunker.py's own _paragraph_sections path, since the
+    # body has no markdown headings) - so its exact marker line is independently checkable.
+    overview_title = next(c.title for c in candidates if c.origin == "overview")
+    overview_chunks = [c for c in doc_chunks if _marker_title(c.text) == overview_title]
+    assert overview_chunks
+    assert overview_chunks[0].text.splitlines()[0] == f"FQN: Doc: {overview_title}"
+
+
+def test_furnished_page_doc_chunks_survive_real_citable_chunks_pass(tmp_path: Path) -> None:
+    """The card's own required real proof: real extraction + real chunking + a real
+    citable_chunks pass (symbol_index_from_api_surface/validate_document/citable_chunks,
+    exactly as infra/ingest.py itself does, not a mock) against pdf/net's own real furnished
+    fixture and real api_surface.json - at least one chunk from each of the overview/content
+    origins survives as citable.
+
+    pdf/net's own real faq.enable is confirmed False in
+    tests/fixtures/furnished/pdf_net/pages/_index.md (``faq: {enable: false, list: []}``), so
+    no faq candidate exists at all here - never asserted to survive for pdf/net specifically.
+    """
+    page = _load_real_page()
+    args = _doc_build_args()
+
+    candidates = extract_doc_sections(page)
+    title_to_origin = {c.title: c.origin for c in candidates}
+    assert not any(c.origin == "faq" for c in candidates), (
+        "pdf/net's own faq.enable is False - a real faq candidate here would mean this "
+        "fixture changed and the origin-coverage assertions below need re-checking"
+    )
+    assert {c.origin for c in candidates} == {"overview", "content"}
+
+    doc_chunks = build_chunks._build_doc_chunks(page, args)
+
+    fixture = json.loads(API_SURFACE.read_text(encoding="utf-8"))
+    symbol_index = symbol_index_from_api_surface(fixture["types"])
+    known_counts = known_counts_from_fixture(fixture)
+    validated = validate_document(doc_chunks, symbol_index, known_counts)
+    citable = citable_chunks(validated)
+
+    assert citable, "expected at least one real doc chunk to survive the real citable_chunks pass"
+
+    surviving_origins = {title_to_origin[_marker_title(chunk.text)] for chunk in citable}
+    assert "overview" in surviving_origins, (
+        "expected at least one overview-origin doc chunk to survive citation validation"
+    )
+    assert "content" in surviving_origins, (
+        "expected at least one content-origin doc chunk to survive citation validation"
+    )
 
 
 def test_furnished_flags_are_all_required_together(tmp_path: Path) -> None:

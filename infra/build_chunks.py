@@ -37,6 +37,14 @@ REQ-G2-048 (TC-091) generalizes that path with a new required ``--library-platfo
 ``--library-platform dotnet`` (plus the pre-existing ``--library-csproj``) reproduces the
 original pdf/net-only behavior byte-for-byte; the other five platforms were previously
 unreachable from this CLI even though their prepare/verify functions already existed.
+
+REQ-G2-047 (TC-112) adds a THIRD, additive path alongside the two above: real documentation
+chunks built from ``--furnished-page``'s own ``overview``/``content``/``faq`` front-matter
+sections (``foss_mcp.indexing.doc_candidates.extract_doc_sections``, TC-110). Unlike the
+example path, no compile-verification happens here - prose is never compiled - so every
+``DocCandidate`` the extractor returns becomes a chunk, no sandbox, no verified/unverified
+split. This closes REQ-G2-047's confirmed gap: search_docs has never had any real content,
+for any pilot, since this project's own inception.
 """
 
 from __future__ import annotations
@@ -50,6 +58,7 @@ from pathlib import Path
 import yaml
 
 from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
+from foss_mcp.indexing.doc_candidates import extract_doc_sections
 from foss_mcp.indexing.example_candidates import extract_candidate_examples
 from foss_mcp.indexing.example_verifier import (
     prepare_go_library,
@@ -217,6 +226,69 @@ def _build_verified_example_chunks(args: argparse.Namespace) -> list[Chunk]:
     return verified_chunks
 
 
+def _build_doc_chunks(page: dict, args: argparse.Namespace) -> list[Chunk]:
+    """Extract and chunk every real documentation candidate from ``--furnished-page``'s own
+    ``overview``/``content``/``faq`` sections (REQ-G2-047, TC-110's ``extract_doc_sections``).
+
+    Genuinely simpler than ``_build_verified_example_chunks``: prose is never compiled, so
+    there is no compile-verification sandbox and no verified/unverified split - every
+    ``DocCandidate`` becomes a chunk. For each candidate, a real ``Document`` is built via
+    ``make_document`` mirroring ``_build_verified_example_chunks``'s own real call shape
+    exactly (same argument names/order), then ``chunk_document`` splits it into one or more
+    section-granularity ``Chunk``s.
+
+    ``content_type="doc"`` is this CHUNK's own build-time ``content_type`` field
+    (``document_schema.py``'s ``Document``/``Chunk`` dataclass field) - nothing downstream
+    currently reads it back, but it must NOT be the literal string ``"example"``:
+    ``citation.py``'s ``_is_real_compile_verified_example`` checks exactly
+    ``chunk.content_type == "example"`` and would wrongly exempt this real, unverified doc
+    prose from citation checking if it collided.
+
+    Every returned chunk's ``text`` is prefixed with a pseudo-FQN line of the exact shape
+    ``FQN: Doc: {candidate.title}\\n``, mirroring ``_build_verified_example_chunks``'s own
+    ``FQN: Example: {candidate.title}\\n`` convention exactly. This is applied to each chunk
+    AFTER ``chunk_document`` splits the candidate's body - not baked into the body passed to
+    ``make_document`` - because a ``content``-origin candidate's own real markdown headings
+    (e.g. ``### Installation``) make ``chunk_document`` split one candidate into several
+    chunks, and any text placed before a document's first heading is dropped entirely by
+    ``chunker._heading_sections`` (text before the first heading match is never captured).
+    Post-processing every emitted chunk is the only way to guarantee EVERY chunk this function
+    publishes carries the marker, not just the first one.
+
+    Reason the marker is required at all, discovered live during TC-109's own execution:
+    ``search_symbols.py``'s own exclusion of non-symbol chunks
+    (``get_symbol.extract_fqn(text).startswith("Example: ")``) is the ONLY thing stopping a
+    non-symbol chunk in this shared generation from being wrongly returned by
+    ``search_symbols`` (and therefore by ``lookup()``'s bare-query dispatch, which tries
+    ``search_symbols`` first) as if it were a real API symbol. Without this marker, every doc
+    chunk this function publishes would silently corrupt ``search_symbols``/``lookup`` for
+    every pilot. A separate, already-authored follow-up card (TC-120) extends
+    ``search_symbols.py``'s own exclusion to also drop ``Doc: `` - it depends on this exact
+    marker shape existing.
+    """
+    candidates = extract_doc_sections(page)
+
+    doc_chunks: list[Chunk] = []
+    for candidate in candidates:
+        doc = make_document(
+            source_kind=SourceKind.FURNISHED,
+            content_type="doc",
+            provenance=Provenance(
+                repository=args.library_repository,
+                commit=args.library_commit,
+                path=str(args.furnished_page),
+            ),
+            evidence_refs=(f"{args.library_repository}@{args.library_commit}",),
+            title=candidate.title,
+            body=candidate.body,
+        )
+        for chunk in chunk_document(doc):
+            doc_chunks.append(dataclasses.replace(chunk, text=f"FQN: Doc: {candidate.title}\n{chunk.text}"))
+
+    print(f"built {len(doc_chunks)} doc chunks from {len(candidates)} doc candidates")
+    return doc_chunks
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
@@ -280,7 +352,11 @@ def main() -> None:
     chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
 
     if args.furnished_page is not None:
-        chunks = chunks + _build_verified_example_chunks(args)
+        # Note: _build_verified_example_chunks loads --furnished-page itself internally, and
+        # it is explicitly out of scope for this card to touch (REQ-G2-047/TC-112) - so this
+        # is a real, deliberately-accepted duplicate parse, not an oversight.
+        page = _load_furnished_page(args.furnished_page)
+        chunks = chunks + _build_verified_example_chunks(args) + _build_doc_chunks(page, args)
 
     chunks = [_with_source_commit_line(chunk) for chunk in chunks]
 
