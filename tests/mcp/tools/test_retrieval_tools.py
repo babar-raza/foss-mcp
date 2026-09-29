@@ -212,6 +212,71 @@ Adds a watermark annotation to the page.
     assert isinstance(pseudo_only_result, SymbolsMiss)
 
 
+def test_search_symbols_excludes_tc112_doc_pseudo_symbol_chunks_from_its_own_matching(
+    tmp_path: Path,
+) -> None:
+    """TC-112's furnished documentation chunks are published into this exact same
+    self_extracted generation search_symbols reads, marked with a parallel pseudo-FQN of the
+    literal shape ``Doc: <title>`` (see ``infra/build_chunks.py``'s own
+    ``FQN: Doc: {candidate.title}\\n{chunk.text}`` construction, applied to each chunk AFTER
+    ``chunk_document`` splits the candidate's body - reproduced exactly the same way here, not
+    baked into the document body). A doc chunk is not a real symbol and must never be reported
+    as one, exactly like a TC-068 ``Example:`` chunk already isn't (see the sibling test above).
+
+    Real regression, not a mock: one real symbol chunk and one Doc:-prefixed pseudo-symbol
+    chunk are published side by side, both containing the word "watermark" in their own prose,
+    so a lexical scan with no filter would return both.
+    """
+    import dataclasses
+
+    store = _store(tmp_path)
+    real_symbol_body = """## PdfDocument.AddWatermarkAnnotation
+
+FQN: PdfDocument.AddWatermarkAnnotation
+Kind: Method
+Adds a watermark annotation to the page.
+"""
+    doc_title = "Adding a Watermark"
+    pseudo_doc_body = """## Adding a Watermark
+
+Use PdfDocument.AddWatermarkAnnotation to add a watermark to a PDF document, stamping
+confidential markings onto every exported page.
+"""
+    real_doc = make_document(
+        source_kind=SourceKind.SELF_EXTRACTED,
+        content_type="api_surface",
+        provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+        evidence_refs=(),
+        title="pdf/net API surface",
+        body=real_symbol_body,
+    )
+    pseudo_doc = make_document(
+        source_kind=SourceKind.FURNISHED,
+        content_type="doc",
+        provenance=Provenance(repository="Aspose/aspose.org", commit="x", path="content/pdf/net"),
+        evidence_refs=(),
+        title=doc_title,
+        body=pseudo_doc_body,
+    )
+    pseudo_chunks = [
+        dataclasses.replace(chunk, text=f"FQN: Doc: {doc_title}\n{chunk.text}")
+        for chunk in chunk_document(pseudo_doc)
+    ]
+    chunks = chunk_document(real_doc) + pseudo_chunks
+    _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+
+    result = search_symbols(store, PDF_NET_SCOPE, "watermark")
+
+    assert isinstance(result, list) and result
+    assert all(isinstance(match, SymbolMatch) for match in result)
+    assert all("Doc: Adding a Watermark" not in match.text for match in result)
+    assert any("PdfDocument.AddWatermarkAnnotation" in match.text for match in result)
+
+    pseudo_only_result = search_symbols(store, PDF_NET_SCOPE, "confidential markings")
+
+    assert isinstance(pseudo_only_result, SymbolsMiss)
+
+
 def test_search_docs_rejects_an_invalid_content_type(tmp_path: Path) -> None:
     store = _store(tmp_path)
     with pytest.raises(ValueError):

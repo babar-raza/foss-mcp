@@ -21,6 +21,12 @@ design). Those chunks are not symbols and must never be reported as one, so this
 excludes them the same way ``find_examples.py`` already excludes real symbols from its own
 matching: query the whole corpus first (never let ``top_k`` cut candidates before filtering),
 drop anything whose FQN marks it as an example, THEN truncate to the caller's real ``top_k``.
+
+TC-112's furnished documentation chunks are published into this exact same generation too,
+honestly labeled with a parallel pseudo-FQN of the literal shape ``Doc: <title>`` (see
+``infra/build_chunks.py``). Those chunks are not symbols either, so ``_NON_SYMBOL_FQN_PREFIXES``
+below excludes both prefixes - this generalizes cleanly to a future non-symbol chunk kind
+without editing the filter line itself again.
 """
 
 from __future__ import annotations
@@ -32,6 +38,8 @@ from foss_mcp.indexing.lexical_index_writer import query_lexical_index
 from foss_mcp.mcp.routing import Scope
 
 SOURCE_KIND = "self_extracted"
+
+_NON_SYMBOL_FQN_PREFIXES = ("Example: ", "Doc: ")
 
 
 def scope_key(scope: Scope, source_kind: str) -> str:
@@ -64,12 +72,12 @@ def search_symbols(
 ) -> list[SymbolMatch] | Miss:
     """Search only ``scope``'s currently active generation's self-extracted symbol index.
 
-    TC-068's ``Example: <title>`` pseudo-symbol chunks live in this exact same generation but
-    are never real symbols, so they are excluded from this tool's own notion of a match: the
-    whole corpus is ranked first (mirroring ``find_examples.py``'s own
-    ``query_lexical_index(..., top_k=len(documents))`` pattern, so a real symbol is never lost
-    to a premature cut), pseudo-symbols are dropped, and only then is the result truncated to
-    the caller's real ``top_k``.
+    TC-068's ``Example: <title>`` pseudo-symbol chunks and TC-112's ``Doc: <title>`` furnished
+    documentation chunks live in this exact same generation but are never real symbols, so they
+    are excluded from this tool's own notion of a match: the whole corpus is ranked first
+    (mirroring ``find_examples.py``'s own ``query_lexical_index(..., top_k=len(documents))``
+    pattern, so a real symbol is never lost to a premature cut), pseudo-symbols are dropped, and
+    only then is the result truncated to the caller's real ``top_k``.
 
     A query with no match returns an explicit ``Miss`` - never a widened search, never a
     fallback to a different generation or scope.
@@ -91,7 +99,7 @@ def search_symbols(
     doc_ids = [
         doc_id
         for doc_id in ranked
-        if not (extract_fqn(documents[doc_id]["text"]) or "").startswith("Example: ")
+        if not (extract_fqn(documents[doc_id]["text"]) or "").startswith(_NON_SYMBOL_FQN_PREFIXES)
     ][:top_k]
     if not doc_ids:
         return Miss(scope, query, f"no symbol matches {query!r}")
