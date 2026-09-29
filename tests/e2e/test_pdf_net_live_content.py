@@ -79,6 +79,28 @@ REAL_TASK_QUERY = "how do I add a watermark to a PDF"
 REAL_ENUM_FQN = "Aspose.Pdf.AFRelationship"
 REAL_ENUM_MEMBER = "EncryptedPayload"
 
+# REQ-G2-047 (TC-113): real doc content, observed live through this exact container by hand on
+# 2026-09-29, now genuinely published and served - TC-119's regenerated furnished-content page
+# for pdf/net carries a "Scope and Limitations" content block (extract_doc_sections' "content"
+# origin), and search_docs's own classify_content_type buckets its "These limitations don't
+# apply to ... Enterprise Edition ..." / "... open-source subset of Aspose.PDF for .NET ..."
+# chunks as "developer_guide" (its own default: neither chunk's own text happens to contain any
+# of "getting started"/"quickstart"/"installation"/"prerequisites"). Confirmed live: querying
+# content_type="developer_guide" for "limitations" returns exactly these 2 real "FQN: Doc: Scope
+# and Limitations" chunks - never a guess at what a container might return.
+REAL_DOC_QUERY = "limitations"
+REAL_DOC_CONTENT_TYPE = "developer_guide"
+REAL_DOC_FRAGMENT = "open-source subset of Aspose.PDF for .NET"
+
+# REQ-G2-047 (TC-113): the real, API-naive task question CONFIRMED live, by hand, on 2026-09-29,
+# to make lookup's own doc-fallback path (_compose_from_docs) surface the SAME real "Scope and
+# Limitations" chunks above as doc_matches - never [] as every prior comprehensive live
+# verification pass found for every pilot, for every query, before TC-109 through TC-112 (and
+# this card) closed the gap. This query happens to match no verified example, so lookup's
+# TaskAnswer carries a real, non-empty doc_matches with example=None - a doc match found on its
+# own, exactly as lookup.py's own module docstring says a TaskAnswer may legitimately look.
+REAL_DOC_TASK_QUERY = "what are the known limitations of this library"
+
 VALID_HEADERS = {
     "Accept": "application/json, text/event-stream",
     "Content-Type": "application/json",
@@ -323,3 +345,54 @@ def test_get_symbol_returns_the_real_enum_members_for_afrelationship(session: _M
     members = result["members"]
     assert isinstance(members, list) and members, f"expected real enum members, got none: {result}"
     assert any(member.startswith(REAL_ENUM_MEMBER) for member in members), members
+
+
+# ---------------------------------------------------------------------
+# REQ-G2-047 (TC-113): pdf/net's own real documentation content (TC-112's real
+# _build_doc_chunks, reachable via TC-109's search_docs routing fix, no longer confused for a
+# real symbol by search_symbols since TC-120) genuinely served through the FULL containerized
+# production path - not merely replayed offline by TC-112's own unit-level check.
+# ---------------------------------------------------------------------
+
+
+def test_search_docs_returns_real_furnished_content_for_pdf_net(session: _McpSession) -> None:
+    """``search_docs`` with an explicit ``content_type`` for a real, distinctive query returns
+    real, non-empty documentation content from pdf/net's own real, regenerated furnished page
+    (TC-119) - never the "no published generation for this scope"/empty-index Miss every content
+    tool call gave before TC-112 wired real doc chunks into ingestion.
+
+    ``developer_guide`` is deliberately used, not ``getting_started``: it is
+    ``classify_content_type``'s own default bucket, and is the category this real furnished
+    page's "Scope and Limitations" content block genuinely lands in (confirmed live - neither of
+    its two real chunks' own text happens to contain a ``getting_started``/``troubleshooting``/
+    ``faq`` hint word).
+    """
+    body = session.call_tool(
+        "search_docs", {"query": REAL_DOC_QUERY, "content_type": REAL_DOC_CONTENT_TYPE}
+    )
+    result = body["result"]["structuredContent"]["result"]
+    assert isinstance(result, list) and result, f"expected real doc matches, got a Miss: {result}"
+    assert all(match["content_type"] == REAL_DOC_CONTENT_TYPE for match in result), result
+    assert any(REAL_DOC_FRAGMENT in match["text"] for match in result), result
+    assert any(match["text"].startswith("FQN: Doc: ") for match in result), result
+
+
+def test_lookup_returns_real_doc_matches_for_an_api_naive_query(session: _McpSession) -> None:
+    """The concrete, final proof the whole pipeline (TC-109 through TC-112 plus this card)
+    closes the real gap end to end, through a real MCP client's own eyes: ``lookup``'s
+    doc-fallback path (``_compose_from_docs``) now genuinely composes a ``TaskAnswer`` whose
+    ``doc_matches`` is non-empty for a real, API-naive query - previously ``()`` for every pilot,
+    for every query, confirmed by this project's own earlier comprehensive live verification
+    pass (see ``lookup.py``'s own module docstring, REQ-G2-049).
+
+    This real query happens to match no verified example (pdf/net's only verified example is the
+    unrelated watermark annotation), so this is also a real, live instance of a ``TaskAnswer``
+    composed from a doc match alone, with ``example`` genuinely ``None`` - never fabricated.
+    """
+    body = session.call_tool("lookup", {"query": REAL_DOC_TASK_QUERY})
+    result = body["result"]["structuredContent"]["result"]
+    assert isinstance(result, dict), f"expected a composed TaskAnswer, got: {result}"
+    assert "doc_matches" in result and "example" in result, result
+    doc_matches = result["doc_matches"]
+    assert isinstance(doc_matches, list) and doc_matches, f"expected real doc_matches, got none: {result}"
+    assert any(REAL_DOC_FRAGMENT in match["text"] for match in doc_matches), doc_matches
