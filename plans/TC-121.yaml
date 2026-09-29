@@ -1,0 +1,104 @@
+id: TC-121
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix a real, confirmed regression TC-119''s own worker discovered and correctly
+  did NOT touch (out of its own write_paths): regenerating 5 pilots'' furnished fixtures
+  from repository-presenter''s sealed candidates (TC-119, committed 9d3a83c) made
+  6 pre-existing, already-accepted tests fail, because they hardcoded specific values
+  from the OLD aspose.org-copied content that TC-119 deliberately replaced: tests/indexing/test_doc_candidates.py''s
+  5 real-fixture tests (exact overview/content-block titles, and FAQ entry counts
+  that assumed only pdf_java had faq.enable=false - now false for all 5 regenerated
+  pilots too, since repository-presenter''s own README contract has no FAQ section
+  at all) and tests/normalization/test_citation.py::test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count
+  (its whole premise - the real pdf/net overview containing the literal sentence ''The
+  library exposes 805 classes.'' - no longer holds now that the overview is real README-derived
+  content instead of the old aspose.org copy). This is a scope gap in how TC-119 was
+  authored (it should have listed these two files, or a companion card should have
+  shipped alongside it) - not a defect in TC-119''s own implementation, which is correct.'
+depends_on:
+- TC-105
+- TC-108
+- TC-110
+- TC-111
+- TC-119
+write_paths:
+- tests/indexing/test_doc_candidates.py
+- tests/normalization/test_citation.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Run `.venv\Scripts\python.exe -m pytest tests/indexing/test_doc_candidates.py tests/normalization/test_citation.py
+  -q` FIRST to see the real, current failures before changing anything - do not guess
+  at what broke.
+- 'tests/indexing/test_doc_candidates.py: for each of the 5 real-fixture tests (pdf_net,
+  pdf_java, pdf_go, slides_python, cells_rust - pdf_typescript''s own test is untouched
+  and must keep passing unchanged, since that pilot''s fixture was deliberately NOT
+  regenerated), read that pilot''s own real, current tests/fixtures/furnished/<pilot>/pages/_index.md
+  and call extract_doc_sections on it for real to discover the REAL, current overview/content-block
+  titles and FAQ count - never hardcode a guessed or invented value. Every one of
+  the 5 regenerated pilots now has faq.enable: false (repository-presenter''s own
+  README template has no FAQ section at all), so every one of these 5 tests should
+  now assert zero FAQ-origin candidates, not just pdf_java''s test.'
+- 'REQUIRED, exact shape (load-bearing for the negative control): introduce one shared
+  helper `_real_doc_candidates_for_pilot(pilot_dir_name: str) -> list[DocCandidate]`
+  in test_doc_candidates.py that loads that pilot''s real fixture and calls extract_doc_sections
+  for real, and have all 5 real-fixture tests call it (replacing however they currently
+  load the fixture, if different). This makes the fix robust to exactly which real
+  values each test ends up asserting.'
+- 'tests/normalization/test_citation.py::test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count
+  and its helper _furnished_overview_text(): the real pdf/net overview no longer contains
+  ''805 classes'' at all (TC-119 replaced it with real README-derived content). Preserve
+  OQ-001''s real historical scenario as a permanent, hardcoded synthetic regression
+  fixture instead of reading it from the live fixture file - mirror the sibling test
+  test_the_805_classes_sentence_is_excluded_or_qualified_as_a_whole_chunk''s own already-correct
+  pattern (a hardcoded string literal via _chunk(...), not a live fixture read). Use
+  the exact original sentence, ''The library exposes 805 classes.'', as a hardcoded
+  string constant with a docstring explaining it once described the real furnished
+  pdf/net page and is now preserved here specifically because TC-119 replaced that
+  content with real README-derived text. Remove _furnished_overview_text() if it becomes
+  unused after this change (check first).'
+- Do not touch src/foss_mcp/indexing/doc_candidates.py, src/foss_mcp/normalization/citation.py,
+  src/foss_mcp/extraction/claim_id_bridge.py, or any fixture file - purely test-assertion
+  maintenance in the two named files.
+- Do not weaken any assertion's actual intent (e.g. do not simply delete the FAQ-count
+  assertion instead of correcting it to zero) - every test must keep testing the same
+  real behavior it always did, just against the now-real, current values.
+actions:
+- Update the 5 real-fixture tests in test_doc_candidates.py to assert the real, current
+  values discovered live from each pilot's own regenerated fixture.
+- Convert test_oq_001_... to a hardcoded synthetic fixture per the sibling test's
+  pattern, preserving its real historical intent.
+- Run the full two-file check yourself and confirm every test passes for real.
+checks:
+- command: '{python} -m pytest tests/indexing/test_doc_candidates.py tests/normalization/test_citation.py
+    -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 30
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/indexing/test_doc_candidates.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    _real_doc_candidates_for_pilot','def _real_doc_candidates_for_pilot_DISABLED');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming _real_doc_candidates_for_pilot leaves every one of the 5 real-fixture
+    tests that call it undefined, breaking all 5 with a NameError, proving they genuinely
+    depend on this concrete shared helper rather than passing for an unrelated reason.
+    Self-checked end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-121/receipt.json
+closeout:
+- All 6 previously-broken tests (5 in test_doc_candidates.py, 1 in test_citation.py)
+  pass again, asserting real, current, correctly-discovered values - not stale aspose.org-copied
+  content.
+- pdf_typescript's own untouched test still passes unchanged.
+- test_the_805_classes_sentence_is_excluded_or_qualified_as_a_whole_chunk's own already-correct
+  synthetic-fixture pattern is unaffected.
+- Renaming _real_doc_candidates_for_pilot fails 5 tests again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
