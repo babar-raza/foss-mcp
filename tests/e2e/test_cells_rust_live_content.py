@@ -58,6 +58,27 @@ pdf/typescript's, pdf/java's, pdf/go's, or slides/python's:
   the real running cells-rust container, to make ``lookup`` correctly compose a real ``TaskAnswer``
   carrying the real, compile-verified ``put_formula_with_cached_value`` example above - the same
   developer-context bar pdf/net (TC-080/TC-089) was proven against.
+- ``REAL_DOC_QUERY``/``REAL_DOC_CONTENT_TYPE``/``REAL_DOC_FRAGMENT`` (REQ-G2-047, TC-118): real
+  doc content, observed live through this exact container by hand on 2026-09-29, now genuinely
+  published and served. cells/rust's own real furnished-content page carries a real "Installation,
+  Dependencies, and Quick Start" content block whose own "Required Package Dependencies" section
+  lists a real, distinctive crate pin - `` `roxmltree 0.20` ``. Confirmed live, by hand, by
+  querying every one of the 4 real content_types against this exact running container:
+  content_type="getting_started" for "roxmltree" returns exactly one real "FQN: Doc: Installation,
+  Dependencies, and Quick Start" chunk whose own text contains the literal "- `roxmltree 0.20`"
+  (and no others) - never a guess at what a container might return. This pilot's own real "Scope
+  and Limitations" content block's opening paragraph names "troubleshooting-relevant scope
+  boundaries" verbatim, which DOES land that one specific chunk in "troubleshooting" too
+  (confirmed live, matching pdf/java's/pdf/go's/slides/python's own documented pattern), but that
+  chunk shares no lexical overlap with "roxmltree", so a content_type="troubleshooting" query for
+  THIS exact query stays a real, honest Miss.
+- ``REAL_DOC_TASK_QUERY`` (REQ-G2-047, TC-118): the real, API-naive task question CONFIRMED live,
+  by hand, on 2026-09-29, to make lookup's own doc-fallback path (``_compose_from_docs``) surface
+  the SAME real "getting_started"-classified ``roxmltree`` chunk above as ``doc_matches``, with
+  ``example`` genuinely ``None`` (this exact query matches no real verified example - confirmed
+  live, ``find_examples`` itself returns a bare Miss for it) - never ``()`` as every prior
+  comprehensive live verification pass found for every pilot, for every query, before TC-109
+  through TC-112 (and TC-113/TC-114/TC-115/TC-116/TC-117/this card) closed the gap.
 
 network: true on this card, for exactly this reason - everything here talks to containers this
 file itself builds, starts and tears down.
@@ -125,6 +146,44 @@ REAL_EXAMPLE_SYMBOL = "put_formula_with_cached_value"
 # put_formula_with_cached_value example above. This exact string is required verbatim - the
 # card's own negative control corrupts it, and that corruption must break this test's assertions.
 REAL_TASK_QUERY = "how do I create an xlsx workbook and save it"
+
+# REQ-G2-047 (TC-118): real doc content, observed live through this exact container by hand on
+# 2026-09-29, now genuinely published and served. cells/rust's own real, committed furnished page
+# (tests/fixtures/furnished/cells_rust/pages/_index.md) carries a real "Installation,
+# Dependencies, and Quick Start" content block whose own "Required Package Dependencies" section
+# lists 7 real, distinctive crate-version pins, including `roxmltree 0.20` - the only occurrence
+# of the word "roxmltree" anywhere in the furnished page. build_chunks.py's own _build_doc_chunks
+# prefixes EVERY chunk split from that same candidate block with the candidate's own title line
+# ("FQN: Doc: Installation, Dependencies, and Quick Start\n..."), and that title text itself
+# contains the literal substring "installation" - one of search_docs.classify_content_type's own
+# getting_started hint words - so this "Required Package Dependencies" sub-chunk (its own body
+# text carrying no getting_started/troubleshooting/faq hint word of its own) inherits
+# getting_started from its title line rather than falling through to the developer_guide default.
+# Confirmed live, by hand, by querying every one of the 4 real content_types against this exact
+# running container: content_type="getting_started" for "roxmltree" returns exactly one real "FQN:
+# Doc: Installation, Dependencies, and Quick Start" chunk whose own text contains the literal
+# "- `roxmltree 0.20`" (and no others) - never a guess at what a container might return.
+#
+# This pilot's own real "Scope and Limitations" content block opens with a paragraph naming
+# "troubleshooting-relevant scope boundaries" verbatim, which DOES land that one specific
+# paragraph-chunk in content_type="troubleshooting" (confirmed live, matching pdf/java's/pdf/go's/
+# slides/python's own documented pattern) - but that chunk's own text has zero lexical overlap
+# with "roxmltree", so content_type="troubleshooting" for THIS query stays a real, honest Miss;
+# this file only pins down what it actually observed for this exact query, not every other
+# chunk's own classification.
+REAL_DOC_QUERY = "roxmltree"
+REAL_DOC_CONTENT_TYPE = "getting_started"
+REAL_DOC_FRAGMENT = "roxmltree 0.20"
+
+# REQ-G2-047 (TC-118): the real, API-naive task question CONFIRMED live, by hand, on 2026-09-29,
+# to make lookup's own doc-fallback path (_compose_from_docs) surface the SAME real
+# "getting_started"-classified roxmltree chunk above as doc_matches, with example genuinely None
+# (this exact query matches no real verified example - confirmed live, find_examples itself
+# returns a bare Miss for it, since the one real, compile-verified "Create, Save, and Reload a
+# Workbook" example's own text shares no lexical overlap with "crate"/"depend"/"roxmltree") -
+# never () as every prior comprehensive live verification pass found for every pilot, for every
+# query, before TC-109 through TC-112 (and TC-113 through TC-117/this card) closed the gap.
+REAL_DOC_TASK_QUERY = "does this crate depend on roxmltree"
 
 VALID_HEADERS = {
     "Accept": "application/json, text/event-stream",
@@ -366,3 +425,74 @@ def test_get_symbol_returns_the_real_enum_members_for_autoshapetype(session: _Mc
     members = result["members"]
     assert isinstance(members, list) and members, f"expected real enum members, got none: {result}"
     assert any(member.startswith(REAL_ENUM_MEMBER) for member in members), members
+
+
+# ---------------------------------------------------------------------
+# REQ-G2-047 (TC-118): cells/rust's own real documentation content (TC-112's real
+# _build_doc_chunks, reachable via TC-109's search_docs routing fix, no longer confused for a
+# real symbol by search_symbols since TC-120) genuinely served through the FULL containerized
+# production path - not merely replayed offline by TC-112's own unit-level check. Sourced from
+# this pilot's own real furnished page.
+# ---------------------------------------------------------------------
+
+
+def test_search_docs_returns_real_furnished_content_for_cells_rust(session: _McpSession) -> None:
+    """``search_docs`` with an explicit ``content_type`` for a real, distinctive query returns
+    real, non-empty documentation content from cells/rust's own real furnished page - never the
+    "no published generation for this scope"/empty-index Miss every content tool call gave before
+    TC-112 wired real doc chunks into ingestion.
+
+    ``getting_started`` is confirmed live, by hand, against the real running container: this
+    pilot's own real "Required Package Dependencies" chunk (under the "Installation, Dependencies,
+    and Quick Start" content block) lists a real, distinctive crate pin - `` `roxmltree 0.20` `` -
+    and inherits ``getting_started`` from its own candidate title line ("Installation,
+    Dependencies, and Quick Start"), which ``_build_doc_chunks`` prepends to every chunk split
+    from that block.
+    """
+    body = session.call_tool(
+        "search_docs", {"query": REAL_DOC_QUERY, "content_type": REAL_DOC_CONTENT_TYPE}
+    )
+    result = body["result"]["structuredContent"]["result"]
+    assert isinstance(result, list) and result, f"expected real doc matches, got a Miss: {result}"
+    assert all(match["content_type"] == REAL_DOC_CONTENT_TYPE for match in result), result
+    assert any(REAL_DOC_FRAGMENT in match["text"] for match in result), result
+    assert any(match["text"].startswith("FQN: Doc: ") for match in result), result
+
+
+def test_search_docs_troubleshooting_is_an_honest_miss_for_the_dependency_query(
+    session: _McpSession,
+) -> None:
+    """``troubleshooting`` correctly stays an honest ``Miss`` for this same query - confirmed
+    live, by hand, against the real running container: the real ``roxmltree`` crate pin chunk
+    genuinely classifies as ``getting_started`` (asserted above), never as ``troubleshooting`` too,
+    so a caller who explicitly asks for ``troubleshooting`` content for this query gets a real,
+    honest absence rather than the same content silently duplicated across categories. (This
+    pilot's own "Scope and Limitations" block DOES publish a separate, real troubleshooting chunk
+    of its own - confirmed live - but that chunk shares no lexical overlap with "roxmltree", so
+    this query specifically still misses it.)
+    """
+    body = session.call_tool("search_docs", {"query": REAL_DOC_QUERY, "content_type": "troubleshooting"})
+    result = body["result"]["structuredContent"]["result"]
+    assert isinstance(result, dict) and "reason" in result, f"expected an honest Miss, got: {result}"
+
+
+def test_lookup_returns_real_doc_matches_for_an_api_naive_query(session: _McpSession) -> None:
+    """The concrete, final proof the whole pipeline (TC-109 through TC-112, TC-113 through
+    TC-117, plus this card) closes the real gap end to end for cells/rust too, through a real MCP
+    client's own eyes: ``lookup``'s doc-fallback path (``_compose_from_docs``) now genuinely
+    composes a ``TaskAnswer`` whose ``doc_matches`` is non-empty for a real, API-naive query -
+    previously ``()`` for every pilot, for every query, confirmed by this project's own earlier
+    comprehensive live verification pass (see ``lookup.py``'s own module docstring, REQ-G2-049).
+
+    This real query matches no real verified example (confirmed live: ``example`` is ``None``),
+    so this is also a real, live instance of a ``TaskAnswer`` composed from a doc match alone,
+    never fabricated.
+    """
+    body = session.call_tool("lookup", {"query": REAL_DOC_TASK_QUERY})
+    result = body["result"]["structuredContent"]["result"]
+    assert isinstance(result, dict), f"expected a composed TaskAnswer, got: {result}"
+    assert "doc_matches" in result and "example" in result, result
+    doc_matches = result["doc_matches"]
+    assert isinstance(doc_matches, list) and doc_matches, f"expected real doc_matches, got none: {result}"
+    assert any(REAL_DOC_FRAGMENT in match["text"] for match in doc_matches), doc_matches
+    assert result["example"] is None, f"expected no verified example for this query, got: {result['example']}"
