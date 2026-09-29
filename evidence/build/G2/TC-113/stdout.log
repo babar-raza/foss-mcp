@@ -1,0 +1,51 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_pdf_net_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ok_gn7l2\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_pdf_net_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ok_gn7l2\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/e2e/test_pdf_net_live_content.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_pdf_net_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ok_gn7l2\.junit-0.xml"
+--- stdout ---
+.......F.                                                                [100%]
+================================== FAILURES ===================================
+_________ test_search_docs_returns_real_furnished_content_for_pdf_net _________
+
+session = <tests.e2e.test_pdf_net_live_content._McpSession object at 0x0000025D42A9FF00>
+
+    def test_search_docs_returns_real_furnished_content_for_pdf_net(session: _McpSession) -> None:
+        """``search_docs`` with an explicit ``content_type`` for a real, distinctive query returns
+        real, non-empty documentation content from pdf/net's own real, regenerated furnished page
+        (TC-119) - never the "no published generation for this scope"/empty-index Miss every content
+        tool call gave before TC-112 wired real doc chunks into ingestion.
+    
+        ``developer_guide`` is deliberately used, not ``getting_started``: it is
+        ``classify_content_type``'s own default bucket, and is the category this real furnished
+        page's "Scope and Limitations" content block genuinely lands in (confirmed live - neither of
+        its two real chunks' own text happens to contain a ``getting_started``/``troubleshooting``/
+        ``faq`` hint word).
+        """
+        body = session.call_tool(
+>           "search_docs", {"query": REAL_DOC_QUERY, "content_type": REAL_DOC_CONTENT_TYPE}
+                                     ^^^^^^^^^^^^^^
+        )
+E       NameError: name 'REAL_DOC_QUERY' is not defined
+
+tests\e2e\test_pdf_net_live_content.py:371: NameError
+=========================== short test summary info ===========================
+FAILED tests/e2e/test_pdf_net_live_content.py::test_search_docs_returns_real_furnished_content_for_pdf_net
+
+--- stderr ---
+
