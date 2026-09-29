@@ -73,6 +73,27 @@ class SymbolIndex:
     def declarations_for(self, anchor: str) -> tuple[Declaration, ...]:
         return tuple(self._by_anchor.get(anchor, ()))
 
+    def unambiguous_qualified_anchor_for_bare_member(self, bare_name: str) -> str | None:
+        """The one registered qualified anchor (``ClassName.bare_name``) whose member name is
+        *bare_name*, if exactly one exists across the whole index - real furnished prose
+        routinely cites a method or property conversationally by its bare name, with no
+        ``ClassName.`` prefix, and that citation is genuinely resolvable exactly when it is
+        globally unambiguous which declaration it names.
+
+        Scans this index's own registered anchor keys (never declaration counts - an anchor
+        with several overloads is still one registered key) for every key ending in
+        ``f".{bare_name}"``. Zero or two-or-more such keys means *bare_name* does not resolve
+        this way: zero means no member with that name was ever registered, and two-or-more
+        means the bare name is genuinely ambiguous between two or more classes, so this method
+        never guesses which one a citation meant - the exact same discipline ``anchor_resolves``
+        already applies to a fully-qualified anchor with multiple overloads.
+        """
+        suffix = f".{bare_name}"
+        matches = [anchor for anchor in self._by_anchor if anchor.endswith(suffix)]
+        if len(matches) == 1:
+            return matches[0]
+        return None
+
 
 def _is_opaque_claim_id(candidate: str) -> bool:
     return bool(_OPAQUE_CLAIM_ID.match(candidate))

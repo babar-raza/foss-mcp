@@ -224,6 +224,82 @@ def test_an_example_chunk_with_a_contradicting_numeric_claim_is_still_unsupporte
     assert citable_chunks([validated]) == []
 
 
+def test_a_globally_unambiguous_bare_method_name_resolves_in_ordinary_prose() -> None:
+    """TC-111: real furnished prose routinely cites a method conversationally by its bare name
+    with no ``ClassName.`` prefix - confirmed by reading real fixture content, pdf/net's own
+    overview cites `AddTextAnnotation`, `AddLinkAnnotation`, `AddHighlightAnnotation`,
+    `AddWatermarkAnnotation`, `AddRedactAnnotation` this way. This is an ordinary
+    (non-``example``) chunk, so it has no independent compile-verification behind it - the
+    anchor-resolution mechanism itself must recognize the bare name is globally unambiguous
+    (``AnnotationCollection`` is the only class in pdf/net's real surface declaring
+    ``AddTextAnnotation``).
+    """
+    fixture = _api_surface_fixture()
+    index = symbol_index_from_api_surface(fixture["types"])
+    chunk = _chunk(
+        "Use `AddTextAnnotation`, `AddHighlightAnnotation`, and `AddRedactAnnotation` to "
+        "annotate a page."
+    )
+    validated = validate_chunk(chunk, index, {})
+    assert validated.validation.verdict == SUPPORTED
+    assert citable_chunks([validated]) == [validated]
+
+
+def test_a_bare_method_name_shared_by_two_or_more_classes_still_stays_unresolved() -> None:
+    """The generalization must never weaken the existing ambiguity rule: a bare name declared
+    identically by two different classes is genuinely ambiguous - which one did the citation
+    mean? - so it must correctly stay unresolved, exactly as a fully-qualified anchor with two
+    or more overloads already does.
+    """
+    index = symbol_index_from_api_surface(
+        [
+            {"name": "AnnotationCollection", "methods": [{"name": "Remove"}]},
+            {"name": "PageCollection", "methods": [{"name": "Remove"}]},
+        ]
+    )
+    assert index.unambiguous_qualified_anchor_for_bare_member("Remove") is None
+    chunk = validate_chunk(_chunk("Call `Remove` to delete it."), index, {})
+    assert chunk.validation.verdict == UNSUPPORTED
+    assert citable_chunks([chunk]) == []
+
+
+def test_unambiguous_qualified_anchor_for_bare_member_returns_the_one_real_qualified_anchor() -> None:
+    """Direct unit coverage of the new SymbolIndex method itself, using the real pdf/net
+    fixture: exactly one class (``AnnotationCollection``) declares ``AddWatermarkAnnotation``.
+    """
+    fixture = _api_surface_fixture()
+    index = symbol_index_from_api_surface(fixture["types"])
+    assert (
+        index.unambiguous_qualified_anchor_for_bare_member("AddWatermarkAnnotation")
+        == "AnnotationCollection.AddWatermarkAnnotation"
+    )
+    assert index.unambiguous_qualified_anchor_for_bare_member("ThisMemberNameDoesNotExistAnywhere") is None
+
+
+def test_a_fully_qualified_anchor_still_resolves_via_the_original_exact_match_not_the_fallback() -> None:
+    """TC-111 must not change ``anchor_resolves``'s own existing exact-match behavior. Re-runs
+    pdf/net's own real ``AddWatermarkAnnotation``-shaped chunk (already covered by
+    ``test_pdf_net_addwatermarkannotation_example_stays_supported`` below) but with the
+    qualified anchor's *own* class deleted from the index and replaced by two decoys that would
+    make the new bare-member fallback ambiguous - proving this chunk resolves through the
+    original qualified, exact-match path and never through the new bare-name fallback (which,
+    if it were mistakenly firing here, would make this fail since the fallback is ambiguous).
+    """
+    index = symbol_index_from_api_surface(
+        [
+            {"name": "AnnotationCollection", "methods": [{"name": "AddWatermarkAnnotation"}]},
+            {"name": "DecoyOne", "methods": [{"name": "AddWatermarkAnnotation"}]},
+            {"name": "DecoyTwo", "methods": [{"name": "AddWatermarkAnnotation"}]},
+        ]
+    )
+    # The bare-name fallback is genuinely ambiguous here (three classes), so it could never
+    # resolve `AddWatermarkAnnotation` alone - only the qualified anchor can.
+    assert index.unambiguous_qualified_anchor_for_bare_member("AddWatermarkAnnotation") is None
+    chunk = validate_chunk(_chunk("Call `AnnotationCollection.AddWatermarkAnnotation` to add it."), index, {})
+    assert chunk.validation.verdict == SUPPORTED
+    assert citable_chunks([chunk]) == [chunk]
+
+
 def test_pdf_net_addwatermarkannotation_example_stays_supported() -> None:
     """A general fix, not a slides/python-specific patch: pdf/net's own real, already-accepted
     AddWatermarkAnnotation example description happens not to cite any bare method name, so it

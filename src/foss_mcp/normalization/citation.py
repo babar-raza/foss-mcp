@@ -157,14 +157,28 @@ def validate_chunk(chunk: Chunk, symbol_index: SymbolIndex, known_counts: Mappin
     tests/fixtures/furnished/slides_python/pages/_index.md's "Create a Presentation and Add a
     Shape" block) is procedural prose about the steps being taken, not a claim about the
     library's total surface, so this check is orthogonal and stays on for every chunk kind.
+
+    A bare-name anchor (no dot in it, e.g. `` `AddWatermarkAnnotation` ``) that fails the
+    ordinary exact-match check still resolves when it is GLOBALLY UNAMBIGUOUS - exactly one
+    qualified declaration across the whole index carries that member name
+    (``symbol_index.unambiguous_qualified_anchor_for_bare_member``). Ordinary furnished prose
+    routinely cites a method conversationally by its bare name with no independent
+    verification behind it (unlike a compile-verified example's description, which is exempted
+    above entirely), so the anchor-resolution mechanism itself must recognize this case rather
+    than mark real, correct prose unsupported. A bare name shared by two or more classes stays
+    unresolved, exactly as before - this generalizes the existing ambiguity rule, never weakens
+    it.
     """
     problems: list[ValidationResult] = []
     if not _is_real_compile_verified_example(chunk):
         for anchor in find_symbol_anchors(chunk.text):
-            if not anchor_resolves(anchor, symbol_index):
-                problems.append(
-                    ValidationResult(verdict=UNSUPPORTED, detail=f"anchor `{anchor}` does not resolve")
-                )
+            if anchor_resolves(anchor, symbol_index):
+                continue
+            if "." not in anchor and symbol_index.unambiguous_qualified_anchor_for_bare_member(anchor):
+                continue
+            problems.append(
+                ValidationResult(verdict=UNSUPPORTED, detail=f"anchor `{anchor}` does not resolve")
+            )
     for number, unit in find_numeric_claims(chunk.text):
         result = validate_numeric_claim(number, unit, known_counts)
         if result.verdict != SUPPORTED:
