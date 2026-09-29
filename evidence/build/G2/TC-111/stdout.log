@@ -1,0 +1,338 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/normalization/test_citation.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ewypytiu\.junit-0.xml"
+--- stdout ---
+..................                                                       [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/normalization/test_citation.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ewypytiu\.junit-0.xml"
+--- stdout ---
+..................                                                       [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/claim_id_bridge.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/normalization/test_citation.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ewypytiu\.junit-0.xml"
+--- stdout ---
+.F......F.F..FFFF.                                                       [100%]
+================================== FAILURES ===================================
+____________ test_a_non_resolving_anchor_is_excluded_or_qualified _____________
+
+    def test_a_non_resolving_anchor_is_excluded_or_qualified() -> None:
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+>       chunk = validate_chunk(_chunk("See `TotallyMadeUpClassName` for details."), index, {})
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\normalization\test_citation.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+chunk = Chunk(section_title='Overview', text='See `TotallyMadeUpClassName` for details.', source_kind='furnished', content_typ...4199e', path=''), trust_tier='medium', evidence_refs=(), validation=ValidationResult(verdict='not_checked', detail=''))
+symbol_index = <foss_mcp.extraction.claim_id_bridge.SymbolIndex object at 0x000001CFF87187D0>
+known_counts = {}
+
+    def validate_chunk(chunk: Chunk, symbol_index: SymbolIndex, known_counts: Mapping[str, int]) -> Chunk:
+        """*chunk* with ``validation`` set to the worst verdict any claim inside it earned.
+    
+        A genuinely compile-verified example chunk (``_is_real_compile_verified_example``) skips
+        the symbol-anchor check: its prose description routinely cites a method by a bare name in
+        an inline code span (e.g. `` `add_auto_shape()` ``) as a completely normal writing
+        convention, which ``symbol_index_from_api_surface`` can never resolve since it only ever
+        registers qualified ``ClassName.MethodName`` anchors (correctly - a bare name could be
+        ambiguous across classes). Requiring the description to ALSO clear the citation-anchor bar
+        would penalize prose for a fact (the code) that real compilation has already verified more
+        strongly than anchor resolution ever could.
+    
+        The numeric-claim check still applies even to an example chunk: it guards a different kind
+        of claim - a library-wide count such as "805 classes" - that compiling one example's code
+        says nothing about, and a real example's description (see
+        tests/fixtures/furnished/slides_python/pages/_index.md's "Create a Presentation and Add a
+        Shape" block) is procedural prose about the steps being taken, not a claim about the
+        library's total surface, so this check is orthogonal and stays on for every chunk kind.
+    
+        A bare-name anchor (no dot in it, e.g. `` `AddWatermarkAnnotation` ``) that fails the
+        ordinary exact-match check still resolves when it is GLOBALLY UNAMBIGUOUS - exactly one
+        qualified declaration across the whole index carries that member name
+        (``symbol_index.unambiguous_qualified_anchor_for_bare_member``). Ordinary furnished prose
+        routinely cites a method conversationally by its bare name with no independent
+        verification behind it (unlike a compile-verified example's description, which is exempted
+        above entirely), so the anchor-resolution mechanism itself must recognize this case rather
+        than mark real, correct prose unsupported. A bare name shared by two or more classes stays
+        unresolved, exactly as before - this generalizes the existing ambiguity rule, never weakens
+        it.
+        """
+        problems: list[ValidationResult] = []
+        if not _is_real_compile_verified_example(chunk):
+            for anchor in find_symbol_anchors(chunk.text):
+                if anchor_resolves(anchor, symbol_index):
+                    continue
+>               if "." not in anchor and symbol_index.unambiguous_qualified_anchor_for_bare_member(anchor):
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: 'SymbolIndex' object has no attribute 'unambiguous_qualified_anchor_for_bare_member'
+
+src\foss_mcp\normalization\citation.py:177: AttributeError
+_ test_validate_document_sets_every_chunk_and_citable_chunks_drops_the_unsupported _
+
+    def test_validate_document_sets_every_chunk_and_citable_chunks_drops_the_unsupported() -> None:
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        good = _chunk(f"See `{fixture['types'][0]['name']}`.")
+        bad = _chunk("See `NotARealClass`.")
+>       validated = validate_document([good, bad], index, {})
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\normalization\test_citation.py:140: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\normalization\citation.py:196: in validate_document
+    return [validate_chunk(chunk, symbol_index, known_counts) for chunk in chunks]
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+chunk = Chunk(section_title='Overview', text='See `NotARealClass`.', source_kind='furnished', content_type='product_page', pro...4199e', path=''), trust_tier='medium', evidence_refs=(), validation=ValidationResult(verdict='not_checked', detail=''))
+symbol_index = <foss_mcp.extraction.claim_id_bridge.SymbolIndex object at 0x000001CFF8CECE10>
+known_counts = {}
+
+    def validate_chunk(chunk: Chunk, symbol_index: SymbolIndex, known_counts: Mapping[str, int]) -> Chunk:
+        """*chunk* with ``validation`` set to the worst verdict any claim inside it earned.
+    
+        A genuinely compile-verified example chunk (``_is_real_compile_verified_example``) skips
+        the symbol-anchor check: its prose description routinely cites a method by a bare name in
+        an inline code span (e.g. `` `add_auto_shape()` ``) as a completely normal writing
+        convention, which ``symbol_index_from_api_surface`` can never resolve since it only ever
+        registers qualified ``ClassName.MethodName`` anchors (correctly - a bare name could be
+        ambiguous across classes). Requiring the description to ALSO clear the citation-anchor bar
+        would penalize prose for a fact (the code) that real compilation has already verified more
+        strongly than anchor resolution ever could.
+    
+        The numeric-claim check still applies even to an example chunk: it guards a different kind
+        of claim - a library-wide count such as "805 classes" - that compiling one example's code
+        says nothing about, and a real example's description (see
+        tests/fixtures/furnished/slides_python/pages/_index.md's "Create a Presentation and Add a
+        Shape" block) is procedural prose about the steps being taken, not a claim about the
+        library's total surface, so this check is orthogonal and stays on for every chunk kind.
+    
+        A bare-name anchor (no dot in it, e.g. `` `AddWatermarkAnnotation` ``) that fails the
+        ordinary exact-match check still resolves when it is GLOBALLY UNAMBIGUOUS - exactly one
+        qualified declaration across the whole index carries that member name
+        (``symbol_index.unambiguous_qualified_anchor_for_bare_member``). Ordinary furnished prose
+        routinely cites a method conversationally by its bare name with no independent
+        verification behind it (unlike a compile-verified example's description, which is exempted
+        above entirely), so the anchor-resolution mechanism itself must recognize this case rather
+        than mark real, correct prose unsupported. A bare name shared by two or more classes stays
+        unresolved, exactly as before - this generalizes the existing ambiguity rule, never weakens
+        it.
+        """
+        problems: list[ValidationResult] = []
+        if not _is_real_compile_verified_example(chunk):
+            for anchor in find_symbol_anchors(chunk.text):
+                if anchor_resolves(anchor, symbol_index):
+                    continue
+>               if "." not in anchor and symbol_index.unambiguous_qualified_anchor_for_bare_member(anchor):
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: 'SymbolIndex' object has no attribute 'unambiguous_qualified_anchor_for_bare_member'
+
+src\foss_mcp\normalization\citation.py:177: AttributeError
+_ test_a_non_example_chunk_with_the_same_bare_method_citation_is_still_unsupported _
+
+    def test_a_non_example_chunk_with_the_same_bare_method_citation_is_still_unsupported() -> None:
+        """The fix must not weaken citation validation for anything other than a genuinely
+        compile-verified example chunk - the same bare-name citation in an ordinary
+        (non-``example``) chunk is still correctly excluded.
+        """
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        chunk = _chunk("Call `add_auto_shape()` to insert a shape.")
+>       validated = validate_chunk(chunk, index, {})
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\normalization\test_citation.py:189: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+chunk = Chunk(section_title='Overview', text='Call `add_auto_shape()` to insert a shape.', source_kind='furnished', content_ty...4199e', path=''), trust_tier='medium', evidence_refs=(), validation=ValidationResult(verdict='not_checked', detail=''))
+symbol_index = <foss_mcp.extraction.claim_id_bridge.SymbolIndex object at 0x000001CFF8094B90>
+known_counts = {}
+
+    def validate_chunk(chunk: Chunk, symbol_index: SymbolIndex, known_counts: Mapping[str, int]) -> Chunk:
+        """*chunk* with ``validation`` set to the worst verdict any claim inside it earned.
+    
+        A genuinely compile-verified example chunk (``_is_real_compile_verified_example``) skips
+        the symbol-anchor check: its prose description routinely cites a method by a bare name in
+        an inline code span (e.g. `` `add_auto_shape()` ``) as a completely normal writing
+        convention, which ``symbol_index_from_api_surface`` can never resolve since it only ever
+        registers qualified ``ClassName.MethodName`` anchors (correctly - a bare name could be
+        ambiguous across classes). Requiring the description to ALSO clear the citation-anchor bar
+        would penalize prose for a fact (the code) that real compilation has already verified more
+        strongly than anchor resolution ever could.
+    
+        The numeric-claim check still applies even to an example chunk: it guards a different kind
+        of claim - a library-wide count such as "805 classes" - that compiling one example's code
+        says nothing about, and a real example's description (see
+        tests/fixtures/furnished/slides_python/pages/_index.md's "Create a Presentation and Add a
+        Shape" block) is procedural prose about the steps being taken, not a claim about the
+        library's total surface, so this check is orthogonal and stays on for every chunk kind.
+    
+        A bare-name anchor (no dot in it, e.g. `` `AddWatermarkAnnotation` ``) that fails the
+        ordinary exact-match check still resolves when it is GLOBALLY UNAMBIGUOUS - exactly one
+        qualified declaration across the whole index carries that member name
+        (``symbol_index.unambiguous_qualified_anchor_for_bare_member``). Ordinary furnished prose
+        routinely cites a method conversationally by its bare name with no independent
+        verification behind it (unlike a compile-verified example's description, which is exempted
+        above entirely), so the anchor-resolution mechanism itself must recognize this case rather
+        than mark real, correct prose unsupported. A bare name shared by two or more classes stays
+        unresolved, exactly as before - this generalizes the existing ambiguity rule, never weakens
+        it.
+        """
+        problems: list[ValidationResult] = []
+        if not _is_real_compile_verified_example(chunk):
+            for anchor in find_symbol_anchors(chunk.text):
+                if anchor_resolves(anchor, symbol_index):
+                    continue
+>               if "." not in anchor and symbol_index.unambiguous_qualified_anchor_for_bare_member(anchor):
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: 'SymbolIndex' object has no attribute 'unambiguous_qualified_anchor_for_bare_member'
+
+src\foss_mcp\normalization\citation.py:177: AttributeError
+___ test_a_globally_unambiguous_bare_method_name_resolves_in_ordinary_prose ___
+
+    def test_a_globally_unambiguous_bare_method_name_resolves_in_ordinary_prose() -> None:
+        """TC-111: real furnished prose routinely cites a method conversationally by its bare name
+        with no ``ClassName.`` prefix - confirmed by reading real fixture content, pdf/net's own
+        overview cites `AddTextAnnotation`, `AddLinkAnnotation`, `AddHighlightAnnotation`,
+        `AddWatermarkAnnotation`, `AddRedactAnnotation` this way. This is an ordinary
+        (non-``example``) chunk, so it has no independent compile-verification behind it - the
+        anchor-resolution mechanism itself must recognize the bare name is globally unambiguous
+        (``AnnotationCollection`` is the only class in pdf/net's real surface declaring
+        ``AddTextAnnotation``).
+        """
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        chunk = _chunk(
+            "Use `AddTextAnnotation`, `AddHighlightAnnotation`, and `AddRedactAnnotation` to "
+            "annotate a page."
+        )
+>       validated = validate_chunk(chunk, index, {})
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\normalization\test_citation.py:243: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+chunk = Chunk(section_title='Overview', text='Use `AddTextAnnotation`, `AddHighlightAnnotation`, and `AddRedactAnnotation` to ...4199e', path=''), trust_tier='medium', evidence_refs=(), validation=ValidationResult(verdict='not_checked', detail=''))
+symbol_index = <foss_mcp.extraction.claim_id_bridge.SymbolIndex object at 0x000001CFF8CEDF90>
+known_counts = {}
+
+    def validate_chunk(chunk: Chunk, symbol_index: SymbolIndex, known_counts: Mapping[str, int]) -> Chunk:
+        """*chunk* with ``validation`` set to the worst verdict any claim inside it earned.
+    
+        A genuinely compile-verified example chunk (``_is_real_compile_verified_example``) skips
+        the symbol-anchor check: its prose description routinely cites a method by a bare name in
+        an inline code span (e.g. `` `add_auto_shape()` ``) as a completely normal writing
+        convention, which ``symbol_index_from_api_surface`` can never resolve since it only ever
+        registers qualified ``ClassName.MethodName`` anchors (correctly - a bare name could be
+        ambiguous across classes). Requiring the description to ALSO clear the citation-anchor bar
+        would penalize prose for a fact (the code) that real compilation has already verified more
+        strongly than anchor resolution ever could.
+    
+        The numeric-claim check still applies even to an example chunk: it guards a different kind
+        of claim - a library-wide count such as "805 classes" - that compiling one example's code
+        says nothing about, and a real example's description (see
+        tests/fixtures/furnished/slides_python/pages/_index.md's "Create a Presentation and Add a
+        Shape" block) is procedural prose about the steps being taken, not a claim about the
+        library's total surface, so this check is orthogonal and stays on for every chunk kind.
+    
+        A bare-name anchor (no dot in it, e.g. `` `AddWatermarkAnnotation` ``) that fails the
+        ordinary exact-match check still resolves when it is GLOBALLY UNAMBIGUOUS - exactly one
+        qualified declaration across the whole index carries that member name
+        (``symbol_index.unambiguous_qualified_anchor_for_bare_member``). Ordinary furnished prose
+        routinely cites a method conversationally by its bare name with no independent
+        verification behind it (unlike a compile-verified example's description, which is exempted
+        above entirely), so the anchor-resolution mechanism itself must recognize this case rather
+        than mark real, correct prose unsupported. A bare name shared by two or more classes stays
+        unresolved, exactly as before - this generalizes the existing ambiguity rule, never weakens
+        it.
+        """
+        problems: list[ValidationResult] = []
+        if not _is_real_compile_verified_example(chunk):
+            for anchor in find_symbol_anchors(chunk.text):
+                if anchor_resolves(anchor, symbol_index):
+                    continue
+>               if "." not in anchor and symbol_index.unambiguous_qualified_anchor_for_bare_member(anchor):
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: 'SymbolIndex' object has no attribute 'unambiguous_qualified_anchor_for_bare_member'
+
+src\foss_mcp\normalization\citation.py:177: AttributeError
+_ test_a_bare_method_name_shared_by_two_or_more_classes_still_stays_unresolved _
+
+    def test_a_bare_method_name_shared_by_two_or_more_classes_still_stays_unresolved() -> None:
+        """The generalization must never weaken the existing ambiguity rule: a bare name declared
+        identically by two different classes is genuinely ambiguous - which one did the citation
+        mean? - so it must correctly stay unresolved, exactly as a fully-qualified anchor with two
+        or more overloads already does.
+        """
+        index = symbol_index_from_api_surface(
+            [
+                {"name": "AnnotationCollection", "methods": [{"name": "Remove"}]},
+                {"name": "PageCollection", "methods": [{"name": "Remove"}]},
+            ]
+        )
+>       assert index.unambiguous_qualified_anchor_for_bare_member("Remove") is None
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'SymbolIndex' object has no attribute 'unambiguous_qualified_anchor_for_bare_member'
+
+tests\normalization\test_citation.py:260: AttributeError
+_ test_unambiguous_qualified_anchor_for_bare_member_returns_the_one_real_qualified_anchor _
+
+    def test_unambiguous_qualified_anchor_for_bare_member_returns_the_one_real_qualified_anchor() -> None:
+        """Direct unit coverage of the new SymbolIndex method itself, using the real pdf/net
+        fixture: exactly one class (``AnnotationCollection``) declares ``AddWatermarkAnnotation``.
+        """
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        assert (
+>           index.unambiguous_qualified_anchor_for_bare_member("AddWatermarkAnnotation")
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            == "AnnotationCollection.AddWatermarkAnnotation"
+        )
+E       AttributeError: 'SymbolIndex' object has no attribute 'unambiguous_qualified_anchor_for_bare_member'
+
+tests\normalization\test_citation.py:273: AttributeError
+_ test_a_fully_qualified_anchor_still_resolves_via_the_original_exact_match_not_the_fallback _
+
+    def test_a_fully_qualified_anchor_still_resolves_via_the_original_exact_match_not_the_fallback() -> None:
+        """TC-111 must not change ``anchor_resolves``'s own existing exact-match behavior. Re-runs
+        pdf/net's own real ``AddWatermarkAnnotation``-shaped chunk (already covered by
+        ``test_pdf_net_addwatermarkannotation_example_stays_supported`` below) but with the
+        qualified anchor's *own* class deleted from the index and replaced by two decoys that would
+        make the new bare-member fallback ambiguous - proving this chunk resolves through the
+        original qualified, exact-match path and never through the new bare-name fallback (which,
+        if it were mistakenly firing here, would make this fail since the fallback is ambiguous).
+        """
+        index = symbol_index_from_api_surface(
+            [
+                {"name": "AnnotationCollection", "methods": [{"name": "AddWatermarkAnnotation"}]},
+                {"name": "DecoyOne", "methods": [{"name": "AddWatermarkAnnotation"}]},
+                {"name": "DecoyTwo", "methods": [{"name": "AddWatermarkAnnotation"}]},
+            ]
+        )
+        # The bare-name fallback is genuinely ambiguous here (three classes), so it could never
+        # resolve `AddWatermarkAnnotation` alone - only the qualified anchor can.
+>       assert index.unambiguous_qualified_anchor_for_bare_member("AddWatermarkAnnotation") is None
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'SymbolIndex' object has no attribute 'unambiguous_qualified_anchor_for_bare_member'
+
+tests\normalization\test_citation.py:297: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/normalization/test_citation.py::test_a_non_resolving_anchor_is_excluded_or_qualified
+FAILED tests/normalization/test_citation.py::test_validate_document_sets_every_chunk_and_citable_chunks_drops_the_unsupported
+FAILED tests/normalization/test_citation.py::test_a_non_example_chunk_with_the_same_bare_method_citation_is_still_unsupported
+FAILED tests/normalization/test_citation.py::test_a_globally_unambiguous_bare_method_name_resolves_in_ordinary_prose
+FAILED tests/normalization/test_citation.py::test_a_bare_method_name_shared_by_two_or_more_classes_still_stays_unresolved
+FAILED tests/normalization/test_citation.py::test_unambiguous_qualified_anchor_for_bare_member_returns_the_one_real_qualified_anchor
+FAILED tests/normalization/test_citation.py::test_a_fully_qualified_anchor_still_resolves_via_the_original_exact_match_not_the_fallback
+
+--- stderr ---
+
