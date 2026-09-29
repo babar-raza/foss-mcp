@@ -1,0 +1,53 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_pdf_go_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qeq_avq7\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_pdf_go_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qeq_avq7\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/e2e/test_pdf_go_live_content.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_pdf_go_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qeq_avq7\.junit-0.xml"
+--- stdout ---
+.......F.                                                                [100%]
+================================== FAILURES ===================================
+_________ test_search_docs_returns_real_furnished_content_for_pdf_go __________
+
+session = <tests.e2e.test_pdf_go_live_content._McpSession object at 0x00000137B1F73F00>
+
+    def test_search_docs_returns_real_furnished_content_for_pdf_go(session: _McpSession) -> None:
+        """``search_docs`` with an explicit ``content_type`` for a real, distinctive query returns
+        real, non-empty documentation content from pdf/go's own real, regenerated furnished page
+        (TC-119) - never the "no published generation for this scope"/empty-index Miss every content
+        tool call gave before TC-112 wired real doc chunks into ingestion.
+    
+        ``getting_started`` is deliberately used here - a THIRD distinct outcome from pdf/net's
+        ``developer_guide`` (TC-113) and pdf/java's ``troubleshooting`` (TC-115): this pilot's own
+        real "Installation, Dependencies, and Quick Start" content block trips
+        ``classify_content_type``'s own "install "/"installation"/"quick start" hint words (confirmed
+        live, by hand, against the real running container - every one of the 4 real content_types was
+        queried, not assumed), so this real chunk genuinely buckets "getting_started" rather than the
+        classifier's own "developer_guide" default.
+        """
+        body = session.call_tool(
+>           "search_docs", {"query": REAL_DOC_QUERY, "content_type": REAL_DOC_CONTENT_TYPE}
+                                     ^^^^^^^^^^^^^^
+        )
+E       NameError: name 'REAL_DOC_QUERY' is not defined
+
+tests\e2e\test_pdf_go_live_content.py:460: NameError
+=========================== short test summary info ===========================
+FAILED tests/e2e/test_pdf_go_live_content.py::test_search_docs_returns_real_furnished_content_for_pdf_go
+
+--- stderr ---
+
