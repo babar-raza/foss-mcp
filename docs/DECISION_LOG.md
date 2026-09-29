@@ -719,3 +719,26 @@ pdf/net's sealed candidate (`d10e2c829e1e41d3a9529057ad2ea7c7f53b1095`) and slid
 pdf/go, and cells/rust's sealed candidates happen to already match. TC-119 records each doc chunk's
 own source commit from the candidate itself, never conflated with `--library-commit`, which stays
 reserved for the separately-sourced, byte-untouched compile-verified examples.
+
+## 2026-09-29 — TC-110's own regression sweep flagged a false-alarm `mcp` SDK break (worker used the wrong interpreter)
+TC-110's worker ran an out-of-band, broader-than-required regression sweep (outside its own
+`checks:` command, on its own initiative) and reported every test in `tests/mcp/test_server_wiring.py`
+failing with `TypeError: Server.__init__() got an unexpected keyword argument 'on_list_tools'`,
+flagged as a possibly-real, live SDK-drift defect in `src/foss_mcp/mcp/server.py`.
+
+Reproduced directly, then root-caused: this machine has TWO `mcp` SDK installs - the global system
+Python (`C:\Users\prora\AppData\Roaming\Python\Python313`) has `mcp==1.24.0`, a newer release whose
+`Server.__init__` no longer accepts constructor-kwarg tool registration; this project's own pinned
+`.venv` has `mcp==2.2.0`, the version `server.py` is actually written against. Running
+`.venv\Scripts\python.exe -m pytest tests/mcp/test_server_wiring.py -q` passes cleanly, 21/21. The
+worker's sweep used bare `python` (the global interpreter), not the pinned venv - a false alarm, not
+a product defect. `gatectl`'s own `verify` step (the actual gate for TC-109/TC-110's ACCEPTED
+verdicts) already resolves `{python}` to the pinned venv, so neither accepted card's verdict is
+affected.
+
+**No new taskcard authored** - there is nothing to fix in `src/`. Recorded here instead so a future
+worker's own out-of-band exploration of the suite does not repeat the same false alarm: always use
+`.venv\Scripts\python.exe` (or this project's own `{python}` resolution), never the bare `python` on
+PATH, when running anything beyond a card's own prescribed `checks:` command. This is the same
+no-lockfile/no-pinned-interpreter risk the original bootstrap design review already named (system
+Python, no `uv`/`pip-tools` at the time) - this is its first observed live symptom.
