@@ -1,0 +1,102 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_doc_candidates.py tests/normalization/test_citation.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-iggh1rh7\.junit-0.xml"
+--- stdout ---
+.................................                                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_doc_candidates.py tests/normalization/test_citation.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-iggh1rh7\.junit-0.xml"
+--- stdout ---
+.................................                                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/indexing/test_doc_candidates.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_doc_candidates.py tests/normalization/test_citation.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-iggh1rh7\.junit-0.xml"
+--- stdout ---
+.........FF.FFF..................                                        [100%]
+================================== FAILURES ===================================
+_________ test_real_fixture_pdf_net_extracts_overview_content_and_faq _________
+
+    def test_real_fixture_pdf_net_extracts_overview_content_and_faq() -> None:
+        page = _load_page(FIXTURE_ROOT / "pdf_net" / "pages" / "_index.md")
+        assert page["faq"]["enable"] is False
+    
+>       result = _real_doc_candidates_for_pilot("pdf_net")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_real_doc_candidates_for_pilot' is not defined
+
+tests\indexing\test_doc_candidates.py:232: NameError
+_____ test_real_fixture_pdf_java_faq_disabled_yields_zero_faq_candidates ______
+
+    def test_real_fixture_pdf_java_faq_disabled_yields_zero_faq_candidates() -> None:
+        page = _load_page(FIXTURE_ROOT / "pdf_java" / "pages" / "_index.md")
+    
+        # Confirm the real fixture really does have faq.enable: false before
+        # trusting the assertion below.
+        assert page["faq"]["enable"] is False
+    
+>       result = _real_doc_candidates_for_pilot("pdf_java")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_real_doc_candidates_for_pilot' is not defined
+
+tests\indexing\test_doc_candidates.py:267: NameError
+_________ test_real_fixture_pdf_go_extracts_overview_content_and_faq __________
+
+    def test_real_fixture_pdf_go_extracts_overview_content_and_faq() -> None:
+        page = _load_page(FIXTURE_ROOT / "pdf_go" / "pages" / "_index.md")
+    
+        # pdf_go used to have faq.enable: true with 5 real FAQ entries; TC-119's
+        # regeneration replaced it with repository-presenter's own README
+        # content, which has no FAQ section at all.
+        assert page["faq"]["enable"] is False
+    
+>       result = _real_doc_candidates_for_pilot("pdf_go")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_real_doc_candidates_for_pilot' is not defined
+
+tests\indexing\test_doc_candidates.py:324: NameError
+_ test_real_fixture_slides_python_extracts_overview_content_and_zero_faq_entries _
+
+    def test_real_fixture_slides_python_extracts_overview_content_and_zero_faq_entries() -> None:
+        page = _load_page(FIXTURE_ROOT / "slides_python" / "pages" / "_index.md")
+    
+        # slides_python used to have faq.enable: true with 8 real FAQ entries;
+        # TC-119's regeneration replaced it with repository-presenter's own
+        # README content, which has no FAQ section at all.
+        assert page["faq"]["enable"] is False
+    
+>       result = _real_doc_candidates_for_pilot("slides_python")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_real_doc_candidates_for_pilot' is not defined
+
+tests\indexing\test_doc_candidates.py:357: NameError
+_______ test_real_fixture_cells_rust_extracts_overview_content_and_faq ________
+
+    def test_real_fixture_cells_rust_extracts_overview_content_and_faq() -> None:
+        page = _load_page(FIXTURE_ROOT / "cells_rust" / "pages" / "_index.md")
+    
+        # cells_rust used to have faq.enable: true with 5 real FAQ entries;
+        # TC-119's regeneration replaced it with repository-presenter's own
+        # README content, which has no FAQ section at all.
+        assert page["faq"]["enable"] is False
+    
+>       result = _real_doc_candidates_for_pilot("cells_rust")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_real_doc_candidates_for_pilot' is not defined
+
+tests\indexing\test_doc_candidates.py:390: NameError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_doc_candidates.py::test_real_fixture_pdf_net_extracts_overview_content_and_faq
+FAILED tests/indexing/test_doc_candidates.py::test_real_fixture_pdf_java_faq_disabled_yields_zero_faq_candidates
+FAILED tests/indexing/test_doc_candidates.py::test_real_fixture_pdf_go_extracts_overview_content_and_faq
+FAILED tests/indexing/test_doc_candidates.py::test_real_fixture_slides_python_extracts_overview_content_and_zero_faq_entries
+FAILED tests/indexing/test_doc_candidates.py::test_real_fixture_cells_rust_extracts_overview_content_and_faq
+
+--- stderr ---
+
