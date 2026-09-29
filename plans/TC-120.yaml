@@ -1,0 +1,85 @@
+id: TC-120
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix a real, reproducible finding discovered live during TC-109''s own execution
+  (not speculative): search_symbols.py''s ONLY defense against a non-symbol chunk
+  in its shared generation being wrongly reported as a real API symbol is excluding
+  get_symbol.extract_fqn(text) values starting with the literal ''Example: '' (TC-068''s
+  own pseudo-FQN convention for compile-verified example chunks). TC-112 (the search_docs
+  content pipeline''s doc-chunk builder, already amended to require it) publishes
+  real documentation chunks into this exact same generation, marked with a parallel
+  pseudo-FQN ''Doc: <title>'' - but search_symbols.py does not yet know to exclude
+  that prefix too. Without this fix, the moment TC-112 lands, search_symbols (and
+  therefore lookup()''s bare-query dispatch, which tries search_symbols first) would
+  start returning furnished documentation chunks as if they were real API symbols
+  for any pilot whose doc content happens to rank for a given query - corrupting this
+  project''s own already-accepted, already-in-production retrieval tools for all 6
+  pilots, not merely leaving search_docs unreachable (TC-109''s own, different, already-fixed
+  bug).'
+depends_on:
+- TC-017a
+- TC-071
+- TC-074
+- TC-075
+- TC-079
+- TC-109
+- TC-112
+write_paths:
+- src/foss_mcp/mcp/tools/search_symbols.py
+- tests/mcp/tools/test_retrieval_tools.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Read src/foss_mcp/mcp/tools/search_symbols.py in full first - specifically its
+  own module docstring (already documents the TC-068 ''Example: '' exclusion and why)
+  and the one line in search_symbols() that filters ranked doc_ids: `if not (extract_fqn(documents[doc_id]["text"])
+  or "").startswith("Example: ")`.'
+- 'REQUIRED, exact shape (load-bearing for the negative control): a new module-level
+  constant `_NON_SYMBOL_FQN_PREFIXES = ("Example: ", "Doc: ")` in search_symbols.py,
+  and the filter line changed to exclude any FQN starting with ANY of these prefixes
+  (e.g. `.startswith(_NON_SYMBOL_FQN_PREFIXES)` - str.startswith accepts a tuple directly,
+  no loop needed) instead of the single hardcoded literal. This generalizes cleanly
+  to a third non-symbol chunk kind later without editing this line again.'
+- 'Add a real test proving a chunk whose text contains an `FQN: Doc: <title>` line
+  (mirroring the existing test pattern already covering the ''Example: '' exclusion
+  in this same file, if one exists - check test_retrieval_tools.py first) is excluded
+  from search_symbols''s own results, exactly like an Example: chunk already is.'
+- Do not touch find_examples.py, search_docs.py, or get_symbol.py - purely additive
+  to search_symbols.py's own exclusion list.
+actions:
+- Add the _NON_SYMBOL_FQN_PREFIXES constant and update the exclusion filter exactly
+  as specified.
+- 'Add a real test proving a ''Doc: '' pseudo-FQN chunk is excluded from search_symbols
+  results.'
+- 'Run the full existing test file and confirm the pre-existing ''Example: '' exclusion
+  behavior is completely unaffected.'
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_retrieval_tools.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 1
+network: false
+negative_control:
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/mcp/tools/search_symbols.py'');s=p.read_text(encoding=''utf-8'');s=s.replace(''_NON_SYMBOL_FQN_PREFIXES
+    = (\"Example: \", \"Doc: \")'',''_NON_SYMBOL_FQN_PREFIXES = (\"Example: \",)'');p.write_text(s,encoding=''utf-8'')"'
+  rationale: 'Removing ''Doc: '' from _NON_SYMBOL_FQN_PREFIXES must make the new test
+    fail (the doc-shaped chunk becomes wrongly reported as a symbol match again),
+    proving the test genuinely depends on this exclusion rather than passing for an
+    unrelated reason. Self-checked end-to-end against a fixture implementing the exact
+    prescribed constant before being persisted.'
+evidence:
+- evidence/build/G2/TC-120/receipt.json
+closeout:
+- 'search_symbols.py excludes both ''Example: '' and ''Doc: '' pseudo-FQN chunks from
+  its own results.'
+- 'A real test proves a ''Doc: ''-marked chunk is never returned as a symbol match.'
+- 'Removing ''Doc: '' from the exclusion tuple fails the new test again.'
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

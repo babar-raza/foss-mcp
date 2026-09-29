@@ -63,6 +63,19 @@ inputs:
   read if the existing code structure makes reuse natural) then `chunks = chunks +
   _build_verified_example_chunks(args) + _build_doc_chunks(page, args)` whenever args.furnished_page
   is not None - purely additive to the existing branch.'
+- 'REQUIRED marker line, discovered necessary live during TC-109''s own execution (a real,
+  reproducible finding, not speculative): every chunk body this function builds MUST include
+  a pseudo-FQN line of the exact shape `FQN: Doc: {candidate.title}\n`, mirroring
+  _build_verified_example_chunks''s own existing `FQN: Example: {candidate.title}\n`
+  convention exactly. Reason: search_symbols.py''s own exclusion of non-symbol chunks
+  (get_symbol.extract_fqn(text).startswith("Example: ")) is the ONLY thing stopping a
+  non-symbol chunk in this shared generation from being wrongly returned by search_symbols
+  (and therefore by lookup()''s bare-query dispatch, which tries search_symbols first) as if
+  it were a real API symbol. Without this marker, every doc chunk this function publishes
+  would silently corrupt search_symbols/lookup for every pilot the moment this card lands.
+  TC-120 (a small, separate follow-up card, already authored) extends search_symbols.py''s
+  own exclusion to also drop `Doc: ` - it depends on this exact marker shape existing, so do
+  not change it without coordinating.'
 - 'Required real proof: for a real fixture (use pdf/net''s own real furnished page,
   already the established reference fixture throughout this project), after real extraction
   + real chunking + a real citable_chunks pass (import and call symbol_index_from_api_surface/validate_document/citable_chunks
@@ -107,6 +120,7 @@ closeout:
   doc chunk survive citation validation for pdf/net's own real fixture.
 - Every existing, already-passing test (dotnet byte-identical path, every pilot's
   own verified-example path) is completely unaffected.
+- "Every doc chunk's body carries the required `FQN: Doc: <title>` marker line."
 - Renaming _build_doc_chunks fails the suite.
 recovery: Re-run from a clean tree; if a network clone/build step is flaky, re-running
   is safe and idempotent.
