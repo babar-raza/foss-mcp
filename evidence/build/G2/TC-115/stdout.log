@@ -1,0 +1,53 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_pdf_java_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2433xksy\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_pdf_java_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2433xksy\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/e2e/test_pdf_java_live_content.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_pdf_java_live_content.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2433xksy\.junit-0.xml"
+--- stdout ---
+.......F.                                                                [100%]
+================================== FAILURES ===================================
+________ test_search_docs_returns_real_furnished_content_for_pdf_java _________
+
+session = <tests.e2e.test_pdf_java_live_content._McpSession object at 0x000001F194467F00>
+
+    def test_search_docs_returns_real_furnished_content_for_pdf_java(session: _McpSession) -> None:
+        """``search_docs`` with an explicit ``content_type`` for a real, distinctive query returns
+        real, non-empty documentation content from pdf/java's own real, regenerated furnished page
+        (TC-119) - never the "no published generation for this scope"/empty-index Miss every content
+        tool call gave before TC-112 wired real doc chunks into ingestion.
+    
+        ``troubleshooting`` is deliberately used here, not ``developer_guide``: unlike every other
+        pilot proven so far (pdf/net, pdf/typescript), this pilot's real "Scope and Limitations"
+        content block opens with a sentence whose own text trips ``classify_content_type``'s
+        "troubleshoot" hint word (confirmed live, by hand, against the real running container -
+        every one of the 4 real content_types was queried, not assumed), so this real chunk
+        genuinely buckets "troubleshooting" instead of the classifier's own "developer_guide"
+        default every other real doc chunk in this fixture lands in.
+        """
+        body = session.call_tool(
+>           "search_docs", {"query": REAL_DOC_QUERY, "content_type": REAL_DOC_CONTENT_TYPE}
+                                     ^^^^^^^^^^^^^^
+        )
+E       NameError: name 'REAL_DOC_QUERY' is not defined
+
+tests\e2e\test_pdf_java_live_content.py:412: NameError
+=========================== short test summary info ===========================
+FAILED tests/e2e/test_pdf_java_live_content.py::test_search_docs_returns_real_furnished_content_for_pdf_java
+
+--- stderr ---
+
