@@ -22,7 +22,9 @@ import inspect
 import json
 import logging
 import re
+import time
 import typing
+import uuid
 from collections.abc import Callable, Sequence
 from contextlib import asynccontextmanager
 from enum import Enum
@@ -539,6 +541,33 @@ def public_error_message(exc: Exception, *, fallback: str) -> str:
 _GENERIC_ERROR_FALLBACK = "An internal error occurred while handling this tool call."
 
 
+# ---------------------------------------------------------------------
+# Tool-call logging: a real, independent review of a working commercial MCP server confirmed
+# it logs every tool call (name, latency, outcome) and mints a correlation id that appears
+# BOTH in its own server-side log line and in any error response returned to the client, so an
+# operator can find the exact log line behind a reported failure. This is the minimum real
+# version of that: one structured log line per tool call, via plain stdlib ``logging`` - no new
+# dependency, no bespoke formatter (that is deployment-level configuration, out of scope here).
+# ---------------------------------------------------------------------
+
+
+def _log_tool_call(
+    logger: logging.Logger, *, tool_name: str, correlation_id: str, outcome: str, latency_ms: float
+) -> None:
+    """Emit exactly one structured log record for a single tool call."""
+    logger.info(
+        "tool call: %s (%s)",
+        tool_name,
+        outcome,
+        extra={
+            "tool": tool_name,
+            "correlation_id": correlation_id,
+            "outcome": outcome,
+            "latency_ms": latency_ms,
+        },
+    )
+
+
 def _build_tool_registry(
     store: GenerationManifestStore,
     scope: Scope,
@@ -585,11 +614,28 @@ def create_server(
         )
 
     async def _call_tool(context: Any, params: CallToolRequestParams) -> CallToolResult:
+        # One correlation id per call, minted here and never regenerated for the rest of this
+        # dispatch - the same value goes into the server-side log line below AND into any error
+        # CallToolResult's own structured_content, so an operator can find the exact log line
+        # behind a client-reported failure (TC-131's own error-code field is unaffected; this
+        # works alongside it, not in place of it).
+        correlation_id = uuid.uuid4().hex
+        started_at = time.monotonic()
         handler = registry.get(params.name)
         if handler is None:
+            _log_tool_call(
+                logger,
+                tool_name=params.name,
+                correlation_id=correlation_id,
+                outcome="error",
+                latency_ms=(time.monotonic() - started_at) * 1000,
+            )
             return CallToolResult(
                 content=[TextContent(type="text", text=f"unknown tool: {params.name}")],
-                structured_content={"code": ToolErrorCode.NOT_FOUND.value},
+                structured_content={
+                    "code": ToolErrorCode.NOT_FOUND.value,
+                    "correlation_id": correlation_id,
+                },
                 is_error=True,
             )
         try:
@@ -605,9 +651,20 @@ def create_server(
             # Still reported through the shared sanitizer, never str(exc) directly - a custom
             # field validator's ValueError message could itself embed internal detail.
             text = public_error_message(exc, fallback=_GENERIC_ERROR_FALLBACK)
+            _log_tool_call(
+                logger,
+                tool_name=params.name,
+                correlation_id=correlation_id,
+                outcome="error",
+                latency_ms=(time.monotonic() - started_at) * 1000,
+            )
             return CallToolResult(
                 content=[TextContent(type="text", text=text)],
-                structured_content={"code": ToolErrorCode.INVALID_ARGUMENT.value, "message": text},
+                structured_content={
+                    "code": ToolErrorCode.INVALID_ARGUMENT.value,
+                    "message": text,
+                    "correlation_id": correlation_id,
+                },
                 is_error=True,
             )
         except Exception as exc:  # a tool-domain error - a normal CallToolResult, never a
@@ -617,11 +674,29 @@ def create_server(
             # whether the sanitized text below turns out safe to hand back to the client.
             logger.error("tool '%s' raised %s: %s", params.name, type(exc).__name__, exc)
             text = public_error_message(exc, fallback=_GENERIC_ERROR_FALLBACK)
+            _log_tool_call(
+                logger,
+                tool_name=params.name,
+                correlation_id=correlation_id,
+                outcome="error",
+                latency_ms=(time.monotonic() - started_at) * 1000,
+            )
             return CallToolResult(
                 content=[TextContent(type="text", text=text)],
-                structured_content={"code": ToolErrorCode.INTERNAL.value, "message": text},
+                structured_content={
+                    "code": ToolErrorCode.INTERNAL.value,
+                    "message": text,
+                    "correlation_id": correlation_id,
+                },
                 is_error=True,
             )
+        _log_tool_call(
+            logger,
+            tool_name=params.name,
+            correlation_id=correlation_id,
+            outcome="success",
+            latency_ms=(time.monotonic() - started_at) * 1000,
+        )
         return CallToolResult(
             content=[TextContent(type="text", text=render_result_text(result))],
             structured_content={"result": _to_jsonable(result)},

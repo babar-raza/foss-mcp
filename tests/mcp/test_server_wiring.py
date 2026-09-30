@@ -550,6 +550,93 @@ def test_a_normal_tool_domain_miss_still_reports_cleanly_without_an_error_code(
         assert "code" not in body["result"]["structuredContent"]
 
 
+# ---------------------------------------------------------------------
+# Tool-call logging and correlation ids (G2/TC-132): every tool call emits exactly one
+# structured log record (tool name, correlation id, outcome, latency), and any error result's
+# own structured_content carries the SAME correlation id as its own log record - proven over
+# the real served transport, not a unit stand-in for it.
+# ---------------------------------------------------------------------
+
+
+def test_a_real_tool_call_emits_exactly_one_log_record_with_tool_correlation_id_and_outcome(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.INFO, logger="foss_mcp.mcp.server"):
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": "search_symbols", "arguments": {"query": "Widget"}}
+            )
+    assert response.status_code == 200
+    body = _sse_json(response.text)
+    assert body["result"]["isError"] is False
+
+    tool_call_records = [record for record in caplog.records if hasattr(record, "correlation_id")]
+    assert len(tool_call_records) == 1
+    record = tool_call_records[0]
+    assert record.tool == "search_symbols"
+    assert record.outcome == "success"
+    assert isinstance(record.correlation_id, str) and record.correlation_id
+    assert isinstance(record.latency_ms, float)
+    assert record.latency_ms >= 0
+
+
+def test_an_error_results_correlation_id_matches_its_own_log_record(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.INFO, logger="foss_mcp.mcp.server"):
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": "search_symbols", "arguments": {"query": ""}}
+            )
+    assert response.status_code == 200
+    body = _sse_json(response.text)
+    assert body["result"]["isError"] is True
+    correlation_id = body["result"]["structuredContent"]["correlation_id"]
+    assert isinstance(correlation_id, str) and correlation_id
+
+    tool_call_records = [record for record in caplog.records if hasattr(record, "correlation_id")]
+    assert len(tool_call_records) == 1
+    record = tool_call_records[0]
+    assert record.correlation_id == correlation_id
+    assert record.outcome == "error"
+    assert record.tool == "search_symbols"
+
+
+def test_an_unknown_tool_calls_error_correlation_id_matches_its_own_log_record(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.INFO, logger="foss_mcp.mcp.server"):
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request("tools/call", {"name": "not_a_real_tool", "arguments": {}})
+    assert response.status_code == 200
+    body = _sse_json(response.text)
+    assert body["result"]["isError"] is True
+    correlation_id = body["result"]["structuredContent"]["correlation_id"]
+
+    tool_call_records = [record for record in caplog.records if hasattr(record, "correlation_id")]
+    assert len(tool_call_records) == 1
+    record = tool_call_records[0]
+    assert record.correlation_id == correlation_id
+    assert record.outcome == "error"
+
+
+def test_two_different_tool_calls_get_two_different_correlation_ids(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.INFO, logger="foss_mcp.mcp.server"):
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            session.request("tools/call", {"name": "search_symbols", "arguments": {"query": "Widget"}})
+            session.request("tools/call", {"name": "search_symbols", "arguments": {"query": "Widget"}})
+
+    tool_call_records = [record for record in caplog.records if hasattr(record, "correlation_id")]
+    assert len(tool_call_records) == 2
+    assert tool_call_records[0].correlation_id != tool_call_records[1].correlation_id
+
+
 def _sse_json(text: str) -> dict:
     """The streamable-HTTP transport answers a POST with one SSE `data:` line - decode it."""
     import json
