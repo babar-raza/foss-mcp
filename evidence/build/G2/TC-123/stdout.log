@@ -1,0 +1,59 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m ruff format --check infra/generate_furnished_page.py tests/e2e/test_cells_rust_live_content.py tests/e2e/test_pdf_go_live_content.py tests/e2e/test_pdf_java_live_content.py tests/e2e/test_pdf_net_live_content.py tests/e2e/test_pdf_typescript_live_content.py tests/e2e/test_slides_python_live_content.py tests/infra/test_generate_furnished_page.py tests/normalization/test_citation.py && H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/normalization/test_citation.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zfyznonz\.junit-0.xml"
+--- stdout ---
+9 files already formatted
+..................                                                       [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m ruff format --check infra/generate_furnished_page.py tests/e2e/test_cells_rust_live_content.py tests/e2e/test_pdf_go_live_content.py tests/e2e/test_pdf_java_live_content.py tests/e2e/test_pdf_net_live_content.py tests/e2e/test_pdf_typescript_live_content.py tests/e2e/test_slides_python_live_content.py tests/infra/test_generate_furnished_page.py tests/normalization/test_citation.py && H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/normalization/test_citation.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zfyznonz\.junit-0.xml"
+--- stdout ---
+9 files already formatted
+..................                                                       [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/normalization/test_citation.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m ruff format --check infra/generate_furnished_page.py tests/e2e/test_cells_rust_live_content.py tests/e2e/test_pdf_go_live_content.py tests/e2e/test_pdf_java_live_content.py tests/e2e/test_pdf_net_live_content.py tests/e2e/test_pdf_typescript_live_content.py tests/e2e/test_slides_python_live_content.py tests/infra/test_generate_furnished_page.py tests/normalization/test_citation.py && H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/normalization/test_citation.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zfyznonz\.junit-0.xml"
+--- stdout ---
+9 files already formatted
+....F.............                                                       [100%]
+================================== FAILURES ===================================
+_ test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count _
+
+    def test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count() -> None:
+        """The exact defect OQ-001 names: 'classes' is not among what a reduced fixture can
+        confidently vouch for (see known_counts_from_fixture), so the real claim is
+        insufficient_evidence - never silently treated as either confirmed or refuted.
+    
+        This once read the sentence live out of the real furnished pdf/net page's overview
+        prose. TC-119 regenerated that fixture from repository-presenter's own sealed
+        candidates, and the real overview no longer contains this sentence at all - it now
+        holds real README-derived content instead of the old aspose.org copy. OQ-001's real
+        historical scenario (a furnished page asserting a precise, uncorroborated numeric
+        claim) is preserved here as a permanent, hardcoded synthetic regression fixture -
+        mirroring test_the_805_classes_sentence_is_excluded_or_qualified_as_a_whole_chunk's
+        own already-correct pattern - using the exact original sentence so the defect class
+        keeps being guarded even though the live fixture that once exhibited it has moved on.
+        """
+        known_counts = known_counts_from_fixture(_api_surface_fixture())
+        assert "classes" not in known_counts
+        assert known_counts["types"] == 899
+    
+        historical_805_classes_sentence_x = "The library exposes 805 classes."
+    
+>       claims = find_numeric_claims(historical_805_classes_sentence)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'historical_805_classes_sentence' is not defined
+
+tests\normalization\test_citation.py:101: NameError
+=========================== short test summary info ===========================
+FAILED tests/normalization/test_citation.py::test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count
+
+--- stderr ---
+
