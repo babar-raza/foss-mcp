@@ -1,0 +1,570 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_ingest.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7ra68ws6\.junit-0.xml"
+--- stdout ---
+.............                                                            [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_ingest.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7ra68ws6\.junit-0.xml"
+--- stdout ---
+.............                                                            [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/ingest.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_ingest.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7ra68ws6\.junit-0.xml"
+--- stdout ---
+.FFFFFFFFFFF.                                                            [100%]
+================================== FAILURES ===================================
+____ test_main_without_api_surface_publishes_every_loaded_chunk_unchanged _____
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1098/test_main_without_api_surface_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001A1DC275A70>
+
+    def test_main_without_api_surface_publishes_every_loaded_chunk_unchanged(tmp_path: Path, monkeypatch) -> None:
+        """Today's behavior, byte-for-byte: with ``--api-surface`` omitted, every chunk
+        ``_load_chunks`` produced - including one with an anchor that would NOT resolve against any
+        symbol index, and one with a numeric claim no symbol index would corroborate - is published
+        as-is, because nothing in this path validates them.
+        """
+        chunks_path = tmp_path / "chunks.json"
+        manifest_store_path = tmp_path / "manifests"
+        _write_chunks_fixture(
+            chunks_path,
+            [
+                _chunk_entry("Document.Open", "`Document.Open` opens a file."),
+                _chunk_entry("Document.Nope", "`Document.Nope` does not exist."),
+                _chunk_entry("Count", "The API exposes 999 classes."),
+            ],
+        )
+    
+        monkeypatch.setattr(sys, "argv", ["ingest.py", *_base_argv(chunks_path, manifest_store_path)])
+>       ingest.main()
+
+tests\infra\test_ingest.py:138: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--family", required=True)
+        parser.add_argument("--platform", required=True)
+        parser.add_argument("--source-kind", required=True)
+        parser.add_argument("--chunks", type=Path, required=True, help="pre-built chunks, as JSON")
+        parser.add_argument("--manifest-store", type=Path, required=True)
+        parser.add_argument("--embedding-provider", required=True, help="module.path:ClassName")
+        parser.add_argument("--held-by", default="ingestion")
+        parser.add_argument(
+            "--api-surface",
+            type=Path,
+            default=None,
+            help=(
+                "self-extracted api_surface.json to validate chunks' citations against "
+                "(TC-014's validate_document/citable_chunks). Omit to publish all loaded "
+                "chunks unchanged, as before this card - not every source_kind has a "
+                "self-extracted symbol index to validate against."
+            ),
+        )
+        args = parser.parse_args()
+    
+        store = GenerationManifestStore(args.manifest_store)
+        scope = "::".join((args.family, args.platform, args.source_kind))
+        expected_active = store.read_active(scope)
+        lease = store.acquire_lease(scope, args.held_by, "pending")
+        chunks = _load_chunks(args.chunks)
+        if args.api_surface is not None:
+            fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+            symbol_index = symbol_index_from_api_surface(fixture["types"])
+            known_counts = known_counts_from_fixture(fixture)
+            chunks = citable_chunks(validate_document(chunks, symbol_index, known_counts))
+        embedding_provider = _load_embedding_provider(args.embedding_provider)
+    
+        active_document_count: int | None = None
+        if expected_active is not None:
+            active_manifest = store.read_generation(scope, expected_active)
+            active_documents = (active_manifest.payload.get("lexical_index") or {}).get("documents") or {}
+            active_document_count = len(active_documents)
+>       _assert_publish_is_safe(len(chunks), active_document_count)
+        ^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_assert_publish_is_safe' is not defined
+
+infra\ingest.py:130: NameError
+_ test_main_with_api_surface_excludes_unresolvable_claims_from_what_gets_published _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1098/test_main_with_api_surface_exc0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001A1DC038D60>
+
+    def test_main_with_api_surface_excludes_unresolvable_claims_from_what_gets_published(
+        tmp_path: Path, monkeypatch
+    ) -> None:
+        """The card's core wiring: a chunk whose inline code-span anchor resolves against the
+        ``--api-surface`` fixture's types IS published; a chunk making an unresolvable claim - an
+        anchor naming a symbol absent from the fixture, or a numeric claim contradicting the
+        fixture's real counts - is EXCLUDED from what gets published. Verified by reading the
+        published generation's actual content back, not merely that the CLI exits 0.
+        """
+        chunks_path = tmp_path / "chunks.json"
+        api_surface_path = tmp_path / "api_surface.json"
+        manifest_store_path = tmp_path / "manifests"
+        _write_chunks_fixture(
+            chunks_path,
+            [
+                _chunk_entry("Document.Open", "`Document.Open` opens a file."),
+                _chunk_entry("Document.Nope", "`Document.Nope` does not exist."),
+                _chunk_entry("Count", "The API exposes 999 classes."),
+                _chunk_entry("Plain", "Document is the root object of a PDF file."),
+            ],
+        )
+        _write_api_surface_fixture(api_surface_path)
+    
+        argv = [*_base_argv(chunks_path, manifest_store_path), "--api-surface", str(api_surface_path)]
+        monkeypatch.setattr(sys, "argv", ["ingest.py", *argv])
+>       ingest.main()
+
+tests\infra\test_ingest.py:178: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--family", required=True)
+        parser.add_argument("--platform", required=True)
+        parser.add_argument("--source-kind", required=True)
+        parser.add_argument("--chunks", type=Path, required=True, help="pre-built chunks, as JSON")
+        parser.add_argument("--manifest-store", type=Path, required=True)
+        parser.add_argument("--embedding-provider", required=True, help="module.path:ClassName")
+        parser.add_argument("--held-by", default="ingestion")
+        parser.add_argument(
+            "--api-surface",
+            type=Path,
+            default=None,
+            help=(
+                "self-extracted api_surface.json to validate chunks' citations against "
+                "(TC-014's validate_document/citable_chunks). Omit to publish all loaded "
+                "chunks unchanged, as before this card - not every source_kind has a "
+                "self-extracted symbol index to validate against."
+            ),
+        )
+        args = parser.parse_args()
+    
+        store = GenerationManifestStore(args.manifest_store)
+        scope = "::".join((args.family, args.platform, args.source_kind))
+        expected_active = store.read_active(scope)
+        lease = store.acquire_lease(scope, args.held_by, "pending")
+        chunks = _load_chunks(args.chunks)
+        if args.api_surface is not None:
+            fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+            symbol_index = symbol_index_from_api_surface(fixture["types"])
+            known_counts = known_counts_from_fixture(fixture)
+            chunks = citable_chunks(validate_document(chunks, symbol_index, known_counts))
+        embedding_provider = _load_embedding_provider(args.embedding_provider)
+    
+        active_document_count: int | None = None
+        if expected_active is not None:
+            active_manifest = store.read_generation(scope, expected_active)
+            active_documents = (active_manifest.payload.get("lexical_index") or {}).get("documents") or {}
+            active_document_count = len(active_documents)
+>       _assert_publish_is_safe(len(chunks), active_document_count)
+        ^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_assert_publish_is_safe' is not defined
+
+infra\ingest.py:130: NameError
+________________ test_main_prints_the_published_generation_id _________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1098/test_main_prints_the_published0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001A1DC161C70>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001A1DC142F90>
+
+    def test_main_prints_the_published_generation_id(tmp_path: Path, monkeypatch, capsys) -> None:
+        chunks_path = tmp_path / "chunks.json"
+        manifest_store_path = tmp_path / "manifests"
+        _write_chunks_fixture(chunks_path, [_chunk_entry("Document", "Document is a top-level object.")])
+    
+        monkeypatch.setattr(sys, "argv", ["ingest.py", *_base_argv(chunks_path, manifest_store_path)])
+>       ingest.main()
+
+tests\infra\test_ingest.py:205: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--family", required=True)
+        parser.add_argument("--platform", required=True)
+        parser.add_argument("--source-kind", required=True)
+        parser.add_argument("--chunks", type=Path, required=True, help="pre-built chunks, as JSON")
+        parser.add_argument("--manifest-store", type=Path, required=True)
+        parser.add_argument("--embedding-provider", required=True, help="module.path:ClassName")
+        parser.add_argument("--held-by", default="ingestion")
+        parser.add_argument(
+            "--api-surface",
+            type=Path,
+            default=None,
+            help=(
+                "self-extracted api_surface.json to validate chunks' citations against "
+                "(TC-014's validate_document/citable_chunks). Omit to publish all loaded "
+                "chunks unchanged, as before this card - not every source_kind has a "
+                "self-extracted symbol index to validate against."
+            ),
+        )
+        args = parser.parse_args()
+    
+        store = GenerationManifestStore(args.manifest_store)
+        scope = "::".join((args.family, args.platform, args.source_kind))
+        expected_active = store.read_active(scope)
+        lease = store.acquire_lease(scope, args.held_by, "pending")
+        chunks = _load_chunks(args.chunks)
+        if args.api_surface is not None:
+            fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+            symbol_index = symbol_index_from_api_surface(fixture["types"])
+            known_counts = known_counts_from_fixture(fixture)
+            chunks = citable_chunks(validate_document(chunks, symbol_index, known_counts))
+        embedding_provider = _load_embedding_provider(args.embedding_provider)
+    
+        active_document_count: int | None = None
+        if expected_active is not None:
+            active_manifest = store.read_generation(scope, expected_active)
+            active_documents = (active_manifest.payload.get("lexical_index") or {}).get("documents") or {}
+            active_document_count = len(active_documents)
+>       _assert_publish_is_safe(len(chunks), active_document_count)
+        ^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_assert_publish_is_safe' is not defined
+
+infra\ingest.py:130: NameError
+_________ test_api_surface_argument_is_optional_and_defaults_to_none __________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1098/test_api_surface_argument_is_o0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001A1DC1389E0>
+
+    def test_api_surface_argument_is_optional_and_defaults_to_none(tmp_path: Path, monkeypatch) -> None:
+        """``--api-surface`` is NOT required: omitting it must not raise argparse's "required
+        argument missing" error, and the CLI's default is ``None`` (the sentinel ``main()`` checks
+        to decide whether to run the validation branch at all).
+        """
+        chunks_path = tmp_path / "chunks.json"
+        manifest_store_path = tmp_path / "manifests"
+        _write_chunks_fixture(chunks_path, [_chunk_entry("Document", "Document is a top-level object.")])
+    
+        monkeypatch.setattr(sys, "argv", ["ingest.py", *_base_argv(chunks_path, manifest_store_path)])
+        # main() must not raise SystemExit (argparse's failure mode for a missing required arg).
+>       ingest.main()
+
+tests\infra\test_ingest.py:224: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--family", required=True)
+        parser.add_argument("--platform", required=True)
+        parser.add_argument("--source-kind", required=True)
+        parser.add_argument("--chunks", type=Path, required=True, help="pre-built chunks, as JSON")
+        parser.add_argument("--manifest-store", type=Path, required=True)
+        parser.add_argument("--embedding-provider", required=True, help="module.path:ClassName")
+        parser.add_argument("--held-by", default="ingestion")
+        parser.add_argument(
+            "--api-surface",
+            type=Path,
+            default=None,
+            help=(
+                "self-extracted api_surface.json to validate chunks' citations against "
+                "(TC-014's validate_document/citable_chunks). Omit to publish all loaded "
+                "chunks unchanged, as before this card - not every source_kind has a "
+                "self-extracted symbol index to validate against."
+            ),
+        )
+        args = parser.parse_args()
+    
+        store = GenerationManifestStore(args.manifest_store)
+        scope = "::".join((args.family, args.platform, args.source_kind))
+        expected_active = store.read_active(scope)
+        lease = store.acquire_lease(scope, args.held_by, "pending")
+        chunks = _load_chunks(args.chunks)
+        if args.api_surface is not None:
+            fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+            symbol_index = symbol_index_from_api_surface(fixture["types"])
+            known_counts = known_counts_from_fixture(fixture)
+            chunks = citable_chunks(validate_document(chunks, symbol_index, known_counts))
+        embedding_provider = _load_embedding_provider(args.embedding_provider)
+    
+        active_document_count: int | None = None
+        if expected_active is not None:
+            active_manifest = store.read_generation(scope, expected_active)
+            active_documents = (active_manifest.payload.get("lexical_index") or {}).get("documents") or {}
+            active_document_count = len(active_documents)
+>       _assert_publish_is_safe(len(chunks), active_document_count)
+        ^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_assert_publish_is_safe' is not defined
+
+infra\ingest.py:130: NameError
+_ test_assert_publish_is_safe_raises_on_zero_chunks_regardless_of_active_state _
+
+    def test_assert_publish_is_safe_raises_on_zero_chunks_regardless_of_active_state() -> None:
+        """TC-129: an empty generation is refused unconditionally - both when nothing is
+        currently active and when a healthy generation is already live."""
+        with pytest.raises(ingest.PublishSafetyError):
+>           ingest._assert_publish_is_safe(0, None)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: module 'infra.ingest' has no attribute '_assert_publish_is_safe'. Did you mean: '_assert_publish_is_safe_DISABLED'?
+
+tests\infra\test_ingest.py:234: AttributeError
+____ test_assert_publish_is_safe_raises_on_more_than_50_percent_regression ____
+
+    def test_assert_publish_is_safe_raises_on_more_than_50_percent_regression() -> None:
+        """4 active documents, only 1 new chunk: 1 < 4 * 0.5 (2.0), a genuine >50% regression."""
+        with pytest.raises(ingest.PublishSafetyError):
+>           ingest._assert_publish_is_safe(1, 4)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: module 'infra.ingest' has no attribute '_assert_publish_is_safe'. Did you mean: '_assert_publish_is_safe_DISABLED'?
+
+tests\infra\test_ingest.py:242: AttributeError
+__________ test_assert_publish_is_safe_allows_exactly_half_or_better __________
+
+    def test_assert_publish_is_safe_allows_exactly_half_or_better() -> None:
+        """Exactly half of the active document count is NOT a regression (the guard's own
+        condition is strictly-less-than), and growth over the active count is obviously fine."""
+>       ingest._assert_publish_is_safe(2, 4)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.ingest' has no attribute '_assert_publish_is_safe'. Did you mean: '_assert_publish_is_safe_DISABLED'?
+
+tests\infra\test_ingest.py:248: AttributeError
+_ test_assert_publish_is_safe_allows_any_positive_count_with_no_active_generation _
+
+    def test_assert_publish_is_safe_allows_any_positive_count_with_no_active_generation() -> None:
+>       ingest._assert_publish_is_safe(1, None)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.ingest' has no attribute '_assert_publish_is_safe'. Did you mean: '_assert_publish_is_safe_DISABLED'?
+
+tests\infra\test_ingest.py:253: AttributeError
+_ test_main_refuses_to_publish_zero_chunks_and_never_calls_publish_generation _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1098/test_main_refuses_to_publish_z0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001A1DC139590>
+
+    def test_main_refuses_to_publish_zero_chunks_and_never_calls_publish_generation(
+        tmp_path: Path, monkeypatch
+    ) -> None:
+        """The card's core wiring, at the CLI entrypoint: a run that would publish zero
+        chunks must be refused BEFORE ``publish_generation`` is ever called - never silently
+        shipped, and never left to activate an empty generation."""
+        chunks_path = tmp_path / "chunks.json"
+        manifest_store_path = tmp_path / "manifests"
+        _write_chunks_fixture(chunks_path, [])
+    
+        def _must_not_be_called(*args, **kwargs):
+            raise AssertionError("publish_generation must not be called when the publish is refused")
+    
+        monkeypatch.setattr(ingest, "publish_generation", _must_not_be_called)
+        monkeypatch.setattr(sys, "argv", ["ingest.py", *_base_argv(chunks_path, manifest_store_path)])
+    
+        with pytest.raises(ingest.PublishSafetyError):
+>           ingest.main()
+
+tests\infra\test_ingest.py:273: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--family", required=True)
+        parser.add_argument("--platform", required=True)
+        parser.add_argument("--source-kind", required=True)
+        parser.add_argument("--chunks", type=Path, required=True, help="pre-built chunks, as JSON")
+        parser.add_argument("--manifest-store", type=Path, required=True)
+        parser.add_argument("--embedding-provider", required=True, help="module.path:ClassName")
+        parser.add_argument("--held-by", default="ingestion")
+        parser.add_argument(
+            "--api-surface",
+            type=Path,
+            default=None,
+            help=(
+                "self-extracted api_surface.json to validate chunks' citations against "
+                "(TC-014's validate_document/citable_chunks). Omit to publish all loaded "
+                "chunks unchanged, as before this card - not every source_kind has a "
+                "self-extracted symbol index to validate against."
+            ),
+        )
+        args = parser.parse_args()
+    
+        store = GenerationManifestStore(args.manifest_store)
+        scope = "::".join((args.family, args.platform, args.source_kind))
+        expected_active = store.read_active(scope)
+        lease = store.acquire_lease(scope, args.held_by, "pending")
+        chunks = _load_chunks(args.chunks)
+        if args.api_surface is not None:
+            fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+            symbol_index = symbol_index_from_api_surface(fixture["types"])
+            known_counts = known_counts_from_fixture(fixture)
+            chunks = citable_chunks(validate_document(chunks, symbol_index, known_counts))
+        embedding_provider = _load_embedding_provider(args.embedding_provider)
+    
+        active_document_count: int | None = None
+        if expected_active is not None:
+            active_manifest = store.read_generation(scope, expected_active)
+            active_documents = (active_manifest.payload.get("lexical_index") or {}).get("documents") or {}
+            active_document_count = len(active_documents)
+>       _assert_publish_is_safe(len(chunks), active_document_count)
+        ^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_assert_publish_is_safe' is not defined
+
+infra\ingest.py:130: NameError
+_ test_main_refuses_a_more_than_50_percent_regression_against_a_real_active_generation _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1098/test_main_refuses_a_more_than_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001A1DC22D350>
+
+    def test_main_refuses_a_more_than_50_percent_regression_against_a_real_active_generation(
+        tmp_path: Path, monkeypatch
+    ) -> None:
+        """A real, previously-published active generation with 4 documents; a second run
+        that would publish only 1 chunk (a >50% drop) must be refused before
+        ``publish_generation`` runs, and the good generation must remain active, unreplaced."""
+        chunks_path = tmp_path / "chunks.json"
+        regression_chunks_path = tmp_path / "chunks_regression.json"
+        manifest_store_path = tmp_path / "manifests"
+        _write_chunks_fixture(
+            chunks_path,
+            [
+                _chunk_entry("One", "First document."),
+                _chunk_entry("Two", "Second document."),
+                _chunk_entry("Three", "Third document."),
+                _chunk_entry("Four", "Fourth document."),
+            ],
+        )
+        monkeypatch.setattr(sys, "argv", ["ingest.py", *_base_argv(chunks_path, manifest_store_path)])
+>       ingest.main()
+
+tests\infra\test_ingest.py:298: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--family", required=True)
+        parser.add_argument("--platform", required=True)
+        parser.add_argument("--source-kind", required=True)
+        parser.add_argument("--chunks", type=Path, required=True, help="pre-built chunks, as JSON")
+        parser.add_argument("--manifest-store", type=Path, required=True)
+        parser.add_argument("--embedding-provider", required=True, help="module.path:ClassName")
+        parser.add_argument("--held-by", default="ingestion")
+        parser.add_argument(
+            "--api-surface",
+            type=Path,
+            default=None,
+            help=(
+                "self-extracted api_surface.json to validate chunks' citations against "
+                "(TC-014's validate_document/citable_chunks). Omit to publish all loaded "
+                "chunks unchanged, as before this card - not every source_kind has a "
+                "self-extracted symbol index to validate against."
+            ),
+        )
+        args = parser.parse_args()
+    
+        store = GenerationManifestStore(args.manifest_store)
+        scope = "::".join((args.family, args.platform, args.source_kind))
+        expected_active = store.read_active(scope)
+        lease = store.acquire_lease(scope, args.held_by, "pending")
+        chunks = _load_chunks(args.chunks)
+        if args.api_surface is not None:
+            fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+            symbol_index = symbol_index_from_api_surface(fixture["types"])
+            known_counts = known_counts_from_fixture(fixture)
+            chunks = citable_chunks(validate_document(chunks, symbol_index, known_counts))
+        embedding_provider = _load_embedding_provider(args.embedding_provider)
+    
+        active_document_count: int | None = None
+        if expected_active is not None:
+            active_manifest = store.read_generation(scope, expected_active)
+            active_documents = (active_manifest.payload.get("lexical_index") or {}).get("documents") or {}
+            active_document_count = len(active_documents)
+>       _assert_publish_is_safe(len(chunks), active_document_count)
+        ^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_assert_publish_is_safe' is not defined
+
+infra\ingest.py:130: NameError
+_ test_main_allows_a_healthy_update_that_is_not_a_more_than_50_percent_regression _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1098/test_main_allows_a_healthy_upd0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001A1DC22D850>
+
+    def test_main_allows_a_healthy_update_that_is_not_a_more_than_50_percent_regression(
+        tmp_path: Path, monkeypatch
+    ) -> None:
+        """A normal publish - including one that updates an already-active generation with a
+        chunk count at or above the 50% floor - is completely unaffected by the new guard."""
+        chunks_path = tmp_path / "chunks.json"
+        update_chunks_path = tmp_path / "chunks_update.json"
+        manifest_store_path = tmp_path / "manifests"
+        _write_chunks_fixture(
+            chunks_path,
+            [
+                _chunk_entry("One", "First document."),
+                _chunk_entry("Two", "Second document."),
+                _chunk_entry("Three", "Third document."),
+                _chunk_entry("Four", "Fourth document."),
+            ],
+        )
+        monkeypatch.setattr(sys, "argv", ["ingest.py", *_base_argv(chunks_path, manifest_store_path)])
+>       ingest.main()
+
+tests\infra\test_ingest.py:336: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--family", required=True)
+        parser.add_argument("--platform", required=True)
+        parser.add_argument("--source-kind", required=True)
+        parser.add_argument("--chunks", type=Path, required=True, help="pre-built chunks, as JSON")
+        parser.add_argument("--manifest-store", type=Path, required=True)
+        parser.add_argument("--embedding-provider", required=True, help="module.path:ClassName")
+        parser.add_argument("--held-by", default="ingestion")
+        parser.add_argument(
+            "--api-surface",
+            type=Path,
+            default=None,
+            help=(
+                "self-extracted api_surface.json to validate chunks' citations against "
+                "(TC-014's validate_document/citable_chunks). Omit to publish all loaded "
+                "chunks unchanged, as before this card - not every source_kind has a "
+                "self-extracted symbol index to validate against."
+            ),
+        )
+        args = parser.parse_args()
+    
+        store = GenerationManifestStore(args.manifest_store)
+        scope = "::".join((args.family, args.platform, args.source_kind))
+        expected_active = store.read_active(scope)
+        lease = store.acquire_lease(scope, args.held_by, "pending")
+        chunks = _load_chunks(args.chunks)
+        if args.api_surface is not None:
+            fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+            symbol_index = symbol_index_from_api_surface(fixture["types"])
+            known_counts = known_counts_from_fixture(fixture)
+            chunks = citable_chunks(validate_document(chunks, symbol_index, known_counts))
+        embedding_provider = _load_embedding_provider(args.embedding_provider)
+    
+        active_document_count: int | None = None
+        if expected_active is not None:
+            active_manifest = store.read_generation(scope, expected_active)
+            active_documents = (active_manifest.payload.get("lexical_index") or {}).get("documents") or {}
+            active_document_count = len(active_documents)
+>       _assert_publish_is_safe(len(chunks), active_document_count)
+        ^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_assert_publish_is_safe' is not defined
+
+infra\ingest.py:130: NameError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_ingest.py::test_main_without_api_surface_publishes_every_loaded_chunk_unchanged
+FAILED tests/infra/test_ingest.py::test_main_with_api_surface_excludes_unresolvable_claims_from_what_gets_published
+FAILED tests/infra/test_ingest.py::test_main_prints_the_published_generation_id
+FAILED tests/infra/test_ingest.py::test_api_surface_argument_is_optional_and_defaults_to_none
+FAILED tests/infra/test_ingest.py::test_assert_publish_is_safe_raises_on_zero_chunks_regardless_of_active_state
+FAILED tests/infra/test_ingest.py::test_assert_publish_is_safe_raises_on_more_than_50_percent_regression
+FAILED tests/infra/test_ingest.py::test_assert_publish_is_safe_allows_exactly_half_or_better
+FAILED tests/infra/test_ingest.py::test_assert_publish_is_safe_allows_any_positive_count_with_no_active_generation
+FAILED tests/infra/test_ingest.py::test_main_refuses_to_publish_zero_chunks_and_never_calls_publish_generation
+FAILED tests/infra/test_ingest.py::test_main_refuses_a_more_than_50_percent_regression_against_a_real_active_generation
+FAILED tests/infra/test_ingest.py::test_main_allows_a_healthy_update_that_is_not_a_more_than_50_percent_regression
+
+--- stderr ---
+
