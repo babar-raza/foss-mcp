@@ -1,0 +1,106 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_transport_security.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_sdtdkf1\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_transport_security.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_sdtdkf1\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/transport_security.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_transport_security.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_sdtdkf1\.junit-0.xml"
+--- stdout ---
+..F..F                                                                   [100%]
+================================== FAILURES ===================================
+________ test_a_missing_protocol_version_header_is_now_allowed_through ________
+
+    def test_a_missing_protocol_version_header_is_now_allowed_through() -> None:
+        """The TC-124 fix itself: a genuine client's first ``initialize`` request never carries
+        this header yet (no version has been negotiated), so its absence must not be rejected -
+        the request's REQUIRED protocol version lives in the JSON-RPC body instead, which the SDK
+        validates on its own once it parses that body."""
+        reason = reject_request({"Origin": "https://example.com"}, allowed_origins=ALLOWED_ORIGINS)
+>       assert reason is None
+E       AssertionError: assert 'missing MCP-Protocol-Version header' is None
+
+tests\mcp\test_transport_security.py:75: AssertionError
+___ test_a_real_mcp_sdk_client_initializes_with_no_protocol_version_header ____
+  + Exception Group Traceback (most recent call last):
+  |   File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_sdtdkf1\tests\mcp\test_transport_security.py", line 163, in test_a_real_mcp_sdk_client_initializes_with_no_protocol_version_header
+  |     async with _running_lifespan(app):
+  |                ~~~~~~~~~~~~~~~~~^^^^^
+  |   File "C:\Python313\Lib\contextlib.py", line 235, in __aexit__
+  |     await self.gen.athrow(value)
+  |   File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_sdtdkf1\tests\mcp\test_transport_security.py", line 120, in _running_lifespan
+  |     async with anyio.create_task_group() as tg:
+  |                ~~~~~~~~~~~~~~~~~~~~~~~^^
+  |   File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\_backends\_asyncio.py", line 847, in __aexit__
+  |     raise BaseExceptionGroup(
+  |         "unhandled errors in a TaskGroup", self._exceptions
+  |     ) from None
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Exception Group Traceback (most recent call last):
+    |   File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_sdtdkf1\tests\mcp\test_transport_security.py", line 126, in _running_lifespan
+    |     yield
+    |   File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_sdtdkf1\tests\mcp\test_transport_security.py", line 164, in test_a_real_mcp_sdk_client_initializes_with_no_protocol_version_header
+    |     async with streamable_http_client("http://testserver/mcp", http_client=http_client) as (
+    |                ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "C:\Python313\Lib\contextlib.py", line 235, in __aexit__
+    |     await self.gen.athrow(value)
+    |   File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\client\streamable_http.py", line 736, in streamable_http_client
+    |     anyio.create_task_group() as tg,
+    |     ~~~~~~~~~~~~~~~~~~~~~~~^^
+    |   File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\_backends\_asyncio.py", line 847, in __aexit__
+    |     raise BaseExceptionGroup(
+    |         "unhandled errors in a TaskGroup", self._exceptions
+    |     ) from None
+    | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+    +-+---------------- 1 ----------------
+      | Exception Group Traceback (most recent call last):
+      |   File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\client\streamable_http.py", line 753, in streamable_http_client
+      |     yield read_stream, write_stream
+      |   File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_sdtdkf1\tests\mcp\test_transport_security.py", line 168, in test_a_real_mcp_sdk_client_initializes_with_no_protocol_version_header
+      |     async with ClientSession(read_stream, write_stream) as session:
+      |                ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      |   File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\client\session.py", line 514, in __aexit__
+      |     result = await self._task_group.__aexit__(exc_type, exc_val, exc_tb)
+      |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      |   File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\_backends\_asyncio.py", line 847, in __aexit__
+      |     raise BaseExceptionGroup(
+      |         "unhandled errors in a TaskGroup", self._exceptions
+      |     ) from None
+      | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+      +-+---------------- 1 ----------------
+        | Traceback (most recent call last):
+        |   File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_sdtdkf1\tests\mcp\test_transport_security.py", line 171, in test_a_real_mcp_sdk_client_initializes_with_no_protocol_version_header
+        |     result = await session.initialize()
+        |              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |   File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\client\session.py", line 654, in initialize
+        |     result = await self.send_request(
+        |              ^^^^^^^^^^^^^^^^^^^^^^^^
+        |     ...<9 lines>...
+        |     )
+        |     ^
+        |   File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\client\session.py", line 586, in send_request
+        |     raw = await self._dispatcher.send_raw_request(method, data.get("params"), opts)
+        |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |   File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 444, in send_raw_request
+        |     raise MCPError(code=outcome.code, message=outcome.message, data=outcome.data)
+        | mcp.shared.exceptions.MCPError: Server returned an error response
+        +------------------------------------
+=========================== short test summary info ===========================
+FAILED tests/mcp/test_transport_security.py::test_a_missing_protocol_version_header_is_now_allowed_through
+FAILED tests/mcp/test_transport_security.py::test_a_real_mcp_sdk_client_initializes_with_no_protocol_version_header
+
+--- stderr ---
+
