@@ -892,3 +892,110 @@ failed-embedding chunks while still recording them as published, accepting a PAR
 30% error threshold, per-lane min-max score fusion, a client-controlled rate-limit-bypass header,
 and any of its job-queue/admin/multi-tenant machinery (this project is a one-shot CLI per
 AGENTS.md, correctly).
+
+## 2026-09-30 — Second ADCS review: the MCP interface layer itself (three parallel deep-dives)
+The project owner asked for a second, independent review of the SAME real, working commercial
+MCP server (ADCS - a single multi-product deployment serving 40+ Aspose/GroupDocs products),
+this time focused on the interface a real MCP client actually experiences: tool modeling,
+schemas, discovery, invocation, error handling, logging, responses, plus product/config/
+dependency modeling, deployment lifecycle, observability, and security (transport wiring and
+Kubernetes specifics excluded both times - already known, tracked elsewhere). Three parallel
+sub-reviews, each required to cite real file:line evidence for every claim, confirmed a
+consistent picture: ADCS is architecturally simple in the ways that matter for an interface
+(no per-tool base class, dependency-injected services, one dispatch core for two transports -
+foss-mcp's own `mcp/tools/*.py` split is if anything a cleaner decomposition than ADCS's two
+large service files) but has real, concretely citable interface-layer maturity foss-mcp lacks:
+grounded tool descriptions, per-tool argument validation, a closed error-code vocabulary,
+exception-text sanitization, structured per-call logging with a correlation id, and fuzzy
+"did you mean" suggestions on a miss.
+
+**Carded now** (TC-131, TC-132, both self-checked, `gatectl validate` clean at 129 cards) and
+**folded into TC-125/TC-128** (both still undispatched, amended directly rather than
+superseded):
+- TC-125 (already authored) amended with the concrete bar a real tool description must meet
+  (when-to-call-vs-siblings, concrete example values, explicit "don't guess" language - ADCS's
+  own `aspose_lookup`/`get_symbol_doc`/`resolve_product` descriptions are the cited reference,
+  never to be copied verbatim since they describe different products) and with per-field schema
+  descriptions (not just the one top-level tool description - `schema_for()` currently emits
+  bare `{"type": "string"}` with no per-property description at all).
+- TC-128 (already authored) amended with an optional pointer to ADCS's `@pytest.mark.live` +
+  `addopts = "-m 'not live'"` pattern as a cleaner alternative to an ad hoc `--ignore` flag,
+  left optional so the CI card doesn't grow into a test-suite-wide refactor.
+- TC-131 (new): a closed `ToolErrorCode` enum plus `public_error_message()`, a real sanitizer
+  that only lets short, single-line, marker-free exception text reach the client - everything
+  else is logged server-side in full and replaced with a safe fallback. Confirmed gap:
+  `server.py:228-231` returns raw `str(exc)` to the client today, completely unsanitized.
+- TC-132 (new): one structured log line per tool call (name, outcome, latency, a correlation
+  id) via plain stdlib `logging` - no bespoke formatter, no new dependency - with the same
+  correlation id echoed into any error result so a client-reported failure can be matched to a
+  specific server-side log line. Confirmed gap: zero `import logging`/`getLogger` anywhere
+  under `src/foss_mcp/mcp/` today.
+
+**Validated, not changed** (a real cross-check the review was asked to perform, not merely a
+gap list): foss-mcp's `DeploymentConfig`/`resolve_scope` - one Scope fixed once per deployment,
+closed over by every tool - is the CORRECT architecture for foss-mcp's one-product-per-
+deployment model, confirmed by direct contrast with ADCS's opposite choice (a single
+deployment serving 40+ products, with product identity resolved fresh per request via a
+`FilterResolver`/registry-of-products layer). ADCS's per-request product routing exists to
+solve a SaaS operational-economics problem foss-mcp does not have; importing any version of it
+would be a real regression, not an improvement. Also validated: foss-mcp's own already-
+committed TC-130 (an import-graph "unwired module" test) is independently corroborated by
+ADCS's own AST-based `test_every_public_route_consults_the_abuse_guard` test - the same
+technique, arrived at independently, for the same class of defect AGENTS.md's own
+Integration-and-liveness section names.
+
+**Backlog, tiered, recorded so none of it is lost - none of this is authorized to start on its
+own, each needs more design work or a deliberate product decision first:**
+
+*Tier 1 - retrieval quality, larger lift:*
+- Fuzzy "did you mean" suggestions on a `get_symbol`/`list_members`/`search_symbols`/`lookup`
+  miss, via `difflib.get_close_matches` against the locally-known set of FQNs/symbol names
+  already loaded for search (a single-deployment-scale version of ADCS's own
+  `Vocabulary.closest_products()` - the adaptable core is much smaller than ADCS's full
+  multi-product vocabulary machinery, but still real, new work: needs a name-index enumeration
+  pass and a resolution-hint response shape).
+- Per-symbol rows in the manifest payload (fqn, kind, parent, per-overload signature) so
+  `get_symbol` resolves directly instead of only whole-type chunks with methods as prose
+  bullets - needs a real payload-shape design pass (also already named in the first ADCS
+  review's own Tier 1).
+
+*Tier 2 - config/secrets discipline (apply once foss-mcp's config surface grows beyond family/
+platform/source_kind/allowed-origins):*
+- `SecretStr`-equivalent field wrapping + a single sanctioned `safe_summary()`/redaction
+  function as the only way to render config for logs, if/when foss-mcp ever carries a real
+  secret (an API key, a credential) in its own config.
+- A two-layer fail-fast validation shape (declarative field checks, plus a separate
+  environment-profile-aware guard for combinations a single field validator can't see) - LEARN
+  only for now; foss-mcp's current config surface is small enough that this would be premature
+  structure, not a fix for a confirmed defect.
+
+*Tier 3 - operational maturity (needed before unattended production operation, not before an
+initial hosting attempt):*
+- Metric-name-existence and runbook-anchor-resolution tests for any future alert rules (ADCS's
+  `tests/observability/test_alert_rules.py` technique: extract PromQL metric names via regex,
+  diff against a real in-process metrics render; parse runbook Markdown headings into anchors,
+  diff against `runbook_url` fragments) - directly reusable once TC-132's logging (and any
+  future `/metrics` endpoint) exists to have alerts about.
+- Audit foss-mcp's own bootstrap ordering for "logging configured before anything else can log"
+  - a real, specific, one-time-check lesson from ADCS's own `main.py:107-109` comment, not
+  urgent since TC-132 is the first thing that will make this matter at all.
+
+*Tier 4 - dependency/repo hygiene (reinforces, does not replace, the first review's own Tier 4
+entry on splitting `requirements.lock`):* ADCS's own `pyproject.toml` (loose lower bounds) +
+`constraints.txt` (hash-pinned, `--require-hashes` in the Docker build, generated via
+`uv pip compile --generate-hashes`) split independently confirms the same runtime/dev lock
+separation the first review already queued - no new information here, just corroboration from
+a second, independently-reviewed real project reaching the same conclusion.
+
+**Explicitly not importing** (confirmed, scale-mismatched to foss-mcp's single-product,
+no-database, one-shot-CLI, single-instance architecture, per the review's own "AVOID" findings
+and this project's own AGENTS.md): ADCS's per-request multi-product `FilterResolver`/registry
+layer, its shared-Postgres/Redis/Celery operational tier, its multi-tenant admin RBAC surface,
+its Next.js admin console, Makefile target sprawl where most targets are never wired into CI,
+mutmut-based mutation testing at ADCS's own "thousands of mutants, multi-hour" scale (foss-mcp's
+own supervisor-authored, targeted negative control per taskcard is already a stronger,
+cheaper, per-change guarantee), Pact consumer/provider contract testing (no independent internal
+consumers exist for foss-mcp's MCP surface to contract-test against), and its
+client-supplied-fingerprint-header rate-limiting design (confirmed independently: a real
+bypass surface, key any future rate limiting on something the server itself derives, never a
+client-asserted header).

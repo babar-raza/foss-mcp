@@ -31,6 +31,14 @@ inputs:
   (Python 3.13, matching pyproject.toml's requires-python).
 - Do not touch scripts/ci_check.sh itself or mirror-gitlab.yml - purely a new, additive
   workflow file.
+- 'Optional, not required for this card: a reviewed real commercial MCP server splits
+  its own live/e2e tests from its regular suite via a single pytest marker (`@pytest.mark.live`
+  + `addopts = "-m ''not live''"` in pyproject.toml) rather than an ad hoc `--ignore`
+  flag, with a companion make target that turns "live surface unreachable" into a
+  hard failure instead of a silent skip when live tests are explicitly requested.
+  If adopting this is a small, safe change alongside the CI workflow itself, do so;
+  if it would require touching many existing test files'' markers, leave it as a
+  documented follow-up instead and keep this card scoped to the workflow file alone.'
 actions:
 - Add .github/workflows/ci.yml exactly as specified.
 - Validate it with a YAML parse (actionlint if available, otherwise a plain yaml.safe_load)

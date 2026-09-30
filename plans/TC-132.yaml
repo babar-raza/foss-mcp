@@ -1,0 +1,79 @@
+id: TC-132
+gate: G2
+lane: transport-deployment
+purpose: 'A real, independent review of a working commercial MCP server (ADCS) confirmed
+  it logs every tool call (name, latency, outcome) and mints a correlation id that
+  appears BOTH in its own server-side log line and in any error response returned
+  to the client, so an operator can find the exact log line behind a reported failure.
+  foss-mcp''s server.py currently has no logging at all in its tool-dispatch path
+  - confirmed directly, no `import logging`/`getLogger` anywhere under src/foss_mcp/mcp/.
+  Add the minimum real version of this: one structured log line per tool call, and
+  a correlation id included in every error result (working alongside TC-131''s own
+  error handling, not duplicating it).'
+depends_on:
+- TC-001
+- TC-016
+- TC-019a
+- TC-125
+- TC-126
+- TC-131
+write_paths:
+- src/foss_mcp/mcp/server.py
+- tests/mcp/test_server_wiring.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Read server.py's _call_tool in full first, including TC-131's own already-landed
+  error-code/sanitizer wiring if it has landed by the time you work this card.
+- 'REQUIRED, exact shape (function name load-bearing for the negative control): `def
+  _log_tool_call(logger: logging.Logger, *, tool_name: str, correlation_id: str, outcome:
+  str, latency_ms: float) -> None`, logging one line via `logger.info(...)` with `extra={"tool":
+  tool_name, "correlation_id": correlation_id, "outcome": outcome, "latency_ms": latency_ms}`
+  - a plain stdlib `logging` call, no new dependency, no bespoke JSON formatter (that
+  is a separate, future concern, out of this card''s scope).'
+- 'In _call_tool: generate one correlation id per call (`uuid.uuid4().hex`), time
+  the handler call (`time.monotonic()` before/after), call _log_tool_call once on
+  every path (success AND error, with outcome=''success''/''error'' respectively),
+  and include the SAME correlation_id in any error CallToolResult''s own structured_content
+  (working alongside TC-131''s error-code field, not replacing it) - so a client-reported
+  error id can be matched to a specific server-side log line.'
+- Use a module-level `logging.getLogger(__name__)` - do not configure logging handlers/formatters
+  here (that is deployment-level configuration, out of this card's scope) - purely
+  emit the log call.
+- Do not add logging to any individual tool module (search_symbols.py, etc.) - purely
+  this one call site in server.py's own dispatch layer.
+actions:
+- Implement _log_tool_call exactly as specified and wire it into _call_tool for both
+  success and error paths.
+- 'Add tests proving: a real tool call emits exactly one log record (via caplog) with
+  the real tool name, a correlation_id, and an outcome; an error result''s own structured_content
+  carries a correlation_id equal to the one in the log record.'
+checks:
+- command: '{python} -m pytest tests/mcp/test_server_wiring.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 15
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/server.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    _log_tool_call(','def _log_tool_call_DISABLED(');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming _log_tool_call leaves its call site undefined, breaking the
+    new tests with a NameError, proving they genuinely depend on this concrete function
+    rather than passing for an unrelated reason. Self-checked against a realistic
+    synthetic fixture before being persisted.
+evidence:
+- evidence/build/G2/TC-132/receipt.json
+closeout:
+- Every tool call emits exactly one structured log record with tool name, correlation
+  id, outcome, and latency.
+- An error result's correlation id matches its own server-side log line.
+- Renaming _log_tool_call fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

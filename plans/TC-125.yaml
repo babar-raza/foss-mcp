@@ -36,11 +36,36 @@ inputs:
   when an agent should prefer it over a sibling tool (e.g. search_symbols for a known
   symbol name vs lookup for a natural-language task question), and its real content_type/kind
   enum values where relevant. Wire it into _list_tools in place of the current f-string.'
-- 'Add real bounds to the tool wrappers or their JSON schemas: top_k should reject
-  (or clamp, your choice, but be explicit and tested either way) a non-positive or
-  absurdly large value; query/content_type should reject an empty string. Return these
-  as a normal CallToolResult with is_error=True and a clear message - never an unhandled
-  exception surfacing as a generic Python TypeError/ValueError string.'
+- 'CONCRETE BAR TO MEET, grounded in a real, working commercial MCP server reviewed
+  for this card (see docs/DECISION_LOG.md''s 2026-09-30 entry for full citations):
+  a real, useful tool description (1) states WHEN to call this tool relative to its
+  siblings - e.g. "PREFERRED one-shot lookup... no need to chain search_symbols then
+  get_symbol" or "call resolve scope FIRST" - not just what it does in isolation, (2)
+  includes 2-3 concrete real example values (a real query string, a real FQN shape),
+  never an abstract placeholder, (3) states explicitly what NOT to do where relevant
+  (e.g. "verify the exact signature here - do not guess it"). Write foss-mcp''s own
+  9 descriptions to this same bar, grounded in each tool''s own real, current behavior
+  - never invented or copied verbatim from the reviewed server, which serves different
+  products.'
+- 'Also add real per-field schema descriptions, not just the one top-level tool description:
+  schema_for() (server.py''s own schema-generation helper) currently emits bare `{"type":
+  "string"}` with no description per property. Add a short, concrete description to
+  each tool''s own real parameters (e.g. `query`, `content_type`, `top_k`, `fqn`) -
+  reuse one shared description per field name that repeats across tools (e.g. `top_k`
+  should have the same description everywhere it appears) rather than hand-writing
+  it once per tool.'
+- 'Add real bounds to the tool wrappers: top_k should reject a non-positive or absurdly
+  large value; query/content_type should reject an empty string. Implement this via
+  a small per-tool Pydantic input model validated with `Model.model_validate(arguments)`
+  BEFORE the underlying handler is called (mirroring the reviewed server''s own pattern:
+  validate once per tool via a typed model, let a `pydantic.ValidationError` - itself
+  a `ValueError` subclass - propagate to one shared except-clause that maps it to a
+  clean, bounded `CallToolResult(is_error=True, ...)` - never let an unhandled exception
+  surface as a raw Python TypeError/ValueError string). This is the SAME shared except-clause
+  TC-131 (already authored, not yet dispatched) also uses for sanitizing unexpected
+  exceptions - coordinate the exact shape with TC-131''s own card if there is any
+  ambiguity about which of the two owns that clause (this card owns validation-error
+  handling; TC-131 owns unexpected-exception sanitization and the error-code field).'
 - Do not change any tool's actual retrieval/business logic (search_symbols.py, search_docs.py,
   etc.) - purely server.py's own registration/dispatch layer.
 actions:

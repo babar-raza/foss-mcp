@@ -1,0 +1,85 @@
+id: TC-131
+gate: G2
+lane: transport-deployment
+purpose: 'A real, independent review of a working commercial MCP server (ADCS) surfaced
+  a concrete gap foss-mcp genuinely has, confirmed directly: server.py''s _call_tool
+  returns raw `str(exc)` to the client on any unexpected exception (server.py:228-231),
+  with no sanitization and no error code - an internal file path, a library name,
+  or other implementation detail could leak straight to a real client. Add a closed,
+  documented tool-error-code vocabulary and a sanitizer that only lets safe, short,
+  single-line exception text reach the client; anything else logs the real exception
+  server-side and returns a generic, safe fallback instead.'
+depends_on:
+- TC-001
+- TC-016
+- TC-019a
+- TC-125
+- TC-126
+write_paths:
+- src/foss_mcp/mcp/server.py
+- tests/mcp/test_server_wiring.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Read server.py's _call_tool in full first - specifically its except-clause returning
+  `CallToolResult(content=[TextContent(type='text', text=str(exc))], is_error=True)`.
+- 'REQUIRED, exact shape (function name load-bearing for the negative control): `def
+  public_error_message(exc: Exception, *, fallback: str) -> str`, returning `str(exc)`
+  only when it passes real safety checks - reject (return `fallback` instead) if the
+  text contains any of: a filesystem path pattern (a real regex, e.g. matching ''C:\\''
+  or ''/'' followed by multiple path segments), the substrings ''site-packages'',
+  ''Traceback'', ''object at 0x'', or is longer than ~300 characters or contains a
+  newline. When rejected, log the REAL exception (type, message, tool name) via the
+  standard logging module before returning fallback - the real detail is never simply
+  discarded, only kept server-side.'
+- 'REQUIRED, exact shape: a small, closed error-code set - `class ToolErrorCode(str,
+  Enum): NOT_FOUND = "not_found"; INVALID_ARGUMENT = "invalid_argument"; INTERNAL
+  = "internal"` (extend only if a real, currently-distinguishable case needs its own
+  code - do not invent codes nothing produces). Wire a `code` field into the CallToolResult''s
+  own structured_content on every error path (unknown tool -> INVALID_ARGUMENT or
+  NOT_FOUND as fits; a validation error from TC-125''s own Pydantic input models ->
+  INVALID_ARGUMENT; any other exception -> INTERNAL, with its text passed through
+  public_error_message).'
+- 'Coordinate with TC-125 (already authored): TC-125 owns the Pydantic-validation-error
+  path specifically; this card owns the sanitizer and the shared error-code vocabulary
+  both paths report through. If TC-125 has already landed when this card is worked,
+  reuse its exact ValidationError-handling shape rather than duplicating it.'
+- Do not change any tool's own return value shape on SUCCESS - purely the error path.
+actions:
+- Implement public_error_message and ToolErrorCode exactly as specified.
+- Wire both into _call_tool's error paths.
+- 'Add tests proving: an exception containing a real internal marker (a fake file
+  path, ''site-packages'', etc.) never reaches the client''s own result text, but
+  IS logged server-side (assert via caplog or an equivalent real check); every error
+  result carries a real code from the closed set; a normal, short, safe exception
+  message still passes through unchanged.'
+checks:
+- command: '{python} -m pytest tests/mcp/test_server_wiring.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 13
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/server.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    public_error_message(','def public_error_message_DISABLED(');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming public_error_message leaves its call site undefined, breaking
+    the new tests with a NameError, proving they genuinely depend on this concrete
+    function rather than passing for an unrelated reason. Self-checked against a realistic
+    synthetic fixture before being persisted.
+evidence:
+- evidence/build/G2/TC-131/receipt.json
+closeout:
+- An exception containing an internal marker never reaches a real client's own result
+  text, but is still logged server-side with full detail.
+- Every tool-call error result carries a code from a small, closed, documented set.
+- A normal, safe exception message still passes through unchanged.
+- Renaming public_error_message fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
