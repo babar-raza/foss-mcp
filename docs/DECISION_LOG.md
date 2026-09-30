@@ -779,3 +779,116 @@ constraint the pilot-export bundle design already documents in its own docstring
 proves a file was not altered, never where it came from") extended to the *comparison basis* itself.
 Any future code that WRITES a text fixture file destined to be checksummed should also pass
 `newline=""` to avoid introducing this exact drift again at the source.
+
+## 2026-09-30 — Correction to the 2026-09-11 protocolVersion decision: the HTTP header and the JSON-RPC body field are two different MUSTs, and TC-019a's middleware conflated them
+The 2026-09-11 entry "Missing or unparseable MCP protocolVersion is rejected, not defaulted
+(TC-016)" reasoned correctly: "Per the MCP spec, initialize's protocolVersion is REQUIRED" - true,
+for the JSON-RPC BODY field `initialize.params.protocolVersion`, which the mcp SDK's own typed
+request model already validates independently once it parses the body.
+
+TC-019a's later middleware (`transport_security.reject_request`, wired into
+`RejectionMiddleware` for the HTTP transport) then applied that same "missing is a hard reject"
+reasoning to a completely different thing: the `MCP-Protocol-Version` **HTTP header**, a
+Streamable-HTTP-transport-layer convention used on requests **after** a protocol version has been
+negotiated - never on the initial `initialize` request itself, which by definition precedes any
+negotiation and legitimately carries no such header from a real, spec-compliant client. Confirmed
+directly in code, not merely asserted: `negotiate_revision` (the function that raises
+`MissingProtocolVersionError`) is called from nowhere in this codebase except
+`reject_request`, meaning this middleware was the ONLY thing enforcing "protocolVersion must be
+present" - and it was checking the wrong data, at the wrong layer, before the body carrying the
+real, correctly-required field was ever parsed.
+
+Net effect, confirmed live: every real MCP client's first HTTP request to this server was
+rejected with a plain HTTP 400, before ever reaching tool dispatch. This server could not be
+connected to by any real client over HTTP. Surfaced by an independent, external comparative
+review (ADCS pilot vs foss-mcp) the project owner shared ahead of a production HTTP(S) hosting
+push; spot-checked directly in code (not taken on the review's word) before acting.
+
+**Correction, TC-124**: a MISSING `MCP-Protocol-Version` header is now allowed through (the
+request reaches the SDK, whose own `initialize` handler independently and correctly validates the
+real, required body field). A PRESENT-but-invalid/unparseable header value is still rejected -
+that half of the original design was always correct and is unrelated to this bug. The 2026-09-11
+entry is not rewritten (append-only); this entry supersedes its conclusion for the HTTP-header
+case specifically, while its reasoning about the JSON-RPC body field remains correct and
+unchanged.
+
+**Standing lesson**: when a spec says a field is "required," check WHICH artifact it is required
+in (a request body vs. a transport header vs. a response) before generalizing that requirement to
+every place a similarly-named value appears. Two fields sharing a name and a spec section are not
+automatically the same MUST.
+
+## 2026-09-30 — Hosting-readiness backlog from an independent ADCS-vs-foss-mcp comparative review
+The project owner shared a detailed comparative review (five parallel sub-reviews reading the
+ADCS pilot's real ingestion/publishing code alongside foss-mcp's, plus direct probes of foss-mcp's
+own live server) ahead of hosting this server on a real, public HTTP(S) URL. Spot-checked the
+review's most consequential and easily-verifiable claims directly in code before acting - all
+confirmed (see TC-124-130's own commit and card text for the specifics already turned into
+taskcards). This entry catalogues the REST of the review's ranked recommendations - real,
+worth tracking, but needing more design work or a deliberate product decision before they can be
+turned into a taskcard with a real, non-vacuous check - so none of it is lost. Tiered by the
+review's own structure; nothing here is authorized to start work on its own.
+
+**Tier 1 - agent-facing retrieval quality (do after TC-124-130 land)**
+- Per-symbol rows in the generation payload (fqn, kind, parent, per-overload signature) so
+  `get_symbol("Namespace.Type.Method")` resolves directly, instead of only whole-type chunks
+  with methods as prose bullets. Requires a manifest payload shape change - needs its own design
+  pass, not a quick patch.
+- A closed error-code set + NotFound suggestions (case-insensitive/leaf-name/suffix matches,
+  never substituted) for tool errors, replacing raw exception text.
+- A real recall/quality golden-set harness, but avoiding the pilot's own circularity (its queries
+  are derived from the very chunks they expect to match): derive exact-name cases from each
+  pilot's own real `api_surface.json`, add must-miss and cross-scope cases (a pdf/net symbol
+  asked of pdf/go must miss - this doubles as a G3 scope-leakage proof), and fail closed on any
+  measurement error instead of the pilot's own live-eval-always-exits-0 defect.
+
+**Tier 2 - publishing lifecycle hardening (beyond TC-129's guard)**
+- Manifest metadata (source_commit, extractor/chunker/embedding-model versions, counts,
+  built_at) plus a server-side `git ls-remote` freshness check, replacing
+  `report_index_freshness`'s current reliance on a caller-supplied commit and a regexed
+  `Source-Commit:` line in chunk text (confirmed both are real today).
+- Generation retention (`list_generations`/`prune`, always protecting the active AND the
+  previous-active/rollback-target generation - the ADCS pilot's own age-only rule can delete its
+  rollback target, confirmed a real defect there, do not copy it).
+- A content-hash-keyed embedding cache so an interrupted ingestion run resumes without
+  re-embedding already-embedded chunks - simpler and safer than the pilot's own snapshot-
+  checkpoint approach, which has a confirmed resume bug (mints a new snapshot id and orphans
+  pre-crash batches).
+- A chunk size cap (roughly 500-800 tokens) that never splits a code block, table, or signature,
+  with a part suffix and a start-line anchor for real `repo@commit#Lstart` citations.
+- A post-activate live smoke query with auto-rollback on failure, reusing the same lease
+  `rollback_generation` already takes.
+
+**Tier 3 - production ops (needed before a real, unattended production launch, not before an
+initial hosting attempt)**
+- Wire real usage telemetry at the tool-call chokepoint (`server.py`'s `_call_tool`) and expose
+  `/metrics` - `UsageRecorder` (TC-130) already exists but is unwired; this is the actual
+  decision TC-130 deliberately leaves open (wire it in, for real, with a real caller, vs. delete
+  it if telemetry is not wanted yet).
+- Content-liveness alerts (ready-but-empty, stale generation, high miss ratio) with a test that
+  every alerted metric genuinely exists in `/metrics` and every runbook anchor resolves - the
+  same "prove the call site" standard AGENTS.md already applies elsewhere.
+- Turn the project's own e2e live-container test pattern into a reusable `smoke_live.py
+  --base-url` script callable at gate exit, and do real rollback drills measuring time-to-first-
+  good-live-query (never a bare function-call timing, which cannot fail the way a real query can).
+
+**Tier 4 - repo/dependency hygiene beyond TC-127/TC-128**
+- Split `requirements.lock` into a runtime-only lock the serving image installs from and a
+  separate dev/test lock - confirmed the serving image currently installs the FULL lock,
+  including pytest/mypy/ruff (`Dockerfile.serving` line 19: `pip install --require-hashes -r
+  requirements.lock`, the same file `requirements.lock` line 423/637/869 pins mypy/pytest/ruff).
+  Deferred over TC-127/128 specifically because it needs a real `uv pip compile` re-run producing
+  a second, correctly-scoped hash-pinned lock file, not a text edit - real risk of a broken
+  install if done casually.
+- Dependabot (pip/docker/actions), SECURITY/CONTRIBUTING/CODE_OF_CONDUCT/CHANGELOG, issue/PR
+  templates, a secrets scanner, `mypy` extended to `src/` (today scoped to `ops/` only, confirmed
+  via `pyproject.toml`), and scrubbing any local machine path or internal URL from the tree
+  before it is more widely shared.
+
+**Explicitly not importing** (per the review's own "don't copy" list, independently plausible
+given this project's own AGENTS.md rules): the pilot's snapshot-active-before-content-exists
+publish order, content-derived vector point ids (this project's generation-qualified ids already
+avoid the exact rollback-losing-points defect this causes), its resume bug, silently dropping
+failed-embedding chunks while still recording them as published, accepting a PARTIAL publish at a
+30% error threshold, per-lane min-max score fusion, a client-controlled rate-limit-bypass header,
+and any of its job-queue/admin/multi-tenant machinery (this project is a one-shot CLI per
+AGENTS.md, correctly).
