@@ -742,3 +742,40 @@ worker's own out-of-band exploration of the suite does not repeat the same false
 PATH, when running anything beyond a card's own prescribed `checks:` command. This is the same
 no-lockfile/no-pinned-interpreter risk the original bootstrap design review already named (system
 Python, no `uv`/`pip-tools` at the time) - this is its first observed live symptom.
+
+## 2026-09-30 — TC-122's attempt 1 failed on real CRLF/autocrlf working-tree drift, invisible to `git status`
+TC-122 (refresh 5 pilots' bundle-manifest checksums after TC-119's real content regeneration)
+failed `gatectl review` on its first attempt: identical checksum-mismatch failures in a fresh
+worktree, twice, despite the worker reporting `20 passed` locally before committing.
+
+Root-caused with a real throwaway `git worktree add`, not guessed: this repo's `.gitattributes`
+declares `* text=auto eol=lf`, so any FRESH checkout (a `git worktree add`, a real `git clone`, this
+project's own Docker build) always normalizes `pages/_index.md` to LF. But TC-119's worker wrote
+these files directly via Python (`Path.write_text`/`open(..., "w")` without `newline=""`), which
+translates `\n` -> `\r\n` on Windows by default - so the AMBIENT working-tree copy on this specific
+machine ended up CRLF (confirmed for pdf_go: 68164 bytes) while the git blob, correctly normalized
+by the clean filter at commit time, stayed LF (confirmed: 67407 bytes). `git status` showed nothing
+because its own comparison is normalization-aware and treats the two as equivalent - the drift is
+real but invisible to the one command everyone reflexively trusts to reveal it. TC-122's attempt 1
+computed its checksum against the ambient (CRLF) bytes, which can never match what `verify_bundle`
+sees in `gatectl`'s own fresh-worktree verification (LF) or in any real clone/CI/Docker build (also
+LF, per `.gitattributes`).
+
+**Fix**: attempt 2 recomputed each checksum from `git show HEAD:<path>` bytes directly (the
+canonical blob, never the working-tree file), then independently re-verified inside its own real
+throwaway worktree before reporting done - `gatectl review` then passed clean. The supervisor
+separately refreshed this machine's own ambient working-tree copies (`rm` + `git checkout HEAD --
+<path>`; a plain `git checkout -- <path>` is a no-op here for the same normalization-aware-comparison
+reason) so an ad-hoc `pytest` run in the live tree stops spuriously failing too - this is a pure
+local-checkout hygiene fix, changes no tracked content, and was not a taskcard.
+
+**Standing lesson**: `git status` reporting clean does NOT prove a working-tree file's bytes match
+its committed blob on a repo with `core.autocrlf`/`.gitattributes` line-ending normalization - only a
+byte-level comparison (`git show HEAD:<path>` vs `open(path, "rb").read()`) or a real fresh
+`git worktree add` proves that. Any future card that computes a checksum, hash, or byte-length from
+"the real file on disk" must compute it from the git blob (or verify inside a fresh worktree) when
+that value will be checked by `gatectl`'s own fresh-worktree verification - matching exactly the
+constraint the pilot-export bundle design already documents in its own docstring ("A checksum alone
+proves a file was not altered, never where it came from") extended to the *comparison basis* itself.
+Any future code that WRITES a text fixture file destined to be checksummed should also pass
+`newline=""` to avoid introducing this exact drift again at the source.
