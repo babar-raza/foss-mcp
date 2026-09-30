@@ -1,0 +1,91 @@
+id: TC-133
+gate: G2
+lane: transport-deployment
+purpose: 'Fix a real, confirmed regression TC-124 correctly introduced (and correctly
+  did NOT fix itself, outside its own write_paths): 3 pre-existing tests in two other
+  cards'' own test files hardcoded the OLD, buggy expectation that a missing MCP-Protocol-Version
+  header gets HTTP 400 - now genuinely wrong, since TC-124 fixed that exact bug (no
+  real MCP client could previously connect over HTTP at all). Confirmed directly by
+  TC-124''s own worker: tests/mcp/test_server_wiring.py::test_a_missing_protocol_version_is_rejected
+  and ::test_a_missing_protocol_version_is_rejected_with_400, plus tests/infra/test_serve_http.py::test_mcp_transport_is_still_reachable_alongside_readyz,
+  all assert the pre-fix behavior and now fail.'
+depends_on:
+- TC-019a
+- TC-061
+- TC-124
+- TC-125
+- TC-126
+- TC-131
+- TC-132
+write_paths:
+- tests/mcp/test_server_wiring.py
+- tests/infra/test_serve_http.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Run `.venv\Scripts\python.exe -m pytest tests/mcp/test_server_wiring.py tests/infra/test_serve_http.py
+  -q` FIRST to see the real, current 3 failures before changing anything.
+- 'tests/mcp/test_server_wiring.py::test_a_missing_protocol_version_is_rejected: rename
+  to reflect the corrected behavior (e.g. test_a_missing_protocol_version_is_allowed_through)
+  and assert `reject_request({"Origin": "https://example.com"}, allowed_origins=ALLOWED_ORIGINS)`
+  now returns `None` (allowed), not a rejection reason. REQUIRED, exact shape (load-bearing
+  for the negative control): introduce a shared helper `def _assert_request_is_allowed(reason:
+  str | None) -> None: assert reason is None, f"expected the request to be allowed,
+  got rejection reason: {reason!r}"` and call it from this test (and reuse it from
+  test_a_fully_valid_request_is_not_rejected if that reads more naturally, though
+  not required).'
+- 'tests/mcp/test_server_wiring.py::test_a_missing_protocol_version_is_rejected_with_400:
+  rename similarly and assert the real HTTP response now succeeds (a real initialize
+  response, not a 400) when MCP-Protocol-Version is omitted - read the file''s own
+  existing `_client`/`VALID_HEADERS` helpers first and mirror their real, existing
+  usage pattern exactly.'
+- 'tests/infra/test_serve_http.py::test_mcp_transport_is_still_reachable_alongside_readyz:
+  update its own assertion and its own comment (currently says ''a missing MCP-Protocol-Version
+  IS rejected by the transport'' - now false) to match the real, corrected behavior.
+  REQUIRED, exact shape (load-bearing for the negative control): introduce a helper
+  `def _assert_response_is_allowed(response) -> None: assert response.status_code
+  != 400, response.text` and call it in place of the old `assert response.status_code
+  == 400`.'
+- Do not touch src/foss_mcp/mcp/transport_security.py or any other src/ file - purely
+  test-assertion maintenance in these two already-existing test files, matching what
+  TC-124's own real fix actually does.
+- Do not weaken any assertion's real intent - every test must keep testing the same
+  real Origin/protocol-version behavior it always did, just against the now-correct
+  expected outcome for a missing header specifically. The present-but-invalid-header
+  rejection tests are unaffected and must keep passing unchanged.
+actions:
+- Update the 3 failing tests to assert the corrected, real behavior using the two
+  required helper functions.
+- Run both files' full test suites and confirm every test passes for real, including
+  every test that was already passing before this card.
+checks:
+- command: '{python} -m pytest tests/mcp/test_server_wiring.py tests/infra/test_serve_http.py
+    -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 20
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p1=pathlib.Path('tests/mcp/test_server_wiring.py');s1=p1.read_text(encoding='utf-8');s1=s1.replace('def
+    _assert_request_is_allowed(', 'def _assert_request_is_allowed_DISABLED(');p1.write_text(s1,encoding='utf-8');p2=pathlib.Path('tests/infra/test_serve_http.py');s2=p2.read_text(encoding='utf-8');s2=s2.replace('def
+    _assert_response_is_allowed(', 'def _assert_response_is_allowed_DISABLED(');p2.write_text(s2,encoding='utf-8')"
+  rationale: Renaming both _assert_request_is_allowed and _assert_response_is_allowed
+    leaves their call sites undefined, breaking the corrected tests with a NameError,
+    proving they genuinely depend on these concrete helpers rather than passing for
+    an unrelated reason. Self-checked end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-133/receipt.json
+closeout:
+- All 3 previously-failing tests pass again, asserting the real, corrected behavior
+  TC-124 actually implements.
+- Every other, already-passing test in both files is completely unaffected.
+- Renaming either required helper fails the suite again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
