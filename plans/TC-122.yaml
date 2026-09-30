@@ -1,0 +1,87 @@
+id: TC-122
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix a real, confirmed regression discovered by a final full-suite sanity
+  pass after the search_docs content pipeline (TC-109-121) closed: TC-119 correctly
+  regenerated each of 5 pilots'' tests/fixtures/furnished/<pilot>/pages/_index.md
+  content (strictly within its own declared write_paths), but a SEPARATE file in the
+  same directory, tests/fixtures/furnished/<pilot>/manifest.json (TC-013''s own pilot-export
+  bundle manifest, recording a sha256/size checksum of _index.md at export time),
+  was outside TC-119''s write_paths and correctly left untouched - so it now records
+  the OLD, pre-regeneration checksum. scripts/pilot_manual_export.py''s own verify_bundle()
+  correctly detects this as tampering: ''tests/test_pilot_export.py::test_the_committed_bundle_verifies_clean''
+  and its 4 per-pilot siblings (slides_python, cells_rust, pdf_go, pdf_java) now fail
+  with ''_index.md: checksum mismatch (tampered or corrupt)''. This is not evidence
+  of real tampering - it is exactly what a real content update SHOULD do to an unrefreshed
+  checksum, and confirms verify_bundle''s own integrity check genuinely works. pdf_typescript''s
+  own bundle is untouched and its test still passes, consistent with pdf_typescript
+  being deliberately excluded from TC-119.'
+depends_on:
+- TC-013
+- TC-028
+- TC-034
+- TC-040
+- TC-046
+- TC-053
+- TC-119
+write_paths:
+- tests/fixtures/furnished/pdf_net/manifest.json
+- tests/fixtures/furnished/pdf_java/manifest.json
+- tests/fixtures/furnished/pdf_go/manifest.json
+- tests/fixtures/furnished/slides_python/manifest.json
+- tests/fixtures/furnished/cells_rust/manifest.json
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Read scripts/pilot_manual_export.py's verify_bundle() function first - it reads
+  manifest.json's files[].sha256 against the real, current bytes of pages/<path>.
+  Your job is purely to recompute and update the sha256 (and size, if the manifest
+  schema records it - check the real, current manifest.json shape for each pilot first)
+  fields for _index.md in exactly these 5 manifests, matching the file's REAL, CURRENT
+  bytes on disk - never a value you compute by hand or guess.
+- Do NOT change banner, source_repository, source_subtree, or source_commit in any
+  manifest - those describe this bundle mechanism's own original non-production export
+  design (TC-013) and are out of this card's scope. This card is purely a checksum
+  refresh, not a provenance rewrite.
+- Do not touch pages/_index.md itself in any of the 5 pilots, scripts/pilot_manual_export.py,
+  or tests/test_pilot_export.py - purely the 5 manifest.json files' checksum fields.
+- 'Verify your fix for real: `.venv\Scripts\python.exe -m pytest tests/test_pilot_export.py
+  -q` must pass completely, including test_the_committed_pdf_typescript_bundle_is_real_and_verifies_clean
+  (untouched, must keep passing) and all 5 of the previously-failing tests.'
+actions:
+- Recompute the real sha256 (and size, if applicable) for _index.md in each of the
+  5 affected manifest.json files, matching the file's real current bytes exactly.
+- Run the full tests/test_pilot_export.py file yourself and confirm every test passes,
+  including the untouched pdf_typescript one.
+checks:
+- command: '{python} -m pytest tests/test_pilot_export.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 6
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import json,pathlib;p=pathlib.Path('tests/fixtures/furnished/pdf_net/manifest.json');d=json.loads(p.read_text(encoding='utf-8'));d['files'][0]['sha256']='0'*64;p.write_text(json.dumps(d,indent=2),encoding='utf-8');p=pathlib.Path('tests/fixtures/furnished/pdf_java/manifest.json');d=json.loads(p.read_text(encoding='utf-8'));d['files'][0]['sha256']='0'*64;p.write_text(json.dumps(d,indent=2),encoding='utf-8');p=pathlib.Path('tests/fixtures/furnished/pdf_go/manifest.json');d=json.loads(p.read_text(encoding='utf-8'));d['files'][0]['sha256']='0'*64;p.write_text(json.dumps(d,indent=2),encoding='utf-8');p=pathlib.Path('tests/fixtures/furnished/slides_python/manifest.json');d=json.loads(p.read_text(encoding='utf-8'));d['files'][0]['sha256']='0'*64;p.write_text(json.dumps(d,indent=2),encoding='utf-8');p=pathlib.Path('tests/fixtures/furnished/cells_rust/manifest.json');d=json.loads(p.read_text(encoding='utf-8'));d['files'][0]['sha256']='0'*64;p.write_text(json.dumps(d,indent=2),encoding='utf-8');"
+  rationale: Corrupting each of the 5 manifests' own recorded sha256 to a guaranteed-wrong
+    constant (64 zero characters, which can never be a real sha256 of real content)
+    must make verify_bundle detect a checksum mismatch again for all 5 pilots, proving
+    the suite genuinely depends on the manifest's checksum matching the real file
+    rather than passing for an unrelated reason. Value-independent of whatever the
+    correct real checksum actually is. Self-checked end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-122/receipt.json
+closeout:
+- All 5 previously-failing bundle-verification tests pass again against the real,
+  current _index.md content.
+- pdf_typescript's own untouched bundle test still passes unchanged.
+- banner/source_repository/source_subtree/source_commit are unchanged in every manifest
+  - purely a checksum refresh.
+- Corrupting any of the 5 checksums fails the suite again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
