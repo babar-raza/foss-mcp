@@ -1,0 +1,58 @@
+id: TC-127
+gate: G2
+lane: transport-deployment
+purpose: 'Add the two most basic files a credible public repository needs and this
+  one is missing, confirmed directly: no LICENSE file exists at all (pyproject.toml
+  declares license = {text = "MIT"} but nothing embodies it), and no .dockerignore
+  exists, so every `docker build` sends the entire working tree - .git history, evidence/,
+  ops/, every worktree - as build context.'
+depends_on:
+- TC-001
+write_paths:
+- LICENSE
+- .dockerignore
+- tests/test_repo_hygiene.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Add LICENSE: the standard, real MIT License text (the actual OSI-approved wording,
+  not a paraphrase), with the copyright line naming this project (e.g. ''Copyright
+  (c) 2026 foss-mcp contributors'' or whatever this project''s own README attributes
+  it to - check README.md first for an existing convention).'
+- 'Add .dockerignore excluding at minimum: .git, .github, evidence/, ops/, plans/,
+  project/, docs/, .gatectl-worktrees/, .kilo/, .venv/, __pycache__/, *.pyc, tests/fixtures/bundles
+  (if large), .pytest_cache, and any other directory a real `docker build .` would
+  otherwise needlessly send as context - check the real repo root listing yourself
+  rather than guessing blindly.'
+- 'Add a real test proving: LICENSE exists and contains the literal substring ''MIT
+  License'', and .dockerignore exists and excludes at least .git and .venv.'
+actions:
+- Add LICENSE and .dockerignore exactly as specified.
+- Add the proving test.
+checks:
+- command: '{python} -m pytest tests/test_repo_hygiene.py -q'
+  expect: exit 0
+  timeout_seconds: 60
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 2
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('LICENSE');s=p.read_text(encoding='utf-8');s=s.replace('MIT
+    License','REVOKED License');p.write_text(s,encoding='utf-8')"
+  rationale: Corrupting the literal substring 'MIT License' in LICENSE must fail the
+    new test's own content assertion, proving the test genuinely reads LICENSE's real
+    content rather than merely its existence. Self-checked before being persisted.
+evidence:
+- evidence/build/G2/TC-127/receipt.json
+closeout:
+- LICENSE exists with real MIT License text.
+- .dockerignore exists and excludes the real, unnecessary build-context directories.
+- Corrupting LICENSE's content fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

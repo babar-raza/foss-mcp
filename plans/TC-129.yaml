@@ -1,0 +1,77 @@
+id: TC-129
+gate: G2
+lane: storage-retrieval
+purpose: 'Add a real publish-safety guard before a generation is ever activated -
+  confirmed directly (infra/ingest.py''s main()) that today, nothing stops a run that
+  produces zero citable chunks (a real, possible outcome: citable_chunks silently
+  drops every chunk whose citations do not resolve) from replacing a good, currently-serving
+  generation with an empty one, or one drastically smaller than what is already live.
+  A tree-sitter regression, a broken extraction, or a citation-validation bug would
+  ship silently today.'
+depends_on:
+- TC-060
+- TC-079
+write_paths:
+- infra/ingest.py
+- tests/infra/test_ingest.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Read infra/ingest.py's main() in full first - specifically where citable_chunks
+  is called and where publish_generation is called right after.
+- 'REQUIRED, exact shape (function name load-bearing for the negative control): `_assert_publish_is_safe(new_chunk_count:
+  int, active_document_count: int | None) -> None`, raising a new `PublishSafetyError(Exception)`
+  when: (1) new_chunk_count == 0 (refuse to publish an empty generation, unconditionally),
+  or (2) active_document_count is not None and active_document_count > 0 and new_chunk_count
+  < active_document_count * 0.5 (refuse a publish that would more than halve the currently
+  active generation''s own document count).'
+- 'Wire it into main(): after computing the final `chunks` list (post-citable_chunks
+  when --api-surface is given), read the currently active generation''s own document
+  count via `store.read_generation(scope, expected_active)` when `expected_active
+  is not None` (its payload[''lexical_index''][''documents''] dict length - read search_docs.py''s
+  own existing code for the exact real access pattern, reuse it, don''t invent a new
+  one) and call `_assert_publish_is_safe(len(chunks), active_document_count)` BEFORE
+  calling publish_generation. Let PublishSafetyError propagate uncaught - main() should
+  exit non-zero with a clear message, never publish anyway.'
+- Do not touch citable_chunks, validate_document, or any file outside infra/ingest.py's
+  own write_paths - this is a guard at the ingestion entrypoint, not a change to citation
+  logic.
+- 'Add real tests: publishing 0 chunks raises PublishSafetyError and never calls publish_generation;
+  publishing a chunk count that is a >50% drop from a real, previously-published active
+  generation raises PublishSafetyError; a normal publish (no active generation yet,
+  or a healthy chunk count) still succeeds exactly as before - confirm the existing,
+  already-accepted tests in test_ingest.py still pass unchanged.'
+actions:
+- Implement _assert_publish_is_safe and PublishSafetyError exactly as specified, and
+  wire it into main() before publish_generation.
+- Add the required tests.
+- Run the full existing test_ingest.py file and confirm zero regressions.
+checks:
+- command: '{python} -m pytest tests/infra/test_ingest.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 5
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('infra/ingest.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    _assert_publish_is_safe(','def _assert_publish_is_safe_DISABLED(');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming _assert_publish_is_safe leaves its call site undefined, breaking
+    the new tests with a NameError, proving they genuinely depend on this concrete
+    function rather than passing for an unrelated reason. Self-checked against a realistic
+    synthetic fixture before being persisted.
+evidence:
+- evidence/build/G2/TC-129/receipt.json
+closeout:
+- A run that would publish zero chunks, or a drastic regression against the active
+  generation's own document count, is refused before activation - never silently shipped.
+- A normal, healthy publish is completely unaffected.
+- Renaming _assert_publish_is_safe fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

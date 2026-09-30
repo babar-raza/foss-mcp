@@ -1,0 +1,98 @@
+id: TC-124
+gate: G2
+lane: transport-deployment
+purpose: 'Fix a confirmed, launch-blocking spec-compliance bug: every real MCP client''s
+  very first HTTP request (the initialize call) is hard-rejected with HTTP 400 before
+  it can ever reach tool dispatch, because RejectionMiddleware requires the MCP-Protocol-Version
+  HTTP header on every request except /readyz, and a compliant client''s initial initialize
+  request never carries that header - the header is a Streamable HTTP transport-layer
+  convention used on requests AFTER a protocol version has been negotiated, and it
+  is a completely different thing from the JSON-RPC body''s own REQUIRED initialize.params.protocolVersion
+  field. Confirmed directly, not from an external report alone: transport_security.py''s
+  own reject_request calls negotiate_revision unconditionally on the header, which
+  raises MissingProtocolVersionError whenever the header is absent - and negotiate_revision
+  is called from nowhere else in this codebase, meaning nothing else enforces the
+  real, correct requirement (the JSON-RPC body''s own protocolVersion field, which
+  the mcp SDK already validates independently once it parses the body). DECISION_LOG.md''s
+  2026-09-11 TC-016 entry reasoned correctly about the BODY field being required,
+  but that reasoning was then applied to the HTTP HEADER by TC-019a''s later middleware
+  - two genuinely different MUSTs conflated into one incorrect rejection.'
+depends_on:
+- TC-001
+- TC-016
+- TC-019a
+write_paths:
+- src/foss_mcp/mcp/transport_security.py
+- tests/mcp/test_transport_security.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Read src/foss_mcp/mcp/transport_security.py's reject_request in full first - specifically
+  the protocol_version block near the end.
+- "REQUIRED, exact shape (load-bearing for the negative control): change the protocol-version\
+  \ block in reject_request to:\n    protocol_version = _header(headers, MCP_PROTOCOL_VERSION_HEADER)\n\
+  \    if protocol_version is None:\n        return None\n\n    try:\n        negotiate_revision(requested_revision=protocol_version,\
+  \ supported_revisions=supported_revisions)\n    except MissingProtocolVersionError:\n\
+  \        return \"missing MCP-Protocol-Version header\"\n    except InvalidRevisionFormatError:\n\
+  \        return f\"invalid MCP-Protocol-Version header: {protocol_version!r}\"\n\
+  \n    return None\nA MISSING header is now allowed through (the request reaches\
+  \ the SDK, whose own initialize handler independently validates the real, REQUIRED\
+  \ body field). A PRESENT-but-invalid/unparseable header is still rejected exactly\
+  \ as before - that part of the original design is correct and unrelated to this\
+  \ bug."
+- 'Update reject_request''s own docstring to state the corrected rule plainly: an
+  absent MCP-Protocol-Version header is allowed (the client has not negotiated a version
+  yet, or predates the header''s existence); a present-but-invalid one is rejected.'
+- Do not touch revision_negotiation.py or negotiate_revision's own signature/behavior
+  - it is correct for the one thing it does (rejecting a missing/invalid value when
+  actually asked to negotiate one) and is reused correctly elsewhere in spirit; only
+  reject_request's decision about WHEN to call it changes.
+- 'REQUIRED REAL PROOF, not a hand-rolled headers dict: start a real instance of infra.serve_http.build_app
+  (a real ASGI app, e.g. via httpx.ASGITransport or a real uvicorn instance on a loopback
+  port) and connect to it using the REAL mcp SDK''s own client transport (mcp.client.streamable_http.streamablehttp_client,
+  feeding it into a real mcp.ClientSession), calling session.initialize() for real
+  - exactly what a genuine third-party MCP client does, never a fake/synthetic client.
+  This must succeed end to end (assert a real InitializeResult comes back) - this
+  is the concrete, unambiguous proof that a real client can now connect, matching
+  this project''s own ''prove the call site, not just the unit'' standard. Also keep
+  or add a smaller, direct unit test of reject_request itself proving the present-but-invalid
+  case is still rejected (protecting the part of the design that was always correct).'
+actions:
+- Apply the exact code change specified above.
+- Write the required real-SDK-client integration test and the direct unit test for
+  the present-but-invalid case.
+- Run the full existing test_transport_security.py file and confirm every other test
+  (Origin rejection, present-invalid-version rejection) is completely unaffected.
+checks:
+- command: '{python} -m pytest tests/mcp/test_transport_security.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 4
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/transport_security.py');s=p.read_text(encoding='utf-8');s=s.replace('if
+    protocol_version is None:\n        return None\n\n    try:','try:');p.write_text(s,encoding='utf-8')"
+  rationale: 'Removing the early ''if protocol_version is None: return None'' guard
+    restores the original bug (an unconditional negotiate_revision call, which raises
+    on a missing header), making the real-SDK-client integration test fail again with
+    a rejected initialize call - proving the test genuinely depends on this exact
+    fix rather than passing for an unrelated reason. Self-checked end-to-end before
+    being persisted.'
+evidence:
+- evidence/build/G2/TC-124/receipt.json
+closeout:
+- A real mcp SDK client, using its own real streamable-http transport, can complete
+  initialize() against this server with no MCP-Protocol-Version header - matching
+  how every genuine third-party client actually behaves.
+- A present-but-invalid MCP-Protocol-Version header is still rejected.
+- The Origin-rejection behavior is completely unaffected.
+- Reverting the fix fails the new integration test again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

@@ -1,0 +1,74 @@
+id: TC-130
+gate: G2
+lane: transport-deployment
+purpose: 'Add a permanent regression test for the exact defect class AGENTS.md''s
+  own ''Integration and liveness'' section names: a well-tested module that sits completely
+  unreferenced by any production entrypoint. Confirmed directly, two real instances
+  exist right now: query_vector_index (src/foss_mcp/indexing/vector_index_writer.py)
+  and UsageRecorder (src/foss_mcp/telemetry/usage_recorder.py) - both have zero callers
+  anywhere under src/ or infra/ outside their own defining file. This card does not
+  decide whether to wire them in or delete them (that is a real product decision outside
+  this card''s scope, recorded separately) - it makes the current, honest state an
+  explicit, tracked fact instead of a silent one, and stops a THIRD such module from
+  accumulating unnoticed.'
+depends_on:
+- TC-001
+write_paths:
+- tests/test_unwired_modules.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Write a real, import-graph-based test (not a hardcoded list alone) that: walks
+  every .py file under src/foss_mcp/, and for each one, checks whether it is imported
+  (directly or transitively) from at least one of the real production entrypoints
+  (infra/serve_http.py, infra/serve_stdio.py, infra/ingest.py, infra/build_chunks.py,
+  src/foss_mcp/mcp/server.py) OR from at least one test file (a module used only by
+  tests is a real, different, lower-severity finding - report it separately from a
+  module reachable from NOTHING).'
+- 'REQUIRED, exact shape (load-bearing for the negative control): a module-level `_KNOWN_UNWIRED:
+  frozenset[str] = frozenset({"foss_mcp.indexing.vector_index_writer.query_vector_index",
+  "foss_mcp.telemetry.usage_recorder.UsageRecorder"})` (adjust the exact dotted paths
+  to match your own real import-graph walk''s own naming - confirm both are genuinely
+  still unreached before hardcoding them) - the test asserts the SET of genuinely-unreachable-from-any-production-entrypoint
+  symbols equals exactly `_KNOWN_UNWIRED`, never merely ''is empty'' or ''is non-empty''.
+  A new module becoming unwired must fail this test (forcing a conscious decision
+  to wire it, delete it, or add it to this known list with a reason) - and wiring
+  up one of the two current entries must ALSO fail this test (forcing this card''s
+  own list to be updated, not silently stay wrong).'
+- This is a real, structural check (parse imports via ast, or reuse an existing import-graph
+  helper if this project already has one - check first) - not a hand-maintained prose
+  list with no verification behind it.
+actions:
+- Implement the real import-graph walk and the _KNOWN_UNWIRED-pinned test exactly
+  as specified.
+- Confirm it currently passes (both known-unwired modules detected, nothing else flagged)
+  before committing.
+checks:
+- command: '{python} -m pytest tests/test_unwired_modules.py -q'
+  expect: exit 0
+  timeout_seconds: 60
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 1
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/test_unwired_modules.py');s=p.read_text(encoding='utf-8');s=s.replace('_KNOWN_UNWIRED
+    =','_KNOWN_UNWIRED_DISABLED =');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming _KNOWN_UNWIRED leaves the test's own comparison target undefined,
+    breaking it with a NameError, proving the test genuinely depends on this concrete,
+    pinned set rather than passing for an unrelated reason. Self-checked before being
+    persisted.
+evidence:
+- evidence/build/G2/TC-130/receipt.json
+closeout:
+- A real, import-graph-based test proves exactly which src/foss_mcp/ symbols are unreachable
+  from any production entrypoint - currently query_vector_index and UsageRecorder,
+  explicitly tracked rather than silently latent.
+- Renaming _KNOWN_UNWIRED fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

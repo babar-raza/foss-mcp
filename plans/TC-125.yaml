@@ -1,0 +1,75 @@
+id: TC-125
+gate: G2
+lane: transport-deployment
+purpose: 'Replace server.py''s placeholder tool descriptions (literally f''foss-mcp
+  tool: {name}'' for every one of the 9 tools, confirmed directly at server.py:215)
+  with real, agent-useful descriptions - what each tool is for, when to call it versus
+  another tool, and its real argument shapes/enums (content_type''s real 4 values,
+  etc.) - and add basic bounds on top_k and query length so a malformed argument gets
+  a clean, bounded tool-error instead of whatever a downstream function happens to
+  raise. A real agent cannot use a tool it cannot understand from its own schema;
+  ''foss-mcp tool: search_docs'' tells it nothing.'
+depends_on:
+- TC-001
+- TC-016
+- TC-019a
+write_paths:
+- src/foss_mcp/mcp/server.py
+- tests/mcp/test_server_wiring.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Read server.py's _build_tool_registry and _list_tools in full first, and every tool
+  module's own docstring (search_symbols.py, search_docs.py, find_examples.py, lookup.py,
+  get_symbol.py, list_members.py, report_index_freshness.py, get_product_reference.py,
+  list_recent_changes.py) - each already documents its own real behavior in detail;
+  your descriptions should be grounded in that real behavior, never invented.
+- 'REQUIRED, exact shape (function name load-bearing for the negative control): a
+  new `tool_description(name: str) -> str` function (or a `TOOL_DESCRIPTIONS: dict[str,
+  str]` module-level mapping plus a small lookup function of this exact name) returning
+  a real, specific description per tool name - what it searches, what it returns,
+  when an agent should prefer it over a sibling tool (e.g. search_symbols for a known
+  symbol name vs lookup for a natural-language task question), and its real content_type/kind
+  enum values where relevant. Wire it into _list_tools in place of the current f-string.'
+- 'Add real bounds to the tool wrappers or their JSON schemas: top_k should reject
+  (or clamp, your choice, but be explicit and tested either way) a non-positive or
+  absurdly large value; query/content_type should reject an empty string. Return these
+  as a normal CallToolResult with is_error=True and a clear message - never an unhandled
+  exception surfacing as a generic Python TypeError/ValueError string.'
+- Do not change any tool's actual retrieval/business logic (search_symbols.py, search_docs.py,
+  etc.) - purely server.py's own registration/dispatch layer.
+actions:
+- Implement tool_description exactly as specified, with real, grounded per-tool text.
+- Add the argument bounds and their clean error handling.
+- 'Add tests proving: every one of the 9 tools'' description is no longer the placeholder
+  string, and out-of-bounds top_k/empty query produces a clean is_error result rather
+  than an unhandled exception.'
+checks:
+- command: '{python} -m pytest tests/mcp/test_server_wiring.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 10
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/server.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    tool_description(','def tool_description_DISABLED(');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming tool_description leaves every reference to it undefined, breaking
+    the new tests with a NameError, proving they genuinely depend on this concrete
+    function rather than passing for an unrelated reason. Self-checked against a realistic
+    synthetic fixture before being persisted.
+evidence:
+- evidence/build/G2/TC-125/receipt.json
+closeout:
+- Every one of the 9 tools has a real, specific, grounded description - no placeholder
+  text remains.
+- top_k and query/content_type have real, tested bounds with clean error results.
+- Renaming tool_description fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

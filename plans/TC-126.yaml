@@ -1,0 +1,64 @@
+id: TC-126
+gate: G2
+lane: transport-deployment
+purpose: 'server.py''s _call_tool already returns a real, correct structured_content
+  JSON payload (structured_content={''result'': _to_jsonable(result)}, confirmed at
+  server.py:234) - but the sibling plain-text content channel every client also receives
+  uses Python''s own repr(result) (confirmed at server.py:233), which is Python-internal
+  debug syntax (single-quoted strings, Ellipsis-truncation-free but still not JSON),
+  not something a real client should have to parse or display. Replace it with a clean
+  JSON string of the same already-computed _to_jsonable(result), so both channels
+  agree and neither requires Python-specific parsing.'
+depends_on:
+- TC-001
+- TC-016
+- TC-019a
+- TC-125
+write_paths:
+- src/foss_mcp/mcp/server.py
+- tests/mcp/test_server_wiring.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Read server.py's _call_tool in full first - specifically the CallToolResult construction
+  using repr(result) and the already-existing _to_jsonable(result) call used for structured_content.
+- 'REQUIRED, exact shape (function name load-bearing for the negative control): a
+  new `render_result_text(result: Any) -> str` function that returns `json.dumps(_to_jsonable(result),
+  default=str)` (or an equivalent real JSON serialization of the same jsonable form
+  already computed for structured_content - reuse it, do not recompute independently)
+  instead of repr(result). Wire it into the TextContent construction in place of the
+  current repr(result) call.'
+- Do not change structured_content's own construction, _to_jsonable itself, or any
+  tool's actual return value shape - purely the plain-text rendering.
+actions:
+- Implement render_result_text exactly as specified and wire it in.
+- Add a test proving a real tool call's plain-text content is valid JSON matching
+  the structured_content it sits alongside (parse content[0].text with json.loads
+  and compare to structured_content['result']).
+checks:
+- command: '{python} -m pytest tests/mcp/test_server_wiring.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 10
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/server.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    render_result_text(','def render_result_text_DISABLED(');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming render_result_text leaves the call site undefined, breaking
+    the new test with a NameError, proving it genuinely depends on this concrete function
+    rather than passing for an unrelated reason. Self-checked against a realistic
+    synthetic fixture before being persisted.
+evidence:
+- evidence/build/G2/TC-126/receipt.json
+closeout:
+- Every tool call's plain-text content is real, parseable JSON matching its own structured_content.
+- Renaming render_result_text fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
