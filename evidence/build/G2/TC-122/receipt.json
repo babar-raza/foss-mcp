@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "card": "TC-122",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-30T04:41:11Z",
+  "base_rev": "434660324e131a765156a66b9a647ebe3b998c9f",
+  "head_rev": "c94961bb2e9c27794f965c6b3c6c8c56211ef0b0",
+  "card_sha256": "afbed77085805b6f25789d770a07e95e7b020be9393bba27929dab58b4092965",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/fixtures/furnished/cells_rust/manifest.json",
+      "tests/fixtures/furnished/pdf_go/manifest.json",
+      "tests/fixtures/furnished/pdf_java/manifest.json",
+      "tests/fixtures/furnished/pdf_net/manifest.json",
+      "tests/fixtures/furnished/slides_python/manifest.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/test_pilot_export.py -q",
+          "exit_code": 0,
+          "duration_s": 4.277,
+          "stdout_sha256": "c66ef7936b32d2201bf6eb901cf69cbc8e71996669c38afe1f70ad40098e04a3",
+          "tests": 20,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/test_pilot_export.py -q",
+          "exit_code": 0,
+          "duration_s": 4.236,
+          "stdout_sha256": "c66ef7936b32d2201bf6eb901cf69cbc8e71996669c38afe1f70ad40098e04a3",
+          "tests": 20,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import json,pathlib;p=pathlib.Path('tests/fixtures/furnished/pdf_net/manifest.json');d=json.loads(p.read_text(encoding='utf-8'));d['files'][0]['sha256']='0'*64;p.write_text(json.dumps(d,indent=2),encoding='utf-8');p=pathlib.Path('tests/fixtures/furnished/pdf_java/manifest.json');d=json.loads(p.read_text(encoding='utf-8'));d['files'][0]['sha256']='0'*64;p.write_text(json.dumps(d,indent=2),encoding='utf-8');p=pathlib.Path('tests/fixtures/furnished/pdf_go/manifest.json');d=json.loads(p.read_text(encoding='utf-8'));d['files'][0]['sha256']='0'*64;p.write_text(json.dumps(d,indent=2),encoding='utf-8');p=pathlib.Path('tests/fixtures/furnished/slides_python/manifest.json');d=json.loads(p.read_text(encoding='utf-8'));d['files'][0]['sha256']='0'*64;p.write_text(json.dumps(d,indent=2),encoding='utf-8');p=pathlib.Path('tests/fixtures/furnished/cells_rust/manifest.json');d=json.loads(p.read_text(encoding='utf-8'));d['files'][0]['sha256']='0'*64;p.write_text(json.dumps(d,indent=2),encoding='utf-8');\"",
+    "patch_sha256": "2e3a852333e3d7073613ce7079d9c4c279b3a5b6c5fe06236b7bcdad0289d38c",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/fixtures/furnished/cells_rust/manifest.json",
+      "M tests/fixtures/furnished/pdf_go/manifest.json",
+      "M tests/fixtures/furnished/pdf_java/manifest.json",
+      "M tests/fixtures/furnished/pdf_net/manifest.json",
+      "M tests/fixtures/furnished/slides_python/manifest.json",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
