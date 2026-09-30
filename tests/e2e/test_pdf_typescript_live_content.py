@@ -411,9 +411,7 @@ def test_search_docs_returns_real_furnished_content_for_pdf_typescript(session: 
     fixture) - genuinely bucketing them "getting_started". Every other real doc chunk in this
     fixture (with no such hint word) lands in "developer_guide", the classifier's own default.
     """
-    body = session.call_tool(
-        "search_docs", {"query": REAL_DOC_QUERY, "content_type": REAL_DOC_CONTENT_TYPE}
-    )
+    body = session.call_tool("search_docs", {"query": REAL_DOC_QUERY, "content_type": REAL_DOC_CONTENT_TYPE})
     result = body["result"]["structuredContent"]["result"]
     assert isinstance(result, list) and result, f"expected real doc matches, got a Miss: {result}"
     assert all(match["content_type"] == REAL_DOC_CONTENT_TYPE for match in result), result

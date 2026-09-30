@@ -62,9 +62,7 @@ _EXPECTED_EXAMPLE_COUNT = {
     "cells_rust": 3,
 }
 
-_REPOSITORY_PRESENTER_ROOT = Path(
-    "H:/Users/prora/OneDrive/Documents/GitHub/repository-presenter"
-)
+_REPOSITORY_PRESENTER_ROOT = Path("H:/Users/prora/OneDrive/Documents/GitHub/repository-presenter")
 
 
 def _single_block_sha256(fixture_path: Path) -> str:
@@ -333,9 +331,7 @@ def test_doc_source_commit_is_the_sealed_candidates_own_commit(pilot: str) -> No
         "cells_rust": ("cells", "rust"),
     }[pilot]
     repository = gen._read_repository(family, platform, Path("."))
-    current_path = (
-        _REPOSITORY_PRESENTER_ROOT / "candidates" / repository.replace("/", "__") / "CURRENT"
-    )
+    current_path = _REPOSITORY_PRESENTER_ROOT / "candidates" / repository.replace("/", "__") / "CURRENT"
     real_current_commit = current_path.read_text(encoding="utf-8").strip()
 
     fixture_path = FIXTURE_ROOT / pilot / "pages" / "_index.md"

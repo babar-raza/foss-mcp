@@ -241,8 +241,7 @@ def test_a_globally_unambiguous_bare_method_name_resolves_in_ordinary_prose() ->
     fixture = _api_surface_fixture()
     index = symbol_index_from_api_surface(fixture["types"])
     chunk = _chunk(
-        "Use `AddTextAnnotation`, `AddHighlightAnnotation`, and `AddRedactAnnotation` to "
-        "annotate a page."
+        "Use `AddTextAnnotation`, `AddHighlightAnnotation`, and `AddRedactAnnotation` to annotate a page."
     )
     validated = validate_chunk(chunk, index, {})
     assert validated.validation.verdict == SUPPORTED

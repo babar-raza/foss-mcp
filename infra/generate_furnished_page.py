@@ -251,14 +251,12 @@ def sealed_candidate_doc_fields(repository: str, presenter_root: Path) -> tuple[
     current_path = candidate_dir / "CURRENT"
     if not current_path.is_file():
         raise FileNotFoundError(
-            f"sealed candidate CURRENT pointer missing for repository {repository!r}: "
-            f"{current_path}"
+            f"sealed candidate CURRENT pointer missing for repository {repository!r}: {current_path}"
         )
     commit = current_path.read_text(encoding="utf-8").strip()
     if not commit:
         raise ValueError(
-            f"sealed candidate CURRENT pointer is empty for repository {repository!r}: "
-            f"{current_path}"
+            f"sealed candidate CURRENT pointer is empty for repository {repository!r}: {current_path}"
         )
     readme_path = candidate_dir / commit / "README.md"
     if not readme_path.is_file():
