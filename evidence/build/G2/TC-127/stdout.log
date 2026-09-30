@@ -1,0 +1,42 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_repo_hygiene.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-t9eipvbu\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_repo_hygiene.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-t9eipvbu\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M LICENSE, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_repo_hygiene.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-t9eipvbu\.junit-0.xml"
+--- stdout ---
+.F.....                                                                  [100%]
+================================== FAILURES ===================================
+_________________ test_license_contains_real_mit_license_text _________________
+
+    def test_license_contains_real_mit_license_text():
+        text = LICENSE_PATH.read_text(encoding="utf-8")
+>       assert "MIT License" in text, (
+            "LICENSE does not contain the literal substring 'MIT License' - "
+            "it must embody the real, OSI-approved MIT License text declared by "
+            "pyproject.toml's license = {text = \"MIT\"}, not a paraphrase or "
+            "placeholder."
+        )
+E       AssertionError: LICENSE does not contain the literal substring 'MIT License' - it must embody the real, OSI-approved MIT License text declared by pyproject.toml's license = {text = "MIT"}, not a paraphrase or placeholder.
+E       assert 'MIT License' in 'REVOKED License\n\nCopyright (c) 2026 foss-mcp contributors\n\nPermission is hereby granted, free of charge, to any p...R OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n'
+
+tests\test_repo_hygiene.py:53: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_repo_hygiene.py::test_license_contains_real_mit_license_text
+
+--- stderr ---
+
