@@ -17,7 +17,7 @@ from starlette.testclient import TestClient
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import DeploymentConfig
-from foss_mcp.mcp.server import create_server, schema_for, tool_description
+from foss_mcp.mcp.server import create_server, render_result_text, schema_for, tool_description
 from foss_mcp.mcp.transport_security import reject_request
 
 # infra/ is not a package (no __init__.py, matching scripts/ convention) - import its module
@@ -316,6 +316,49 @@ def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
         body = _sse_json(response.text)
         assert "result" in body, body
         assert body["result"]["isError"] is False
+
+
+# ---------------------------------------------------------------------
+# render_result_text - the plain-text content channel is real, parseable JSON built from the
+# same jsonable form already computed for structured_content, never Python's repr() debug
+# syntax. Both channels must agree, over the real served transport.
+# ---------------------------------------------------------------------
+
+
+def test_render_result_text_is_json_not_python_repr() -> None:
+    """A dict with a single-quote-heavy Python repr must render as real JSON (double-quoted
+    strings), not Python's own debug syntax."""
+    import json
+
+    result = {"kind": "Miss", "reason": "no match"}
+    text = render_result_text(result)
+    assert text == json.dumps(result)
+    # repr() would have produced Python-only single-quoted syntax; JSON never does.
+    assert "'" not in text
+    assert json.loads(text) == result
+
+
+@pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+def test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content(
+    tmp_path: Path, tool_name: str
+) -> None:
+    """The concrete bar this card must meet: content[0].text (the plain-text channel every
+    client also receives) parses as JSON and is identical to structured_content['result'] -
+    the two channels agree, and neither requires Python-specific parsing."""
+    import json
+
+    with _client(tmp_path) as client:
+        session = _McpSession(client)
+        response = session.request(
+            "tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]}
+        )
+        assert response.status_code == 200
+        body = _sse_json(response.text)
+        result = body["result"]
+        assert result["isError"] is False
+        text = result["content"][0]["text"]
+        parsed_text = json.loads(text)  # must be real, parseable JSON - not repr() syntax
+        assert parsed_text == result["structuredContent"]["result"]
 
 
 def test_a_bad_origin_is_rejected_at_the_transport_never_reaching_a_tool(tmp_path: Path) -> None:

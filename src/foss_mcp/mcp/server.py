@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import dataclasses
 import inspect
+import json
 import typing
 from collections.abc import Callable, Sequence
 from contextlib import asynccontextmanager
@@ -452,6 +453,15 @@ def _to_jsonable(value: Any) -> Any:
     return value
 
 
+def render_result_text(result: Any) -> str:
+    """The plain-text ``TextContent`` rendering of a tool's return value - real, parseable
+    JSON built from the identical ``_to_jsonable(result)`` form already computed for
+    ``structured_content``, never Python's own ``repr()`` debug syntax. Every client receives
+    both channels; neither should require Python-specific parsing, and both must agree.
+    """
+    return json.dumps(_to_jsonable(result), default=str)
+
+
 def _build_tool_registry(
     store: GenerationManifestStore,
     scope: Scope,
@@ -517,7 +527,7 @@ def create_server(
             # reaches tool dispatch at all.
             return CallToolResult(content=[TextContent(type="text", text=str(exc))], is_error=True)
         return CallToolResult(
-            content=[TextContent(type="text", text=repr(result))],
+            content=[TextContent(type="text", text=render_result_text(result))],
             structured_content={"result": _to_jsonable(result)},
             is_error=False,
         )
