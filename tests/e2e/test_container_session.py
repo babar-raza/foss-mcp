@@ -220,11 +220,17 @@ def test_an_invalid_origin_is_rejected(running_container: None) -> None:
     assert "origin" in body["reason"].lower()
 
 
-def test_a_missing_protocol_version_is_rejected(running_container: None) -> None:
+def _assert_request_is_allowed(response) -> None:
+    assert response.status_code != 400, response.text
+
+
+def test_a_missing_protocol_version_is_allowed_through(running_container: None) -> None:
+    """TC-124 corrected reject_request so an absent MCP-Protocol-Version header is allowed
+    through - a genuine client's very first initialize request never carries it yet. A
+    present-but-invalid header is a different case entirely and is still rejected below."""
     headers = {key: value for key, value in VALID_HEADERS.items() if key != "MCP-Protocol-Version"}
     response = httpx.post(f"{BASE_URL}{MCP_PATH}", json=_initialize_body(), headers=headers, timeout=10)
-    assert response.status_code == 400
-    assert "protocol-version" in response.json()["reason"].lower()
+    _assert_request_is_allowed(response)
 
 
 def test_an_invalid_protocol_version_is_rejected(running_container: None) -> None:
