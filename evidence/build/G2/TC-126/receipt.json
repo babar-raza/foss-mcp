@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "card": "TC-126",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-30T10:07:00Z",
+  "base_rev": "37c2cb67fd36d9bacf9cf21653a8699051a2cc70",
+  "head_rev": "ae8bb618e7d2b73e91bf6df54fe2645806d79f76",
+  "card_sha256": "d1a7ca3cdb6a490d14ef15524002fe60a0db20f860af10a495ada05a9d66253f",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/server.py",
+      "tests/mcp/test_server_wiring.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/test_server_wiring.py -q -k \"not test_a_missing_protocol_version_is_rejected\"",
+          "exit_code": 0,
+          "duration_s": 2.084,
+          "stdout_sha256": "bd8cb159bf88dd5c68142cc3175cf2dffc93328393197557607937f63b209afd",
+          "tests": 47,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/test_server_wiring.py -q -k \"not test_a_missing_protocol_version_is_rejected\"",
+          "exit_code": 0,
+          "duration_s": 1.869,
+          "stdout_sha256": "bd8cb159bf88dd5c68142cc3175cf2dffc93328393197557607937f63b209afd",
+          "tests": 47,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/server.py');s=p.read_text(encoding='utf-8');s=s.replace('def render_result_text(','def render_result_text_DISABLED(');p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "27c9151c6949b26e28fe4f731a46df7a9048dcb859868573e08ebed9979f8246",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      2
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/server.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
