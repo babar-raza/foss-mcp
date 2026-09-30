@@ -53,8 +53,17 @@ def reject_request(
     - an Origin header that is present but not in ``allowed_origins`` is rejected (an absent
       Origin is not rejected on its own: non-browser clients legitimately never send one, and
       DNS rebinding - the attack this check exists for - is a browser-specific threat).
-    - a missing ``MCP-Protocol-Version`` header is rejected.
-    - a present-but-unparseable one is rejected.
+    - an ABSENT ``MCP-Protocol-Version`` header is ALLOWED THROUGH: it is a Streamable HTTP
+      transport-layer convention used only on requests made AFTER a protocol version has been
+      negotiated - a genuine client's very first ``initialize`` request never carries it yet
+      (the client has not negotiated a version, or predates the header's existence entirely).
+      That request's REQUIRED protocol version lives in the JSON-RPC body's own
+      ``initialize.params.protocolVersion`` field instead, which the mcp SDK's own initialize
+      handler validates independently once it parses the body - this function has no business
+      re-enforcing that same MUST a second time, against the wrong location, before the body is
+      even read.
+    - a PRESENT-but-unparseable ``MCP-Protocol-Version`` header is still rejected: once a client
+      sends the header at all, it must be a value this server can actually reason about.
 
     Returns ``None`` only when both checks pass. Whether the version is one this server has
     actually negotiated support for is a SEPARATE, later concern
@@ -67,6 +76,9 @@ def reject_request(
         return f"origin {origin!r} is not in the allowed origin list"
 
     protocol_version = _header(headers, MCP_PROTOCOL_VERSION_HEADER)
+    if protocol_version is None:
+        return None
+
     try:
         negotiate_revision(requested_revision=protocol_version, supported_revisions=supported_revisions)
     except MissingProtocolVersionError:
