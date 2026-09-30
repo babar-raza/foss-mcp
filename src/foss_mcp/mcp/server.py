@@ -20,16 +20,19 @@ from __future__ import annotations
 import dataclasses
 import inspect
 import json
+import logging
+import re
 import typing
 from collections.abc import Callable, Sequence
 from contextlib import asynccontextmanager
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
 from mcp.server.lowlevel import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import CallToolRequestParams, CallToolResult, ListToolsResult, TextContent, Tool
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from foss_mcp.extraction.github_release_reader import Release
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
@@ -462,6 +465,80 @@ def render_result_text(result: Any) -> str:
     return json.dumps(_to_jsonable(result), default=str)
 
 
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------
+# Tool-error vocabulary and client-safe exception sanitizer.
+#
+# A real, independent review of a working commercial MCP server found a concrete gap
+# foss-mcp genuinely shared: returning ``str(exc)`` to the client on any unexpected
+# exception, unsanitized - an internal file path, a library name (``site-packages``), or a
+# raw traceback could leak straight to a real client. ``public_error_message`` is the one
+# place that decision is made; every error path in ``_call_tool`` reports through it and
+# through the small, closed ``ToolErrorCode`` vocabulary below, never inventing a new code.
+# ---------------------------------------------------------------------
+
+
+class ToolErrorCode(str, Enum):
+    """A small, closed set of tool-error codes - every error ``CallToolResult`` this server
+    ever produces carries exactly one of these in its ``structured_content``. Extend only for
+    a real, currently-distinguishable case; never add a code nothing produces.
+    """
+
+    NOT_FOUND = "not_found"
+    INVALID_ARGUMENT = "invalid_argument"
+    INTERNAL = "internal"
+
+
+# A Windows path: a drive letter followed by two or more backslash-separated segments.
+_WINDOWS_PATH_PATTERN = re.compile(r"[A-Za-z]:\\(?:[^\s\\]+\\)+[^\s\\]+")
+# A POSIX path: two or more slash-separated segments.
+_POSIX_PATH_PATTERN = re.compile(r"(?:/[^/\s]+){2,}")
+
+# Substrings that, on their own, mark exception text as an internal implementation detail
+# rather than something safe to hand a client verbatim.
+_UNSAFE_SUBSTRINGS = ("site-packages", "Traceback", "object at 0x")
+
+_MAX_SAFE_MESSAGE_LENGTH = 300
+
+
+def _contains_internal_detail(text: str) -> bool:
+    if "\n" in text:
+        return True
+    if len(text) > _MAX_SAFE_MESSAGE_LENGTH:
+        return True
+    if any(marker in text for marker in _UNSAFE_SUBSTRINGS):
+        return True
+    if _WINDOWS_PATH_PATTERN.search(text) or _POSIX_PATH_PATTERN.search(text):
+        return True
+    return False
+
+
+def public_error_message(exc: Exception, *, fallback: str) -> str:
+    """The client-safe rendering of *exc*.
+
+    Returns ``str(exc)`` verbatim only when it passes real safety checks: no filesystem path
+    (Windows or POSIX, multi-segment), none of ``site-packages``/``Traceback``/``object at
+    0x``, no embedded newline, and no more than ~300 characters. Otherwise the real exception
+    (type and message) is logged server-side via the standard ``logging`` module before
+    *fallback* is returned instead - the real detail is never simply discarded, only ever kept
+    out of the client's own result text.
+    """
+    text = str(exc)
+    if _contains_internal_detail(text):
+        logger.warning(
+            "suppressed unsafe exception text from an MCP client-facing result: type=%s message=%r",
+            type(exc).__name__,
+            text,
+        )
+        return fallback
+    return text
+
+
+_GENERIC_ERROR_FALLBACK = "An internal error occurred while handling this tool call."
+
+
 def _build_tool_registry(
     store: GenerationManifestStore,
     scope: Scope,
@@ -511,21 +588,40 @@ def create_server(
         handler = registry.get(params.name)
         if handler is None:
             return CallToolResult(
-                content=[TextContent(type="text", text=f"unknown tool: {params.name}")], is_error=True
+                content=[TextContent(type="text", text=f"unknown tool: {params.name}")],
+                structured_content={"code": ToolErrorCode.NOT_FOUND.value},
+                is_error=True,
             )
         try:
             # Validate once per tool via its own typed Pydantic model BEFORE the underlying
-            # handler is ever called - a pydantic.ValidationError (itself a ValueError
-            # subclass) propagates straight to the except-clause below, the same shared path
-            # any other tool-domain exception takes, mapping a malformed argument to a clean,
-            # bounded CallToolResult instead of whatever a downstream function happens to raise.
+            # handler is ever called - a pydantic.ValidationError propagates straight to the
+            # except-clause below, mapping a malformed argument to a clean, bounded
+            # CallToolResult instead of whatever a downstream function happens to raise.
             input_model = _INPUT_MODELS[params.name]
             validated_arguments = input_model.model_validate(params.arguments or {})
             result = handler(**validated_arguments.model_dump())
+        except ValidationError as exc:
+            # TC-125's own validation-error path: a malformed argument, always INVALID_ARGUMENT.
+            # Still reported through the shared sanitizer, never str(exc) directly - a custom
+            # field validator's ValueError message could itself embed internal detail.
+            text = public_error_message(exc, fallback=_GENERIC_ERROR_FALLBACK)
+            return CallToolResult(
+                content=[TextContent(type="text", text=text)],
+                structured_content={"code": ToolErrorCode.INVALID_ARGUMENT.value, "message": text},
+                is_error=True,
+            )
         except Exception as exc:  # a tool-domain error - a normal CallToolResult, never a
             # protocol-level rejection, which happens earlier, at the transport, and never
-            # reaches tool dispatch at all.
-            return CallToolResult(content=[TextContent(type="text", text=str(exc))], is_error=True)
+            # reaches tool dispatch at all. The real exception (type, message, and the tool
+            # name that raised it) is always logged server-side here, in full, regardless of
+            # whether the sanitized text below turns out safe to hand back to the client.
+            logger.error("tool '%s' raised %s: %s", params.name, type(exc).__name__, exc)
+            text = public_error_message(exc, fallback=_GENERIC_ERROR_FALLBACK)
+            return CallToolResult(
+                content=[TextContent(type="text", text=text)],
+                structured_content={"code": ToolErrorCode.INTERNAL.value, "message": text},
+                is_error=True,
+            )
         return CallToolResult(
             content=[TextContent(type="text", text=render_result_text(result))],
             structured_content={"result": _to_jsonable(result)},

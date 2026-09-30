@@ -9,6 +9,7 @@ reporting no match is a completely normal ``CallToolResult`` with ``isError: fal
 
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 
@@ -17,7 +18,14 @@ from starlette.testclient import TestClient
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import DeploymentConfig
-from foss_mcp.mcp.server import create_server, render_result_text, schema_for, tool_description
+from foss_mcp.mcp.server import (
+    ToolErrorCode,
+    create_server,
+    public_error_message,
+    render_result_text,
+    schema_for,
+    tool_description,
+)
 from foss_mcp.mcp.transport_security import reject_request
 
 # infra/ is not a package (no __init__.py, matching scripts/ convention) - import its module
@@ -403,6 +411,143 @@ def test_a_valid_request_still_passes(tmp_path: Path) -> None:
         assert response.status_code == 200
         body = _sse_json(response.text)
         assert "result" in body and "error" not in body
+
+
+# ---------------------------------------------------------------------
+# public_error_message / ToolErrorCode - the sanitizer and the closed error-code vocabulary
+# every error path in _call_tool reports through (G2/TC-131).
+# ---------------------------------------------------------------------
+
+
+def test_tool_error_code_is_a_small_closed_set() -> None:
+    assert {member.value for member in ToolErrorCode} == {"not_found", "invalid_argument", "internal"}
+
+
+def test_public_error_message_passes_a_normal_safe_message_through_unchanged() -> None:
+    exc = ValueError("query must not be empty")
+    assert public_error_message(exc, fallback="safe fallback") == "query must not be empty"
+
+
+def test_public_error_message_rejects_a_windows_path_and_logs_it_server_side(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    exc = RuntimeError(r"could not read C:\Users\prora\secret\shadow_config.ini")
+    with caplog.at_level(logging.WARNING):
+        result = public_error_message(exc, fallback="safe fallback")
+    assert result == "safe fallback"
+    assert "shadow_config.ini" not in result
+    assert r"C:\Users\prora" not in result
+    # Discarded from the client's own text, but never simply discarded - still logged in full.
+    assert "shadow_config.ini" in caplog.text
+
+
+def test_public_error_message_rejects_a_posix_path(caplog: pytest.LogCaptureFixture) -> None:
+    exc = RuntimeError("failed: /home/user/project/venv/lib/site-packages/mod.py")
+    with caplog.at_level(logging.WARNING):
+        result = public_error_message(exc, fallback="safe fallback")
+    assert result == "safe fallback"
+    assert "/home/user" not in result
+
+
+def test_public_error_message_rejects_a_site_packages_substring() -> None:
+    exc = RuntimeError("error somewhere inside site-packages")
+    assert public_error_message(exc, fallback="safe fallback") == "safe fallback"
+
+
+def test_public_error_message_rejects_a_traceback_like_message() -> None:
+    exc = RuntimeError("Traceback (most recent call last): boom")
+    assert public_error_message(exc, fallback="safe fallback") == "safe fallback"
+
+
+def test_public_error_message_rejects_a_repr_style_object_address() -> None:
+    exc = RuntimeError("<Widget object at 0x7f8a3c0a1d90> could not be serialized")
+    assert public_error_message(exc, fallback="safe fallback") == "safe fallback"
+
+
+def test_public_error_message_rejects_an_overly_long_message() -> None:
+    exc = RuntimeError("x" * 301)
+    assert public_error_message(exc, fallback="safe fallback") == "safe fallback"
+
+
+def test_public_error_message_rejects_a_multiline_message() -> None:
+    exc = RuntimeError("line one\nline two")
+    assert public_error_message(exc, fallback="safe fallback") == "safe fallback"
+
+
+# ---------------------------------------------------------------------
+# Error codes and sanitization, proven over the real served transport - not just the
+# sanitizer function in isolation.
+# ---------------------------------------------------------------------
+
+
+def test_an_unknown_tool_call_carries_a_not_found_code(tmp_path: Path) -> None:
+    with _client(tmp_path) as client:
+        session = _McpSession(client)
+        response = session.request("tools/call", {"name": "not_a_real_tool", "arguments": {}})
+        assert response.status_code == 200
+        body = _sse_json(response.text)
+        assert body["result"]["isError"] is True
+        assert body["result"]["structuredContent"]["code"] == "not_found"
+
+
+def test_a_pydantic_validation_error_carries_an_invalid_argument_code(tmp_path: Path) -> None:
+    with _client(tmp_path) as client:
+        session = _McpSession(client)
+        response = session.request(
+            "tools/call", {"name": "search_symbols", "arguments": {"query": "", "top_k": 3}}
+        )
+        assert response.status_code == 200
+        body = _sse_json(response.text)
+        assert body["result"]["isError"] is True
+        assert body["result"]["structuredContent"]["code"] == "invalid_argument"
+
+
+def test_an_unexpected_tool_exception_carries_an_internal_code_and_a_sanitized_message(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The concrete bar this card must meet: a real exception containing an internal marker (a
+    fake file path here) never reaches the client's own result text, but is still logged
+    server-side with full detail - proven over the real served transport, not a unit stand-in
+    for it.
+    """
+
+    def _boom(*args: object, **kwargs: object) -> None:
+        raise RuntimeError(r"failed loading C:\Users\prora\secret\shadow_config.ini")
+
+    monkeypatch.setattr("foss_mcp.mcp.server.search_symbols", _boom)
+
+    with caplog.at_level(logging.WARNING):
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": "search_symbols", "arguments": {"query": "Widget"}}
+            )
+    assert response.status_code == 200
+    body = _sse_json(response.text)
+    assert body["result"]["isError"] is True
+    assert body["result"]["structuredContent"]["code"] == "internal"
+    text = body["result"]["content"][0]["text"]
+    assert "shadow_config.ini" not in text
+    assert r"C:\Users\prora" not in text
+    # Never simply discarded - the real exception is logged server-side in full detail.
+    assert "shadow_config.ini" in caplog.text
+    assert "search_symbols" in caplog.text
+
+
+def test_a_normal_tool_domain_miss_still_reports_cleanly_without_an_error_code(
+    tmp_path: Path,
+) -> None:
+    """A successful tool call (even an honest Miss/NotFound business result) is unaffected by
+    any of this - only the transport-level error path gained a code."""
+    with _client(tmp_path) as client:
+        session = _McpSession(client)
+        response = session.request(
+            "tools/call", {"name": "get_symbol", "arguments": {"fqn": "Not.A.Real.Symbol"}}
+        )
+        assert response.status_code == 200
+        body = _sse_json(response.text)
+        assert body["result"]["isError"] is False
+        assert "code" not in body["result"]["structuredContent"]
 
 
 def _sse_json(text: str) -> dict:
