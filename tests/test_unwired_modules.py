@@ -157,7 +157,9 @@ class _ImportGraph:
                 self.module_to_file[m] = f
 
         self.sources: dict[Path, str] = {f: f.read_text(encoding="utf-8") for f in self.files}
-        self.trees: dict[Path, ast.Module] = {f: ast.parse(src, filename=str(f)) for f, src in self.sources.items()}
+        self.trees: dict[Path, ast.Module] = {
+            f: ast.parse(src, filename=str(f)) for f, src in self.sources.items()
+        }
 
         self.edges: dict[Path, set[Path]] = {f: set() for f in self.files}
         # (importing_file) -> list of (resolved_module_dotted_name, imported_name)
@@ -285,13 +287,15 @@ class _ImportGraph:
         last_part = defining_module.rsplit(".", 1)[-1]
         return f"{last_part}.{name}" in self.sources[path]
 
-    def has_external_reference(self, defining_file: Path, defining_module: str, name: str, candidates: set[Path]) -> bool:
+    def has_external_reference(
+        self, defining_file: Path, defining_module: str, name: str, candidates: set[Path]
+    ) -> bool:
         for other in candidates:
             if other == defining_file or other not in self.sources:
                 continue
-            if self.referenced_via_import(other, defining_module, name) or self.referenced_via_attribute_chain(
+            if self.referenced_via_import(
                 other, defining_module, name
-            ):
+            ) or self.referenced_via_attribute_chain(other, defining_module, name):
                 return True
         return False
 
@@ -341,7 +345,9 @@ def _usage_recorder_has_any_production_or_infra_reference() -> bool:
     """
     module = "foss_mcp.telemetry.usage_recorder"
     defining_file = SRC_FOSS / "telemetry" / "usage_recorder.py"
-    candidates = {f for f in _GRAPH.files if (SRC_ROOT in f.parents or INFRA_ROOT in f.parents) and f != defining_file}
+    candidates = {
+        f for f in _GRAPH.files if (SRC_ROOT in f.parents or INFRA_ROOT in f.parents) and f != defining_file
+    }
     return _GRAPH.has_external_reference(defining_file, module, "UsageRecorder", candidates)
 
 
@@ -371,7 +377,11 @@ def test_each_known_unwired_symbol_genuinely_has_zero_production_callers() -> No
         module, _, name = dotted.rpartition(".")
         defining_file = _GRAPH.module_to_file.get(module)
         assert defining_file is not None, f"{module} no longer resolves to a real file"
-        candidates = {f for f in _GRAPH.files if (SRC_ROOT in f.parents or INFRA_ROOT in f.parents) and f != defining_file}
+        candidates = {
+            f
+            for f in _GRAPH.files
+            if (SRC_ROOT in f.parents or INFRA_ROOT in f.parents) and f != defining_file
+        }
         assert not _GRAPH.has_external_reference(defining_file, module, name, candidates), (
             f"{dotted} now has a real caller under src/ or infra/ - it is no longer unwired "
             f"and must be removed from _KNOWN_UNWIRED."
@@ -415,8 +425,6 @@ def test_no_real_src_module_is_reachable_from_neither_production_nor_tests() -> 
     orphaned = [
         f
         for f in SRC_FOSS.rglob("*.py")
-        if f not in _PROD_REACHABLE
-        and f not in _TEST_REACHABLE
-        and _GRAPH.top_level_public_defs(f)
+        if f not in _PROD_REACHABLE and f not in _TEST_REACHABLE and _GRAPH.top_level_public_defs(f)
     ]
     assert orphaned == [], f"file(s) reachable from nothing at all: {[str(f) for f in orphaned]}"

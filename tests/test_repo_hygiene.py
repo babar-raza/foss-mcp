@@ -53,7 +53,7 @@ def test_license_contains_real_mit_license_text():
     assert "MIT License" in text, (
         "LICENSE does not contain the literal substring 'MIT License' - "
         "it must embody the real, OSI-approved MIT License text declared by "
-        "pyproject.toml's license = {text = \"MIT\"}, not a paraphrase or "
+        'pyproject.toml\'s license = {text = "MIT"}, not a paraphrase or '
         "placeholder."
     )
     # A handful of load-bearing phrases from the real OSI-approved wording,
@@ -61,7 +61,7 @@ def test_license_contains_real_mit_license_text():
     # two-word substring "MIT License" in a heading) does not pass.
     for phrase in (
         "Permission is hereby granted, free of charge",
-        "THE SOFTWARE IS PROVIDED \"AS IS\"",
+        'THE SOFTWARE IS PROVIDED "AS IS"',
         "WITHOUT WARRANTY OF ANY KIND",
     ):
         assert phrase in text, f"LICENSE is missing expected MIT License wording: {phrase!r}"
@@ -78,11 +78,7 @@ def test_dockerignore_file_exists():
 
 def test_dockerignore_excludes_git_and_venv():
     lines = DOCKERIGNORE_PATH.read_text(encoding="utf-8").splitlines()
-    missing = [
-        fragment
-        for fragment in (".git", ".venv")
-        if not _dockerignore_excludes(fragment, lines)
-    ]
+    missing = [fragment for fragment in (".git", ".venv") if not _dockerignore_excludes(fragment, lines)]
     assert not missing, f".dockerignore does not exclude: {missing}"
 
 
@@ -110,9 +106,5 @@ def test_dockerignore_does_not_exclude_paths_the_dockerfiles_actually_copy():
     break every real image build. This guards against that regression."""
     lines = DOCKERIGNORE_PATH.read_text(encoding="utf-8").splitlines()
     required_present = ["src", "config", "infra", "requirements.lock"]
-    wrongly_excluded = [
-        fragment for fragment in required_present if _dockerignore_excludes(fragment, lines)
-    ]
-    assert not wrongly_excluded, (
-        f".dockerignore excludes path(s) a real Dockerfile COPYs: {wrongly_excluded}"
-    )
+    wrongly_excluded = [fragment for fragment in required_present if _dockerignore_excludes(fragment, lines)]
+    assert not wrongly_excluded, f".dockerignore excludes path(s) a real Dockerfile COPYs: {wrongly_excluded}"

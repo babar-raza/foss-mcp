@@ -312,7 +312,9 @@ def test_main_refuses_a_more_than_50_percent_regression_against_a_real_active_ge
     with pytest.raises(ingest.PublishSafetyError):
         ingest.main()
 
-    assert store.read_active(SCOPE) == first_generation_id, "the good generation must remain active, unreplaced"
+    assert store.read_active(SCOPE) == first_generation_id, (
+        "the good generation must remain active, unreplaced"
+    )
 
 
 def test_main_allows_a_healthy_update_that_is_not_a_more_than_50_percent_regression(

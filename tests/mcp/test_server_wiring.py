@@ -262,9 +262,7 @@ def test_an_absurdly_large_top_k_is_rejected(tmp_path: Path) -> None:
 def test_an_empty_query_is_rejected_with_a_clean_tool_error(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         session = _McpSession(client)
-        response = session.request(
-            "tools/call", {"name": "search_symbols", "arguments": {"query": ""}}
-        )
+        response = session.request("tools/call", {"name": "search_symbols", "arguments": {"query": ""}})
         assert response.status_code == 200
         body = _sse_json(response.text)
         assert body["result"]["isError"] is True
@@ -361,9 +359,7 @@ def test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_co
 
     with _client(tmp_path) as client:
         session = _McpSession(client)
-        response = session.request(
-            "tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]}
-        )
+        response = session.request("tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]})
         assert response.status_code == 200
         body = _sse_json(response.text)
         result = body["result"]
@@ -605,9 +601,7 @@ def test_an_error_results_correlation_id_matches_its_own_log_record(
     with caplog.at_level(logging.INFO, logger="foss_mcp.mcp.server"):
         with _client(tmp_path) as client:
             session = _McpSession(client)
-            response = session.request(
-                "tools/call", {"name": "search_symbols", "arguments": {"query": ""}}
-            )
+            response = session.request("tools/call", {"name": "search_symbols", "arguments": {"query": ""}})
     assert response.status_code == 200
     body = _sse_json(response.text)
     assert body["result"]["isError"] is True
