@@ -1,0 +1,29 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -c "import yaml,pathlib;d=yaml.safe_load(pathlib.Path('.github/workflows/ci.yml').read_text(encoding='utf-8'));assert d.get('jobs'), 'no jobs defined';steps=[s for j in d['jobs'].values() for s in j.get('steps',[])];runs=' '.join(s.get('run','') for s in steps);assert 'ruff' in runs or 'ci_check' in runs, 'no lint/format/ci_check step found';assert 'pytest' in runs or 'ci_check' in runs, 'no pytest step found';assert 'require-hashes' in runs, 'dependency install does not use --require-hashes';print('ci.yml structurally valid')"
+--- stdout ---
+ci.yml structurally valid
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -c "import yaml,pathlib;d=yaml.safe_load(pathlib.Path('.github/workflows/ci.yml').read_text(encoding='utf-8'));assert d.get('jobs'), 'no jobs defined';steps=[s for j in d['jobs'].values() for s in j.get('steps',[])];runs=' '.join(s.get('run','') for s in steps);assert 'ruff' in runs or 'ci_check' in runs, 'no lint/format/ci_check step found';assert 'pytest' in runs or 'ci_check' in runs, 'no pytest step found';assert 'require-hashes' in runs, 'dependency install does not use --require-hashes';print('ci.yml structurally valid')"
+--- stdout ---
+ci.yml structurally valid
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M .github/workflows/ci.yml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -c "import yaml,pathlib;d=yaml.safe_load(pathlib.Path('.github/workflows/ci.yml').read_text(encoding='utf-8'));assert d.get('jobs'), 'no jobs defined';steps=[s for j in d['jobs'].values() for s in j.get('steps',[])];runs=' '.join(s.get('run','') for s in steps);assert 'ruff' in runs or 'ci_check' in runs, 'no lint/format/ci_check step found';assert 'pytest' in runs or 'ci_check' in runs, 'no pytest step found';assert 'require-hashes' in runs, 'dependency install does not use --require-hashes';print('ci.yml structurally valid')"
+--- stdout ---
+
+--- stderr ---
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import yaml,pathlib;d=yaml.safe_load(pathlib.Path('.github/workflows/ci.yml').read_text(encoding='utf-8'));assert d.get('jobs'), 'no jobs defined';steps=[s for j in d['jobs'].values() for s in j.get('steps',[])];runs=' '.join(s.get('run','') for s in steps);assert 'ruff' in runs or 'ci_check' in runs, 'no lint/format/ci_check step found';assert 'pytest' in runs or 'ci_check' in runs, 'no pytest step found';assert 'require-hashes' in runs, 'dependency install does not use --require-hashes';print('ci.yml structurally valid')
+                                                                                                                                                                                                                                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: no lint/format/ci_check step found
+

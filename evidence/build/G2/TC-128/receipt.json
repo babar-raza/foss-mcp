@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "card": "TC-128",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-30T10:15:04Z",
+  "base_rev": "db32b58c95cb6af802a9a3ba330d8523c62d3e46",
+  "head_rev": "82219326c941919aa2823daf4b708b3a96f7f70d",
+  "card_sha256": "ff0787f40695352767b8d44a0eb292eb8e71a549aa704894ab1635c2799ced67",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      ".github/workflows/ci.yml"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -c \"import yaml,pathlib;d=yaml.safe_load(pathlib.Path('.github/workflows/ci.yml').read_text(encoding='utf-8'));assert d.get('jobs'), 'no jobs defined';steps=[s for j in d['jobs'].values() for s in j.get('steps',[])];runs=' '.join(s.get('run','') for s in steps);assert 'ruff' in runs or 'ci_check' in runs, 'no lint/format/ci_check step found';assert 'pytest' in runs or 'ci_check' in runs, 'no pytest step found';assert 'require-hashes' in runs, 'dependency install does not use --require-hashes';print('ci.yml structurally valid')\"",
+          "exit_code": 0,
+          "duration_s": 0.144,
+          "stdout_sha256": "f260e62660df8dbd66daaeae5bfa69b8cfb265c03b11239a563bca1fba1a034d"
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -c \"import yaml,pathlib;d=yaml.safe_load(pathlib.Path('.github/workflows/ci.yml').read_text(encoding='utf-8'));assert d.get('jobs'), 'no jobs defined';steps=[s for j in d['jobs'].values() for s in j.get('steps',[])];runs=' '.join(s.get('run','') for s in steps);assert 'ruff' in runs or 'ci_check' in runs, 'no lint/format/ci_check step found';assert 'pytest' in runs or 'ci_check' in runs, 'no pytest step found';assert 'require-hashes' in runs, 'dependency install does not use --require-hashes';print('ci.yml structurally valid')\"",
+          "exit_code": 0,
+          "duration_s": 0.131,
+          "stdout_sha256": "f260e62660df8dbd66daaeae5bfa69b8cfb265c03b11239a563bca1fba1a034d"
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('.github/workflows/ci.yml');s=p.read_text(encoding='utf-8');s=s.replace('scripts/ci_check.sh','scripts/other_script.sh');p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "c62561237780bfe39bf330087d4dac8d2397485b058063a09a368acd4ed8784a",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M .github/workflows/ci.yml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
