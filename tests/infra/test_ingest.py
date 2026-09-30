@@ -18,6 +18,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 import infra.ingest as ingest
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.normalization.chunker import Chunk
@@ -223,6 +225,131 @@ def test_api_surface_argument_is_optional_and_defaults_to_none(tmp_path: Path, m
 
     store = GenerationManifestStore(manifest_store_path)
     assert store.read_active(SCOPE) is not None
+
+
+def test_assert_publish_is_safe_raises_on_zero_chunks_regardless_of_active_state() -> None:
+    """TC-129: an empty generation is refused unconditionally - both when nothing is
+    currently active and when a healthy generation is already live."""
+    with pytest.raises(ingest.PublishSafetyError):
+        ingest._assert_publish_is_safe(0, None)
+    with pytest.raises(ingest.PublishSafetyError):
+        ingest._assert_publish_is_safe(0, 10)
+
+
+def test_assert_publish_is_safe_raises_on_more_than_50_percent_regression() -> None:
+    """4 active documents, only 1 new chunk: 1 < 4 * 0.5 (2.0), a genuine >50% regression."""
+    with pytest.raises(ingest.PublishSafetyError):
+        ingest._assert_publish_is_safe(1, 4)
+
+
+def test_assert_publish_is_safe_allows_exactly_half_or_better() -> None:
+    """Exactly half of the active document count is NOT a regression (the guard's own
+    condition is strictly-less-than), and growth over the active count is obviously fine."""
+    ingest._assert_publish_is_safe(2, 4)
+    ingest._assert_publish_is_safe(5, 4)
+
+
+def test_assert_publish_is_safe_allows_any_positive_count_with_no_active_generation() -> None:
+    ingest._assert_publish_is_safe(1, None)
+
+
+def test_main_refuses_to_publish_zero_chunks_and_never_calls_publish_generation(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The card's core wiring, at the CLI entrypoint: a run that would publish zero
+    chunks must be refused BEFORE ``publish_generation`` is ever called - never silently
+    shipped, and never left to activate an empty generation."""
+    chunks_path = tmp_path / "chunks.json"
+    manifest_store_path = tmp_path / "manifests"
+    _write_chunks_fixture(chunks_path, [])
+
+    def _must_not_be_called(*args, **kwargs):
+        raise AssertionError("publish_generation must not be called when the publish is refused")
+
+    monkeypatch.setattr(ingest, "publish_generation", _must_not_be_called)
+    monkeypatch.setattr(sys, "argv", ["ingest.py", *_base_argv(chunks_path, manifest_store_path)])
+
+    with pytest.raises(ingest.PublishSafetyError):
+        ingest.main()
+
+    store = GenerationManifestStore(manifest_store_path)
+    assert store.read_active(SCOPE) is None, "nothing should have been activated"
+
+
+def test_main_refuses_a_more_than_50_percent_regression_against_a_real_active_generation(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A real, previously-published active generation with 4 documents; a second run
+    that would publish only 1 chunk (a >50% drop) must be refused before
+    ``publish_generation`` runs, and the good generation must remain active, unreplaced."""
+    chunks_path = tmp_path / "chunks.json"
+    regression_chunks_path = tmp_path / "chunks_regression.json"
+    manifest_store_path = tmp_path / "manifests"
+    _write_chunks_fixture(
+        chunks_path,
+        [
+            _chunk_entry("One", "First document."),
+            _chunk_entry("Two", "Second document."),
+            _chunk_entry("Three", "Third document."),
+            _chunk_entry("Four", "Fourth document."),
+        ],
+    )
+    monkeypatch.setattr(sys, "argv", ["ingest.py", *_base_argv(chunks_path, manifest_store_path)])
+    ingest.main()
+
+    store = GenerationManifestStore(manifest_store_path)
+    first_generation_id = store.read_active(SCOPE)
+    assert first_generation_id is not None
+
+    _write_chunks_fixture(regression_chunks_path, [_chunk_entry("OnlyOne", "Only one document now.")])
+
+    def _must_not_be_called(*args, **kwargs):
+        raise AssertionError("publish_generation must not be called when the publish is refused")
+
+    monkeypatch.setattr(ingest, "publish_generation", _must_not_be_called)
+    monkeypatch.setattr(sys, "argv", ["ingest.py", *_base_argv(regression_chunks_path, manifest_store_path)])
+
+    with pytest.raises(ingest.PublishSafetyError):
+        ingest.main()
+
+    assert store.read_active(SCOPE) == first_generation_id, "the good generation must remain active, unreplaced"
+
+
+def test_main_allows_a_healthy_update_that_is_not_a_more_than_50_percent_regression(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A normal publish - including one that updates an already-active generation with a
+    chunk count at or above the 50% floor - is completely unaffected by the new guard."""
+    chunks_path = tmp_path / "chunks.json"
+    update_chunks_path = tmp_path / "chunks_update.json"
+    manifest_store_path = tmp_path / "manifests"
+    _write_chunks_fixture(
+        chunks_path,
+        [
+            _chunk_entry("One", "First document."),
+            _chunk_entry("Two", "Second document."),
+            _chunk_entry("Three", "Third document."),
+            _chunk_entry("Four", "Fourth document."),
+        ],
+    )
+    monkeypatch.setattr(sys, "argv", ["ingest.py", *_base_argv(chunks_path, manifest_store_path)])
+    ingest.main()
+
+    store = GenerationManifestStore(manifest_store_path)
+    first_generation_id = store.read_active(SCOPE)
+    assert first_generation_id is not None
+
+    # exactly half of the active document count (4) - the boundary, allowed, not refused.
+    _write_chunks_fixture(
+        update_chunks_path,
+        [_chunk_entry("A", "A document."), _chunk_entry("B", "B document.")],
+    )
+    monkeypatch.setattr(sys, "argv", ["ingest.py", *_base_argv(update_chunks_path, manifest_store_path)])
+    ingest.main()
+
+    second_generation_id = store.read_active(SCOPE)
+    assert second_generation_id is not None
+    assert second_generation_id != first_generation_id, "the healthy update must have actually published"
 
 
 def _embedding_provider_smoke_check() -> None:
