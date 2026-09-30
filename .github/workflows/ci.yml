@@ -1,0 +1,43 @@
+name: CI
+
+# Runs this project's own local pre-push gate (scripts/ci_check.sh) on every push and
+# pull request against main, so GitHub enforces exactly what a contributor already runs
+# before pushing - lint, format, typecheck, pytest, and gatectl validate - with no
+# separate CI-only step list to silently drift out of sync with the local one.
+#
+# tests/e2e and tests/infra are excluded from THIS run only, via PYTEST_ADDOPTS, because
+# both need Docker and/or real network clones that a GitHub-hosted runner cannot reliably
+# provide; scripts/ci_check.sh itself is left untouched so a contributor's own local run
+# still exercises the full suite. This is the same scope a fast local sanity pass already
+# uses.
+#
+# Dependencies install from requirements.lock with --require-hashes: every dependency and
+# its transitive closure is pinned by exact sha256, so nothing unpinned or substituted can
+# reach this runner (see docs/DECISION_LOG.md's 2026-09-11 requirements.lock entry).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies (hash-verified)
+        run: pip install --no-cache-dir --require-hashes -r requirements.lock
+
+      - name: Run local CI-equivalent checks (lint, format, typecheck, pytest, gatectl)
+        env:
+          PYTEST_ADDOPTS: "--ignore=tests/e2e --ignore=tests/infra"
+        run: bash scripts/ci_check.sh
