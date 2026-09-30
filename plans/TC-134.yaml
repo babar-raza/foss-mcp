@@ -57,12 +57,15 @@ checks:
 min_tests: 7
 network: false
 negative_control:
-  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/test_repo_hygiene.py');s=p.read_text(encoding='utf-8');s=s.replace('def
-    test_license_contains_real_mit_license_text','def test_license_contains_real_mit_license_text_DISABLED');p.write_text(s,encoding='utf-8')"
-  rationale: Renaming test_license_contains_real_mit_license_text (a real, load-bearing
-    test in one of the 4 files) breaks that file's own suite, failing the check's
-    pytest half - proving the check genuinely exercises this file's real content,
-    not merely its formatting. Self-checked end-to-end before being persisted.
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/test_repo_hygiene.py');s=p.read_text(encoding='utf-8');s=s.replace('assert
+    \"MIT License\" in text','assert \"MIT License\" not in text');p.write_text(s,encoding='utf-8')"
+  rationale: Flipping 'assert "MIT License" in text' to 'assert "MIT License" not
+    in text' makes the real test genuinely fail against the real, correct LICENSE
+    content, failing the check's pytest half - proving the check genuinely exercises
+    this file's real content, not merely its formatting. (A prior version of this
+    mutate renamed the test function instead, which does not actually flip pytest's
+    outcome - a renamed test function is still collected and still passes - caught
+    and fixed before dispatch.) Self-checked end-to-end before being persisted.
 evidence:
 - evidence/build/G2/TC-134/receipt.json
 closeout:
