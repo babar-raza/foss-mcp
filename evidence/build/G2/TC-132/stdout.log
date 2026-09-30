@@ -1,0 +1,1464 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_server_wiring.py -q -k "not test_a_missing_protocol_version_is_rejected" "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\.junit-0.xml"
+--- stdout ---
+................................................................         [100%]
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_server_wiring.py -q -k "not test_a_missing_protocol_version_is_rejected" "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\.junit-0.xml"
+--- stdout ---
+................................................................         [100%]
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/server.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_server_wiring.py -q -k "not test_a_missing_protocol_version_is_rejected" "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\.junit-0.xml"
+--- stdout ---
+..................FFFFF..FFFFFFFFF.FFFFFFFFF............FFFFFFFF         [100%]
+================================== FAILURES ===================================
+________ test_a_non_positive_top_k_is_rejected_with_a_clean_tool_error ________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_a_non_positive_top_k_is_r0')
+
+    def test_a_non_positive_top_k_is_rejected_with_a_clean_tool_error(tmp_path: Path) -> None:
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": "search_symbols", "arguments": {"query": "Widget", "top_k": 0}}
+            )
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           assert body["result"]["isError"] is True
+                   ^^^^^^^^^^^^^^
+E           KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:241: KeyError
+------------------------------ Captured log call ------------------------------
+WARNING  foss_mcp.mcp.server:server.py:532 suppressed unsafe exception text from an MCP client-facing result: type=ValidationError message='1 validation error for SearchSymbolsInput\ntop_k\n  Input should be greater than 0 [type=greater_than, input_value=0, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/greater_than'
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 647, in _call_tool
+    validated_arguments = input_model.model_validate(params.arguments or {})
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\pydantic\main.py", line 732, in model_validate
+    return cls.__pydantic_validator__.validate_python(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        obj,
+        ^^^^
+    ...<5 lines>...
+        by_name=by_name,
+        ^^^^^^^^^^^^^^^^
+    )
+    ^
+pydantic_core._pydantic_core.ValidationError: 1 validation error for SearchSymbolsInput
+top_k
+  Input should be greater than 0 [type=greater_than, input_value=0, input_type=int]
+    For further information visit https://errors.pydantic.dev/2.13/v/greater_than
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 654, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+__________________ test_an_absurdly_large_top_k_is_rejected ___________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_an_absurdly_large_top_k_i0')
+
+    def test_an_absurdly_large_top_k_is_rejected(tmp_path: Path) -> None:
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call",
+                {"name": "search_symbols", "arguments": {"query": "Widget", "top_k": 10_000_000}},
+            )
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           assert body["result"]["isError"] is True
+                   ^^^^^^^^^^^^^^
+E           KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:255: KeyError
+------------------------------ Captured log call ------------------------------
+WARNING  foss_mcp.mcp.server:server.py:532 suppressed unsafe exception text from an MCP client-facing result: type=ValidationError message='1 validation error for SearchSymbolsInput\ntop_k\n  Input should be less than or equal to 100 [type=less_than_equal, input_value=10000000, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/less_than_equal'
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 647, in _call_tool
+    validated_arguments = input_model.model_validate(params.arguments or {})
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\pydantic\main.py", line 732, in model_validate
+    return cls.__pydantic_validator__.validate_python(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        obj,
+        ^^^^
+    ...<5 lines>...
+        by_name=by_name,
+        ^^^^^^^^^^^^^^^^
+    )
+    ^
+pydantic_core._pydantic_core.ValidationError: 1 validation error for SearchSymbolsInput
+top_k
+  Input should be less than or equal to 100 [type=less_than_equal, input_value=10000000, input_type=int]
+    For further information visit https://errors.pydantic.dev/2.13/v/less_than_equal
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 654, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+___________ test_an_empty_query_is_rejected_with_a_clean_tool_error ___________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_an_empty_query_is_rejecte0')
+
+    def test_an_empty_query_is_rejected_with_a_clean_tool_error(tmp_path: Path) -> None:
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": "search_symbols", "arguments": {"query": ""}}
+            )
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           assert body["result"]["isError"] is True
+                   ^^^^^^^^^^^^^^
+E           KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:266: KeyError
+------------------------------ Captured log call ------------------------------
+WARNING  foss_mcp.mcp.server:server.py:532 suppressed unsafe exception text from an MCP client-facing result: type=ValidationError message="1 validation error for SearchSymbolsInput\nquery\n  Value error, query must not be empty [type=value_error, input_value='', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/value_error"
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 647, in _call_tool
+    validated_arguments = input_model.model_validate(params.arguments or {})
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\pydantic\main.py", line 732, in model_validate
+    return cls.__pydantic_validator__.validate_python(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        obj,
+        ^^^^
+    ...<5 lines>...
+        by_name=by_name,
+        ^^^^^^^^^^^^^^^^
+    )
+    ^
+pydantic_core._pydantic_core.ValidationError: 1 validation error for SearchSymbolsInput
+query
+  Value error, query must not be empty [type=value_error, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 654, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+___________________ test_an_empty_content_type_is_rejected ____________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_an_empty_content_type_is_0')
+
+    def test_an_empty_content_type_is_rejected(tmp_path: Path) -> None:
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call",
+                {"name": "search_docs", "arguments": {"query": "install", "content_type": ""}},
+            )
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           assert body["result"]["isError"] is True
+                   ^^^^^^^^^^^^^^
+E           KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:280: KeyError
+------------------------------ Captured log call ------------------------------
+WARNING  foss_mcp.mcp.server:server.py:532 suppressed unsafe exception text from an MCP client-facing result: type=ValidationError message="1 validation error for SearchDocsInput\ncontent_type\n  Value error, content_type must not be empty [type=value_error, input_value='', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/value_error"
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 647, in _call_tool
+    validated_arguments = input_model.model_validate(params.arguments or {})
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\pydantic\main.py", line 732, in model_validate
+    return cls.__pydantic_validator__.validate_python(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        obj,
+        ^^^^
+    ...<5 lines>...
+        by_name=by_name,
+        ^^^^^^^^^^^^^^^^
+    )
+    ^
+pydantic_core._pydantic_core.ValidationError: 1 validation error for SearchDocsInput
+content_type
+  Value error, content_type must not be empty [type=value_error, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 654, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+___________ test_a_valid_top_k_and_query_still_pass_through_cleanly ___________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_a_valid_top_k_and_query_s0')
+
+    def test_a_valid_top_k_and_query_still_pass_through_cleanly(tmp_path: Path) -> None:
+        """The bounds reject only genuinely malformed input - a normal call is unaffected."""
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": "search_symbols", "arguments": {"query": "Widget", "top_k": 3}}
+            )
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           assert body["result"]["isError"] is False
+                   ^^^^^^^^^^^^^^
+E           KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:292: KeyError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+__________________ test_each_tool_is_callable[find_examples] __________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_is_callable_fin0')
+tool_name = 'find_examples'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request("tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]})
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           assert "result" in body, body
+E           AssertionError: {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+E           assert 'result' in {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+
+tests\mcp\test_server_wiring.py:325: AssertionError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+______________ test_each_tool_is_callable[get_product_reference] ______________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_is_callable_get0')
+tool_name = 'get_product_reference'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request("tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]})
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           assert "result" in body, body
+E           AssertionError: {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+E           assert 'result' in {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+
+tests\mcp\test_server_wiring.py:325: AssertionError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+___________________ test_each_tool_is_callable[get_symbol] ____________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_is_callable_get1')
+tool_name = 'get_symbol'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request("tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]})
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           assert "result" in body, body
+E           AssertionError: {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+E           assert 'result' in {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+
+tests\mcp\test_server_wiring.py:325: AssertionError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+__________________ test_each_tool_is_callable[list_members] ___________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_is_callable_lis0')
+tool_name = 'list_members'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request("tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]})
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           assert "result" in body, body
+E           AssertionError: {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+E           assert 'result' in {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+
+tests\mcp\test_server_wiring.py:325: AssertionError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_______________ test_each_tool_is_callable[list_recent_changes] _______________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_is_callable_lis1')
+tool_name = 'list_recent_changes'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request("tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]})
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           assert "result" in body, body
+E           AssertionError: {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+E           assert 'result' in {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+
+tests\mcp\test_server_wiring.py:325: AssertionError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_____________________ test_each_tool_is_callable[lookup] ______________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_is_callable_loo0')
+tool_name = 'lookup'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request("tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]})
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           assert "result" in body, body
+E           AssertionError: {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+E           assert 'result' in {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+
+tests\mcp\test_server_wiring.py:325: AssertionError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_____________ test_each_tool_is_callable[report_index_freshness] ______________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_is_callable_rep0')
+tool_name = 'report_index_freshness'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request("tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]})
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           assert "result" in body, body
+E           AssertionError: {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+E           assert 'result' in {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+
+tests\mcp\test_server_wiring.py:325: AssertionError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+___________________ test_each_tool_is_callable[search_docs] ___________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_is_callable_sea0')
+tool_name = 'search_docs'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request("tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]})
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           assert "result" in body, body
+E           AssertionError: {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+E           assert 'result' in {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+
+tests\mcp\test_server_wiring.py:325: AssertionError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_________________ test_each_tool_is_callable[search_symbols] __________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_is_callable_sea1')
+tool_name = 'search_symbols'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request("tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]})
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           assert "result" in body, body
+E           AssertionError: {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+E           assert 'result' in {'jsonrpc': '2.0', 'id': 1, 'error': {'code': 0, 'message': "name '_log_tool_call' is not defined"}}
+
+tests\mcp\test_server_wiring.py:325: AssertionError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_ test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[find_examples] _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_calls_plain_tex0')
+tool_name = 'find_examples'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content(
+        tmp_path: Path, tool_name: str
+    ) -> None:
+        """The concrete bar this card must meet: content[0].text (the plain-text channel every
+        client also receives) parses as JSON and is identical to structured_content['result'] -
+        the two channels agree, and neither requires Python-specific parsing."""
+        import json
+    
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]}
+            )
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           result = body["result"]
+                     ^^^^^^^^^^^^^^
+E           KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:365: KeyError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_ test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[get_product_reference] _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_calls_plain_tex1')
+tool_name = 'get_product_reference'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content(
+        tmp_path: Path, tool_name: str
+    ) -> None:
+        """The concrete bar this card must meet: content[0].text (the plain-text channel every
+        client also receives) parses as JSON and is identical to structured_content['result'] -
+        the two channels agree, and neither requires Python-specific parsing."""
+        import json
+    
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]}
+            )
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           result = body["result"]
+                     ^^^^^^^^^^^^^^
+E           KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:365: KeyError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_ test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[get_symbol] _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_calls_plain_tex2')
+tool_name = 'get_symbol'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content(
+        tmp_path: Path, tool_name: str
+    ) -> None:
+        """The concrete bar this card must meet: content[0].text (the plain-text channel every
+        client also receives) parses as JSON and is identical to structured_content['result'] -
+        the two channels agree, and neither requires Python-specific parsing."""
+        import json
+    
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]}
+            )
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           result = body["result"]
+                     ^^^^^^^^^^^^^^
+E           KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:365: KeyError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_ test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[list_members] _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_calls_plain_tex3')
+tool_name = 'list_members'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content(
+        tmp_path: Path, tool_name: str
+    ) -> None:
+        """The concrete bar this card must meet: content[0].text (the plain-text channel every
+        client also receives) parses as JSON and is identical to structured_content['result'] -
+        the two channels agree, and neither requires Python-specific parsing."""
+        import json
+    
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]}
+            )
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           result = body["result"]
+                     ^^^^^^^^^^^^^^
+E           KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:365: KeyError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_ test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[list_recent_changes] _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_calls_plain_tex4')
+tool_name = 'list_recent_changes'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content(
+        tmp_path: Path, tool_name: str
+    ) -> None:
+        """The concrete bar this card must meet: content[0].text (the plain-text channel every
+        client also receives) parses as JSON and is identical to structured_content['result'] -
+        the two channels agree, and neither requires Python-specific parsing."""
+        import json
+    
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]}
+            )
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           result = body["result"]
+                     ^^^^^^^^^^^^^^
+E           KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:365: KeyError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_ test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[lookup] _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_calls_plain_tex5')
+tool_name = 'lookup'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content(
+        tmp_path: Path, tool_name: str
+    ) -> None:
+        """The concrete bar this card must meet: content[0].text (the plain-text channel every
+        client also receives) parses as JSON and is identical to structured_content['result'] -
+        the two channels agree, and neither requires Python-specific parsing."""
+        import json
+    
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]}
+            )
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           result = body["result"]
+                     ^^^^^^^^^^^^^^
+E           KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:365: KeyError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_ test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[report_index_freshness] _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_calls_plain_tex6')
+tool_name = 'report_index_freshness'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content(
+        tmp_path: Path, tool_name: str
+    ) -> None:
+        """The concrete bar this card must meet: content[0].text (the plain-text channel every
+        client also receives) parses as JSON and is identical to structured_content['result'] -
+        the two channels agree, and neither requires Python-specific parsing."""
+        import json
+    
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]}
+            )
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           result = body["result"]
+                     ^^^^^^^^^^^^^^
+E           KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:365: KeyError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_ test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[search_docs] _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_calls_plain_tex7')
+tool_name = 'search_docs'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content(
+        tmp_path: Path, tool_name: str
+    ) -> None:
+        """The concrete bar this card must meet: content[0].text (the plain-text channel every
+        client also receives) parses as JSON and is identical to structured_content['result'] -
+        the two channels agree, and neither requires Python-specific parsing."""
+        import json
+    
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]}
+            )
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           result = body["result"]
+                     ^^^^^^^^^^^^^^
+E           KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:365: KeyError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_ test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[search_symbols] _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_each_tool_calls_plain_tex8')
+tool_name = 'search_symbols'
+
+    @pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+    def test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content(
+        tmp_path: Path, tool_name: str
+    ) -> None:
+        """The concrete bar this card must meet: content[0].text (the plain-text channel every
+        client also receives) parses as JSON and is identical to structured_content['result'] -
+        the two channels agree, and neither requires Python-specific parsing."""
+        import json
+    
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": tool_name, "arguments": VALID_ARGUMENTS[tool_name]}
+            )
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           result = body["result"]
+                     ^^^^^^^^^^^^^^
+E           KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:365: KeyError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_____________ test_an_unknown_tool_call_carries_a_not_found_code ______________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_an_unknown_tool_call_carr0')
+
+    def test_an_unknown_tool_call_carries_a_not_found_code(tmp_path: Path) -> None:
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request("tools/call", {"name": "not_a_real_tool", "arguments": {}})
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           assert body["result"]["isError"] is True
+                   ^^^^^^^^^^^^^^
+E           KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:489: KeyError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 626, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+______ test_a_pydantic_validation_error_carries_an_invalid_argument_code ______
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_a_pydantic_validation_err0')
+
+    def test_a_pydantic_validation_error_carries_an_invalid_argument_code(tmp_path: Path) -> None:
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": "search_symbols", "arguments": {"query": "", "top_k": 3}}
+            )
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           assert body["result"]["isError"] is True
+                   ^^^^^^^^^^^^^^
+E           KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:501: KeyError
+------------------------------ Captured log call ------------------------------
+WARNING  foss_mcp.mcp.server:server.py:532 suppressed unsafe exception text from an MCP client-facing result: type=ValidationError message="1 validation error for SearchSymbolsInput\nquery\n  Value error, query must not be empty [type=value_error, input_value='', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/value_error"
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 647, in _call_tool
+    validated_arguments = input_model.model_validate(params.arguments or {})
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\pydantic\main.py", line 732, in model_validate
+    return cls.__pydantic_validator__.validate_python(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        obj,
+        ^^^^
+    ...<5 lines>...
+        by_name=by_name,
+        ^^^^^^^^^^^^^^^^
+    )
+    ^
+pydantic_core._pydantic_core.ValidationError: 1 validation error for SearchSymbolsInput
+query
+  Value error, query must not be empty [type=value_error, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 654, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_ test_an_unexpected_tool_exception_carries_an_internal_code_and_a_sanitized_message _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_an_unexpected_tool_except0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000018DDDCEE3F0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000018DDDC67750>
+
+    def test_an_unexpected_tool_exception_carries_an_internal_code_and_a_sanitized_message(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """The concrete bar this card must meet: a real exception containing an internal marker (a
+        fake file path here) never reaches the client's own result text, but is still logged
+        server-side with full detail - proven over the real served transport, not a unit stand-in
+        for it.
+        """
+    
+        def _boom(*args: object, **kwargs: object) -> None:
+            raise RuntimeError(r"failed loading C:\Users\prora\secret\shadow_config.ini")
+    
+        monkeypatch.setattr("foss_mcp.mcp.server.search_symbols", _boom)
+    
+        with caplog.at_level(logging.WARNING):
+            with _client(tmp_path) as client:
+                session = _McpSession(client)
+                response = session.request(
+                    "tools/call", {"name": "search_symbols", "arguments": {"query": "Widget"}}
+                )
+        assert response.status_code == 200
+        body = _sse_json(response.text)
+>       assert body["result"]["isError"] is True
+               ^^^^^^^^^^^^^^
+E       KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:527: KeyError
+------------------------------ Captured log call ------------------------------
+ERROR    foss_mcp.mcp.server:server.py:675 tool 'search_symbols' raised RuntimeError: failed loading C:\Users\prora\secret\shadow_config.ini
+WARNING  foss_mcp.mcp.server:server.py:532 suppressed unsafe exception text from an MCP client-facing result: type=RuntimeError message='failed loading C:\\Users\\prora\\secret\\shadow_config.ini'
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 648, in _call_tool
+    result = handler(**validated_arguments.model_dump())
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 85, in search_symbols_tool
+    return search_symbols(store, scope, query, top_k=top_k)
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\tests\mcp\test_server_wiring.py", line 515, in _boom
+    raise RuntimeError(r"failed loading C:\Users\prora\secret\shadow_config.ini")
+RuntimeError: failed loading C:\Users\prora\secret\shadow_config.ini
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 677, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_ test_a_normal_tool_domain_miss_still_reports_cleanly_without_an_error_code __
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_a_normal_tool_domain_miss0')
+
+    def test_a_normal_tool_domain_miss_still_reports_cleanly_without_an_error_code(
+        tmp_path: Path,
+    ) -> None:
+        """A successful tool call (even an honest Miss/NotFound business result) is unaffected by
+        any of this - only the transport-level error path gained a code."""
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": "get_symbol", "arguments": {"fqn": "Not.A.Real.Symbol"}}
+            )
+            assert response.status_code == 200
+            body = _sse_json(response.text)
+>           assert body["result"]["isError"] is False
+                   ^^^^^^^^^^^^^^
+E           KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:549: KeyError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_ test_a_real_tool_call_emits_exactly_one_log_record_with_tool_correlation_id_and_outcome _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_a_real_tool_call_emits_ex0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000018DDDCEE9E0>
+
+    def test_a_real_tool_call_emits_exactly_one_log_record_with_tool_correlation_id_and_outcome(
+        tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.INFO, logger="foss_mcp.mcp.server"):
+            with _client(tmp_path) as client:
+                session = _McpSession(client)
+                response = session.request(
+                    "tools/call", {"name": "search_symbols", "arguments": {"query": "Widget"}}
+                )
+        assert response.status_code == 200
+        body = _sse_json(response.text)
+>       assert body["result"]["isError"] is False
+               ^^^^^^^^^^^^^^
+E       KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:572: KeyError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_______ test_an_error_results_correlation_id_matches_its_own_log_record _______
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_an_error_results_correlat0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000018DDDCED6E0>
+
+    def test_an_error_results_correlation_id_matches_its_own_log_record(
+        tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.INFO, logger="foss_mcp.mcp.server"):
+            with _client(tmp_path) as client:
+                session = _McpSession(client)
+                response = session.request(
+                    "tools/call", {"name": "search_symbols", "arguments": {"query": ""}}
+                )
+        assert response.status_code == 200
+        body = _sse_json(response.text)
+>       assert body["result"]["isError"] is True
+               ^^^^^^^^^^^^^^
+E       KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:595: KeyError
+------------------------------ Captured log call ------------------------------
+WARNING  foss_mcp.mcp.server:server.py:532 suppressed unsafe exception text from an MCP client-facing result: type=ValidationError message="1 validation error for SearchSymbolsInput\nquery\n  Value error, query must not be empty [type=value_error, input_value='', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/value_error"
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 647, in _call_tool
+    validated_arguments = input_model.model_validate(params.arguments or {})
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\pydantic\main.py", line 732, in model_validate
+    return cls.__pydantic_validator__.validate_python(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        obj,
+        ^^^^
+    ...<5 lines>...
+        by_name=by_name,
+        ^^^^^^^^^^^^^^^^
+    )
+    ^
+pydantic_core._pydantic_core.ValidationError: 1 validation error for SearchSymbolsInput
+query
+  Value error, query must not be empty [type=value_error, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 654, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_ test_an_unknown_tool_calls_error_correlation_id_matches_its_own_log_record __
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_an_unknown_tool_calls_err0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000018DDDCB1010>
+
+    def test_an_unknown_tool_calls_error_correlation_id_matches_its_own_log_record(
+        tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.INFO, logger="foss_mcp.mcp.server"):
+            with _client(tmp_path) as client:
+                session = _McpSession(client)
+                response = session.request("tools/call", {"name": "not_a_real_tool", "arguments": {}})
+        assert response.status_code == 200
+        body = _sse_json(response.text)
+>       assert body["result"]["isError"] is True
+               ^^^^^^^^^^^^^^
+E       KeyError: 'result'
+
+tests\mcp\test_server_wiring.py:616: KeyError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 626, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+_______ test_two_different_tool_calls_get_two_different_correlation_ids _______
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1115/test_two_different_tool_calls_0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000018DDDD059D0>
+
+    def test_two_different_tool_calls_get_two_different_correlation_ids(
+        tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.INFO, logger="foss_mcp.mcp.server"):
+            with _client(tmp_path) as client:
+                session = _McpSession(client)
+                session.request("tools/call", {"name": "search_symbols", "arguments": {"query": "Widget"}})
+                session.request("tools/call", {"name": "search_symbols", "arguments": {"query": "Widget"}})
+    
+        tool_call_records = [record for record in caplog.records if hasattr(record, "correlation_id")]
+>       assert len(tool_call_records) == 2
+E       assert 0 == 2
+E        +  where 0 = len([])
+
+tests\mcp\test_server_wiring.py:636: AssertionError
+------------------------------ Captured log call ------------------------------
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+ERROR    mcp.shared.jsonrpc_dispatcher:jsonrpc_dispatcher.py:754 handler for 'tools/call' raised
+Traceback (most recent call last):
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\shared\jsonrpc_dispatcher.py", line 720, in _handle_request
+    result = await on_request(dctx, req.method, req.params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 230, in _on_request
+    result = _dump_result(await call(ctx))
+                          ^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\_otel.py", line 44, in __call__
+    result = await call_next(ctx)
+             ^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\mcp\server\runner.py", line 217, in _inner
+    result = await entry.handler(ctx, typed_params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7wcrc0zu\src\foss_mcp\mcp\server.py", line 693, in _call_tool
+    _log_tool_call(
+    ^^^^^^^^^^^^^^
+NameError: name '_log_tool_call' is not defined
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/mcp/test_server_wiring.py::test_a_non_positive_top_k_is_rejected_with_a_clean_tool_error
+FAILED tests/mcp/test_server_wiring.py::test_an_absurdly_large_top_k_is_rejected
+FAILED tests/mcp/test_server_wiring.py::test_an_empty_query_is_rejected_with_a_clean_tool_error
+FAILED tests/mcp/test_server_wiring.py::test_an_empty_content_type_is_rejected
+FAILED tests/mcp/test_server_wiring.py::test_a_valid_top_k_and_query_still_pass_through_cleanly
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[find_examples]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[get_product_reference]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[get_symbol]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[list_members]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[list_recent_changes]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[lookup] - ...
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[report_index_freshness]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[search_docs]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_is_callable[search_symbols]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[find_examples]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[get_product_reference]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[get_symbol]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[list_members]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[list_recent_changes]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[lookup]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[report_index_freshness]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[search_docs]
+FAILED tests/mcp/test_server_wiring.py::test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content[search_symbols]
+FAILED tests/mcp/test_server_wiring.py::test_an_unknown_tool_call_carries_a_not_found_code
+FAILED tests/mcp/test_server_wiring.py::test_a_pydantic_validation_error_carries_an_invalid_argument_code
+FAILED tests/mcp/test_server_wiring.py::test_an_unexpected_tool_exception_carries_an_internal_code_and_a_sanitized_message
+FAILED tests/mcp/test_server_wiring.py::test_a_normal_tool_domain_miss_still_reports_cleanly_without_an_error_code
+FAILED tests/mcp/test_server_wiring.py::test_a_real_tool_call_emits_exactly_one_log_record_with_tool_correlation_id_and_outcome
+FAILED tests/mcp/test_server_wiring.py::test_an_error_results_correlation_id_matches_its_own_log_record
+FAILED tests/mcp/test_server_wiring.py::test_an_unknown_tool_calls_error_correlation_id_matches_its_own_log_record
+FAILED tests/mcp/test_server_wiring.py::test_two_different_tool_calls_get_two_different_correlation_ids
+
+--- stderr ---
+
