@@ -123,6 +123,10 @@ def test_readyz_is_never_rejected_for_missing_mcp_headers(tmp_path: Path) -> Non
             assert response.text != '{"error": "rejected"}'
 
 
+def _assert_response_is_allowed(response) -> None:
+    assert response.status_code != 400, response.text
+
+
 def test_mcp_transport_is_still_reachable_alongside_readyz(tmp_path: Path) -> None:
     """/readyz is mounted alongside the MCP app, never in place of it - the existing transport
     (and its Origin/protocol-version rejection) must be unaffected."""
@@ -130,13 +134,23 @@ def test_mcp_transport_is_still_reachable_alongside_readyz(tmp_path: Path) -> No
     with _client(store) as client:
         response = client.post(
             "/mcp",
-            json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {},
+                    "clientInfo": {"name": "test-client", "version": "0.0.1"},
+                },
+            },
             headers={
                 "Accept": "application/json, text/event-stream",
                 "Content-Type": "application/json",
                 # No Origin (allowed_origins is [] here; an absent Origin is never rejected on
-                # its own) but a missing MCP-Protocol-Version IS rejected by the transport.
+                # its own) and a missing MCP-Protocol-Version is now correctly allowed through
+                # too (TC-124) - a genuine client's very first initialize request never carries
+                # it yet, so this must reach real dispatch rather than being rejected at 400.
             },
         )
-        assert response.status_code == 400
-        assert response.json()["error"] == "rejected"
+        _assert_response_is_allowed(response)

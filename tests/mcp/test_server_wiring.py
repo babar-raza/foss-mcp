@@ -139,9 +139,13 @@ def test_an_absent_origin_is_not_rejected_on_its_own() -> None:
     assert reason is None
 
 
-def test_a_missing_protocol_version_is_rejected() -> None:
+def _assert_request_is_allowed(reason: str | None) -> None:
+    assert reason is None, f"expected the request to be allowed, got rejection reason: {reason!r}"
+
+
+def test_a_missing_protocol_version_is_allowed_through() -> None:
     reason = reject_request({"Origin": "https://example.com"}, allowed_origins=ALLOWED_ORIGINS)
-    assert reason is not None and "protocol-version" in reason.lower()
+    _assert_request_is_allowed(reason)
 
 
 def test_an_invalid_protocol_version_is_rejected() -> None:
@@ -381,14 +385,28 @@ def test_a_bad_origin_is_rejected_at_the_transport_never_reaching_a_tool(tmp_pat
         assert "origin" in response.json()["reason"].lower()
 
 
-def test_a_missing_protocol_version_is_rejected_with_400(tmp_path: Path) -> None:
+def test_a_missing_protocol_version_is_allowed_through_with_a_real_initialize_response(
+    tmp_path: Path,
+) -> None:
     with _client(tmp_path) as client:
         headers = {key: value for key, value in VALID_HEADERS.items() if key != "MCP-Protocol-Version"}
         response = client.post(
-            "/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}, headers=headers
+            "/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": 0,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {},
+                    "clientInfo": {"name": "test-client", "version": "0.0.1"},
+                },
+            },
+            headers=headers,
         )
-        assert response.status_code == 400
-        assert "protocol-version" in response.json()["reason"].lower()
+        assert response.status_code == 200, response.text
+        body = _sse_json(response.text)
+        assert "result" in body and "error" not in body
 
 
 def test_an_invalid_protocol_version_is_rejected_with_400(tmp_path: Path) -> None:
