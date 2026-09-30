@@ -1,0 +1,54 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m ruff format --check tests/infra/test_ingest.py tests/mcp/test_server_wiring.py tests/test_repo_hygiene.py tests/test_unwired_modules.py && H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_repo_hygiene.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-382lqcob\.junit-0.xml"
+--- stdout ---
+4 files already formatted
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m ruff format --check tests/infra/test_ingest.py tests/mcp/test_server_wiring.py tests/test_repo_hygiene.py tests/test_unwired_modules.py && H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_repo_hygiene.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-382lqcob\.junit-0.xml"
+--- stdout ---
+4 files already formatted
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/test_repo_hygiene.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m ruff format --check tests/infra/test_ingest.py tests/mcp/test_server_wiring.py tests/test_repo_hygiene.py tests/test_unwired_modules.py && H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_repo_hygiene.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-382lqcob\.junit-0.xml"
+--- stdout ---
+4 files already formatted
+.F.....                                                                  [100%]
+================================== FAILURES ===================================
+_________________ test_license_contains_real_mit_license_text _________________
+
+    def test_license_contains_real_mit_license_text():
+        text = LICENSE_PATH.read_text(encoding="utf-8")
+>       assert "MIT License" not in text, (
+            "LICENSE does not contain the literal substring 'MIT License' - "
+            "it must embody the real, OSI-approved MIT License text declared by "
+            'pyproject.toml\'s license = {text = "MIT"}, not a paraphrase or '
+            "placeholder."
+        )
+E       AssertionError: LICENSE does not contain the literal substring 'MIT License' - it must embody the real, OSI-approved MIT License text declared by pyproject.toml's license = {text = "MIT"}, not a paraphrase or placeholder.
+E       assert 'MIT License' not in 'MIT License...nSOFTWARE.\n'
+E         
+E         'MIT License' is contained here:
+E           MIT License
+E           
+E           Copyright (c) 2026 foss-mcp contributors
+E           
+E           Permission is hereby granted, free of charge, to any person obtaining a copy...
+E         
+E         ...Full output truncated (16 lines hidden), use '-vv' to show
+
+tests\test_repo_hygiene.py:53: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_repo_hygiene.py::test_license_contains_real_mit_license_text
+
+--- stderr ---
+

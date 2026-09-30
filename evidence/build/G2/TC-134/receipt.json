@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-134",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-09-30T11:17:02Z",
+  "base_rev": "283755c328316ba3751846a28e5e0b9780607032",
+  "head_rev": "6538b63ab9a75c99f625f0d5e715f8c4e2f877fb",
+  "card_sha256": "87abb221331716d243fe12dbec473a0a45be11d5866237154596d196647dda83",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/infra/test_ingest.py",
+      "tests/mcp/test_server_wiring.py",
+      "tests/test_repo_hygiene.py",
+      "tests/test_unwired_modules.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m ruff format --check tests/infra/test_ingest.py tests/mcp/test_server_wiring.py tests/test_repo_hygiene.py tests/test_unwired_modules.py && {python} -m pytest tests/test_repo_hygiene.py -q",
+          "exit_code": 0,
+          "duration_s": 0.758,
+          "stdout_sha256": "0e7289b78cad73b303fcf01a3f8e1f4c391f70b2155849a34c54a9186cf40798",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m ruff format --check tests/infra/test_ingest.py tests/mcp/test_server_wiring.py tests/test_repo_hygiene.py tests/test_unwired_modules.py && {python} -m pytest tests/test_repo_hygiene.py -q",
+          "exit_code": 0,
+          "duration_s": 0.724,
+          "stdout_sha256": "0e7289b78cad73b303fcf01a3f8e1f4c391f70b2155849a34c54a9186cf40798",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('tests/test_repo_hygiene.py');s=p.read_text(encoding='utf-8');s=s.replace('assert \\\"MIT License\\\" in text','assert \\\"MIT License\\\" not in text');p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "7e80b3d67ac43991cadcd167bb116930e435c5f6388e3368908e1b4d16b63225",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/test_repo_hygiene.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
