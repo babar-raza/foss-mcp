@@ -1,0 +1,91 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_server_wiring.py tests/infra/test_serve_http.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-sz_x7mho\.junit-0.xml"
+--- stdout ---
+.......................................................................  [100%]
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_server_wiring.py tests/infra/test_serve_http.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-sz_x7mho\.junit-0.xml"
+--- stdout ---
+.......................................................................  [100%]
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/infra/test_serve_http.py, M tests/mcp/test_server_wiring.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_server_wiring.py tests/infra/test_serve_http.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-sz_x7mho\.junit-0.xml"
+--- stdout ---
+..F...................................................................F  [100%]
+================================== FAILURES ===================================
+_____________ test_a_missing_protocol_version_is_allowed_through ______________
+
+    def test_a_missing_protocol_version_is_allowed_through() -> None:
+        reason = reject_request({"Origin": "https://example.com"}, allowed_origins=ALLOWED_ORIGINS)
+>       _assert_request_is_allowed(reason)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_assert_request_is_allowed' is not defined
+
+tests\mcp\test_server_wiring.py:148: NameError
+___________ test_mcp_transport_is_still_reachable_alongside_readyz ____________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1126/test_mcp_transport_is_still_re0')
+
+    def test_mcp_transport_is_still_reachable_alongside_readyz(tmp_path: Path) -> None:
+        """/readyz is mounted alongside the MCP app, never in place of it - the existing transport
+        (and its Origin/protocol-version rejection) must be unaffected."""
+        store = _store(tmp_path)
+        with _client(store) as client:
+            response = client.post(
+                "/mcp",
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2025-06-18",
+                        "capabilities": {},
+                        "clientInfo": {"name": "test-client", "version": "0.0.1"},
+                    },
+                },
+                headers={
+                    "Accept": "application/json, text/event-stream",
+                    "Content-Type": "application/json",
+                    # No Origin (allowed_origins is [] here; an absent Origin is never rejected on
+                    # its own) and a missing MCP-Protocol-Version is now correctly allowed through
+                    # too (TC-124) - a genuine client's very first initialize request never carries
+                    # it yet, so this must reach real dispatch rather than being rejected at 400.
+                },
+            )
+>           _assert_response_is_allowed(response)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_assert_response_is_allowed' is not defined
+
+tests\infra\test_serve_http.py:156: NameError
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/mcp/test_server_wiring.py::test_a_missing_protocol_version_is_allowed_through
+FAILED tests/infra/test_serve_http.py::test_mcp_transport_is_still_reachable_alongside_readyz
+
+--- stderr ---
+
