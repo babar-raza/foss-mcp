@@ -17,7 +17,7 @@ from starlette.testclient import TestClient
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import DeploymentConfig
-from foss_mcp.mcp.server import create_server, schema_for
+from foss_mcp.mcp.server import create_server, schema_for, tool_description
 from foss_mcp.mcp.transport_security import reject_request
 
 # infra/ is not a package (no __init__.py, matching scripts/ convention) - import its module
@@ -165,6 +165,123 @@ def test_schema_for_marks_defaulted_parameters_optional() -> None:
     assert schema["properties"]["required_one"] == {"type": "string"}
     assert schema["properties"]["optional_one"] == {"type": "integer"}
     assert schema["required"] == ["required_one"]
+
+
+def test_schema_for_adds_a_shared_description_per_known_field_name() -> None:
+    """A field name that repeats across tools (e.g. top_k) gets the identical description
+    wherever it appears - the description lives once, keyed by field name, never hand-written
+    per tool."""
+
+    def example(*, query: str, top_k: int = 10, unknown_field: str = "x") -> None:
+        pass
+
+    schema = schema_for(example)
+    assert schema["properties"]["query"]["description"]
+    assert schema["properties"]["top_k"]["description"]
+    assert schema["properties"]["query"]["description"] != schema["properties"]["top_k"]["description"]
+    # A field name with no registered description is left exactly as before - no description key.
+    assert "description" not in schema["properties"]["unknown_field"]
+
+
+# ---------------------------------------------------------------------
+# tool_description - every one of the 9 tools has a real, specific, grounded description;
+# no placeholder text remains.
+# ---------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("tool_name", sorted(EXPECTED_TOOLS))
+def test_tool_description_is_not_the_placeholder_string(tool_name: str) -> None:
+    description = tool_description(tool_name)
+    assert description != f"foss-mcp tool: {tool_name}"
+    # A real, grounded description is substantially longer than the old one-line placeholder.
+    assert len(description) > 80
+
+
+def test_every_tool_description_is_distinct() -> None:
+    descriptions = [tool_description(name) for name in EXPECTED_TOOLS]
+    assert len(set(descriptions)) == len(EXPECTED_TOOLS)
+
+
+def test_sibling_tools_are_cross_referenced_in_their_own_descriptions() -> None:
+    """The concrete bar this card must meet: a description states WHEN to call this tool
+    relative to a sibling, not just what it does in isolation."""
+    assert "search_symbols" in tool_description("lookup")
+    assert "get_symbol" in tool_description("search_symbols")
+    assert "search_symbols" in tool_description("get_symbol")
+
+
+def test_an_unregistered_tool_name_raises_key_error_rather_than_a_silent_placeholder() -> None:
+    with pytest.raises(KeyError):
+        tool_description("not_a_real_tool")
+
+
+# ---------------------------------------------------------------------
+# Pydantic-based argument bounds: a malformed top_k/query/content_type produces a clean,
+# bounded is_error result rather than an unhandled exception - proven over the real served
+# transport, not just the validation models in isolation.
+# ---------------------------------------------------------------------
+
+
+def test_a_non_positive_top_k_is_rejected_with_a_clean_tool_error(tmp_path: Path) -> None:
+    with _client(tmp_path) as client:
+        session = _McpSession(client)
+        response = session.request(
+            "tools/call", {"name": "search_symbols", "arguments": {"query": "Widget", "top_k": 0}}
+        )
+        assert response.status_code == 200
+        body = _sse_json(response.text)
+        assert body["result"]["isError"] is True
+        text = body["result"]["content"][0]["text"]
+        assert "Traceback" not in text and "TypeError" not in text
+
+
+def test_an_absurdly_large_top_k_is_rejected(tmp_path: Path) -> None:
+    with _client(tmp_path) as client:
+        session = _McpSession(client)
+        response = session.request(
+            "tools/call",
+            {"name": "search_symbols", "arguments": {"query": "Widget", "top_k": 10_000_000}},
+        )
+        assert response.status_code == 200
+        body = _sse_json(response.text)
+        assert body["result"]["isError"] is True
+
+
+def test_an_empty_query_is_rejected_with_a_clean_tool_error(tmp_path: Path) -> None:
+    with _client(tmp_path) as client:
+        session = _McpSession(client)
+        response = session.request(
+            "tools/call", {"name": "search_symbols", "arguments": {"query": ""}}
+        )
+        assert response.status_code == 200
+        body = _sse_json(response.text)
+        assert body["result"]["isError"] is True
+        text = body["result"]["content"][0]["text"]
+        assert "Traceback" not in text
+
+
+def test_an_empty_content_type_is_rejected(tmp_path: Path) -> None:
+    with _client(tmp_path) as client:
+        session = _McpSession(client)
+        response = session.request(
+            "tools/call",
+            {"name": "search_docs", "arguments": {"query": "install", "content_type": ""}},
+        )
+        assert response.status_code == 200
+        body = _sse_json(response.text)
+        assert body["result"]["isError"] is True
+
+
+def test_a_valid_top_k_and_query_still_pass_through_cleanly(tmp_path: Path) -> None:
+    """The bounds reject only genuinely malformed input - a normal call is unaffected."""
+    with _client(tmp_path) as client:
+        session = _McpSession(client)
+        response = session.request(
+            "tools/call", {"name": "search_symbols", "arguments": {"query": "Widget", "top_k": 3}}
+        )
+        assert response.status_code == 200
+        body = _sse_json(response.text)
+        assert body["result"]["isError"] is False
 
 
 # ---------------------------------------------------------------------
