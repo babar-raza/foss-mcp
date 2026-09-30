@@ -1,0 +1,95 @@
+id: TC-123
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix real ruff-format debt the repo''s own pre-push hook (scripts/ci_check.sh)
+  found and correctly blocked a push over: 9 files touched across this pipeline''s
+  own worker commits (TC-111, TC-119, TC-113-118, TC-121) are not ruff-format clean
+  - lint, typecheck, pytest, and gatectl all pass; only format fails. This mirrors
+  exactly the same class of defect TC-108 fixed earlier in this project (REQ-G2-047''s
+  own whole-repo format check, not any one card''s own scope, catching debt that accumulates
+  silently across many individually-clean commits).'
+depends_on:
+- TC-064
+- TC-069
+- TC-079
+- TC-089
+- TC-098
+- TC-099
+- TC-100
+- TC-101
+- TC-102
+- TC-105
+- TC-106
+- TC-107
+- TC-108
+- TC-111
+- TC-113
+- TC-114
+- TC-115
+- TC-116
+- TC-117
+- TC-118
+- TC-119
+- TC-121
+write_paths:
+- infra/generate_furnished_page.py
+- tests/e2e/test_cells_rust_live_content.py
+- tests/e2e/test_pdf_go_live_content.py
+- tests/e2e/test_pdf_java_live_content.py
+- tests/e2e/test_pdf_net_live_content.py
+- tests/e2e/test_pdf_typescript_live_content.py
+- tests/e2e/test_slides_python_live_content.py
+- tests/infra/test_generate_furnished_page.py
+- tests/normalization/test_citation.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Run `.venv\Scripts\python.exe -m ruff format --diff` scoped to exactly these 9 files
+  first to see the real, current formatting debt before changing anything.
+- Apply `.venv\Scripts\python.exe -m ruff format` to exactly these 9 files - pure
+  formatting, zero logic/behavior change. Do not hand-edit anything ruff format would
+  not itself produce.
+- 'After formatting, run the FULL suite (not just these 9 files) once to confirm zero
+  behavior change: `.venv\Scripts\python.exe -m pytest --ignore=tests/e2e --ignore=tests/infra
+  -q` must show the same pass count as before your change.'
+- Do not touch any file outside this exact list of 9 - if ruff format wants to reformat
+  something else too, leave it for a separate card (this card's write_paths are fixed).
+actions:
+- Apply ruff format to exactly the 9 named files.
+- Confirm `ruff format --check` on those 9 files now passes clean.
+- Run the broader suite once to confirm no behavior change.
+checks:
+- command: '{python} -m ruff format --check infra/generate_furnished_page.py tests/e2e/test_cells_rust_live_content.py
+    tests/e2e/test_pdf_go_live_content.py tests/e2e/test_pdf_java_live_content.py
+    tests/e2e/test_pdf_net_live_content.py tests/e2e/test_pdf_typescript_live_content.py
+    tests/e2e/test_slides_python_live_content.py tests/infra/test_generate_furnished_page.py
+    tests/normalization/test_citation.py && {python} -m pytest tests/normalization/test_citation.py
+    -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 33
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/normalization/test_citation.py');s=p.read_text(encoding='utf-8');s=s.replace('historical_805_classes_sentence
+    = ','historical_805_classes_sentence_x = ',1);p.write_text(s,encoding='utf-8')"
+  rationale: Renaming only the assignment of historical_805_classes_sentence (the
+    real, load-bearing local TC-121 introduced in test_citation.py's OQ-001 test)
+    while leaving its later use unchanged raises a NameError at that use, failing
+    the check's pytest half - proving the check genuinely exercises this file's real
+    content, not merely its formatting. Self-checked end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-123/receipt.json
+closeout:
+- All 9 files are ruff-format clean.
+- The full suite shows zero behavior change from before this card.
+- scripts/ci_check.sh's own format step passes, unblocking the push.
+- Renaming the OQ-001 constant fails the check again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
