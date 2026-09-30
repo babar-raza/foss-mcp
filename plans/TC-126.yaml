@@ -25,6 +25,12 @@ source_refs:
     acceptance tests with the items §8 of the Round-6 review specifically required)'
   sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
 inputs:
+- 'Note on this card''s own check command: it deselects (`-k "not test_a_missing_protocol_version_is_rejected"`)
+  2 tests in this same file that TC-124''s real fix correctly broke - TC-133 (already
+  authored) owns fixing them specifically, and depends on this card plus TC-125/131/132
+  (all sharing this file) landing first, so those 2 tests cannot be part of any of
+  their own checks without an unresolvable circular dependency. Do not touch those
+  2 tests yourself; do not remove the `-k` deselect.'
 - Read server.py's _call_tool in full first - specifically the CallToolResult construction
   using repr(result) and the already-existing _to_jsonable(result) call used for structured_content.
 - 'REQUIRED, exact shape (function name load-bearing for the negative control): a
@@ -41,7 +47,7 @@ actions:
   the structured_content it sits alongside (parse content[0].text with json.loads
   and compare to structured_content['result']).
 checks:
-- command: '{python} -m pytest tests/mcp/test_server_wiring.py -q'
+- command: '{python} -m pytest tests/mcp/test_server_wiring.py -q -k "not test_a_missing_protocol_version_is_rejected"'
   expect: exit 0
   timeout_seconds: 120
   junitxml: true
