@@ -999,3 +999,47 @@ consumers exist for foss-mcp's MCP surface to contract-test against), and its
 client-supplied-fingerprint-header rate-limiting design (confirmed independently: a real
 bypass surface, key any future rate limiting on something the server itself derives, never a
 client-asserted header).
+
+## 2026-09-30 — TC-130's real import-graph walk found 14 unwired symbols, not the 2 named
+TC-130 (the unwired-module regression test) was authored expecting to pin exactly 2 known
+cases (`query_vector_index`, `UsageRecorder`). Its worker built a real `ast`-based import-graph
+walk (BFS from the 5 real production entrypoints, restricted to files already on that reachable
+set to avoid false-flagging this project's legitimate offline/build-time subsystems - the
+tree-sitter extraction pipeline, the one-time topology spike) and found 12 MORE real,
+independently-verified gaps:
+
+- `foss_mcp.mcp.health.is_alive`, `.round_trip_check` - liveness/deep-readiness probes that
+  exist and are tested but are never routed anywhere in `infra/serve_http.py`.
+- `foss_mcp.indexing.publisher.rollback_generation` - a real, tested rollback path with no
+  caller anywhere that would ever trigger it in production.
+- `foss_mcp.indexing.example_verifier.prepare_cpp_library`, `.verify_cpp_example` -
+  `infra/build_chunks.py` dispatches compile-verification for every other platform
+  (dotnet/go/java/python/rust/typescript) but never C++.
+- `foss_mcp.extraction.claim_id_bridge.resolve_anchor`, `.manifest_reader.fetch_manifest_file`,
+  `.repo_native_reader.read_repo_document`, `.indexing.generation_manifest.build_manifest`,
+  `.normalization.chunker.with_validation`, `.document_schema.to_dict`/`from_dict`.
+
+Two of these (`fetch_manifest_file`, `with_validation`) have ZERO test coverage at all - not
+merely unwired, genuinely unexercised by anything.
+
+**Not resolved here, deliberately** - per TC-130's own scope and the same principle AGENTS.md
+states for the original 2: whether each of these 12 should be wired in for real, or deleted, is
+a real product decision, not a default. Recorded so it is tracked, not lost:
+
+- `is_alive`/`round_trip_check` are the most immediately relevant to the hosting-readiness push
+  already underway (TC-124-133): the second ADCS review's own observability section
+  independently recommended a `/healthz` (unconditional liveness) distinct from foss-mcp's
+  existing `/readyz` (real generation-based readiness) - wiring `is_alive` into exactly that new
+  endpoint would close both findings with one small card. Worth prioritizing above the rest of
+  this list.
+- `rollback_generation` being unreachable in production is a real operational gap (there is
+  presently no way to actually invoke a rollback outside a test) - worth a small CLI or admin
+  entrypoint once there is an operational surface to hang it on.
+- The C++ example-verification gap only matters once/if `cells_cpp` (the 7th, currently
+  out-of-scope pilot per this project's own 6-pilot proof) is ever brought in - not urgent now.
+- The remaining extraction/normalization helpers (`resolve_anchor`, `fetch_manifest_file`,
+  `read_repo_document`, `build_manifest`, `with_validation`, `to_dict`/`from_dict`) need a real
+  read of each one's own git history/superseding commit before deciding wire vs. delete - several
+  look like plausible leftovers from an earlier refactor that already replaced their call site
+  with something else, which would make them deletion candidates, not wiring candidates, but this
+  needs verifying per-symbol, not assuming.
