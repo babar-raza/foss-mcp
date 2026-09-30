@@ -1,0 +1,42 @@
+# foss-mcp build context exclusions (TC-127 / REQ-G2-047).
+#
+# Without this file, `docker build .` sends the ENTIRE working tree to the
+# daemon as build context, including .git history, every gatectl worktree,
+# and the local virtualenv - none of which any image build ever needs.
+# Both Dockerfile.serving and Dockerfile.ingestion COPY only a small, explicit
+# set of paths (requirements.lock, src/, config/, infra/*.py, and a handful of
+# named files under tests/fixtures/<pilot>/), so nothing below removes
+# anything either Dockerfile actually references.
+
+# Version control
+.git/
+.github/
+.gitattributes
+.gitignore
+.githooks/
+
+# Governance / supervisor-worker tooling - never needed inside a built image
+evidence/
+ops/
+plans/
+project/
+docs/
+.gatectl-worktrees/
+.kilo/
+.claude/
+
+# Local Python environment and caches
+.venv/
+__pycache__/
+*.py[co]
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.benchmarks/
+
+# Test fixture bundles (large, offline-test-only; never COPYed by a Dockerfile)
+tests/fixtures/bundles
+
+# Misc editor/OS cruft
+.DS_Store
+Thumbs.db
