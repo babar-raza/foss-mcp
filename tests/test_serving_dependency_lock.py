@@ -88,9 +88,7 @@ def test_dockerfile_serving_installs_from_the_serving_only_lock() -> None:
         if line.strip().startswith("COPY") or line.strip().startswith("RUN")
     ]
     offending = [line for line in instruction_lines if re.search(r"\brequirements\.lock\b", line)]
-    assert not offending, (
-        f"Dockerfile.serving still installs from the full requirements.lock: {offending}"
-    )
+    assert not offending, f"Dockerfile.serving still installs from the full requirements.lock: {offending}"
 
 
 def test_a_real_docker_build_of_the_serving_image_can_still_import_the_server() -> None:

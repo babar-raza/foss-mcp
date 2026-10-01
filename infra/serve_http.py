@@ -149,9 +149,7 @@ def build_app(
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
         custom_starlette_routes=[_healthz_route(), _readyz_route(deployment_config, resolved_store)],
     )
-    return RejectionMiddleware(
-        inner, allowed_origins, exempt_paths=frozenset({HEALTHZ_PATH, READYZ_PATH})
-    )
+    return RejectionMiddleware(inner, allowed_origins, exempt_paths=frozenset({HEALTHZ_PATH, READYZ_PATH}))
 
 
 def main() -> None:

@@ -45,9 +45,7 @@ def _chunk(section_title: str, text: str) -> Chunk:
     )
 
 
-def _publish_real_generation(
-    store: GenerationManifestStore, held_by: str, chunks: list[Chunk]
-) -> str:
+def _publish_real_generation(store: GenerationManifestStore, held_by: str, chunks: list[Chunk]) -> str:
     """Publish one real generation directly through ``publish_generation`` (the same
     authority path ``infra/ingest.py`` uses) and return its generation_id."""
     expected_active = store.read_active(SCOPE)
@@ -96,9 +94,7 @@ def test_main_rolls_a_real_scope_back_to_a_real_previously_published_generation(
     assert store.read_active(SCOPE) == second_generation_id
     assert first_generation_id != second_generation_id
 
-    monkeypatch.setattr(
-        sys, "argv", _rollback_argv(manifest_store_path, first_generation_id)
-    )
+    monkeypatch.setattr(sys, "argv", _rollback_argv(manifest_store_path, first_generation_id))
     rollback.main()
 
     # Re-read through a FRESH store instance pointed at the same on-disk root, so the
@@ -123,13 +119,9 @@ def test_main_prints_the_rolled_back_generation_id(tmp_path: Path, monkeypatch, 
     first_generation_id = _publish_real_generation(
         store, "ingestion", [_chunk("First", "The first generation's document.")]
     )
-    _publish_real_generation(
-        store, "ingestion", [_chunk("Second", "The second generation's document.")]
-    )
+    _publish_real_generation(store, "ingestion", [_chunk("Second", "The second generation's document.")])
 
-    monkeypatch.setattr(
-        sys, "argv", _rollback_argv(manifest_store_path, first_generation_id)
-    )
+    monkeypatch.setattr(sys, "argv", _rollback_argv(manifest_store_path, first_generation_id))
     rollback.main()
 
     out = capsys.readouterr().out
@@ -146,9 +138,7 @@ def test_main_defaults_held_by_to_rollback(tmp_path: Path, monkeypatch) -> None:
     first_generation_id = _publish_real_generation(
         store, "ingestion", [_chunk("First", "The first generation's document.")]
     )
-    _publish_real_generation(
-        store, "ingestion", [_chunk("Second", "The second generation's document.")]
-    )
+    _publish_real_generation(store, "ingestion", [_chunk("Second", "The second generation's document.")])
 
     argv = _rollback_argv(manifest_store_path, first_generation_id)
     monkeypatch.setattr(sys, "argv", argv)
@@ -169,9 +159,7 @@ def test_main_raises_unknown_generation_error_for_a_target_never_published(
 
     manifest_store_path = tmp_path / "manifests"
     store = GenerationManifestStore(manifest_store_path)
-    _publish_real_generation(
-        store, "ingestion", [_chunk("First", "The first generation's document.")]
-    )
+    _publish_real_generation(store, "ingestion", [_chunk("First", "The first generation's document.")])
 
     bogus_target = "pdf::net::self_extracted::never-published"
     monkeypatch.setattr(sys, "argv", _rollback_argv(manifest_store_path, bogus_target))

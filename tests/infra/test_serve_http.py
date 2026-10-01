@@ -64,7 +64,9 @@ def _chunks() -> list[Chunk]:
     ]
 
 
-def _publish(store: GenerationManifestStore, scope: str, family: str, platform: str, chunks: list[Chunk]) -> str:
+def _publish(
+    store: GenerationManifestStore, scope: str, family: str, platform: str, chunks: list[Chunk]
+) -> str:
     lease = store.acquire_lease(scope, held_by="test-worker", generation_id="pending")
     return publish_generation(
         store,
