@@ -48,6 +48,7 @@ from foss_mcp.mcp.tools.lookup import lookup
 from foss_mcp.mcp.tools.report_index_freshness import report_index_freshness
 from foss_mcp.mcp.tools.search_docs import search_docs
 from foss_mcp.mcp.tools.search_symbols import search_symbols
+from foss_mcp.telemetry.usage_recorder import UsageEvent, UsageRecorder, build_event
 
 SERVER_NAME = "foss-mcp"
 SERVER_VERSION = "0.0.0"
@@ -589,6 +590,57 @@ def _log_tool_call(
     )
 
 
+# ---------------------------------------------------------------------
+# Telemetry wiring (G2/TC-142): TC-130's own import-graph walk confirmed
+# foss_mcp.telemetry.usage_recorder.UsageRecorder/build_event had zero production callers - no
+# tool call anywhere recorded a UsageEvent. _build_usage_event is the one real chokepoint that
+# fixes that, called from every _call_tool exit path below.
+# ---------------------------------------------------------------------
+
+
+def _build_usage_event(
+    *,
+    correlation_id: str,
+    deployment_id: str,
+    tool_name: str,
+    outcome: str,
+    latency_ms: float,
+    result: Any,
+    arguments: dict,
+) -> UsageEvent:
+    """Build one real, contract-complete ``UsageEvent`` for a single ``_call_tool`` exit path.
+
+    Three fields are deliberately simplified here, documented rather than silently gapped:
+
+    - ``generation_id`` is always ``None`` - not genuinely derivable from this dispatch layer
+      without per-tool knowledge of which generation each tool's own store lookup actually
+      resolved to.
+    - ``citation_count`` is always ``0`` - same reason as ``generation_id``.
+    - ``cache_status`` is always ``"unknown"`` - this project has no caching layer, so no path
+      could ever truthfully report ``"hit"``/``"miss"``.
+
+    ``result_count`` is a best-effort, generic signal: the length of the jsonable *result* when
+    it is a list, ``0`` otherwise - this covers every error path (where *result* is ``None``)
+    as well as a successful call that returns a single object rather than a list. ``query`` is
+    read from *arguments* (``arguments.get("query")``, ``None`` when absent) purely to derive
+    the bounded ``query_shape_category`` - the raw text itself is never retained on the event.
+    """
+    jsonable_result = _to_jsonable(result)
+    result_count = len(jsonable_result) if isinstance(jsonable_result, list) else 0
+    return build_event(
+        request_correlation_id=correlation_id,
+        deployment_id=deployment_id,
+        generation_id=None,
+        tool_name=tool_name,
+        outcome=outcome,  # type: ignore[arg-type]
+        latency_ms=latency_ms,
+        result_count=result_count,
+        citation_count=0,
+        cache_status="unknown",
+        query=arguments.get("query"),
+    )
+
+
 def _build_tool_registry(
     store: GenerationManifestStore,
     scope: Scope,
@@ -613,16 +665,30 @@ def create_server(
     manifest_store: GenerationManifestStore | None = None,
     product_reference_inputs: ProductReferenceInputs | None = None,
     recent_releases: Sequence[Release] = (),
+    usage_recorder: UsageRecorder | None = None,
 ) -> Server:
     """Bootstrap the MCP server for one deployment, with all nine tools registered.
 
     ``resolve_scope`` fixes the scope once, here, from ``deployment_config`` alone; every
     tool wrapper closes over that one ``Scope`` for the lifetime of this server - no tool
     argument can ever change which product it answers for.
+
+    ``usage_recorder`` mirrors ``manifest_store``'s own default-when-not-given pattern: a real
+    ``UsageRecorder()`` is constructed here if the caller does not supply one. A caller that
+    needs to read the SAME live instance elsewhere (``infra/serve_http.py``'s own ``build_app``,
+    for its ``/metrics`` route) resolves it itself first and passes it in here - the identical
+    pattern ``build_app`` already uses for ``manifest_store`` with ``/readyz``.
     """
     scope = resolve_scope(deployment_config, request=None)
     store = manifest_store or _default_manifest_store()
     inputs = product_reference_inputs or ProductReferenceInputs()
+    # NOT `usage_recorder or UsageRecorder()`: UsageRecorder defines __len__, so a real, valid,
+    # but currently-EMPTY recorder (len 0 - the common case for any freshly constructed one,
+    # including the exact recorder build_app passes in here) is falsy, and `or` would silently
+    # discard it for a brand-new instance - breaking the whole point of sharing one real
+    # recorder between create_server and build_app's own /metrics route.
+    usage_recorder = usage_recorder if usage_recorder is not None else UsageRecorder()
+    deployment_id = f"{scope.family}::{scope.platform}"
     registry = _build_tool_registry(store, scope, inputs, recent_releases)
     schemas = {name: schema_for(handler) for name, handler in registry.items()}
 
@@ -644,12 +710,24 @@ def create_server(
         started_at = time.monotonic()
         handler = registry.get(params.name)
         if handler is None:
+            latency_ms = (time.monotonic() - started_at) * 1000
             _log_tool_call(
                 logger,
                 tool_name=params.name,
                 correlation_id=correlation_id,
                 outcome="error",
-                latency_ms=(time.monotonic() - started_at) * 1000,
+                latency_ms=latency_ms,
+            )
+            usage_recorder.record(
+                _build_usage_event(
+                    correlation_id=correlation_id,
+                    deployment_id=deployment_id,
+                    tool_name=params.name,
+                    outcome="error",
+                    latency_ms=latency_ms,
+                    result=None,
+                    arguments=params.arguments or {},
+                )
             )
             return CallToolResult(
                 content=[TextContent(type="text", text=f"unknown tool: {params.name}")],
@@ -673,12 +751,24 @@ def create_server(
             # 'query: Value error, query must not be empty' never needs to go through the
             # generic sanitizer at all, let alone be swallowed by it on totally safe content.
             text = public_validation_error_message(exc)
+            latency_ms = (time.monotonic() - started_at) * 1000
             _log_tool_call(
                 logger,
                 tool_name=params.name,
                 correlation_id=correlation_id,
                 outcome="error",
-                latency_ms=(time.monotonic() - started_at) * 1000,
+                latency_ms=latency_ms,
+            )
+            usage_recorder.record(
+                _build_usage_event(
+                    correlation_id=correlation_id,
+                    deployment_id=deployment_id,
+                    tool_name=params.name,
+                    outcome="error",
+                    latency_ms=latency_ms,
+                    result=None,
+                    arguments=params.arguments or {},
+                )
             )
             return CallToolResult(
                 content=[TextContent(type="text", text=text)],
@@ -702,12 +792,24 @@ def create_server(
                 correlation_id,
             )
             text = public_error_message(exc, fallback=_GENERIC_ERROR_FALLBACK, correlation_id=correlation_id)
+            latency_ms = (time.monotonic() - started_at) * 1000
             _log_tool_call(
                 logger,
                 tool_name=params.name,
                 correlation_id=correlation_id,
                 outcome="error",
-                latency_ms=(time.monotonic() - started_at) * 1000,
+                latency_ms=latency_ms,
+            )
+            usage_recorder.record(
+                _build_usage_event(
+                    correlation_id=correlation_id,
+                    deployment_id=deployment_id,
+                    tool_name=params.name,
+                    outcome="error",
+                    latency_ms=latency_ms,
+                    result=None,
+                    arguments=params.arguments or {},
+                )
             )
             return CallToolResult(
                 content=[TextContent(type="text", text=text)],
@@ -718,12 +820,24 @@ def create_server(
                 },
                 is_error=True,
             )
+        success_latency_ms = (time.monotonic() - started_at) * 1000
         _log_tool_call(
             logger,
             tool_name=params.name,
             correlation_id=correlation_id,
             outcome="success",
-            latency_ms=(time.monotonic() - started_at) * 1000,
+            latency_ms=success_latency_ms,
+        )
+        usage_recorder.record(
+            _build_usage_event(
+                correlation_id=correlation_id,
+                deployment_id=deployment_id,
+                tool_name=params.name,
+                outcome="success",
+                latency_ms=success_latency_ms,
+                result=result,
+                arguments=validated_arguments.model_dump(),
+            )
         )
         return CallToolResult(
             content=[TextContent(type="text", text=render_result_text(result))],

@@ -43,10 +43,12 @@ from foss_mcp.mcp.health import DeploymentGenerationStore, is_alive, round_trip_
 from foss_mcp.mcp.routing import DeploymentConfig, resolve_scope
 from foss_mcp.mcp.server import _default_manifest_store, create_server
 from foss_mcp.mcp.transport_security import reject_request
+from foss_mcp.telemetry.usage_recorder import UsageRecorder
 
 DEFAULT_PORT = 8080
 HEALTHZ_PATH = "/healthz"
 READYZ_PATH = "/readyz"
+METRICS_PATH = "/metrics"
 
 
 def allowed_origins_from_env() -> list[str]:
@@ -126,30 +128,62 @@ def _readyz_route(deployment_config: DeploymentConfig, manifest_store: Generatio
     return Route(READYZ_PATH, readyz, methods=["GET"])
 
 
+def _metrics_route(usage_recorder: UsageRecorder) -> Route:
+    """The ``/metrics`` route: real, live counters read from the SAME ``UsageRecorder``
+    instance ``create_server``'s own ``_call_tool`` records every tool call into (TC-142) -
+    never a separate or mocked one. A metrics scrape is not an MCP request, so this is exempted
+    from ``RejectionMiddleware`` for the identical reason ``/healthz``/``/readyz`` are (see
+    module docstring).
+    """
+
+    async def metrics(request: Request) -> JSONResponse:
+        del request  # the response depends only on the shared recorder's own live state.
+        return JSONResponse(
+            {
+                "usage_events_queued": len(usage_recorder),
+                "usage_events_dropped": usage_recorder.dropped_count,
+            }
+        )
+
+    return Route(METRICS_PATH, metrics, methods=["GET"])
+
+
 def build_app(
     deployment_config: DeploymentConfig,
     manifest_store: GenerationManifestStore | None = None,
     allowed_origins: list[str] | None = None,
+    usage_recorder: UsageRecorder | None = None,
 ) -> ASGIApp:
     """The ASGI app this container serves: the same ``create_server`` dispatch core as
-    stdio, wrapped in Origin/protocol-version rejection, plus real ``/healthz`` and ``/readyz``
-    probes added into the SAME app (so they share the SDK's own session-manager lifespan) and
-    exempted from that rejection layer (see module docstring for why).
+    stdio, wrapped in Origin/protocol-version rejection, plus real ``/healthz``, ``/readyz``,
+    and ``/metrics`` probes added into the SAME app (so they share the SDK's own
+    session-manager lifespan) and exempted from that rejection layer (see module docstring for
+    why).
 
-    ``manifest_store`` and ``allowed_origins`` default to the real deployment's own store
-    (``foss_mcp.mcp.server``'s ``/data/manifests``) and the ``FOSS_MCP_ALLOWED_ORIGINS`` env
-    var respectively; both are overridable so tests never touch either. ``manifest_store`` is
-    resolved ONCE, here, and handed to both ``create_server`` and the readiness route - never
-    two separate stores for one running deployment.
+    ``manifest_store``, ``allowed_origins``, and ``usage_recorder`` default to the real
+    deployment's own store (``foss_mcp.mcp.server``'s ``/data/manifests``), the
+    ``FOSS_MCP_ALLOWED_ORIGINS`` env var, and a fresh real ``UsageRecorder()`` respectively; all
+    three are overridable so tests never touch any of them. ``manifest_store`` and
+    ``usage_recorder`` are each resolved ONCE, here, and handed to both ``create_server`` and
+    their own route (``/readyz``, ``/metrics``) - never two separate instances for one running
+    deployment, so ``/metrics`` always reports the exact counters ``_call_tool`` is live
+    updating.
     """
     resolved_store = manifest_store if manifest_store is not None else _default_manifest_store()
-    server = create_server(deployment_config, resolved_store)
+    resolved_usage_recorder = usage_recorder if usage_recorder is not None else UsageRecorder()
+    server = create_server(deployment_config, resolved_store, usage_recorder=resolved_usage_recorder)
     allowed_origins = allowed_origins_from_env() if allowed_origins is None else allowed_origins
     inner = server.streamable_http_app(
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
-        custom_starlette_routes=[_healthz_route(), _readyz_route(deployment_config, resolved_store)],
+        custom_starlette_routes=[
+            _healthz_route(),
+            _readyz_route(deployment_config, resolved_store),
+            _metrics_route(resolved_usage_recorder),
+        ],
     )
-    return RejectionMiddleware(inner, allowed_origins, exempt_paths=frozenset({HEALTHZ_PATH, READYZ_PATH}))
+    return RejectionMiddleware(
+        inner, allowed_origins, exempt_paths=frozenset({HEALTHZ_PATH, READYZ_PATH, METRICS_PATH})
+    )
 
 
 def main() -> None:

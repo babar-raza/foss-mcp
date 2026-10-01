@@ -28,6 +28,7 @@ from foss_mcp.indexing.publisher import publish_generation
 from foss_mcp.mcp.routing import DeploymentConfig
 from foss_mcp.normalization.chunker import Chunk
 from foss_mcp.normalization.document_schema import NOT_CHECKED, Provenance
+from foss_mcp.telemetry.usage_recorder import UsageRecorder
 from tests.indexing.test_index_writers import DeterministicEmbeddingProvider
 
 # infra/ is not a package (no __init__.py, matching scripts/ convention) - import its module
@@ -188,6 +189,105 @@ def test_readyz_is_never_rejected_for_missing_mcp_headers(tmp_path: Path) -> Non
 
 def _assert_response_is_allowed(response) -> None:
     assert response.status_code != 400, response.text
+
+
+# ---------------------------------------------------------------------
+# /metrics (G2/TC-142): real, live counters from the SAME UsageRecorder instance build_app
+# hands to create_server - never a separate or mocked one. The deeper proof that real tool
+# calls actually move these counters lives in tests/mcp/test_server_wiring.py, which already
+# has a real MCP session helper to drive tools/call through this same app; these tests cover
+# /metrics' own shape, header-exemption, and instance-sharing contract directly.
+# ---------------------------------------------------------------------
+
+
+def test_metrics_is_reachable_with_no_origin_or_protocol_version_headers(tmp_path: Path) -> None:
+    """A plain metrics scrape carries neither header - /metrics must answer on its own merits,
+    never be caught by RejectionMiddleware's MCP-transport-only rejection rules."""
+    store = _store(tmp_path)
+    with _client(store) as client:
+        response = client.get("/metrics")
+        assert response.status_code == 200
+        body = response.json()
+        assert body == {"usage_events_queued": 0, "usage_events_dropped": 0}
+
+
+def test_metrics_reports_the_same_live_recorder_build_app_was_given(tmp_path: Path) -> None:
+    """build_app must hand create_server and /metrics the SAME UsageRecorder instance, not two
+    separate ones - proven by recording directly into the instance passed to build_app and
+    confirming /metrics reflects it without any tool call at all.
+    """
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).parents[2] / "infra"))
+    import serve_http
+
+    from foss_mcp.telemetry.usage_recorder import build_event
+
+    store = _store(tmp_path)
+    recorder = UsageRecorder()
+    recorder.record(
+        build_event(
+            request_correlation_id="corr-x",
+            deployment_id="pdf::net",
+            generation_id=None,
+            tool_name="search_symbols",
+            outcome="success",
+            latency_ms=1.0,
+        )
+    )
+    app = serve_http.build_app(
+        DeploymentConfig(family="pdf", platform="net"),
+        manifest_store=store,
+        allowed_origins=[],
+        usage_recorder=recorder,
+    )
+    with TestClient(app) as client:
+        response = client.get("/metrics")
+    assert response.status_code == 200
+    assert response.json() == {"usage_events_queued": 1, "usage_events_dropped": 0}
+
+
+def test_metrics_reports_a_real_drop_once_the_queue_is_at_capacity(tmp_path: Path) -> None:
+    """usage_events_dropped must reflect a genuine drop, not just stay 0 forever."""
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).parents[2] / "infra"))
+    import serve_http
+
+    from foss_mcp.telemetry.usage_recorder import build_event
+
+    store = _store(tmp_path)
+    recorder = UsageRecorder(max_queued=1)
+    recorder.record(
+        build_event(
+            request_correlation_id="corr-1",
+            deployment_id="pdf::net",
+            generation_id=None,
+            tool_name="search_symbols",
+            outcome="success",
+            latency_ms=1.0,
+        )
+    )
+    recorder.record(
+        build_event(
+            request_correlation_id="corr-2",
+            deployment_id="pdf::net",
+            generation_id=None,
+            tool_name="search_symbols",
+            outcome="success",
+            latency_ms=1.0,
+        )
+    )
+    app = serve_http.build_app(
+        DeploymentConfig(family="pdf", platform="net"),
+        manifest_store=store,
+        allowed_origins=[],
+        usage_recorder=recorder,
+    )
+    with TestClient(app) as client:
+        response = client.get("/metrics")
+    assert response.status_code == 200
+    assert response.json() == {"usage_events_queued": 1, "usage_events_dropped": 1}
 
 
 def test_mcp_transport_is_still_reachable_alongside_readyz(tmp_path: Path) -> None:

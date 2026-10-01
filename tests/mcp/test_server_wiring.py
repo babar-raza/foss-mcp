@@ -22,6 +22,7 @@ from foss_mcp.mcp.routing import DeploymentConfig
 from foss_mcp.mcp.server import (
     SearchSymbolsInput,
     ToolErrorCode,
+    _build_usage_event,
     create_server,
     public_error_message,
     public_validation_error_message,
@@ -30,6 +31,7 @@ from foss_mcp.mcp.server import (
     tool_description,
 )
 from foss_mcp.mcp.transport_security import reject_request
+from foss_mcp.telemetry.usage_recorder import UsageRecorder
 
 # infra/ is not a package (no __init__.py, matching scripts/ convention) - import its module
 # directly from the path, the same way its own entrypoints are invoked.
@@ -777,3 +779,130 @@ def _sse_json(text: str) -> dict:
         if line.startswith("data:"):
             return json.loads(line[len("data:") :].strip())
     raise AssertionError(f"no SSE data line found in response: {text!r}")
+
+
+# ---------------------------------------------------------------------
+# Telemetry wiring (G2/TC-142): _build_usage_event's own exact contract, plus proof that every
+# _call_tool exit path genuinely calls usage_recorder.record() - over the real served transport,
+# not merely that the function exists somewhere unreferenced (the exact TC-130 defect class
+# this card closes).
+# ---------------------------------------------------------------------
+
+
+def test_build_usage_event_maps_the_documented_simplifications() -> None:
+    event = _build_usage_event(
+        correlation_id="corr-1",
+        deployment_id="pdf::net",
+        tool_name="search_symbols",
+        outcome="success",
+        latency_ms=12.5,
+        result=["a", "b", "c"],
+        arguments={"query": "Widget"},
+    )
+    assert event.request_correlation_id == "corr-1"
+    assert event.deployment_id == "pdf::net"
+    assert event.generation_id is None  # not derivable from this dispatch layer - documented
+    assert event.tool_name == "search_symbols"
+    assert event.outcome == "success"
+    assert event.latency_ms == 12.5
+    assert event.result_count == 3  # len() of the jsonable list result
+    assert event.citation_count == 0  # no caller ever supplies citations at this layer
+    assert event.cache_status == "unknown"  # this project has no caching layer
+    assert event.query_shape_category == "exact_fqn"  # "Widget" is capitalized - derived from
+    # arguments["query"] via classify_query_shape, never the raw text itself
+
+
+def test_build_usage_event_result_count_is_zero_for_a_non_list_result() -> None:
+    event = _build_usage_event(
+        correlation_id="corr-2",
+        deployment_id="pdf::net",
+        tool_name="get_symbol",
+        outcome="success",
+        latency_ms=1.0,
+        result={"fqn": "Widget"},
+        arguments={},
+    )
+    assert event.result_count == 0
+    assert event.query_shape_category == "empty"  # no "query" key present in arguments
+
+
+def test_build_usage_event_error_path_has_no_result_and_still_builds_cleanly() -> None:
+    event = _build_usage_event(
+        correlation_id="corr-3",
+        deployment_id="pdf::net",
+        tool_name="not_a_real_tool",
+        outcome="error",
+        latency_ms=0.5,
+        result=None,
+        arguments={},
+    )
+    assert event.outcome == "error"
+    assert event.result_count == 0
+
+
+def test_metrics_reflects_real_tool_calls_through_the_real_served_transport(tmp_path: Path) -> None:
+    """The concrete bar this card must meet: making several real tool calls (a mix of success
+    and error paths) through the REAL served transport must increase /metrics' own
+    usage_events_queued by EXACTLY that many calls - proving UsageRecorder.record() was
+    genuinely invoked by _call_tool on every exit path, not merely that the function exists.
+    """
+    with _client(tmp_path) as client:
+        session = _McpSession(client)
+        before = client.get("/metrics").json()
+
+        calls = [
+            ("search_symbols", {"query": "Widget"}),  # success
+            ("get_symbol", {"fqn": "Not.A.Real.Symbol"}),  # success (honest miss)
+            ("search_symbols", {"query": ""}),  # error: invalid_argument
+            ("not_a_real_tool", {}),  # error: not_found
+        ]
+        for tool_name, arguments in calls:
+            response = session.request("tools/call", {"name": tool_name, "arguments": arguments})
+            assert response.status_code == 200
+
+        after = client.get("/metrics").json()
+
+    assert after["usage_events_queued"] - before["usage_events_queued"] == len(calls)
+    assert after["usage_events_dropped"] == before["usage_events_dropped"]
+
+
+def test_metrics_is_reachable_with_no_origin_or_protocol_version_headers(tmp_path: Path) -> None:
+    """A plain metrics scrape carries neither header - /metrics must answer on its own merits,
+    never be caught by RejectionMiddleware's MCP-transport-only rejection rules (the same
+    exemption /healthz and /readyz already rely on)."""
+    with _client(tmp_path) as client:
+        response = client.get("/metrics")
+        assert response.status_code == 200
+        body = response.json()
+        assert "usage_events_queued" in body
+        assert "usage_events_dropped" in body
+
+
+def test_metrics_usage_events_dropped_reflects_a_real_drop_from_real_tool_calls(
+    tmp_path: Path,
+) -> None:
+    """A tiny max_queued forces a real drop under real tool-call traffic - /metrics must report
+    it, proving /metrics reads the SAME live recorder _call_tool records into, not a separate
+    or mocked one."""
+    recorder = UsageRecorder(max_queued=1)
+    app = serve_http.build_app(
+        DeploymentConfig(family="pdf", platform="net"),
+        manifest_store=_store(tmp_path),
+        allowed_origins=ALLOWED_ORIGINS,
+        usage_recorder=recorder,
+    )
+    with TestClient(app) as client:
+        session = _McpSession(client)
+        for _ in range(3):
+            session.request("tools/call", {"name": "search_symbols", "arguments": {"query": "Widget"}})
+        body = client.get("/metrics").json()
+
+    assert body["usage_events_queued"] == 1  # capacity 1 - never grows past it
+    assert body["usage_events_dropped"] == 2  # the other two real calls were genuinely dropped
+
+
+def test_create_server_defaults_to_a_real_usage_recorder_when_none_is_given(tmp_path: Path) -> None:
+    """create_server mirrors manifest_store's own default-when-not-given pattern: construction
+    must not raise or require a caller to supply usage_recorder explicitly."""
+    server = create_server(DeploymentConfig(family="pdf", platform="net"), _store(tmp_path))
+    assert server is not None
