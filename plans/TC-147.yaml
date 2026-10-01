@@ -1,0 +1,88 @@
+id: TC-147
+gate: G2
+lane: storage-retrieval
+purpose: 'foss_mcp.normalization.chunker.with_validation(chunk, validation) -> Chunk
+  is a real one-line helper (`replace(chunk, validation=validation)`) with zero callers
+  anywhere, including its own tests (tests/test_unwired_modules.py''s _KNOWN_UNWIRED_AND_UNTESTED).
+  citation.py''s validate_chunk performs the IDENTICAL operation inline, twice, via
+  its own direct `dataclasses.replace(chunk, validation=...)` calls instead of calling
+  this existing helper - clear evidence this is accidental duplication, not a case
+  needing a product decision. Deduplicate: make validate_chunk call with_validation
+  instead of inlining replace() itself. Zero behavior change - they are the exact
+  same operation.'
+depends_on:
+- TC-014
+- TC-105
+- TC-108
+- TC-111
+- TC-121
+- TC-123
+- TC-144
+write_paths:
+- src/foss_mcp/normalization/citation.py
+- tests/normalization/test_chunker.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.10 Insufficient-evidence behavior — corrected: citation resolution
+    proves traceability, not correctness'
+  sha256: 100e949e350e7fc443a2b1cd331fc6e7043f4f26ce200f9db7dcde61bfbd7b4e
+inputs:
+- 'Read src/foss_mcp/normalization/chunker.py''s with_validation(chunk: Chunk, validation:
+  ValidationResult) -> Chunk in full - it is exactly `return replace(chunk, validation=validation)`.'
+- 'Read src/foss_mcp/normalization/citation.py''s validate_chunk in full: it currently
+  ends with two direct `replace(chunk, validation=...)` calls - one for the all-clear
+  path (`ValidationResult(verdict=SUPPORTED, detail=''every claim resolves'')`), one
+  for the worst-problem path (`worst`).'
+- Confirm citation.py already imports `from dataclasses import replace` and `from
+  foss_mcp.normalization.chunker import Chunk` - with_validation needs to be added
+  to that same chunker import.
+actions:
+- In src/foss_mcp/normalization/citation.py, import with_validation alongside Chunk
+  from foss_mcp.normalization.chunker. Replace both of validate_chunk's own `replace(chunk,
+  validation=...)` calls with `with_validation(chunk, ...)`, passing the exact same
+  ValidationResult value each already computes. Remove the now-unused `from dataclasses
+  import replace` import if nothing else in the file still uses `replace` directly
+  - confirm with a grep first.
+- Run citation.py's own existing test suite (tests/normalization/test_citation.py)
+  and confirm every test still passes unchanged - this is a pure refactor, zero behavior
+  change to validate_chunk's/validate_document's/citable_chunks' return values.
+- 'Add a direct unit test for with_validation itself to tests/normalization/test_chunker.py
+  (it currently has zero test coverage): construct a Chunk, call with_validation with
+  a new ValidationResult, and assert the result is a new Chunk object with every other
+  field unchanged and only `validation` updated.'
+checks:
+- command: '{python} -m pytest tests/normalization/test_citation.py tests/normalization/test_chunker.py
+    -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 2
+network: false
+negative_control:
+  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/normalization/chunker.py'');s=p.read_text(encoding=''utf-8'');s=s.replace(''def
+    with_validation(chunk: Chunk, validation: ValidationResult) -> Chunk:\n    return
+    replace(chunk, validation=validation)'',''def with_validation(chunk: Chunk, validation:
+    ValidationResult) -> Chunk:\n    return chunk'');p.write_text(s,encoding=''utf-8'')"'
+  rationale: Changes with_validation's own body from `return replace(chunk, validation=validation)`
+    to `return chunk` (dropping the update entirely) - this breaks the new direct
+    with_validation test (asserts validation actually changed) AND, once validate_chunk
+    is wired to call it, breaks every citation test that checks a chunk's validation
+    verdict after validate_chunk/validate_document runs, since every chunk would keep
+    its original NOT_CHECKED validation forever. Proves the checks genuinely exercise
+    both the new wiring and the helper's real behavior. Self-checked end-to-end before
+    being persisted.
+evidence:
+- evidence/build/G2/TC-147/receipt.json
+closeout:
+- citation.py's validate_chunk calls with_validation instead of inlining dataclasses.replace;
+  a direct test for with_validation exists.
+- All pre-existing citation tests pass unchanged.
+- foss_mcp.normalization.chunker.with_validation no longer needs to stay in tests/test_unwired_modules.py's
+  _KNOWN_UNWIRED_AND_UNTESTED (a follow-up card updates that list; this card does
+  not touch tests/test_unwired_modules.py, outside its write_paths).
+- Breaking with_validation's own body fails the checks again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
