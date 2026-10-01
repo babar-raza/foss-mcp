@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-144",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-01T10:22:49Z",
+  "base_rev": "69d373b0b7ac0890771e7b3fd4ac1c57481a6e5f",
+  "head_rev": "b90d3513841ef0a702bc649ac609baa627f952c7",
+  "card_sha256": "a778aaffd2cd73903a716183505d4ee98dd8dba44b68146cc1fc15b61c11046e",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/ingest.py",
+      "src/foss_mcp/normalization/citation.py",
+      "tests/infra/test_ingest.py",
+      "tests/normalization/test_citation.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/normalization/test_citation.py tests/infra/test_ingest.py -q",
+          "exit_code": 0,
+          "duration_s": 2.587,
+          "stdout_sha256": "12a9a4a8915fb8d2bb5b4227220247cde267c1a0620203589fe47280d5be4a7f",
+          "tests": 36,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/normalization/test_citation.py tests/infra/test_ingest.py -q",
+          "exit_code": 0,
+          "duration_s": 2.157,
+          "stdout_sha256": "12a9a4a8915fb8d2bb5b4227220247cde267c1a0620203589fe47280d5be4a7f",
+          "tests": 36,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/normalization/citation.py');s=p.read_text(encoding='utf-8');s=s.replace('chunk.validation.verdict != UNSUPPORTED', 'chunk.validation.verdict == UNSUPPORTED');p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "a9cc55d46fff785319c9d2810cc68e1a30fa9f27431d77b947a91cf0cb4c60c3",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/normalization/citation.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

@@ -1,0 +1,120 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/normalization/test_citation.py tests/infra/test_ingest.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vnzv2ln1\.junit-0.xml"
+--- stdout ---
+....................................                                     [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/normalization/test_citation.py tests/infra/test_ingest.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vnzv2ln1\.junit-0.xml"
+--- stdout ---
+....................................                                     [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/normalization/citation.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/normalization/test_citation.py tests/infra/test_ingest.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vnzv2ln1\.junit-0.xml"
+--- stdout ---
+.................FF......F..........                                     [100%]
+================================== FAILURES ===================================
+_____ test_describe_unresolved_anchors_reports_a_genuinely_absent_symbol ______
+
+    def test_describe_unresolved_anchors_reports_a_genuinely_absent_symbol() -> None:
+        """TC-144: an anchor with zero matches anywhere is a genuinely absent symbol - renamed or
+        removed, never a typo - reported as UNSUPPORTED with match_count=0, the same verdict the
+        chunk itself already carries, now attributed to its actual failing anchor.
+        """
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        chunk = validate_chunk(_chunk("See `TotallyMadeUpClassName` for details."), index, {})
+        assert chunk.validation.verdict == UNSUPPORTED
+    
+        described = describe_unresolved_anchors([chunk], index)
+    
+>       assert described == [
+            ("Overview", Resolution("TotallyMadeUpClassName", SemanticSupportVerdict.UNSUPPORTED, match_count=0))
+        ]
+E       AssertionError: assert [] == [('Overview',...tch_count=0))]
+E         
+E         Right contains one more item: ('Overview', Resolution(anchor='TotallyMadeUpClassName', semantic_support_verdict=<SemanticSupportVerdict.UNSUPPORTED: 'unsupported'>, match_count=0))
+E         Use -v to get more diff
+
+tests\normalization\test_citation.py:325: AssertionError
+_ test_describe_unresolved_anchors_reports_a_near_miss_as_partially_supported _
+
+    def test_describe_unresolved_anchors_reports_a_near_miss_as_partially_supported() -> None:
+        """Two declarations registered under the identical anchor - as real overloads of one
+        qualified member would be - make the anchor genuinely ambiguous: it still fails
+        ``anchor_resolves`` (so the chunk is UNSUPPORTED, exactly like a genuinely absent symbol),
+        but ``resolve_anchor`` distinguishes it as a near-miss, PARTIALLY_SUPPORTED with
+        match_count=2 - a typo or stale doc is a different operator action than a renamed or
+        removed symbol, and that distinction is the entire point of this diagnostic.
+        """
+        index = SymbolIndex(
+            [
+                Declaration(anchor="Shape.Remove"),
+                Declaration(anchor="Shape.Remove", signature="(int index)"),
+            ]
+        )
+        chunk = validate_chunk(_chunk("Call `Shape.Remove` to delete it."), index, {})
+        assert chunk.validation.verdict == UNSUPPORTED
+    
+        described = describe_unresolved_anchors([chunk], index)
+    
+>       assert described == [
+            ("Overview", Resolution("Shape.Remove", SemanticSupportVerdict.PARTIALLY_SUPPORTED, match_count=2))
+        ]
+E       AssertionError: assert [] == [('Overview',...tch_count=2))]
+E         
+E         Right contains one more item: ('Overview', Resolution(anchor='Shape.Remove', semantic_support_verdict=<SemanticSupportVerdict.PARTIALLY_SUPPORTED: 'partially_supported'>, match_count=2))
+E         Use -v to get more diff
+
+tests\normalization\test_citation.py:349: AssertionError
+_ test_main_with_api_surface_prints_a_diagnostic_line_per_excluded_anchor_and_leaves_publishing_unchanged _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1347/test_main_with_api_surface_pri0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001EBF9CCF650>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001EBF9CEEA50>
+
+    def test_main_with_api_surface_prints_a_diagnostic_line_per_excluded_anchor_and_leaves_publishing_unchanged(
+        tmp_path: Path, monkeypatch, capsys
+    ) -> None:
+        """TC-144: the --api-surface branch must print one diagnostic line per excluded anchor
+        (distinguishing a near-miss from a genuinely absent symbol) on top of the exact same
+        publish behavior as before this card - the published chunk set must be byte-identical to
+        test_main_with_api_surface_excludes_unresolvable_claims_from_what_gets_published above.
+        """
+        chunks_path = tmp_path / "chunks.json"
+        api_surface_path = tmp_path / "api_surface.json"
+        manifest_store_path = tmp_path / "manifests"
+        _write_chunks_fixture(
+            chunks_path,
+            [
+                _chunk_entry("Document.Open", "`Document.Open` opens a file."),
+                _chunk_entry("Document.Nope", "`Document.Nope` does not exist."),
+                _chunk_entry("Count", "The API exposes 999 classes."),
+                _chunk_entry("Plain", "Document is the root object of a PDF file."),
+            ],
+        )
+        _write_api_surface_fixture(api_surface_path)
+    
+        argv = [*_base_argv(chunks_path, manifest_store_path), "--api-surface", str(api_surface_path)]
+        monkeypatch.setattr(sys, "argv", ["ingest.py", *argv])
+        ingest.main()
+    
+        out = capsys.readouterr().out
+>       assert "excluded: 'Document.Nope' anchor 'Document.Nope' -> unsupported (match_count=0)" in out
+E       assert "excluded: 'Document.Nope' anchor 'Document.Nope' -> unsupported (match_count=0)" in 'published pdf::net::self_extracted::20261001T102247800345Z-d99900ca\n'
+
+tests\infra\test_ingest.py:226: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/normalization/test_citation.py::test_describe_unresolved_anchors_reports_a_genuinely_absent_symbol
+FAILED tests/normalization/test_citation.py::test_describe_unresolved_anchors_reports_a_near_miss_as_partially_supported
+FAILED tests/infra/test_ingest.py::test_main_with_api_surface_prints_a_diagnostic_line_per_excluded_anchor_and_leaves_publishing_unchanged
+
+--- stderr ---
+
