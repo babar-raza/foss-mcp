@@ -1,0 +1,110 @@
+id: TC-142
+gate: G2
+lane: transport-deployment
+purpose: Wire a real, already-implemented, already-tested telemetry contract (foss_mcp.telemetry.usage_recorder.UsageRecorder/build_event)
+  that TC-130's own import-graph walk confirmed has zero production callers - no tool
+  call anywhere currently records a UsageEvent. Add real recording at the one real
+  chokepoint every tool call already passes through (_call_tool, which already mints
+  a correlation id and measures latency per TC-132), and a minimal, real /metrics
+  endpoint exposing the recorder's own already-existing live counters (queue depth,
+  dropped count) so the wiring is independently observable, not just internally true.
+depends_on:
+- TC-016
+- TC-019
+- TC-019a
+- TC-061
+- TC-079
+- TC-125
+- TC-126
+- TC-131
+- TC-132
+- TC-133
+- TC-136
+- TC-137
+- TC-141
+write_paths:
+- src/foss_mcp/mcp/server.py
+- tests/mcp/test_server_wiring.py
+- infra/serve_http.py
+- tests/infra/test_serve_http.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Read src/foss_mcp/telemetry/usage_recorder.py in full first - specifically UsageEvent,
+  build_event, classify_query_shape, and UsageRecorder's own record()/dropped_count/__len__.
+  Do not change this file - purely wire what already exists.
+- Read server.py's current _call_tool in full (TC-132's own correlation_id/latency
+  timing is already there - reuse it, do not duplicate).
+- 'REQUIRED, exact shape (function name load-bearing for the negative control): `_build_usage_event(*,
+  correlation_id: str, deployment_id: str, tool_name: str, outcome: str, latency_ms:
+  float, result: Any, arguments: dict) -> UsageEvent`, calling build_event with: request_correlation_id=correlation_id,
+  deployment_id=deployment_id, generation_id=None (not generically derivable from
+  _call_tool''s own dispatch layer without per-tool knowledge - an honest, documented
+  simplification, not an oversight), tool_name=tool_name, outcome=outcome, latency_ms=latency_ms,
+  result_count=len(_to_jsonable(result)) if the jsonable result is a list else 0 (best-effort,
+  generic), citation_count=0 (same reason as generation_id), cache_status=''unknown''
+  (this project has no caching layer), query=arguments.get(''query'') if present else
+  None.'
+- '`create_server` gains a new optional `usage_recorder: UsageRecorder | None = None`
+  parameter (default: construct a real `UsageRecorder()` internally if not given,
+  mirroring how `manifest_store` already defaults when not given). Call `usage_recorder.record(_build_usage_event(...))`
+  on EVERY _call_tool exit path (unknown-tool, ValidationError, generic exception,
+  and success) - map each path''s own existing outcome string (''error'' for all three
+  error paths, ''success'' for the success path; this project''s own UsageEvent.Outcome
+  type has no fourth ''miss'' value reachable generically from this dispatch layer
+  without per-tool result-shape knowledge - document this as a known, honest simplification
+  in a code comment, not a silent gap).'
+- '`create_server` must expose the resolved usage_recorder back to its caller so infra/serve_http.py''s
+  own build_app can share the SAME instance with a new /metrics route - mirroring
+  the exact existing pattern manifest_store already uses (resolved once in build_app,
+  handed to both create_server and the readyz route). Decide the cleanest real mechanism
+  yourself (e.g. create_server could return a small named tuple of (Server, UsageRecorder),
+  or build_app could construct the UsageRecorder itself and pass it INTO create_server
+  as the existing optional parameter - check which fits this codebase''s own existing
+  style better before choosing) and apply it consistently.'
+- 'In infra/serve_http.py: add a new `/metrics` GET route (mirroring _readyz_route''s
+  own real construction pattern) returning real JSON: `{"usage_events_queued": len(usage_recorder),
+  "usage_events_dropped": usage_recorder.dropped_count}` - reading the SAME, real,
+  live recorder instance _call_tool records into, never a separate or mocked one.
+  Exempt it from RejectionMiddleware (same reasoning as /healthz and /readyz - a metrics
+  scrape is not an MCP request).'
+- 'Add real tests: making several real tool calls (a mix of success and error paths)
+  through the real served transport, then querying /metrics, and confirming usage_events_queued
+  has genuinely increased by exactly the number of calls made (proving record() was
+  really called, not just that the function exists); confirm /metrics is reachable
+  with no Origin/MCP-Protocol-Version headers.'
+actions:
+- Implement _build_usage_event exactly as specified and wire it into every _call_tool
+  exit path.
+- Share one real UsageRecorder instance between create_server and a new /metrics route
+  in infra/serve_http.py.
+- Add the required tests proving the wiring is real and live.
+checks:
+- command: '{python} -m pytest tests/mcp/test_server_wiring.py tests/infra/test_serve_http.py
+    -q -k "not test_a_missing_protocol_version_is_rejected"'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 20
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/server.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    _build_usage_event(','def _build_usage_event_DISABLED(');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming _build_usage_event leaves its call site undefined, breaking
+    the new tests with a NameError, proving they genuinely depend on this concrete
+    function rather than passing for an unrelated reason. Self-checked against a realistic
+    synthetic fixture before being persisted.
+evidence:
+- evidence/build/G2/TC-142/receipt.json
+closeout:
+- Every tool call genuinely records a real UsageEvent into a real UsageRecorder.
+- /metrics reports real, live counters that move as real tool calls happen.
+- Renaming _build_usage_event fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

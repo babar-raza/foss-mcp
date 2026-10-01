@@ -1,0 +1,95 @@
+id: TC-143
+gate: G2
+lane: storage-retrieval
+purpose: 'A real, independent review of a working commercial MCP server found fuzzy
+  ''did you mean'' suggestions on a miss to be a genuinely useful pattern - but get_symbol.py''s
+  own docstring states a deliberate, real design decision THIS project already made:
+  ''This tool never guesses and never returns a near match... a miss is a miss.''
+  The two are not actually in conflict IF scoped correctly: this card adds suggestions
+  as a purely ADDITIVE, clearly-separate field on the existing NotFound/Miss dataclasses
+  - the tool''s own verdict stays an honest, unchanged, deterministic miss; nothing
+  is ever substituted or silently widened, matching this project''s own established
+  Miss.reason-field precedent (search_docs.py, search_symbols.py already attach an
+  honest explanatory field to a Miss without that ever becoming a near-match answer).'
+depends_on:
+- TC-010a
+- TC-017a
+- TC-017b
+- TC-065
+- TC-071
+- TC-074
+- TC-075
+- TC-079
+- TC-109
+- TC-111
+- TC-120
+write_paths:
+- src/foss_mcp/mcp/tools/search_symbols.py
+- src/foss_mcp/mcp/tools/get_symbol.py
+- tests/mcp/tools/test_retrieval_tools.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Read search_symbols.py's own Miss dataclass and search_symbols() in full, and get_symbol.py's
+  own NotFound dataclass and its own lookup function in full, before changing anything.
+- 'REQUIRED, exact shape (function name load-bearing for the negative control): `suggest_similar_fqns(known_fqns:
+  Iterable[str], target: str, *, limit: int = 3) -> tuple[str, ...]` in search_symbols.py,
+  using the standard library''s own `difflib.get_close_matches(target, known_fqns,
+  n=limit, cutoff=0.6)` - a real, deterministic (same inputs always produce the same
+  output), dependency-free fuzzy match, never a new dependency or a network call.
+  known_fqns must be derived from the SAME real, currently-published generation''s
+  own lexical index documents the miss itself was computed against (via extract_fqn
+  on each document''s text, skipping any that return None, matching how search_symbols''s
+  own existing Example:/Doc: exclusion already walks this exact same document set)
+  - never a separate or stale data source.'
+- 'Add a `suggestions: tuple[str, ...] = ()` field to search_symbols.py''s own Miss
+  dataclass and get_symbol.py''s own NotFound dataclass (both frozen dataclasses already
+  - adding a field with a default is a compatible, additive change). Populate it via
+  suggest_similar_fqns only in the genuine ''no match found'' paths, never replacing
+  or altering the existing reason/fqn fields, never changing whether a result is Miss/NotFound
+  vs a real match - the verdict logic itself must be completely untouched.'
+- Do not touch list_members.py or lookup.py - this card is deliberately scoped to
+  the two tools whose own docstrings explicitly discuss exact-vs-fuzzy matching; extending
+  the same pattern elsewhere is a separate, later decision.
+- 'Add real tests: a genuinely non-existent FQN close to a real one (e.g. a single-character
+  typo of a real FQN confirmed present in a real test fixture) produces a Miss/NotFound
+  whose own `suggestions` field contains the real, correct FQN; a genuinely unrelated
+  query (no real close match) produces an empty `suggestions` tuple, not a fabricated
+  one; a real, successful match''s own result is completely unaffected (no suggestions
+  field pollution on a hit).'
+actions:
+- Implement suggest_similar_fqns exactly as specified.
+- Add the suggestions field to both dataclasses and wire it into the real Miss/NotFound
+  construction paths only.
+- Add the required tests proving suggestions are real, grounded, and never substituted
+  for an honest miss.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_retrieval_tools.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 20
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    suggest_similar_fqns(','def suggest_similar_fqns_DISABLED(');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming suggest_similar_fqns leaves its call site undefined, breaking
+    the new tests with a NameError, proving they genuinely depend on this concrete
+    function rather than passing for an unrelated reason. Self-checked against a realistic
+    synthetic fixture before being persisted.
+evidence:
+- evidence/build/G2/TC-143/receipt.json
+closeout:
+- A near-miss FQN query genuinely surfaces the real, correct suggestion(s) on an otherwise-unchanged,
+  honest Miss/NotFound.
+- A genuinely unrelated query's own suggestions field stays empty - never fabricated.
+- A real match is completely unaffected.
+- Renaming suggest_similar_fqns fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
