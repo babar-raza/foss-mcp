@@ -1,0 +1,354 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/normalization/test_citation.py tests/normalization/test_chunker.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ly_xq02j\.junit-0.xml"
+--- stdout ---
+............................                                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/normalization/test_citation.py tests/normalization/test_chunker.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ly_xq02j\.junit-0.xml"
+--- stdout ---
+............................                                             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/normalization/chunker.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/normalization/test_citation.py tests/normalization/test_chunker.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ly_xq02j\.junit-0.xml"
+--- stdout ---
+FF...F..FFFF.FF.FFFF.F.....F                                             [100%]
+================================== FAILURES ===================================
+____________________ test_a_resolving_anchor_is_supported _____________________
+
+    def test_a_resolving_anchor_is_supported() -> None:
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        resolvable = fixture["types"][0]["name"]
+        chunk = validate_chunk(_chunk(f"See `{resolvable}` for details."), index, {})
+>       assert chunk.validation.verdict == SUPPORTED
+E       AssertionError: assert 'not_checked' == 'supported'
+E         
+E         - supported
+E         + not_checked
+
+tests\normalization\test_citation.py:66: AssertionError
+____________ test_a_non_resolving_anchor_is_excluded_or_qualified _____________
+
+    def test_a_non_resolving_anchor_is_excluded_or_qualified() -> None:
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        chunk = validate_chunk(_chunk("See `TotallyMadeUpClassName` for details."), index, {})
+>       assert chunk.validation.verdict == UNSUPPORTED
+E       AssertionError: assert 'not_checked' == 'unsupported'
+E         
+E         - unsupported
+E         + not_checked
+
+tests\normalization\test_citation.py:73: AssertionError
+___ test_the_805_classes_sentence_is_excluded_or_qualified_as_a_whole_chunk ___
+
+    def test_the_805_classes_sentence_is_excluded_or_qualified_as_a_whole_chunk() -> None:
+        """Isolated to the numeric claim alone (no symbol anchors), so this is unambiguously the
+        numeric-claim rule doing the work, not an unrelated anchor failure.
+        """
+        known_counts = known_counts_from_fixture(_api_surface_fixture())
+        chunk = validate_chunk(
+            _chunk("The library exposes 805 classes."),
+            symbol_index_from_api_surface([]),
+            known_counts,
+        )
+>       assert chunk.validation.verdict == INSUFFICIENT_EVIDENCE
+E       AssertionError: assert 'not_checked' == 'insufficient_evidence'
+E         
+E         - insufficient_evidence
+E         + not_checked
+
+tests\normalization\test_citation.py:125: AssertionError
+_ test_validate_document_sets_every_chunk_and_citable_chunks_drops_the_unsupported _
+
+    def test_validate_document_sets_every_chunk_and_citable_chunks_drops_the_unsupported() -> None:
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        good = _chunk(f"See `{fixture['types'][0]['name']}`.")
+        bad = _chunk("See `NotARealClass`.")
+        validated = validate_document([good, bad], index, {})
+>       assert [c.validation.verdict for c in validated] == [SUPPORTED, UNSUPPORTED]
+E       AssertionError: assert ['not_checked', 'not_checked'] == ['supported', 'unsupported']
+E         
+E         At index 0 diff: 'not_checked' != 'supported'
+E         Use -v to get more diff
+
+tests\normalization\test_citation.py:152: AssertionError
+__ test_a_compile_verified_example_with_a_bare_method_citation_is_supported ___
+
+    def test_a_compile_verified_example_with_a_bare_method_citation_is_supported() -> None:
+        """The real defect TC-101's worker found: slides/python's real 'Create a Presentation and
+        Add a Shape' example genuinely compiles, but its own furnished-content description cites
+        `add_auto_shape()` and `add_text_frame()` as bare method names (no `ClassName.` prefix),
+        which symbol_index_from_api_surface never registers. This chunk's code was already
+        independently, more strongly verified by real compilation, so its description must not be
+        held to the citation-anchor bar meant for raw, unverified API documentation prose.
+        """
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        chunk = _example_chunk(
+            "Use the context manager to ensure the PPTX is always closed. `add_auto_shape()` "
+            "takes a `ShapeType` enum, then x/y position and width/height in points â€” call "
+            "`add_text_frame()` on the shape to attach a text frame."
+        )
+        validated = validate_chunk(chunk, index, {})
+>       assert validated.validation.verdict == SUPPORTED
+E       AssertionError: assert 'not_checked' == 'supported'
+E         
+E         - supported
+E         + not_checked
+
+tests\normalization\test_citation.py:188: AssertionError
+_ test_a_non_example_chunk_with_the_same_bare_method_citation_is_still_unsupported _
+
+    def test_a_non_example_chunk_with_the_same_bare_method_citation_is_still_unsupported() -> None:
+        """The fix must not weaken citation validation for anything other than a genuinely
+        compile-verified example chunk - the same bare-name citation in an ordinary
+        (non-``example``) chunk is still correctly excluded.
+        """
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        chunk = _chunk("Call `add_auto_shape()` to insert a shape.")
+        validated = validate_chunk(chunk, index, {})
+>       assert validated.validation.verdict == UNSUPPORTED
+E       AssertionError: assert 'not_checked' == 'unsupported'
+E         
+E         - unsupported
+E         + not_checked
+
+tests\normalization\test_citation.py:201: AssertionError
+________ test_renaming_the_example_guard_breaks_the_example_exemption _________
+
+    def test_renaming_the_example_guard_breaks_the_example_exemption() -> None:
+        """Guards the exact, load-bearing shape the negative control mutates: a chunk shaped
+        exactly like the compile-verified example must resolve through
+        ``_is_real_compile_verified_example`` by name, not by some other proxy - if that
+        function's real name is ever renamed away, this chunk's citation-anchor check regresses
+        to running unconditionally and the chunk goes back to UNSUPPORTED.
+        """
+        from foss_mcp.normalization import citation as citation_module
+    
+        assert hasattr(citation_module, "_is_real_compile_verified_example")
+    
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        chunk = _example_chunk("Call `add_auto_shape()` to insert a shape.")
+        assert citation_module._is_real_compile_verified_example(chunk) is True
+        validated = validate_chunk(chunk, index, {})
+>       assert validated.validation.verdict == SUPPORTED
+E       AssertionError: assert 'not_checked' == 'supported'
+E         
+E         - supported
+E         + not_checked
+
+tests\normalization\test_citation.py:221: AssertionError
+___ test_a_globally_unambiguous_bare_method_name_resolves_in_ordinary_prose ___
+
+    def test_a_globally_unambiguous_bare_method_name_resolves_in_ordinary_prose() -> None:
+        """TC-111: real furnished prose routinely cites a method conversationally by its bare name
+        with no ``ClassName.`` prefix - confirmed by reading real fixture content, pdf/net's own
+        overview cites `AddTextAnnotation`, `AddLinkAnnotation`, `AddHighlightAnnotation`,
+        `AddWatermarkAnnotation`, `AddRedactAnnotation` this way. This is an ordinary
+        (non-``example``) chunk, so it has no independent compile-verification behind it - the
+        anchor-resolution mechanism itself must recognize the bare name is globally unambiguous
+        (``AnnotationCollection`` is the only class in pdf/net's real surface declaring
+        ``AddTextAnnotation``).
+        """
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        chunk = _chunk(
+            "Use `AddTextAnnotation`, `AddHighlightAnnotation`, and `AddRedactAnnotation` to annotate a page."
+        )
+        validated = validate_chunk(chunk, index, {})
+>       assert validated.validation.verdict == SUPPORTED
+E       AssertionError: assert 'not_checked' == 'supported'
+E         
+E         - supported
+E         + not_checked
+
+tests\normalization\test_citation.py:254: AssertionError
+_ test_a_bare_method_name_shared_by_two_or_more_classes_still_stays_unresolved _
+
+    def test_a_bare_method_name_shared_by_two_or_more_classes_still_stays_unresolved() -> None:
+        """The generalization must never weaken the existing ambiguity rule: a bare name declared
+        identically by two different classes is genuinely ambiguous - which one did the citation
+        mean? - so it must correctly stay unresolved, exactly as a fully-qualified anchor with two
+        or more overloads already does.
+        """
+        index = symbol_index_from_api_surface(
+            [
+                {"name": "AnnotationCollection", "methods": [{"name": "Remove"}]},
+                {"name": "PageCollection", "methods": [{"name": "Remove"}]},
+            ]
+        )
+        assert index.unambiguous_qualified_anchor_for_bare_member("Remove") is None
+        chunk = validate_chunk(_chunk("Call `Remove` to delete it."), index, {})
+>       assert chunk.validation.verdict == UNSUPPORTED
+E       AssertionError: assert 'not_checked' == 'unsupported'
+E         
+E         - unsupported
+E         + not_checked
+
+tests\normalization\test_citation.py:272: AssertionError
+_ test_a_fully_qualified_anchor_still_resolves_via_the_original_exact_match_not_the_fallback _
+
+    def test_a_fully_qualified_anchor_still_resolves_via_the_original_exact_match_not_the_fallback() -> None:
+        """TC-111 must not change ``anchor_resolves``'s own existing exact-match behavior. Re-runs
+        pdf/net's own real ``AddWatermarkAnnotation``-shaped chunk (already covered by
+        ``test_pdf_net_addwatermarkannotation_example_stays_supported`` below) but with the
+        qualified anchor's *own* class deleted from the index and replaced by two decoys that would
+        make the new bare-member fallback ambiguous - proving this chunk resolves through the
+        original qualified, exact-match path and never through the new bare-name fallback (which,
+        if it were mistakenly firing here, would make this fail since the fallback is ambiguous).
+        """
+        index = symbol_index_from_api_surface(
+            [
+                {"name": "AnnotationCollection", "methods": [{"name": "AddWatermarkAnnotation"}]},
+                {"name": "DecoyOne", "methods": [{"name": "AddWatermarkAnnotation"}]},
+                {"name": "DecoyTwo", "methods": [{"name": "AddWatermarkAnnotation"}]},
+            ]
+        )
+        # The bare-name fallback is genuinely ambiguous here (three classes), so it could never
+        # resolve `AddWatermarkAnnotation` alone - only the qualified anchor can.
+        assert index.unambiguous_qualified_anchor_for_bare_member("AddWatermarkAnnotation") is None
+        chunk = validate_chunk(_chunk("Call `AnnotationCollection.AddWatermarkAnnotation` to add it."), index, {})
+>       assert chunk.validation.verdict == SUPPORTED
+E       AssertionError: assert 'not_checked' == 'supported'
+E         
+E         - supported
+E         + not_checked
+
+tests\normalization\test_citation.py:309: AssertionError
+_____ test_describe_unresolved_anchors_reports_a_genuinely_absent_symbol ______
+
+    def test_describe_unresolved_anchors_reports_a_genuinely_absent_symbol() -> None:
+        """TC-144: an anchor with zero matches anywhere is a genuinely absent symbol - renamed or
+        removed, never a typo - reported as UNSUPPORTED with match_count=0, the same verdict the
+        chunk itself already carries, now attributed to its actual failing anchor.
+        """
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        chunk = validate_chunk(_chunk("See `TotallyMadeUpClassName` for details."), index, {})
+>       assert chunk.validation.verdict == UNSUPPORTED
+E       AssertionError: assert 'not_checked' == 'unsupported'
+E         
+E         - unsupported
+E         + not_checked
+
+tests\normalization\test_citation.py:321: AssertionError
+_ test_describe_unresolved_anchors_reports_a_near_miss_as_partially_supported _
+
+    def test_describe_unresolved_anchors_reports_a_near_miss_as_partially_supported() -> None:
+        """Two declarations registered under the identical anchor - as real overloads of one
+        qualified member would be - make the anchor genuinely ambiguous: it still fails
+        ``anchor_resolves`` (so the chunk is UNSUPPORTED, exactly like a genuinely absent symbol),
+        but ``resolve_anchor`` distinguishes it as a near-miss, PARTIALLY_SUPPORTED with
+        match_count=2 - a typo or stale doc is a different operator action than a renamed or
+        removed symbol, and that distinction is the entire point of this diagnostic.
+        """
+        index = SymbolIndex(
+            [
+                Declaration(anchor="Shape.Remove"),
+                Declaration(anchor="Shape.Remove", signature="(int index)"),
+            ]
+        )
+        chunk = validate_chunk(_chunk("Call `Shape.Remove` to delete it."), index, {})
+>       assert chunk.validation.verdict == UNSUPPORTED
+E       AssertionError: assert 'not_checked' == 'unsupported'
+E         
+E         - unsupported
+E         + not_checked
+
+tests\normalization\test_citation.py:345: AssertionError
+_ test_describe_unresolved_anchors_never_reports_a_supported_or_insufficient_evidence_chunk _
+
+    def test_describe_unresolved_anchors_never_reports_a_supported_or_insufficient_evidence_chunk() -> None:
+        """A chunk whose verdict is SUPPORTED, or INSUFFICIENT_EVIDENCE (a numeric-only problem,
+        with no failing anchor at all), must never appear in describe_unresolved_anchors' output -
+        it exists to explain an UNSUPPORTED exclusion, nothing else.
+        """
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        known_counts = known_counts_from_fixture(fixture)
+        supported = validate_chunk(_chunk(f"See `{fixture['types'][0]['name']}`."), index, {})
+        insufficient = validate_chunk(_chunk("The library exposes 805 classes."), index, known_counts)
+>       assert supported.validation.verdict == SUPPORTED
+E       AssertionError: assert 'not_checked' == 'supported'
+E         
+E         - supported
+E         + not_checked
+
+tests\normalization\test_citation.py:364: AssertionError
+_________ test_pdf_net_addwatermarkannotation_example_stays_supported _________
+
+    def test_pdf_net_addwatermarkannotation_example_stays_supported() -> None:
+        """A general fix, not a slides/python-specific patch: pdf/net's own real, already-accepted
+        AddWatermarkAnnotation example description happens not to cite any bare method name, so it
+        was SUPPORTED before this fix and must stay SUPPORTED after it, for the same reason
+        (every claim resolves) rather than because of the new exemption.
+        """
+        fixture = _api_surface_fixture()
+        index = symbol_index_from_api_surface(fixture["types"])
+        chunk = _example_chunk(
+            "Open the source PDF with `Document`, then call `Document.Pages` to reach the first "
+            "page before adding the watermark annotation."
+        )
+        validated = validate_chunk(chunk, index, {})
+>       assert validated.validation.verdict == SUPPORTED
+E       AssertionError: assert 'not_checked' == 'supported'
+E         
+E         - supported
+E         + not_checked
+
+tests\normalization\test_citation.py:398: AssertionError
+____ test_with_validation_returns_a_new_chunk_with_only_validation_updated ____
+
+    def test_with_validation_returns_a_new_chunk_with_only_validation_updated() -> None:
+        """with_validation has zero callers of its own (dedicated to citation.py's validate_chunk
+        via TC-147) and zero direct test coverage until now - this is that coverage.
+        """
+        chunk = Chunk(
+            section_title="Rendering",
+            text="Dash patterns on software strokes.",
+            source_kind="repo_native_release_notes",
+            content_type="release_notes",
+            provenance=PROVENANCE,
+            trust_tier="high",
+            evidence_refs=("aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET#v26.9.0",),
+        )
+        assert chunk.validation == NOT_CHECKED
+    
+        new_validation = ValidationResult(verdict="supported", detail="every claim resolves")
+        updated = with_validation(chunk, new_validation)
+    
+>       assert updated is not chunk
+E       AssertionError: assert Chunk(section_title='Rendering', text='Dash patterns on software strokes.', source_kind='repo_native_release_notes', c...s=('aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET#v26.9.0',), validation=ValidationResult(verdict='not_checked', detail='')) is not Chunk(section_title='Rendering', text='Dash patterns on software strokes.', source_kind='repo_native_release_notes', c...s=('aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET#v26.9.0',), validation=ValidationResult(verdict='not_checked', detail=''))
+
+tests\normalization\test_chunker.py:94: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/normalization/test_citation.py::test_a_resolving_anchor_is_supported
+FAILED tests/normalization/test_citation.py::test_a_non_resolving_anchor_is_excluded_or_qualified
+FAILED tests/normalization/test_citation.py::test_the_805_classes_sentence_is_excluded_or_qualified_as_a_whole_chunk
+FAILED tests/normalization/test_citation.py::test_validate_document_sets_every_chunk_and_citable_chunks_drops_the_unsupported
+FAILED tests/normalization/test_citation.py::test_a_compile_verified_example_with_a_bare_method_citation_is_supported
+FAILED tests/normalization/test_citation.py::test_a_non_example_chunk_with_the_same_bare_method_citation_is_still_unsupported
+FAILED tests/normalization/test_citation.py::test_renaming_the_example_guard_breaks_the_example_exemption
+FAILED tests/normalization/test_citation.py::test_a_globally_unambiguous_bare_method_name_resolves_in_ordinary_prose
+FAILED tests/normalization/test_citation.py::test_a_bare_method_name_shared_by_two_or_more_classes_still_stays_unresolved
+FAILED tests/normalization/test_citation.py::test_a_fully_qualified_anchor_still_resolves_via_the_original_exact_match_not_the_fallback
+FAILED tests/normalization/test_citation.py::test_describe_unresolved_anchors_reports_a_genuinely_absent_symbol
+FAILED tests/normalization/test_citation.py::test_describe_unresolved_anchors_reports_a_near_miss_as_partially_supported
+FAILED tests/normalization/test_citation.py::test_describe_unresolved_anchors_never_reports_a_supported_or_insufficient_evidence_chunk
+FAILED tests/normalization/test_citation.py::test_pdf_net_addwatermarkannotation_example_stays_supported
+FAILED tests/normalization/test_chunker.py::test_with_validation_returns_a_new_chunk_with_only_validation_updated
+
+--- stderr ---
+

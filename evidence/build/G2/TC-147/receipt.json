@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "card": "TC-147",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-01T10:32:36Z",
+  "base_rev": "f73ffecd630c70ecfb4ffdf230fd7f9ff0111e91",
+  "head_rev": "f99f1ea51658ca03abe17ac352bbdf7d5ceb0853",
+  "card_sha256": "05a56f71fd3a3c333223e7139ea7f4fa8bae55ab426c44f317a3fe6fec874492",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/normalization/citation.py",
+      "tests/normalization/test_chunker.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/normalization/test_citation.py tests/normalization/test_chunker.py -q",
+          "exit_code": 0,
+          "duration_s": 3.151,
+          "stdout_sha256": "a4ba55c7ec7daeede2ecfea3dda9a793665ee142066911215af4f033a9e8412a",
+          "tests": 28,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/normalization/test_citation.py tests/normalization/test_chunker.py -q",
+          "exit_code": 0,
+          "duration_s": 1.95,
+          "stdout_sha256": "a4ba55c7ec7daeede2ecfea3dda9a793665ee142066911215af4f033a9e8412a",
+          "tests": 28,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/normalization/chunker.py');s=p.read_text(encoding='utf-8');s=s.replace('def with_validation(chunk: Chunk, validation: ValidationResult) -> Chunk:\\n    return replace(chunk, validation=validation)','def with_validation(chunk: Chunk, validation: ValidationResult) -> Chunk:\\n    return chunk');p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "12123ce1dcf9b95e3c5490902c681bc2367625ba91e5ac490003ea7d5ea1bb02",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/normalization/chunker.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
