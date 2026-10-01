@@ -1,19 +1,33 @@
 id: TC-149
 gate: G2
 lane: verification
-purpose: TC-144/145/146/147/148, this round's five wiring fixes (resolve_anchor, fetch_manifest_file
-  + read_repo_document, build_manifest, with_validation, new_correlation_id), each
-  made a previously-genuinely-unreachable symbol real-callable - confirmed directly
-  by re-running tests/test_unwired_modules.py's own real ast-based import-graph walk
+purpose: 'TC-144/145/146/147/148, this round''s five wiring fixes (resolve_anchor,
+  fetch_manifest_file + read_repo_document, build_manifest, with_validation, new_correlation_id),
+  each made a previously-genuinely-unreachable symbol real-callable - confirmed directly
+  by re-running tests/test_unwired_modules.py''s own real ast-based import-graph walk
   against current main, which now correctly FAILS (three separate assertions) because
   the pinned _KNOWN_UNWIRED frozenset has gone stale, exactly as this test is designed
-  to force. Additionally, TC-145's new infra/fetch_product_reference.py is a real,
+  to force. Additionally, TC-145''s new infra/fetch_product_reference.py is a real,
   legitimate production entrypoint (an operator-run CLI, exactly like infra/ingest.py
-  and infra/rollback.py already are) that is not yet registered in this file's own
+  and infra/rollback.py already are) that is not yet registered in this file''s own
   ENTRYPOINTS tuple, which is why fetch_manifest_file and read_repo_document still
-  show as unreachable despite TC-145's real wiring. Register the new entrypoint and
-  re-pin both frozensets to the walk's own current, verified output - do not guess
-  the new set by hand; recompute it directly from the real, current code.
+  show as unreachable despite TC-145''s real wiring. Register the new entrypoint and
+  re-pin both frozensets to the walk''s own current, verified output - do not guess
+  the new set by hand; recompute it directly from the real, current code. FURTHER
+  FINDING (from this card''s own attempt 1, reported back by the worker, confirmed
+  correct by the supervisor): TC-148 made src/foss_mcp/mcp/server.py import foss_mcp.telemetry.usage_recorder
+  directly (UsageRecorder, build_event, new_correlation_id), which means that module''s
+  FILE is now genuinely on the production-reachable path for the very first time (confirmed
+  directly: usage_recorder.py is now in _PROD_REACHABLE). The module''s own step 3
+  scan therefore now correctly classifies UsageRecorder''s wiring status on its own.
+  This makes the separate step-4 special case - _usage_recorder_has_any_production_or_infra_reference()
+  and its hardcoded `assert not ...` in test_the_real_import_graph_walk_finds_exactly_the_known_unwired_symbols,
+  which exists (per its own docstring) ONLY because that file used to sit entirely
+  outside the production-reachable set - now obsolete and, worse, actively wrong:
+  it unconditionally asserts the file is never referenced, which is no longer true
+  and can never be true again now that server.py depends on it directly. Retire the
+  step-4 special case entirely: step 3''s general scan is now a strict superset of
+  what it checked.'
 depends_on:
 - TC-130
 - TC-134
@@ -43,9 +57,14 @@ inputs:
 - Do NOT hand-compute the new _KNOWN_UNWIRED set from reading the source. After adding
   the new entrypoint (action 1 below), recompute the real set by importing this test
   module and calling its own `_compute_unwired_from_production_reachable_files()`
-  plus checking `_usage_recorder_has_any_production_or_infra_reference()` directly
-  in a throwaway Python shell - then transcribe exactly that computed result into
-  the frozenset literal, never a guess.
+  directly in a throwaway Python shell - then transcribe exactly that computed result
+  into the frozenset literal, never a guess.
+- Before touching the step-4 UsageRecorder special case, confirm directly (in the
+  same throwaway shell, after adding the new entrypoint) that `SRC_FOSS / 'telemetry'
+  / 'usage_recorder.py'` is now a member of the module's own `_PROD_REACHABLE` set,
+  and that `_compute_unwired_from_production_reachable_files()`'s own output does
+  NOT include `foss_mcp.telemetry.usage_recorder.UsageRecorder` (i.e. step 3 already
+  classifies it as wired on its own, with no help from step 4).
 actions:
 - Add `INFRA_ROOT / "fetch_product_reference.py"` as a new entry in the ENTRYPOINTS
   tuple (it is a real, legitimate operator-run CLI entrypoint from TC-145, exactly
@@ -63,6 +82,17 @@ actions:
 - Update _KNOWN_UNWIRED_AND_UNTESTED to an empty frozenset() - both symbols that were
   in it (fetch_manifest_file, with_validation) are removed from _KNOWN_UNWIRED entirely
   now, and _KNOWN_UNWIRED_AND_UNTESTED must stay a subset of _KNOWN_UNWIRED.
+- 'Retire the step-4 UsageRecorder special case entirely, once you have confirmed
+  (per the inputs above) that step 3 already covers it correctly on its own: delete
+  the `_usage_recorder_has_any_production_or_infra_reference()` function, delete the
+  `assert not _usage_recorder_has_any_production_or_infra_reference()` block and the
+  `computed.add(''foss_mcp.telemetry.usage_recorder.UsageRecorder'')` line from test_the_real_import_graph_walk_finds_exactly_the_known_unwired_symbols,
+  and revise the module''s own docstring point 4 (the paragraph starting ''Separately,
+  foss_mcp.telemetry.usage_recorder sits in a file that is not on the production path
+  at all'') to a brief historical note: that special case existed only while the file
+  sat outside the production-reachable set, which TC-148 ended by making server.py
+  import it directly, so step 3''s ordinary scan now covers it like any other production-reachable
+  file.'
 - Run `{python} -m pytest tests/test_unwired_modules.py -q` and confirm all tests
   pass clean, twice.
 checks:
@@ -92,6 +122,9 @@ closeout:
 - _KNOWN_UNWIRED contains exactly the real, current import-graph walk's output - verified
   by running the test, not merely asserted.
 - _KNOWN_UNWIRED_AND_UNTESTED is an empty frozenset.
+- The step-4 UsageRecorder special case (_usage_recorder_has_any_production_or_infra_reference
+  and its assert/computed.add call site) is retired; the module docstring's point
+  4 reflects this as a historical note rather than live logic.
 - tests/test_unwired_modules.py passes clean on current main.
 - Reverting the ENTRYPOINTS addition fails the suite again.
 recovery: Re-run from a clean tree; the card is idempotent from committed content.
