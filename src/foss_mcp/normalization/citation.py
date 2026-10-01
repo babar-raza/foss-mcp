@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import replace
 
 from foss_mcp.extraction.claim_id_bridge import (
     Declaration,
@@ -34,7 +33,7 @@ from foss_mcp.extraction.claim_id_bridge import (
     anchor_resolves,
     resolve_anchor,
 )
-from foss_mcp.normalization.chunker import Chunk
+from foss_mcp.normalization.chunker import Chunk, with_validation
 from foss_mcp.normalization.document_schema import ValidationResult
 
 SUPPORTED = "supported"
@@ -190,9 +189,9 @@ def validate_chunk(chunk: Chunk, symbol_index: SymbolIndex, known_counts: Mappin
         if result.verdict != SUPPORTED:
             problems.append(result)
     if not problems:
-        return replace(chunk, validation=ValidationResult(verdict=SUPPORTED, detail="every claim resolves"))
+        return with_validation(chunk, ValidationResult(verdict=SUPPORTED, detail="every claim resolves"))
     worst = next((p for p in problems if p.verdict == UNSUPPORTED), problems[0])
-    return replace(chunk, validation=worst)
+    return with_validation(chunk, worst)
 
 
 def validate_document(

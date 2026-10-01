@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
-from foss_mcp.normalization.chunker import chunk_document
-from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
+from foss_mcp.normalization.chunker import Chunk, chunk_document, with_validation
+from foss_mcp.normalization.document_schema import (
+    NOT_CHECKED,
+    Provenance,
+    SourceKind,
+    ValidationResult,
+    make_document,
+)
 
 PROVENANCE = Provenance(repository="aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET", commit="b717287" * 5)
 
@@ -65,3 +71,34 @@ def test_a_heading_free_body_still_splits_on_paragraphs_not_one_page_chunk() -> 
 
 def test_an_empty_body_yields_no_chunks() -> None:
     assert chunk_document(_document("")) == []
+
+
+def test_with_validation_returns_a_new_chunk_with_only_validation_updated() -> None:
+    """with_validation has zero callers of its own (dedicated to citation.py's validate_chunk
+    via TC-147) and zero direct test coverage until now - this is that coverage.
+    """
+    chunk = Chunk(
+        section_title="Rendering",
+        text="Dash patterns on software strokes.",
+        source_kind="repo_native_release_notes",
+        content_type="release_notes",
+        provenance=PROVENANCE,
+        trust_tier="high",
+        evidence_refs=("aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET#v26.9.0",),
+    )
+    assert chunk.validation == NOT_CHECKED
+
+    new_validation = ValidationResult(verdict="supported", detail="every claim resolves")
+    updated = with_validation(chunk, new_validation)
+
+    assert updated is not chunk
+    assert updated.validation == new_validation
+    assert updated.section_title == chunk.section_title
+    assert updated.text == chunk.text
+    assert updated.source_kind == chunk.source_kind
+    assert updated.content_type == chunk.content_type
+    assert updated.provenance == chunk.provenance
+    assert updated.trust_tier == chunk.trust_tier
+    assert updated.evidence_refs == chunk.evidence_refs
+    # The original chunk itself is untouched - with_validation never mutates in place.
+    assert chunk.validation == NOT_CHECKED
