@@ -10,11 +10,11 @@ Method (real, structural, ``ast``-based - never a hand-maintained prose list):
    import graph (``import x``, ``from x import y``, ``from pkg import submodule``, relative
    imports, and the implicit edge every submodule import carries to each ancestor package's
    own ``__init__.py``).
-2. BFS that graph from the six real production entrypoints
+2. BFS that graph from the seven real production entrypoints
    (``infra/serve_http.py``, ``infra/serve_stdio.py``, ``infra/ingest.py``,
-   ``infra/build_chunks.py``, ``infra/rollback.py``, ``src/foss_mcp/mcp/server.py``) to get every
-   file genuinely on a production import path, and separately from every file under ``tests/`` to
-   get every file a test genuinely exercises.
+   ``infra/build_chunks.py``, ``infra/rollback.py``, ``infra/fetch_product_reference.py``,
+   ``src/foss_mcp/mcp/server.py``) to get every file genuinely on a production import path, and
+   separately from every file under ``tests/`` to get every file a test genuinely exercises.
 3. For every top-level public (non-underscore) function or class defined anywhere under
    ``src/foss_mcp/`` whose OWN FILE is on that production path, check whether the symbol itself
    - not just its file - is ever referenced (a ``from module import name`` match, a
@@ -27,30 +27,32 @@ Method (real, structural, ``ast``-based - never a hand-maintained prose list):
    (``foss_mcp.indexing.publisher.rollback_generation`` used to be exactly this kind of gap too -
    TC-140 added ``infra/rollback.py`` as a sixth entrypoint precisely because it now gives that
    function its first real caller, so it dropped out of ``_KNOWN_UNWIRED``.)
-4. Separately, ``foss_mcp.telemetry.usage_recorder`` sits in a file that is not on the
-   production path at all (confirmed: no file under ``src/`` or ``infra/`` outside itself
-   references it) - checked directly here rather than folded into step 3's scan, because step
-   3's scan is deliberately restricted to files already confirmed production-reachable, to avoid
-   conflating this project's real wiring gaps with its legitimate offline/build-time tooling
-   (the tree-sitter extraction pipeline, the one-time topology-decision spike, etc. - large,
-   heavily tested subsystems whose own entrypoint is simply never called from the five production
-   entrypoints by design, not by oversight; see ``docs/REPOSITORY_LAYOUT.md`` and each such
-   module's own docstring).
+4. Historical note: ``foss_mcp.telemetry.usage_recorder`` used to sit in a file that was not on
+   the production path at all, which once required a separate, hardcoded check here (outside
+   step 3's scan, which is deliberately restricted to files already confirmed
+   production-reachable) to confirm nothing under ``src/`` or ``infra/`` referenced it. TC-148
+   ended that by making ``src/foss_mcp/mcp/server.py`` import ``foss_mcp.telemetry.usage_recorder``
+   directly (``UsageRecorder``, ``build_event``, ``new_correlation_id``), putting that file on the
+   production-reachable path for the first time. Step 3's ordinary scan now covers it like any
+   other production-reachable file, so the separate special case was retired.
 
 ``_KNOWN_UNWIRED`` pins the resulting set exactly. Running this walk against the real, current
-tree found ELEVEN such symbols, not only the two AGENTS.md's own text names
-(``query_vector_index`` and ``UsageRecorder``) - the other nine are a real, additional finding
-this card's own walk surfaced; each was individually confirmed above the frozenset by manual
-citation of its own real callers (or lack of them). Two of the eleven
-(``fetch_manifest_file``, ``with_validation``) are more severe still: no test references them
-either, so nothing anywhere ever calls them - ``_KNOWN_UNWIRED_AND_UNTESTED`` pins that worse
-subset separately, exactly as AGENTS.md asks ("report it separately from a module reachable from
-NOTHING"). (TC-140 shrank this set from its original fourteen: ``is_alive`` and
-``round_trip_check`` were wired into ``infra/serve_http.py`` by TC-137, and
-``rollback_generation`` got its first real caller once ``infra/rollback.py`` joined the
-entrypoint list above. TC-140 also deleted ``foss_mcp.mcp.health.is_ready`` outright - see that
-module's own docstring - rather than adding it here, since ``round_trip_check`` is a confirmed
-strict superset of its guarantee.)
+tree now finds FIVE such symbols: ``prepare_cpp_library``, ``verify_cpp_example``,
+``query_vector_index``, ``document_schema.from_dict``, ``document_schema.to_dict`` - each
+individually confirmed above the frozenset by manual citation of its own real callers (or lack
+of them). ``_KNOWN_UNWIRED_AND_UNTESTED`` is currently empty: every symbol that once sat in that
+worse ("reachable from NOTHING, not even a test") tier has since been wired in. (History: TC-140
+shrank the set from its original fourteen - ``is_alive`` and ``round_trip_check`` were wired into
+``infra/serve_http.py`` by TC-137, and ``rollback_generation`` got its first real caller once
+``infra/rollback.py`` joined the entrypoint list above; TC-140 also deleted
+``foss_mcp.mcp.health.is_ready`` outright - see that module's own docstring - rather than adding
+it here, since ``round_trip_check`` is a confirmed strict superset of its guarantee. The set then
+grew to eleven as this walk's own method matured, before TC-144 through TC-148's wiring fixes
+(``resolve_anchor``, ``fetch_manifest_file``, ``read_repo_document``, ``build_manifest``,
+``with_validation``, and ``usage_recorder``'s whole file via ``UsageRecorder``/``build_event``/
+``new_correlation_id`` in ``server.py``) and TC-149's registration of
+``infra/fetch_product_reference.py`` as a seventh entrypoint shrank it back down to the current
+five, and emptied ``_KNOWN_UNWIRED_AND_UNTESTED`` entirely.)
 """
 
 from __future__ import annotations
@@ -70,6 +72,7 @@ ENTRYPOINTS: tuple[Path, ...] = (
     INFRA_ROOT / "ingest.py",
     INFRA_ROOT / "build_chunks.py",
     INFRA_ROOT / "rollback.py",
+    INFRA_ROOT / "fetch_product_reference.py",
     SRC_FOSS / "mcp" / "server.py",
 )
 
@@ -80,28 +83,19 @@ ENTRYPOINTS: tuple[Path, ...] = (
 _KNOWN_UNWIRED: frozenset[str]
 _KNOWN_UNWIRED = frozenset(
     {
-        "foss_mcp.extraction.claim_id_bridge.resolve_anchor",
-        "foss_mcp.extraction.manifest_reader.fetch_manifest_file",
-        "foss_mcp.extraction.repo_native_reader.read_repo_document",
         "foss_mcp.indexing.example_verifier.prepare_cpp_library",
         "foss_mcp.indexing.example_verifier.verify_cpp_example",
-        "foss_mcp.indexing.generation_manifest.build_manifest",
         "foss_mcp.indexing.vector_index_writer.query_vector_index",
-        "foss_mcp.normalization.chunker.with_validation",
         "foss_mcp.normalization.document_schema.from_dict",
         "foss_mcp.normalization.document_schema.to_dict",
-        "foss_mcp.telemetry.usage_recorder.UsageRecorder",
     }
 )
 
 # The worse severity tier within the set above: not even a test references these two, so
-# nothing anywhere - production or test - ever calls them.
-_KNOWN_UNWIRED_AND_UNTESTED: frozenset[str] = frozenset(
-    {
-        "foss_mcp.extraction.manifest_reader.fetch_manifest_file",
-        "foss_mcp.normalization.chunker.with_validation",
-    }
-)
+# nothing anywhere - production or test - ever calls them. Currently empty: every symbol that
+# used to be in this subset (fetch_manifest_file, with_validation) has since been wired in and
+# dropped out of _KNOWN_UNWIRED entirely.
+_KNOWN_UNWIRED_AND_UNTESTED: frozenset[str] = frozenset()
 
 # A handful of symbols confirmed WIRED (real, live production callers), asserted below to make
 # sure this walk can say "wired" as well as "unwired" - a check with only one reachable outcome
@@ -343,28 +337,8 @@ def _compute_unwired_from_production_reachable_files() -> dict[str, tuple[Path, 
     return unwired
 
 
-def _usage_recorder_has_any_production_or_infra_reference() -> bool:
-    """``UsageRecorder``'s own file is not production-reachable at all (nothing under ``src/``
-    or ``infra/`` imports ``foss_mcp.telemetry.usage_recorder``) - checked directly, across
-    every file under ``src/`` and ``infra/``, rather than restricted to the production-reachable
-    set, since the whole point is confirming its file never enters that set in the first place.
-    """
-    module = "foss_mcp.telemetry.usage_recorder"
-    defining_file = SRC_FOSS / "telemetry" / "usage_recorder.py"
-    candidates = {
-        f for f in _GRAPH.files if (SRC_ROOT in f.parents or INFRA_ROOT in f.parents) and f != defining_file
-    }
-    return _GRAPH.has_external_reference(defining_file, module, "UsageRecorder", candidates)
-
-
 def test_the_real_import_graph_walk_finds_exactly_the_known_unwired_symbols() -> None:
     computed = set(_compute_unwired_from_production_reachable_files())
-
-    assert not _usage_recorder_has_any_production_or_infra_reference(), (
-        "UsageRecorder now has a real production/infra reference - _KNOWN_UNWIRED must be "
-        "updated (remove it, or investigate why this walk still thinks it is unwired)."
-    )
-    computed.add("foss_mcp.telemetry.usage_recorder.UsageRecorder")
 
     assert computed == _KNOWN_UNWIRED, (
         f"the real import-graph walk's computed unwired set no longer matches the pinned "
