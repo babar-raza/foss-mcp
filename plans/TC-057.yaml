@@ -9,6 +9,9 @@ depends_on:
 - TC-010
 - TC-010b
 - TC-056
+- TC-058
+- TC-059
+- TC-092
 write_paths:
 - tests/extraction/test_pdf_cpp_extraction.py
 - tests/fixtures/pdf_cpp/**
@@ -20,6 +23,16 @@ source_refs:
     knowledge — extract it directly instead'
   sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
 inputs:
+- 'ATTEMPT 4 (operator decision 2026-10-01: pdf/cpp is still needed for complete
+  rollout, not permanently replaced by cells/cpp - cells/cpp only proved the C++
+  platform works in general). Attempts 1-3 each found a distinct, real engine bug
+  blocking this exact repository, and each has since been fixed and accepted: TC-058
+  (return-type fallback firing before the free-function branch), TC-059 (operator_name
+  node type missing from _cpp_free_function_name''s checked tuple), TC-092 (consolidate_classes
+  silently discarding distinct same-named free functions across different files/namespaces
+  - confirmed in TC-092''s own instrumentation to be "the exact bug that stalled TC-057
+  at its 3-attempt cap"). Re-run the exact same extraction fresh against current code -
+  do not assume success, verify the real output yourself exactly as prior attempts did.'
 - 'run_extraction.py already has a fully generic CLI and API for this, unchanged since
   TC-011: extract_pinned_repository(manifest_path) clones shallowly, extracts, and
   returns an artifact; reduce_fixture(artifact, max_types=300) makes a deterministic,
