@@ -1,0 +1,107 @@
+id: TC-168
+gate: G2
+lane: extraction
+purpose: 'Fix a real, general defect in _CLASS_TYPES[''java''] (src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py:70):
+  it omits ''record_declaration'', unlike the sibling ''csharp'' entry three lines
+  below which already includes it. Confirmed today (TC-167''s own worker, onboarding
+  slides/java beyond the original 7 pilots) against the real, live aspose-slides-foss/Aspose.Slides-FOSS-for-Java
+  repository: two real Java record declarations - internal/opc/Relationship.java''s
+  `Relationship` and FontData.java''s `FontData` - are completely invisible as their
+  own types (never appear as a class/record-kind entry), and their constructor/methods
+  leak out as spurious top-level kind=''function'' entries instead of being correctly
+  scoped as that record''s own members. This is the same general class of bug already
+  fixed for C++''s consolidate_classes (TC-092) and for C#''s own _CLASS_TYPES entry
+  (already correct) - an unscoped collect_nodes() search finding no class_types ancestor
+  and silently falling through to ''this must be a free function''. This fix, not
+  a product swap or a narrower fixture cap, is the actual prerequisite for onboarding
+  any Java pilot or product that uses Java 16+ records (slides/java specifically,
+  and any future Java onboarding card).'
+depends_on:
+- TC-010b
+- TC-051
+- TC-058
+- TC-059
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py
+- tests/extraction/tree_sitter_engine/test_api_surface_java.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Read src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py's _CLASS_TYPES dict
+  in full (around line 68-80) - the 'java' entry is missing 'record_declaration',
+  which the 'csharp' entry three lines below already has.
+- Read tests/extraction/tree_sitter_engine/test_api_surface_csharp.py for this project's
+  existing test conventions for a record_declaration regression (if it has one) -
+  mirror that structure for the new Java test file.
+- 'Required, exact fix: add the single string ''record_declaration'' to _CLASS_TYPES[''java'']''s
+  set literal. Do not touch any other language''s entry, do not touch consolidate_classes
+  or any other function in this file or api_surface.py - this is a single-set-literal
+  addition, nothing else.'
+- 'Two required, real proofs - not just a synthetic unit test: (1) A new unit test
+  file, tests/extraction/tree_sitter_engine/test_api_surface_java.py, parsing a small,
+  hand-written Java snippet containing a `public record Point(int x, int y) { public
+  int sum() { return x + y; } }`-shaped record with at least one explicit method,
+  and asserting: the record itself appears as its own top-level entry (not missing,
+  not misattributed), its method (`sum`) is scoped as that record''s own member (not
+  a stray top-level function), and ordinary Java classes/interfaces/enums are completely
+  unaffected (run a case exercising those three as they exist today and assert identical
+  behavior to before this change). (2) A REAL end-to-end regression against real slides/java
+  data: clone aspose-slides-foss/Aspose.Slides-FOSS-for-Java at a pinned commit (confirm
+  the current HEAD of its default branch ''main'' via a fresh `gh api repos/aspose-slides-foss/Aspose.Slides-FOSS-for-Java`
+  read, or reuse the commit 620a2614418854b4a18966a361e6907ddc88c7cb TC-167''s worker
+  already observed if it is still the real HEAD) and run this project''s real extraction
+  pipeline; assert that `Relationship` and `FontData` now appear as their own entries
+  (not absent, not kind=''function''), and that no stray top-level kind=''function''
+  entries remain for their known method names (e.g. a constructor-shaped or `getFontName`-named
+  stray entry). This test needs network access to clone the real repository - follow
+  this project''s own established pattern for marking that (see tests/indexing/test_example_verifier.py
+  or TC-092''s own test for the convention).'
+- Run the FULL existing tests/extraction/ test suite (every language, every already-onboarded
+  pilot's fixture-based test) and confirm nothing regresses - if any existing accepted
+  fixture's own test now behaves differently, investigate and report honestly rather
+  than assume it's fine.
+actions:
+- Read _CLASS_TYPES in full before changing anything.
+- Add 'record_declaration' to _CLASS_TYPES['java']'s set literal - the single, exact,
+  minimal change.
+- Write the new synthetic unit test file exactly as specified.
+- Run the real slides/java end-to-end regression exactly as specified, using a freshly-confirmed
+  real commit.
+- Run the full existing tests/extraction/ suite and confirm nothing regresses for
+  any other language or already-onboarded pilot.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/ tests/extraction/
+    -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 4
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py');s=p.read_text(encoding='utf-8');s=s.replace('\"record_declaration\"',
+    '\"record_declaration_DISABLED\"');p.write_text(s,encoding='utf-8')"
+  rationale: 'Removes ''record_declaration'' from _CLASS_TYPES[''java''] again, reverting
+    to the exact pre-fix broken state - this must break both new tests (the synthetic
+    record-scoping unit test and the real slides/java regression, whichever runs offline
+    as part of the check) by reproducing the exact symptom TC-167''s worker found:
+    the record vanishes / its methods leak as stray top-level functions. Self-checked
+    end-to-end before being persisted.'
+evidence:
+- evidence/build/G2/TC-168/receipt.json
+closeout:
+- _CLASS_TYPES['java'] includes 'record_declaration', matching the sibling 'csharp'
+  entry's own correctness.
+- A synthetic unit test proves Java records are now correctly scoped; a real end-to-end
+  regression against the live slides/java repo proves Relationship and FontData are
+  now correctly extracted, not lost or misattributed.
+- The full existing tests/extraction/ suite passes unchanged for every other language
+  and already-onboarded pilot.
+- Reverting the one-line fix fails the new tests again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
