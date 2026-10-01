@@ -1,0 +1,70 @@
+id: TC-141
+gate: G2
+lane: transport-deployment
+purpose: 'Fix real ruff-format debt the pre-push hook found and correctly blocked
+  a push over, again: 4 files touched across the first parallel-execution batch''s
+  own worker commits (TC-137, TC-138, TC-139) are not ruff-format clean. Same recurring
+  class of defect TC-108/TC-123/TC-134 already fixed - lint/typecheck/gatectl all
+  pass, only format fails - this time surfaced across three independently-authored,
+  independently-worked branches that were each individually tested but never checked
+  together against ruff format until they all landed on main.'
+depends_on:
+- TC-019a
+- TC-061
+- TC-079
+- TC-137
+- TC-138
+- TC-139
+- TC-140
+write_paths:
+- infra/serve_http.py
+- tests/infra/test_rollback.py
+- tests/infra/test_serve_http.py
+- tests/test_serving_dependency_lock.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Run `.venv\Scripts\python.exe -m ruff format --diff` scoped to exactly these 4 files
+  first to see the real, current formatting debt before changing anything.
+- Apply `.venv\Scripts\python.exe -m ruff format` to exactly these 4 files - pure
+  formatting, zero logic/behavior change.
+- After formatting, run each file's own real test suite (tests/infra/test_rollback.py,
+  tests/infra/test_serve_http.py, tests/test_serving_dependency_lock.py) to confirm
+  zero behavior change. infra/serve_http.py has no test file of its own distinct from
+  tests/infra/test_serve_http.py - running that one suite covers it.
+- Do not touch any file outside this exact list of 4.
+actions:
+- Apply ruff format to exactly the 4 named files.
+- Confirm `ruff format --check` on those 4 files now passes clean.
+- Confirm each file's own tests still pass unchanged.
+checks:
+- command: '{python} -m ruff format --check infra/serve_http.py tests/infra/test_rollback.py
+    tests/infra/test_serve_http.py tests/test_serving_dependency_lock.py && {python}
+    -m pytest tests/infra/test_rollback.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 4
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/infra/test_rollback.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    _rollback_argv(','def _rollback_argv_DISABLED(');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming _rollback_argv (a real, load-bearing helper tests/infra/test_rollback.py
+    itself defines and calls) breaks that file's own suite with a NameError, failing
+    the check's pytest half - proving the check genuinely exercises this file's real
+    content, not merely its formatting. Self-checked end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-141/receipt.json
+closeout:
+- All 4 files are ruff-format clean.
+- Each file's own tests show zero behavior change.
+- scripts/ci_check.sh's own format step passes, unblocking the push.
+- Renaming _rollback_argv fails the check again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
