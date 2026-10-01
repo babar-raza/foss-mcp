@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "card": "TC-148",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-01T10:42:02Z",
+  "base_rev": "a8ee168a779bc934544e9e78cffa79ff51533153",
+  "head_rev": "7dbeb85862e411eaac048bca9f628e39be0f168f",
+  "card_sha256": "74cdbe4e0c53e2792951f9f8979b6e7e421b575450d7555cf819f8656f2a8edb",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/server.py",
+      "tests/mcp/test_server_wiring.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/test_server_wiring.py -q",
+          "exit_code": 0,
+          "duration_s": 5.118,
+          "stdout_sha256": "51f616f850e3995f1776db970daad672d860f1f74eacce902395395257358909",
+          "tests": 81,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/test_server_wiring.py -q",
+          "exit_code": 0,
+          "duration_s": 5.01,
+          "stdout_sha256": "51f616f850e3995f1776db970daad672d860f1f74eacce902395395257358909",
+          "tests": 81,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/telemetry/usage_recorder.py');s=p.read_text(encoding='utf-8');s=s.replace('def new_correlation_id() -> str:\\n    \\\"\\\"\\\"One id per top-level request; every nested tool call reuses it.\\\"\\\"\\\"\\n    return uuid.uuid4().hex','def new_correlation_id() -> str:\\n    \\\"\\\"\\\"One id per top-level request; every nested tool call reuses it.\\\"\\\"\\\"\\n    return \\\"disabled-correlation-id\\\"');p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "8f6bdaf0f9945f79d31d9149d3cca99d3f764f49d04ff4dc7e144ca371977369",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/telemetry/usage_recorder.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

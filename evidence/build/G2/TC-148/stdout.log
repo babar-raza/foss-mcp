@@ -1,0 +1,74 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_server_wiring.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6oxl4sv_\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 88%]
+.........                                                                [100%]
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_server_wiring.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6oxl4sv_\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 88%]
+.........                                                                [100%]
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/telemetry/usage_recorder.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_server_wiring.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6oxl4sv_\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 88%]
+F........                                                                [100%]
+================================== FAILURES ===================================
+_______ test_two_different_tool_calls_get_two_different_correlation_ids _______
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1398/test_two_different_tool_calls_0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x0000020FDA6D5050>
+
+    def test_two_different_tool_calls_get_two_different_correlation_ids(
+        tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.INFO, logger="foss_mcp.mcp.server"):
+            with _client(tmp_path) as client:
+                session = _McpSession(client)
+                session.request("tools/call", {"name": "search_symbols", "arguments": {"query": "Widget"}})
+                session.request("tools/call", {"name": "search_symbols", "arguments": {"query": "Widget"}})
+    
+        tool_call_records = [record for record in caplog.records if hasattr(record, "correlation_id")]
+        assert len(tool_call_records) == 2
+>       assert tool_call_records[0].correlation_id != tool_call_records[1].correlation_id
+E       assert 'disabled-correlation-id' != 'disabled-correlation-id'
+E        +  where 'disabled-correlation-id' = <LogRecord: foss_mcp.mcp.server, 20, H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6oxl4sv_\src\foss_mcp\mcp\server.py, 584, "tool call: %s (%s)">.correlation_id
+E        +  and   'disabled-correlation-id' = <LogRecord: foss_mcp.mcp.server, 20, H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6oxl4sv_\src\foss_mcp\mcp\server.py, 584, "tool call: %s (%s)">.correlation_id
+
+tests\mcp\test_server_wiring.py:771: AssertionError
+------------------------------ Captured log call ------------------------------
+INFO     foss_mcp.mcp.server:server.py:584 tool call: search_symbols (success)
+INFO     foss_mcp.mcp.server:server.py:584 tool call: search_symbols (success)
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/mcp/test_server_wiring.py::test_two_different_tool_calls_get_two_different_correlation_ids
+
+--- stderr ---
+
