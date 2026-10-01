@@ -1,0 +1,241 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_fetch_product_reference.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b324zv4o\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_fetch_product_reference.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b324zv4o\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/fetch_product_reference.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_fetch_product_reference.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b324zv4o\.junit-0.xml"
+--- stdout ---
+FFFFF                                                                    [100%]
+================================== FAILURES ===================================
+____ test_build_sidecar_with_a_present_manifest_and_both_documents_present ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023AAED463F0>
+
+    def test_build_sidecar_with_a_present_manifest_and_both_documents_present(monkeypatch) -> None:
+        manifest_text = "<Project><TargetFramework>net8.0</TargetFramework></Project>"
+        _install_fake_urlopen(
+            monkeypatch,
+            {
+                "Aspose.PDF.FOSS.csproj": _contents_payload(
+                    path="Aspose.PDF.FOSS.csproj", sha="m" * 40, content=manifest_text
+                ),
+                "CONTRIBUTING.md": _contents_payload(path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"),
+                "AGENTS.md": _contents_payload(path="AGENTS.md", sha="a" * 40, content="# Agents\n"),
+            },
+        )
+    
+>       sidecar = fetch_product_reference.build_sidecar(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            repository=REPOSITORY,
+            platform="net",
+            manifest_path="Aspose.PDF.FOSS.csproj",
+            contributing_path="CONTRIBUTING.md",
+            agent_guidance_path="AGENTS.md",
+            ref=None,
+        )
+E       AttributeError: module 'infra.fetch_product_reference' has no attribute 'build_sidecar'
+
+tests\infra\test_fetch_product_reference.py:90: AttributeError
+_ test_build_sidecar_with_manifest_path_omitted_never_calls_fetch_manifest_file _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023AAEC18D60>
+
+    def test_build_sidecar_with_manifest_path_omitted_never_calls_fetch_manifest_file(monkeypatch) -> None:
+        def _must_not_be_called(*args, **kwargs):
+            raise AssertionError("fetch_manifest_file must not be called when manifest_path is omitted")
+    
+        monkeypatch.setattr(fetch_product_reference, "fetch_manifest_file", _must_not_be_called)
+        _install_fake_urlopen(
+            monkeypatch,
+            {
+                "CONTRIBUTING.md": _contents_payload(path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"),
+                "AGENTS.md": _contents_payload(path="AGENTS.md", sha="a" * 40, content="# Agents\n"),
+            },
+        )
+    
+>       sidecar = fetch_product_reference.build_sidecar(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            repository=REPOSITORY,
+            platform="net",
+            manifest_path=None,
+            contributing_path="CONTRIBUTING.md",
+            agent_guidance_path="AGENTS.md",
+            ref=None,
+        )
+E       AttributeError: module 'infra.fetch_product_reference' has no attribute 'build_sidecar'
+
+tests\infra\test_fetch_product_reference.py:130: AttributeError
+____ test_build_sidecar_reports_a_real_404_on_contributing_as_not_present _____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023AAED2AD50>
+
+    def test_build_sidecar_reports_a_real_404_on_contributing_as_not_present(monkeypatch) -> None:
+        _install_fake_urlopen(
+            monkeypatch,
+            {
+                "CONTRIBUTING.md": 404,
+                "AGENTS.md": _contents_payload(path="AGENTS.md", sha="a" * 40, content="# Agents\n"),
+            },
+        )
+    
+>       sidecar = fetch_product_reference.build_sidecar(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            repository=REPOSITORY,
+            platform="net",
+            manifest_path=None,
+            contributing_path="CONTRIBUTING.md",
+            agent_guidance_path="AGENTS.md",
+            ref=None,
+        )
+E       AttributeError: module 'infra.fetch_product_reference' has no attribute 'build_sidecar'
+
+tests\infra\test_fetch_product_reference.py:153: AttributeError
+_ test_main_writes_the_real_sidecar_json_matching_build_sidecars_return_value _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1382/test_main_writes_the_real_side0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023AAED26BE0>
+
+    def test_main_writes_the_real_sidecar_json_matching_build_sidecars_return_value(
+        tmp_path: Path, monkeypatch
+    ) -> None:
+        """Runs the real CLI's main() against a tmp_path output file and asserts the written JSON
+        file's real content matches build_sidecar's own return value - not merely that the process
+        exits 0."""
+        import sys
+    
+        _install_fake_urlopen(
+            monkeypatch,
+            {
+                "CONTRIBUTING.md": _contents_payload(path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"),
+                "AGENTS.md": _contents_payload(path="AGENTS.md", sha="a" * 40, content="# Agents\n"),
+            },
+        )
+    
+        output_path = tmp_path / "product_reference.json"
+        argv = [
+            "fetch_product_reference.py",
+            "--repository",
+            REPOSITORY,
+            "--platform",
+            "net",
+            "--output",
+            str(output_path),
+        ]
+        monkeypatch.setattr(sys, "argv", argv)
+    
+>       fetch_product_reference.main()
+
+tests\infra\test_fetch_product_reference.py:194: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--repository", required=True, help="'owner/name'")
+        parser.add_argument("--platform", required=True)
+        parser.add_argument(
+            "--manifest-path",
+            default=None,
+            help="path to the packaging manifest in the repository; omit to skip the manifest fetch entirely",
+        )
+        parser.add_argument("--contributing-path", default="CONTRIBUTING.md")
+        parser.add_argument("--agent-guidance-path", default="AGENTS.md")
+        parser.add_argument("--ref", default=None)
+        parser.add_argument("--output", type=Path, required=True, help="path to write the JSON sidecar")
+        args = parser.parse_args()
+    
+>       sidecar = build_sidecar(
+                  ^^^^^^^^^^^^^
+            repository=args.repository,
+            platform=args.platform,
+            manifest_path=args.manifest_path,
+            contributing_path=args.contributing_path,
+            agent_guidance_path=args.agent_guidance_path,
+            ref=args.ref,
+        )
+E       NameError: name 'build_sidecar' is not defined
+
+infra\fetch_product_reference.py:90: NameError
+__________________ test_main_prints_a_one_line_confirmation ___________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1382/test_main_prints_a_one_line_co0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023AAED268B0>
+capsys = <_pytest.capture.CaptureFixture object at 0x0000023AAED0B380>
+
+    def test_main_prints_a_one_line_confirmation(tmp_path: Path, monkeypatch, capsys) -> None:
+        import sys
+    
+        _install_fake_urlopen(
+            monkeypatch,
+            {
+                "CONTRIBUTING.md": _contents_payload(path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"),
+                "AGENTS.md": _contents_payload(path="AGENTS.md", sha="a" * 40, content="# Agents\n"),
+            },
+        )
+    
+        output_path = tmp_path / "product_reference.json"
+        argv = [
+            "fetch_product_reference.py",
+            "--repository",
+            REPOSITORY,
+            "--platform",
+            "net",
+            "--output",
+            str(output_path),
+        ]
+        monkeypatch.setattr(sys, "argv", argv)
+    
+>       fetch_product_reference.main()
+
+tests\infra\test_fetch_product_reference.py:233: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--repository", required=True, help="'owner/name'")
+        parser.add_argument("--platform", required=True)
+        parser.add_argument(
+            "--manifest-path",
+            default=None,
+            help="path to the packaging manifest in the repository; omit to skip the manifest fetch entirely",
+        )
+        parser.add_argument("--contributing-path", default="CONTRIBUTING.md")
+        parser.add_argument("--agent-guidance-path", default="AGENTS.md")
+        parser.add_argument("--ref", default=None)
+        parser.add_argument("--output", type=Path, required=True, help="path to write the JSON sidecar")
+        args = parser.parse_args()
+    
+>       sidecar = build_sidecar(
+                  ^^^^^^^^^^^^^
+            repository=args.repository,
+            platform=args.platform,
+            manifest_path=args.manifest_path,
+            contributing_path=args.contributing_path,
+            agent_guidance_path=args.agent_guidance_path,
+            ref=args.ref,
+        )
+E       NameError: name 'build_sidecar' is not defined
+
+infra\fetch_product_reference.py:90: NameError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_fetch_product_reference.py::test_build_sidecar_with_a_present_manifest_and_both_documents_present
+FAILED tests/infra/test_fetch_product_reference.py::test_build_sidecar_with_manifest_path_omitted_never_calls_fetch_manifest_file
+FAILED tests/infra/test_fetch_product_reference.py::test_build_sidecar_reports_a_real_404_on_contributing_as_not_present
+FAILED tests/infra/test_fetch_product_reference.py::test_main_writes_the_real_sidecar_json_matching_build_sidecars_return_value
+FAILED tests/infra/test_fetch_product_reference.py::test_main_prints_a_one_line_confirmation
+
+--- stderr ---
+
