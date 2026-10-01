@@ -1,0 +1,98 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_unwired_modules.py tests/mcp/test_health.py tests/infra/test_serve_http.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-p1wj_q6h\.junit-0.xml"
+--- stdout ---
+..................                                                       [100%]
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_unwired_modules.py tests/mcp/test_health.py tests/infra/test_serve_http.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-p1wj_q6h\.junit-0.xml"
+--- stdout ---
+..................                                                       [100%]
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/test_unwired_modules.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_unwired_modules.py tests/mcp/test_health.py tests/infra/test_serve_http.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-p1wj_q6h\.junit-0.xml"
+--- stdout ---
+FF................                                                       [100%]
+================================== FAILURES ===================================
+___ test_the_real_import_graph_walk_finds_exactly_the_known_unwired_symbols ___
+
+    def test_the_real_import_graph_walk_finds_exactly_the_known_unwired_symbols() -> None:
+        computed = set(_compute_unwired_from_production_reachable_files())
+    
+        assert not _usage_recorder_has_any_production_or_infra_reference(), (
+            "UsageRecorder now has a real production/infra reference - _KNOWN_UNWIRED must be "
+            "updated (remove it, or investigate why this walk still thinks it is unwired)."
+        )
+        computed.add("foss_mcp.telemetry.usage_recorder.UsageRecorder")
+    
+>       assert computed == _KNOWN_UNWIRED, (
+            f"the real import-graph walk's computed unwired set no longer matches the pinned "
+            f"_KNOWN_UNWIRED. New in the walk (needs a decision - wire it, delete it, or add it "
+            f"with a reason): {computed - _KNOWN_UNWIRED!r}. No longer unwired (the pin is now "
+            f"stale and must shrink): {_KNOWN_UNWIRED - computed!r}."
+        )
+E       AssertionError: the real import-graph walk's computed unwired set no longer matches the pinned _KNOWN_UNWIRED. New in the walk (needs a decision - wire it, delete it, or add it with a reason): set(). No longer unwired (the pin is now stale and must shrink): frozenset({'foss_mcp.mcp.health.is_alive'}).
+E       assert {'foss_mcp.ex...anifest', ...} == frozenset({'f...nifest', ...})
+E         
+E         Extra items in the right set:
+E         'foss_mcp.mcp.health.is_alive'
+E         Use -v to get more diff
+
+tests\test_unwired_modules.py:370: AssertionError
+____ test_each_known_unwired_symbol_genuinely_has_zero_production_callers _____
+
+    def test_each_known_unwired_symbol_genuinely_has_zero_production_callers() -> None:
+        """Re-derives, per pinned symbol, that it is absent from the production-reachable file
+        set's own reference graph - the concrete, per-symbol fact AGENTS.md's own text asserts
+        ("both have zero callers anywhere under src/ or infra/ outside their own defining file").
+        """
+        for dotted in _KNOWN_UNWIRED:
+            module, _, name = dotted.rpartition(".")
+            defining_file = _GRAPH.module_to_file.get(module)
+            assert defining_file is not None, f"{module} no longer resolves to a real file"
+            candidates = {
+                f
+                for f in _GRAPH.files
+                if (SRC_ROOT in f.parents or INFRA_ROOT in f.parents) and f != defining_file
+            }
+>           assert not _GRAPH.has_external_reference(defining_file, module, name, candidates), (
+                f"{dotted} now has a real caller under src/ or infra/ - it is no longer unwired "
+                f"and must be removed from _KNOWN_UNWIRED."
+            )
+E           AssertionError: foss_mcp.mcp.health.is_alive now has a real caller under src/ or infra/ - it is no longer unwired and must be removed from _KNOWN_UNWIRED.
+E           assert not True
+E            +  where True = has_external_reference(WindowsPath('H:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-p1wj_q6h/src/foss_mcp/mcp/health.py'), 'foss_mcp.mcp.health', 'is_alive', {WindowsPath('H:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-p1wj_q6h/infra/build_chunks.py')...dowsPath('H:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-p1wj_q6h/infra/serve_stdio.py'), ...})
+E            +    where has_external_reference = <tests.test_unwired_modules._ImportGraph object at 0x000001E045362270>.has_external_reference
+
+tests\test_unwired_modules.py:392: AssertionError
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_unwired_modules.py::test_the_real_import_graph_walk_finds_exactly_the_known_unwired_symbols
+FAILED tests/test_unwired_modules.py::test_each_known_unwired_symbol_genuinely_has_zero_production_callers
+
+--- stderr ---
+

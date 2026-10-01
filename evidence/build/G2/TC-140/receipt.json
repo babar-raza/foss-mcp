@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-140",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-01T08:07:00Z",
+  "base_rev": "6155d56d78b735b45996080ea094ea58d5b8bc1b",
+  "head_rev": "8fb74b69bcff36ee4fa5675cfb0738fea0079139",
+  "card_sha256": "3198998f02f750b3784e32024d9412dcdd2a510617ddaee6eebaa1da16572453",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/health.py",
+      "tests/mcp/test_health.py",
+      "tests/test_unwired_modules.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/test_unwired_modules.py tests/mcp/test_health.py tests/infra/test_serve_http.py -q",
+          "exit_code": 0,
+          "duration_s": 23.845,
+          "stdout_sha256": "2b64f623a6e88994d4f637d0fb72e1a4a0faa9b89a24c7ca18fd837f2b73f46a",
+          "tests": 18,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/test_unwired_modules.py tests/mcp/test_health.py tests/infra/test_serve_http.py -q",
+          "exit_code": 0,
+          "duration_s": 5.11,
+          "stdout_sha256": "2b64f623a6e88994d4f637d0fb72e1a4a0faa9b89a24c7ca18fd837f2b73f46a",
+          "tests": 18,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('tests/test_unwired_modules.py');s=p.read_text(encoding='utf-8');s=s.replace('\\\"foss_mcp.extraction.claim_id_bridge.resolve_anchor\\\",\\n','\\\"foss_mcp.extraction.claim_id_bridge.resolve_anchor\\\",\\n        \\\"foss_mcp.mcp.health.is_alive\\\",\\n');p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "ed8cf43338a7401f05116205888a4138090d33ea9dfac845941328f04a04bbc5",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/test_unwired_modules.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
