@@ -1,0 +1,106 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_serving_dependency_lock.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-nw9n9wpy\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_serving_dependency_lock.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-nw9n9wpy\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M Dockerfile.serving, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_serving_dependency_lock.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-nw9n9wpy\.junit-0.xml"
+--- stdout ---
+...FF                                                                    [100%]
+================================== FAILURES ===================================
+_________ test_dockerfile_serving_installs_from_the_serving_only_lock _________
+
+    def test_dockerfile_serving_installs_from_the_serving_only_lock() -> None:
+        text = (REPO_ROOT / "Dockerfile.serving").read_text(encoding="utf-8")
+>       assert "COPY requirements-serving.lock" in text, (
+            "Dockerfile.serving does not COPY requirements-serving.lock"
+        )
+E       AssertionError: Dockerfile.serving does not COPY requirements-serving.lock
+E       assert 'COPY requirements-serving.lock' in '# Serving image: the MCP server, wired to serve exactly one product deployment.\n#\n# Two transports over ONE dispatc...en(\'http://localhost:8080/readyz\', timeout=3).status==200 else 1)"]\n\nCMD ["python", "/app/infra/serve_stdio.py"]\n'
+
+tests\test_serving_dependency_lock.py:75: AssertionError
+__ test_a_real_docker_build_of_the_serving_image_can_still_import_the_server __
+
+    def test_a_real_docker_build_of_the_serving_image_can_still_import_the_server() -> None:
+        """A slimmer lock that silently breaks the real image is a regression, not an
+        improvement: build the real image and confirm it can still import foss_mcp.mcp.server.
+        """
+        image_tag = f"foss-mcp-serving-test:{os.getpid()}"
+        try:
+            build_result = subprocess.run(
+                ["docker", "build", "-f", "Dockerfile.serving", "-t", image_tag, "."],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=900,
+            )
+>           assert build_result.returncode == 0, (build_result.stdout + build_result.stderr)[-6000:]
+E           AssertionError: #0 building with "desktop-linux" instance using docker driver
+E             
+E             #1 [internal] load build definition from Dockerfile.serving
+E             #1 transferring dockerfile: 3.16kB done
+E             #1 DONE 0.0s
+E             
+E             #2 [internal] load metadata for docker.io/library/python:3.13-slim
+E             #2 DONE 0.0s
+E             
+E             #3 [internal] load .dockerignore
+E             #3 transferring context: 1.09kB done
+E             #3 DONE 0.0s
+E             
+E             #4 [internal] load build context
+E             #4 DONE 0.0s
+E             
+E             #5 [1/9] FROM docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74
+E             #5 resolve docker.io/library/python:3.13-slim@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74 0.0s done
+E             #5 DONE 0.0s
+E             
+E             #6 [2/9] WORKDIR /app
+E             #6 CACHED
+E             
+E             #4 [internal] load build context
+E             #4 transferring context: 4.91kB done
+E             #4 DONE 0.0s
+E             
+E             #7 [3/9] COPY requirements-serving-DISABLED.lock ./requirements-serving-DISABLED.lock
+E             #7 ERROR: failed to calculate checksum of ref 7xta1hh5n068749ehvms6qqt7::e2p7s0fpy10vy2ejhcj3kp5g9: "/requirements-serving-DISABLED.lock": not found
+E             ------
+E              > [3/9] COPY requirements-serving-DISABLED.lock ./requirements-serving-DISABLED.lock:
+E             ------
+E             Dockerfile.serving:23
+E             --------------------
+E               21 |     # carries dev/ops-only tooling (pytest, mypy, ruff) and extraction/ingestion-only
+E               22 |     # dependencies (tree-sitter*) that this image never imports and must never ship.
+E               23 | >>> COPY requirements-serving-DISABLED.lock ./requirements-serving-DISABLED.lock
+E               24 |     RUN pip install --no-cache-dir --require-hashes -r requirements-serving-DISABLED.lock
+E               25 |     
+E             --------------------
+E             ERROR: failed to build: failed to solve: failed to compute cache key: failed to calculate checksum of ref 7xta1hh5n068749ehvms6qqt7::e2p7s0fpy10vy2ejhcj3kp5g9: "/requirements-serving-DISABLED.lock": not found
+E             
+E             View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/jvihkkodcr0phw6mibc7jrcp9
+E             
+E           assert 1 == 0
+E            +  where 1 = CompletedProcess(args=['docker', 'build', '-f', 'Dockerfile.serving', '-t', 'foss-mcp-serving-test:57740', '.'], retur...found\n\nView build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/jvihkkodcr0phw6mibc7jrcp9\n').returncode
+
+tests\test_serving_dependency_lock.py:111: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_serving_dependency_lock.py::test_dockerfile_serving_installs_from_the_serving_only_lock
+FAILED tests/test_serving_dependency_lock.py::test_a_real_docker_build_of_the_serving_image_can_still_import_the_server
+
+--- stderr ---
+
