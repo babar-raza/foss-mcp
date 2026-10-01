@@ -14,14 +14,17 @@ import sys
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 from starlette.testclient import TestClient
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import DeploymentConfig
 from foss_mcp.mcp.server import (
+    SearchSymbolsInput,
     ToolErrorCode,
     create_server,
     public_error_message,
+    public_validation_error_message,
     render_result_text,
     schema_for,
     tool_description,
@@ -633,6 +636,123 @@ def test_an_unknown_tool_calls_error_correlation_id_matches_its_own_log_record(
     record = tool_call_records[0]
     assert record.correlation_id == correlation_id
     assert record.outcome == "error"
+
+
+def test_public_validation_error_message_builds_from_errors_not_str() -> None:
+    """A plain, safe field-validator ValueError (empty query) must come through as its own
+    specific reason, built from exc.errors() - never the raw, multi-line str(exc)."""
+    try:
+        SearchSymbolsInput.model_validate({"query": "", "top_k": 3})
+    except ValidationError as exc:
+        text = public_validation_error_message(exc)
+    else:
+        raise AssertionError("expected a ValidationError")
+    assert text == "query: Value error, query must not be empty"
+    assert "\n" not in text
+
+
+def test_public_validation_error_message_covers_a_negative_top_k() -> None:
+    try:
+        SearchSymbolsInput.model_validate({"query": "Widget", "top_k": -1})
+    except ValidationError as exc:
+        text = public_validation_error_message(exc)
+    else:
+        raise AssertionError("expected a ValidationError")
+    assert text == "top_k: Input should be greater than 0"
+
+
+def test_public_validation_error_message_joins_multiple_field_errors() -> None:
+    try:
+        SearchSymbolsInput.model_validate({"query": "", "top_k": -1})
+    except ValidationError as exc:
+        text = public_validation_error_message(exc)
+    else:
+        raise AssertionError("expected a ValidationError")
+    assert text == "query: Value error, query must not be empty; top_k: Input should be greater than 0"
+
+
+def test_an_empty_query_returns_its_own_specific_reason_not_the_generic_fallback(tmp_path: Path) -> None:
+    """The concrete bar this card must meet: a plain, safe ValidationError (empty query) must
+    no longer be swallowed into _GENERIC_ERROR_FALLBACK - proven over the real served
+    transport, not just the sanitizer in isolation."""
+    with _client(tmp_path) as client:
+        session = _McpSession(client)
+        response = session.request("tools/call", {"name": "search_symbols", "arguments": {"query": ""}})
+        assert response.status_code == 200
+        body = _sse_json(response.text)
+        assert body["result"]["isError"] is True
+        text = body["result"]["content"][0]["text"]
+        assert text == "query: Value error, query must not be empty"
+        assert "internal error" not in text.lower()
+
+
+def test_a_negative_top_k_returns_its_own_specific_reason_not_the_generic_fallback(tmp_path: Path) -> None:
+    with _client(tmp_path) as client:
+        session = _McpSession(client)
+        response = session.request(
+            "tools/call", {"name": "search_symbols", "arguments": {"query": "Widget", "top_k": -1}}
+        )
+        assert response.status_code == 200
+        body = _sse_json(response.text)
+        assert body["result"]["isError"] is True
+        text = body["result"]["content"][0]["text"]
+        assert text == "top_k: Input should be greater than 0"
+        assert "internal error" not in text.lower()
+
+
+def test_a_suppressed_unsafe_message_warning_log_line_carries_the_same_correlation_id_as_the_client_result(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """TC-136's second gap, half one: public_error_message's own logger.warning call (fired only
+    when suppressing unsafe text) previously carried no correlation_id at all - an operator
+    handed a correlation id by an end user had no way to grep for the matching server-side
+    event."""
+
+    def _boom(*args: object, **kwargs: object) -> None:
+        raise RuntimeError(r"failed loading C:\Users\prora\secret\shadow_config.ini")
+
+    monkeypatch.setattr("foss_mcp.mcp.server.search_symbols", _boom)
+
+    with caplog.at_level(logging.WARNING, logger="foss_mcp.mcp.server"):
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": "search_symbols", "arguments": {"query": "Widget"}}
+            )
+    assert response.status_code == 200
+    body = _sse_json(response.text)
+    correlation_id = body["result"]["structuredContent"]["correlation_id"]
+
+    warning_records = [record for record in caplog.records if record.levelno == logging.WARNING]
+    assert len(warning_records) == 1
+    assert f"correlation_id={correlation_id}" in warning_records[0].getMessage()
+
+
+def test_the_generic_exception_branchs_error_log_line_carries_the_same_correlation_id_as_the_client_result(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """TC-136's second gap, half two: the generic-exception branch's own logger.error call
+    (distinct from public_error_message's internal warning) previously carried no
+    correlation_id either."""
+
+    def _boom(*args: object, **kwargs: object) -> None:
+        raise RuntimeError(r"failed loading C:\Users\prora\secret\shadow_config.ini")
+
+    monkeypatch.setattr("foss_mcp.mcp.server.search_symbols", _boom)
+
+    with caplog.at_level(logging.ERROR, logger="foss_mcp.mcp.server"):
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request(
+                "tools/call", {"name": "search_symbols", "arguments": {"query": "Widget"}}
+            )
+    assert response.status_code == 200
+    body = _sse_json(response.text)
+    correlation_id = body["result"]["structuredContent"]["correlation_id"]
+
+    error_records = [record for record in caplog.records if record.levelno == logging.ERROR]
+    assert len(error_records) == 1
+    assert f"correlation_id={correlation_id}" in error_records[0].getMessage()
 
 
 def test_two_different_tool_calls_get_two_different_correlation_ids(

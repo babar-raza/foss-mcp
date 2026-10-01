@@ -517,7 +517,7 @@ def _contains_internal_detail(text: str) -> bool:
     return False
 
 
-def public_error_message(exc: Exception, *, fallback: str) -> str:
+def public_error_message(exc: Exception, *, fallback: str, correlation_id: str | None = None) -> str:
     """The client-safe rendering of *exc*.
 
     Returns ``str(exc)`` verbatim only when it passes real safety checks: no filesystem path
@@ -526,16 +526,37 @@ def public_error_message(exc: Exception, *, fallback: str) -> str:
     (type and message) is logged server-side via the standard ``logging`` module before
     *fallback* is returned instead - the real detail is never simply discarded, only ever kept
     out of the client's own result text.
+
+    *correlation_id*, when supplied, is threaded into that same server-side warning line so an
+    operator handed a correlation id by an end user can grep straight to the suppressed text -
+    without it, the one log line that fires on suppression carried no way to find it again.
     """
     text = str(exc)
     if _contains_internal_detail(text):
         logger.warning(
-            "suppressed unsafe exception text from an MCP client-facing result: type=%s message=%r",
+            "suppressed unsafe exception text from an MCP client-facing result: type=%s message=%r "
+            "correlation_id=%s",
             type(exc).__name__,
             text,
+            correlation_id,
         )
         return fallback
     return text
+
+
+def public_validation_error_message(exc: ValidationError) -> str:
+    """A safe, specific client-facing message built directly from *exc*'s own structured error
+    list (``exc.errors()``) - never its raw ``str()``, which routinely spans multiple lines and
+    easily trips ``public_error_message``'s length/newline safety filter on totally safe
+    content. ``loc``/``msg`` only ever reference this project's own declared Pydantic field
+    names and pydantic's own constraint-violation wording (e.g. ``'query: Value error, query
+    must not be empty'``, ``'top_k: Input should be greater than 0'``) - never a file path, a
+    library internal, or anything resembling what that filter exists to catch. This is a
+    different, narrower, independently-safe path, not a weakening of the existing one.
+    """
+    return "; ".join(
+        f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}" for error in exc.errors()
+    )
 
 
 _GENERIC_ERROR_FALLBACK = "An internal error occurred while handling this tool call."
@@ -648,9 +669,10 @@ def create_server(
             result = handler(**validated_arguments.model_dump())
         except ValidationError as exc:
             # TC-125's own validation-error path: a malformed argument, always INVALID_ARGUMENT.
-            # Still reported through the shared sanitizer, never str(exc) directly - a custom
-            # field validator's ValueError message could itself embed internal detail.
-            text = public_error_message(exc, fallback=_GENERIC_ERROR_FALLBACK)
+            # Built straight from exc.errors() (TC-136) - a plain, safe validation message like
+            # 'query: Value error, query must not be empty' never needs to go through the
+            # generic sanitizer at all, let alone be swallowed by it on totally safe content.
+            text = public_validation_error_message(exc)
             _log_tool_call(
                 logger,
                 tool_name=params.name,
@@ -672,8 +694,14 @@ def create_server(
             # reaches tool dispatch at all. The real exception (type, message, and the tool
             # name that raised it) is always logged server-side here, in full, regardless of
             # whether the sanitized text below turns out safe to hand back to the client.
-            logger.error("tool '%s' raised %s: %s", params.name, type(exc).__name__, exc)
-            text = public_error_message(exc, fallback=_GENERIC_ERROR_FALLBACK)
+            logger.error(
+                "tool '%s' raised %s: %s correlation_id=%s",
+                params.name,
+                type(exc).__name__,
+                exc,
+                correlation_id,
+            )
+            text = public_error_message(exc, fallback=_GENERIC_ERROR_FALLBACK, correlation_id=correlation_id)
             _log_tool_call(
                 logger,
                 tool_name=params.name,
