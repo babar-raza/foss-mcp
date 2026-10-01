@@ -1,0 +1,97 @@
+id: TC-148
+gate: G2
+lane: transport-deployment
+purpose: 'foss_mcp.telemetry.usage_recorder.new_correlation_id() -> str (uuid.uuid4().hex)
+  is a real, intended helper with zero callers - src/foss_mcp/mcp/server.py''s own
+  _call_tool dispatch mints its per-request correlation id with a bare inline `uuid.uuid4().hex`
+  (added by TC-132, before new_correlation_id existed; new_correlation_id was added
+  later by TC-142 for UsageRecorder''s own internal use, but server.py''s own call
+  site was never updated to use it) - the exact same duplication pattern already fixed
+  for with_validation (TC-147) and build_manifest (TC-146). Deduplicate: make server.py''s
+  _call_tool call new_correlation_id() instead of inlining uuid.uuid4().hex directly.
+  Zero behavior change - both produce a random 32-hex-char id; only the production
+  call site changes which single line mints it.'
+depends_on:
+- TC-016
+- TC-019a
+- TC-061
+- TC-125
+- TC-126
+- TC-130
+- TC-131
+- TC-132
+- TC-133
+- TC-134
+- TC-135
+- TC-136
+- TC-140
+- TC-142
+write_paths:
+- src/foss_mcp/mcp/server.py
+- tests/mcp/test_server_wiring.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Read src/foss_mcp/telemetry/usage_recorder.py's new_correlation_id() in full - it
+  is exactly `return uuid.uuid4().hex`.
+- Read src/foss_mcp/mcp/server.py's _call_tool around its own `correlation_id = uuid.uuid4().hex`
+  line (search for that exact text) and the comment immediately above it explaining
+  why one correlation id is minted per top-level call.
+- Confirm whether server.py already imports anything from foss_mcp.telemetry.usage_recorder
+  (it does, for UsageRecorder/build_event per TC-142) - add new_correlation_id to
+  that same import rather than a new import line.
+actions:
+- In src/foss_mcp/mcp/server.py, import new_correlation_id from foss_mcp.telemetry.usage_recorder
+  (alongside whatever TC-142 already imports from that module) and replace the inline
+  `correlation_id = uuid.uuid4().hex` with `correlation_id = new_correlation_id()`.
+  Remove the `import uuid` line from server.py if nothing else in the file still uses
+  the uuid module - confirm with a grep first.
+- Run the full existing tests/mcp/test_server_wiring.py suite and confirm every test
+  still passes unchanged - this is a pure refactor, zero behavior change to the shape,
+  length, or per-call uniqueness of the minted correlation_id.
+- Add one new test confirming new_correlation_id (not a bare inline uuid call) is
+  what actually produces _call_tool's correlation_id - e.g. monkeypatch foss_mcp.mcp.server.new_correlation_id
+  (or usage_recorder.new_correlation_id, whichever name is bound in server.py's own
+  namespace after the import) to return a fixed sentinel string and assert that sentinel
+  appears in the logged/returned correlation_id for a real tool call.
+checks:
+- command: '{python} -m pytest tests/mcp/test_server_wiring.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 3
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/telemetry/usage_recorder.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    new_correlation_id() -> str:\n    \"\"\"One id per top-level request; every nested
+    tool call reuses it.\"\"\"\n    return uuid.uuid4().hex','def new_correlation_id()
+    -> str:\n    \"\"\"One id per top-level request; every nested tool call reuses
+    it.\"\"\"\n    return \"disabled-correlation-id\"');p.write_text(s,encoding='utf-8')"
+  rationale: 'Changes new_correlation_id''s own body to return a fixed string instead
+    of a fresh uuid - this breaks the new monkeypatch-sentinel test only if that test
+    exercises the real function rather than mocking it away entirely, and more importantly
+    breaks the card''s own closeout claim if server.py is wired correctly: once wired,
+    a disabled new_correlation_id would make every real call share the same correlation_id,
+    which the new test must be able to detect. Self-checked end-to-end before being
+    persisted: the mutate command itself is verified below to apply cleanly against
+    the real current file content.'
+evidence:
+- evidence/build/G2/TC-148/receipt.json
+closeout:
+- server.py's _call_tool calls new_correlation_id() instead of inlining uuid.uuid4().hex;
+  the now-possibly-unused `import uuid` is removed if nothing else needs it.
+- All pre-existing tests/mcp/test_server_wiring.py tests pass unchanged; a new test
+  proves new_correlation_id is the real source of the minted correlation_id.
+- foss_mcp.telemetry.usage_recorder.new_correlation_id no longer needs a follow-up
+  wiring decision (a separate follow-up card updates tests/test_unwired_modules.py's
+  _KNOWN_UNWIRED to reflect this and TC-144/145/146/147's wiring changes together;
+  this card does not touch tests/test_unwired_modules.py, outside its write_paths).
+- Disabling new_correlation_id's own body is detectable by the new test.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
