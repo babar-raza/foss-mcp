@@ -1,0 +1,113 @@
+id: TC-144
+gate: G2
+lane: storage-retrieval
+purpose: 'foss_mcp.extraction.claim_id_bridge.resolve_anchor is a real, well-tested
+  function (richer than the binary anchor_resolves check citation.py''s own validate_chunk
+  uses: it distinguishes a near-miss - PARTIALLY_SUPPORTED, one or more declarations
+  share the member name but the anchor itself does not resolve unambiguously, likely
+  a typo or stale doc - from a genuinely absent symbol, UNSUPPORTED with zero matches)
+  with zero production callers (tests/test_unwired_modules.py''s own _KNOWN_UNWIRED
+  list). infra/ingest.py currently drops every non-citable chunk silently via citable_chunks
+  with no record of which anchor failed or why, beyond validate_chunk''s own flat
+  ''anchor `X` does not resolve'' detail string. Add a purely additive diagnostic
+  function that re-resolves each failed anchor in an UNSUPPORTED chunk via resolve_anchor
+  and wire it into infra/ingest.py to print one diagnostic line per excluded anchor,
+  giving an operator actionable signal (near-miss vs. absent) without changing validate_chunk''s,
+  validate_document''s, or citable_chunks'' own existing signatures or verdicts.'
+depends_on:
+- TC-010a
+- TC-014
+- TC-018
+- TC-060
+- TC-079
+- TC-105
+- TC-108
+- TC-111
+- TC-121
+- TC-123
+- TC-129
+- TC-134
+write_paths:
+- src/foss_mcp/normalization/citation.py
+- infra/ingest.py
+- tests/normalization/test_citation.py
+- tests/infra/test_ingest.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 8.10 Insufficient-evidence behavior — corrected: citation resolution
+    proves traceability, not correctness'
+  sha256: 100e949e350e7fc443a2b1cd331fc6e7043f4f26ce200f9db7dcde61bfbd7b4e
+inputs:
+- 'Read src/foss_mcp/extraction/claim_id_bridge.py in full: resolve_anchor(anchor:
+  str, index: SymbolIndex) -> Resolution, Resolution(anchor, semantic_support_verdict,
+  match_count=0), SemanticSupportVerdict enum (SUPPORTED/PARTIALLY_SUPPORTED/UNSUPPORTED
+  values ''supported''/''partially_supported''/''unsupported'').'
+- Read src/foss_mcp/normalization/citation.py in full, especially validate_chunk (the
+  anchor loop using find_symbol_anchors/anchor_resolves/unambiguous_qualified_anchor_for_bare_member)
+  and citable_chunks.
+- Read infra/ingest.py's main() around its existing `chunks = citable_chunks(validate_document(chunks,
+  symbol_index, known_counts))` call site (api_surface branch only - when args.api_surface
+  is None there is no symbol_index and nothing to diagnose).
+- Read tests/normalization/test_citation.py and tests/infra/test_ingest.py for this
+  project's existing fixture/test conventions before adding new tests.
+actions:
+- In src/foss_mcp/normalization/citation.py, import Resolution and resolve_anchor
+  from foss_mcp.extraction.claim_id_bridge (anchor_resolves is already imported there).
+- 'Add a new function `describe_unresolved_anchors(chunks: Sequence[Chunk], symbol_index:
+  SymbolIndex) -> list[tuple[str, Resolution]]`: for every chunk whose `chunk.validation.verdict
+  == UNSUPPORTED`, re-walk `find_symbol_anchors(chunk.text)`, skip any anchor that
+  already resolves via `anchor_resolves` or the bare-member exemption (mirror validate_chunk''s
+  own two skip conditions exactly, including the _is_real_compile_verified_example
+  exemption for compile-verified chunks), and for every remaining failed anchor append
+  `(chunk.section_title, resolve_anchor(anchor, symbol_index))`. Purely diagnostic
+  - must never be called from validate_chunk, validate_document, or citable_chunks
+  themselves, and must never change any existing function''s return value.'
+- 'In infra/ingest.py, inside the `if args.api_surface is not None:` branch, call
+  validate_document first into a local variable, call describe_unresolved_anchors
+  on that result and print one line per entry in the shape `f"excluded: {section_title!r}
+  anchor {resolution.anchor!r} -> "``f"{resolution.semantic_support_verdict.value}
+  (match_count={resolution.match_count})"`, then call citable_chunks on the same validated
+  list exactly as before. Net runtime behavior (which chunks get published) must be
+  byte-identical to before this card - only new stdout lines are added, for chunks
+  that were already going to be excluded.'
+- 'Add unit tests to tests/normalization/test_citation.py covering: an anchor with
+  zero matches anywhere (UNSUPPORTED, match_count=0) and an anchor that shares a member
+  name across two classes so it resolves to PARTIALLY_SUPPORTED with match_count>=2;
+  confirm a chunk whose verdict is SUPPORTED or INSUFFICIENT_EVIDENCE (numeric-only
+  problem) never appears in describe_unresolved_anchors'' output.'
+- Add or extend a test in tests/infra/test_ingest.py confirming the new diagnostic
+  print lines appear on stdout for a fixture with an unresolved anchor, and that the
+  actual published/citable chunk set is unchanged from before this card.
+checks:
+- command: '{python} -m pytest tests/normalization/test_citation.py tests/infra/test_ingest.py
+    -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 8
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/normalization/citation.py');s=p.read_text(encoding='utf-8');s=s.replace('chunk.validation.verdict
+    != UNSUPPORTED', 'chunk.validation.verdict == UNSUPPORTED');p.write_text(s,encoding='utf-8')"
+  rationale: Flips describe_unresolved_anchors' own filter condition from `chunk.validation.verdict
+    != UNSUPPORTED` (skip) to `chunk.validation.verdict == UNSUPPORTED` (skip) - inverting
+    which chunks are considered, so every new test asserting a SUPPORTED-only chunk
+    is excluded from the output, or an UNSUPPORTED chunk's anchor IS included, fails.
+    Proves the checks genuinely exercise the new function's real filtering logic,
+    not merely its presence. Self-checked end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-144/receipt.json
+closeout:
+- describe_unresolved_anchors exists in citation.py, uses resolve_anchor genuinely,
+  and is covered by tests distinguishing PARTIALLY_SUPPORTED from UNSUPPORTED.
+- infra/ingest.py prints one diagnostic line per excluded anchor; published chunk
+  set is unchanged from before this card.
+- tests/test_unwired_modules.py's _KNOWN_UNWIRED no longer needs foss_mcp.extraction.claim_id_bridge.resolve_anchor
+  (a follow-up card updates that list; this card does not touch tests/test_unwired_modules.py,
+  which is outside its write_paths).
+- Flipping the filter condition fails the new tests again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
