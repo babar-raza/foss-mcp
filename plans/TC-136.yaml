@@ -1,0 +1,97 @@
+id: TC-136
+gate: G2
+lane: transport-deployment
+purpose: 'Fix two real, concretely-evidenced gaps a from-scratch before/after pilot
+  rerun found in TC-131/TC-132''s own already-accepted work (live-probed against a
+  real running pdf/net container with the real mcp SDK client, not merely re-run unit
+  tests): (1) a plain, safe Pydantic validation error (e.g. ''query must not be empty'')
+  is currently swallowed into the same generic ''An internal error occurred while
+  handling this tool call.'' fallback every OTHER, genuinely-unsafe exception also
+  gets - because public_error_message''s own safety filter (no newline, under 300
+  chars) was designed for ARBITRARY exception text, and a multi-field ValidationError''s
+  own str() routinely trips both of those on totally safe content. (2) the one server-side
+  log line that fires when text is suppressed (public_error_message''s own logger.warning
+  call) and the generic-exception branch''s logger.error call both carry NO correlation_id
+  - confirmed live: the client-facing structured_content.correlation_id never appears
+  anywhere in the real container''s own log output, so an operator handed a correlation
+  id by an end user has no way to grep for the matching server-side event.'
+depends_on:
+- TC-001
+- TC-016
+- TC-019a
+- TC-125
+- TC-126
+- TC-131
+- TC-132
+- TC-133
+- TC-134
+write_paths:
+- src/foss_mcp/mcp/server.py
+- tests/mcp/test_server_wiring.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Read server.py's _call_tool, public_error_message, and _log_tool_call in full first
+  - specifically the `except ValidationError as exc:` branch and the generic `except
+  Exception as exc:` branch right after it.
+- 'REQUIRED, exact shape (function name load-bearing for the negative control): `def
+  public_validation_error_message(exc: pydantic.ValidationError) -> str`, building
+  a safe, specific message directly from `exc.errors()` (pydantic''s own structured
+  error list, never its raw str()) - e.g. `''; ''.join(f"{''.''.join(str(p) for p
+  in e[''loc''])}: {e[''msg'']}" for e in exc.errors())`. This is inherently safe
+  to return verbatim: `loc`/`msg` only ever reference this project''s own declared
+  Pydantic field names and pydantic''s own constraint-violation wording (confirmed
+  live: ''query: Value error, query must not be empty'', ''top_k: Input should be
+  greater than 0'') - never a file path, a library internal, or anything resembling
+  what public_error_message''s existing filter exists to catch. Use it in the ValidationError
+  branch INSTEAD OF routing through public_error_message''s generic safety filter
+  - this is a different, narrower, independently-safe path, not a weakening of the
+  existing one.'
+- 'Add an optional `correlation_id: str | None = None` parameter to the EXISTING `public_error_message`
+  and thread it into its own `logger.warning(...)` call (as an extra `correlation_id=%s`
+  in the format string, or via `extra={...}`, matching _log_tool_call''s own convention).
+  Also pass `correlation_id` into the generic exception branch''s existing `logger.error(...)`
+  call the same way. Every call site that already has `correlation_id` in scope (both
+  already do) must pass it through - no call site should regress to omitting it.'
+- Do not change ToolErrorCode, _log_tool_call's own signature, or any success-path
+  behavior - purely these two real, narrow fixes to the error path.
+actions:
+- Implement public_validation_error_message exactly as specified and use it in the
+  ValidationError branch.
+- Thread correlation_id through public_error_message's own warning log and the generic
+  exception branch's error log.
+- 'Add tests proving: a real ValidationError (empty query, negative top_k) now returns
+  the real, specific, safe reason in content[0].text (not the generic fallback); the
+  server-side log line for a suppressed/generic error now contains the same correlation_id
+  that appears in the client''s own structured_content.'
+checks:
+- command: '{python} -m pytest tests/mcp/test_server_wiring.py -q -k "not test_a_missing_protocol_version_is_rejected"'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 15
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/server.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    public_validation_error_message(','def public_validation_error_message_DISABLED(');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming public_validation_error_message leaves its call site undefined,
+    breaking the new tests with a NameError, proving they genuinely depend on this
+    concrete function rather than passing for an unrelated reason. Self-checked against
+    a realistic synthetic fixture before being persisted.
+evidence:
+- evidence/build/G2/TC-136/receipt.json
+closeout:
+- A real validation error (empty query, negative top_k) returns its own real, specific,
+  safe reason to the client - not the generic internal-error fallback.
+- The correlation_id a client sees in an error result now also appears in the matching
+  server-side log line, for both the suppressed-text warning and the generic-exception
+  error log.
+- Renaming public_validation_error_message fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
