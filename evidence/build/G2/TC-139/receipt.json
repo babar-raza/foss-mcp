@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "card": "TC-139",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-01T07:39:15Z",
+  "base_rev": "c9128c444cd2cf5d5799bb6c9d9212a0d7f9b941",
+  "head_rev": "38c8dafb95460d477a911eaad4a4a3ade0daac8b",
+  "card_sha256": "1fc2150eb327af27be16d06a148c892e0ab6aff92552d262641f3bbec8899f95",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/rollback.py",
+      "tests/infra/test_rollback.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_rollback.py -q",
+          "exit_code": 0,
+          "duration_s": 1.95,
+          "stdout_sha256": "c4b808d34f4db00b333696dec1f3a43a2887d8bfe0cb7af07a3cb98ff43a7830",
+          "tests": 4,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_rollback.py -q",
+          "exit_code": 0,
+          "duration_s": 1.949,
+          "stdout_sha256": "c4b808d34f4db00b333696dec1f3a43a2887d8bfe0cb7af07a3cb98ff43a7830",
+          "tests": 4,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/rollback.py');s=p.read_text(encoding='utf-8');s=s.replace('def main(','def main_DISABLED(');p.write_text(s,encoding='utf-8')\"",
+    "patch_sha256": "54be4c966d690784ae9b3a06ae6388534517940e83ef2e54b4d3e47c2c9c5ec6",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/rollback.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
