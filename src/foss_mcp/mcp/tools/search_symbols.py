@@ -27,11 +27,19 @@ honestly labeled with a parallel pseudo-FQN of the literal shape ``Doc: <title>`
 ``infra/build_chunks.py``). Those chunks are not symbols either, so ``_NON_SYMBOL_FQN_PREFIXES``
 below excludes both prefixes - this generalizes cleanly to a future non-symbol chunk kind
 without editing the filter line itself again.
+
+TC-143 (G2/REQ-G2-047): a genuine miss may still carry a purely ADDITIVE ``suggestions`` field -
+a "did you mean" hint computed with the standard library's own ``difflib.get_close_matches``
+against the real FQNs this exact same miss was computed against. This never widens the verdict
+itself: a Miss stays a Miss, the ``reason`` field is untouched, and a suggestion is never
+substituted for a real match. See ``suggest_similar_fqns`` below.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
+from difflib import get_close_matches
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.lexical_index_writer import query_lexical_index
@@ -40,6 +48,19 @@ from foss_mcp.mcp.routing import Scope
 SOURCE_KIND = "self_extracted"
 
 _NON_SYMBOL_FQN_PREFIXES = ("Example: ", "Doc: ")
+
+
+def suggest_similar_fqns(known_fqns: Iterable[str], target: str, *, limit: int = 3) -> tuple[str, ...]:
+    """Fuzzy "did you mean" suggestions for *target*, drawn only from *known_fqns*.
+
+    *known_fqns* must be the real FQNs published in the exact generation a Miss/NotFound was
+    just computed against - never a separate or stale data source. Deterministic (same inputs
+    always produce the same output) and dependency-free: this is a thin wrapper over the
+    standard library's own ``difflib.get_close_matches``, never a new dependency or a network
+    call. Purely additive - callers attach the result to a Miss/NotFound's own ``suggestions``
+    field; it never changes whether a query is a miss or a real match.
+    """
+    return tuple(get_close_matches(target, known_fqns, n=limit, cutoff=0.6))
 
 
 def scope_key(scope: Scope, source_kind: str) -> str:
@@ -60,11 +81,17 @@ class SymbolMatch:
 
 @dataclass(frozen=True)
 class Miss:
-    """An explicit miss. This IS the answer - never smoothed over into a widened result."""
+    """An explicit miss. This IS the answer - never smoothed over into a widened result.
+
+    ``suggestions`` (TC-143, G2/REQ-G2-047) is purely additive: a real "did you mean" hint
+    computed from the FQNs actually published in this same generation, never a substitute for
+    the miss itself and never present unless genuinely computed from real published content.
+    """
 
     scope: Scope
     query: str
     reason: str
+    suggestions: tuple[str, ...] = ()
 
 
 def search_symbols(
@@ -102,7 +129,17 @@ def search_symbols(
         if not (extract_fqn(documents[doc_id]["text"]) or "").startswith(_NON_SYMBOL_FQN_PREFIXES)
     ][:top_k]
     if not doc_ids:
-        return Miss(scope, query, f"no symbol matches {query!r}")
+        known_fqns = []
+        for doc_id in documents:
+            fqn = extract_fqn(documents[doc_id]["text"])
+            if fqn is not None and not fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+                known_fqns.append(fqn)
+        return Miss(
+            scope,
+            query,
+            f"no symbol matches {query!r}",
+            suggestions=suggest_similar_fqns(known_fqns, query),
+        )
 
     return [
         SymbolMatch(

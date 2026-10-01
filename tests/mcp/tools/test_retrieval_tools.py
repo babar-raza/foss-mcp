@@ -23,6 +23,7 @@ from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.publisher import publish_generation
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.find_examples import ExampleMatch
+from foss_mcp.mcp.tools.get_symbol import NotFound, SymbolSignature, get_symbol
 from foss_mcp.mcp.tools.lookup import TaskAnswer, _looks_like_a_task_question, lookup
 from foss_mcp.mcp.tools.search_docs import DocMatch, search_docs
 from foss_mcp.mcp.tools.search_docs import Miss as DocsMiss
@@ -275,6 +276,156 @@ confidential markings onto every exported page.
     pseudo_only_result = search_symbols(store, PDF_NET_SCOPE, "confidential markings")
 
     assert isinstance(pseudo_only_result, SymbolsMiss)
+
+
+def test_search_symbols_miss_suggests_a_real_close_fqn_from_this_same_generation(tmp_path: Path) -> None:
+    """TC-143 (G2/REQ-G2-047): a genuine Miss may carry a purely additive 'did you mean' hint.
+
+    ``Annotation`` is a real class confirmed present in the committed pdf/net fixture
+    (``Aspose.Pdf.Annotations.Annotation``, see ``tests/fixtures/pdf_net/api_surface.json``).
+    ``Annotatio`` (a single dropped trailing character) shares zero BM25 tokens with the
+    published chunk's own prose - confirmed directly against ``tokenize`` before writing this
+    test - so this is a genuine lexical Miss, not an accidental real hit. The suggestion itself
+    comes only from ``difflib.get_close_matches`` against the real FQN this exact generation
+    published - never a fabricated or stale one - and the Miss verdict/reason stay completely
+    unchanged.
+    """
+    store = _store(tmp_path)
+    real_symbol_body = """## Annotation
+
+FQN: Annotation
+Kind: Class
+Serves as the abstract base for every markup element placed on a PDF page.
+"""
+    real_doc = make_document(
+        source_kind=SourceKind.SELF_EXTRACTED,
+        content_type="api_surface",
+        provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+        evidence_refs=(),
+        title="pdf/net API surface",
+        body=real_symbol_body,
+    )
+    _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(real_doc))
+
+    result = search_symbols(store, PDF_NET_SCOPE, "Annotatio")
+
+    assert isinstance(result, SymbolsMiss)
+    assert result.scope == PDF_NET_SCOPE
+    assert result.reason == "no symbol matches 'Annotatio'"
+    assert result.suggestions == ("Annotation",)
+
+    # A genuinely unrelated query (no real close match) stays empty - never fabricated.
+    unrelated_result = search_symbols(store, PDF_NET_SCOPE, "CompletelyUnrelatedXyzzyWombatTerm")
+
+    assert isinstance(unrelated_result, SymbolsMiss)
+    assert unrelated_result.suggestions == ()
+
+    # A real, successful match is completely unaffected - no suggestions field pollution on a hit.
+    hit_result = search_symbols(store, PDF_NET_SCOPE, "Annotation")
+
+    assert isinstance(hit_result, list) and hit_result
+    assert all(isinstance(match, SymbolMatch) for match in hit_result)
+
+
+def test_search_symbols_miss_suggestions_never_include_a_pseudo_symbol_fqn(tmp_path: Path) -> None:
+    """The suggestion pool is drawn from the same real-symbol corpus search_symbols itself
+    matches against - TC-068's ``Example: <title>`` / TC-112's ``Doc: <title>`` pseudo-symbol
+    chunks are excluded from it exactly as they already are from a real match (see this
+    module's own docstring), so a typo'd query is never pointed at a pseudo-symbol as if it
+    were a real "did you mean" answer.
+    """
+    store = _store(tmp_path)
+    real_symbol_body = """## Annotation
+
+FQN: Annotation
+Kind: Class
+Serves as the abstract base for every markup element placed on a PDF page.
+"""
+    pseudo_symbol_body = (
+        "# Example: Annotatio\n\n"
+        "FQN: Example: Annotatio\n"
+        "Kind: verified_example\n"
+        "A pseudo-symbol chunk that must never be suggested as a real FQN.\n\n"
+        "Example:\nannotation.DoSomething()"
+    )
+    real_doc = make_document(
+        source_kind=SourceKind.SELF_EXTRACTED,
+        content_type="api_surface",
+        provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+        evidence_refs=(),
+        title="pdf/net API surface",
+        body=real_symbol_body,
+    )
+    pseudo_doc = make_document(
+        source_kind=SourceKind.SELF_EXTRACTED,
+        content_type="example",
+        provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+        evidence_refs=(),
+        title="Annotatio",
+        body=pseudo_symbol_body,
+    )
+    chunks = chunk_document(real_doc) + chunk_document(pseudo_doc)
+    _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+
+    result = search_symbols(store, PDF_NET_SCOPE, "Annotatio")
+
+    assert isinstance(result, SymbolsMiss)
+    assert result.suggestions == ("Annotation",)
+    assert "Example: Annotatio" not in result.suggestions
+
+
+def test_get_symbol_not_found_suggests_a_real_close_fqn_from_this_same_generation(tmp_path: Path) -> None:
+    """TC-143 (G2/REQ-G2-047): the same purely-additive 'did you mean' hint on get_symbol's own
+    explicit 404, using get_symbol's own EXACT-match corpus (no exclusion of any kind - a
+    pseudo-symbol FQN is already a legitimate get_symbol lookup target by this tool's own
+    design, see its module docstring, so the suggestion pool mirrors that exactly)."""
+    store = _store(tmp_path)
+    real_symbol_body = """## PdfDocument.AddWatermarkAnnotation
+
+FQN: PdfDocument.AddWatermarkAnnotation
+Kind: Method
+Adds a watermark annotation to the page.
+"""
+    real_doc = make_document(
+        source_kind=SourceKind.SELF_EXTRACTED,
+        content_type="api_surface",
+        provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+        evidence_refs=(),
+        title="pdf/net API surface",
+        body=real_symbol_body,
+    )
+    _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(real_doc))
+
+    # A single-character typo (missing trailing "n") of the real FQN above.
+    result = get_symbol(store, PDF_NET_SCOPE, "PdfDocument.AddWatermarkAnnotatio")
+
+    assert isinstance(result, NotFound)
+    assert result.scope == PDF_NET_SCOPE
+    assert result.fqn == "PdfDocument.AddWatermarkAnnotatio"
+    assert result.suggestions == ("PdfDocument.AddWatermarkAnnotation",)
+
+    # A genuinely unrelated query (no real close match) stays empty - never fabricated.
+    unrelated_result = get_symbol(store, PDF_NET_SCOPE, "CompletelyUnrelatedXyzzyWombatTerm")
+
+    assert isinstance(unrelated_result, NotFound)
+    assert unrelated_result.suggestions == ()
+
+    # A real, successful match is completely unaffected - no suggestions field pollution on a hit.
+    hit_result = get_symbol(store, PDF_NET_SCOPE, "PdfDocument.AddWatermarkAnnotation")
+
+    assert isinstance(hit_result, SymbolSignature)
+    assert hit_result.fqn == "PdfDocument.AddWatermarkAnnotation"
+
+
+def test_get_symbol_not_found_with_no_published_generation_has_no_suggestions(tmp_path: Path) -> None:
+    """The early 'no generation at all' 404 path has no documents to draw a suggestion from -
+    ``suggestions`` must stay the empty default, never attempt to read a nonexistent manifest."""
+    store = _store(tmp_path)
+
+    result = get_symbol(store, PDF_NET_SCOPE, "Anything")
+
+    assert isinstance(result, NotFound)
+    assert result.suggestions == ()
 
 
 def test_search_docs_rejects_an_invalid_content_type(tmp_path: Path) -> None:

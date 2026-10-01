@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import Scope
-from foss_mcp.mcp.tools.search_symbols import SOURCE_KIND, scope_key
+from foss_mcp.mcp.tools.search_symbols import SOURCE_KIND, scope_key, suggest_similar_fqns
 
 _FQN_LINE = re.compile(r"^FQN:\s*(.+)$", re.MULTILINE)
 _KIND_LINE = re.compile(r"^Kind:\s*(.+)$", re.MULTILINE)
@@ -43,10 +43,16 @@ class SymbolSignature:
 
 @dataclass(frozen=True)
 class NotFound:
-    """An explicit 404. Never a near match - the whole point of this tool being deterministic."""
+    """An explicit 404. Never a near match - the whole point of this tool being deterministic.
+
+    ``suggestions`` (TC-143, G2/REQ-G2-047) is purely additive: a real "did you mean" hint
+    computed from the FQNs actually published in this same generation, never a substitute for
+    the 404 itself and never present unless genuinely computed from real published content.
+    """
 
     scope: Scope
     fqn: str
+    suggestions: tuple[str, ...] = ()
 
 
 def extract_fqn(text: str) -> str | None:
@@ -100,9 +106,13 @@ def get_symbol(store: GenerationManifestStore, scope: Scope, fqn: str) -> Symbol
 
     manifest = store.read_generation(key, active_generation_id)
     documents = (manifest.payload.get("lexical_index") or {}).get("documents") or {}
+    known_fqns = []
     for doc_id, document in documents.items():
-        if extract_fqn(document["text"]) == fqn:
+        document_fqn = extract_fqn(document["text"])
+        if document_fqn == fqn:
             return _parse_signature(
                 scope, active_generation_id, doc_id, document["chunk_id"], document["text"]
             )
-    return NotFound(scope, fqn)
+        if document_fqn is not None:
+            known_fqns.append(document_fqn)
+    return NotFound(scope, fqn, suggestions=suggest_similar_fqns(known_fqns, fqn))
