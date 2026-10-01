@@ -1,0 +1,48 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_unwired_modules.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-chmhbzhy\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_unwired_modules.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-chmhbzhy\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/test_unwired_modules.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_unwired_modules.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-chmhbzhy\.junit-0.xml"
+--- stdout ---
+F....                                                                    [100%]
+================================== FAILURES ===================================
+___ test_the_real_import_graph_walk_finds_exactly_the_known_unwired_symbols ___
+
+    def test_the_real_import_graph_walk_finds_exactly_the_known_unwired_symbols() -> None:
+        computed = set(_compute_unwired_from_production_reachable_files())
+    
+>       assert computed == _KNOWN_UNWIRED, (
+            f"the real import-graph walk's computed unwired set no longer matches the pinned "
+            f"_KNOWN_UNWIRED. New in the walk (needs a decision - wire it, delete it, or add it "
+            f"with a reason): {computed - _KNOWN_UNWIRED!r}. No longer unwired (the pin is now "
+            f"stale and must shrink): {_KNOWN_UNWIRED - computed!r}."
+        )
+E       AssertionError: the real import-graph walk's computed unwired set no longer matches the pinned _KNOWN_UNWIRED. New in the walk (needs a decision - wire it, delete it, or add it with a reason): {'foss_mcp.extraction.repo_native_reader.read_repo_document', 'foss_mcp.extraction.manifest_reader.fetch_manifest_file'}. No longer unwired (the pin is now stale and must shrink): frozenset().
+E       assert {'foss_mcp.ex...om_dict', ...} == frozenset({'f...ema.to_dict'})
+E         
+E         Extra items in the left set:
+E         'foss_mcp.extraction.repo_native_reader.read_repo_document'
+E         'foss_mcp.extraction.manifest_reader.fetch_manifest_file'
+E         Use -v to get more diff
+
+tests\test_unwired_modules.py:342: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_unwired_modules.py::test_the_real_import_graph_walk_finds_exactly_the_known_unwired_symbols
+
+--- stderr ---
+
