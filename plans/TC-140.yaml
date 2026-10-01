@@ -75,16 +75,16 @@ checks:
 min_tests: 10
 network: false
 negative_control:
-  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/test_unwired_modules.py');s=p.read_text(encoding='utf-8');s=s.replace('\"foss_mcp.mcp.health.is_alive\",\n','\"foss_mcp.mcp.health.is_alive\",\n        \"foss_mcp.mcp.health.is_ready\",\n');p.write_text(s,encoding='utf-8')"
-  rationale: Re-inserting 'foss_mcp.mcp.health.is_ready' into _KNOWN_UNWIRED (reverting
-    your own fix for the exact literal this card's own authoring already confirmed
-    is newly unwired) makes the real import-graph walk's own comparison mismatch again
-    if is_ready was genuinely deleted (the pin would then wrongly claim a symbol that
-    no longer exists), or mismatch the real walk's own computed set if is_ready was
-    kept (the pin would then double-list a symbol already correctly present for a
-    real, investigated reason) - either way failing the suite, proving it genuinely
-    depends on this card's own real investigation rather than passing for an unrelated
-    reason. Self-checked before being persisted.
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/test_unwired_modules.py');s=p.read_text(encoding='utf-8');s=s.replace('\"foss_mcp.extraction.claim_id_bridge.resolve_anchor\",\n','\"foss_mcp.extraction.claim_id_bridge.resolve_anchor\",\n        \"foss_mcp.mcp.health.is_alive\",\n');p.write_text(s,encoding='utf-8')"
+  rationale: Re-inserting 'foss_mcp.mcp.health.is_alive' into _KNOWN_UNWIRED (reverting
+    your own fix for the exact symbol TC-137 genuinely wired into infra/serve_http.py)
+    makes the real import-graph walk's own comparison mismatch again, proving the
+    suite genuinely depends on the pin matching reality rather than passing for an
+    unrelated reason. (The original mutate, which re-inserted is_ready next to is_alive,
+    became a no-op once the fix itself correctly removed is_alive - its own anchor
+    string stopped existing in the fixed file. Caught by TC-140's own worker and corrected
+    here before acceptance.) Self-checked end-to-end against the real, current file
+    content before being persisted.
 evidence:
 - evidence/build/G2/TC-140/receipt.json
 closeout:
