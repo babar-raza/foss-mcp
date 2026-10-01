@@ -5,6 +5,14 @@ Readiness reads the ACTUAL active generation pointer
 reference-system defect: it reported ready while serving nothing, because "the process
 accepts connections" and "the process has something to serve" are different facts, and only
 the second one is what a caller actually needs.
+
+``round_trip_check`` is the ONLY readiness probe this module exposes (TC-140 deleted the
+earlier, weaker ``is_ready``, which only checked that an active-generation pointer existed).
+``round_trip_check`` is a confirmed strict superset of that old guarantee - whenever it returns
+True, a real active generation also exists, but it additionally reads that generation all the
+way through and requires it to carry actual queryable content, so a pointer written but never
+verified (or pointing at an empty generation) now correctly fails readiness instead of passing
+it. ``infra/serve_http.py``'s own ``/readyz`` route calls ``round_trip_check`` directly.
 """
 
 from __future__ import annotations
@@ -41,15 +49,6 @@ def is_alive() -> bool:
     cannot fix just produces a crash loop instead of surfacing the real problem.
     """
     return True
-
-
-def is_ready(store: DeploymentGenerationStore) -> bool:
-    """Readiness: TRUE only when the deployment's own scope names a real active generation.
-
-    Never TCP/process reachability - the confirmed reference-system defect this replaces:
-    reporting ready while serving nothing.
-    """
-    return store.active_generation_id() is not None
 
 
 def round_trip_check(store: DeploymentGenerationStore) -> bool:

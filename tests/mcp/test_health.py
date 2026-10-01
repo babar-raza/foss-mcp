@@ -11,7 +11,7 @@ from pathlib import Path
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.publisher import publish_generation
-from foss_mcp.mcp.health import DeploymentGenerationStore, is_alive, is_ready, round_trip_check
+from foss_mcp.mcp.health import DeploymentGenerationStore, is_alive, round_trip_check
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.normalization.chunker import chunk_document
 from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
@@ -53,28 +53,6 @@ def test_liveness_is_always_true_and_needs_no_store() -> None:
     assert is_alive() is True
 
 
-def test_readiness_is_false_with_no_active_generation(tmp_path: Path) -> None:
-    store = DeploymentGenerationStore.for_scope(_store(tmp_path), PDF_NET_SCOPE, "self_extracted")
-    assert is_ready(store) is False
-
-
-def test_readiness_is_true_with_a_real_published_generation(tmp_path: Path) -> None:
-    manifest_store = _store(tmp_path)
-    _publish_real_generation(manifest_store)
-    store = DeploymentGenerationStore.for_scope(manifest_store, PDF_NET_SCOPE, "self_extracted")
-    assert is_ready(store) is True
-
-
-def test_readiness_does_not_leak_across_scopes(tmp_path: Path) -> None:
-    """Publishing pdf/net must never make an unrelated scope report ready."""
-    manifest_store = _store(tmp_path)
-    _publish_real_generation(manifest_store)
-    other = DeploymentGenerationStore.for_scope(
-        manifest_store, Scope(family="cells", platform="python"), "self_extracted"
-    )
-    assert is_ready(other) is False
-
-
 def test_round_trip_check_reads_the_real_published_content(tmp_path: Path) -> None:
     manifest_store = _store(tmp_path)
     _publish_real_generation(manifest_store)
@@ -85,3 +63,17 @@ def test_round_trip_check_reads_the_real_published_content(tmp_path: Path) -> No
 def test_round_trip_check_is_false_with_nothing_published(tmp_path: Path) -> None:
     store = DeploymentGenerationStore.for_scope(_store(tmp_path), PDF_NET_SCOPE, "self_extracted")
     assert round_trip_check(store) is False
+
+
+def test_round_trip_check_does_not_leak_across_scopes(tmp_path: Path) -> None:
+    """Publishing pdf/net must never make an unrelated scope report ready. Ported from the
+    now-deleted ``is_ready``'s own cross-scope-leak test (TC-140): ``round_trip_check`` is a
+    confirmed strict superset of ``is_ready``'s guarantee, but that superset relationship was
+    never itself exercised against this specific scenario until now.
+    """
+    manifest_store = _store(tmp_path)
+    _publish_real_generation(manifest_store)
+    other = DeploymentGenerationStore.for_scope(
+        manifest_store, Scope(family="cells", platform="python"), "self_extracted"
+    )
+    assert round_trip_check(other) is False

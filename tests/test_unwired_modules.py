@@ -10,20 +10,23 @@ Method (real, structural, ``ast``-based - never a hand-maintained prose list):
    import graph (``import x``, ``from x import y``, ``from pkg import submodule``, relative
    imports, and the implicit edge every submodule import carries to each ancestor package's
    own ``__init__.py``).
-2. BFS that graph from the five real production entrypoints
+2. BFS that graph from the six real production entrypoints
    (``infra/serve_http.py``, ``infra/serve_stdio.py``, ``infra/ingest.py``,
-   ``infra/build_chunks.py``, ``src/foss_mcp/mcp/server.py``) to get every file genuinely on a
-   production import path, and separately from every file under ``tests/`` to get every file a
-   test genuinely exercises.
+   ``infra/build_chunks.py``, ``infra/rollback.py``, ``src/foss_mcp/mcp/server.py``) to get every
+   file genuinely on a production import path, and separately from every file under ``tests/`` to
+   get every file a test genuinely exercises.
 3. For every top-level public (non-underscore) function or class defined anywhere under
    ``src/foss_mcp/`` whose OWN FILE is on that production path, check whether the symbol itself
    - not just its file - is ever referenced (a ``from module import name`` match, a
    ``last_component.name`` attribute-chain reference, or a same-file call/reference from another
    already-production-reachable function in that file) anywhere in the production-reachable file
-   set. A file being wired in does not make every function it defines wired in; ``publisher.py``
-   is genuinely on the production path (``infra/ingest.py`` calls it), yet nothing on that path
-   ever calls its own ``rollback_generation`` - that gap is exactly as real as one whose whole
-   file is unreached.
+   set. A file being wired in does not make every function it defines wired in;
+   ``vector_index_writer.py`` is genuinely on the production path (its own ``build_vector_index``
+   is called from ``publisher.py``), yet nothing on that path ever calls its sibling
+   ``query_vector_index`` - that gap is exactly as real as one whose whole file is unreached.
+   (``foss_mcp.indexing.publisher.rollback_generation`` used to be exactly this kind of gap too -
+   TC-140 added ``infra/rollback.py`` as a sixth entrypoint precisely because it now gives that
+   function its first real caller, so it dropped out of ``_KNOWN_UNWIRED``.)
 4. Separately, ``foss_mcp.telemetry.usage_recorder`` sits in a file that is not on the
    production path at all (confirmed: no file under ``src/`` or ``infra/`` outside itself
    references it) - checked directly here rather than folded into step 3's scan, because step
@@ -35,14 +38,19 @@ Method (real, structural, ``ast``-based - never a hand-maintained prose list):
    module's own docstring).
 
 ``_KNOWN_UNWIRED`` pins the resulting set exactly. Running this walk against the real, current
-tree found FOURTEEN such symbols, not only the two AGENTS.md's own text names
-(``query_vector_index`` and ``UsageRecorder``) - the other twelve are a real, additional finding
+tree found ELEVEN such symbols, not only the two AGENTS.md's own text names
+(``query_vector_index`` and ``UsageRecorder``) - the other nine are a real, additional finding
 this card's own walk surfaced; each was individually confirmed above the frozenset by manual
-citation of its own real callers (or lack of them). Two of the fourteen
+citation of its own real callers (or lack of them). Two of the eleven
 (``fetch_manifest_file``, ``with_validation``) are more severe still: no test references them
 either, so nothing anywhere ever calls them - ``_KNOWN_UNWIRED_AND_UNTESTED`` pins that worse
 subset separately, exactly as AGENTS.md asks ("report it separately from a module reachable from
-NOTHING").
+NOTHING"). (TC-140 shrank this set from its original fourteen: ``is_alive`` and
+``round_trip_check`` were wired into ``infra/serve_http.py`` by TC-137, and
+``rollback_generation`` got its first real caller once ``infra/rollback.py`` joined the
+entrypoint list above. TC-140 also deleted ``foss_mcp.mcp.health.is_ready`` outright - see that
+module's own docstring - rather than adding it here, since ``round_trip_check`` is a confirmed
+strict superset of its guarantee.)
 """
 
 from __future__ import annotations
@@ -61,6 +69,7 @@ ENTRYPOINTS: tuple[Path, ...] = (
     INFRA_ROOT / "serve_stdio.py",
     INFRA_ROOT / "ingest.py",
     INFRA_ROOT / "build_chunks.py",
+    INFRA_ROOT / "rollback.py",
     SRC_FOSS / "mcp" / "server.py",
 )
 
@@ -77,10 +86,7 @@ _KNOWN_UNWIRED = frozenset(
         "foss_mcp.indexing.example_verifier.prepare_cpp_library",
         "foss_mcp.indexing.example_verifier.verify_cpp_example",
         "foss_mcp.indexing.generation_manifest.build_manifest",
-        "foss_mcp.indexing.publisher.rollback_generation",
         "foss_mcp.indexing.vector_index_writer.query_vector_index",
-        "foss_mcp.mcp.health.is_alive",
-        "foss_mcp.mcp.health.round_trip_check",
         "foss_mcp.normalization.chunker.with_validation",
         "foss_mcp.normalization.document_schema.from_dict",
         "foss_mcp.normalization.document_schema.to_dict",
