@@ -1,0 +1,993 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_publisher.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-sm02h4ox\.junit-0.xml"
+--- stdout ---
+...............                                                          [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_publisher.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-sm02h4ox\.junit-0.xml"
+--- stdout ---
+...............                                                          [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/publisher.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_publisher.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-sm02h4ox\.junit-0.xml"
+--- stdout ---
+FFFFFFFFFFFFFFF                                                          [100%]
+================================== FAILURES ===================================
+_______ test_publishing_pdf_nets_first_generation_through_the_cas_path ________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1375/test_publishing_pdf_nets_first0')
+
+    def test_publishing_pdf_nets_first_generation_through_the_cas_path(tmp_path: Path) -> None:
+        """A real generation, from TC-011's real fixture, through the actual CAS/leasing
+        authority - not a mock of either."""
+        store = _store(tmp_path)
+        chunks = _pdf_net_chunks()
+        assert len(chunks) > 1
+    
+>       generation_id = _publish(store, chunks, None, DeterministicEmbeddingProvider())
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_publisher.py:311: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_publisher.py:222: in _publish
+    return publish_generation(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001D7F6EB5A90>
+family = 'pdf', platform = 'net', source_kind = 'self_extracted'
+expected_active = None
+chunks = [Chunk(section_title='Aspose.Pdf.AFRelationship', text='FQN: Aspose.Pdf.AFRelationship\nKind: enum_declaration\nRelati...413cff57a8bfe41fb8a8befb2406b:api_surface.json',), validation=ValidationResult(verdict='not_checked', detail='')), ...]
+embedding_provider = <tests.indexing.test_index_writers.DeterministicEmbeddingProvider object at 0x000001D7F6EB5BE0>
+lease = Lease(held_by='worker-1', generation_id='pending', acquired_at='2026-10-01T10:31:42.551411+00:00', expires_at='2026-10-01T10:36:42.551411+00:00', fencing_token=1)
+version = '20261001T103142556356Z-d876f968'
+
+    def publish_generation(
+        store: GenerationManifestStore,
+        *,
+        family: str,
+        platform: str,
+        source_kind: str,
+        expected_active: str | None,
+        chunks: Sequence[Chunk],
+        embedding_provider: EmbeddingProvider,
+        lease: Lease,
+        version: str | None = None,
+    ) -> str:
+        """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
+        generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
+        """
+        version = version or new_version()
+        # The generation_id is needed to build the payload itself (it is folded into every
+        # point_id/doc_id below), before the payload exists to hand to build_manifest - so it is
+        # derived from a throwaway build_manifest call here, then the real manifest is built once
+        # the payload is ready. Both calls go through the one real constructor; neither
+        # re-implements GenerationKey/GenerationManifest construction locally.
+        generation_id = build_manifest(family, platform, source_kind, version).generation_id
+        chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+        payload = {
+            "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, generation_id),
+            "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
+        }
+>       manifest = _disabled_build_manifest(family, platform, source_kind, version, payload)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_disabled_build_manifest' is not defined
+
+src\foss_mcp\indexing\publisher.py:82: NameError
+___ test_a_republish_of_unchanged_content_still_yields_a_new_generation_id ____
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1375/test_a_republish_of_unchanged_0')
+
+    def test_a_republish_of_unchanged_content_still_yields_a_new_generation_id(tmp_path: Path) -> None:
+        store = _store(tmp_path)
+        chunks = _pdf_net_chunks()
+        provider = DeterministicEmbeddingProvider()
+    
+>       gen1 = _publish(store, chunks, None, provider)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_publisher.py:325: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_publisher.py:222: in _publish
+    return publish_generation(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001D7F6C0E710>
+family = 'pdf', platform = 'net', source_kind = 'self_extracted'
+expected_active = None
+chunks = [Chunk(section_title='Aspose.Pdf.AFRelationship', text='FQN: Aspose.Pdf.AFRelationship\nKind: enum_declaration\nRelati...413cff57a8bfe41fb8a8befb2406b:api_surface.json',), validation=ValidationResult(verdict='not_checked', detail='')), ...]
+embedding_provider = <tests.indexing.test_index_writers.DeterministicEmbeddingProvider object at 0x000001D7F6C0E990>
+lease = Lease(held_by='worker-1', generation_id='pending', acquired_at='2026-10-01T10:31:42.802206+00:00', expires_at='2026-10-01T10:36:42.802206+00:00', fencing_token=1)
+version = '20261001T103142807006Z-5012fac5'
+
+    def publish_generation(
+        store: GenerationManifestStore,
+        *,
+        family: str,
+        platform: str,
+        source_kind: str,
+        expected_active: str | None,
+        chunks: Sequence[Chunk],
+        embedding_provider: EmbeddingProvider,
+        lease: Lease,
+        version: str | None = None,
+    ) -> str:
+        """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
+        generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
+        """
+        version = version or new_version()
+        # The generation_id is needed to build the payload itself (it is folded into every
+        # point_id/doc_id below), before the payload exists to hand to build_manifest - so it is
+        # derived from a throwaway build_manifest call here, then the real manifest is built once
+        # the payload is ready. Both calls go through the one real constructor; neither
+        # re-implements GenerationKey/GenerationManifest construction locally.
+        generation_id = build_manifest(family, platform, source_kind, version).generation_id
+        chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+        payload = {
+            "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, generation_id),
+            "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
+        }
+>       manifest = _disabled_build_manifest(family, platform, source_kind, version, payload)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_disabled_build_manifest' is not defined
+
+src\foss_mcp\indexing\publisher.py:82: NameError
+_______ test_point_ids_differ_across_generations_for_identical_content ________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1375/test_point_ids_differ_across_g0')
+
+    def test_point_ids_differ_across_generations_for_identical_content(tmp_path: Path) -> None:
+        """The exact regression the plan names: same chunk content, but the two generations'
+        points must never collide - this is what makes rollback safe.
+        """
+        store = _store(tmp_path)
+        chunks = _pdf_net_chunks()
+        provider = DeterministicEmbeddingProvider()
+    
+>       gen1 = _publish(store, chunks, None, provider)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_publisher.py:340: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_publisher.py:222: in _publish
+    return publish_generation(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001D7F6C0F9D0>
+family = 'pdf', platform = 'net', source_kind = 'self_extracted'
+expected_active = None
+chunks = [Chunk(section_title='Aspose.Pdf.AFRelationship', text='FQN: Aspose.Pdf.AFRelationship\nKind: enum_declaration\nRelati...413cff57a8bfe41fb8a8befb2406b:api_surface.json',), validation=ValidationResult(verdict='not_checked', detail='')), ...]
+embedding_provider = <tests.indexing.test_index_writers.DeterministicEmbeddingProvider object at 0x000001D7F6C0FB10>
+lease = Lease(held_by='worker-1', generation_id='pending', acquired_at='2026-10-01T10:31:42.872473+00:00', expires_at='2026-10-01T10:36:42.872473+00:00', fencing_token=1)
+version = '20261001T103142878000Z-e8aeb6aa'
+
+    def publish_generation(
+        store: GenerationManifestStore,
+        *,
+        family: str,
+        platform: str,
+        source_kind: str,
+        expected_active: str | None,
+        chunks: Sequence[Chunk],
+        embedding_provider: EmbeddingProvider,
+        lease: Lease,
+        version: str | None = None,
+    ) -> str:
+        """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
+        generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
+        """
+        version = version or new_version()
+        # The generation_id is needed to build the payload itself (it is folded into every
+        # point_id/doc_id below), before the payload exists to hand to build_manifest - so it is
+        # derived from a throwaway build_manifest call here, then the real manifest is built once
+        # the payload is ready. Both calls go through the one real constructor; neither
+        # re-implements GenerationKey/GenerationManifest construction locally.
+        generation_id = build_manifest(family, platform, source_kind, version).generation_id
+        chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+        payload = {
+            "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, generation_id),
+            "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
+        }
+>       manifest = _disabled_build_manifest(family, platform, source_kind, version, payload)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_disabled_build_manifest' is not defined
+
+src\foss_mcp\indexing\publisher.py:82: NameError
+_________________ test_rollback_restores_the_prior_generation _________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1375/test_rollback_restores_the_pri0')
+
+    def test_rollback_restores_the_prior_generation(tmp_path: Path) -> None:
+        store = _store(tmp_path)
+        chunks = _pdf_net_chunks()
+        provider = DeterministicEmbeddingProvider()
+    
+>       gen1 = _publish(store, chunks, None, provider)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_publisher.py:362: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_publisher.py:222: in _publish
+    return publish_generation(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001D7F6E81BA0>
+family = 'pdf', platform = 'net', source_kind = 'self_extracted'
+expected_active = None
+chunks = [Chunk(section_title='Aspose.Pdf.AFRelationship', text='FQN: Aspose.Pdf.AFRelationship\nKind: enum_declaration\nRelati...413cff57a8bfe41fb8a8befb2406b:api_surface.json',), validation=ValidationResult(verdict='not_checked', detail='')), ...]
+embedding_provider = <tests.indexing.test_index_writers.DeterministicEmbeddingProvider object at 0x000001D7F6E81F30>
+lease = Lease(held_by='worker-1', generation_id='pending', acquired_at='2026-10-01T10:31:43.117410+00:00', expires_at='2026-10-01T10:36:43.117410+00:00', fencing_token=1)
+version = '20261001T103143133829Z-0f951284'
+
+    def publish_generation(
+        store: GenerationManifestStore,
+        *,
+        family: str,
+        platform: str,
+        source_kind: str,
+        expected_active: str | None,
+        chunks: Sequence[Chunk],
+        embedding_provider: EmbeddingProvider,
+        lease: Lease,
+        version: str | None = None,
+    ) -> str:
+        """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
+        generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
+        """
+        version = version or new_version()
+        # The generation_id is needed to build the payload itself (it is folded into every
+        # point_id/doc_id below), before the payload exists to hand to build_manifest - so it is
+        # derived from a throwaway build_manifest call here, then the real manifest is built once
+        # the payload is ready. Both calls go through the one real constructor; neither
+        # re-implements GenerationKey/GenerationManifest construction locally.
+        generation_id = build_manifest(family, platform, source_kind, version).generation_id
+        chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+        payload = {
+            "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, generation_id),
+            "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
+        }
+>       manifest = _disabled_build_manifest(family, platform, source_kind, version, payload)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_disabled_build_manifest' is not defined
+
+src\foss_mcp\indexing\publisher.py:82: NameError
+____ test_publishing_slides_pythons_first_generation_through_the_cas_path _____
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1375/test_publishing_slides_pythons0')
+
+    def test_publishing_slides_pythons_first_generation_through_the_cas_path(tmp_path: Path) -> None:
+        """A real generation, from TC-025's real fixture, through the same CAS/leasing authority
+        pdf/net's own first-generation test proves - the second pilot, its own independent scope."""
+        store = _store(tmp_path)
+        chunks = _slides_python_chunks()
+        assert len(chunks) > 1
+    
+>       generation_id = _publish_slides_python(store, chunks, None, DeterministicEmbeddingProvider())
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_publisher.py:379: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_publisher.py:236: in _publish_slides_python
+    return publish_generation(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001D7F6E82650>
+family = 'slides', platform = 'python', source_kind = 'self_extracted'
+expected_active = None
+chunks = [Chunk(section_title='aspose.slides_foss.AdjustValue', text='aspose.slides_foss.AdjustValue is a class.', source_kind=...d1c27a5192844847d9f872c5b92ad:api_surface.json',), validation=ValidationResult(verdict='not_checked', detail='')), ...]
+embedding_provider = <tests.indexing.test_index_writers.DeterministicEmbeddingProvider object at 0x000001D7F6E82C40>
+lease = Lease(held_by='worker-1', generation_id='pending', acquired_at='2026-10-01T10:31:43.175248+00:00', expires_at='2026-10-01T10:36:43.175248+00:00', fencing_token=1)
+version = '20261001T103143179418Z-c4faa0bf'
+
+    def publish_generation(
+        store: GenerationManifestStore,
+        *,
+        family: str,
+        platform: str,
+        source_kind: str,
+        expected_active: str | None,
+        chunks: Sequence[Chunk],
+        embedding_provider: EmbeddingProvider,
+        lease: Lease,
+        version: str | None = None,
+    ) -> str:
+        """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
+        generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
+        """
+        version = version or new_version()
+        # The generation_id is needed to build the payload itself (it is folded into every
+        # point_id/doc_id below), before the payload exists to hand to build_manifest - so it is
+        # derived from a throwaway build_manifest call here, then the real manifest is built once
+        # the payload is ready. Both calls go through the one real constructor; neither
+        # re-implements GenerationKey/GenerationManifest construction locally.
+        generation_id = build_manifest(family, platform, source_kind, version).generation_id
+        chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+        payload = {
+            "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, generation_id),
+            "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
+        }
+>       manifest = _disabled_build_manifest(family, platform, source_kind, version, payload)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_disabled_build_manifest' is not defined
+
+src\foss_mcp\indexing\publisher.py:82: NameError
+______ test_publishing_cells_rusts_first_generation_through_the_cas_path ______
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1375/test_publishing_cells_rusts_fi0')
+
+    def test_publishing_cells_rusts_first_generation_through_the_cas_path(tmp_path: Path) -> None:
+        """A real generation, from TC-032's real fixture, through the same CAS/leasing authority
+        pdf/net's and slides/python's own first-generation tests prove - the third pilot, its own
+        independent scope."""
+        store = _store(tmp_path)
+        chunks = _cells_rust_chunks()
+        assert len(chunks) > 1
+    
+>       generation_id = _publish_cells_rust(store, chunks, None, DeterministicEmbeddingProvider())
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_publisher.py:396: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_publisher.py:250: in _publish_cells_rust
+    return publish_generation(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001D7F6EE2B10>
+family = 'cells', platform = 'rust', source_kind = 'self_extracted'
+expected_active = None
+chunks = [Chunk(section_title='AlignmentValue', text='AlignmentValue is a struct_item. Methods: clone.', source_kind='self_extr...1ef15385f9d36d381a8172428cc7e:api_surface.json',), validation=ValidationResult(verdict='not_checked', detail='')), ...]
+embedding_provider = <tests.indexing.test_index_writers.DeterministicEmbeddingProvider object at 0x000001D7F6EE28D0>
+lease = Lease(held_by='worker-1', generation_id='pending', acquired_at='2026-10-01T10:31:43.232510+00:00', expires_at='2026-10-01T10:36:43.232510+00:00', fencing_token=1)
+version = '20261001T103143236682Z-c949e74b'
+
+    def publish_generation(
+        store: GenerationManifestStore,
+        *,
+        family: str,
+        platform: str,
+        source_kind: str,
+        expected_active: str | None,
+        chunks: Sequence[Chunk],
+        embedding_provider: EmbeddingProvider,
+        lease: Lease,
+        version: str | None = None,
+    ) -> str:
+        """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
+        generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
+        """
+        version = version or new_version()
+        # The generation_id is needed to build the payload itself (it is folded into every
+        # point_id/doc_id below), before the payload exists to hand to build_manifest - so it is
+        # derived from a throwaway build_manifest call here, then the real manifest is built once
+        # the payload is ready. Both calls go through the one real constructor; neither
+        # re-implements GenerationKey/GenerationManifest construction locally.
+        generation_id = build_manifest(family, platform, source_kind, version).generation_id
+        chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+        payload = {
+            "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, generation_id),
+            "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
+        }
+>       manifest = _disabled_build_manifest(family, platform, source_kind, version, payload)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_disabled_build_manifest' is not defined
+
+src\foss_mcp\indexing\publisher.py:82: NameError
+________ test_publishing_pdf_gos_first_generation_through_the_cas_path ________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1375/test_publishing_pdf_gos_first_0')
+
+    def test_publishing_pdf_gos_first_generation_through_the_cas_path(tmp_path: Path) -> None:
+        """A real generation, from TC-038's real fixture, through the same CAS/leasing authority
+        pdf/net's, slides/python's and cells/rust's own first-generation tests prove - the fourth
+        pilot, and the first sharing pdf/net's own family, over its own independent scope
+        distinguished by platform ("go" vs "net")."""
+        store = _store(tmp_path)
+        chunks = _pdf_go_chunks()
+        assert len(chunks) > 1
+    
+>       generation_id = _publish_pdf_go(store, chunks, None, DeterministicEmbeddingProvider())
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_publisher.py:414: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_publisher.py:264: in _publish_pdf_go
+    return publish_generation(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001D7F6E9C8D0>
+family = 'pdf', platform = 'go', source_kind = 'self_extracted'
+expected_active = None
+chunks = [Chunk(section_title='AFRelationship', text='AFRelationship is a type_spec. Methods: String.', source_kind='self_extra...96d65c9a458c5eff3d3d6539216dc:api_surface.json',), validation=ValidationResult(verdict='not_checked', detail='')), ...]
+embedding_provider = <tests.indexing.test_index_writers.DeterministicEmbeddingProvider object at 0x000001D7F6E9D260>
+lease = Lease(held_by='worker-1', generation_id='pending', acquired_at='2026-10-01T10:31:43.280870+00:00', expires_at='2026-10-01T10:36:43.280870+00:00', fencing_token=1)
+version = '20261001T103143285278Z-89e09fd1'
+
+    def publish_generation(
+        store: GenerationManifestStore,
+        *,
+        family: str,
+        platform: str,
+        source_kind: str,
+        expected_active: str | None,
+        chunks: Sequence[Chunk],
+        embedding_provider: EmbeddingProvider,
+        lease: Lease,
+        version: str | None = None,
+    ) -> str:
+        """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
+        generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
+        """
+        version = version or new_version()
+        # The generation_id is needed to build the payload itself (it is folded into every
+        # point_id/doc_id below), before the payload exists to hand to build_manifest - so it is
+        # derived from a throwaway build_manifest call here, then the real manifest is built once
+        # the payload is ready. Both calls go through the one real constructor; neither
+        # re-implements GenerationKey/GenerationManifest construction locally.
+        generation_id = build_manifest(family, platform, source_kind, version).generation_id
+        chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+        payload = {
+            "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, generation_id),
+            "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
+        }
+>       manifest = _disabled_build_manifest(family, platform, source_kind, version, payload)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_disabled_build_manifest' is not defined
+
+src\foss_mcp\indexing\publisher.py:82: NameError
+_ test_two_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1375/test_two_pilots_sharing_one_ma0')
+
+    def test_two_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation(
+        tmp_path: Path,
+    ) -> None:
+        """pdf/net and slides/python publish their first generations into the SAME store instance -
+        the real-world deployment shape TC-023's multi-instance docker-compose assumes. TC-015's own
+        suite never exercised two scopes together; this proves neither pilot's active generation ever
+        leaks into, or is shadowed by, the other's.
+        """
+        store = _store(tmp_path)
+        provider = DeterministicEmbeddingProvider()
+    
+>       pdf_net_generation = _publish(store, _pdf_net_chunks(), None, provider)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_publisher.py:434: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_publisher.py:222: in _publish
+    return publish_generation(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001D7F6E9D370>
+family = 'pdf', platform = 'net', source_kind = 'self_extracted'
+expected_active = None
+chunks = [Chunk(section_title='Aspose.Pdf.AFRelationship', text='FQN: Aspose.Pdf.AFRelationship\nKind: enum_declaration\nRelati...413cff57a8bfe41fb8a8befb2406b:api_surface.json',), validation=ValidationResult(verdict='not_checked', detail='')), ...]
+embedding_provider = <tests.indexing.test_index_writers.DeterministicEmbeddingProvider object at 0x000001D7F6E9D480>
+lease = Lease(held_by='worker-1', generation_id='pending', acquired_at='2026-10-01T10:31:43.337268+00:00', expires_at='2026-10-01T10:36:43.337268+00:00', fencing_token=1)
+version = '20261001T103143340395Z-003b3331'
+
+    def publish_generation(
+        store: GenerationManifestStore,
+        *,
+        family: str,
+        platform: str,
+        source_kind: str,
+        expected_active: str | None,
+        chunks: Sequence[Chunk],
+        embedding_provider: EmbeddingProvider,
+        lease: Lease,
+        version: str | None = None,
+    ) -> str:
+        """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
+        generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
+        """
+        version = version or new_version()
+        # The generation_id is needed to build the payload itself (it is folded into every
+        # point_id/doc_id below), before the payload exists to hand to build_manifest - so it is
+        # derived from a throwaway build_manifest call here, then the real manifest is built once
+        # the payload is ready. Both calls go through the one real constructor; neither
+        # re-implements GenerationKey/GenerationManifest construction locally.
+        generation_id = build_manifest(family, platform, source_kind, version).generation_id
+        chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+        payload = {
+            "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, generation_id),
+            "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
+        }
+>       manifest = _disabled_build_manifest(family, platform, source_kind, version, payload)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_disabled_build_manifest' is not defined
+
+src\foss_mcp\indexing\publisher.py:82: NameError
+_ test_three_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1375/test_three_pilots_sharing_one_0')
+
+    def test_three_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation(
+        tmp_path: Path,
+    ) -> None:
+        """pdf/net, slides/python AND cells/rust publish their first generations into the SAME store
+        instance - extending the two-pilot isolation proof (above) to three concurrent pilots sharing
+        one manifest store. Each scope's read_active() must return only its own generation; none may
+        leak into or be shadowed by either of the other two.
+        """
+        store = _store(tmp_path)
+        provider = DeterministicEmbeddingProvider()
+    
+>       pdf_net_generation = _publish(store, _pdf_net_chunks(), None, provider)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_publisher.py:453: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_publisher.py:222: in _publish
+    return publish_generation(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001D7F6EAD850>
+family = 'pdf', platform = 'net', source_kind = 'self_extracted'
+expected_active = None
+chunks = [Chunk(section_title='Aspose.Pdf.AFRelationship', text='FQN: Aspose.Pdf.AFRelationship\nKind: enum_declaration\nRelati...413cff57a8bfe41fb8a8befb2406b:api_surface.json',), validation=ValidationResult(verdict='not_checked', detail='')), ...]
+embedding_provider = <tests.indexing.test_index_writers.DeterministicEmbeddingProvider object at 0x000001D7F6EADC50>
+lease = Lease(held_by='worker-1', generation_id='pending', acquired_at='2026-10-01T10:31:43.401998+00:00', expires_at='2026-10-01T10:36:43.401998+00:00', fencing_token=1)
+version = '20261001T103143407535Z-fb0d7c50'
+
+    def publish_generation(
+        store: GenerationManifestStore,
+        *,
+        family: str,
+        platform: str,
+        source_kind: str,
+        expected_active: str | None,
+        chunks: Sequence[Chunk],
+        embedding_provider: EmbeddingProvider,
+        lease: Lease,
+        version: str | None = None,
+    ) -> str:
+        """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
+        generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
+        """
+        version = version or new_version()
+        # The generation_id is needed to build the payload itself (it is folded into every
+        # point_id/doc_id below), before the payload exists to hand to build_manifest - so it is
+        # derived from a throwaway build_manifest call here, then the real manifest is built once
+        # the payload is ready. Both calls go through the one real constructor; neither
+        # re-implements GenerationKey/GenerationManifest construction locally.
+        generation_id = build_manifest(family, platform, source_kind, version).generation_id
+        chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+        payload = {
+            "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, generation_id),
+            "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
+        }
+>       manifest = _disabled_build_manifest(family, platform, source_kind, version, payload)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_disabled_build_manifest' is not defined
+
+src\foss_mcp\indexing\publisher.py:82: NameError
+_ test_four_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1375/test_four_pilots_sharing_one_m0')
+
+    def test_four_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation(
+        tmp_path: Path,
+    ) -> None:
+        """pdf/net, slides/python, cells/rust AND pdf/go publish their first generations into the
+        SAME store instance - extending the three-pilot isolation proof (above) to four concurrent
+        pilots sharing one manifest store. This is the harder case: pdf/net and pdf/go share the
+        SAME family ("pdf"), so it is platform ("net" vs "go") - not family - that must keep their
+        scopes, their leases and their active generations distinct. Each scope's read_active() must
+        return only its own generation; none may leak into or be shadowed by any of the other three,
+        including its own same-family sibling.
+        """
+        store = _store(tmp_path)
+        provider = DeterministicEmbeddingProvider()
+    
+>       pdf_net_generation = _publish(store, _pdf_net_chunks(), None, provider)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_publisher.py:486: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_publisher.py:222: in _publish
+    return publish_generation(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001D7F6EAE150>
+family = 'pdf', platform = 'net', source_kind = 'self_extracted'
+expected_active = None
+chunks = [Chunk(section_title='Aspose.Pdf.AFRelationship', text='FQN: Aspose.Pdf.AFRelationship\nKind: enum_declaration\nRelati...413cff57a8bfe41fb8a8befb2406b:api_surface.json',), validation=ValidationResult(verdict='not_checked', detail='')), ...]
+embedding_provider = <tests.indexing.test_index_writers.DeterministicEmbeddingProvider object at 0x000001D7F6EAE350>
+lease = Lease(held_by='worker-1', generation_id='pending', acquired_at='2026-10-01T10:31:43.461746+00:00', expires_at='2026-10-01T10:36:43.461746+00:00', fencing_token=1)
+version = '20261001T103143466411Z-7ce3e548'
+
+    def publish_generation(
+        store: GenerationManifestStore,
+        *,
+        family: str,
+        platform: str,
+        source_kind: str,
+        expected_active: str | None,
+        chunks: Sequence[Chunk],
+        embedding_provider: EmbeddingProvider,
+        lease: Lease,
+        version: str | None = None,
+    ) -> str:
+        """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
+        generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
+        """
+        version = version or new_version()
+        # The generation_id is needed to build the payload itself (it is folded into every
+        # point_id/doc_id below), before the payload exists to hand to build_manifest - so it is
+        # derived from a throwaway build_manifest call here, then the real manifest is built once
+        # the payload is ready. Both calls go through the one real constructor; neither
+        # re-implements GenerationKey/GenerationManifest construction locally.
+        generation_id = build_manifest(family, platform, source_kind, version).generation_id
+        chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+        payload = {
+            "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, generation_id),
+            "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
+        }
+>       manifest = _disabled_build_manifest(family, platform, source_kind, version, payload)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_disabled_build_manifest' is not defined
+
+src\foss_mcp\indexing\publisher.py:82: NameError
+_______ test_publishing_pdf_javas_first_generation_through_the_cas_path _______
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1375/test_publishing_pdf_javas_firs0')
+
+    def test_publishing_pdf_javas_first_generation_through_the_cas_path(tmp_path: Path) -> None:
+        """A real generation, from TC-044's real fixture, through the same CAS/leasing authority
+        pdf/net's, slides/python's, cells/rust's and pdf/go's own first-generation tests prove - the
+        fifth pilot, and the second sharing pdf/net's own family, over its own independent scope
+        distinguished by platform ("java" vs "net" vs "go")."""
+        store = _store(tmp_path)
+        chunks = _pdf_java_chunks()
+        assert len(chunks) > 1
+    
+>       generation_id = _publish_pdf_java(store, chunks, None, DeterministicEmbeddingProvider())
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_publisher.py:518: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_publisher.py:278: in _publish_pdf_java
+    return publish_generation(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001D7F6C15220>
+family = 'pdf', platform = 'java', source_kind = 'self_extracted'
+expected_active = None
+chunks = [Chunk(section_title='org.aspose.pdf.AntialiasingProcessingType', text='org.aspose.pdf.AntialiasingProcessingType is a...035825419c6d46727022064f39f15:api_surface.json',), validation=ValidationResult(verdict='not_checked', detail='')), ...]
+embedding_provider = <tests.indexing.test_index_writers.DeterministicEmbeddingProvider object at 0x000001D7F6C16120>
+lease = Lease(held_by='worker-1', generation_id='pending', acquired_at='2026-10-01T10:31:43.520708+00:00', expires_at='2026-10-01T10:36:43.520708+00:00', fencing_token=1)
+version = '20261001T103143525976Z-cc3021bf'
+
+    def publish_generation(
+        store: GenerationManifestStore,
+        *,
+        family: str,
+        platform: str,
+        source_kind: str,
+        expected_active: str | None,
+        chunks: Sequence[Chunk],
+        embedding_provider: EmbeddingProvider,
+        lease: Lease,
+        version: str | None = None,
+    ) -> str:
+        """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
+        generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
+        """
+        version = version or new_version()
+        # The generation_id is needed to build the payload itself (it is folded into every
+        # point_id/doc_id below), before the payload exists to hand to build_manifest - so it is
+        # derived from a throwaway build_manifest call here, then the real manifest is built once
+        # the payload is ready. Both calls go through the one real constructor; neither
+        # re-implements GenerationKey/GenerationManifest construction locally.
+        generation_id = build_manifest(family, platform, source_kind, version).generation_id
+        chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+        payload = {
+            "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, generation_id),
+            "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
+        }
+>       manifest = _disabled_build_manifest(family, platform, source_kind, version, payload)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_disabled_build_manifest' is not defined
+
+src\foss_mcp\indexing\publisher.py:82: NameError
+____ test_publishing_pdf_typescripts_first_generation_through_the_cas_path ____
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1375/test_publishing_pdf_typescript0')
+
+    def test_publishing_pdf_typescripts_first_generation_through_the_cas_path(tmp_path: Path) -> None:
+        """A real generation, from TC-050's real fixture, through the same CAS/leasing authority
+        pdf/net's, slides/python's, cells/rust's, pdf/go's and pdf/java's own first-generation tests
+        prove - the sixth pilot, and the third sharing pdf/net's own family, over its own independent
+        scope distinguished by platform ("typescript" vs "net" vs "go" vs "java")."""
+        store = _store(tmp_path)
+        chunks = _pdf_typescript_chunks()
+        assert len(chunks) > 1
+    
+>       generation_id = _publish_pdf_typescript(store, chunks, None, DeterministicEmbeddingProvider())
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_publisher.py:536: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_publisher.py:292: in _publish_pdf_typescript
+    return publish_generation(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001D7F6E23B60>
+family = 'pdf', platform = 'typescript', source_kind = 'self_extracted'
+expected_active = None
+chunks = [Chunk(section_title='A', text='A is a function.', source_kind='self_extracted', content_type='api_surface', provenanc...0ba23fb4252b6ba201828b02a5b9d:api_surface.json',), validation=ValidationResult(verdict='not_checked', detail='')), ...]
+embedding_provider = <tests.indexing.test_index_writers.DeterministicEmbeddingProvider object at 0x000001D7F6E236B0>
+lease = Lease(held_by='worker-1', generation_id='pending', acquired_at='2026-10-01T10:31:43.569446+00:00', expires_at='2026-10-01T10:36:43.569446+00:00', fencing_token=1)
+version = '20261001T103143574231Z-e0d7aca3'
+
+    def publish_generation(
+        store: GenerationManifestStore,
+        *,
+        family: str,
+        platform: str,
+        source_kind: str,
+        expected_active: str | None,
+        chunks: Sequence[Chunk],
+        embedding_provider: EmbeddingProvider,
+        lease: Lease,
+        version: str | None = None,
+    ) -> str:
+        """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
+        generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
+        """
+        version = version or new_version()
+        # The generation_id is needed to build the payload itself (it is folded into every
+        # point_id/doc_id below), before the payload exists to hand to build_manifest - so it is
+        # derived from a throwaway build_manifest call here, then the real manifest is built once
+        # the payload is ready. Both calls go through the one real constructor; neither
+        # re-implements GenerationKey/GenerationManifest construction locally.
+        generation_id = build_manifest(family, platform, source_kind, version).generation_id
+        chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+        payload = {
+            "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, generation_id),
+            "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
+        }
+>       manifest = _disabled_build_manifest(family, platform, source_kind, version, payload)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_disabled_build_manifest' is not defined
+
+src\foss_mcp\indexing\publisher.py:82: NameError
+_ test_five_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1375/test_five_pilots_sharing_one_m0')
+
+    def test_five_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation(
+        tmp_path: Path,
+    ) -> None:
+        """pdf/net, slides/python, cells/rust, pdf/go AND pdf/java publish their first generations
+        into the SAME store instance - extending the four-pilot isolation proof (above) to five
+        concurrent pilots sharing one manifest store. This is the strongest discrimination test yet:
+        pdf/net, pdf/go and pdf/java all share the SAME family ("pdf"), so it is platform
+        ("net" vs "go" vs "java") - not family - that must keep all three scopes, their leases and
+        their active generations distinct from one another and from the two unrelated families.
+        Each scope's read_active() must return only its own generation; none may leak into or be
+        shadowed by any of the other four, including either of its two same-family siblings.
+        """
+        store = _store(tmp_path)
+        provider = DeterministicEmbeddingProvider()
+    
+>       pdf_net_generation = _publish(store, _pdf_net_chunks(), None, provider)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_publisher.py:560: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_publisher.py:222: in _publish
+    return publish_generation(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001D7F6ED20B0>
+family = 'pdf', platform = 'net', source_kind = 'self_extracted'
+expected_active = None
+chunks = [Chunk(section_title='Aspose.Pdf.AFRelationship', text='FQN: Aspose.Pdf.AFRelationship\nKind: enum_declaration\nRelati...413cff57a8bfe41fb8a8befb2406b:api_surface.json',), validation=ValidationResult(verdict='not_checked', detail='')), ...]
+embedding_provider = <tests.indexing.test_index_writers.DeterministicEmbeddingProvider object at 0x000001D7F6ED1FD0>
+lease = Lease(held_by='worker-1', generation_id='pending', acquired_at='2026-10-01T10:31:43.621108+00:00', expires_at='2026-10-01T10:36:43.621108+00:00', fencing_token=1)
+version = '20261001T103143626228Z-69dc271f'
+
+    def publish_generation(
+        store: GenerationManifestStore,
+        *,
+        family: str,
+        platform: str,
+        source_kind: str,
+        expected_active: str | None,
+        chunks: Sequence[Chunk],
+        embedding_provider: EmbeddingProvider,
+        lease: Lease,
+        version: str | None = None,
+    ) -> str:
+        """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
+        generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
+        """
+        version = version or new_version()
+        # The generation_id is needed to build the payload itself (it is folded into every
+        # point_id/doc_id below), before the payload exists to hand to build_manifest - so it is
+        # derived from a throwaway build_manifest call here, then the real manifest is built once
+        # the payload is ready. Both calls go through the one real constructor; neither
+        # re-implements GenerationKey/GenerationManifest construction locally.
+        generation_id = build_manifest(family, platform, source_kind, version).generation_id
+        chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+        payload = {
+            "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, generation_id),
+            "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
+        }
+>       manifest = _disabled_build_manifest(family, platform, source_kind, version, payload)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_disabled_build_manifest' is not defined
+
+src\foss_mcp\indexing\publisher.py:82: NameError
+_ test_six_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1375/test_six_pilots_sharing_one_ma0')
+
+    def test_six_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation(
+        tmp_path: Path,
+    ) -> None:
+        """pdf/net, slides/python, cells/rust, pdf/go, pdf/java AND pdf/typescript publish their
+        first generations into the SAME store instance - extending the five-pilot isolation proof
+        (above) to six concurrent pilots sharing one manifest store. This is the strongest
+        discrimination test yet: pdf/net, pdf/go, pdf/java and pdf/typescript all share the SAME
+        family ("pdf"), so it is platform ("net" vs "go" vs "java" vs "typescript") - not family -
+        that must keep all four scopes, their leases and their active generations distinct from one
+        another and from the two unrelated families. Each scope's read_active() must return only its
+        own generation; none may leak into or be shadowed by any of the other five, including any of
+        its three same-family siblings.
+        """
+        store = _store(tmp_path)
+        provider = DeterministicEmbeddingProvider()
+    
+>       pdf_net_generation = _publish(store, _pdf_net_chunks(), None, provider)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_publisher.py:610: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_publisher.py:222: in _publish
+    return publish_generation(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001D7F6ED34D0>
+family = 'pdf', platform = 'net', source_kind = 'self_extracted'
+expected_active = None
+chunks = [Chunk(section_title='Aspose.Pdf.AFRelationship', text='FQN: Aspose.Pdf.AFRelationship\nKind: enum_declaration\nRelati...413cff57a8bfe41fb8a8befb2406b:api_surface.json',), validation=ValidationResult(verdict='not_checked', detail='')), ...]
+embedding_provider = <tests.indexing.test_index_writers.DeterministicEmbeddingProvider object at 0x000001D7F6ED3E70>
+lease = Lease(held_by='worker-1', generation_id='pending', acquired_at='2026-10-01T10:31:43.694697+00:00', expires_at='2026-10-01T10:36:43.694697+00:00', fencing_token=1)
+version = '20261001T103143699721Z-e74e40a2'
+
+    def publish_generation(
+        store: GenerationManifestStore,
+        *,
+        family: str,
+        platform: str,
+        source_kind: str,
+        expected_active: str | None,
+        chunks: Sequence[Chunk],
+        embedding_provider: EmbeddingProvider,
+        lease: Lease,
+        version: str | None = None,
+    ) -> str:
+        """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
+        generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
+        """
+        version = version or new_version()
+        # The generation_id is needed to build the payload itself (it is folded into every
+        # point_id/doc_id below), before the payload exists to hand to build_manifest - so it is
+        # derived from a throwaway build_manifest call here, then the real manifest is built once
+        # the payload is ready. Both calls go through the one real constructor; neither
+        # re-implements GenerationKey/GenerationManifest construction locally.
+        generation_id = build_manifest(family, platform, source_kind, version).generation_id
+        chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+        payload = {
+            "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, generation_id),
+            "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
+        }
+>       manifest = _disabled_build_manifest(family, platform, source_kind, version, payload)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_disabled_build_manifest' is not defined
+
+src\foss_mcp\indexing\publisher.py:82: NameError
+_ test_published_manifest_matches_build_manifest_called_directly_with_the_same_inputs _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1375/test_published_manifest_matche0')
+
+    def test_published_manifest_matches_build_manifest_called_directly_with_the_same_inputs(
+        tmp_path: Path,
+    ) -> None:
+        """TC-146's wiring claim, genuinely checked: publish_generation must call
+        generation_manifest.build_manifest directly rather than re-implementing its two-step
+        GenerationKey + GenerationManifest construction inline. This asserts the manifest
+        publish_generation actually publishes is identical - same key fields, same payload - to
+        calling build_manifest directly with the same family/platform/source_kind/version/payload
+        inputs; it is not satisfied by a parallel reimplementation that merely happens to agree.
+        """
+        store = _store(tmp_path)
+        chunks = _pdf_net_chunks()
+        provider = DeterministicEmbeddingProvider()
+        version = "fixed-version-for-equivalence-check"
+    
+        lease = store.acquire_lease(SCOPE, "worker-1", "pending")
+>       generation_id = publish_generation(
+            store,
+            family="pdf",
+            platform="net",
+            source_kind="self_extracted",
+            expected_active=None,
+            chunks=chunks,
+            embedding_provider=provider,
+            lease=lease,
+            version=version,
+        )
+
+tests\indexing\test_publisher.py:664: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001D7F6C63450>
+family = 'pdf', platform = 'net', source_kind = 'self_extracted'
+expected_active = None
+chunks = [Chunk(section_title='Aspose.Pdf.AFRelationship', text='FQN: Aspose.Pdf.AFRelationship\nKind: enum_declaration\nRelati...413cff57a8bfe41fb8a8befb2406b:api_surface.json',), validation=ValidationResult(verdict='not_checked', detail='')), ...]
+embedding_provider = <tests.indexing.test_index_writers.DeterministicEmbeddingProvider object at 0x000001D7F6C63930>
+lease = Lease(held_by='worker-1', generation_id='pending', acquired_at='2026-10-01T10:31:43.759143+00:00', expires_at='2026-10-01T10:36:43.759143+00:00', fencing_token=1)
+version = 'fixed-version-for-equivalence-check'
+
+    def publish_generation(
+        store: GenerationManifestStore,
+        *,
+        family: str,
+        platform: str,
+        source_kind: str,
+        expected_active: str | None,
+        chunks: Sequence[Chunk],
+        embedding_provider: EmbeddingProvider,
+        lease: Lease,
+        version: str | None = None,
+    ) -> str:
+        """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
+        generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
+        """
+        version = version or new_version()
+        # The generation_id is needed to build the payload itself (it is folded into every
+        # point_id/doc_id below), before the payload exists to hand to build_manifest - so it is
+        # derived from a throwaway build_manifest call here, then the real manifest is built once
+        # the payload is ready. Both calls go through the one real constructor; neither
+        # re-implements GenerationKey/GenerationManifest construction locally.
+        generation_id = build_manifest(family, platform, source_kind, version).generation_id
+        chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+        payload = {
+            "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, generation_id),
+            "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
+        }
+>       manifest = _disabled_build_manifest(family, platform, source_kind, version, payload)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_disabled_build_manifest' is not defined
+
+src\foss_mcp\indexing\publisher.py:82: NameError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_publisher.py::test_publishing_pdf_nets_first_generation_through_the_cas_path
+FAILED tests/indexing/test_publisher.py::test_a_republish_of_unchanged_content_still_yields_a_new_generation_id
+FAILED tests/indexing/test_publisher.py::test_point_ids_differ_across_generations_for_identical_content
+FAILED tests/indexing/test_publisher.py::test_rollback_restores_the_prior_generation
+FAILED tests/indexing/test_publisher.py::test_publishing_slides_pythons_first_generation_through_the_cas_path
+FAILED tests/indexing/test_publisher.py::test_publishing_cells_rusts_first_generation_through_the_cas_path
+FAILED tests/indexing/test_publisher.py::test_publishing_pdf_gos_first_generation_through_the_cas_path
+FAILED tests/indexing/test_publisher.py::test_two_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation
+FAILED tests/indexing/test_publisher.py::test_three_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation
+FAILED tests/indexing/test_publisher.py::test_four_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation
+FAILED tests/indexing/test_publisher.py::test_publishing_pdf_javas_first_generation_through_the_cas_path
+FAILED tests/indexing/test_publisher.py::test_publishing_pdf_typescripts_first_generation_through_the_cas_path
+FAILED tests/indexing/test_publisher.py::test_five_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation
+FAILED tests/indexing/test_publisher.py::test_six_pilots_sharing_one_manifest_store_never_leak_into_each_others_active_generation
+FAILED tests/indexing/test_publisher.py::test_published_manifest_matches_build_manifest_called_directly_with_the_same_inputs
+
+--- stderr ---
+
