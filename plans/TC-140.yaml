@@ -1,0 +1,97 @@
+id: TC-140
+gate: G2
+lane: transport-deployment
+purpose: 'Fix real drift TC-130''s own regression test correctly caught the moment
+  TC-137/139 landed: the real import-graph walk now reports (1) is_alive and round_trip_check
+  are no longer unwired - correct, TC-137 wired both into infra/serve_http.py - so
+  _KNOWN_UNWIRED must shrink; (2) is_ready is NEWLY unwired - TC-137 replaced its
+  one real call site in _readyz_route with round_trip_check, a confirmed strict superset
+  of its own guarantee, so nothing calls is_ready anymore; (3) infra/rollback.py (TC-139''s
+  new CLI entrypoint) is not yet in the walk''s own list of production entrypoints,
+  so rollback_generation''s own real wiring through it is not yet being detected at
+  all. This is exactly the kind of drift this project''s own regression test exists
+  to force a conscious decision about, not silently absorb.'
+depends_on:
+- TC-019
+- TC-130
+- TC-134
+- TC-137
+- TC-139
+write_paths:
+- tests/test_unwired_modules.py
+- src/foss_mcp/mcp/health.py
+- tests/mcp/test_health.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Run `.venv\Scripts\python.exe -m pytest tests/test_unwired_modules.py -q` FIRST
+  to see the real, current drift report before changing anything - do not assume this
+  card's own description of it is complete or still accurate once you add the new
+  entrypoint (adding infra/rollback.py to the walk could surface further, different
+  changes this card's own authoring did not anticipate - discover the real, final
+  diff yourself after each change, do not just apply the 3 items named above blindly).
+- Add `infra/rollback.py` to tests/test_unwired_modules.py's own list of real production
+  entrypoints (find the existing list - it currently names infra/serve_http.py, infra/serve_stdio.py,
+  infra/ingest.py, infra/build_chunks.py, src/foss_mcp/mcp/server.py - add the new
+  one alongside them, matching its own real, current list format exactly).
+- Remove `foss_mcp.mcp.health.is_alive` and `foss_mcp.mcp.health.round_trip_check`
+  from _KNOWN_UNWIRED - both are confirmed genuinely wired into infra/serve_http.py
+  by TC-137.
+- 'For `foss_mcp.mcp.health.is_ready` (newly unwired): read both is_ready and round_trip_check
+  in src/foss_mcp/mcp/health.py in full, and confirm for yourself (do not take this
+  card''s own claim on faith) that round_trip_check is a real, strict superset of
+  is_ready''s own guarantee - if genuinely confirmed, DELETE is_ready from health.py
+  entirely (per this project''s own stated principle: if you are certain something
+  is unused and superseded, delete it, do not carry a backwards-compatibility shim).
+  Read tests/mcp/test_health.py''s own existing is_ready tests AND its round_trip_check
+  tests first - if any real test scenario is_ready''s own tests cover is NOT already
+  covered by an existing round_trip_check test, port that scenario over to a round_trip_check
+  test before deleting is_ready''s own tests, so no real coverage is lost. If, after
+  your own real investigation, round_trip_check does NOT actually cover everything
+  is_ready did, do not delete it - instead add it to _KNOWN_UNWIRED with a one-line
+  reason explaining the real gap you found, and report this clearly in your final
+  report so the supervisor can decide.'
+- After all changes, re-run the real import-graph walk and confirm _KNOWN_UNWIRED/_KNOWN_UNWIRED_AND_UNTESTED
+  match the walk's real, current output exactly, with zero drift either direction.
+actions:
+- Add infra/rollback.py to the walk's entrypoint list.
+- Update _KNOWN_UNWIRED to remove is_alive/round_trip_check.
+- Investigate is_ready for real and either delete it (porting any uniquely-covered
+  test scenario first) or document why it must stay, per your own real findings.
+- Confirm the full test_unwired_modules.py suite passes with zero remaining drift.
+checks:
+- command: '{python} -m pytest tests/test_unwired_modules.py tests/mcp/test_health.py
+    tests/infra/test_serve_http.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 10
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/test_unwired_modules.py');s=p.read_text(encoding='utf-8');s=s.replace('\"foss_mcp.mcp.health.is_alive\",\n','\"foss_mcp.mcp.health.is_alive\",\n        \"foss_mcp.mcp.health.is_ready\",\n');p.write_text(s,encoding='utf-8')"
+  rationale: Re-inserting 'foss_mcp.mcp.health.is_ready' into _KNOWN_UNWIRED (reverting
+    your own fix for the exact literal this card's own authoring already confirmed
+    is newly unwired) makes the real import-graph walk's own comparison mismatch again
+    if is_ready was genuinely deleted (the pin would then wrongly claim a symbol that
+    no longer exists), or mismatch the real walk's own computed set if is_ready was
+    kept (the pin would then double-list a symbol already correctly present for a
+    real, investigated reason) - either way failing the suite, proving it genuinely
+    depends on this card's own real investigation rather than passing for an unrelated
+    reason. Self-checked before being persisted.
+evidence:
+- evidence/build/G2/TC-140/receipt.json
+closeout:
+- infra/rollback.py is a recognized production entrypoint in the import-graph walk.
+- _KNOWN_UNWIRED exactly matches the real, current walk's output - zero drift.
+- is_alive and round_trip_check are no longer listed as unwired.
+- is_ready is either deleted (with any uniquely-covered test scenario ported to round_trip_check
+  first) or kept with a real, investigated reason recorded.
+- The negative control mutation fails the suite again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
