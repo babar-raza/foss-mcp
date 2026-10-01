@@ -1,6 +1,6 @@
 """HTTP serving container entrypoint: the MCP server over Streamable HTTP, on port 8080 at
 the SDK's default path (``/mcp``), behind Origin and protocol-version rejection, plus a real
-``/readyz`` readiness probe.
+``/healthz`` liveness probe and a real ``/readyz`` readiness probe.
 
 Two transports over ONE dispatch core (``foss_mcp.mcp.server.create_server``), never a second
 implementation: this module and ``infra/serve_stdio.py`` both call it; only the transport
@@ -9,18 +9,22 @@ differs. The SDK's own DNS-rebinding protection (Host/Origin) is disabled here d
 protocol-version MUSTs are decided, wrapping the SDK's ASGI app rather than duplicating its
 own, separate check.
 
-``/readyz`` is added via the SDK's own ``custom_starlette_routes`` hook - INTO the same
-Starlette app ``streamable_http_app`` builds, never a second, separately-mounted app - so it
-shares that app's real lifespan (``session_manager.run()``); a second Starlette app wrapped
-around it would never start that lifespan and every MCP call would fail with "Task group is
-not initialized". ``RejectionMiddleware`` then exempts ``/readyz`` by path: it must answer a
+``/healthz`` and ``/readyz`` are both added via the SDK's own ``custom_starlette_routes`` hook -
+INTO the same Starlette app ``streamable_http_app`` builds, never a second, separately-mounted
+app - so they share that app's real lifespan (``session_manager.run()``); a second Starlette app
+wrapped around it would never start that lifespan and every MCP call would fail with "Task
+group is not initialized". ``RejectionMiddleware`` then exempts both paths: each must answer a
 plain container healthcheck (``python -c "...urllib..."`` from ``Dockerfile.serving``, which
 sends neither an ``Origin`` nor an ``MCP-Protocol-Version`` header) without being rejected as a
-malformed MCP request - those MUSTs govern the MCP transport itself, not this probe. It reads
-``foss_mcp.mcp.health.is_ready`` against the SAME ``GenerationManifestStore`` instance
-``create_server`` was built with (the real reference-system defect this replaces: a readiness
-probe that reports healthy while serving nothing, because it checked reachability instead of
-the deployment's own active generation).
+malformed MCP request - those MUSTs govern the MCP transport itself, not these probes.
+
+``/healthz`` calls ``foss_mcp.mcp.health.is_alive`` - unconditional liveness, by that
+function's own design, so a container orchestrator always has a liveness check distinct from
+readiness. ``/readyz`` calls ``foss_mcp.mcp.health.round_trip_check`` against the SAME
+``GenerationManifestStore`` instance ``create_server`` was built with: not merely that the
+deployment's own active-generation pointer exists, but that the generation it names actually
+carries queryable content (the real reference-system defect this replaces: a readiness probe
+that reported healthy while serving nothing).
 """
 
 from __future__ import annotations
@@ -35,12 +39,13 @@ from starlette.types import ASGIApp, Receive, Send
 from starlette.types import Scope as ASGIScope
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
-from foss_mcp.mcp.health import DeploymentGenerationStore, is_ready
+from foss_mcp.mcp.health import DeploymentGenerationStore, is_alive, round_trip_check
 from foss_mcp.mcp.routing import DeploymentConfig, resolve_scope
 from foss_mcp.mcp.server import _default_manifest_store, create_server
 from foss_mcp.mcp.transport_security import reject_request
 
 DEFAULT_PORT = 8080
+HEALTHZ_PATH = "/healthz"
 READYZ_PATH = "/readyz"
 
 
@@ -56,9 +61,9 @@ class RejectionMiddleware:
     A rejection is a plain HTTP 400 JSON error - never a JSON-RPC envelope - so it can never
     be confused with a tool call that ran and reported no match.
 
-    ``exempt_paths`` (``/readyz`` only, in practice) never reach ``reject_request`` at all: the
-    Origin/protocol-version MUSTs are an MCP-transport contract, and a plain container
-    healthcheck request is not an MCP request and carries neither header.
+    ``exempt_paths`` (``/healthz`` and ``/readyz``, in practice) never reach ``reject_request``
+    at all: the Origin/protocol-version MUSTs are an MCP-transport contract, and a plain
+    container healthcheck request is not an MCP request and carries neither header.
     """
 
     def __init__(
@@ -81,9 +86,26 @@ class RejectionMiddleware:
         await self.app(scope, receive, send)
 
 
+def _healthz_route() -> Route:
+    """The ``/healthz`` route: unconditional liveness (``foss_mcp.mcp.health.is_alive``),
+    always 200 - matching ``is_alive``'s own documented contract that it never depends on
+    external state, so a container orchestrator has a liveness check distinct from readiness
+    that a restart can never fix by waiting on content.
+    """
+
+    async def healthz(request: Request) -> PlainTextResponse:
+        del request  # is_alive() never depends on the request - see module docstring.
+        if is_alive():
+            return PlainTextResponse("alive", status_code=200)
+        return PlainTextResponse("not alive", status_code=503)
+
+    return Route(HEALTHZ_PATH, healthz, methods=["GET"])
+
+
 def _readyz_route(deployment_config: DeploymentConfig, manifest_store: GenerationManifestStore) -> Route:
     """The ``/readyz`` route: 200 only when the deployment's own scope names a real active
-    generation (``foss_mcp.mcp.health.is_ready``), 503 otherwise - never process reachability.
+    generation that actually carries queryable content (``foss_mcp.mcp.health.round_trip_check``),
+    503 otherwise - never process reachability, and never merely "a generation pointer exists".
 
     Binds to *manifest_store* directly (the SAME instance ``create_server`` was built with, per
     ``build_app`` below) and to the scope this deployment - never a request - resolves to
@@ -97,7 +119,7 @@ def _readyz_route(deployment_config: DeploymentConfig, manifest_store: Generatio
 
     async def readyz(request: Request) -> PlainTextResponse:
         del request  # nothing about the request influences readiness - see module docstring.
-        if is_ready(generation_store):
+        if round_trip_check(generation_store):
             return PlainTextResponse("ready", status_code=200)
         return PlainTextResponse("not ready", status_code=503)
 
@@ -110,9 +132,9 @@ def build_app(
     allowed_origins: list[str] | None = None,
 ) -> ASGIApp:
     """The ASGI app this container serves: the same ``create_server`` dispatch core as
-    stdio, wrapped in Origin/protocol-version rejection, plus a real ``/readyz`` probe added
-    into the SAME app (so it shares the SDK's own session-manager lifespan) and exempted from
-    that rejection layer (see module docstring for why).
+    stdio, wrapped in Origin/protocol-version rejection, plus real ``/healthz`` and ``/readyz``
+    probes added into the SAME app (so they share the SDK's own session-manager lifespan) and
+    exempted from that rejection layer (see module docstring for why).
 
     ``manifest_store`` and ``allowed_origins`` default to the real deployment's own store
     (``foss_mcp.mcp.server``'s ``/data/manifests``) and the ``FOSS_MCP_ALLOWED_ORIGINS`` env
@@ -125,9 +147,11 @@ def build_app(
     allowed_origins = allowed_origins_from_env() if allowed_origins is None else allowed_origins
     inner = server.streamable_http_app(
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
-        custom_starlette_routes=[_readyz_route(deployment_config, resolved_store)],
+        custom_starlette_routes=[_healthz_route(), _readyz_route(deployment_config, resolved_store)],
     )
-    return RejectionMiddleware(inner, allowed_origins, exempt_paths=frozenset({READYZ_PATH}))
+    return RejectionMiddleware(
+        inner, allowed_origins, exempt_paths=frozenset({HEALTHZ_PATH, READYZ_PATH})
+    )
 
 
 def main() -> None:

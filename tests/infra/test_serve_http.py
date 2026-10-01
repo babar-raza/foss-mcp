@@ -1,13 +1,17 @@
-"""``/readyz`` reflects the real active-generation state of the real manifest store, never
-process reachability - the confirmed reference-system defect (health.py's own docstring, and
-the 2026-09-25 audit that found ``is_ready``/``round_trip_check`` had zero call sites outside
-their own tests) this card closes.
+"""``/healthz`` is real, unconditional liveness; ``/readyz`` reflects the real active-generation
+state of the real manifest store AND that the generation it names actually carries queryable
+content - never process reachability and never merely "a pointer exists". This closes the
+confirmed reference-system defect (health.py's own docstring, and the 2026-09-25 audit that
+found ``is_alive``/``round_trip_check`` had zero call sites outside their own tests): TC-137
+wires both of ``foss_mcp.mcp.health``'s already-implemented probes into ``infra/serve_http.py``
+for the first time.
 
-Both tests drive ``serve_http.build_app``'s real ASGI app with a real
+All tests drive ``serve_http.build_app``'s real ASGI app with a real
 ``GenerationManifestStore`` rooted at ``tmp_path`` - never a mock - through Starlette's
 ``TestClient``, the same in-process pattern ``tests/mcp/test_server_wiring.py`` already uses.
-The "ready" case publishes a real generation through ``foss_mcp.indexing.publisher.publish_generation``
-with real ``Chunk`` objects and the real ``DeterministicEmbeddingProvider`` from
+The "ready" and "content-less" cases publish a real generation through
+``foss_mcp.indexing.publisher.publish_generation`` with real ``Chunk`` objects (or a real, empty
+chunk list) and the real ``DeterministicEmbeddingProvider`` from
 ``tests.indexing.test_index_writers`` - never a hand-built payload - so the assertion is
 actually exercising the same path a live ingest would.
 """
@@ -58,6 +62,63 @@ def _chunks() -> list[Chunk]:
             NOT_CHECKED,
         )
     ]
+
+
+def _publish(store: GenerationManifestStore, scope: str, family: str, platform: str, chunks: list[Chunk]) -> str:
+    lease = store.acquire_lease(scope, held_by="test-worker", generation_id="pending")
+    return publish_generation(
+        store,
+        family=family,
+        platform=platform,
+        source_kind="self_extracted",
+        expected_active=None,
+        chunks=chunks,
+        embedding_provider=DeterministicEmbeddingProvider(),
+        lease=lease,
+    )
+
+
+def test_healthz_returns_200_with_no_active_generation(tmp_path: Path) -> None:
+    """``/healthz`` is unconditional liveness (``is_alive``'s own documented contract) - it
+    must report 200 even when NO generation has ever been published for this deployment's
+    scope, unlike ``/readyz`` which correctly stays 503 in that same state."""
+    store = _store(tmp_path)
+    with _client(store) as client:
+        response = client.get("/healthz")
+        assert response.status_code == 200
+
+
+def test_healthz_returns_200_after_a_real_generation_is_published(tmp_path: Path) -> None:
+    """``/healthz`` stays 200 regardless of generation state - publishing real content must
+    never be a precondition for liveness, only for readiness."""
+    store = _store(tmp_path)
+    _publish(store, "pdf::net::self_extracted", "pdf", "net", _chunks())
+    with _client(store) as client:
+        response = client.get("/healthz")
+        assert response.status_code == 200
+
+
+def test_healthz_is_never_rejected_for_missing_mcp_headers(tmp_path: Path) -> None:
+    """A plain container healthcheck carries neither an Origin nor an MCP-Protocol-Version
+    header - ``/healthz`` must answer on its own merits, never be caught by
+    RejectionMiddleware's MCP-transport-only rejection rules."""
+    store = _store(tmp_path)
+    with _client(store) as client:
+        response = client.get("/healthz")
+        assert response.status_code == 200
+        assert response.text != '{"error": "rejected"}'
+
+
+def test_readyz_returns_503_for_a_generation_with_no_queryable_content(tmp_path: Path) -> None:
+    """A real, published, ACTIVE generation that carries zero chunks (so its lexical index has
+    no documents) must still report 503 - this is the real behavior change round_trip_check
+    brings over the old is_ready check: is_ready would see the active-generation pointer and
+    wrongly report ready, because it never looks past the pointer to the content it names."""
+    store = _store(tmp_path)
+    _publish(store, "pdf::net::self_extracted", "pdf", "net", [])
+    with _client(store) as client:
+        response = client.get("/readyz")
+        assert response.status_code == 503
 
 
 def test_readyz_returns_503_against_an_empty_store(tmp_path: Path) -> None:
