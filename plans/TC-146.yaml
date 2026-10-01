@@ -1,0 +1,93 @@
+id: TC-146
+gate: G2
+lane: storage-retrieval
+purpose: 'foss_mcp.indexing.generation_manifest.build_manifest is a real, well-tested
+  convenience constructor (GenerationKey + GenerationManifest from plain strings,
+  touching neither filesystem nor store) with zero PRODUCTION callers - it is used
+  only as a test fixture helper across tests/indexing/test_generation_manifest.py.
+  foss_mcp.indexing.publisher.publish_generation, the one real production site that
+  builds a GenerationManifest, currently re-implements the identical two-step construction
+  (`GenerationKey(...)` then `GenerationManifest(key=key, payload=payload)`) inline
+  instead of calling the existing helper. Deduplicate: make publish_generation call
+  build_manifest directly. Zero behavior change - build_manifest performs exactly
+  the same two-step construction, just already factored out.'
+depends_on:
+- TC-005
+- TC-015
+- TC-029
+- TC-035
+- TC-041
+- TC-047
+- TC-054
+- TC-062
+write_paths:
+- src/foss_mcp/indexing/publisher.py
+- tests/indexing/test_publisher.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '| TC-005 | Implement `src/foss_mcp/indexing/generation_manifest.py` — the
+    immutable manifest schema + CAS active pointer + lease/fencing (§7.1, §18.3) |
+    TC-002 | storage-retrieval | Unit tests: CAS write succeeds only with a current
+    fencing token; a stale-token write is rejected; rollback uses the same path (§18.3''s
+    negative control) |'
+  sha256: 5cbfc4f2ef4fe2bd36fe7c6b0d38f538aa95133ce85cea671ca63131b20dff6b
+inputs:
+- Read src/foss_mcp/indexing/generation_manifest.py's build_manifest (family, platform,
+  source_kind, version, payload=None) -> GenerationManifest in full.
+- Read src/foss_mcp/indexing/publisher.py's publish_generation in full, especially
+  the block constructing `key = GenerationKey(family=family, platform=platform, source_kind=source_kind,
+  version=version or new_version())` followed by `manifest = GenerationManifest(key=key,
+  payload=payload)`, and every later use of `key` in that function (`key.generation_id`
+  via chunk_ids build, `key.scope` passed to manifest_publish).
+- Read tests/indexing/test_publisher.py for this project's existing test conventions
+  before adding a new test.
+actions:
+- 'In src/foss_mcp/indexing/publisher.py, replace the two-step `GenerationKey(...)`
+  + `GenerationManifest(key=key, payload=payload)` construction in publish_generation
+  with a single call: `manifest = build_manifest(family, platform, source_kind, version
+  or new_version(), payload)`. Replace every later reference to the local `key` variable
+  in that function with `manifest.key` (e.g. `manifest.key.generation_id`, `manifest.key.scope`).'
+- Import build_manifest from foss_mcp.indexing.generation_manifest. Remove the now-unused
+  GenerationKey and GenerationManifest imports from that same import block - confirm
+  with a grep that neither name is referenced anywhere else in the file before removing
+  its import.
+- Run the full existing tests/indexing/test_publisher.py suite and confirm every test
+  still passes unchanged - this card must not change publish_generation's observable
+  behavior (generation_id minting, payload shape, activation semantics) at all.
+- Add one new test to tests/indexing/test_publisher.py asserting the manifest publish_generation
+  actually publishes is identical (same key fields and payload) to calling generation_manifest.build_manifest
+  directly with the same family/platform/source_kind/version/payload inputs - the
+  test that makes this card's wiring claim genuinely checked, not merely a refactor
+  nobody verifies.
+checks:
+- command: '{python} -m pytest tests/indexing/test_publisher.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 6
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/publisher.py');s=p.read_text(encoding='utf-8');s=s.replace('manifest
+    = build_manifest(', 'manifest = _disabled_build_manifest(');p.write_text(s,encoding='utf-8')"
+  rationale: Renames the production call site's own `build_manifest(` invocation to
+    a nonexistent `_disabled_build_manifest(`, which raises NameError the instant
+    publish_generation runs - failing every test in the suite, including the new equivalence
+    test. Proves the checks genuinely exercise this real call site, not merely that
+    build_manifest exists somewhere. Self-checked end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-146/receipt.json
+closeout:
+- publish_generation calls build_manifest instead of re-implementing its construction
+  inline; GenerationKey/GenerationManifest imports removed from publisher.py if unused
+  elsewhere in that file.
+- All pre-existing tests/indexing/test_publisher.py tests pass unchanged; a new test
+  proves the published manifest matches build_manifest's own direct output.
+- foss_mcp.indexing.generation_manifest.build_manifest no longer needs to stay in
+  tests/test_unwired_modules.py's _KNOWN_UNWIRED list (a follow-up card updates that
+  list; this card does not touch tests/test_unwired_modules.py, outside its write_paths).
+- Renaming the call site back to a disabled name fails the suite again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
