@@ -1,0 +1,96 @@
+id: TC-170
+gate: G2
+lane: extraction
+purpose: 'Onboard a new, beyond-the-original-7-pilots product so this project is prepared
+  for full rollout as soon as the pilots are formally proven: jmap/python (real public
+  repo aspose-email-foss/Aspose.JMAP-FOSS-for-Python, confirmed public, default branch
+  main, ~64KB, via a fresh `gh api repos/aspose-email-foss/Aspose.JMAP-FOSS-for-Python`
+  read). Author its product manifest, then run the existing, unchanged run_extraction.py
+  pipeline for real against the real repo and pin a reduced, reproducible offline
+  fixture - exactly the same run-and-pin pattern already proven for all 7 onboarded
+  pilots (e.g. TC-093/TC-094 for cells/cpp, TC-025 for slides/python). Python-platform
+  extraction support already exists and is proven (see tests/extraction/test_slides_python_extraction.py,
+  its own prior onboarding); this card does not modify the extraction engine, the
+  tree-sitter grammar wiring, or run_extraction.py/package_root.py at all - run-and-pin
+  only.'
+depends_on:
+- TC-011
+- TC-025
+- TC-056
+write_paths:
+- config/products/jmap/python.yaml
+- tests/fixtures/jmap_python/**
+- tests/extraction/test_jmap_python_extraction.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- Network access IS available to you for this card's one-time generation actions (gh
+  api verification, run_extraction.py's own shallow clone) even though the card's
+  own `network` field is false - that field describes the CHECK command only, which
+  must run fully offline against your committed fixture, exactly like every prior
+  extraction card (TC-057, TC-094, ...).
+- Before writing the manifest, re-verify aspose-email-foss/Aspose.JMAP-FOSS-for-Python
+  yourself via `gh api repos/aspose-email-foss/Aspose.JMAP-FOSS-for-Python` - confirm
+  public, note the real default_branch and size, and use the repository string VERBATIM
+  (never reconstruct it from family/platform - this org family's naming is irregular,
+  see config/products/pdf/net.yaml's own comment for why).
+- Write config/products/jmap/python.yaml mirroring config/products/slides/python.yaml's
+  exact shape (family/platform/repository/schedule/storage_topology) - storage_topology
+  is `embedded` per the generalized decision in docs/DECISION_LOG.md's 2026-09-24
+  entry, which applies structurally to every pilot/product, not only the original
+  7.
+- 'run_extraction.py already has a fully generic CLI, unchanged since TC-011: `python
+  -m foss_mcp.extraction.run_extraction config/products/jmap/python.yaml tests/fixtures/jmap_python/api_surface.json
+  [--max-types N]`. Do NOT modify run_extraction.py, package_root.py, or any tree-sitter
+  engine file - this card is run-and-pin only, exactly like TC-057/TC-094''s own instructions.'
+- Read tests/extraction/test_slides_python_extraction.py in full as your structural
+  template - mirror its shape exactly for tests/extraction/test_jmap_python_extraction.py.
+- IF THE LIVE EXTRACTION REVEALS A REAL DEFECT (empty/wrong result, a crash) in code
+  outside this card's write_paths - STOP, do not commit a broken/incomplete fixture,
+  and report the exact defect with your diagnosis instead of patching a file outside
+  this card's write_paths. This is the correct outcome if it happens, not a failure.
+- Commit a REDUCED fixture, not the whole surface - representative subset, under about
+  2MB, using the CLI's default --max-types unless the real output needs a smaller
+  cap.
+actions:
+- Write config/products/jmap/python.yaml with the real, re-verified repository string.
+- Run the real extraction CLI against the real public repository and inspect the output
+  for sanity (non-empty, real class/function names you actually observed, not invented).
+- Write a REDUCED fixture to tests/fixtures/jmap_python/api_surface.json.
+- 'Write tests/extraction/test_jmap_python_extraction.py mirroring tests/extraction/test_slides_python_extraction.py''s
+  structure: the fixture parses and has the expected shape, records the exact 40-hex
+  source commit and the repository matches the pinned manifest, is non-empty, and
+  asserts on at least one concrete, real type/symbol name and kind value you actually
+  observed in your own run (never a guessed or invented name).'
+checks:
+- command: '{python} -m pytest tests/extraction/test_jmap_python_extraction.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 5
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/jmap_python/api_surface.json');p.write_text('{}',encoding='utf-8')"
+  rationale: Emptying the pinned fixture (tests/fixtures/jmap_python/api_surface.json
+    -> '{}') must break the suite - a test that passes against an empty artifact is
+    asserting the file exists, not that a real extraction ran. Same shape as every
+    prior extraction card's falsifier (TC-057, TC-094, ...), self-checked end-to-end
+    before being persisted.
+evidence:
+- evidence/build/G2/TC-170/receipt.json
+closeout:
+- config/products/jmap/python.yaml exists with the real, re-verified repository string.
+- A real extraction ran against the real public aspose-email-foss/Aspose.JMAP-FOSS-for-Python
+  repository and a reduced, reproducible fixture is committed, OR a real defect was
+  honestly diagnosed and reported instead of papered over.
+- Emptying the fixture fails the suite.
+recovery: Re-run from a clean tree; if the live clone/extraction step is not reproducible
+  offline, the committed fixture and test are still idempotent from committed content
+  alone.
