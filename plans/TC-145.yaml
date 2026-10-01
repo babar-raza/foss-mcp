@@ -1,0 +1,105 @@
+id: TC-145
+gate: G2
+lane: extraction
+purpose: 'foss_mcp.extraction.manifest_reader.fetch_manifest_file and foss_mcp.extraction.repo_native_reader.read_repo_document
+  are real GitHub-Contents-API readers with zero production callers (fetch_manifest_file
+  has zero test coverage too - both are in tests/test_unwired_modules.py''s _KNOWN_UNWIRED
+  / _KNOWN_UNWIRED_AND_UNTESTED lists). get_product_reference.py''s own docstring
+  says explicitly it does no network I/O itself and expects ''TC-012''s readers do
+  the live reads elsewhere'' - but no production entrypoint anywhere in this repo
+  actually calls that ''elsewhere'' yet (confirmed: infra/serve_http.py''s only create_server
+  call never passes product_reference_inputs, so the real deployed get_product_reference
+  tool always falls back to an empty ProductReferenceInputs()). Add a new, real CLI
+  entrypoint, infra/fetch_product_reference.py, that live-fetches a repo''s manifest
+  text plus its CONTRIBUTING.md/AGENTS.md via these two exact functions and writes
+  them to a JSON sidecar file shaped to match get_product_reference.ProductReferenceInputs''
+  own fields - the first real production caller of both functions. Consuming that
+  sidecar from infra/serve_http.py at server-start time is intentionally OUT of this
+  card''s scope (a separate follow-up card) to keep this change additive and small:
+  this card only produces the sidecar file, it does not change what any currently-running
+  deployment does.'
+depends_on:
+- TC-010a
+- TC-012
+- TC-018
+write_paths:
+- infra/fetch_product_reference.py
+- tests/infra/test_fetch_product_reference.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7a The claim-ID bridge — confirmed structurally required, not an
+    edge case'
+  sha256: 3a1414bca1be107ef3c141fc47d65fd8c4d860e6201cad723dd40c468ace9185
+inputs:
+- 'Read src/foss_mcp/extraction/manifest_reader.py''s fetch_manifest_file(repository:
+  str, path: str, *, ref: str | None = None, etag: str | None = None) -> str in full.'
+- 'Read src/foss_mcp/extraction/repo_native_reader.py''s read_repo_document(repository:
+  str, path: str, *, ref: str | None = None, etag: str | None = None) -> DocumentResult
+  (DocumentPresent(path, sha, size, content) | DocumentNotPresent(path)) in full.'
+- 'Read src/foss_mcp/mcp/tools/get_product_reference.py''s ProductReferenceInputs
+  dataclass (manifest_text: str | None, contributing: DocumentResult | None, agent_guidance:
+  DocumentResult | None, platform: str) to know the exact field shape the sidecar
+  must be able to reconstruct.'
+- Read infra/ingest.py and infra/rollback.py as this project's own convention for
+  a small argparse-based infra CLI script (plain print() for output, no logging framework).
+- Read tests/extraction/test_repo_native_reader_ecosystems.py (or wherever read_repo_document
+  is tested) for this project's own `monkeypatch.setattr(reader.urllib.request, 'urlopen',
+  fake_urlopen)` network-mocking convention - reuse it, do not introduce a new mocking
+  approach.
+actions:
+- 'Create infra/fetch_product_reference.py: an argparse CLI with --repository (required,
+  ''owner/name''), --platform (required), --manifest-path (optional, default None
+  - skip the manifest fetch entirely when omitted), --contributing-path (default ''CONTRIBUTING.md''),
+  --agent-guidance-path (default ''AGENTS.md''), --ref (optional), --output (required,
+  Path to write the JSON sidecar).'
+- 'Add a pure function `build_sidecar(*, repository, platform, manifest_path, contributing_path,
+  agent_guidance_path, ref) -> dict` that calls fetch_manifest_file (only if manifest_path
+  is given) and read_repo_document twice (contributing, agent guidance), and returns
+  a JSON-serializable dict: `{''manifest_text'': <str|None>, ''platform'': <str>,
+  ''contributing'': <doc-or-None>, ''agent_guidance'': <doc-or-None>}` where each
+  DocumentResult serializes to `{''status'': ''present'', ''path'':..., ''sha'':...,
+  ''size'':..., ''content'':...}` for DocumentPresent or `{''status'': ''not_present'',
+  ''path'':...}` for DocumentNotPresent.'
+- main() parses args, calls build_sidecar, writes the result as JSON to --output,
+  and prints a one-line confirmation (e.g. f'wrote product reference inputs for {args.repository}
+  ({args.platform}) -> {args.output}'), matching infra/ingest.py's own plain-print
+  reporting style.
+- 'Add tests/infra/test_fetch_product_reference.py: mock urlopen for both manifest_reader.urllib.request
+  and repo_native_reader.urllib.request (two separate monkeypatch targets, they are
+  different modules), covering: (a) a present manifest + both docs present, (b) manifest_path
+  omitted (manifest_text is None in the output, fetch_manifest_file never called),
+  (c) a 404 on CONTRIBUTING.md producing the not_present shape. Run the real CLI''s
+  main() against a tmp_path output file in at least one test and assert the written
+  JSON file''s real content matches build_sidecar''s return value.'
+checks:
+- command: '{python} -m pytest tests/infra/test_fetch_product_reference.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 5
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('infra/fetch_product_reference.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    build_sidecar(', 'def build_sidecar_DISABLED(');p.write_text(s,encoding='utf-8')"
+  rationale: Renames the module's own build_sidecar function to build_sidecar_DISABLED,
+    which breaks every test that calls it (directly or via main()) with a NameError/AttributeError,
+    since nothing else in the file still defines build_sidecar. Proves the checks
+    genuinely exercise this card's real new function, not merely that the file parses.
+    Self-checked end-to-end before being persisted.
+evidence:
+- evidence/build/G2/TC-145/receipt.json
+closeout:
+- infra/fetch_product_reference.py exists, calls fetch_manifest_file and read_repo_document
+  for real, and writes a JSON sidecar matching ProductReferenceInputs' field shape.
+- tests/infra/test_fetch_product_reference.py covers present/absent documents and
+  the manifest-omitted path, using this project's existing urlopen-mocking convention.
+- Neither foss_mcp.extraction.manifest_reader.fetch_manifest_file nor foss_mcp.extraction.repo_native_reader.read_repo_document
+  still needs to be in tests/test_unwired_modules.py's _KNOWN_UNWIRED/_KNOWN_UNWIRED_AND_UNTESTED
+  lists (a follow-up card updates that list; this card does not touch tests/test_unwired_modules.py,
+  outside its write_paths).
+- Renaming build_sidecar fails the new tests again.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
