@@ -18,10 +18,9 @@ from datetime import UTC, datetime
 
 from foss_mcp.indexing.embedding_provider import EmbeddingProvider
 from foss_mcp.indexing.generation_manifest import (
-    GenerationKey,
-    GenerationManifest,
     GenerationManifestStore,
     Lease,
+    build_manifest,
 )
 from foss_mcp.indexing.generation_manifest import publish as manifest_publish
 from foss_mcp.indexing.generation_manifest import rollback as manifest_rollback
@@ -68,16 +67,20 @@ def publish_generation(
     """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
     generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
     """
-    key = GenerationKey(
-        family=family, platform=platform, source_kind=source_kind, version=version or new_version()
-    )
+    version = version or new_version()
+    # The generation_id is needed to build the payload itself (it is folded into every
+    # point_id/doc_id below), before the payload exists to hand to build_manifest - so it is
+    # derived from a throwaway build_manifest call here, then the real manifest is built once
+    # the payload is ready. Both calls go through the one real constructor; neither
+    # re-implements GenerationKey/GenerationManifest construction locally.
+    generation_id = build_manifest(family, platform, source_kind, version).generation_id
     chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
     payload = {
-        "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, key.generation_id),
-        "lexical_index": build_lexical_index(chunks, chunk_ids, key.generation_id),
+        "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, generation_id),
+        "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
     }
-    manifest = GenerationManifest(key=key, payload=payload)
-    return manifest_publish(store, key.scope, expected_active, manifest, lease)
+    manifest = build_manifest(family, platform, source_kind, version, payload)
+    return manifest_publish(store, manifest.key.scope, expected_active, manifest, lease)
 
 
 def rollback_generation(
