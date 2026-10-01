@@ -1,0 +1,87 @@
+id: TC-138
+gate: G2
+lane: transport-deployment
+purpose: 'Confirmed independently by BOTH comparative reviews this project ran against
+  real commercial/open-source MCP servers: the serving image should install only its
+  own real runtime dependencies, never dev/ops/ingestion-only tooling. Confirmed directly
+  in this repo: requirements.in lumps PyYAML/jsonschema (ops/gatectl.py only), pytest/ruff/mypy
+  (dev-only), tree-sitter* (extraction/ingestion-only) together with mcp (the ONLY
+  real runtime dependency infra/serve_http.py or infra/serve_stdio.py actually imports)
+  into one undifferentiated requirements.lock - and Dockerfile.serving installs that
+  FULL lock (`pip install --require-hashes -r requirements.lock`), shipping pytest/mypy/ruff/tree-sitter
+  into the production serving image.'
+depends_on:
+- TC-018
+- TC-019a
+- TC-061
+write_paths:
+- requirements-serving.in
+- requirements-serving.lock
+- Dockerfile.serving
+- tests/test_serving_dependency_lock.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Read requirements.in and Dockerfile.serving in full first, and docs/DECISION_LOG.md''s
+  2026-09-11 requirements.lock entry (the established, already-proven compilation
+  convention: `uv pip compile --universal --generate-hashes`) - reuse that exact convention,
+  do not invent a different one.'
+- Confirm for real (grep every real import in src/foss_mcp/mcp/, infra/serve_http.py,
+  infra/serve_stdio.py - do not assume) which top-level packages the SERVING path
+  actually imports. This project's own confirmed finding is that it is exactly `mcp`
+  (plus whatever mcp's own transitive closure already pulls in - anyio, httpx2, sse-starlette,
+  starlette, pydantic, etc., which `uv pip compile` resolves automatically) - verify
+  this yourself rather than trusting this card's own claim blindly, and adjust requirements-serving.in's
+  own content if your own real import scan finds something this card's authoring missed.
+- Create requirements-serving.in naming only the real runtime package(s) your own
+  scan confirms. Compile it to requirements-serving.lock via `uv pip compile --universal
+  --generate-hashes --output-file requirements-serving.lock requirements-serving.in`
+  (network access required - this needs to resolve real package metadata).
+- Update Dockerfile.serving to COPY and install from requirements-serving.lock instead
+  of requirements.lock (`pip install --no-cache-dir --require-hashes -r requirements-serving.lock`).
+  Do not touch Dockerfile.ingestion - ingestion genuinely needs the full set (tree-sitter
+  for extraction, etc.) and is out of this card's scope.
+- 'Add a real test proving: requirements-serving.lock does NOT contain pytest/mypy/ruff/tree-sitter
+  (grep its own content for those package names) and DOES contain mcp; Dockerfile.serving''s
+  own COPY/RUN lines reference requirements-serving.lock, not requirements.lock.'
+- 'Real proof the image still works: build the real serving Docker image (`docker
+  build -f Dockerfile.serving -t foss-mcp-serving-test .`) and confirm it builds successfully
+  and the resulting image can still import foss_mcp.mcp.server (e.g. `docker run --rm
+  foss-mcp-serving-test python -c "import foss_mcp.mcp.server"`) - a slimmer lock
+  that silently breaks the real image is a regression, not an improvement.'
+actions:
+- Create requirements-serving.in and compile requirements-serving.lock for real, with
+  real resolved hashes.
+- Update Dockerfile.serving to install from it.
+- Add the required test and the required real Docker build+import proof.
+checks:
+- command: '{python} -m pytest tests/test_serving_dependency_lock.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 3
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('Dockerfile.serving');s=p.read_text(encoding='utf-8');s=s.replace('requirements-serving.lock','requirements-serving-DISABLED.lock');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming the requirements-serving.lock reference Dockerfile.serving depends
+    on breaks the new test's own assertion that Dockerfile.serving references the
+    real, correctly-named lock file, proving it genuinely depends on this concrete
+    wiring rather than passing for an unrelated reason. Self-checked before being
+    persisted.
+evidence:
+- evidence/build/G2/TC-138/receipt.json
+closeout:
+- 'requirements-serving.lock exists, is hash-pinned, and contains only real runtime
+  dependencies - confirmed absent: pytest/mypy/ruff/tree-sitter.'
+- Dockerfile.serving installs from it, and a real Docker build + import check proves
+  the slimmer image still works.
+- Renaming the lock file reference fails the suite.
+recovery: Re-run from a clean tree; if the uv pip compile network resolution is flaky,
+  re-running is safe and idempotent.

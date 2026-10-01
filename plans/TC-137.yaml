@@ -1,0 +1,90 @@
+id: TC-137
+gate: G2
+lane: transport-deployment
+purpose: 'Wire two real, already-implemented, already-tested health probes that TC-130''s
+  own import-graph walk confirmed are unreachable from any production entrypoint:
+  foss_mcp.mcp.health.is_alive and .round_trip_check. A second, independent review
+  (the ADCS comparative review) separately recommended the exact same fix: a real
+  /healthz (unconditional liveness) distinct from this project''s existing /readyz
+  (real generation-based readiness) - confirmed directly that infra/serve_http.py
+  today only routes /readyz, via is_ready, which merely checks that an active-generation
+  POINTER exists, never that the generation it names actually carries queryable content.
+  round_trip_check does that deeper check already - it is simply never called.'
+depends_on:
+- TC-019a
+- TC-061
+- TC-079
+- TC-133
+write_paths:
+- infra/serve_http.py
+- tests/infra/test_serve_http.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Read infra/serve_http.py's _readyz_route and build_app in full first, and src/foss_mcp/mcp/health.py's
+  own is_alive/is_ready/round_trip_check docstrings - do not re-implement any of their
+  logic, only wire the two that exist but are unused.
+- 'REQUIRED, exact shape (constant name load-bearing for the negative control): add
+  `HEALTHZ_PATH = "/healthz"` alongside the existing `READYZ_PATH = "/readyz"`, and
+  a new route (mirroring _readyz_route''s own real construction pattern exactly) whose
+  handler calls `foss_mcp.mcp.health.is_alive()` and returns 200 ''alive'' when true
+  (it always is, by is_alive''s own design - this route exists so a container orchestrator
+  has an unconditional liveness check distinct from readiness, matching is_alive''s
+  own documented contract: ''never depends on external state''). Add it to build_app''s
+  own custom_starlette_routes list alongside the existing readyz route, and to RejectionMiddleware''s
+  exempt_paths (a liveness probe carries neither an Origin nor an MCP-Protocol-Version
+  header, exactly like the existing /readyz exemption''s own documented reasoning).'
+- Upgrade _readyz_route's own handler to call `round_trip_check(generation_store)`
+  INSTEAD OF `is_ready(generation_store)` - round_trip_check already does everything
+  is_ready does (reads the active generation id) plus confirms the generation it names
+  actually carries queryable content, matching this project's own 'a deployment that
+  correctly answers I-have-nothing is not a passing deployment' standard more precisely
+  than a bare pointer-exists check. Do not keep both checks redundantly - round_trip_check
+  is a strict superset of is_ready's own guarantee.
+- Do not touch Dockerfile.serving's own HEALTHCHECK directive (it currently targets
+  /readyz, confirmed via docker-compose.yml/Dockerfile.serving - leave that targeting
+  unchanged; this card is about serving real liveness/readiness distinctly over HTTP,
+  not about which one the container's own HEALTHCHECK polls) and do not touch src/foss_mcp/mcp/health.py
+  itself - purely wiring in infra/serve_http.py.
+- 'Add real tests: a real request to /healthz returns 200 regardless of generation
+  state (even with NO active generation published, matching is_alive''s own unconditional
+  contract); /readyz now correctly returns 503 for a generation whose manifest has
+  no queryable lexical_index documents (a case the old is_ready-based check would
+  have wrongly reported ready for) and 200 once real, queryable content is published
+  - a real behavior change from round_trip_check''s deeper check, prove it with a
+  real fixture.'
+actions:
+- Add HEALTHZ_PATH and the new /healthz route exactly as specified, exempt it from
+  RejectionMiddleware.
+- Swap _readyz_route's own check from is_ready to round_trip_check.
+- Add the required tests proving both the new /healthz behavior and /readyz's own
+  deepened check.
+checks:
+- command: '{python} -m pytest tests/infra/test_serve_http.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 8
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('infra/serve_http.py');s=p.read_text(encoding='utf-8');s=s.replace('HEALTHZ_PATH
+    = ','HEALTHZ_PATH_DISABLED = ');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming HEALTHZ_PATH leaves every reference to it undefined, breaking
+    the new /healthz tests with a NameError, proving they genuinely depend on this
+    concrete constant rather than passing for an unrelated reason. Self-checked against
+    a realistic synthetic fixture before being persisted.
+evidence:
+- evidence/build/G2/TC-137/receipt.json
+closeout:
+- A real /healthz endpoint exists, unconditional, exempted from transport rejection.
+- /readyz now uses round_trip_check, correctly distinguishing a generation that merely
+  exists from one that actually carries queryable content.
+- Renaming HEALTHZ_PATH fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

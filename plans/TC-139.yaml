@@ -1,0 +1,76 @@
+id: TC-139
+gate: G2
+lane: storage-retrieval
+purpose: Wire a real, already-implemented, already-tested rollback path (foss_mcp.indexing.publisher.rollback_generation)
+  that TC-130's own import-graph walk confirmed has no caller anywhere that would
+  ever trigger it in production - there is presently no way to actually invoke a rollback
+  outside a test. Add a plain, one-shot CLI entrypoint (matching this project's own
+  existing infra/ingest.py convention - a one-shot command, never a queue/worker,
+  per AGENTS.md's own architecture) so an operator can actually roll a scope back
+  to a previously-published generation.
+depends_on:
+- TC-001
+- TC-018
+write_paths:
+- infra/rollback.py
+- tests/infra/test_rollback.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- Read infra/ingest.py in full first - mirror its own real CLI shape exactly (argparse,
+  GenerationManifestStore construction, lease acquisition pattern) rather than inventing
+  a different convention. Also read foss_mcp.indexing.publisher.rollback_generation
+  and foss_mcp.indexing.generation_manifest's own rollback/CAS functions it wraps,
+  in full.
+- 'REQUIRED, exact shape (function name load-bearing for the negative control): a
+  `main() -> None` in infra/rollback.py with argparse flags mirroring infra/ingest.py''s
+  own real flag names where they overlap: `--family`, `--platform`, `--source-kind`,
+  `--manifest-store`, `--held-by` (default ''rollback''), plus a new `--target-generation`
+  (required, the generation id to roll back to). Read the scope''s own `expected_active`
+  via `store.read_active(scope)` (same pattern infra/ingest.py already uses), acquire
+  a lease the same way, call `rollback_generation` with real arguments, and print
+  the real resulting generation id - mirroring infra/ingest.py''s own `print(f''published
+  {generation_id}'')` convention (e.g. `print(f''rolled back to {generation_id}'')`).'
+- 'Real proof required: a real, non-mocked test that publishes two real generations
+  to a real GenerationManifestStore (reuse this project''s own existing real-store
+  test fixtures/pattern - check tests/infra/test_ingest.py first for the established
+  real pattern), confirms the second is active, invokes infra/rollback.py''s own main()
+  (via subprocess, matching how infra/ingest.py''s own CLI is already tested, OR by
+  calling main() directly with sys.argv patched - check test_ingest.py''s own established
+  convention and mirror it) targeting the first generation, and confirms the store''s
+  active pointer is genuinely back to the first generation afterward.'
+- Do not touch infra/ingest.py, publisher.py, or generation_manifest.py - purely a
+  new, additive CLI entrypoint wrapping already-existing, already-tested functions.
+actions:
+- Implement infra/rollback.py's main() exactly as specified.
+- Add the required real, non-mocked test proving an actual rollback through the real
+  CLI.
+checks:
+- command: '{python} -m pytest tests/infra/test_rollback.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 2
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('infra/rollback.py');s=p.read_text(encoding='utf-8');s=s.replace('def
+    main(','def main_DISABLED(');p.write_text(s,encoding='utf-8')"
+  rationale: Renaming main leaves the test's own invocation of it undefined, breaking
+    the new test with a NameError/AttributeError, proving it genuinely depends on
+    this concrete function rather than passing for an unrelated reason. Self-checked
+    against a realistic synthetic fixture before being persisted.
+evidence:
+- evidence/build/G2/TC-139/receipt.json
+closeout:
+- infra/rollback.py exists and can genuinely roll a real scope back to a real, previously-published
+  generation - proven through a real, non-mocked test, not merely a direct call to
+  rollback_generation.
+- Renaming main fails the suite.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.
