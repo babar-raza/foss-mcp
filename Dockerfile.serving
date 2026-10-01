@@ -13,10 +13,15 @@ FROM python:3.13-slim
 WORKDIR /app
 
 # Hash-verified install: every dependency, and its transitive closure, is pinned by exact
-# sha256 in requirements.lock. --require-hashes refuses to install anything that isn't -
-# there is no path from a compromised or substituted package to this image.
-COPY requirements.lock ./requirements.lock
-RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+# sha256 in requirements-serving.lock. --require-hashes refuses to install anything that
+# isn't - there is no path from a compromised or substituted package to this image.
+#
+# Serving installs ONLY requirements-serving.lock (mcp plus its own transitive closure -
+# anyio, starlette, pydantic, etc.), never the full requirements.lock: that file also
+# carries dev/ops-only tooling (pytest, mypy, ruff) and extraction/ingestion-only
+# dependencies (tree-sitter*) that this image never imports and must never ship.
+COPY requirements-serving.lock ./requirements-serving.lock
+RUN pip install --no-cache-dir --require-hashes -r requirements-serving.lock
 
 # foss_mcp has no [build-system] in pyproject.toml (src/ layout only, per docs/REPOSITORY_LAYOUT.md);
 # it is placed on PYTHONPATH rather than pip-installed, the same way tests/conftest.py does it locally.

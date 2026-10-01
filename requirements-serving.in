@@ -1,0 +1,17 @@
+# Runtime dependencies for the SERVING image only (Dockerfile.serving).
+# Compiled to requirements-serving.lock with hashes:
+#   uv pip compile --universal --generate-hashes --output-file requirements-serving.lock requirements-serving.in
+#
+# Confirmed by a real import scan of the serving path (infra/serve_http.py,
+# infra/serve_stdio.py, and everything reachable from them under src/foss_mcp/mcp/,
+# src/foss_mcp/indexing/, src/foss_mcp/extraction/{manifest_reader,repo_native_reader,
+# github_release_reader}.py, src/foss_mcp/normalization/): the only real third-party
+# top-level package imported anywhere on this path is `mcp`. starlette, anyio, and
+# pydantic appear only as mcp's own transitive dependencies (mcp.server.lowlevel,
+# mcp.server.stdio, mcp.server.transport_security, mcp.types import them, and
+# infra/serve_http.py imports starlette directly to build the ASGI app around mcp's
+# server) - `uv pip compile` resolves that full transitive closure automatically.
+# Dev/ops-only (PyYAML, jsonschema, pytest, ruff, mypy) and extraction/ingestion-only
+# (tree-sitter*) packages from requirements.in are deliberately NOT here: the serving
+# image never imports them.
+mcp
