@@ -27,7 +27,13 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 
-from foss_mcp.extraction.claim_id_bridge import Declaration, SymbolIndex, anchor_resolves
+from foss_mcp.extraction.claim_id_bridge import (
+    Declaration,
+    Resolution,
+    SymbolIndex,
+    anchor_resolves,
+    resolve_anchor,
+)
 from foss_mcp.normalization.chunker import Chunk
 from foss_mcp.normalization.document_schema import ValidationResult
 
@@ -199,3 +205,40 @@ def validate_document(
 def citable_chunks(chunks: Sequence[Chunk]) -> list[Chunk]:
     """Only the chunks whose every claim resolved - the "excluded" half of the card's rule."""
     return [chunk for chunk in chunks if chunk.validation.verdict == SUPPORTED]
+
+
+def describe_unresolved_anchors(
+    chunks: Sequence[Chunk], symbol_index: SymbolIndex
+) -> list[tuple[str, Resolution]]:
+    """One ``(section_title, Resolution)`` entry per anchor that caused an ``UNSUPPORTED``
+    chunk's exclusion - purely diagnostic, giving an operator the signal
+    ``validate_chunk``'s own flat "anchor `X` does not resolve" detail string does not:
+    whether the anchor is a near-miss (``PARTIALLY_SUPPORTED`` - one or more declarations share
+    the member name, but the anchor itself does not resolve unambiguously, likely a typo or
+    stale doc) or a genuinely absent symbol (``UNSUPPORTED`` with zero matches anywhere).
+
+    Re-walks each ``UNSUPPORTED`` chunk's own ``find_symbol_anchors(chunk.text)``, mirroring
+    ``validate_chunk``'s own two skip conditions exactly - an anchor that already resolves via
+    ``anchor_resolves``, or resolves through the bare-member exemption
+    (``unambiguous_qualified_anchor_for_bare_member``) - including the
+    ``_is_real_compile_verified_example`` exemption that skips the anchor check entirely for a
+    genuinely compile-verified example chunk, so only anchors that actually caused the real
+    exclusion are reported here (never an anchor that happens to appear in a chunk excluded for
+    an unrelated numeric-claim reason).
+
+    Purely additive: never called from ``validate_chunk``, ``validate_document``, or
+    ``citable_chunks`` themselves, and never changes any of their return values.
+    """
+    described: list[tuple[str, Resolution]] = []
+    for chunk in chunks:
+        if chunk.validation.verdict != UNSUPPORTED:
+            continue
+        if _is_real_compile_verified_example(chunk):
+            continue
+        for anchor in find_symbol_anchors(chunk.text):
+            if anchor_resolves(anchor, symbol_index):
+                continue
+            if "." not in anchor and symbol_index.unambiguous_qualified_anchor_for_bare_member(anchor):
+                continue
+            described.append((chunk.section_title, resolve_anchor(anchor, symbol_index)))
+    return described

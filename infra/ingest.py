@@ -25,6 +25,7 @@ from foss_mcp.indexing.publisher import publish_generation
 from foss_mcp.normalization.chunker import Chunk
 from foss_mcp.normalization.citation import (
     citable_chunks,
+    describe_unresolved_anchors,
     known_counts_from_fixture,
     symbol_index_from_api_surface,
     validate_document,
@@ -119,7 +120,13 @@ def main() -> None:
         fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
         symbol_index = symbol_index_from_api_surface(fixture["types"])
         known_counts = known_counts_from_fixture(fixture)
-        chunks = citable_chunks(validate_document(chunks, symbol_index, known_counts))
+        validated_chunks = validate_document(chunks, symbol_index, known_counts)
+        for section_title, resolution in describe_unresolved_anchors(validated_chunks, symbol_index):
+            print(
+                f"excluded: {section_title!r} anchor {resolution.anchor!r} -> "
+                f"{resolution.semantic_support_verdict.value} (match_count={resolution.match_count})"
+            )
+        chunks = citable_chunks(validated_chunks)
     embedding_provider = _load_embedding_provider(args.embedding_provider)
 
     active_document_count: int | None = None

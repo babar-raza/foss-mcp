@@ -196,6 +196,47 @@ def test_main_with_api_surface_excludes_unresolvable_claims_from_what_gets_publi
     assert len(manifest.payload["vector_index"]["points"]) == 2
 
 
+def test_main_with_api_surface_prints_a_diagnostic_line_per_excluded_anchor_and_leaves_publishing_unchanged(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    """TC-144: the --api-surface branch must print one diagnostic line per excluded anchor
+    (distinguishing a near-miss from a genuinely absent symbol) on top of the exact same
+    publish behavior as before this card - the published chunk set must be byte-identical to
+    test_main_with_api_surface_excludes_unresolvable_claims_from_what_gets_published above.
+    """
+    chunks_path = tmp_path / "chunks.json"
+    api_surface_path = tmp_path / "api_surface.json"
+    manifest_store_path = tmp_path / "manifests"
+    _write_chunks_fixture(
+        chunks_path,
+        [
+            _chunk_entry("Document.Open", "`Document.Open` opens a file."),
+            _chunk_entry("Document.Nope", "`Document.Nope` does not exist."),
+            _chunk_entry("Count", "The API exposes 999 classes."),
+            _chunk_entry("Plain", "Document is the root object of a PDF file."),
+        ],
+    )
+    _write_api_surface_fixture(api_surface_path)
+
+    argv = [*_base_argv(chunks_path, manifest_store_path), "--api-surface", str(api_surface_path)]
+    monkeypatch.setattr(sys, "argv", ["ingest.py", *argv])
+    ingest.main()
+
+    out = capsys.readouterr().out
+    assert "excluded: 'Document.Nope' anchor 'Document.Nope' -> unsupported (match_count=0)" in out
+
+    store = GenerationManifestStore(manifest_store_path)
+    generation_id = store.read_active(SCOPE)
+    assert generation_id is not None
+    manifest = store.read_generation(SCOPE, generation_id)
+    published_texts = {doc["text"] for doc in manifest.payload["lexical_index"]["documents"].values()}
+    assert published_texts == {
+        "`Document.Open` opens a file.",
+        "Document is the root object of a PDF file.",
+    }, "the published set must be byte-identical to before this card - only new stdout lines are added"
+    assert len(manifest.payload["vector_index"]["points"]) == 2
+
+
 def test_main_prints_the_published_generation_id(tmp_path: Path, monkeypatch, capsys) -> None:
     chunks_path = tmp_path / "chunks.json"
     manifest_store_path = tmp_path / "manifests"

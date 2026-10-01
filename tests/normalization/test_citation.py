@@ -17,12 +17,19 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from foss_mcp.extraction.claim_id_bridge import (
+    Declaration,
+    Resolution,
+    SemanticSupportVerdict,
+    SymbolIndex,
+)
 from foss_mcp.normalization.chunker import Chunk
 from foss_mcp.normalization.citation import (
     INSUFFICIENT_EVIDENCE,
     SUPPORTED,
     UNSUPPORTED,
     citable_chunks,
+    describe_unresolved_anchors,
     find_numeric_claims,
     find_symbol_anchors,
     known_counts_from_fixture,
@@ -301,6 +308,78 @@ def test_a_fully_qualified_anchor_still_resolves_via_the_original_exact_match_no
     chunk = validate_chunk(_chunk("Call `AnnotationCollection.AddWatermarkAnnotation` to add it."), index, {})
     assert chunk.validation.verdict == SUPPORTED
     assert citable_chunks([chunk]) == [chunk]
+
+
+def test_describe_unresolved_anchors_reports_a_genuinely_absent_symbol() -> None:
+    """TC-144: an anchor with zero matches anywhere is a genuinely absent symbol - renamed or
+    removed, never a typo - reported as UNSUPPORTED with match_count=0, the same verdict the
+    chunk itself already carries, now attributed to its actual failing anchor.
+    """
+    fixture = _api_surface_fixture()
+    index = symbol_index_from_api_surface(fixture["types"])
+    chunk = validate_chunk(_chunk("See `TotallyMadeUpClassName` for details."), index, {})
+    assert chunk.validation.verdict == UNSUPPORTED
+
+    described = describe_unresolved_anchors([chunk], index)
+
+    assert described == [
+        ("Overview", Resolution("TotallyMadeUpClassName", SemanticSupportVerdict.UNSUPPORTED, match_count=0))
+    ]
+
+
+def test_describe_unresolved_anchors_reports_a_near_miss_as_partially_supported() -> None:
+    """Two declarations registered under the identical anchor - as real overloads of one
+    qualified member would be - make the anchor genuinely ambiguous: it still fails
+    ``anchor_resolves`` (so the chunk is UNSUPPORTED, exactly like a genuinely absent symbol),
+    but ``resolve_anchor`` distinguishes it as a near-miss, PARTIALLY_SUPPORTED with
+    match_count=2 - a typo or stale doc is a different operator action than a renamed or
+    removed symbol, and that distinction is the entire point of this diagnostic.
+    """
+    index = SymbolIndex(
+        [
+            Declaration(anchor="Shape.Remove"),
+            Declaration(anchor="Shape.Remove", signature="(int index)"),
+        ]
+    )
+    chunk = validate_chunk(_chunk("Call `Shape.Remove` to delete it."), index, {})
+    assert chunk.validation.verdict == UNSUPPORTED
+
+    described = describe_unresolved_anchors([chunk], index)
+
+    assert described == [
+        ("Overview", Resolution("Shape.Remove", SemanticSupportVerdict.PARTIALLY_SUPPORTED, match_count=2))
+    ]
+
+
+def test_describe_unresolved_anchors_never_reports_a_supported_or_insufficient_evidence_chunk() -> None:
+    """A chunk whose verdict is SUPPORTED, or INSUFFICIENT_EVIDENCE (a numeric-only problem,
+    with no failing anchor at all), must never appear in describe_unresolved_anchors' output -
+    it exists to explain an UNSUPPORTED exclusion, nothing else.
+    """
+    fixture = _api_surface_fixture()
+    index = symbol_index_from_api_surface(fixture["types"])
+    known_counts = known_counts_from_fixture(fixture)
+    supported = validate_chunk(_chunk(f"See `{fixture['types'][0]['name']}`."), index, {})
+    insufficient = validate_chunk(_chunk("The library exposes 805 classes."), index, known_counts)
+    assert supported.validation.verdict == SUPPORTED
+    assert insufficient.validation.verdict == INSUFFICIENT_EVIDENCE
+
+    assert describe_unresolved_anchors([supported, insufficient], index) == []
+
+
+def test_describe_unresolved_anchors_skips_a_compile_verified_example_chunk_entirely() -> None:
+    """Mirrors validate_chunk's own exemption exactly: a genuinely compile-verified example
+    chunk never runs the anchor check at all, even if it happens to be UNSUPPORTED for an
+    unrelated numeric-claim reason - its bare-name method citations are not a real anchor
+    failure and must never be reported as one.
+    """
+    fixture = _api_surface_fixture()
+    known_counts = known_counts_from_fixture(fixture)
+    chunk = _example_chunk("This one example is one of the library's 900 classes.")
+    validated = validate_chunk(chunk, symbol_index_from_api_surface([]), known_counts)
+    assert validated.validation.verdict != SUPPORTED
+
+    assert describe_unresolved_anchors([validated], symbol_index_from_api_surface([])) == []
 
 
 def test_pdf_net_addwatermarkannotation_example_stays_supported() -> None:
