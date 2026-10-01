@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "card": "TC-057",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-01T11:23:26Z",
+  "base_rev": "0cd5cdb68b8ec6c7dee9e44524d85957d4b09ff1",
+  "head_rev": "e23afcd92610a3df88233ebffd316364728ae78d",
+  "card_sha256": "7b0cd5703e8b4213538717d24a0a27db62be97632d22e6fdef19c840ffd61860",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": false,
+    "changed_paths": [
+      "evidence/build/G2/TC-058/receipt.json",
+      "evidence/build/G2/TC-058/stdout.log",
+      "evidence/build/G2/TC-059/receipt.json",
+      "evidence/build/G2/TC-059/stdout.log",
+      "ops/instructions.jsonl",
+      "ops/status.jsonl",
+      "project/state.yaml"
+    ],
+    "violations": [
+      "evidence/build/G2/TC-058/receipt.json: touches a globally denied path",
+      "evidence/build/G2/TC-058/stdout.log: touches a globally denied path",
+      "evidence/build/G2/TC-059/receipt.json: touches a globally denied path",
+      "evidence/build/G2/TC-059/stdout.log: touches a globally denied path",
+      "ops/instructions.jsonl: touches a globally denied path",
+      "ops/status.jsonl: touches a globally denied path",
+      "project/state.yaml: touches a globally denied path"
+    ],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_pdf_cpp_extraction.py -q",
+          "exit_code": 4,
+          "duration_s": 1.315,
+          "stdout_sha256": "2460331c51b95cb935c18ac3732eeca590414f1dc2869299c346879fd6d49b5c",
+          "tests": 0,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": false
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_pdf_cpp_extraction.py -q",
+          "exit_code": 4,
+          "duration_s": 1.015,
+          "stdout_sha256": "2460331c51b95cb935c18ac3732eeca590414f1dc2869299c346879fd6d49b5c",
+          "tests": 0,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": false
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('tests/fixtures/pdf_cpp/api_surface.json');p.write_text('{}',encoding='utf-8')\"",
+    "patch_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "applied": false,
+    "patch_applied_failed": false,
+    "exit_codes": []
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": false,
+  "reason": "scope violation: evidence/build/G2/TC-058/receipt.json: touches a globally denied path; evidence/build/G2/TC-058/stdout.log: touches a globally denied path; evidence/build/G2/TC-059/receipt.json: touches a globally denied path; evidence/build/G2/TC-059/stdout.log: touches a globally denied path; ops/instructions.jsonl: touches a globally denied path; checks failed: {python} -m pytest tests/extraction/test_pdf_cpp_extraction.py -q; structural gate: {python} -m pytest tests/extraction/test_pdf_cpp_extraction.py -q: collected 0 tests, card requires >= 5; negative-control patch did not apply"
+}
