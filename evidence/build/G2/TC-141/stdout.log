@@ -1,0 +1,125 @@
+
+===== CLEAN RUN 1 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m ruff format --check infra/serve_http.py tests/infra/test_rollback.py tests/infra/test_serve_http.py tests/test_serving_dependency_lock.py && H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_rollback.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-280eyrcv\.junit-0.xml"
+--- stdout ---
+4 files already formatted
+....                                                                     [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m ruff format --check infra/serve_http.py tests/infra/test_rollback.py tests/infra/test_serve_http.py tests/test_serving_dependency_lock.py && H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_rollback.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-280eyrcv\.junit-0.xml"
+--- stdout ---
+4 files already formatted
+....                                                                     [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/infra/test_rollback.py, ?? .junit-0.xml
+$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m ruff format --check infra/serve_http.py tests/infra/test_rollback.py tests/infra/test_serve_http.py tests/test_serving_dependency_lock.py && H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_rollback.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-280eyrcv\.junit-0.xml"
+--- stdout ---
+4 files already formatted
+FFFF                                                                     [100%]
+================================== FAILURES ===================================
+_ test_main_rolls_a_real_scope_back_to_a_real_previously_published_generation _
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1237/test_main_rolls_a_real_scope_b0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023315C58D60>
+
+    def test_main_rolls_a_real_scope_back_to_a_real_previously_published_generation(
+        tmp_path: Path, monkeypatch
+    ) -> None:
+        manifest_store_path = tmp_path / "manifests"
+        store = GenerationManifestStore(manifest_store_path)
+    
+        first_generation_id = _publish_real_generation(
+            store, "ingestion", [_chunk("First", "The first generation's document.")]
+        )
+        second_generation_id = _publish_real_generation(
+            store, "ingestion", [_chunk("Second", "The second generation's document.")]
+        )
+    
+        assert store.read_active(SCOPE) == second_generation_id
+        assert first_generation_id != second_generation_id
+    
+>       monkeypatch.setattr(sys, "argv", _rollback_argv(manifest_store_path, first_generation_id))
+                                         ^^^^^^^^^^^^^^
+E       NameError: name '_rollback_argv' is not defined
+
+tests\infra\test_rollback.py:97: NameError
+_______________ test_main_prints_the_rolled_back_generation_id ________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1237/test_main_prints_the_rolled_ba0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023315C58B00>
+capsys = <_pytest.capture.CaptureFixture object at 0x0000023315C09A90>
+
+    def test_main_prints_the_rolled_back_generation_id(tmp_path: Path, monkeypatch, capsys) -> None:
+        manifest_store_path = tmp_path / "manifests"
+        store = GenerationManifestStore(manifest_store_path)
+    
+        first_generation_id = _publish_real_generation(
+            store, "ingestion", [_chunk("First", "The first generation's document.")]
+        )
+        _publish_real_generation(store, "ingestion", [_chunk("Second", "The second generation's document.")])
+    
+>       monkeypatch.setattr(sys, "argv", _rollback_argv(manifest_store_path, first_generation_id))
+                                         ^^^^^^^^^^^^^^
+E       NameError: name '_rollback_argv' is not defined
+
+tests\infra\test_rollback.py:124: NameError
+___________________ test_main_defaults_held_by_to_rollback ____________________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1237/test_main_defaults_held_by_to_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023315B8F9B0>
+
+    def test_main_defaults_held_by_to_rollback(tmp_path: Path, monkeypatch) -> None:
+        """``--held-by`` defaults to ``'rollback'`` per the card's required exact shape - a
+        distinct lease holder identity from ``infra/ingest.py``'s own ``'ingestion'`` default, so a
+        rollback's lease is never mistaken for an ingestion run's in any shared lease state."""
+        manifest_store_path = tmp_path / "manifests"
+        store = GenerationManifestStore(manifest_store_path)
+    
+        first_generation_id = _publish_real_generation(
+            store, "ingestion", [_chunk("First", "The first generation's document.")]
+        )
+        _publish_real_generation(store, "ingestion", [_chunk("Second", "The second generation's document.")])
+    
+>       argv = _rollback_argv(manifest_store_path, first_generation_id)
+               ^^^^^^^^^^^^^^
+E       NameError: name '_rollback_argv' is not defined
+
+tests\infra\test_rollback.py:143: NameError
+___ test_main_raises_unknown_generation_error_for_a_target_never_published ____
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-1237/test_main_raises_unknown_gener0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023315A6B570>
+
+    def test_main_raises_unknown_generation_error_for_a_target_never_published(
+        tmp_path: Path, monkeypatch
+    ) -> None:
+        """Rollback's own sanity check (``generation_exists``) refuses a target that was never
+        really published - the CLI must let that error propagate rather than silently activating
+        a bogus pointer."""
+        from foss_mcp.indexing.generation_manifest import UnknownGenerationError
+    
+        manifest_store_path = tmp_path / "manifests"
+        store = GenerationManifestStore(manifest_store_path)
+        _publish_real_generation(store, "ingestion", [_chunk("First", "The first generation's document.")])
+    
+        bogus_target = "pdf::net::self_extracted::never-published"
+>       monkeypatch.setattr(sys, "argv", _rollback_argv(manifest_store_path, bogus_target))
+                                         ^^^^^^^^^^^^^^
+E       NameError: name '_rollback_argv' is not defined
+
+tests\infra\test_rollback.py:165: NameError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_rollback.py::test_main_rolls_a_real_scope_back_to_a_real_previously_published_generation
+FAILED tests/infra/test_rollback.py::test_main_prints_the_rolled_back_generation_id
+FAILED tests/infra/test_rollback.py::test_main_defaults_held_by_to_rollback
+FAILED tests/infra/test_rollback.py::test_main_raises_unknown_generation_error_for_a_target_never_published
+
+--- stderr ---
+
