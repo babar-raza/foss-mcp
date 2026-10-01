@@ -24,7 +24,6 @@ import logging
 import re
 import time
 import typing
-import uuid
 from collections.abc import Callable, Sequence
 from contextlib import asynccontextmanager
 from enum import Enum
@@ -48,7 +47,12 @@ from foss_mcp.mcp.tools.lookup import lookup
 from foss_mcp.mcp.tools.report_index_freshness import report_index_freshness
 from foss_mcp.mcp.tools.search_docs import search_docs
 from foss_mcp.mcp.tools.search_symbols import search_symbols
-from foss_mcp.telemetry.usage_recorder import UsageEvent, UsageRecorder, build_event
+from foss_mcp.telemetry.usage_recorder import (
+    UsageEvent,
+    UsageRecorder,
+    build_event,
+    new_correlation_id,
+)
 
 SERVER_NAME = "foss-mcp"
 SERVER_VERSION = "0.0.0"
@@ -706,7 +710,7 @@ def create_server(
         # CallToolResult's own structured_content, so an operator can find the exact log line
         # behind a client-reported failure (TC-131's own error-code field is unaffected; this
         # works alongside it, not in place of it).
-        correlation_id = uuid.uuid4().hex
+        correlation_id = new_correlation_id()
         started_at = time.monotonic()
         handler = registry.get(params.name)
         if handler is None:

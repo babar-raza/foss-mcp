@@ -771,6 +771,34 @@ def test_two_different_tool_calls_get_two_different_correlation_ids(
     assert tool_call_records[0].correlation_id != tool_call_records[1].correlation_id
 
 
+def test_call_tools_correlation_id_comes_from_new_correlation_id_not_a_bare_uuid_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """``_call_tool`` must mint its correlation id by calling
+    ``foss_mcp.telemetry.usage_recorder.new_correlation_id`` (imported into server.py's own
+    namespace) rather than inlining its own ``uuid.uuid4().hex`` - monkeypatching the name as
+    bound in server.py proves the real call site is wired to it, not merely that some unrelated
+    uuid call still happens to produce a valid-looking id. The error path is used (like the
+    other correlation-id tests above) because only an error ``CallToolResult`` surfaces
+    ``correlation_id`` in its own ``structured_content``.
+    """
+    sentinel = "sentinel-correlation-id"
+    monkeypatch.setattr("foss_mcp.mcp.server.new_correlation_id", lambda: sentinel)
+
+    with caplog.at_level(logging.INFO, logger="foss_mcp.mcp.server"):
+        with _client(tmp_path) as client:
+            session = _McpSession(client)
+            response = session.request("tools/call", {"name": "search_symbols", "arguments": {"query": ""}})
+    assert response.status_code == 200
+    body = _sse_json(response.text)
+    assert body["result"]["isError"] is True
+    assert body["result"]["structuredContent"]["correlation_id"] == sentinel
+
+    tool_call_records = [record for record in caplog.records if hasattr(record, "correlation_id")]
+    assert len(tool_call_records) == 1
+    assert tool_call_records[0].correlation_id == sentinel
+
+
 def _sse_json(text: str) -> dict:
     """The streamable-HTTP transport answers a POST with one SSE `data:` line - decode it."""
     import json
