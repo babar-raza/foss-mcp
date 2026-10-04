@@ -60,6 +60,16 @@ inputs:
   true partial word, such as "Watermar", which is not a whole word of any FQN. "PdfDocument" and "AddWatermark" are whole words of
   "PdfDocument.AddWatermarkAnnotation", so under the token rule they are matches, and that is the rule. Restate that test to
   partial-word input and keep its name.'
+- 'Fifth amendment, same date, after the attempt-3 block. The worker confirmed that lookup already falls back to its document
+  path (lookup.py:156-160), so the third amendment''s premise was wrong, and no lookup change is needed. Three assertions in
+  tests/mcp/tools/test_retrieval_tools.py encode the old fuzzy behaviour, and this is a contract restatement, not a weakening.
+  Line 555 and line 654: the assertion "isinstance(result, list) and result" expects lookup to return a list of symbol matches.
+  lookup returns a TaskAnswer, and the furnished document chunk is in its doc_matches. Restate each to: result is a TaskAnswer
+  and its doc_matches contains the same furnished chunk the test already names. Keep the expected content and the test name.
+  Line 785: the precondition "search_symbols returns a non-empty list for a task question" encodes the symbol collision the test
+  is meant to guard against, and the honest-miss rule correctly removes it. Restate that precondition to: search_symbols returns
+  a Miss for the question, which is the absence of the collision. Keep the rest of the test, which asserts that the lookup
+  result is document composition. Record each restatement in your commit body, with the line number and the reason.'
 - 'Second amendment, same date. Three existing tests in tests/mcp/tools/test_retrieval_tools.py fail because their fixture helper
   builds symbol chunks without the FQN: line that every real chunk carries (src/foss_mcp/indexing/chunk_builder.py:76). Change the
   fixture helper so that a symbol chunk carries that line, matching the real chunk shape. Do not change any assertion in those
