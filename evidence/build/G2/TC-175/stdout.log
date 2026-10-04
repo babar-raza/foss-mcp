@@ -1,0 +1,224 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier_toolchain.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1lr6_vlj\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1lr6_vlj\.junit-1.xml"
+--- stdout ---
+...EEE...............                                                    [100%]
+=================================== ERRORS ====================================
+__ ERROR at setup of test_prepare_rust_library_builds_the_real_pinned_commit __
+
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000011AA1A3BA80>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-109'), _retention_count=3, _retention_policy='all')
+
+    @pytest.fixture(scope="module")
+    def rust_library(tmp_path_factory: pytest.TempPathFactory) -> Path:
+        workdir = tmp_path_factory.mktemp("cells_rust_reference")
+>       return prepare_rust_library(
+            repository=RUST_REPOSITORY,
+            commit=RUST_COMMIT,
+            workdir=workdir,
+        )
+
+tests\indexing\test_example_verifier.py:297: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+repository = 'aspose-cells-foss/Aspose.Cells-FOSS-for-Rust'
+commit = '1a6004af47b1ef15385f9d36d381a8172428cc7e'
+workdir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-109/cells_rust_reference0')
+
+    def prepare_rust_library(
+        repository: str,
+        commit: str,
+        workdir: Path,
+    ) -> Path:
+        """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``
+        and build the reference crate once with ``cargo build``, proving the
+        real library itself builds clean. Returns ``workdir`` - the cloned
+        crate's own root, where its ``Cargo.toml`` lives - for
+        ``verify_rust_example`` to depend on as a Cargo path dependency.
+    
+        Raises ``RuntimeError`` on any real failure (clone, checkout, or
+        build).
+        """
+        _clone_pinned_commit(repository, commit, workdir)
+    
+        build_result = _run(["cargo", "build"], cwd=workdir)
+        if build_result.returncode != 0:
+>           raise RuntimeError(
+                f"reference crate at {repository}@{commit} failed to build cleanly:\n"
+                f"{build_result.stdout}\n{build_result.stderr}"
+            )
+E           RuntimeError: reference crate at aspose-cells-foss/Aspose.Cells-FOSS-for-Rust@1a6004af47b1ef15385f9d36d381a8172428cc7e failed to build cleanly:
+E           
+E               Updating crates.io index
+E           warning: spurious network error (3 tries remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
+E           warning: spurious network error (2 tries remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
+E           warning: spurious network error (1 try remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
+E           error: failed to get `base64` as a dependency of package `aspose-cells-foss-rust v26.7.0 (C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-109\cells_rust_reference0)`
+E           
+E           Caused by:
+E             failed to load source for dependency `base64`
+E           
+E           Caused by:
+E             unable to update registry `crates-io`
+E           
+E           Caused by:
+E             download of config.json failed
+E           
+E           Caused by:
+E             transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
+
+src\foss_mcp\indexing\example_verifier.py:719: RuntimeError
+______ ERROR at setup of test_rust_known_working_candidate_builds_clean _______
+
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000011AA1A3BA80>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-109'), _retention_count=3, _retention_policy='all')
+
+    @pytest.fixture(scope="module")
+    def rust_library(tmp_path_factory: pytest.TempPathFactory) -> Path:
+        workdir = tmp_path_factory.mktemp("cells_rust_reference")
+>       return prepare_rust_library(
+            repository=RUST_REPOSITORY,
+            commit=RUST_COMMIT,
+            workdir=workdir,
+        )
+
+tests\indexing\test_example_verifier.py:297: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+repository = 'aspose-cells-foss/Aspose.Cells-FOSS-for-Rust'
+commit = '1a6004af47b1ef15385f9d36d381a8172428cc7e'
+workdir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-109/cells_rust_reference0')
+
+    def prepare_rust_library(
+        repository: str,
+        commit: str,
+        workdir: Path,
+    ) -> Path:
+        """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``
+        and build the reference crate once with ``cargo build``, proving the
+        real library itself builds clean. Returns ``workdir`` - the cloned
+        crate's own root, where its ``Cargo.toml`` lives - for
+        ``verify_rust_example`` to depend on as a Cargo path dependency.
+    
+        Raises ``RuntimeError`` on any real failure (clone, checkout, or
+        build).
+        """
+        _clone_pinned_commit(repository, commit, workdir)
+    
+        build_result = _run(["cargo", "build"], cwd=workdir)
+        if build_result.returncode != 0:
+>           raise RuntimeError(
+                f"reference crate at {repository}@{commit} failed to build cleanly:\n"
+                f"{build_result.stdout}\n{build_result.stderr}"
+            )
+E           RuntimeError: reference crate at aspose-cells-foss/Aspose.Cells-FOSS-for-Rust@1a6004af47b1ef15385f9d36d381a8172428cc7e failed to build cleanly:
+E           
+E               Updating crates.io index
+E           warning: spurious network error (3 tries remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
+E           warning: spurious network error (2 tries remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
+E           warning: spurious network error (1 try remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
+E           error: failed to get `base64` as a dependency of package `aspose-cells-foss-rust v26.7.0 (C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-109\cells_rust_reference0)`
+E           
+E           Caused by:
+E             failed to load source for dependency `base64`
+E           
+E           Caused by:
+E             unable to update registry `crates-io`
+E           
+E           Caused by:
+E             download of config.json failed
+E           
+E           Caused by:
+E             transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
+
+src\foss_mcp\indexing\example_verifier.py:719: RuntimeError
+____ ERROR at setup of test_rust_known_broken_candidate_fails_real_compile ____
+
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000011AA1A3BA80>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-109'), _retention_count=3, _retention_policy='all')
+
+    @pytest.fixture(scope="module")
+    def rust_library(tmp_path_factory: pytest.TempPathFactory) -> Path:
+        workdir = tmp_path_factory.mktemp("cells_rust_reference")
+>       return prepare_rust_library(
+            repository=RUST_REPOSITORY,
+            commit=RUST_COMMIT,
+            workdir=workdir,
+        )
+
+tests\indexing\test_example_verifier.py:297: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+repository = 'aspose-cells-foss/Aspose.Cells-FOSS-for-Rust'
+commit = '1a6004af47b1ef15385f9d36d381a8172428cc7e'
+workdir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-109/cells_rust_reference0')
+
+    def prepare_rust_library(
+        repository: str,
+        commit: str,
+        workdir: Path,
+    ) -> Path:
+        """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``
+        and build the reference crate once with ``cargo build``, proving the
+        real library itself builds clean. Returns ``workdir`` - the cloned
+        crate's own root, where its ``Cargo.toml`` lives - for
+        ``verify_rust_example`` to depend on as a Cargo path dependency.
+    
+        Raises ``RuntimeError`` on any real failure (clone, checkout, or
+        build).
+        """
+        _clone_pinned_commit(repository, commit, workdir)
+    
+        build_result = _run(["cargo", "build"], cwd=workdir)
+        if build_result.returncode != 0:
+>           raise RuntimeError(
+                f"reference crate at {repository}@{commit} failed to build cleanly:\n"
+                f"{build_result.stdout}\n{build_result.stderr}"
+            )
+E           RuntimeError: reference crate at aspose-cells-foss/Aspose.Cells-FOSS-for-Rust@1a6004af47b1ef15385f9d36d381a8172428cc7e failed to build cleanly:
+E           
+E               Updating crates.io index
+E           warning: spurious network error (3 tries remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
+E           warning: spurious network error (2 tries remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
+E           warning: spurious network error (1 try remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
+E           error: failed to get `base64` as a dependency of package `aspose-cells-foss-rust v26.7.0 (C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-109\cells_rust_reference0)`
+E           
+E           Caused by:
+E             failed to load source for dependency `base64`
+E           
+E           Caused by:
+E             unable to update registry `crates-io`
+E           
+E           Caused by:
+E             download of config.json failed
+E           
+E           Caused by:
+E             transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
+
+src\foss_mcp\indexing\example_verifier.py:719: RuntimeError
+=========================== short test summary info ===========================
+ERROR tests/indexing/test_example_verifier.py::test_prepare_rust_library_builds_the_real_pinned_commit
+ERROR tests/indexing/test_example_verifier.py::test_rust_known_working_candidate_builds_clean
+ERROR tests/indexing/test_example_verifier.py::test_rust_known_broken_candidate_fails_real_compile
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier_toolchain.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1lr6_vlj\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1lr6_vlj\.junit-1.xml"
+--- stdout ---
+.....................                                                    [100%]
+
+--- stderr ---
+
+
+!! clean runs failed; falsifier skipped (it would prove nothing)
