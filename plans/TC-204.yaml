@@ -1,0 +1,62 @@
+id: TC-204
+gate: G2
+lane: transport-deployment
+purpose: 'Make get_product_reference answer on every pilot, by having each serving pod wait for its own packaging-manifest
+  sidecar before it starts. Live evidence (2026-10-04): with the six-release POC, the full MCP workflow proof passes nine of
+  ten checks on every pilot, and check 7, get_product_reference, fails on every pilot with "no packaging manifest was provided".
+  serve_http.py reads the sidecar once, when the process starts. A serving pod that starts before its ingestion Job writes the
+  sidecar keeps "no manifest" for its whole life. The timestamps match: each serving pod started before its sidecar was written.
+  The fix is ordering, enforced by the Deployment: an init container waits until the file product_reference_<family>_<platform>.json
+  exists in the manifests volume, and only then does the serving container start. A restart is no longer needed, and a pod can
+  never serve without its manifest.'
+depends_on:
+- TC-203
+- TC-201
+write_paths:
+- infra/helm/foss-mcp/templates/deployment.yaml
+- tests/infra/test_helm_sidecar_gate.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/helm/foss-mcp/templates/deployment.yaml in full. Read the sidecar name the ingestion step writes, from
+  infra/helm/foss-mcp/templates/ingestion-job.yaml (the --output path, built from family and platform) and from
+  infra/fetch_product_reference.py (sidecar_name). The init container must wait for exactly that path.'
+- 'Add an initContainer to the serving Deployment, named wait-for-product-reference, that uses the same serving image, and that
+  loops until the file <manifests mount>/product_reference_<family>_<platform>.json exists, sleeping between checks. It mounts the
+  manifests claim read-only, the same as the serving container. It must not run any other command. Use the family and platform the
+  chart already sets for the Deployment, so the file name matches sidecar_name.'
+- 'Do not change the serving container, its command, its probes, or any other template. Do not change infra/serve_http.py.'
+- 'Add tests/infra/test_helm_sidecar_gate.py as a new file, offline, using helm template with image.tag set. Check: (1) the serving
+  Deployment has an initContainer named wait-for-product-reference; (2) its command waits for exactly the path sidecar_name returns
+  for the Deployment''s family and platform; (3) it mounts the manifests claim read-only; (4) the serving container is unchanged. It
+  must fail, not skip, when helm is missing. Source scripts/toolchain/activate.ps1 in the same command as pytest.'
+- 'Keep every existing chart test and assertion. Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the Deployment template and the sidecar name sources in full.
+- Add the init container and the test file.
+- Run the chart tests and helm lint and template, and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_sidecar_gate.py tests/infra/test_helm_chart.py tests/infra/test_helm_manifest_step.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 25
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/deployment.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('wait-for-product-reference','wait-for-product-reference-off',1),encoding='utf-8')"
+  rationale: 'Renames the init container, so the rendered Deployment no longer has the gate named wait-for-product-reference. Test 1
+    looks for that exact name in helm template output and must then fail. The replace is limited to the first match, which is the
+    init container name. Built with plain text, since it has no quote or backslash.'
+evidence:
+- evidence/build/G2/TC-204/receipt.json
+closeout:
+- A serving pod waits for its own product-reference sidecar before it starts, so get_product_reference answers on every pilot.
+recovery: Re-run from a clean tree.
