@@ -785,19 +785,44 @@ def prepare_rust_library(
     crate's own root, where its ``Cargo.toml`` lives - for
     ``verify_rust_example`` to depend on as a Cargo path dependency.
 
-    Raises ``RuntimeError`` on any real failure (clone, checkout, or
-    build).
+    Raises ``ExampleEnvironmentError`` when the failed build's output names a
+    registry or network failure with no rustc diagnostic (see
+    ``_reference_build_failure``). Raises ``RuntimeError`` on any other real
+    failure (clone, checkout, or build).
     """
     _clone_pinned_commit(repository, commit, workdir)
 
     build_result = _run_cargo(["cargo", "build"], cwd=workdir)
     if build_result.returncode != 0:
-        raise RuntimeError(
-            f"reference crate at {repository}@{commit} failed to build cleanly:\n"
-            f"{build_result.stdout}\n{build_result.stderr}"
-        )
+        raise _reference_build_failure("cargo", repository, commit, build_result)
 
     return workdir
+
+
+def _reference_build_failure(
+    tool: str,
+    repository: str,
+    commit: str,
+    result: subprocess.CompletedProcess[str],
+) -> Exception:
+    """Return the exception to raise for a failed reference build.
+
+    A ``cargo`` build whose output names a registry or network failure (see
+    ``_CARGO_NETWORK_FAILURE_MARKERS``) and carries no rustc diagnostic
+    (``error[E<digits>]``) could not reach the registry. That is an
+    environment failure, not a defect in the reference library, so it returns
+    ``ExampleEnvironmentError`` carrying the matched marker. Every other failed
+    reference build returns the plain ``RuntimeError``.
+    """
+    output_text = f"{result.stdout}\n{result.stderr}"
+    if tool == "cargo" and _RUSTC_DIAGNOSTIC.search(output_text) is None:
+        marker = _match_network_failure_marker(output_text)
+        if marker is not None:
+            return ExampleEnvironmentError(tool, marker, _truncate(output_text))
+    return RuntimeError(
+        f"reference crate at {repository}@{commit} failed to build cleanly:\n"
+        f"{result.stdout}\n{result.stderr}"
+    )
 
 
 def verify_rust_example(
