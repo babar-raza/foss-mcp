@@ -1,0 +1,2506 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_manifest_step.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-585t0wyk\.junit-0.xml"
+--- stdout ---
+.............................................                            [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_manifest_step.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-585t0wyk\.junit-0.xml"
+--- stdout ---
+.............................................                            [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/values.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_manifest_step.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-585t0wyk\.junit-0.xml"
+--- stdout ---
+FFFFFFF.....FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF                            [100%]
+================================== FAILURES ===================================
+_ test_every_pilot_with_a_manifest_path_gets_the_fetch_step_on_the_read_write_claim _
+
+    def test_every_pilot_with_a_manifest_path_gets_the_fetch_step_on_the_read_write_claim() -> None:
+>       values = _values()
+                 ^^^^^^^^^
+
+tests\infra\test_helm_manifest_step.py:104: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_manifest_step.py:62: in _values
+    return yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F6470E0>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+_ test_the_rendered_pdf_cpp_fetch_step_passes_its_manifest_path_CMakeLists_txt _
+
+    def test_the_rendered_pdf_cpp_fetch_step_passes_its_manifest_path_CMakeLists_txt() -> None:
+        # The expected value is a literal, not read from values.yaml. Editing manifestPath in values.yaml
+        # changes the rendered command and the value together, so the per-pilot equality above cannot
+        # catch it; this literal does.
+        pilot = next(
+>           p for p in _values()["ingestion"]["pilots"] if p["family"] == "pdf" and p["platform"] == "cpp"
+                       ^^^^^^^^^
+        )
+
+tests\infra\test_helm_manifest_step.py:135: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_manifest_step.py:62: in _values
+    return yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F6F34D0>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+___________ test_a_pilot_without_a_manifest_path_gets_no_fetch_step ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-908/test_a_pilot_without_a_manifes0')
+
+    def test_a_pilot_without_a_manifest_path_gets_no_fetch_step(tmp_path: Path) -> None:
+>       pilots = copy.deepcopy(_values()["ingestion"]["pilots"])
+                               ^^^^^^^^^
+
+tests\infra\test_helm_manifest_step.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_manifest_step.py:62: in _values
+    return yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628D19EAD0>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+______ test_the_serving_deployment_mounts_the_manifests_claim_read_only _______
+
+    def test_the_serving_deployment_mounts_the_manifests_claim_read_only() -> None:
+>       values = _values()
+                 ^^^^^^^^^
+
+tests\infra\test_helm_manifest_step.py:159: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_manifest_step.py:62: in _values
+    return yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F6F3610>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+_ test_each_pilot_sidecar_name_is_distinct_and_is_the_name_its_own_pilot_writes _
+
+    def test_each_pilot_sidecar_name_is_distinct_and_is_the_name_its_own_pilot_writes() -> None:
+        names = []
+>       for pilot in _pilots_with_a_manifest_path():
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_helm_manifest_step.py:172: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_manifest_step.py:100: in _pilots_with_a_manifest_path
+    return [p for p in _values()["ingestion"]["pilots"] if "manifestPath" in p]
+                       ^^^^^^^^^
+tests\infra\test_helm_manifest_step.py:62: in _values
+    return yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F6F2850>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+_ test_the_job_step_writes_the_sidecar_name_sidecar_name_returns_for_its_pilot _
+
+    def test_the_job_step_writes_the_sidecar_name_sidecar_name_returns_for_its_pilot() -> None:
+>       values = _values()
+                 ^^^^^^^^^
+
+tests\infra\test_helm_manifest_step.py:180: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_manifest_step.py:62: in _values
+    return yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F6F3D90>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+_ test_the_rendered_job_command_invokes_the_fetch_script_with_the_sidecar_name_for_its_pilot _
+
+    def test_the_rendered_job_command_invokes_the_fetch_script_with_the_sidecar_name_for_its_pilot() -> None:
+        # Reads the command from helm template output, not from the template text. Editing the fetch
+        # command in templates/ingestion-job.yaml changes this rendered command and fails here.
+>       values = _values()
+                 ^^^^^^^^^
+
+tests\infra\test_helm_manifest_step.py:193: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_manifest_step.py:62: in _values
+    return yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F6F3610>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+_________________ test_chart_lints_clean_with_a_required_tag __________________
+
+    def test_chart_lints_clean_with_a_required_tag() -> None:
+        result = _run(["lint", str(CHART), "--set", f"image.tag={TAG}"])
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: ==> Linting E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-585t0wyk\infra\helm\foss-mcp
+E         [INFO] Chart.yaml: icon is recommended
+E         [ERROR] values.yaml: unable to parse YAML: error converting YAML to JSON: yaml: line 217: did not find expected key
+E         [ERROR] templates/: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key
+E         [ERROR] : unable to load chart
+E         	cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key
+E         
+E         Error: 1 chart(s) linted, 1 chart(s) failed
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\dev-tools\\foss-mcp\\helm\\windows-amd64\\helm.EXE', 'lint', 'E:\\Users\\prora\\OneDrive\\...g YAML to JSON: yaml: line 217: did not find expected key\n\n', stderr='Error: 1 chart(s) linted, 1 chart(s) failed\n').returncode
+
+tests\infra\test_helm_chart.py:159: AssertionError
+_______________ test_render_refuses_to_run_without_an_image_tag _______________
+
+    def test_render_refuses_to_run_without_an_image_tag() -> None:
+        result = _run(["template", "foss-mcp", str(CHART)])
+        assert result.returncode != 0, "rendering with no image.tag must fail"
+>       assert "image.tag must be set to a pinned version or digest" in result.stderr, result.stderr
+E       AssertionError: Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key
+E         
+E       assert 'image.tag must be set to a pinned version or digest' in 'Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key\n'
+E        +  where 'Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key\n' = CompletedProcess(args=['C:\\dev-tools\\foss-mcp\\helm\\windows-amd64\\helm.EXE', 'template', 'foss-mcp', 'E:\\Users\\p...', stderr='Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key\n').stderr
+
+tests\infra\test_helm_chart.py:166: AssertionError
+______________ test_serving_deployment_runs_the_http_entrypoint _______________
+
+    def test_serving_deployment_runs_the_http_entrypoint() -> None:
+>       _, _, container = _serving(_render())
+                                   ^^^^^^^^^
+
+tests\infra\test_helm_chart.py:170: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tag = 'tc177-test-tag', extra = ()
+
+    def _render(*extra: str, tag: str | None = TAG) -> list[dict[str, Any]]:
+        args = ["template", "foss-mcp", str(CHART)]
+        if tag is not None:
+            args += ["--set", f"image.tag={tag}"]
+        args += list(extra)
+        result = _run(args)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\dev-tools\\foss-mcp\\helm\\windows-amd64\\helm.EXE', 'template', 'foss-mcp', 'E:\\Users\\p...', stderr='Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key\n').returncode
+
+tests\infra\test_helm_chart.py:115: AssertionError
+_________ test_serving_pod_has_liveness_and_readiness_probes_on_8080 __________
+
+    def test_serving_pod_has_liveness_and_readiness_probes_on_8080() -> None:
+>       _, _, container = _serving(_render())
+                                   ^^^^^^^^^
+
+tests\infra\test_helm_chart.py:175: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tag = 'tc177-test-tag', extra = ()
+
+    def _render(*extra: str, tag: str | None = TAG) -> list[dict[str, Any]]:
+        args = ["template", "foss-mcp", str(CHART)]
+        if tag is not None:
+            args += ["--set", f"image.tag={tag}"]
+        args += list(extra)
+        result = _run(args)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\dev-tools\\foss-mcp\\helm\\windows-amd64\\helm.EXE', 'template', 'foss-mcp', 'E:\\Users\\p...', stderr='Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key\n').returncode
+
+tests\infra\test_helm_chart.py:115: AssertionError
+_____ test_every_pod_runs_non_root_with_a_read_only_root_and_a_tmp_mount ______
+
+    def test_every_pod_runs_non_root_with_a_read_only_root_and_a_tmp_mount() -> None:
+>       pods = _pod_specs(_render())
+                          ^^^^^^^^^
+
+tests\infra\test_helm_chart.py:187: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tag = 'tc177-test-tag', extra = ()
+
+    def _render(*extra: str, tag: str | None = TAG) -> list[dict[str, Any]]:
+        args = ["template", "foss-mcp", str(CHART)]
+        if tag is not None:
+            args += ["--set", f"image.tag={tag}"]
+        args += list(extra)
+        result = _run(args)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\dev-tools\\foss-mcp\\helm\\windows-amd64\\helm.EXE', 'template', 'foss-mcp', 'E:\\Users\\p...', stderr='Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key\n').returncode
+
+tests\infra\test_helm_chart.py:115: AssertionError
+___________ test_no_image_is_latest_and_the_release_tag_is_applied ____________
+
+    def test_no_image_is_latest_and_the_release_tag_is_applied() -> None:
+>       values = yaml.safe_load((CHART / "values.yaml").read_text(encoding="utf-8"))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_helm_chart.py:202: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F6F2C10>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+________ test_service_routes_port_80_to_the_http_port_for_serving_only ________
+
+    def test_service_routes_port_80_to_the_http_port_for_serving_only() -> None:
+>       services = _by_kind(_render(), "Service")
+                            ^^^^^^^^^
+
+tests\infra\test_helm_chart.py:210: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tag = 'tc177-test-tag', extra = ()
+
+    def _render(*extra: str, tag: str | None = TAG) -> list[dict[str, Any]]:
+        args = ["template", "foss-mcp", str(CHART)]
+        if tag is not None:
+            args += ["--set", f"image.tag={tag}"]
+        args += list(extra)
+        result = _run(args)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\dev-tools\\foss-mcp\\helm\\windows-amd64\\helm.EXE', 'template', 'foss-mcp', 'E:\\Users\\p...', stderr='Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key\n').returncode
+
+tests\infra\test_helm_chart.py:115: AssertionError
+_ test_manifests_claim_exists_and_serving_mounts_it_read_only_at_data_manifests _
+
+    def test_manifests_claim_exists_and_serving_mounts_it_read_only_at_data_manifests() -> None:
+>       docs = _render()
+               ^^^^^^^^^
+
+tests\infra\test_helm_chart.py:220: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tag = 'tc177-test-tag', extra = ()
+
+    def _render(*extra: str, tag: str | None = TAG) -> list[dict[str, Any]]:
+        args = ["template", "foss-mcp", str(CHART)]
+        if tag is not None:
+            args += ["--set", f"image.tag={tag}"]
+        args += list(extra)
+        result = _run(args)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\dev-tools\\foss-mcp\\helm\\windows-amd64\\helm.EXE', 'template', 'foss-mcp', 'E:\\Users\\p...', stderr='Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key\n').returncode
+
+tests\infra\test_helm_chart.py:115: AssertionError
+__ test_one_ingestion_job_is_rendered_per_listed_pilot_all_on_the_same_claim __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-908/test_one_ingestion_job_is_rend0')
+
+    def test_one_ingestion_job_is_rendered_per_listed_pilot_all_on_the_same_claim(tmp_path: Path) -> None:
+>       docs = _render("-f", str(_pilot_values(tmp_path)))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_helm_chart.py:232: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tag = 'tc177-test-tag'
+extra = ('-f', 'C:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-908\\test_one_ingestion_job_is_rend0\\pilots.yaml')
+
+    def _render(*extra: str, tag: str | None = TAG) -> list[dict[str, Any]]:
+        args = ["template", "foss-mcp", str(CHART)]
+        if tag is not None:
+            args += ["--set", f"image.tag={tag}"]
+        args += list(extra)
+        result = _run(args)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\dev-tools\\foss-mcp\\helm\\windows-amd64\\helm.EXE', 'template', 'foss-mcp', 'E:\\Users\\p...', stderr='Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key\n').returncode
+
+tests\infra\test_helm_chart.py:115: AssertionError
+_ test_default_values_render_exactly_one_ingestion_job_for_the_deployment_identity _
+
+    def test_default_values_render_exactly_one_ingestion_job_for_the_deployment_identity() -> None:
+        # TC-195 amendment: the chart runs one ingestion Job per entry of ingestion.pilots, and the
+        # POC lists fourteen pilots. The original assertion, exactly one Job, predates the POC.
+        # The expected names are written out here, not derived from values.yaml, so the set is pinned.
+>       pilots = yaml.safe_load((CHART / "values.yaml").read_text(encoding="utf-8"))["ingestion"]["pilots"]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_helm_chart.py:252: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F6F3ED0>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+___ test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-908/test_each_ingestion_job_runs_t0')
+
+    def test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose(tmp_path: Path) -> None:
+        compose = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))["services"]
+        jobs = {
+>           job["metadata"]["name"]: job for job in _by_kind(_render("-f", str(_pilot_values(tmp_path))), "Job")
+                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        }
+
+tests\infra\test_helm_chart.py:280: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tag = 'tc177-test-tag'
+extra = ('-f', 'C:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-908\\test_each_ingestion_job_runs_t0\\pilots.yaml')
+
+    def _render(*extra: str, tag: str | None = TAG) -> list[dict[str, Any]]:
+        args = ["template", "foss-mcp", str(CHART)]
+        if tag is not None:
+            args += ["--set", f"image.tag={tag}"]
+        args += list(extra)
+        result = _run(args)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\dev-tools\\foss-mcp\\helm\\windows-amd64\\helm.EXE', 'template', 'foss-mcp', 'E:\\Users\\p...', stderr='Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key\n').returncode
+
+tests\infra\test_helm_chart.py:115: AssertionError
+_________ test_every_container_declares_resource_requests_and_limits __________
+
+    def test_every_container_declares_resource_requests_and_limits() -> None:
+>       for workload, _, container in _pod_specs(_render()):
+                                                 ^^^^^^^^^
+
+tests\infra\test_helm_chart.py:291: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tag = 'tc177-test-tag', extra = ()
+
+    def _render(*extra: str, tag: str | None = TAG) -> list[dict[str, Any]]:
+        args = ["template", "foss-mcp", str(CHART)]
+        if tag is not None:
+            args += ["--set", f"image.tag={tag}"]
+        args += list(extra)
+        result = _run(args)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\dev-tools\\foss-mcp\\helm\\windows-amd64\\helm.EXE', 'template', 'foss-mcp', 'E:\\Users\\p...', stderr='Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key\n').returncode
+
+tests\infra\test_helm_chart.py:115: AssertionError
+___________ test_dns_egress_reaches_only_kube_dns_on_udp_and_tcp_53 ___________
+
+    def test_dns_egress_reaches_only_kube_dns_on_udp_and_tcp_53() -> None:
+>       docs = _render()
+               ^^^^^^^^^
+
+tests\infra\test_helm_chart.py:328: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tag = 'tc177-test-tag', extra = ()
+
+    def _render(*extra: str, tag: str | None = TAG) -> list[dict[str, Any]]:
+        args = ["template", "foss-mcp", str(CHART)]
+        if tag is not None:
+            args += ["--set", f"image.tag={tag}"]
+        args += list(extra)
+        result = _run(args)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\dev-tools\\foss-mcp\\helm\\windows-amd64\\helm.EXE', 'template', 'foss-mcp', 'E:\\Users\\p...', stderr='Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key\n').returncode
+
+tests\infra\test_helm_chart.py:115: AssertionError
+____ test_ingestion_job_pod_template_carries_the_ingestion_component_label ____
+
+    def test_ingestion_job_pod_template_carries_the_ingestion_component_label() -> None:
+>       jobs = _by_kind(_render(), "Job")
+                        ^^^^^^^^^
+
+tests\infra\test_helm_chart.py:371: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tag = 'tc177-test-tag', extra = ()
+
+    def _render(*extra: str, tag: str | None = TAG) -> list[dict[str, Any]]:
+        args = ["template", "foss-mcp", str(CHART)]
+        if tag is not None:
+            args += ["--set", f"image.tag={tag}"]
+        args += list(extra)
+        result = _run(args)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\dev-tools\\foss-mcp\\helm\\windows-amd64\\helm.EXE', 'template', 'foss-mcp', 'E:\\Users\\p...', stderr='Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key\n').returncode
+
+tests\infra\test_helm_chart.py:115: AssertionError
+______ test_tcp_443_to_any_destination_is_granted_only_to_ingestion_pods ______
+
+    def test_tcp_443_to_any_destination_is_granted_only_to_ingestion_pods() -> None:
+>       docs = _render()
+               ^^^^^^^^^
+
+tests\infra\test_helm_chart.py:379: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tag = 'tc177-test-tag', extra = ()
+
+    def _render(*extra: str, tag: str | None = TAG) -> list[dict[str, Any]]:
+        args = ["template", "foss-mcp", str(CHART)]
+        if tag is not None:
+            args += ["--set", f"image.tag={tag}"]
+        args += list(extra)
+        result = _run(args)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\dev-tools\\foss-mcp\\helm\\windows-amd64\\helm.EXE', 'template', 'foss-mcp', 'E:\\Users\\p...', stderr='Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key\n').returncode
+
+tests\infra\test_helm_chart.py:115: AssertionError
+______________ test_serving_pods_receive_no_internet_egress_rule ______________
+
+    def test_serving_pods_receive_no_internet_egress_rule() -> None:
+>       docs = _render()
+               ^^^^^^^^^
+
+tests\infra\test_helm_chart.py:398: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tag = 'tc177-test-tag', extra = ()
+
+    def _render(*extra: str, tag: str | None = TAG) -> list[dict[str, Any]]:
+        args = ["template", "foss-mcp", str(CHART)]
+        if tag is not None:
+            args += ["--set", f"image.tag={tag}"]
+        args += list(extra)
+        result = _run(args)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\dev-tools\\foss-mcp\\helm\\windows-amd64\\helm.EXE', 'template', 'foss-mcp', 'E:\\Users\\p...', stderr='Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key\n').returncode
+
+tests\infra\test_helm_chart.py:115: AssertionError
+____________________ test_serving_policy_grants_no_tcp_443 ____________________
+
+    def test_serving_policy_grants_no_tcp_443() -> None:
+>       docs = _render()
+               ^^^^^^^^^
+
+tests\infra\test_helm_chart.py:410: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tag = 'tc177-test-tag', extra = ()
+
+    def _render(*extra: str, tag: str | None = TAG) -> list[dict[str, Any]]:
+        args = ["template", "foss-mcp", str(CHART)]
+        if tag is not None:
+            args += ["--set", f"image.tag={tag}"]
+        args += list(extra)
+        result = _run(args)
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\dev-tools\\foss-mcp\\helm\\windows-amd64\\helm.EXE', 'template', 'foss-mcp', 'E:\\Users\\p...', stderr='Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 217: did not find expected key\n').returncode
+
+tests\infra\test_helm_chart.py:115: AssertionError
+_____________________ test_pdf_net_pilot_matches_compose ______________________
+
+    def test_pdf_net_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("pdf", "net")
+
+tests\infra\test_helm_pilots_match_compose.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_pilots_match_compose.py:106: in _assert_pilot_matches_compose
+    pilot = _pilot(family, platform)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:72: in _pilot
+    matches = [p for p in _pilots() if p["family"] == family and p["platform"] == platform]
+                          ^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:67: in _pilots
+    values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F834E10>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+__________________ test_slides_python_pilot_matches_compose ___________________
+
+    def test_slides_python_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("slides", "python")
+
+tests\infra\test_helm_pilots_match_compose.py:147: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_pilots_match_compose.py:106: in _assert_pilot_matches_compose
+    pilot = _pilot(family, platform)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:72: in _pilot
+    matches = [p for p in _pilots() if p["family"] == family and p["platform"] == platform]
+                          ^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:67: in _pilots
+    values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F8351D0>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+__________________ test_pdf_typescript_pilot_matches_compose __________________
+
+    def test_pdf_typescript_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("pdf", "typescript")
+
+tests\infra\test_helm_pilots_match_compose.py:151: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_pilots_match_compose.py:106: in _assert_pilot_matches_compose
+    pilot = _pilot(family, platform)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:72: in _pilot
+    matches = [p for p in _pilots() if p["family"] == family and p["platform"] == platform]
+                          ^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:67: in _pilots
+    values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F6F2C10>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+______________________ test_pdf_go_pilot_matches_compose ______________________
+
+    def test_pdf_go_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("pdf", "go")
+
+tests\infra\test_helm_pilots_match_compose.py:155: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_pilots_match_compose.py:106: in _assert_pilot_matches_compose
+    pilot = _pilot(family, platform)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:72: in _pilot
+    matches = [p for p in _pilots() if p["family"] == family and p["platform"] == platform]
+                          ^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:67: in _pilots
+    values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F6F3ED0>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+_____________________ test_pdf_java_pilot_matches_compose _____________________
+
+    def test_pdf_java_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("pdf", "java")
+
+tests\infra\test_helm_pilots_match_compose.py:159: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_pilots_match_compose.py:106: in _assert_pilot_matches_compose
+    pilot = _pilot(family, platform)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:72: in _pilot
+    matches = [p for p in _pilots() if p["family"] == family and p["platform"] == platform]
+                          ^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:67: in _pilots
+    values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F835090>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+____________________ test_cells_rust_pilot_matches_compose ____________________
+
+    def test_cells_rust_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("cells", "rust")
+
+tests\infra\test_helm_pilots_match_compose.py:163: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_pilots_match_compose.py:106: in _assert_pilot_matches_compose
+    pilot = _pilot(family, platform)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:72: in _pilot
+    matches = [p for p in _pilots() if p["family"] == family and p["platform"] == platform]
+                          ^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:67: in _pilots
+    values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628D19EAD0>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+_____________________ test_pdf_cpp_pilot_matches_compose ______________________
+
+    def test_pdf_cpp_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("pdf", "cpp")
+
+tests\infra\test_helm_pilots_match_compose.py:167: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_pilots_match_compose.py:106: in _assert_pilot_matches_compose
+    pilot = _pilot(family, platform)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:72: in _pilot
+    matches = [p for p in _pilots() if p["family"] == family and p["platform"] == platform]
+                          ^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:67: in _pilots
+    values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F6F3890>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+___________________ test_words_python_pilot_matches_compose ___________________
+
+    def test_words_python_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("words", "python")
+
+tests\infra\test_helm_pilots_match_compose.py:171: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_pilots_match_compose.py:106: in _assert_pilot_matches_compose
+    pilot = _pilot(family, platform)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:72: in _pilot
+    matches = [p for p in _pilots() if p["family"] == family and p["platform"] == platform]
+                          ^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:67: in _pilots
+    values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F834B90>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+____________________ test_words_net_pilot_matches_compose _____________________
+
+    def test_words_net_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("words", "net")
+
+tests\infra\test_helm_pilots_match_compose.py:175: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_pilots_match_compose.py:106: in _assert_pilot_matches_compose
+    pilot = _pilot(family, platform)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:72: in _pilot
+    matches = [p for p in _pilots() if p["family"] == family and p["platform"] == platform]
+                          ^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:67: in _pilots
+    values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F6F2C10>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+___________________ test_slides_java_pilot_matches_compose ____________________
+
+    def test_slides_java_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("slides", "java")
+
+tests\infra\test_helm_pilots_match_compose.py:179: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_pilots_match_compose.py:106: in _assert_pilot_matches_compose
+    pilot = _pilot(family, platform)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:72: in _pilot
+    matches = [p for p in _pilots() if p["family"] == family and p["platform"] == platform]
+                          ^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:67: in _pilots
+    values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628D19EAD0>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+_____________________ test_cells_go_pilot_matches_compose _____________________
+
+    def test_cells_go_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("cells", "go")
+
+tests\infra\test_helm_pilots_match_compose.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_pilots_match_compose.py:106: in _assert_pilot_matches_compose
+    pilot = _pilot(family, platform)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:72: in _pilot
+    matches = [p for p in _pilots() if p["family"] == family and p["platform"] == platform]
+                          ^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:67: in _pilots
+    values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F8342D0>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+_________________ test_cells_typescript_pilot_matches_compose _________________
+
+    def test_cells_typescript_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("cells", "typescript")
+
+tests\infra\test_helm_pilots_match_compose.py:187: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_pilots_match_compose.py:106: in _assert_pilot_matches_compose
+    pilot = _pilot(family, platform)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:72: in _pilot
+    matches = [p for p in _pilots() if p["family"] == family and p["platform"] == platform]
+                          ^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:67: in _pilots
+    values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628D19EAD0>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+____________________ test_jmap_rust_pilot_matches_compose _____________________
+
+    def test_jmap_rust_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("jmap", "rust")
+
+tests\infra\test_helm_pilots_match_compose.py:191: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_pilots_match_compose.py:106: in _assert_pilot_matches_compose
+    pilot = _pilot(family, platform)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:72: in _pilot
+    matches = [p for p in _pilots() if p["family"] == family and p["platform"] == platform]
+                          ^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:67: in _pilots
+    values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F6F3890>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+____________________ test_cells_cpp_pilot_matches_compose _____________________
+
+    def test_cells_cpp_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("cells", "cpp")
+
+tests\infra\test_helm_pilots_match_compose.py:195: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_pilots_match_compose.py:106: in _assert_pilot_matches_compose
+    pilot = _pilot(family, platform)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:72: in _pilot
+    matches = [p for p in _pilots() if p["family"] == family and p["platform"] == platform]
+                          ^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:67: in _pilots
+    values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F834690>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+__________ test_every_pilot_has_a_serving_service_with_its_identity ___________
+
+    def test_every_pilot_has_a_serving_service_with_its_identity() -> None:
+        services = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))["services"]
+        for family, platform in sorted(FOURTEEN_PILOTS):
+            serving = services[_serving_name(family, platform)]
+            assert serving["environment"]["FOSS_MCP_FAMILY"] == family, (family, platform)
+            assert serving["environment"]["FOSS_MCP_PLATFORM"] == platform, (family, platform)
+>           assert serving["environment"]["FOSS_MCP_SOURCE_KIND"] == _pilot(family, platform)["sourceKind"]
+                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_helm_pilots_match_compose.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_pilots_match_compose.py:72: in _pilot
+    matches = [p for p in _pilots() if p["family"] == family and p["platform"] == platform]
+                          ^^^^^^^^^
+tests\infra\test_helm_pilots_match_compose.py:67: in _pilots
+    values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F6F2C10>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+_____________ test_chart_has_exactly_six_pilots_one_per_platform ______________
+
+    def test_chart_has_exactly_six_pilots_one_per_platform() -> None:
+>       keys = [(p["family"], p["platform"]) for p in _pilots()]
+                                                      ^^^^^^^^^
+
+tests\infra\test_helm_pilots_match_compose.py:218: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_helm_pilots_match_compose.py:67: in _pilots
+    values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:125: in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\__init__.py:81: in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\constructor.py:49: in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:36: in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:55: in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:133: in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:82: in compose_node
+    node = self.compose_sequence_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:111: in compose_sequence_node
+    node.value.append(self.compose_node(node, index))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:84: in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\composer.py:127: in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:98: in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <yaml.loader.SafeLoader object at 0x000002628F6F34D0>
+
+    def parse_block_mapping_key(self):
+        if self.check_token(KeyToken):
+            token = self.get_token()
+            if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+                self.states.append(self.parse_block_mapping_value)
+                return self.parse_block_node_or_indentless_sequence()
+            else:
+                self.state = self.parse_block_mapping_value
+                return self.process_empty_scalar(token.end_mark)
+        if not self.check_token(BlockEndToken):
+            token = self.peek_token()
+>           raise ParserError("while parsing a block mapping", self.marks[-1],
+                    "expected <block end>, but found %r" % token.id, token.start_mark)
+E           yaml.parser.ParserError: while parsing a block mapping
+E             in "<unicode string>", line 208, column 7:
+E                   - family: words
+E                     ^
+E           expected <block end>, but found '<scalar>'
+E             in "<unicode string>", line 218, column 18:
+E                       commit: "0d3f1add920f5294d726b4f286c2d6ba ... 
+E                                ^
+
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\yaml\parser.py:438: ParserError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_manifest_step.py::test_every_pilot_with_a_manifest_path_gets_the_fetch_step_on_the_read_write_claim
+FAILED tests/infra/test_helm_manifest_step.py::test_the_rendered_pdf_cpp_fetch_step_passes_its_manifest_path_CMakeLists_txt
+FAILED tests/infra/test_helm_manifest_step.py::test_a_pilot_without_a_manifest_path_gets_no_fetch_step
+FAILED tests/infra/test_helm_manifest_step.py::test_the_serving_deployment_mounts_the_manifests_claim_read_only
+FAILED tests/infra/test_helm_manifest_step.py::test_each_pilot_sidecar_name_is_distinct_and_is_the_name_its_own_pilot_writes
+FAILED tests/infra/test_helm_manifest_step.py::test_the_job_step_writes_the_sidecar_name_sidecar_name_returns_for_its_pilot
+FAILED tests/infra/test_helm_manifest_step.py::test_the_rendered_job_command_invokes_the_fetch_script_with_the_sidecar_name_for_its_pilot
+FAILED tests/infra/test_helm_chart.py::test_chart_lints_clean_with_a_required_tag
+FAILED tests/infra/test_helm_chart.py::test_render_refuses_to_run_without_an_image_tag
+FAILED tests/infra/test_helm_chart.py::test_serving_deployment_runs_the_http_entrypoint
+FAILED tests/infra/test_helm_chart.py::test_serving_pod_has_liveness_and_readiness_probes_on_8080
+FAILED tests/infra/test_helm_chart.py::test_every_pod_runs_non_root_with_a_read_only_root_and_a_tmp_mount
+FAILED tests/infra/test_helm_chart.py::test_no_image_is_latest_and_the_release_tag_is_applied
+FAILED tests/infra/test_helm_chart.py::test_service_routes_port_80_to_the_http_port_for_serving_only
+FAILED tests/infra/test_helm_chart.py::test_manifests_claim_exists_and_serving_mounts_it_read_only_at_data_manifests
+FAILED tests/infra/test_helm_chart.py::test_one_ingestion_job_is_rendered_per_listed_pilot_all_on_the_same_claim
+FAILED tests/infra/test_helm_chart.py::test_default_values_render_exactly_one_ingestion_job_for_the_deployment_identity
+FAILED tests/infra/test_helm_chart.py::test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose
+FAILED tests/infra/test_helm_chart.py::test_every_container_declares_resource_requests_and_limits
+FAILED tests/infra/test_helm_chart.py::test_dns_egress_reaches_only_kube_dns_on_udp_and_tcp_53
+FAILED tests/infra/test_helm_chart.py::test_ingestion_job_pod_template_carries_the_ingestion_component_label
+FAILED tests/infra/test_helm_chart.py::test_tcp_443_to_any_destination_is_granted_only_to_ingestion_pods
+FAILED tests/infra/test_helm_chart.py::test_serving_pods_receive_no_internet_egress_rule
+FAILED tests/infra/test_helm_chart.py::test_serving_policy_grants_no_tcp_443
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_pdf_net_pilot_matches_compose
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_slides_python_pilot_matches_compose
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_pdf_typescript_pilot_matches_compose
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_pdf_go_pilot_matches_compose
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_pdf_java_pilot_matches_compose
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_cells_rust_pilot_matches_compose
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_pdf_cpp_pilot_matches_compose
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_words_python_pilot_matches_compose
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_words_net_pilot_matches_compose
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_slides_java_pilot_matches_compose
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_cells_go_pilot_matches_compose
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_cells_typescript_pilot_matches_compose
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_jmap_rust_pilot_matches_compose
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_cells_cpp_pilot_matches_compose
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_every_pilot_has_a_serving_service_with_its_identity
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_chart_has_exactly_six_pilots_one_per_platform
+
+--- stderr ---
+
