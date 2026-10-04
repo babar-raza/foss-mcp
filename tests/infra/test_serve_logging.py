@@ -126,6 +126,9 @@ def test_main_wires_json_logging_and_grace_into_uvicorn(capsys, monkeypatch, res
     stdout as JSON."""
     monkeypatch.delenv(LOG_LEVEL_VAR, raising=False)
     monkeypatch.setenv(GRACE_VAR, "40")
+    # main() requires the deployment identity; any valid pair serves this test.
+    monkeypatch.setenv(serve_http.FAMILY_ENV, "pdf")
+    monkeypatch.setenv(serve_http.PLATFORM_ENV, "net")
     app_sentinel = object()
     monkeypatch.setattr(serve_http, "build_app", lambda config: app_sentinel)
 
