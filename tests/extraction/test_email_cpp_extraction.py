@@ -88,7 +88,14 @@ def test_the_fixture_contains_real_cpp_type_names() -> None:
     names = {entry["name"] for entry in data["types"]}
     # Real Aspose.Email-FOSS-for-Cpp types, not placeholders - would not survive an
     # empty or synthetic fixture.
-    assert {"cfb_document", "cfb_storage", "msg_reader", "msg_writer", "mapi_message", "mapi_attachment"} <= names
+    assert {
+        "cfb_document",
+        "cfb_storage",
+        "msg_reader",
+        "msg_writer",
+        "mapi_message",
+        "mapi_attachment",
+    } <= names
     assert all(entry["file"].endswith(".hpp") for entry in data["types"])
     assert all(entry["file"].startswith("include/aspose/email/foss/") for entry in data["types"])
 

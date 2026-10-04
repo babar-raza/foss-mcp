@@ -23,9 +23,9 @@ import urllib.error
 from base64 import b64encode
 from pathlib import Path
 
-import infra.fetch_product_reference as fetch_product_reference
 import foss_mcp.extraction.manifest_reader as manifest_reader
 import foss_mcp.extraction.repo_native_reader as repo_native_reader
+import infra.fetch_product_reference as fetch_product_reference
 
 REPOSITORY = "aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET"
 
@@ -34,7 +34,7 @@ class _FakeResponse:
     def __init__(self, payload: bytes) -> None:
         self._payload = payload
 
-    def __enter__(self) -> "_FakeResponse":
+    def __enter__(self) -> _FakeResponse:
         return self
 
     def __exit__(self, *exc_info: object) -> None:
@@ -82,7 +82,9 @@ def test_build_sidecar_with_a_present_manifest_and_both_documents_present(monkey
             "Aspose.PDF.FOSS.csproj": _contents_payload(
                 path="Aspose.PDF.FOSS.csproj", sha="m" * 40, content=manifest_text
             ),
-            "CONTRIBUTING.md": _contents_payload(path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"),
+            "CONTRIBUTING.md": _contents_payload(
+                path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"
+            ),
             "AGENTS.md": _contents_payload(path="AGENTS.md", sha="a" * 40, content="# Agents\n"),
         },
     )
@@ -102,14 +104,14 @@ def test_build_sidecar_with_a_present_manifest_and_both_documents_present(monkey
         "status": "present",
         "path": "CONTRIBUTING.md",
         "sha": "c" * 40,
-        "size": len("# Contributing\n".encode("utf-8")),
+        "size": len(b"# Contributing\n"),
         "content": "# Contributing\n",
     }
     assert sidecar["agent_guidance"] == {
         "status": "present",
         "path": "AGENTS.md",
         "sha": "a" * 40,
-        "size": len("# Agents\n".encode("utf-8")),
+        "size": len(b"# Agents\n"),
         "content": "# Agents\n",
     }
 
@@ -122,7 +124,9 @@ def test_build_sidecar_with_manifest_path_omitted_never_calls_fetch_manifest_fil
     _install_fake_urlopen(
         monkeypatch,
         {
-            "CONTRIBUTING.md": _contents_payload(path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"),
+            "CONTRIBUTING.md": _contents_payload(
+                path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"
+            ),
             "AGENTS.md": _contents_payload(path="AGENTS.md", sha="a" * 40, content="# Agents\n"),
         },
     )
@@ -174,7 +178,9 @@ def test_main_writes_the_real_sidecar_json_matching_build_sidecars_return_value(
     _install_fake_urlopen(
         monkeypatch,
         {
-            "CONTRIBUTING.md": _contents_payload(path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"),
+            "CONTRIBUTING.md": _contents_payload(
+                path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"
+            ),
             "AGENTS.md": _contents_payload(path="AGENTS.md", sha="a" * 40, content="# Agents\n"),
         },
     )
@@ -213,7 +219,9 @@ def test_main_prints_a_one_line_confirmation(tmp_path: Path, monkeypatch, capsys
     _install_fake_urlopen(
         monkeypatch,
         {
-            "CONTRIBUTING.md": _contents_payload(path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"),
+            "CONTRIBUTING.md": _contents_payload(
+                path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"
+            ),
             "AGENTS.md": _contents_payload(path="AGENTS.md", sha="a" * 40, content="# Agents\n"),
         },
     )

@@ -49,9 +49,7 @@ def test_the_fixture_contains_real_dotnet_type_names() -> None:
     names = {entry["name"] for entry in data["types"]}
     # Real Aspose.Imaging.Foss types, not placeholders - would not survive an empty or synthetic fixture.
     assert {"ImageFormat", "ImageInfo", "ImageProbe"} <= names
-    assert all(
-        entry.get("class_import", "").startswith("Aspose.Imaging.Foss") for entry in data["types"]
-    )
+    assert all(entry.get("class_import", "").startswith("Aspose.Imaging.Foss") for entry in data["types"])
     assert all(entry["file"].endswith(".cs") for entry in data["types"])
 
 

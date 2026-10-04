@@ -50,9 +50,7 @@ def test_the_fixture_contains_real_dotnet_type_names() -> None:
     # Real Aspose.Email.Foss types (CFB container + MSG/MAPI layers), not placeholders -
     # would not survive an empty or synthetic fixture.
     assert {"CfbDocument", "MapiMessage", "MsgReader"} <= names
-    assert all(
-        entry.get("class_import", "").startswith("Aspose.Email.Foss") for entry in data["types"]
-    )
+    assert all(entry.get("class_import", "").startswith("Aspose.Email.Foss") for entry in data["types"])
     assert all(entry["file"].endswith(".cs") for entry in data["types"])
 
 
