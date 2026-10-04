@@ -1,0 +1,69 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/poc/test_pilot_workflow_proof.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-af4v6swv\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/poc/test_pilot_workflow_proof.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-af4v6swv\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/poc/pilot_workflow_proof.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/poc/test_pilot_workflow_proof.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-af4v6swv\.junit-0.xml"
+--- stdout ---
+........FF.                                                              [100%]
+================================== FAILURES ===================================
+_ test_a_cpp_pilot_with_no_install_command_passes_check_7_on_its_compatibility_text _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-967/test_a_cpp_pilot_with_no_insta0')
+
+    def test_a_cpp_pilot_with_no_install_command_passes_check_7_on_its_compatibility_text(tmp_path: Path) -> None:
+        _write_fixtures(tmp_path)
+        check7, _ = _check_7_for(
+            tmp_path,
+            "cpp",
+            {"install": UNAVAILABLE_INSTALL, "compatibility": {"section": "compatibility", "text": STANDARD_TEXT}},
+        )
+>       assert check7["status"] == "pass"
+E       AssertionError: assert 'fail' == 'pass'
+E         
+E         - pass
+E         + fail
+
+tests\poc\test_pilot_workflow_proof.py:316: AssertionError
+_____________ test_a_cpp_pilot_with_neither_section_fails_check_7 _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-967/test_a_cpp_pilot_with_neither_0')
+
+    def test_a_cpp_pilot_with_neither_section_fails_check_7(tmp_path: Path) -> None:
+        _write_fixtures(tmp_path)
+        check7, _ = _check_7_for(
+            tmp_path,
+            "cpp",
+            {
+                "install": UNAVAILABLE_INSTALL,
+                "compatibility": {"section": "compatibility", "text": "   ", "reason": "no standard found"},
+            },
+        )
+        assert check7["status"] == "fail"
+>       assert check7["evidence"]["sections_asked"] == ["install", "compatibility"]
+E       AssertionError: assert ['install', 'nonesuch'] == ['install', 'compatibility']
+E         
+E         At index 1 diff: 'nonesuch' != 'compatibility'
+E         Use -v to get more diff
+
+tests\poc\test_pilot_workflow_proof.py:336: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/poc/test_pilot_workflow_proof.py::test_a_cpp_pilot_with_no_install_command_passes_check_7_on_its_compatibility_text
+FAILED tests/poc/test_pilot_workflow_proof.py::test_a_cpp_pilot_with_neither_section_fails_check_7
+
+--- stderr ---
+
