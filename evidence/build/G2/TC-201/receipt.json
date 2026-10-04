@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "card": "TC-201",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-04T16:55:27Z",
+  "base_rev": "60df31b415b147709a3b726277cd3088e9dbd16b",
+  "head_rev": "0b37ea52d36092ca18ff164f9bd6220d5dc0f820",
+  "card_sha256": "8ae56bffde7c1bf80cd54291bfba871ed7cf699f0ff70702dde632fa28e2aec3",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "Dockerfile.ingestion",
+      "Dockerfile.serving",
+      "infra/fetch_product_reference.py",
+      "infra/helm/foss-mcp/templates/ingestion-job.yaml",
+      "infra/helm/foss-mcp/values.yaml",
+      "infra/serve_http.py",
+      "tests/infra/test_helm_manifest_step.py",
+      "tests/infra/test_serve_manifest_sidecar.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_manifest_step.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py -q",
+          "exit_code": 0,
+          "duration_s": 4.876,
+          "stdout_sha256": "1e6b4fbe33d23cc880df779e2dd0330dd0359555faab7d7943e31674e2319fe8",
+          "tests": 34,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_manifest_step.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py -q",
+          "exit_code": 0,
+          "duration_s": 3.77,
+          "stdout_sha256": "1e6b4fbe33d23cc880df779e2dd0330dd0359555faab7d7943e31674e2319fe8",
+          "tests": 34,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/ingestion-job.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('fetch_product_reference.py','fetch_product_reference_off.py',1),encoding='utf-8')\"\n",
+    "patch_sha256": "b74047fc554905466d4a4c66d7ee36cc142cc904e748690594c0cdf687b03fd5",
+    "applied": true,
+    "patch_applied_failed": false,
+    "exit_codes": [
+      0
+    ],
+    "tree_changed": [
+      "M infra/helm/foss-mcp/templates/ingestion-job.yaml",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": false,
+  "reason": "VACUOUS CHECKS: the suite still passed with the falsifier applied"
+}
