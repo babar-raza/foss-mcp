@@ -37,6 +37,7 @@ substituted for a real match. See ``suggest_similar_fqns`` below.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from difflib import get_close_matches
@@ -48,6 +49,43 @@ from foss_mcp.mcp.routing import Scope
 SOURCE_KIND = "self_extracted"
 
 _NON_SYMBOL_FQN_PREFIXES = ("Example: ", "Doc: ")
+
+
+_CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
+_WORD_SEPARATORS = re.compile(r"[\s._]+")
+
+
+def _symbol_words(text: str) -> list[str]:
+    """The lowercased words of *text*, split at camel-case boundaries and at whitespace, dots and
+    underscores (``PdfDocument.AddWatermarkAnnotation`` -> pdf, document, add, watermark, annotation).
+    """
+    spaced = _CAMEL_BOUNDARY.sub(" ", text)
+    return [word.casefold() for word in _WORD_SEPARATORS.split(spaced) if word]
+
+
+def is_exact_symbol_hit(query: str, fqn: str | None) -> bool:
+    """True when *query* names *fqn*: it equals the full FQN or its final dotted segment, compared
+    case-insensitively after stripping whitespace; or every word of *query* is a whole word among
+    the words of *fqn* (words split at camel-case boundaries and at dots and underscores).
+
+    ``watermark`` is a whole word of ``PdfDocument.AddWatermarkAnnotation``, so it is a hit. A
+    partial word such as ``Watermar`` is not, and neither is an absent name that shares no whole
+    word with the FQN. A lexical rank is never enough on its own, and a chunk with no FQN line
+    can never be an exact hit.
+    """
+    if fqn is None:
+        return False
+    needle = query.strip().casefold()
+    if not needle:
+        return False
+    full = fqn.strip().casefold()
+    if needle == full or needle == full.rsplit(".", 1)[-1]:
+        return True
+    query_words = _symbol_words(query)
+    if not query_words:
+        return False
+    fqn_words = set(_symbol_words(fqn))
+    return all(word in fqn_words for word in query_words)
 
 
 def suggest_similar_fqns(known_fqns: Iterable[str], target: str, *, limit: int = 3) -> tuple[str, ...]:
@@ -123,11 +161,14 @@ def search_symbols(
 
     documents = lexical_payload["documents"]
     ranked = query_lexical_index(lexical_payload, query, top_k=len(documents))
-    doc_ids = [
-        doc_id
-        for doc_id in ranked
-        if not (extract_fqn(documents[doc_id]["text"]) or "").startswith(_NON_SYMBOL_FQN_PREFIXES)
-    ][:top_k]
+    doc_ids: list[str] = []
+    for doc_id in ranked:
+        fqn = extract_fqn(documents[doc_id]["text"])
+        if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+            continue
+        if is_exact_symbol_hit(query, fqn):
+            doc_ids.append(doc_id)
+    doc_ids = doc_ids[:top_k]
     if not doc_ids:
         known_fqns = []
         for doc_id in documents:

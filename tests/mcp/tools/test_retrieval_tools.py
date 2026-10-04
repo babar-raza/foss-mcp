@@ -88,7 +88,7 @@ def _pdf_net_symbol_chunks() -> list:
         text = f"{name} is a {entry.get('kind', '')}."
         if methods:
             text += f" Methods: {methods}."
-        sections.append(f"## {name}\n\n{text}")
+        sections.append(f"## {name}\n\nFQN: {name}\n{text}")
     doc = make_document(
         source_kind=SourceKind.SELF_EXTRACTED,
         content_type="api_surface",
@@ -543,18 +543,21 @@ def test_lookup_symbol_first_dispatch_still_surfaces_a_furnished_doc_chunk_bare_
     REQ-G2-049 scenario 4's original promise - a bare query composing a doc-fallback TaskAnswer
     when nothing resolves as a REAL symbol - is reachable again now that both tools share one
     generation.
+
+    TC-202 (G2/REQ-G2-047) closes that gap: search_symbols now accepts only an exact symbol hit,
+    so this query is an honest Miss and lookup composes the doc-fallback TaskAnswer (line 555).
     """
     store = _store(tmp_path)
     _publish_pdf_net_docs(store)
 
     result = lookup(store, PDF_NET_SCOPE, "licensed")
 
-    # Documents the real, reproduced, current behavior: search_symbols has no exclusion for
-    # ordinary documentation prose, so it reports the furnished FAQ chunk as a symbol match,
-    # and lookup's bare-query dispatch faithfully returns exactly that.
-    assert isinstance(result, list) and result
-    assert all(isinstance(match, SymbolMatch) for match in result)
-    assert any("licensed" in match.text.lower() for match in result)
+    # TC-202 restatement (line 555): "licensed" is not a whole word of any symbol FQN, so
+    # search_symbols returns an honest Miss and lookup composes the doc-fallback TaskAnswer; the
+    # furnished FAQ chunk is in its doc_matches.
+    assert isinstance(result, TaskAnswer)
+    assert isinstance(result.doc_matches, tuple) and result.doc_matches
+    assert any("licensed" in match.text.lower() for match in result.doc_matches)
 
 
 def test_lookup_returns_the_original_miss_when_nothing_resolves_at_all(tmp_path: Path) -> None:
@@ -597,6 +600,9 @@ def test_lookup_symbol_first_dispatch_surfaces_furnished_doc_not_the_excluded_ps
     Closing the REMAINING gap - a furnished doc chunk also needs to be excluded from
     search_symbols's own matching, the same way the pseudo-symbol already is - is a follow-up
     card's job: search_symbols.py is not in TC-109's write_paths.
+
+    TC-202 (G2/REQ-G2-047) closes that gap: the query is an honest Miss in search_symbols, and the
+    furnished guide chunk reaches the answer as a doc match (restated at line 654).
     """
     store = _store(tmp_path)
     real_symbol_body = """## PdfDocument
@@ -648,14 +654,16 @@ works well for stamping confidential markings onto exported PDF documents.
 
     result = lookup(store, PDF_NET_SCOPE, "watermark")
 
-    # Documents the real, reproduced, current behavior: search_symbols reports the furnished
-    # doc chunk (no Example: prefix, so not excluded) as a symbol match, and lookup's bare-query
-    # dispatch faithfully returns exactly that - never reaching _compose_from_docs.
-    assert isinstance(result, list) and result
-    assert all(isinstance(match, SymbolMatch) for match in result)
-    # TC-068's own exclusion still works correctly: the pseudo-symbol never masquerades as one.
-    assert all("Example: Add a Watermark Annotation" not in match.text for match in result)
-    assert any("watermark" in match.text.lower() for match in result)
+    # TC-202 restatement (line 654): "watermark" is a whole word of no symbol FQN here (the real
+    # symbol is PdfDocument, and the furnished chunk has no FQN line), so search_symbols returns an
+    # honest Miss and lookup composes a TaskAnswer; the furnished guide chunk is in its doc_matches.
+    assert isinstance(result, TaskAnswer)
+    assert isinstance(result.doc_matches, tuple) and result.doc_matches
+    assert all(isinstance(match, DocMatch) for match in result.doc_matches)
+    assert any("watermark" in match.text.lower() for match in result.doc_matches)
+    # TC-068's pseudo-symbol is never reported as a symbol: it reaches the answer only as the example.
+    assert result.example is not None
+    assert result.example.fqn == "Example: Add a Watermark Annotation"
 
 
 def test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere(
@@ -778,11 +786,11 @@ confidential markings onto every exported page.
 
     task_question = "how do I add a watermark to a PDF"
 
-    # The incidental collision is real, not hypothetical: the unrelated Merge symbol's FQN
-    # shares the word "pdf" with the question, so a naive non-empty check on search_symbols
-    # alone would (wrongly) treat this as a confident symbol match.
+    # TC-202 restatement (line 785): the Merge symbol's FQN shares only the word "pdf" with the
+    # question. The exact-hit predicate needs every query word to be a whole word of the FQN, so
+    # the collision is rejected and search_symbols returns a Miss for the question.
     raw_symbol_result = search_symbols(store, PDF_NET_SCOPE, task_question)
-    assert isinstance(raw_symbol_result, list) and raw_symbol_result
+    assert isinstance(raw_symbol_result, SymbolsMiss)
 
     result = lookup(store, PDF_NET_SCOPE, task_question)
 
@@ -818,7 +826,7 @@ def test_every_result_carries_the_scope_that_was_passed_in_never_another(tmp_pat
                 ),
                 evidence_refs=(),
                 title="cells/python API surface",
-                body="## Workbook\n\nWorkbook is a class. Methods: Save, Open.",
+                body="## Workbook\n\nFQN: Workbook\nWorkbook is a class. Methods: Save, Open.",
             )
         ),
     )
