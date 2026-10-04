@@ -1337,3 +1337,8 @@ Image tag rev-72dc155 (HEAD 72dc155) on kind-foss-mcp (node v1.32.5). Six releas
 Every release returned only its own scope. /readyz returned 200 for each serving pod.
 **Expected failure, handled as designed.** One cells/rust attempt failed with a registry outage. It exited with the environment failure path (TC-181, TC-184, TC-189), the Job's retry completed, and no chunks were written from the failed attempt.
 **Still open, not blocking the POC.** One release per pilot is the POC shape. Production needs one serving deployment that serves several scopes (recorded in the earlier decision). The pdf/java example set is 2 of 3 (OWNER-07).
+
+## 2026-10-04 - CI green at 4f08bc1; the status attribution defect is fixed (supervisor)
+**CI.** scripts/ci_check.sh passes at 4f08bc1 with all five steps successful: lint, format, typecheck, pytest and the governance check.
+**Defect found by review, fixed.** TC-196's committed status line was recorded from the main checkout, so it named the supervisor's dispatch commit, not the worker's. The scope check then counted the dispatch commit as the card's own work and rejected a correct card. The status command now records the card's branch tip for a committed line, and attribution uses the latest line per attempt. The channel is append-only, so the wrong line stays, and a corrected line supersedes it. Five canaries pin the rule.
+**Open, not blocking CI.** The cells/rust live e2e can still fail if the registry is unreachable on every attempt. TC-196 bounds the retries and reports the environment cause, so this is an honest environment failure, not a silent pass.
