@@ -114,7 +114,7 @@ def test_java_verify_kwargs_gives_library_jar() -> None:
 
     kwargs = build_chunks._PLATFORM_DISPATCH["java"]["verify_kwargs"](prepared, argparse.Namespace())
 
-    assert kwargs == {"library_jar": prepared}
+    assert kwargs == {"library_jar": prepared, "page_imports": ()}
 
 
 def test_required_flags_table_matches_what_go_and_java_entries_use(

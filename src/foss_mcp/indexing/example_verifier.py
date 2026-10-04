@@ -1028,6 +1028,33 @@ _MAVEN_DOWNLOAD_URL = (
 _JAVA_PUBLIC_CLASS_RE = re.compile(r"public\s+(?:final\s+|abstract\s+)?class\s+(\w+)")
 
 
+def _java_wrapper_source(
+    candidate_code: str,
+    class_name: str,
+    page_imports: tuple[str, ...],
+) -> str:
+    """Return the full Java source that wraps a candidate with no public class of its own.
+
+    The source begins with the wildcard import ``org.aspose.pdf.*``, then each of
+    ``page_imports`` in order (the import lines the furnished page itself carries, so classes
+    in subpackages such as ``annotations`` or ``forms`` resolve), then a minimal ``class_name``
+    class whose ``main`` method holds the candidate's statements. With no page imports the text
+    is identical to the wrapper used before page imports were honoured.
+    """
+    header = "\n".join(["import org.aspose.pdf.*;", *page_imports])
+    indented = "\n".join(
+        f"        {line}" if line.strip() else line for line in candidate_code.splitlines()
+    )
+    return (
+        f"{header}\n\n"
+        f"public class {class_name} {{\n"
+        "    public static void main(String[] args) throws Exception {\n"
+        f"{indented}\n"
+        "    }\n"
+        "}\n"
+    )
+
+
 def _find_or_download_maven(workdir: Path) -> Path:
     """Return a real, invocable ``mvn`` executable: the one already on
     PATH if present, else a freshly downloaded-and-unzipped Maven
@@ -1130,6 +1157,7 @@ def verify_java_example(
     *,
     library_jar: Path,
     workdir: Path,
+    page_imports: tuple[str, ...] = (),
 ) -> VerificationResult:
     """Compile ``candidate.code`` against ``library_jar`` (the real
     packaged reference jar) with ``javac``, and report the real compiler
@@ -1141,9 +1169,11 @@ def verify_java_example(
     declaration (confirmed by reading the real
     ``tests/fixtures/furnished/pdf_java/pages/`` content). A candidate
     with no ``public class`` of its own is therefore wrapped here in a
-    minimal ``Candidate`` class with a ``main`` method and a wildcard
-    ``org.aspose.pdf`` import; a candidate that already declares its own
-    public class is compiled as-is, named after that class.
+    minimal ``Candidate`` class with a ``main`` method, a wildcard
+    ``org.aspose.pdf`` import, and then ``page_imports`` (the page's own
+    import lines, in order); a candidate that already declares its own
+    public class is compiled as-is, named after that class, with no page
+    imports added.
 
     The literal comparison determining ``verified`` is intentionally
     exact (``verified = result.returncode == 0``), matching
@@ -1158,17 +1188,7 @@ def verify_java_example(
         source = candidate.code
     else:
         class_name = "Candidate"
-        indented = "\n".join(
-            f"        {line}" if line.strip() else line for line in candidate.code.splitlines()
-        )
-        source = (
-            "import org.aspose.pdf.*;\n\n"
-            f"public class {class_name} {{\n"
-            "    public static void main(String[] args) throws Exception {\n"
-            f"{indented}\n"
-            "    }\n"
-            "}\n"
-        )
+        source = _java_wrapper_source(candidate.code, class_name, page_imports)
 
     source_path = project_dir / f"{class_name}.java"
     source_path.write_text(source, encoding="utf-8")

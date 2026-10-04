@@ -148,7 +148,10 @@ _PLATFORM_DISPATCH = {
             args.library_repository, args.library_commit, workdir
         ),
         "verify": verify_java_example,
-        "verify_kwargs": lambda prepared, args: {"library_jar": prepared},
+        "verify_kwargs": lambda prepared, args: {
+            "library_jar": prepared,
+            "page_imports": _page_java_imports(getattr(args, "furnished_page", None)),
+        },
         "shared_page_workdir": False,
     },
     "typescript": {
@@ -190,6 +193,21 @@ def _load_furnished_page(path: Path) -> dict:
     parsed = yaml.safe_load(front_matter)
     assert isinstance(parsed, dict)
     return parsed
+
+
+def _page_java_imports(path: Path | None) -> tuple[str, ...]:
+    """Return the import lines of a furnished page, in document order: each stripped line that
+    starts with ``import `` and ends with ``;``. Prose that merely mentions imports is not one of
+    them. With no page (``None``) there are no imports.
+    """
+    if path is None:
+        return ()
+    imports: list[str] = []
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if line.startswith("import ") and line.endswith(";"):
+            imports.append(line)
+    return tuple(imports)
 
 
 def _write_verification_report(path: Path, records: list[dict]) -> None:
