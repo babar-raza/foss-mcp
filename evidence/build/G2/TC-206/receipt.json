@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "card": "TC-206",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-04T17:55:12Z",
+  "base_rev": "b2b3a983216b7f8f553c92477b52caffeaae3b53",
+  "head_rev": "611ab62fffab7c3e6c3a3009cf54dbf5d61fa5ca",
+  "card_sha256": "d500287bb935ff38c8ca7f1dfb39c79b1e356d3628c9d92ca9a898d36dfa1066",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/helm/foss-mcp/templates/ingestion-job.yaml",
+      "infra/helm/foss-mcp/values.yaml",
+      "tests/infra/test_helm_manifest_step.py",
+      "tests/infra/test_helm_pilots_match_compose.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_manifest_step.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 6.703,
+          "stdout_sha256": "70bd93f29a65727e5cc0991aac37bb59b433f6d667824853361ad51e262a38ec",
+          "tests": 44,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_manifest_step.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 5.995,
+          "stdout_sha256": "70bd93f29a65727e5cc0991aac37bb59b433f6d667824853361ad51e262a38ec",
+          "tests": 44,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/helm/foss-mcp/values.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('manifestPath: CMakeLists.txt','manifestPath: CMakeLists_off.txt',1),encoding='utf-8')\"\n",
+    "patch_sha256": "1a24b49f588ad914775960591e3f69a826d399d16e65bea337cb64b923eb8e17",
+    "applied": true,
+    "patch_applied_failed": false,
+    "exit_codes": [
+      0
+    ],
+    "tree_changed": [
+      "M infra/helm/foss-mcp/values.yaml",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": false,
+  "reason": "VACUOUS CHECKS: the suite still passed with the falsifier applied"
+}
