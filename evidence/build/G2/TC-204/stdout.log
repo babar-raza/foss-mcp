@@ -1,0 +1,93 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_sidecar_gate.py tests/infra/test_helm_chart.py tests/infra/test_helm_manifest_step.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0cbyhnu9\.junit-0.xml"
+--- stdout ---
+................................                                         [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_sidecar_gate.py tests/infra/test_helm_chart.py tests/infra/test_helm_manifest_step.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0cbyhnu9\.junit-0.xml"
+--- stdout ---
+................................                                         [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/templates/deployment.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_sidecar_gate.py tests/infra/test_helm_chart.py tests/infra/test_helm_manifest_step.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0cbyhnu9\.junit-0.xml"
+--- stdout ---
+FFF.............................                                         [100%]
+================================== FAILURES ===================================
+____ test_serving_deployment_has_wait_for_product_reference_init_container ____
+
+    def test_serving_deployment_has_wait_for_product_reference_init_container() -> None:
+        deployment = _render_deployment()
+>       init = _init_container(deployment)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_helm_sidecar_gate.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+deployment = {'apiVersion': 'apps/v1', 'kind': 'Deployment', 'metadata': {'name': 'foss-mcp-pdf-net', 'labels': {'app.kubernetes.io...rving', 'image': 'foss-mcp-serving:tc204-test-tag', 'imagePullPolicy': 'IfNotPresent', 'command': [...], ...}], ...}}}}
+
+    def _init_container(deployment: dict[str, Any]) -> dict[str, Any]:
+        inits = deployment["spec"]["template"]["spec"].get("initContainers") or []
+        matches = [c for c in inits if c.get("name") == INIT_NAME]
+>       assert len(matches) == 1, f"expected one initContainer named {INIT_NAME}, found {len(matches)}"
+E       AssertionError: expected one initContainer named wait-for-product-reference, found 0
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\infra\test_helm_sidecar_gate.py:61: AssertionError
+___________ test_init_container_waits_for_exactly_the_sidecar_path ____________
+
+    def test_init_container_waits_for_exactly_the_sidecar_path() -> None:
+        deployment = _render_deployment("deployment.family=pdf", "deployment.platform=net")
+>       init = _init_container(deployment)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_helm_sidecar_gate.py:79: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+deployment = {'apiVersion': 'apps/v1', 'kind': 'Deployment', 'metadata': {'name': 'foss-mcp-pdf-net', 'labels': {'app.kubernetes.io...rving', 'image': 'foss-mcp-serving:tc204-test-tag', 'imagePullPolicy': 'IfNotPresent', 'command': [...], ...}], ...}}}}
+
+    def _init_container(deployment: dict[str, Any]) -> dict[str, Any]:
+        inits = deployment["spec"]["template"]["spec"].get("initContainers") or []
+        matches = [c for c in inits if c.get("name") == INIT_NAME]
+>       assert len(matches) == 1, f"expected one initContainer named {INIT_NAME}, found {len(matches)}"
+E       AssertionError: expected one initContainer named wait-for-product-reference, found 0
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\infra\test_helm_sidecar_gate.py:61: AssertionError
+____________ test_init_container_mounts_manifests_claim_read_only _____________
+
+    def test_init_container_mounts_manifests_claim_read_only() -> None:
+        deployment = _render_deployment()
+>       init = _init_container(deployment)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_helm_sidecar_gate.py:94: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+deployment = {'apiVersion': 'apps/v1', 'kind': 'Deployment', 'metadata': {'name': 'foss-mcp-pdf-net', 'labels': {'app.kubernetes.io...rving', 'image': 'foss-mcp-serving:tc204-test-tag', 'imagePullPolicy': 'IfNotPresent', 'command': [...], ...}], ...}}}}
+
+    def _init_container(deployment: dict[str, Any]) -> dict[str, Any]:
+        inits = deployment["spec"]["template"]["spec"].get("initContainers") or []
+        matches = [c for c in inits if c.get("name") == INIT_NAME]
+>       assert len(matches) == 1, f"expected one initContainer named {INIT_NAME}, found {len(matches)}"
+E       AssertionError: expected one initContainer named wait-for-product-reference, found 0
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\infra\test_helm_sidecar_gate.py:61: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_sidecar_gate.py::test_serving_deployment_has_wait_for_product_reference_init_container
+FAILED tests/infra/test_helm_sidecar_gate.py::test_init_container_waits_for_exactly_the_sidecar_path
+FAILED tests/infra/test_helm_sidecar_gate.py::test_init_container_mounts_manifests_claim_read_only
+
+--- stderr ---
+
