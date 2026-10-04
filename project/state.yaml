@@ -1,7 +1,7 @@
 schema_version: 1
 project: foss-mcp
 generated_by: gatectl
-generated_at: '2026-10-01T13:04:51Z'
+generated_at: '2026-10-04T05:27:58Z'
 current_gate:
   id: G2
   status: IN_PROGRESS
@@ -1182,9 +1182,11 @@ cards:
   receipt: G2/TC-170/receipt.json
 - id: TC-171
   gate: G2
-  status: IN_PROGRESS
+  status: ACCEPTED
   attempt: 1
   blocker: null
+  commit: 9f690164ffcb45a99b27b574d8bc0d77c0c09923
+  receipt: G2/TC-171/receipt.json
 owner_items:
 - id: OWNER-01
   status: SATISFIED
@@ -1277,6 +1279,24 @@ owner_items:
     for the REAL hook runtime (multiple minutes, not 25s) given how large this project''s
     test suite has grown.'
   last_checked_at: '2026-09-27T00:00:00Z'
+- id: OWNER-04
+  status: BLOCKED_EXTERNAL
+  summary: 'The mission plan (C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md)
+    is absent on this machine (2026-10-03). `gatectl validate` fails 184 source_ref
+    checks on it. Nothing else is affected: review, accept, gate-exit and worker-tick
+    never read source_refs. Workers must not read the plan, so card execution is unaffected.'
+  resume_predicate: Restore the mission plan file to C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+    (read-only reference; never edited by any agent), then `.venv\Scripts\python.exe
+    ops\gatectl.py validate` exits 0. If its content differs from the version the
+    cards were digested against, validate will report the changed anchors; those are
+    a finding to resolve, not to hand-edit around.
+  consumed_by:
+  - NONE
+  recorded_at: '2026-10-03T00:00:00Z'
+  note: 'Blocks validate only (a governance assertion run at gate boundaries and in
+    CI), not any card or dispatch. Owner-only: the file is not in the repository and
+    no agent can produce it. Does not stop the loop.'
+  last_checked_at: '2026-10-03T00:00:00Z'
 open_questions:
   open: 3
   ids:
