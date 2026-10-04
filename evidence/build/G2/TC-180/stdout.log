@@ -1,0 +1,170 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_githooks.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tlmknb3y\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_githooks.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tlmknb3y\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/test_githooks.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_githooks.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tlmknb3y\.junit-0.xml"
+--- stdout ---
+.FFF.F                                                                   [100%]
+================================== FAILURES ===================================
+__________ test_hook_is_actually_executed_by_bash_not_a_mangled_path __________
+
+    def test_hook_is_actually_executed_by_bash_not_a_mangled_path():
+        """Guard against the historical false-pass: invoking the hook via an
+        absolute Windows path makes Git Bash return 127 (command not found)
+        without ever running the script, and a bare `!= 0` assertion would wrongly
+        treat that as "the hook blocked the push". This test proves bash can
+        actually locate and execute `.githooks/pre-push` at all.
+    
+        Uses this project's own remote *name* ("origin") together with a URL that
+        deliberately does NOT contain "foss-mcp", so the fast refusal path is
+        taken rather than the slow scripts/ci_check.sh path.
+        """
+>       result = _run_hook("origin", "https://github.com/someone/unrelated.git")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_githooks.py:164: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_githooks.py:140: in _run_hook
+    [_git_bash(), HOOK_RELATIVE, remote_name, remote_url],
+     ^^^^^^^^^^^
+tests\test_githooks.py:122: in _git_bash
+    _fail_unresolved(tried)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tried = ['next to git: C:\\Program Files\\Git\\cmd\\bin\\bash_missing.exe (not a file)', 'next to git: C:\\Program Files\\Git\\bin\\bash_missing.exe (not a file)', 'bash on PATH (not found)']
+
+    def _fail_unresolved(tried: list[str]) -> NoReturn:
+>       pytest.fail(_unresolved("no usable bash was found", tried))
+E       Failed: could not resolve Git for Windows bash for tests/test_githooks.py: no usable bash was found. Tried, in order: next to git: C:\Program Files\Git\cmd\bin\bash_missing.exe (not a file); next to git: C:\Program Files\Git\bin\bash_missing.exe (not a file); bash on PATH (not found). Set FOSS_MCP_GIT_BASH to the full path of Git's bin\bash.exe to override.
+
+tests\test_githooks.py:126: Failed
+____________ test_nonmatching_remote_url_exits_nonzero_and_refuses ____________
+
+    def test_nonmatching_remote_url_exits_nonzero_and_refuses():
+        """A remote that is plainly not this project must BLOCK the push.
+    
+        This is the exact defect being guarded against: the forked original
+        exited 0 here, which git reports as the hook PASSING. Asserting only
+        `returncode != 0` is not enough on its own - bash returns 127 for a
+        mangled/unresolvable path, which is also nonzero but means the hook
+        never ran. So this also pins the exit code away from 127 and checks the
+        hook's own refusal text landed on stderr.
+        """
+>       result = _run_hook("origin", "https://github.com/someone/unrelated.git")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_githooks.py:188: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_githooks.py:140: in _run_hook
+    [_git_bash(), HOOK_RELATIVE, remote_name, remote_url],
+     ^^^^^^^^^^^
+tests\test_githooks.py:122: in _git_bash
+    _fail_unresolved(tried)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tried = ['next to git: C:\\Program Files\\Git\\cmd\\bin\\bash_missing.exe (not a file)', 'next to git: C:\\Program Files\\Git\\bin\\bash_missing.exe (not a file)', 'bash on PATH (not found)']
+
+    def _fail_unresolved(tried: list[str]) -> NoReturn:
+>       pytest.fail(_unresolved("no usable bash was found", tried))
+E       Failed: could not resolve Git for Windows bash for tests/test_githooks.py: no usable bash was found. Tried, in order: next to git: C:\Program Files\Git\cmd\bin\bash_missing.exe (not a file); next to git: C:\Program Files\Git\bin\bash_missing.exe (not a file); bash on PATH (not found). Set FOSS_MCP_GIT_BASH to the full path of Git's bin\bash.exe to override.
+
+tests\test_githooks.py:126: Failed
+_______________ test_empty_remote_url_exits_nonzero_and_refuses _______________
+
+    def test_empty_remote_url_exits_nonzero_and_refuses():
+        """No remote URL supplied must BLOCK rather than assume safety."""
+>       result = _run_hook("origin", "")
+                 ^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_githooks.py:203: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_githooks.py:140: in _run_hook
+    [_git_bash(), HOOK_RELATIVE, remote_name, remote_url],
+     ^^^^^^^^^^^
+tests\test_githooks.py:122: in _git_bash
+    _fail_unresolved(tried)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tried = ['next to git: C:\\Program Files\\Git\\cmd\\bin\\bash_missing.exe (not a file)', 'next to git: C:\\Program Files\\Git\\bin\\bash_missing.exe (not a file)', 'bash on PATH (not found)']
+
+    def _fail_unresolved(tried: list[str]) -> NoReturn:
+>       pytest.fail(_unresolved("no usable bash was found", tried))
+E       Failed: could not resolve Git for Windows bash for tests/test_githooks.py: no usable bash was found. Tried, in order: next to git: C:\Program Files\Git\cmd\bin\bash_missing.exe (not a file); next to git: C:\Program Files\Git\bin\bash_missing.exe (not a file); bash on PATH (not found). Set FOSS_MCP_GIT_BASH to the full path of Git's bin\bash.exe to override.
+
+tests\test_githooks.py:126: Failed
+_____ test_gitlab_mirror_remote_is_recognized_as_this_project_not_refused _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-268/test_gitlab_mirror_remote_is_r0')
+
+    def test_gitlab_mirror_remote_is_recognized_as_this_project_not_refused(tmp_path):
+        """GitHub is the source of truth; a GitHub Actions workflow pushes `main` and
+        tags to a GitLab mirror on every push (`.github/workflows/mirror-gitlab.yml`).
+        That workflow authenticates over HTTPS with a token embedded in the URL, not
+        through a named local remote, so this hook only matters here if someone ever
+        pushes to the mirror by hand from a clone that has it configured as a remote.
+        Either way, the URL must be recognized as "this project", not refused.
+    
+        A matching URL falls through into `scripts/ci_check.sh`, which runs pytest and
+        would re-enter this very test (a fork bomb), so the real CI step must never
+        run from inside this test. Instead this test reads the real hook as text,
+        locates the CI line, and runs a probe copy of the hook with `exit 0` inserted
+        directly after that line. Reaching `exit 0` proves the case statement matched
+        the URL; a refusal would exit 1 before it.
+        """
+        gitlab_url = "https://gitlab.recruitize.ai/sialkot/cantt-smallize/aspose-foss-dev-context-mcp.git"
+    
+        hook_lines = HOOK_PATH.read_text(encoding="utf-8").splitlines(keepends=True)
+        ci_indexes = [i for i, line in enumerate(hook_lines) if "running scripts/ci_check.sh" in line]
+        assert len(ci_indexes) == 1, (
+            f"expected exactly one CI announce line in {HOOK_PATH}, found {len(ci_indexes)}"
+        )
+        ci_index = ci_indexes[0]
+        probe_lines = hook_lines[: ci_index + 1] + ["exit 0\n"] + hook_lines[ci_index + 1 :]
+        probe = tmp_path / "pre-push-probe"
+        probe.write_text("".join(probe_lines), encoding="utf-8", newline="\n")
+    
+        result = subprocess.run(
+>           [_git_bash(), "./pre-push-probe", "gitlab", gitlab_url],
+             ^^^^^^^^^^^
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+tests\test_githooks.py:266: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_githooks.py:122: in _git_bash
+    _fail_unresolved(tried)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tried = ['next to git: C:\\Program Files\\Git\\cmd\\bin\\bash_missing.exe (not a file)', 'next to git: C:\\Program Files\\Git\\bin\\bash_missing.exe (not a file)', 'bash on PATH (not found)']
+
+    def _fail_unresolved(tried: list[str]) -> NoReturn:
+>       pytest.fail(_unresolved("no usable bash was found", tried))
+E       Failed: could not resolve Git for Windows bash for tests/test_githooks.py: no usable bash was found. Tried, in order: next to git: C:\Program Files\Git\cmd\bin\bash_missing.exe (not a file); next to git: C:\Program Files\Git\bin\bash_missing.exe (not a file); bash on PATH (not found). Set FOSS_MCP_GIT_BASH to the full path of Git's bin\bash.exe to override.
+
+tests\test_githooks.py:126: Failed
+=========================== short test summary info ===========================
+FAILED tests/test_githooks.py::test_hook_is_actually_executed_by_bash_not_a_mangled_path
+FAILED tests/test_githooks.py::test_nonmatching_remote_url_exits_nonzero_and_refuses
+FAILED tests/test_githooks.py::test_empty_remote_url_exits_nonzero_and_refuses
+FAILED tests/test_githooks.py::test_gitlab_mirror_remote_is_recognized_as_this_project_not_refused
+
+--- stderr ---
+
