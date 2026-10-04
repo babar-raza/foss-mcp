@@ -66,7 +66,7 @@ def test_every_pilot_sets_an_api_surface() -> None:
 @pytest.mark.parametrize("path", _cases())
 def test_fixture_is_in_the_ingestion_image(path: str) -> None:
     assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
-    relative = path[len(APP_PREFIX):]
+    relative = path[len(APP_PREFIX) :]
     assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
     source = "tests/" + relative
     assert (ROOT / source).is_file(), f"{source} does not exist in the repository"

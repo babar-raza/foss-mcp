@@ -297,7 +297,9 @@ STANDARD_TEXT = "Requires a C++17 compiler and CMake 3.20."
 
 def _reference_answers(by_section: dict[str, Any]) -> dict[str, Any]:
     answers = passing_answers()
-    answers["get_product_reference"] = lambda arguments: by_section.get(arguments["section"], UNAVAILABLE_OTHER)
+    answers["get_product_reference"] = lambda arguments: by_section.get(
+        arguments["section"], UNAVAILABLE_OTHER
+    )
     return answers
 
 
@@ -312,7 +314,10 @@ def test_a_cpp_pilot_with_no_install_command_passes_check_7_on_its_compatibility
     check7, _ = _check_7_for(
         tmp_path,
         "cpp",
-        {"install": UNAVAILABLE_INSTALL, "compatibility": {"section": "compatibility", "text": STANDARD_TEXT}},
+        {
+            "install": UNAVAILABLE_INSTALL,
+            "compatibility": {"section": "compatibility", "text": STANDARD_TEXT},
+        },
     )
     assert check7["status"] == "pass"
     assert check7["evidence"]["sections_asked"] == ["install", "compatibility"]
@@ -342,7 +347,10 @@ def test_a_non_cpp_pilot_gets_no_compatibility_fallback_in_check_7(tmp_path: Pat
     check7, client = _check_7_for(
         tmp_path,
         "rust",
-        {"install": UNAVAILABLE_INSTALL, "compatibility": {"section": "compatibility", "text": STANDARD_TEXT}},
+        {
+            "install": UNAVAILABLE_INSTALL,
+            "compatibility": {"section": "compatibility", "text": STANDARD_TEXT},
+        },
     )
     assert check7["status"] == "fail"
     assert check7["evidence"]["sections_asked"] == ["install"]
@@ -369,7 +377,13 @@ def test_load_pilot_keeps_the_furnished_page_when_the_chart_sets_furnished_page(
     _write_fixtures(tmp_path)
     chart = _write_chart_values(
         tmp_path / "values.yaml",
-        [{"family": "cells", "platform": "rust", "furnishedPage": "/app/fixtures/furnished/cells_rust/pages/_index.md"}],
+        [
+            {
+                "family": "cells",
+                "platform": "rust",
+                "furnishedPage": "/app/fixtures/furnished/cells_rust/pages/_index.md",
+            }
+        ],
     )
     pilot = pwp.load_pilot(PILOT, tmp_path, chart_values=chart)
     assert pilot.furnished_page == tmp_path / "furnished" / PILOT / "pages" / "_index.md"

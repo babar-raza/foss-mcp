@@ -201,7 +201,7 @@ def test_cpp_manifest_degrades_to_empty_fields_on_empty_text() -> None:
 
 def test_dotnet_manifest_without_package_id_reports_assembly_name() -> None:
     csproj = (
-        "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup>"
+        '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup>'
         "<TargetFramework>net8.0</TargetFramework>"
         "<AssemblyName>Aspose.Words.FOSS</AssemblyName>"
         "</PropertyGroup></Project>"
@@ -211,7 +211,7 @@ def test_dotnet_manifest_without_package_id_reports_assembly_name() -> None:
 
 def test_dotnet_manifest_with_package_id_and_assembly_name_reports_package_id() -> None:
     csproj = (
-        "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup>"
+        '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup>'
         "<TargetFramework>net8.0</TargetFramework>"
         "<AssemblyName>Aspose.Words.FOSS</AssemblyName>"
         "<PackageId>Aspose.Words.Published</PackageId>"
@@ -222,7 +222,7 @@ def test_dotnet_manifest_with_package_id_and_assembly_name_reports_package_id() 
 
 def test_dotnet_manifest_with_neither_package_id_nor_assembly_name_reports_none() -> None:
     csproj = (
-        "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup>"
+        '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup>'
         "<TargetFramework>net8.0</TargetFramework>"
         "</PropertyGroup></Project>"
     )
