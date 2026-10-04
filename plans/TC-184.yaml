@@ -1,0 +1,64 @@
+id: TC-184
+gate: G2
+lane: extraction
+purpose: 'Make an infrastructure failure in the verifier end the build with a distinct, visible
+  environment exit. TC-181 made verify_rust_example raise ExampleEnvironmentError on a registry
+  outage. infra/build_chunks.py does not catch it, so the failure ends as an uncaught exception with
+  exit code 1, the same code a defect produces. Catch it in main, print one line that names the tool
+  and the marker, and exit with ENVIRONMENT_FAILURE_EXIT, which is 75 (EX_TEMPFAIL). The ingestion Job
+  can then tell a retryable environment failure from a defect. No candidate is written and none is
+  recorded as not verified.'
+depends_on:
+- TC-181
+- TC-112
+write_paths:
+- infra/build_chunks.py
+- tests/indexing/test_build_chunks_env_failure.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Read infra/build_chunks.py in full. Read ExampleEnvironmentError in src/foss_mcp/indexing/example_verifier.py,
+  which TC-181 added. Do not change example_verifier.py.'
+- 'Define a module-level constant named ENVIRONMENT_FAILURE_EXIT with the value 75. Use exactly that name
+  and no type annotation, so the constant reads ENVIRONMENT_FAILURE_EXIT = 75.'
+- 'In main(), catch ExampleEnvironmentError around the build. Print one line to stderr that names the tool
+  and the marker from the exception, then exit with ENVIRONMENT_FAILURE_EXIT. Do not catch it anywhere
+  else. Do not write any document or chunk for the candidate that raised it, and do not record it as a
+  not-verified verdict.'
+- 'Add tests/indexing/test_build_chunks_env_failure.py as a new file. Everything is offline: monkeypatch
+  the rust prepare function and the rust verify function, so there is no network and no toolchain. Test
+  1: the verify function raises ExampleEnvironmentError, main exits, the exit code equals the literal 75
+  and ENVIRONMENT_FAILURE_EXIT, and no document was written. Test 2: a verify function that returns
+  verified False still does not exit with 75; it stays the normal not-verified path.'
+- 'Keep every existing test. Do not weaken tests/infra or tests/indexing tests to make them pass.'
+actions:
+- Read infra/build_chunks.py in full and the exception class.
+- Add the constant, the catch in main, and the one-line stderr message.
+- Write the offline test file.
+- Run it and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/indexing/test_build_chunks_env_failure.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 2
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/build_chunks.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('ENVIRONMENT_FAILURE_EXIT = 75','ENVIRONMENT_FAILURE_EXIT = 0'),encoding='utf-8')"
+  rationale: 'Changes the environment exit code from 75 to 0. Test 1 asserts the literal 75 as well as the
+    constant, so it must fail once the value is 0. The test then reads the exit code the program really
+    raises, not the constant it imports.'
+evidence:
+- evidence/build/G2/TC-184/receipt.json
+closeout:
+- An ExampleEnvironmentError ends the build with exit code 75 and writes nothing for that candidate.
+- A real compile failure still takes the not-verified path.
+recovery: Re-run from a clean tree.

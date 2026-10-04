@@ -1,0 +1,61 @@
+id: TC-185
+gate: G2
+lane: transport-deployment
+purpose: 'Narrow the serving pods'' egress to DNS and same-namespace traffic only. The shared
+  NetworkPolicy still has a rule that opens TCP 443 to namespaceSelector {}, which reaches pods in
+  every namespace. The TC-183 card did not intend that, and serving pods need no outbound HTTPS at
+  all. Remove that rule from the shared policy. The ingestion pods keep their internet rule, because
+  the separate ingestion policy (TC-183) grants TCP 443 to ipBlock 0.0.0.0/0 for them. The shared
+  policy also selects the ingestion pods, so this change must leave that separate rule in place.'
+depends_on:
+- TC-183
+write_paths:
+- infra/helm/foss-mcp/templates/networkpolicy.yaml
+- tests/infra/test_helm_chart.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/helm/foss-mcp/templates/networkpolicy.yaml in full, and tests/infra/test_helm_chart.py in
+  full. Keep every existing test and assertion.'
+- 'In networkpolicy.yaml, delete the egress rule that opens TCP 443 to namespaceSelector {}. It is the
+  rule whose ports are TCP 443 and whose to list is namespaceSelector {}. Do not touch the
+  podSelector {} rule, the DNS rule to kube-dns, or the separate ingestion policy document.'
+- 'Add test_serving_policy_grants_no_tcp_443 to tests/infra/test_helm_chart.py. Render the chart, take
+  the NetworkPolicy documents that select the serving pods (use the existing _serving and _selects
+  helpers), and assert that no egress rule in them lists TCP 443 in its ports, whatever the
+  destination. In the same test, assert that the DNS rule to kube-dns is still present in that
+  policy.'
+- 'The test must render through helm template with image.tag set and must fail, not skip, when helm
+  is missing. Source scripts/toolchain/activate.ps1 in the same command as pytest, so helm is on PATH.'
+actions:
+- Read the two files named in write_paths in full.
+- Delete the TCP 443 to namespaceSelector {} rule from the shared policy.
+- Add the new test, and keep the existing ones.
+- Run the chart test file and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_chart.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 18
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/networkpolicy.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('    # DNS to the cluster resolver','    - ports:'+chr(10)+'        - protocol: TCP'+chr(10)+'          port: 443'+chr(10)+'      to:'+chr(10)+'        - namespaceSelector: {}'+chr(10)+'    # DNS to the cluster resolver'),encoding='utf-8')"
+  rationale: 'Puts the TCP 443 to namespaceSelector {} rule back into the shared policy, just before the
+    DNS rule. The serving pods are then selected by a policy that grants TCP 443, so the new test must
+    fail. A test that checks only the template text would miss this. Built with chr() so that no
+    backslash reaches the shell.'
+evidence:
+- evidence/build/G2/TC-185/receipt.json
+closeout:
+- The shared policy grants serving pods DNS and same-namespace traffic only.
+- The ingestion pods keep TCP 443 to 0.0.0.0/0 through the separate policy.
+recovery: Re-run from a clean tree.

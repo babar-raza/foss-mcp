@@ -42,7 +42,7 @@ CI_HINTS = (
     # Invocation shapes only. A bare file name also matches assertion strings that search for the
     # hook's output, which is not a run (TC-180).
     "'bash', 'scripts/ci_check.sh'",
-    "\"bash\", \"scripts/ci_check.sh\"",
+    '"bash", "scripts/ci_check.sh"',
     "'gatectl.py', 'gate-exit'",
     "'bash', '.githooks/pre-push'",
 )
@@ -63,9 +63,14 @@ def _strip_docstrings(text: str) -> str:
         if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
             body = node.body
             first = body[0] if body else None
-            if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
+            if (
+                isinstance(first, ast.Expr)
+                and isinstance(first.value, ast.Constant)
+                and isinstance(first.value.value, str)
+            ):
                 out = out.replace(first.value.value, "")
     return out
+
 
 def _check_commands(card: dict) -> list[str]:
     return [str(c.get("command", "")) for c in card.get("checks", []) or []]
