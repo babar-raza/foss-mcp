@@ -1066,3 +1066,76 @@ not a worker defect, so it is not counted as a failed equivalent attempt.
 - OQ-004 (to_dict/from_dict unwired): keep in place, unwired. Do not add speculative consumers. At G3 review, delete it if no named consumer exists.
 
 **Repo-wide lint/format.** ruff check and ruff format were reporting 4 lint errors and 4 format diffs, all mechanical. Applied ruff check --fix and ruff format (tool-applied, no semantic change). Touched only tests/extraction/test_email_cpp_extraction.py, test_email_net_extraction.py, test_imaging_net_extraction.py and tests/infra/test_fetch_product_reference.py. Ruff is clean across the repo.
+
+## 2026-10-04 - Toolchain storage decision (permanent) and production analysis of rerun inconsistency (supervisor)
+
+### Decision (in force now)
+1. **Host toolchain lives at `C:\dev-tools\foss-mcp`.** That is the default root. Override it with the `FOSS_MCP_TOOLS` environment variable. Nothing toolchain-related lives in the repo tree, and nothing on `D:`. The reason is that `D:` is being deleted, and the repo sits in OneDrive-synced `E:`, which would sync about 8 GB and make the repo unusable.
+2. **Binaries are never committed to git.** The repo is public. GitHub rejects files over 100 MB, and history cannot be cleaned later. Git LFS would need a paid quota.
+3. **The record is `scripts/toolchain/toolchain.lock.json`.** It holds each tool's version, its official source, and whether it is portable. It is the single source of truth. A new machine is rebuilt from it.
+4. **`scripts/toolchain/activate.ps1` sets PATH for one shell only.** It never edits the user or system PATH. Git's bash comes first on PATH, because `C:\Windows\...\WindowsApps\bash.exe` resolves to the WSL launcher and breaks `.githooks`.
+5. **Not portable, so installed per their own installers and recorded in the lock.** Docker Desktop 4.93 is on `C:`. Visual Studio 2022 Community is on `D:` and has no C++ workload, which is an owner action. The .NET SDK is on `C:`.
+6. **Container toolchains come from the Dockerfiles.** They are not copied from the host. The rule is that every tool version in a Dockerfile must equal the lock value. Right now they do not (see RC3), so the rule is recorded but not yet enforced.
+7. **Layout row not yet written.** `docs/REPOSITORY_LAYOUT.md` is owned by taskcards, so the row will come through a docs card. This entry and the lock are the interim authority.
+
+Verified 2026-10-04: `C:` copy is 7,866 MB, matching the source. Python, Git, Go, javac, cargo 1.98.1, Maven, CMake and Node all run from it. The project venv (`.venv`) and the `.gatectl-worktrees` verify venvs point at `C:\dev-tools\foss-mcp\python313`. The `E:` copy under `tools/` was removed after the `C:` copy was verified.
+
+### Live evidence this session (not hypothetical)
+- The pdf/net live-content run failed at `docker compose build`. The step was rustup download (`static.rust-lang.org`, TLS `unexpected eof`), inside `Dockerfile.ingestion`. Nothing was published, so the live smoke test has not passed yet.
+- Tool versions disagree between the host and the image: Go 1.26.4 on host, 1.27.1 in Dockerfile.ingestion; Node 24.13.1 on host, 24.21.0 in the image; Java is Temurin 21.0.11 on host, Debian `openjdk-21` in the image; Rust is cargo 1.98.1 on host, floating `stable` in the image.
+
+### Symptoms (what was observed)
+- S1. Verdicts changed with the host, not the code. Examples: verify exit 103 from a cached venv whose `pyvenv.cfg` pointed at a deleted interpreter (three times); `git` missing from the harness PATH, which broke worker isolation; `bash` resolving to WSL, which broke the githooks test.
+- S2. A card's own defects were charged as attempts. TC-168 used attempt 1 on a scope that pulled network-only fixtures into an offline check, and on a falsifier whose shell quoting never applied.
+- S3. Queue deadlock. TC-166, TC-167 and TC-168 stayed IN_PROGRESS with no receipt and no worker, so `next` never returned them.
+- S4. A gate blocked on a spent card. TC-057 hit the attempt cap and was retired by hand. Gate status counted it as a failure.
+- S5. Recursion. The githooks test ran the real pre-push hook, which ran full CI, which ran the test again.
+- S6. Hand-operated integration errors. A fast-forward was refused, and a receipt landed on `main` without the code it certified. A status line had to be copied by hand.
+
+### Root causes (ranked by evidence strength)
+- **RC1 (confirmed by logs).** Verdicts depend on the host environment that is captured implicitly: PATH, absolute drive paths in venv configs, OneDrive location, installed MSVC. A check cannot declare what it needs. A missing tool, a missing network and a code defect all come back as the same FAIL or ERROR.
+- **RC2 (confirmed).** Tests that need the network fail at setup instead of skipping when the network is blocked. The offline dead-proxy trick turns "not available" into "broken". Test outcome therefore depends on whether the network is up.
+- **RC3 (confirmed by reading the files; rerun effect not measured).** Container builds float. The base image is `python:3.13-slim`. Apt packages float with the mirror. Go and Node are fetched with `curl` and no checksum. Rust is installed from `sh.rustup.rs` with floating `stable`. The `dotnet-install.sh` script is floating too. Only the pip layer is hash-pinned (`requirements.lock`, `--require-hashes`). The rustup TLS failure is one instance.
+- **RC4 (confirmed).** No static validation of a card's own checks. Scope, network declaration, shell quoting of the falsifier, and whether a test invokes CI are all checked only at verify time, after dispatch, and each mistake costs one of three attempts.
+- **RC5 (confirmed).** The state machine has no terminal path for a superseded card and no explicit re-issue. IN_PROGRESS is sticky, which causes S3 and S4.
+- **RC6 (confirmed).** Integration is manual: cherry-pick, fast-forward, copying status lines, and choosing the order of evidence commits. This is where single-writer invariants got broken in practice (S6).
+
+### Structural weaknesses (not root causes, but they make the above worse)
+- The supervisor acts as author, dispatcher, integrator, and author of the verdict engine. This session I changed `ops/gatectl.py` (UTF-8 decode) and accepted cards myself. That is a governance change with no independent review. Under AGENTS it should be a card.
+- `validate` needs the mission plan, which is outside the repo (OWNER-04). A check that depends on a file outside the repo cannot be reproduced on another machine.
+- The full suite is not hermetic. The example verifier needs MSVC, Docker tests need the engine, and several tests clone pinned repos over the network.
+- Gate exit does not run the live-content smoke test, so AGENTS' rule is enforced only by memory.
+
+### Preserve (works, keep)
+Taskcard as the complete contract. Scope enforcement. Two clean runs plus a falsifier that must break the checks. Receipts with a from-scratch re-verify at gate exit. Derived state rebuilt and checked by `validate`. Append-only channels. The worker never issues a verdict. Real pinned fixtures from real repositories. Hash-pinned pip in `serving`. Deterministic next-card selection. The three-attempt cap as a bound.
+
+### Redesign (proposed, not implemented; each becomes a taskcard)
+- **D1. Capability declaration.** Each card declares `requires:` (for example `net`, `docker`, `msvc`, `java`, `go`, `rust`, `node`, `dotnet`). The runner probes these first. A missing capability gives a new verdict `BLOCKED_ENV`. That verdict does not consume an attempt, and it is never reported as FAIL. This directly fixes RC1 and RC2.
+- **D2. Hermetic verify runner.** Run checks in a pinned verify image built from the lock. Host-only checks sit in an explicit `host-msvc` tier and are labelled as such. Residual limit: Windows-only MSVC cannot be containerised.
+- **D3. Pinned build inputs.** Base images by digest. Every download checked against a sha256 in the lock. Apt pinned to a Debian snapshot date. Dockerfile ARG versions generated from the lock, so host and image cannot drift. This fixes RC3.
+- **D4. Content-addressed fixture cache.** Pinned external repos are fetched once, stored by commit and tree hash, and read from the cache. A separate refresh job is the only thing that touches the network. This fixes most of RC2.
+- **D5. Card linter in `validate`.** Reject backslashes and unbalanced quotes in `mutate`. Dry-run every falsifier on a scratch copy at authoring time. Reject `network: false` when a path contains network-marked tests. Reject any test that invokes `scripts/ci_check.sh` or a hook. Check `write_paths` overlap. This fixes RC4 before dispatch.
+- **D6. State machine changes (schema change, needs a card).**
+  - Add `SUPERSEDED`, a terminal state. It requires a named successor that is ACCEPTED, recorded as a decision line.
+  - Add `RE_ISSUED`, a transition from IN_PROGRESS with no worker output. It logs a reason and does not increment the attempt unless a worker actually ran.
+  - Add a `card_defect` class so supervisor or card errors are not charged to the attempt budget.
+  - `DEFERRED` is already in `state.schema.json` but nothing uses it. Define it or remove it. Also `BLOCKED_ENV`, from D1.
+- **D7. `gatectl integrate TC-NNN`.** One atomic command. It does fast-forward or cherry-pick, copies the single status line verbatim, rebuilds state, and commits evidence. It refuses if `main` moved. This removes RC6.
+- **D8. Live smoke in gate exit.** Gate exit runs the live-content tests against compose. If Docker is absent the gate reports `BLOCKED_ENV`, not FAIL, and it is never silently passed.
+- **D9. Verdict-engine regression.** Any change to `ops/gatectl*.py` or `gateverify.py` must be a card with an independent review. Add canaries: fixed known-good and known-bad cards whose verdicts `gatectl` must reproduce on every change.
+
+### Validation and regression controls (for the redesign)
+- **Rerun determinism.** Verify the same card three times in fresh worktrees. Verdict, test count and falsifier result must match, and receipts must match apart from timestamps.
+- **Environment matrix.** Run gate exit on the host and in the verify image, and require identical verdicts for the same card set.
+- **Canaries.** A known-good card, a known-bad card, a missing-capability card and a superseded card. Each must produce its expected verdict on every gatectl change.
+- **Network chaos.** Block the network inside the verify container. Pinned-fixture tests must still pass from cache, and network-only tests must report `BLOCKED_ENV`.
+- **Variance measurement.** Rerun 10 accepted cards 5 times each. Any verdict or test-count variance is a finding, not noise.
+
+### Tradeoffs, risks and limits (stated plainly)
+- A hermetic verify image adds Docker as a dependency for every verify. Mitigation: a cached image and batched checks. Cost: slower verifies and more moving parts.
+- Pinning means someone has to update the lock. Security patches lag until that happens. A dependency bot can help later, but it is not part of this decision.
+- A fixture cache cannot see upstream change until the refresh job runs. The refresh job is an explicit, reviewable step.
+- MSVC and Windows-only checks cannot move into a Linux container, so the `host-msvc` tier stays. Linux CI is therefore never the full gate.
+- I have not measured rerun variance. The drift, the flake and the 103 failures are observed instances, not statistics. Variance measurement is one of the controls above, and its result should decide whether D2 and D4 are worth their cost.
+- The supervisor cannot implement any of D1 to D9 directly, because AGENTS puts verdict and product code outside supervisor authorship. Each item therefore needs a taskcard.
+- This entry is not a plan. Implementation steps will become taskcards. This log is the record of why.
