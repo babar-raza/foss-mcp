@@ -1,0 +1,56 @@
+id: TC-179
+gate: G2
+lane: transport-deployment
+purpose: 'Allow DNS in the chart''s NetworkPolicy. The policy from TC-177 permits egress to the
+  same namespace and to TCP 443 in any namespace, but not to DNS on port 53. On a cluster whose
+  CNI enforces NetworkPolicy, every pod would then fail to resolve names, so the ingestion Jobs
+  could not reach the package registries they download from, and serving could not resolve its own
+  service names. Add an egress rule to the cluster DNS (kube-system, UDP and TCP 53), and prove it
+  by rendering the chart and parsing the NetworkPolicy.'
+depends_on:
+- TC-177
+write_paths:
+- infra/helm/foss-mcp/templates/networkpolicy.yaml
+- tests/infra/test_helm_chart.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model â€” an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes Â§1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/helm/foss-mcp/templates/networkpolicy.yaml in full. The TC-177 worker reworded a
+  comment in it so that it renders. Keep that fix. The current policy has ingress from the same
+  namespace only, and egress to the same namespace plus TCP 443 in any namespace.'
+- 'Add an egress rule that allows UDP and TCP port 53 to pods in the kube-system namespace, selected
+  by the label k8s-app: kube-dns, which is the label kubeadm and kind both apply to CoreDNS. Do not
+  open port 53 to any other destination.'
+- 'In tests/infra/test_helm_chart.py add one test that renders the chart with image.tag set, finds
+  the NetworkPolicy, and asserts an egress rule exists that allows port 53 over both UDP and TCP to
+  the kube-dns pods, and that no rule opens port 53 to 0.0.0.0/0 or to all pods. Use the same helm
+  invocation style as the existing tests in that file.'
+actions:
+- Read networkpolicy.yaml and the existing tests/infra/test_helm_chart.py.
+- Add the DNS egress rule.
+- Add the test.
+- Run the chart test file with helm on PATH.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_chart.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 14
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/networkpolicy.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('port: 53','port: 5353'),encoding='utf-8')"
+  rationale: 'Changes the DNS port in the rendered rule from 53 to 5353. The new test asserts port 53,
+    so it must fail. This proves the test reads the rendered policy, not just that a rule exists.'
+evidence:
+- evidence/build/G2/TC-179/receipt.json
+closeout:
+- The NetworkPolicy allows DNS on port 53 to kube-dns, over UDP and TCP.
+- No rule opens port 53 to the world or to all pods.
+recovery: Re-run from a clean tree.
