@@ -20,12 +20,25 @@ satisfies:
 - REQ-G2-043
 source_refs:
 - file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
-  anchor: '### 7.1 Snapshot/generation model â€” an immutable release manifest with
-    one CAS pointer, not a bare alias flip (fixes Â§1.1-1.3, hardened per Round 5 review)'
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
   sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
 inputs:
 - 'Read infra/helm/foss-mcp/templates/networkpolicy.yaml and ingestion-job.yaml in full, and the
-  existing tests/infra/test_helm_chart.py. Keep every existing test and assertion.'
+  existing tests/infra/test_helm_chart.py. Keep every existing test and assertion except the one
+  amended in the next input.'
+- 'Amended by the supervisor on 2026-10-04 after the attempt-1 block. test_dns_egress_reaches_only_kube_dns_on_udp_and_tcp_53
+  (line 305) asserts exactly one NetworkPolicy document. That counts documents as a proxy for where
+  DNS egress lives, and this card splits egress across two policies by design, so the count is wrong
+  and must change. Replace it with: take the policies whose podSelector selects the serving pods
+  (use the existing _serving and _selects helpers), assert exactly one such policy, and run the
+  existing kube-dns and port-53 assertions against that policy''s egress. Do not remove the kube-dns
+  or the wide-port-53 assertion.'
+- 'Decision recorded by the supervisor: the ingestion internet rule goes in a separate NetworkPolicy
+  document, not as a scoped rule inside the shared policy. Kubernetes cannot scope an egress rule to
+  a subset of the pods its policy selects, so a rule in the shared policy would reach the serving pods
+  too. The separate document selects only app.kubernetes.io/component: ingestion. Policies that select
+  the same pod combine by union, so the serving pods still receive no internet rule.'
 - 'Label the ingestion Job pods with app.kubernetes.io/component: ingestion in ingestion-job.yaml, in
   the pod template metadata. The serving pods keep their existing labels.'
 - 'In networkpolicy.yaml add one egress rule that applies only to pods labelled

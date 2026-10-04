@@ -42,9 +42,11 @@ min_tests: 6
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/test_githooks.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('GIT_BASH','GIT_BASH_OFF'),encoding='utf-8')"
-  rationale: 'Renames the resolved bash so the hook calls fail to find it. The githooks tests must
-    then fail. This proves the tests run through the resolver, not around it.'
+    python -X utf8 -c "import pathlib;q=chr(34);p=pathlib.Path('tests/test_githooks.py');s=p.read_text(encoding='utf-8');s=s.replace(q+'bin'+q+' / '+q+'bash.exe'+q,q+'bin'+q+' / '+q+'bash_missing.exe'+q);s=s.replace('on_path = shutil.which('+q+'bash'+q+')','on_path = None');p.write_text(s,encoding='utf-8')"
+  rationale: 'Breaks both lookups the resolver can use: the bin\bash.exe next to git, and bash on
+    PATH. With neither available and no FOSS_MCP_GIT_BASH override, the resolver must fail, so the
+    githooks tests must fail. A consistent rename, as in attempt 1, cannot break a resolver, which is
+    why that falsifier was rejected. Built with chr() so no backslash reaches the shell.'
 evidence:
 - evidence/build/G2/TC-180/receipt.json
 closeout:
