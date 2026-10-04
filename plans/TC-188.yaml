@@ -1,0 +1,55 @@
+id: TC-188
+gate: G2
+lane: extraction
+purpose: 'Give the Go and Java library platforms the same offline dispatch coverage that dotnet and
+  python already have. tests/infra/test_build_chunks.py tests the dotnet and python entries of the
+  platform dispatch table, and nothing tests the go or java entries. A wrong entry, such as the go verify
+  pointing at the java function, would pass every test today. This card adds that coverage, offline.'
+depends_on:
+- TC-106
+write_paths:
+- tests/infra/test_build_chunks_platforms.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Read infra/build_chunks.py, the _PLATFORM_DISPATCH table (the go and java entries) and the
+  _PLATFORM_REQUIRED_FLAGS table, in full. Read tests/infra/test_build_chunks.py to see how the dotnet and
+  python dispatch cases are written, and follow that style. Do not change infra/build_chunks.py.'
+- 'Add tests/infra/test_build_chunks_platforms.py as a new file. It must be offline and import nothing that
+  needs the network or a toolchain. Test 1: the go entry has prepare, verify and verify_kwargs, and the
+  verify is verify_go_example from the example verifier module. Test 2: the go verify_kwargs gives
+  module_path and library_dir from the arguments. Test 3: the java entry has the same three keys, and its
+  verify is verify_java_example. Test 4: the java verify_kwargs gives library_jar. Test 5: the go and java
+  platforms are both listed in _PLATFORM_REQUIRED_FLAGS only where the table says they need a flag, and the
+  table matches what the entries use.'
+- 'Keep every existing test. Do not change tests/infra/test_build_chunks.py.'
+actions:
+- Read the files named in inputs in full.
+- Write the new test file.
+- Run it and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_build_chunks_platforms.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 5
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/build_chunks.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace(chr(34)+'go'+chr(34)+': {',chr(34)+'go_off'+chr(34)+': {',1),encoding='utf-8')"
+  rationale: 'Renames the go key in the platform dispatch table, so the go entry is no longer found. The
+    go dispatch tests must then fail. This proves the tests read the real table, not a copy of it. Built
+    with chr() so that no quote reaches the shell. The replace is limited to the first match, which is the
+    dispatch table entry.'
+evidence:
+- evidence/build/G2/TC-188/receipt.json
+closeout:
+- The go and java dispatch entries are covered by offline tests.
+recovery: Re-run from a clean tree.

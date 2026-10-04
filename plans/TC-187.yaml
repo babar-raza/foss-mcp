@@ -1,0 +1,70 @@
+id: TC-187
+gate: G2
+lane: extraction
+purpose: 'Make the Go example verifier run go vet as well as go build, as its own comments and the
+  Dockerfile claim it already does. Today verify_go_example runs only go build ./... in the throwaway
+  module (example_verifier.py, the verify_go_example body). A candidate that compiles but is
+  statically wrong, such as an unreachable print or a misused printf verb, is recorded as verified. A
+  candidate counts as verified only when go build ./... and go vet ./... both pass. Build and vet run
+  in the same throwaway module, so vet sees the same replace directive the build uses.'
+depends_on:
+- TC-106
+- TC-175
+- TC-181
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_go_vet_verdict.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Read verify_go_example in src/foss_mcp/indexing/example_verifier.py in full, including the code
+  that writes main.go and go.mod, and the _run helper it calls. Do not change the reference-module
+  path (prepare_go_library), which still runs go build ./... on the library.'
+- 'In verify_go_example, after the successful go build ./... on the candidate, run go vet ./... in the
+  same project directory with the same replace directive. Write the argument list as the literal
+  ["go", "vet", "./..."] in the function body, so that it can be found by text. A candidate is
+  verified only when both commands return 0. If the build fails, return not verified without running
+  vet. If vet fails, return not verified and put the vet output in the result, the same way the build
+  output is reported today.'
+- 'Keep the ExampleEnvironmentError path unchanged: the Go verifier raises only as it does now.'
+- 'Add tests/indexing/test_go_vet_verdict.py as a new file. It must be offline. Monkeypatch the module
+  _run function with a fake that returns scripted results per argument list. Test 1: build 0 and vet 0
+  gives verified True. Test 2: build 0 and vet 1 gives verified False, and the vet output is in the
+  result. Test 3: build 1 gives verified False, and vet is never called. Keep the test free of network
+  and toolchain. Do not change any existing test.'
+- 'Do not change tests/indexing/test_example_verifier.py. Its go and java tests clone GitHub and need
+  go and mvn. They are not part of this card.'
+actions:
+- Read verify_go_example in full and the _run helper.
+- Add the vet call and the verdict rule.
+- Write the offline test file.
+- Run it and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/indexing/test_go_vet_verdict.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 3
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace(chr(34)+'go'+chr(34)+', '+chr(34)+'vet'+chr(34)+', '+chr(34)+'./...'+chr(34),chr(34)+'go'+chr(34)+', '+chr(34)+'vet_off'+chr(34)+', '+chr(34)+'./...'+chr(34)),encoding='utf-8')"
+  rationale: 'Renames the vet subcommand in the Go verifier to vet_off, so go vet cannot run. Every
+    candidate then fails the vet step. Test 1 expects verified True with vet returning 0, and that
+    expectation runs against the fake _run, so the mutation must change the scripted vet call, which
+    it does only if the argument list is the literal the card requires. A check that does not depend
+    on the literal would pass with the mutation applied, and the falsifier would not be proven. Built
+    with chr() so that no quote or backslash reaches the shell.'
+evidence:
+- evidence/build/G2/TC-187/receipt.json
+closeout:
+- A Go candidate is verified only when go build and go vet both pass on the candidate.
+- The vet output is reported when vet fails, the same way build output is.
+recovery: Re-run from a clean tree.
