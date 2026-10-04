@@ -1043,3 +1043,16 @@ a real product decision, not a default. Recorded so it is tracked, not lost:
   look like plausible leftovers from an earlier refactor that already replaced their call site
   with something else, which would make them deletion candidates, not wiring candidates, but this
   needs verifying per-symbol, not assuming.
+
+## 2026-10-03 - TC-168 card corrected; re-dispatched as attempt 2 (supervisor, G2)
+TC-168 attempt 1 (worker commit 2c3b898) was rejected by gatectl review. The fault was in the
+supervisor-authored card, not the worker:
+(1) its checks ran all of tests/extraction/ with network: false, which pulls in pinned-commit
+    fixtures that need the network. Under the gate's dead-proxy offline run they error at setup.
+(2) its negative-control mutate used backslash-escaped quotes that do not survive the shell, so the
+    falsifier did not apply.
+Correction: TC-168 was re-authored in place. Checks are scoped to the offline synthetic test file, the
+real-repository regression moved to test_api_surface_java_live.py (opt-in, outside the check path), and
+the falsifier is built with chr(). The verified code change from attempt 1 is reusable.
+TC-168 is re-dispatched at attempt 2. Its attempt-1 rejection receipt is kept as evidence. Attempt 1 was
+not a worker defect, so it is not counted as a failed equivalent attempt.
