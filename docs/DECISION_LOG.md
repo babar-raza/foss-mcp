@@ -1163,3 +1163,55 @@ Approved by the operator: implement D1, then D5, then D3, then D2, as in the 202
 **D3, pinned container inputs (TC-174, accepted, `5ccd432` on main as `b5efa7f`).** The base image is pinned by digest. Go 1.26.4, Node 24.13.1 and rustup-init are checked by sha256 from official sources, and the Rust toolchain is pinned to 1.98.1 in place of the floating `sh.rustup.rs` stable install. The Dockerfile defaults equal the lock, and a test enforces that. Still UNPINNED, recorded in the lock with reasons and not hidden: dotnet-install.sh (no official checksum was fetched), and the apt packages (no Debian snapshot pin, listed under residual_risks). Limit of the enforcement: an exempt row must be marked UNPINNED with a reason, so an unpinned download is visible in the lock, not silent.
 
 **D2 stage A (`dfd79cf`, opt-in).** `ops/containerrun.py` runs each check in a pinned image. `FOSS_MCP_VERIFY_RUNNER=container` selects it. Offline cards get `--network none`, a real boundary in place of the dead-proxy trick. The runner is decided once per card and recorded in the receipt fingerprint, so a card's receipt describes one environment. Cards needing msvc or docker stay on the host. The host runner stays the default. The default change waits for the environment-matrix canary, which is a separate, recorded step.
+
+## 2026-10-04 - Remaining-work manifest (supervisor, consolidated from four read-only sweeps)
+This section is the repo's record of all remaining work. It is not a plan: each item becomes a taskcard, a governance change, or an owner item, and this log records why. Re-derive the exact state from the files before acting on any item.
+
+**Priority 0 - close G2 and make the verdict trustworthy**
+- P0.1 D2 default flip. Matrix canary: TC-174 identical on host and container. TC-172 and TC-166 still to check. Then make the container runner the default for container-eligible cards. Supervisor.
+- P0.2 Commit the verify image build as a script, not a shell log. Image foss-mcp-verify:local is built from Dockerfile.ingestion. Supervisor (scripts/toolchain).
+- P0.3 D8. gate-exit runs the live-content tests and reports BLOCKED_ENV, not FAIL, when Docker is absent. Owner items with consumed_by G2 must block gate-exit: the sweep found gate-exit never reads owner_items. Supervisor (ops/gatecli.py).
+- P0.4 D1 label. gate-exit prints a BLOCKED_ENV card as FAIL, which contradicts D1. Supervisor.
+- P0.5 Repo-wide CI green. Needs the verifier paths fixed (TC-175 below) and the full run. Owner item OWNER-06 stays open until this passes.
+- P0.6 Live smoke for all seven pilots (compose ingest and serving), not only pdf/net. The rerun on pinned images is still to confirm. Supervisor runs Docker; a worker card only if a fixture gap appears.
+- P0.7 The verifier's hard-coded C:\tools\rp-toolchains paths. Taskcard TC-175.
+
+**Priority 1 - Kubernetes production readiness (new finding, sweep 2026-10-04)**
+- P1.1 Helm Deployment runs the stdio CMD, not infra/serve_http.py, so nothing listens on 8080. Taskcard TC-176.
+- P1.2 No liveness or readiness probes in the chart, and the Dockerfile HEALTHCHECK is ignored by Kubernetes. TC-176.
+- P1.3 No Service, no PVC for /data/manifests, and no ingestion Job. A serving pod starts empty and /readyz returns 503. TC-176.
+- P1.4 No securityContext, no resource limits, and image tag "latest". TC-176.
+- P1.5 Logs are not configured for stdout. No handler, no JSON format, and INFO is dropped. Telemetry is an in-memory deque with no exporter. Taskcard TC-177.
+- P1.6 No graceful shutdown or SIGTERM handling, and no terminationGracePeriodSeconds. TC-177.
+- P1.7 FOSS_MCP_ALLOWED_ORIGINS is read but not set in the chart. TC-176.
+- P1.8 helm is not installed in the toolchain. Installed to C:\dev-tools\foss-mcp\helm (SHA-256 verified against the official sum). Add it to scripts/toolchain/toolchain.lock.json. Supervisor.
+
+**Priority 2 - product defects and gaps (sweep 2026-10-04, file:line evidence)**
+- P2.1 get_product_reference: formats and limitations always NotAvailable (get_product_reference.py:111-112). Server does not receive ProductReferenceInputs or recent_releases, so list_recent_changes is always empty (serve_http.py:174, server.py:670-672). Taskcard TC-178.
+- P2.2 search_docs leaks "Example:" pseudo-symbol chunks (test_retrieval_tools.py:675-690 documents it). Taskcard TC-179.
+- P2.3 csharp and typescript not wired into the scout-time reachability signal; REACHABILITY_ENFORCED_PLATFORMS unpopulated (lang/__init__.py ~118-125). Taskcard TC-180.
+- P2.4 Doc-comment first-sentence helper not wired into api_surface (lang/python.py:96-98). Taskcard TC-180.
+- P2.5 Tests with hardcoded H:\ paths and silent skips (tests/infra/test_generate_furnished_page.py:65, :324). Taskcard TC-181.
+- P2.6 ingest-pdf-cpp is fixture-only: no furnished or example content. Accepted gap, tracked. Revisit when a cpp verifier exists.
+- P2.7 serving-* services have no depends_on; startup order is manual. Documented. Low priority.
+
+**Priority 3 - documentation that is now false (sweep 2026-10-04)**
+- P3.1 README says pdf/cpp has no ingest job; docker-compose.yml defines one. Taskcard TC-182.
+- P3.2 ci.yml header says tests/e2e and tests/infra need Docker or network and are excluded; tests/test_container_build.py runs real docker build and is not excluded. ci.yml also runs a narrower suite than scripts/ci_check.sh. Taskcard TC-182.
+- P3.3 docs/CI_CREDENTIALS.md says the mirror has never been proven; OWNER-02 says it has run green since 2026-09-24. Taskcard TC-182.
+- P3.4 docs/REPOSITORY_LAYOUT.md has no toolchain row. Must come through a taskcard whose write_paths names it. Taskcard TC-182.
+
+**Priority 4 - governance (supervisor; ops/ and schemas/ are GLOBAL_DENY)**
+- P4.1 D6: SUPERSEDED, RE_ISSUED, card_defect states and transitions, with a schema change. TC-057 and TC-073 were retired by hand, which this would replace.
+- P4.2 D7: gatectl integrate, one atomic step replacing the manual cherry-pick, status copy and evidence ordering that caused the S6 errors.
+- P4.3 D9: known-good, known-bad, missing-capability and superseded canary cards in the repo, and a rule that any change to ops/gatectl*.py or gateverify.py goes through an independent read-only review.
+- P4.4 D5 gaps: falsifier dry-run at authoring time, and a write_paths overlap check already exists but is not yet exercised by a canary.
+- P4.5 The supervisor's unreviewed change to ops/gatectl.py (the UTF-8 decode fix). Retro-review under P4.3.
+- P4.6 D4 content-addressed fixture cache: cache store, refresh job, and read path. Missing entirely. Taskcard TC-183 for the store and the read path, after the design is approved.
+
+**Owner-only (cannot be done by an agent)**
+- O.1 OWNER-04: restore the mission plan file. Blocks validate only.
+- O.2 OWNER-06: a green repo-wide CI, by a host with the toolchain or by a GitHub Actions run. Closes after P0.5.
+- O.3 Visual Studio C++ workload: installed on C: (vswhere confirms). Done.
+
+**Known limits, stated plainly.** Rerun variance is unmeasured. The linter is textual. The container runner is not yet the default. The MSVC tests need a Windows host and cannot run in Linux CI.
