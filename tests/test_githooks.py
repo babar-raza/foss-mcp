@@ -35,12 +35,95 @@ and is not this card's concern - this card only proves the refusal paths.
 
 from __future__ import annotations
 
+import functools
+import os
+import shutil
 import subprocess
 from pathlib import Path
+from typing import NoReturn
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HOOK_PATH = REPO_ROOT / ".githooks" / "pre-push"
 HOOK_RELATIVE = ".githooks/pre-push"
+
+GIT_BASH_ENV_VAR = "FOSS_MCP_GIT_BASH"
+_WSL_LAUNCHER_DIRS = ("system32", "windowsapps")
+
+
+def _unresolved(reason: str, tried: list[str]) -> str:
+    return (
+        f"could not resolve Git for Windows bash for tests/test_githooks.py: {reason}. "
+        f"Tried, in order: {'; '.join(tried)}. Set {GIT_BASH_ENV_VAR} to the full path "
+        "of Git's bin\\bash.exe to override."
+    )
+
+
+def _verified_bash(path: str, tried: list[str]) -> str:
+    """Run `<path> --version` once and require GNU bash, or fail loudly."""
+    try:
+        proc = subprocess.run(
+            [path, "--version"], capture_output=True, text=True, timeout=30
+        )
+    except OSError as exc:
+        pytest.fail(_unresolved(f"{path} --version could not run ({exc})", tried))
+    output = proc.stdout + proc.stderr
+    if proc.returncode != 0 or "GNU bash" not in output:
+        pytest.fail(
+            _unresolved(
+                f"{path} --version did not report GNU bash "
+                f"(returncode={proc.returncode}, output={output[:300]!r})",
+                tried,
+            )
+        )
+    return path
+
+
+@functools.lru_cache(maxsize=1)
+def _git_bash() -> str:
+    """Return the explicit bash used to run the hooks. Resolved once per session.
+
+    Order: the FOSS_MCP_GIT_BASH override; then bin\\bash.exe next to git (the
+    install root's bin, or the bin folder git itself sits in); then bash on PATH,
+    refused if it lives under System32 or WindowsApps, where the WSL launcher is.
+    Never skips: if nothing usable is found, the test fails and names what was tried.
+    """
+    tried: list[str] = []
+
+    override = os.environ.get(GIT_BASH_ENV_VAR)
+    if override:
+        if not Path(override).is_file():
+            tried.append(f"{GIT_BASH_ENV_VAR}={override} (not a file)")
+            pytest.fail(_unresolved("the override does not name a file", tried))
+        tried.append(f"{GIT_BASH_ENV_VAR}={override}")
+        return _verified_bash(override, tried)
+
+    git = shutil.which("git")
+    if git is None:
+        tried.append("git on PATH (not found)")
+    else:
+        for base in (Path(git).parent, Path(git).parent.parent):
+            candidate = base / "bin" / "bash.exe"
+            if candidate.is_file():
+                tried.append(f"next to git: {candidate}")
+                return _verified_bash(str(candidate), tried)
+            tried.append(f"next to git: {candidate} (not a file)")
+
+    on_path = shutil.which("bash")
+    if on_path is None:
+        tried.append("bash on PATH (not found)")
+    elif any(part.lower() in _WSL_LAUNCHER_DIRS for part in Path(on_path).parts):
+        tried.append(f"bash on PATH: {on_path} (WSL launcher directory, refused)")
+    else:
+        tried.append(f"bash on PATH: {on_path}")
+        return _verified_bash(on_path, tried)
+
+    _fail_unresolved(tried)
+
+
+def _fail_unresolved(tried: list[str]) -> NoReturn:
+    pytest.fail(_unresolved("no usable bash was found", tried))
 
 
 def _run_hook(remote_name: str, remote_url: str) -> subprocess.CompletedProcess:
@@ -54,7 +137,7 @@ def _run_hook(remote_name: str, remote_url: str) -> subprocess.CompletedProcess:
     actually executes this file.
     """
     return subprocess.run(
-        ["bash", HOOK_RELATIVE, remote_name, remote_url],
+        [_git_bash(), HOOK_RELATIVE, remote_name, remote_url],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -180,7 +263,7 @@ def test_gitlab_mirror_remote_is_recognized_as_this_project_not_refused(tmp_path
     probe.write_text("".join(probe_lines), encoding="utf-8", newline="\n")
 
     result = subprocess.run(
-        ["bash", "./pre-push-probe", "gitlab", gitlab_url],
+        [_git_bash(), "./pre-push-probe", "gitlab", gitlab_url],
         cwd=tmp_path,
         capture_output=True,
         text=True,
