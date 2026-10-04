@@ -67,7 +67,13 @@ PLATFORM_TO_LANG: dict[str, str] = {
 }
 
 _CLASS_TYPES: dict[str, set[str]] = {
-    "java": {"class_declaration", "interface_declaration", "enum_declaration", "annotation_type_declaration"},
+    "java": {
+        "class_declaration",
+        "interface_declaration",
+        "enum_declaration",
+        "annotation_type_declaration",
+        "record_declaration",
+    },
     "csharp": {
         "class_declaration",
         "interface_declaration",
