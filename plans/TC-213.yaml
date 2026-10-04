@@ -1,0 +1,55 @@
+id: TC-213
+gate: G2
+lane: extraction
+purpose: 'Make the .NET manifest reader state a package id for a project that does not set PackageId. The 2026-10-05 live run showed
+  get_product_reference for words/net answering "manifest does not state a package id". The words/net project file
+  (Aspose.Words/Aspose.Words.csproj at the pinned commit) sets AssemblyName Aspose.Words.FOSS and neither PackageId nor IsPackable. MSBuild
+  and NuGet define the default PackageId as the AssemblyName, so the project''s package id is Aspose.Words.FOSS, and it is stated by the manifest
+  itself. The reader now falls back to AssemblyName when PackageId is absent. A project that sets PackageId is unchanged, and a project with neither
+  still reports no package id, so the server never invents one.'
+depends_on:
+- TC-208
+- TC-022
+- TC-083
+write_paths:
+- src/foss_mcp/extraction/manifest_reader.py
+- tests/extraction/test_manifest_reader_ecosystems.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read read_dotnet_manifest and DotnetManifest in src/foss_mcp/extraction/manifest_reader.py, and tests/extraction/test_manifest_reader_ecosystems.py
+  in full.'
+- 'In read_dotnet_manifest change only package_id: it is the PackageId field when non-empty, otherwise the AssemblyName field, otherwise empty.
+  Read the field with the same helper the other fields use. Add a short comment saying MSBuild and NuGet default PackageId to AssemblyName. The text
+  AssemblyName must appear in this file only in that fallback code and its comment, because the negative control edits it by text.'
+- 'Add tests to tests/extraction/test_manifest_reader_ecosystems.py, keeping every existing test: a csproj with AssemblyName Aspose.Words.FOSS and no
+  PackageId gives package_id Aspose.Words.FOSS; a csproj with both gives the PackageId value; a csproj with neither gives an empty package_id.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the reader and its tests.
+- Make the one change and add the three tests.
+- Run the card check and report exact counts.
+checks:
+- command: '{python} -m pytest tests/extraction/test_manifest_reader_ecosystems.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 18
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/manifest_reader.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('AssemblyName','AssemblyNameOff'),encoding='utf-8')"
+  rationale: 'Renames the fallback field everywhere in the reader, so a project with only an AssemblyName is read as having no package id again.
+    The test for that project must fail. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-213/receipt.json
+closeout:
+- A .NET project without PackageId reports the package id MSBuild would give it, and one with neither still reports none.
+recovery: Re-run from a clean tree.

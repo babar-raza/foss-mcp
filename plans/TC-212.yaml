@@ -1,0 +1,64 @@
+id: TC-212
+gate: G2
+lane: transport-deployment
+purpose: 'Fix two defects in the proof script that the 2026-10-05 live run exposed. (1) is_exact_hit takes the final segment of an FQN by splitting
+  at dots only, so a C++ or Rust FQN written with :: (Aspose::Pdf::AFRelationship, jmap::JmapError) is never a hit, even though the server, after
+  TC-210, now returns it. Check 2 then fails for pdf/cpp, cells/cpp and jmap/rust and checks 3, 4 and 8 cascade from it. The final segment is
+  what follows the last dot or the last ::. (2) Check 5 is applicable when a furnished fixture file exists, but a pilot is only given documentation
+  if the chart ingests a furnished page for it. cells/cpp has a furnished fixture that no deployment ingests (the builder has no C++ example
+  verifier yet, so it cannot take a furnished page for C++), so check 5 fails for a reason that is about the deployment, not the server. Check 5 is now
+  applicable only when the chart sets furnishedPage for the pilot, and otherwise it is recorded not_applicable with that reason, exactly as for pdf/cpp.'
+depends_on:
+- TC-211
+- TC-198
+- TC-197
+write_paths:
+- scripts/poc/pilot_workflow_proof.py
+- tests/poc/test_pilot_workflow_proof.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read scripts/poc/pilot_workflow_proof.py in full (is_exact_hit, load_pilot, check_5, main) and tests/poc/test_pilot_workflow_proof.py in full.
+  Read infra/helm/foss-mcp/values.yaml under ingestion.pilots: each pilot has family, platform and an optional furnishedPage.'
+- 'Change 1. Add a module-level compiled pattern named _FINAL_SEGMENT whose source is \.|:: and use it in is_exact_hit, so the final segment is
+  _FINAL_SEGMENT.split(fqn)[-1]. Write it exactly so, because the negative control edits it by text. The text |:: must appear nowhere else in the
+  file. Update the docstring to say dot or :: separated.'
+- 'Change 2. Give load_pilot an optional keyword argument chart_values of type Path or None, default None. When it is None, behaviour is exactly as
+  today. When it is a path, read it as YAML, find the entry in ingestion.pilots whose family and platform equal the pilot''s, and treat the pilot as
+  having a furnished page only if that entry sets a non-empty furnishedPage and the furnished fixture file exists. Otherwise furnished_page is None,
+  and check 5 records not_applicable. The not_applicable reason must say the chart ingests no furnished page for the pilot. main passes the chart values
+  file at infra/helm/foss-mcp/values.yaml under the repository root. Use the YAML library the repository already uses in tests/infra. Change nothing
+  else in the checks.'
+- 'Add tests to tests/poc/test_pilot_workflow_proof.py, keeping every existing test: is_exact_hit is true for Aspose::Pdf::AFRelationship with
+  AFRelationship, true for jmap::JmapError with JmapError, still true for a dotted FQN, and false for Aspose::Pdf::AFRelationshipX with AFRelationship
+  and false for Aspose::Pdf::AFRelationship with Pdf; load_pilot with a chart_values file whose entry sets furnishedPage keeps the furnished page;
+  one whose entry omits furnishedPage yields furnished_page None even though the fixture file exists; and one with no matching entry yields None.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the script, its tests, and the chart pilots.
+- Make the two changes and add the tests.
+- Run the card check and report exact counts.
+checks:
+- command: '{python} -m pytest tests/poc/test_pilot_workflow_proof.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 17
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/poc/pilot_workflow_proof.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('|::','',1),encoding='utf-8')"
+  rationale: 'Removes :: from the final-segment pattern, which restores the defect seen live. The test that a :: scoped FQN is an exact hit for its
+    short name must fail. The replace is limited to the first match, which is the pattern this card adds. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-212/receipt.json
+closeout:
+- The proof accepts a C++ or Rust FQN by its short name, and check 5 applies only where the chart ingests a furnished page.
+recovery: Re-run from a clean tree.
