@@ -38,9 +38,7 @@ def _candidate() -> CandidateExample:
 def _completed(
     args: list[str], returncode: int, stdout: str = "", stderr: str = ""
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.CompletedProcess(
-        args=args, returncode=returncode, stdout=stdout, stderr=stderr
-    )
+    return subprocess.CompletedProcess(args=args, returncode=returncode, stdout=stdout, stderr=stderr)
 
 
 def _install_scripted_run(

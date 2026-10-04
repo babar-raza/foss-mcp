@@ -17,13 +17,27 @@ import pytest
 
 
 def _line(ts, card, attempt=1, kind="dispatch"):
-    return {"ts": ts, "target_card": card, "kind": kind, "instruction": "x",
-            "card_sha256": "0" * 64, "issue_rev": "a" * 40, "attempt": attempt}
+    return {
+        "ts": ts,
+        "target_card": card,
+        "kind": kind,
+        "instruction": "x",
+        "card_sha256": "0" * 64,
+        "issue_rev": "a" * 40,
+        "attempt": attempt,
+    }
 
 
 def _status(card, attempt=1, phase="committed"):
-    return {"ts": "2026-10-04T10:00:00Z", "card": card, "phase": phase, "verdict": "pass",
-            "summary": "x", "commit": "b" * 40, "attempt": attempt}
+    return {
+        "ts": "2026-10-04T10:00:00Z",
+        "card": card,
+        "phase": phase,
+        "verdict": "pass",
+        "summary": "x",
+        "commit": "b" * 40,
+        "attempt": attempt,
+    }
 
 
 @pytest.fixture
@@ -99,6 +113,8 @@ def test_the_worker_tick_path_is_per_card():
 def test_the_cap_in_the_schema_matches_the_derived_state():
     import gateverify as V
 
-    schema = json.loads((Path(V.__file__).resolve().parents[1] / "schemas" / "state.schema.json").read_text(encoding="utf-8"))
+    schema = json.loads(
+        (Path(V.__file__).resolve().parents[1] / "schemas" / "state.schema.json").read_text(encoding="utf-8")
+    )
     cap = schema["properties"]["execution_limits"]["properties"]["workers_in_flight"]
     assert cap["maximum"] == V.MAX_WORKERS_IN_FLIGHT

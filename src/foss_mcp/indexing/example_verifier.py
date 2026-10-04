@@ -820,8 +820,7 @@ def _reference_build_failure(
         if marker is not None:
             return ExampleEnvironmentError(tool, marker, _truncate(output_text))
     return RuntimeError(
-        f"reference crate at {repository}@{commit} failed to build cleanly:\n"
-        f"{result.stdout}\n{result.stderr}"
+        f"reference crate at {repository}@{commit} failed to build cleanly:\n{result.stdout}\n{result.stderr}"
     )
 
 
@@ -1042,9 +1041,7 @@ def _java_wrapper_source(
     is identical to the wrapper used before page imports were honoured.
     """
     header = "\n".join(["import org.aspose.pdf.*;", *page_imports])
-    indented = "\n".join(
-        f"        {line}" if line.strip() else line for line in candidate_code.splitlines()
-    )
+    indented = "\n".join(f"        {line}" if line.strip() else line for line in candidate_code.splitlines())
     return (
         f"{header}\n\n"
         f"public class {class_name} {{\n"

@@ -63,9 +63,7 @@ def _unresolved(reason: str, tried: list[str]) -> str:
 def _verified_bash(path: str, tried: list[str]) -> str:
     """Run `<path> --version` once and require GNU bash, or fail loudly."""
     try:
-        proc = subprocess.run(
-            [path, "--version"], capture_output=True, text=True, timeout=30
-        )
+        proc = subprocess.run([path, "--version"], capture_output=True, text=True, timeout=30)
     except OSError as exc:
         pytest.fail(_unresolved(f"{path} --version could not run ({exc})", tried))
     output = proc.stdout + proc.stderr

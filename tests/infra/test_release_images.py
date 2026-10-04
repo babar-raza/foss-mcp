@@ -31,9 +31,7 @@ def test_build_script_exports_head_with_git_archive_and_stamps_revision_label():
     source = _build_script_source()
     assert '"archive"' in source, "build script has no git archive call"
     assert '"git"' in source, "build script does not run git"
-    assert REVISION_LABEL in source, (
-        f"build script does not set the {REVISION_LABEL} label"
-    )
+    assert REVISION_LABEL in source, f"build script does not set the {REVISION_LABEL} label"
 
 
 def test_build_script_refuses_dirty_tree_by_guard_text():
@@ -46,7 +44,5 @@ def test_build_script_refuses_dirty_tree_by_guard_text():
     ]
     assert len(guards) == 1, "build script has no refuse_if_dirty guard"
     guard_text = ast.get_source_segment(source, guards[0]) or ""
-    assert "git" in guard_text and '"status"' in guard_text, (
-        "dirty-tree guard does not call git status"
-    )
+    assert "git" in guard_text and '"status"' in guard_text, "dirty-tree guard does not call git status"
     assert "dirty" in guard_text, "dirty-tree guard does not refuse a dirty tree"
