@@ -470,12 +470,24 @@ def rebuild_state(as_if_unstarted: str | None = None):
 
     attempts: dict[str, int] = {}
     dispatched: set[str] = set()
+    superseded_by: dict[str, str] = {}
     for ins in instructions:
         t = ins.get("target_card")
         if t and t != "ALL":
             attempts[t] = max(attempts.get(t, 0), int(ins.get("attempt", 0)))
             if ins.get("kind") in ("dispatch", "rework"):
                 dispatched.add(t)
+            if ins.get("kind") == "supersede" and ins.get("successor"):
+                superseded_by[t] = ins["successor"]
+
+    def _successor_accepted(succ: str) -> bool:
+        # D6: a supersession holds only while the successor itself is ACCEPTED.
+        # Checked from the receipt directly, so the order of cards cannot matter.
+        s = cards.get(succ)
+        if s is None:
+            return False
+        sr = load_receipt(s["gate"], succ)
+        return bool(sr and sr.get("accepted"))
 
     rows, accepted_ids = [], set()
     for cid in sorted(cards):
@@ -488,6 +500,15 @@ def rebuild_state(as_if_unstarted: str | None = None):
             "attempt": attempts.get(cid, 0),
             "blocker": None,
         }
+        succ = superseded_by.get(cid)
+        if succ and cid != as_if_unstarted and _successor_accepted(succ):
+            # D6 (DECISION_LOG 2026-10-04): the card's work was carried by an accepted
+            # successor. It is complete, and it satisfies dependencies. Its own receipt,
+            # if any, is history and no longer governs.
+            row["status"] = "SUPERSEDED"
+            rows.append(row)
+            accepted_ids.add(cid)
+            continue
         eb = None if cid == as_if_unstarted else load_env_blocked(c["gate"], cid)
         if eb is not None and env_block_is_current(eb, r) and cid in dispatched:
             # D1: the environment blocked this card's checks, and nothing newer has
@@ -530,12 +551,12 @@ def rebuild_state(as_if_unstarted: str | None = None):
     for g in GATES:
         if g in gates_present:
             ids = [r for r in rows if r["gate"] == g]
-            if ids and all(r["status"] == "ACCEPTED" for r in ids):
+            if ids and all(r["status"] in ("ACCEPTED", "SUPERSEDED") for r in ids):
                 accepted_gates.append(g)
 
     current = next((g for g in GATES if g in gates_present and g not in accepted_gates), GATES[0])
     cg_rows = [r for r in rows if r["gate"] == current]
-    if cg_rows and all(r["status"] == "ACCEPTED" for r in cg_rows):
+    if cg_rows and all(r["status"] in ("ACCEPTED", "SUPERSEDED") for r in cg_rows):
         cg_status = "ACCEPTED"
     elif any(r["status"] in ("IN_PROGRESS", "VERIFYING") for r in cg_rows):
         cg_status = "IN_PROGRESS"

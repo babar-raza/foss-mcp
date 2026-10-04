@@ -364,7 +364,7 @@ def cmd_worker_tick(args) -> int:
     state = V.rebuild_state()
     cards = state["cards"]
 
-    if cards and all(c["status"] == "ACCEPTED" for c in cards) and not state["open_questions"]["open"]:
+    if cards and all(c["status"] in ("ACCEPTED", "SUPERSEDED") for c in cards) and not state["open_questions"]["open"]:
         print("DONE")
         print("Every card is ACCEPTED and no open question remains. Stop the loop.")
         return G.EXIT_OK
@@ -648,7 +648,12 @@ def cmd_gate_exit(args) -> int:
         o["id"] for o in V.load_owner_items()
         if o.get("status") == "OPEN" and args.gate in (o.get("consumed_by") or [])
     ]
+    # D6: a superseded card is complete once its accepted successor exists. Its plan
+    # file may still be present, so it is skipped here rather than re-verified.
+    superseded = {row["id"] for row in V.rebuild_state()["cards"] if row["status"] == "SUPERSEDED"}
     for cid in sorted(cards):
+        if cid in superseded:
+            continue
         base = _dispatch_rev_for(cid)
         if not base:
             failures.append(f"{cid}: never dispatched")
@@ -859,6 +864,7 @@ def cmd_instruct(args) -> int:
     line = {
         "ts": G.now_utc(),
         "target_card": args.target,
+        **({'successor': args.successor} if getattr(args, 'successor', None) else {}),
         "kind": args.kind,
         "instruction": args.instruction,
         "card_sha256": card_sha,
@@ -929,7 +935,7 @@ def cmd_tick(args) -> int:
                 + (f" blocker={r['blocker']['summary'][:80]}" if r["blocker"] else "")
             )
     nxt = V.next_card(s)
-    if all(r["status"] == "ACCEPTED" for r in s["cards"]) and not s["open_questions"]["open"]:
+    if all(r["status"] in ("ACCEPTED", "SUPERSEDED") for r in s["cards"]) and not s["open_questions"]["open"]:
         print("ALL_GATES_COMPLETE")
         return G.EXIT_OK
     print(f"ACTION: dispatch {nxt}" if nxt else "ACTION: no READY card - resolve a blocker above")
@@ -990,7 +996,7 @@ def cmd_doctor(args) -> int:
             # cries wolf when the work is simply done is one an operator learns
             # to ignore - which is worse than not having it at all.
             _s = V.rebuild_state()
-            _done = bool(_s["cards"]) and all(c["status"] == "ACCEPTED" for c in _s["cards"])
+            _done = bool(_s["cards"]) and all(c["status"] in ("ACCEPTED", "SUPERSEDED") for c in _s["cards"])
             if age.total_seconds() > 900 and not _done:
                 flags.append(
                     f"heartbeat is {int(age.total_seconds() / 60)} min old (> 15) and work "
@@ -1102,6 +1108,7 @@ def build_parser():
     sp.add_argument("--kind", required=True)
     sp.add_argument("--instruction", required=True)
     sp.add_argument("--attempt", type=int, default=1)
+    sp.add_argument("--successor", help="kind supersede only: the accepted card that carries this card's work")
 
     sp = sub.add_parser("integrate", help="D7: atomically replay an accepted card onto main with its evidence")
     sp.add_argument("card")
