@@ -1,0 +1,42 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_build_chunks_platforms.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6a54tzt3\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_build_chunks_platforms.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6a54tzt3\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/build_chunks.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_build_chunks_platforms.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6a54tzt3\.junit-0.xml"
+--- stdout ---
+...F..                                                                   [100%]
+================================== FAILURES ===================================
+__________________ test_python_entry_shares_one_page_workdir __________________
+
+    def test_python_entry_shares_one_page_workdir() -> None:
+        """The python entry of _PLATFORM_DISPATCH has the same four keys as the go and java entries, and
+        its shared_page_workdir is True, so the candidates of one page run in one shared workdir in
+        document order. Turning that flag off must fail this test.
+        """
+        entry = build_chunks._PLATFORM_DISPATCH["python"]
+    
+        assert set(entry) == {"prepare", "verify", "verify_kwargs", "shared_page_workdir"}
+>       assert entry["shared_page_workdir"] is True
+E       assert False is True
+
+tests\infra\test_build_chunks_platforms.py:106: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_build_chunks_platforms.py::test_python_entry_shares_one_page_workdir
+
+--- stderr ---
+
