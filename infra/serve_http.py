@@ -29,7 +29,11 @@ that reported healthy while serving nothing).
 
 from __future__ import annotations
 
+import json
+import logging
 import os
+import sys
+from datetime import datetime, timezone
 
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
@@ -49,6 +53,75 @@ DEFAULT_PORT = 8080
 HEALTHZ_PATH = "/healthz"
 READYZ_PATH = "/readyz"
 METRICS_PATH = "/metrics"
+
+LOG_LEVEL_ENV = "FOSS_MCP_LOG_LEVEL"
+DEFAULT_LOG_LEVEL = "INFO"
+SHUTDOWN_GRACE_ENV = "FOSS_MCP_SHUTDOWN_GRACE_SECONDS"
+# Inside the 30-second terminationGracePeriodSeconds default of the Helm chart (TC-177), so
+# uvicorn finishes in-flight tool calls before the kubelet sends SIGKILL.
+DEFAULT_SHUTDOWN_GRACE_SECONDS = 25
+
+# Attributes every LogRecord carries. Anything else on a record came from ``extra=`` and is
+# emitted as a top-level JSON field.
+_STANDARD_RECORD_ATTRS = frozenset(vars(logging.LogRecord("", 0, "", 0, "", None, None))) | {
+    "message",
+    "asctime",
+}
+_JSON_HANDLER_MARK = "_foss_mcp_json_stdout"
+
+
+class JsonLogFormatter(logging.Formatter):
+    """One JSON object per record: ``ts``, ``level``, ``logger``, ``message``, then every
+    ``extra=`` field the record carries (e.g. the tool-call logger's ``tool``, ``outcome``).
+
+    ``json.dumps`` keeps the default ``ensure_ascii=True``, so the output is pure ASCII and
+    cannot raise a UnicodeEncodeError on a cp1252 console.
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload: dict[str, object] = {
+            "ts": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(
+                timespec="milliseconds"
+            ),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        for key, value in record.__dict__.items():
+            if key not in _STANDARD_RECORD_ATTRS and key not in payload:
+                payload[key] = value
+        if record.exc_info:
+            payload["exc_info"] = self.formatException(record.exc_info)
+        return json.dumps(payload, default=str)
+
+
+def configure_logging() -> None:
+    """Send every log record, uvicorn's included, to stdout as JSON lines, at the level named by
+    ``FOSS_MCP_LOG_LEVEL`` (default INFO). Idempotent: a repeat call replaces the handler this
+    function installed earlier and leaves any other root handler alone.
+
+    An unknown level name raises ``ValueError`` at startup rather than silently logging at a
+    different level.
+    """
+    root = logging.getLogger()
+    root.handlers[:] = [h for h in root.handlers if not getattr(h, _JSON_HANDLER_MARK, False)]
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(JsonLogFormatter())
+    setattr(handler, _JSON_HANDLER_MARK, True)
+    root.addHandler(handler)
+    level_name = os.environ.get(LOG_LEVEL_ENV, "").strip().upper() or DEFAULT_LOG_LEVEL
+    root.setLevel(level_name)
+
+
+def shutdown_grace_seconds() -> int:
+    """The uvicorn ``timeout_graceful_shutdown`` window: ``FOSS_MCP_SHUTDOWN_GRACE_SECONDS``
+    when set and non-empty, else 25. Uvicorn itself handles SIGTERM; no extra signal handler.
+    """
+    raw = os.environ.get(SHUTDOWN_GRACE_ENV, "").strip()
+    seconds = int(raw) if raw else DEFAULT_SHUTDOWN_GRACE_SECONDS
+    if seconds < 0:
+        raise ValueError(f"{SHUTDOWN_GRACE_ENV} must be >= 0, got {seconds}")
+    return seconds
 
 
 def allowed_origins_from_env() -> list[str]:
@@ -189,12 +262,21 @@ def build_app(
 def main() -> None:
     import uvicorn
 
+    configure_logging()
     config = DeploymentConfig(
         family=os.environ.get("FOSS_MCP_FAMILY", "pdf"),
         platform=os.environ.get("FOSS_MCP_PLATFORM", "net"),
         source_kind=os.environ.get("FOSS_MCP_SOURCE_KIND", "self_extracted"),
     )
-    uvicorn.run(build_app(config), host="0.0.0.0", port=DEFAULT_PORT)
+    # log_config=None: uvicorn must not install its own dictConfig over configure_logging(),
+    # or its access/error lines would bypass the JSON formatter and go to stderr as plain text.
+    uvicorn.run(
+        build_app(config),
+        host="0.0.0.0",
+        port=DEFAULT_PORT,
+        log_config=None,
+        timeout_graceful_shutdown=shutdown_grace_seconds(),
+    )
 
 
 if __name__ == "__main__":
