@@ -152,7 +152,7 @@ def test_core_hooks_path_is_configured():
     )
 
 
-def test_gitlab_mirror_remote_is_recognized_as_this_project_not_refused():
+def test_gitlab_mirror_remote_is_recognized_as_this_project_not_refused(tmp_path):
     """GitHub is the source of truth; a GitHub Actions workflow pushes `main` and
     tags to a GitLab mirror on every push (`.github/workflows/mirror-gitlab.yml`).
     That workflow authenticates over HTTPS with a token embedded in the URL, not
@@ -160,33 +160,38 @@ def test_gitlab_mirror_remote_is_recognized_as_this_project_not_refused():
     pushes to the mirror by hand from a clone that has it configured as a remote.
     Either way, the URL must be recognized as "this project", not refused.
 
-    A matching URL falls through into `scripts/ci_check.sh`, which is slow and is
-    deliberately not exercised by the other tests in this file. So this test only
-    proves the pattern match: run the hook with a short timeout and confirm it
-    printed "running scripts/ci_check.sh" (proceeded past the case statement)
-    rather than its refusal text, without waiting for the full suite to finish.
-
-    Accepted bounded risk: on timeout, `subprocess.run` terminates the immediate
-    `bash` child but does not recursively kill whatever short-lived lint process
-    it had just started. Two seconds is chosen to land inside the fast `ruff
-    check` step, which self-terminates almost immediately even if orphaned, and
-    the calls made in that window are all read-only.
+    A matching URL falls through into `scripts/ci_check.sh`, which runs pytest and
+    would re-enter this very test (a fork bomb), so the real CI step must never
+    run from inside this test. Instead this test reads the real hook as text,
+    locates the CI line, and runs a probe copy of the hook with `exit 0` inserted
+    directly after that line. Reaching `exit 0` proves the case statement matched
+    the URL; a refusal would exit 1 before it.
     """
     gitlab_url = "https://gitlab.recruitize.ai/sialkot/cantt-smallize/aspose-foss-dev-context-mcp.git"
-    try:
-        result = subprocess.run(
-            ["bash", HOOK_RELATIVE, "gitlab", gitlab_url],
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-            timeout=2,
-        )
-        combined = result.stdout + result.stderr
-    except subprocess.TimeoutExpired as exc:
-        out = exc.stdout if isinstance(exc.stdout, str) else (exc.stdout or b"").decode(errors="replace")
-        err = exc.stderr if isinstance(exc.stderr, str) else (exc.stderr or b"").decode(errors="replace")
-        combined = out + err
 
+    hook_lines = HOOK_PATH.read_text(encoding="utf-8").splitlines(keepends=True)
+    ci_indexes = [i for i, line in enumerate(hook_lines) if "running scripts/ci_check.sh" in line]
+    assert len(ci_indexes) == 1, (
+        f"expected exactly one CI announce line in {HOOK_PATH}, found {len(ci_indexes)}"
+    )
+    ci_index = ci_indexes[0]
+    probe_lines = hook_lines[: ci_index + 1] + ["exit 0\n"] + hook_lines[ci_index + 1 :]
+    probe = tmp_path / "pre-push-probe"
+    probe.write_text("".join(probe_lines), encoding="utf-8", newline="\n")
+
+    result = subprocess.run(
+        ["bash", "./pre-push-probe", "gitlab", gitlab_url],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    combined = result.stdout + result.stderr
+
+    assert result.returncode == 0, (
+        f"probe of the real hook did not reach its exit 0 for the gitlab mirror URL "
+        f"(returncode={result.returncode}): {combined[:300]}"
+    )
     assert "refusing" not in combined, (
         f"the gitlab mirror URL was refused instead of recognized as this project's own remote: "
         f"{combined[:300]}"
