@@ -1246,3 +1246,12 @@ Verified on the local kind cluster, same Kubernetes version as the target:
 - A serving pod on the same claim: `/healthz` 200 `alive`, `/readyz` 200 `ready`.
 - A real MCP session over `/mcp` (initialize, tools/list, tools/call search_symbols for AFRelationship) returned real content: FQN, kind and members, with the generation id that the Job published.
 Limits, stated plainly: this used hand-written manifests, not the Helm chart (TC-177 still open). The cluster had network, so the offline grammar path (TC-176) is not proven here. Probes and the security context are not yet set. Only the pdf/net pilot is proven live. Logging to stdout as JSON (TC-178) is not yet proven.
+
+## 2026-10-04 - Chart deployment on kind: a real defect found, and a correction (supervisor)
+**Correction.** Earlier entries said the local kind cluster does not enforce NetworkPolicy. That was wrong. The chart's policy is enforced on this cluster: a pod with the chart's labels cannot resolve any name, including `kubernetes.default.svc`, while an unlabelled control pod resolves both `api.nuget.org` and `kubernetes.default.svc`. The policy's egress rules allow port 443 and the same namespace, and nothing for DNS (port 53).
+
+**Consequence found by the deployment, not by review.** The chart's ingestion Job failed while restoring the .NET reference library: `NU1301: Unable to load the service index for source https://api.nuget.org/v3/index.json`. The hand-made Job that ran the same command earlier succeeded because it had no policy labels. Serving would also have failed name resolution in any enforcing cluster. This is the defect TC-179 fixes.
+
+**My error.** I committed TC-179 with an unquoted scalar containing `: `. That broke the derived state on `main` until it was fixed in the next commit. It was caught because the state rebuild failed, not by a review. Card YAML must be parsed before it is committed, and this now belongs in the authoring check.
+
+**Status.** TC-179 is dispatched to its worker. The release is installed on kind but its ingestion Job is failing on DNS, so the chart is not yet proven. It will be re-proven after TC-179 is integrated, and only then is the POC claimed as deployed through the chart.
