@@ -90,9 +90,9 @@ ingestion:
     limits:
       cpu: "2"
       memory: 4Gi
-  # One Job per entry. Each entry copies its arguments from docker-compose.yml exactly. One
-  # release serves one deployment identity over one manifests claim, so list only the pilot this
-  # release's serving pod reads. A second pilot here would publish into the same store.
+  # One Job per entry. Each entry copies its arguments from its ingest-<family>-<platform> service
+  # in docker-compose.yml exactly; tests/infra/test_helm_pilots_match_compose.py enforces that. All
+  # entries publish into the one manifests claim, which serving mounts read-only.
   pilots:
     - family: pdf
       platform: net
@@ -107,3 +107,66 @@ ingestion:
         commit: "b7172877651413cff57a8bfe41fb8a8befb2406b"
         platform: dotnet
         csproj: src/Aspose.Pdf.Foss.csproj
+    - family: slides
+      platform: python
+      sourceKind: self_extracted
+      heldBy: ingestion-slides-python
+      apiSurface: /app/fixtures/slides_python/api_surface.json
+      title: slides/python API surface
+      maxTypes: 20
+      furnishedPage: /app/fixtures/furnished/slides_python/pages/_index.md
+      library:
+        repository: aspose-slides-foss/Aspose.Slides-FOSS-for-Python
+        commit: "4e63447ba79d1c27a5192844847d9f872c5b92ad"
+        platform: python
+    - family: pdf
+      platform: typescript
+      sourceKind: self_extracted
+      heldBy: ingestion-pdf-typescript
+      apiSurface: /app/fixtures/pdf_typescript/api_surface.json
+      title: pdf/typescript API surface
+      maxTypes: 20
+      furnishedPage: /app/fixtures/furnished/pdf_typescript/pages/_index.md
+      library:
+        repository: aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript
+        commit: "155bfc7a33f0ba23fb4252b6ba201828b02a5b9d"
+        platform: typescript
+        packageName: "@asposefoss/pdf"
+    - family: pdf
+      platform: go
+      sourceKind: self_extracted
+      heldBy: ingestion-pdf-go
+      apiSurface: /app/fixtures/pdf_go/api_surface.json
+      title: pdf/go API surface
+      maxTypes: 20
+      furnishedPage: /app/fixtures/furnished/pdf_go/pages/_index.md
+      library:
+        repository: aspose-pdf-foss/Aspose-PDF-FOSS-for-Go
+        commit: "286484d235196d65c9a458c5eff3d3d6539216dc"
+        platform: go
+        modulePath: github.com/aspose-pdf-foss/aspose-pdf-foss-for-go
+    - family: pdf
+      platform: java
+      sourceKind: self_extracted
+      heldBy: ingestion-pdf-java
+      apiSurface: /app/fixtures/pdf_java/api_surface.json
+      title: pdf/java API surface
+      maxTypes: 20
+      furnishedPage: /app/fixtures/furnished/pdf_java/pages/_index.md
+      library:
+        repository: aspose-pdf-foss/Aspose.PDF-FOSS-for-Java
+        commit: "db2d3f0622f035825419c6d46727022064f39f15"
+        platform: java
+    - family: cells
+      platform: rust
+      sourceKind: self_extracted
+      heldBy: ingestion-cells-rust
+      apiSurface: /app/fixtures/cells_rust/api_surface.json
+      title: cells/rust API surface
+      maxTypes: 20
+      furnishedPage: /app/fixtures/furnished/cells_rust/pages/_index.md
+      library:
+        repository: aspose-cells-foss/Aspose.Cells-FOSS-for-Rust
+        commit: "1a6004af47b1ef15385f9d36d381a8172428cc7e"
+        platform: rust
+        crateName: aspose-cells-foss-rust

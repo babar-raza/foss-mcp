@@ -246,8 +246,24 @@ def test_one_ingestion_job_is_rendered_per_listed_pilot_all_on_the_same_claim(tm
 
 
 def test_default_values_render_exactly_one_ingestion_job_for_the_deployment_identity() -> None:
+    # TC-195 amendment: the chart runs one ingestion Job per entry of ingestion.pilots, and the
+    # POC lists six pilots. The original assertion, exactly one Job, predates the six-pilot POC.
+    # The expected names are written out here, not derived from values.yaml, so the set is pinned.
+    pilots = yaml.safe_load((CHART / "values.yaml").read_text(encoding="utf-8"))["ingestion"]["pilots"]
     jobs = _by_kind(_render(), "Job")
-    assert [job["metadata"]["name"] for job in jobs] == ["foss-mcp-pdf-net-ingest-pdf-net"]
+    names = sorted(job["metadata"]["name"] for job in jobs)
+    assert len(jobs) == len(pilots) == 6
+    assert names == sorted(
+        [
+            "foss-mcp-pdf-net-ingest-pdf-net",
+            "foss-mcp-pdf-net-ingest-slides-python",
+            "foss-mcp-pdf-net-ingest-pdf-typescript",
+            "foss-mcp-pdf-net-ingest-pdf-go",
+            "foss-mcp-pdf-net-ingest-pdf-java",
+            "foss-mcp-pdf-net-ingest-cells-rust",
+        ]
+    )
+    assert "foss-mcp-pdf-net-ingest-pdf-net" in names
 
 
 def test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose(tmp_path: Path) -> None:
