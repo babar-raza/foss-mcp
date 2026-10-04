@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/babar-raza/foss-mcp/schemas/env-blocked.schema.json",
+  "title": "foss-mcp environment-blocked verification record",
+  "description": "evidence/build/<gate>/<card>/env_blocked.json. Written ONLY by `gatectl verify` when a card's declared capabilities are missing, so its checks could not be run at all. It is an environment fact, not a code verdict: it never counts against the card's attempt budget, and it is never read as FAIL. It is authoritative only while it is newer than the card's receipt. A later receipt supersedes it, so a fixed environment is never blocked by an old record.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "card", "gate", "generated_by", "generated_at", "head_rev", "missing"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "card": {"type": "string", "pattern": "^TC-[0-9]{3}[a-z]?$"},
+    "gate": {"type": "string", "pattern": "^G[0-5]$"},
+    "generated_by": {"const": "gatectl"},
+    "generated_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+    "head_rev": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "missing": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "detail": {"type": "string"}
+  }
+}

@@ -17,7 +17,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["id", "status"],
       "properties": {"id": {"$ref": "#/$defs/gate_id"},
-                     "status": {"enum": ["READY", "IN_PROGRESS", "VERIFYING", "ACCEPTED", "BLOCKED_EXTERNAL", "FAILED_INTERNAL"]}}
+                     "status": {"enum": ["READY", "IN_PROGRESS", "VERIFYING", "ACCEPTED", "BLOCKED_EXTERNAL", "BLOCKED_ENV", "FAILED_INTERNAL"]}}
     },
     "accepted_gates": {"type": "array", "items": {"$ref": "#/$defs/gate_id"}, "uniqueItems": true, "maxItems": 6},
     "cards": {
@@ -29,14 +29,14 @@
           "id":      {"type": "string", "pattern": "^TC-[0-9]{3}[a-z]?$"},
           "gate":    {"$ref": "#/$defs/gate_id"},
           "status":  {"enum": ["PENDING", "READY", "IN_PROGRESS", "VERIFYING",
-                                "ACCEPTED", "FAILED_INTERNAL", "BLOCKED_EXTERNAL", "DEFERRED"]},
+                                "ACCEPTED", "FAILED_INTERNAL", "BLOCKED_EXTERNAL", "BLOCKED_ENV", "DEFERRED"]},
           "attempt": {"type": "integer", "minimum": 0, "maximum": 3},
           "commit":  {"type": "string", "pattern": "^[0-9a-f]{40}$"},
           "receipt": {"type": "string", "minLength": 1},
           "blocker": {"$ref": "#/$defs/blocker"}
         },
         "allOf": [{
-          "if":   {"properties": {"status": {"enum": ["BLOCKED_EXTERNAL", "FAILED_INTERNAL"]}}},
+          "if":   {"properties": {"status": {"enum": ["BLOCKED_EXTERNAL", "BLOCKED_ENV", "FAILED_INTERNAL"]}}},
           "then": {"properties": {"blocker": {"type": "object"}}},
           "else": {"properties": {"blocker": {"type": "null"}}}
         }]
@@ -88,7 +88,7 @@
         {"type": "object", "additionalProperties": false,
          "required": ["class", "summary", "resume_predicate", "recorded_at"],
          "properties": {
-           "class":   {"enum": ["BLOCKED_EXTERNAL", "FAILED_INTERNAL"]},
+           "class":   {"enum": ["BLOCKED_EXTERNAL", "BLOCKED_ENV", "FAILED_INTERNAL"]},
            "summary": {"$ref": "#/$defs/text"},
            "resume_predicate": {"$ref": "#/$defs/text"},
            "recorded_at": {"$ref": "#/$defs/timestamp"}

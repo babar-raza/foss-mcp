@@ -364,7 +364,7 @@ def cmd_worker_tick(args) -> int:
     ins = _open_dispatch()
     if ins is None:
         print("WAIT")
-        blocked = [c["id"] for c in cards if c["status"] in ("FAILED_INTERNAL", "BLOCKED_EXTERNAL")]
+        blocked = [c["id"] for c in cards if c["status"] in ("FAILED_INTERNAL", "BLOCKED_EXTERNAL", "BLOCKED_ENV")]
         if blocked:
             print(f"No open dispatch. Cards needing supervisor attention: {blocked}")
         else:
@@ -373,6 +373,13 @@ def cmd_worker_tick(args) -> int:
         return G.EXIT_OK
 
     card_id = ins["target_card"]
+    # D1: a worker must not be sent to a card whose checks cannot run here.
+    row = next((c for c in cards if c["id"] == card_id), {})
+    if row.get("status") == "BLOCKED_ENV":
+        print("WAIT")
+        print(f"{card_id} is BLOCKED_ENV: {row['blocker']['summary']}.")
+        print("Do no work. The supervisor re-runs review once the environment is fixed.")
+        return G.EXIT_OK
     print(f"WORK {card_id} attempt={ins['attempt']}")
     print(f"card file    : plans/{card_id}.yaml")
     print(f"card_sha256  : {ins['card_sha256'][:16]}")
@@ -550,6 +557,13 @@ def cmd_review(args) -> int:
     """
     base, issue = _resolve_base_and_issue(args)
     r = V.do_verify(args.card, base, args.head, issue)
+    if r.get("blocked_env"):
+        # D1: an environment fact, not a code verdict. Say so, and do not print
+        # "REWORK REQUIRED", which would send a worker to change correct code.
+        print(f"--- {args.card} ---")
+        print(f"verdict      : BLOCKED_ENV (missing: {', '.join(r['blocked_env'])})")
+        print("no check was run; this does not count against the attempt budget")
+        return G.EXIT_FAIL
     print(f"--- {args.card} ---")
     print(f"base         : {base[:12]}   card as of: {issue[:12]}")
     print(
@@ -857,7 +871,7 @@ def cmd_tick(args) -> int:
     if s["open_questions"]["open"]:
         print(f"OPEN QUESTIONS {s['open_questions']['ids']} (these block gate exit, not work)")
     for r in s["cards"]:
-        if r["status"] in ("IN_PROGRESS", "FAILED_INTERNAL", "BLOCKED_EXTERNAL"):
+        if r["status"] in ("IN_PROGRESS", "FAILED_INTERNAL", "BLOCKED_EXTERNAL", "BLOCKED_ENV"):
             print(
                 f"  {r['id']}: {r['status']} attempt={r['attempt']}"
                 + (f" blocker={r['blocker']['summary'][:80]}" if r["blocker"] else "")

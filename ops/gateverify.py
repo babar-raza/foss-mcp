@@ -33,6 +33,7 @@ from gatectl import (
     sha256_bytes,
     sha256_file,
 )
+from capabilities import missing as capabilities_missing
 
 OWNER_FILE = OPS / "owner_items.yaml"
 
@@ -161,6 +162,13 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None, 
     gate = card["gate"]
     outdir = receipt_dir(gate, card_id)
     outdir.mkdir(parents=True, exist_ok=True)
+
+    # D1 (DECISION_LOG 2026-10-04). A missing declared capability means the checks
+    # could not run at all. That is an environment fact, not a code verdict, so
+    # record BLOCKED_ENV and stop before any check or falsifier executes.
+    absent = capabilities_missing(card.get("requires"))
+    if absent:
+        return _blocked_env(card_id, gate, head, absent, outdir)
 
     if evaluate_scope:
         ok_scope, changed, violations = check_scope(card, base, head)
@@ -320,6 +328,60 @@ def load_receipt(gate: str, card_id: str):
         return None
 
 
+def load_env_blocked(gate: str, card_id: str):
+    f = receipt_dir(gate, card_id) / "env_blocked.json"
+    if not f.exists():
+        return None
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+
+
+def _blocked_env(card_id: str, gate: str, head: str, absent: list, outdir: Path) -> dict:
+    """Record an environment-blocked verify and return it in review's result shape.
+
+    Nothing runs: no check, no falsifier, no receipt. The returned dict carries the
+    same keys as a real verify so `review` and `gate-exit` need no special casing,
+    and `blocked_env` is what tells them apart.
+    """
+    record = {
+        "schema_version": 1,
+        "card": card_id,
+        "gate": gate,
+        "generated_by": "gatectl",
+        "generated_at": now_utc(),
+        "head_rev": head,
+        "missing": absent,
+        "detail": "declared capabilities are absent on this host; no check was run",
+    }
+    (outdir / "env_blocked.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    return {
+        "gate": gate,
+        "accepted": False,
+        "reason": "BLOCKED_ENV: missing capability " + ", ".join(absent),
+        "blocked_env": absent,
+        "head_rev": head,
+        "base_rev": None,
+        "scope": {"ok": True, "changed_paths": [], "violations": []},
+        "runs": [],
+        "negative_control": {"kind": "none", "applied": False, "patch_applied_failed": False},
+    }
+
+
+def env_block_is_current(eb, receipt) -> bool:
+    """An env-blocked record governs only while it is newer than the card's receipt.
+
+    Ties go to the receipt. A card that was verified after its environment was fixed
+    must never stay blocked because of an older record.
+    """
+    if eb is None:
+        return False
+    if receipt is None:
+        return True
+    return eb.get("generated_at", "") > receipt.get("generated_at", "")
+
+
 def load_owner_items():
     if not OWNER_FILE.exists():
         return []
@@ -364,7 +426,18 @@ def rebuild_state(as_if_unstarted: str | None = None):
             "attempt": attempts.get(cid, 0),
             "blocker": None,
         }
-        if r and r.get("accepted"):
+        eb = None if cid == as_if_unstarted else load_env_blocked(c["gate"], cid)
+        if eb is not None and env_block_is_current(eb, r) and cid in dispatched:
+            # D1: the environment blocked this card's checks, and nothing newer has
+            # verified it since. Not FAIL, and not counted against the attempt budget.
+            row["status"] = "BLOCKED_ENV"
+            row["blocker"] = {
+                "class": "BLOCKED_ENV",
+                "summary": "missing capability: " + ", ".join(eb.get("missing", [])),
+                "resume_predicate": f"the missing capabilities are present on this host, then `gatectl review {cid}`",
+                "recorded_at": eb.get("generated_at", now_utc()),
+            }
+        elif r and r.get("accepted"):
             row["status"] = "ACCEPTED"
             row["commit"] = r["head_rev"]
             row["receipt"] = f"{r['gate']}/{cid}/receipt.json"
@@ -404,6 +477,8 @@ def rebuild_state(as_if_unstarted: str | None = None):
         cg_status = "ACCEPTED"
     elif any(r["status"] in ("IN_PROGRESS", "VERIFYING") for r in cg_rows):
         cg_status = "IN_PROGRESS"
+    elif any(r["status"] == "BLOCKED_ENV" for r in cg_rows):
+        cg_status = "BLOCKED_ENV"
     elif any(r["status"] == "FAILED_INTERNAL" for r in cg_rows):
         cg_status = "FAILED_INTERNAL"
     else:
