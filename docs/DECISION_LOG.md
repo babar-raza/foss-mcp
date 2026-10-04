@@ -1289,3 +1289,8 @@ TC-180 attempt 2 was reviewed at the worker head `b79ad58`: scope ok (one file),
 **Canaries.** `ops/tests/test_worker_commit_guard.py` covers the rule: inside write_paths passes, outside is refused, GLOBAL_DENY is refused even when a write path would match, an empty stage is refused, and every bad path is reported. The five existing commit-guard tests still pass.
 **Limit.** A worktree's `.githooks` is its own branch's copy. The new hook reaches a worker only after its branch is rebased onto a main that carries this commit. A worker still on the old hook is blocked, and the supervisor handles that by rebasing it. It is not handled by the bypass.
 **Also.** The supervisor's own commit path is unchanged. A toolchain change under `scripts/` now goes through its own card (TC-186), not through a stash around the guard.
+
+## 2026-10-04 - TC-186 deferred off the POC critical path (supervisor)
+**Decision.** TC-186 (the governed commit of the .NET 8.0.425 toolchain pin) is deferred. It is not on the POC path. The chart does not use .NET, and test_build_chunks passed on this host with the SDK already installed. The verified change stays in `stash@{0}` (tc186-candidate). The TC-186 attempt-2 dispatch stays open, so the change can land when the stash can be restored.
+**Why not restore it now.** The auto-mode classifier denied `git stash pop` in wt-TC-186. That denial is a permission boundary. Restoring the same files by another route would circumvent it, so I did not.
+**Consequence.** The lock and activation edits are not on main. Any machine that builds the .NET tests needs the SDK installed by hand until TC-186 lands. This is recorded as open debt, not as a passing state.
