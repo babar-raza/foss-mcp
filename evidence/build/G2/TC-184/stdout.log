@@ -1,0 +1,62 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_build_chunks_env_failure.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lsdg_0tu\.junit-0.xml"
+--- stdout ---
+..                                                                       [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_build_chunks_env_failure.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lsdg_0tu\.junit-0.xml"
+--- stdout ---
+..                                                                       [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/build_chunks.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_build_chunks_env_failure.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lsdg_0tu\.junit-0.xml"
+--- stdout ---
+F.                                                                       [100%]
+================================== FAILURES ===================================
+_____ test_environment_failure_ends_build_with_exit_75_and_writes_nothing _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-327/test_environment_failure_ends_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001DE4C51B820>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001DE4C3AA120>
+
+    def test_environment_failure_ends_build_with_exit_75_and_writes_nothing(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "prepare_rust_library", _fake_prepare_rust_library)
+    
+        verify_calls: list[str] = []
+    
+        def fake_verify_rust_example(candidate, *, workdir, library_crate_name, library_dir):
+            verify_calls.append(candidate.title)
+            raise ExampleEnvironmentError("cargo", REGISTRY_MARKER, "registry unreachable")
+    
+        monkeypatch.setitem(build_chunks._PLATFORM_DISPATCH["rust"], "verify", fake_verify_rust_example)
+    
+        # The page must yield candidates, or verify is never reached and the test proves nothing.
+        assert extract_candidate_examples(_load_real_page())
+    
+        out_path = tmp_path / "chunks.json"
+        with pytest.raises(SystemExit) as info:
+            _run_main(_rust_argv(tmp_path))
+    
+>       assert info.value.code == 75
+E       assert 0 == 75
+E        +  where 0 = SystemExit(0).code
+E        +    where SystemExit(0) = <ExceptionInfo SystemExit(0) tblen=3>.value
+
+tests\indexing\test_build_chunks_env_failure.py:98: AssertionError
+---------------------------- Captured stderr call -----------------------------
+environment failure: cargo could not reach its registry (marker 'spurious network error'); build stopped, nothing written
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_build_chunks_env_failure.py::test_environment_failure_ends_build_with_exit_75_and_writes_nothing
+
+--- stderr ---
+
