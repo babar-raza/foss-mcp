@@ -21,6 +21,7 @@ from foss_mcp.extraction.manifest_reader import (
     PythonManifest,
     RustManifest,
     read_cpp_manifest,
+    read_dotnet_manifest,
     read_go_manifest,
     read_java_manifest,
     read_js_manifest,
@@ -196,3 +197,33 @@ def test_cpp_manifest_reads_cmake_lists() -> None:
 
 def test_cpp_manifest_degrades_to_empty_fields_on_empty_text() -> None:
     assert read_cpp_manifest("") == CppManifest()
+
+
+def test_dotnet_manifest_without_package_id_reports_assembly_name() -> None:
+    csproj = (
+        "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup>"
+        "<TargetFramework>net8.0</TargetFramework>"
+        "<AssemblyName>Aspose.Words.FOSS</AssemblyName>"
+        "</PropertyGroup></Project>"
+    )
+    assert read_dotnet_manifest(csproj).package_id == "Aspose.Words.FOSS"
+
+
+def test_dotnet_manifest_with_package_id_and_assembly_name_reports_package_id() -> None:
+    csproj = (
+        "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup>"
+        "<TargetFramework>net8.0</TargetFramework>"
+        "<AssemblyName>Aspose.Words.FOSS</AssemblyName>"
+        "<PackageId>Aspose.Words.Published</PackageId>"
+        "</PropertyGroup></Project>"
+    )
+    assert read_dotnet_manifest(csproj).package_id == "Aspose.Words.Published"
+
+
+def test_dotnet_manifest_with_neither_package_id_nor_assembly_name_reports_none() -> None:
+    csproj = (
+        "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup>"
+        "<TargetFramework>net8.0</TargetFramework>"
+        "</PropertyGroup></Project>"
+    )
+    assert read_dotnet_manifest(csproj).package_id == ""

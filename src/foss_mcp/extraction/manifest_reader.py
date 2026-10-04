@@ -40,9 +40,11 @@ def read_dotnet_manifest(csproj_text: str) -> DotnetManifest:
         return element.text.strip() if element is not None and element.text else ""
 
     target_framework = _field("TargetFramework") or _field("TargetFrameworks")
+    # MSBuild and NuGet default PackageId to AssemblyName, so it is the package id when PackageId is absent.
+    package_id = _field("PackageId") or _field("AssemblyName")
     return DotnetManifest(
         target_framework=target_framework,
-        package_id=_field("PackageId"),
+        package_id=package_id,
         version=_field("Version"),
     )
 
