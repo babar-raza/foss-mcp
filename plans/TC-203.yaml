@@ -18,6 +18,7 @@ write_paths:
 - infra/fetch_product_reference.py
 - infra/serve_http.py
 - tests/infra/test_serve_manifest_sidecar.py
+- tests/infra/test_serve_logging.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -35,7 +36,13 @@ inputs:
   invokes /app/infra/fetch_product_reference.py with the output name that sidecar_name returns for that pilot. It must read the
   rendered Job from helm template, not the template text, so that editing the template command makes it fail. The falsifier relies
   on that.'
-- 'Keep every test and assertion that already exists.'
+- 'Contract restatement, by the supervisor after the attempt-2 review. main() in infra/serve_http.py now refuses to start without
+  FOSS_MCP_FAMILY and FOSS_MCP_PLATFORM, which is the identity contract. The accepted test
+  test_main_wires_json_logging_and_grace_into_uvicorn in tests/infra/test_serve_logging.py (TC-178) calls main() without them, so it
+  fails. Restate only that test: set FOSS_MCP_FAMILY and FOSS_MCP_PLATFORM with monkeypatch before calling main(), to any valid pair
+  such as pdf and net. Keep its name, every assertion it makes about logging and the grace period, and nothing else in that file.
+  Do not weaken the start-time requirement in serve_http.py. Record the restatement in the commit body.'
+- 'Keep every test and assertion that already exists, except the one restatement above.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
 - Take the six reviewed files from worker/TC-201 at 0b37ea5.
