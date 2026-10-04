@@ -537,6 +537,43 @@ def cmd_holdout_check(args) -> int:
     return rc
 
 
+def _worker_commit_problems(card: str, write_paths: list[str], staged: list[str]) -> list[str]:
+    """Why a worker's staged paths may not be committed. Empty when they may.
+
+    Pure, so the rule is testable without git. The old escape, FOSS_MCP_WORKER=1, skipped the
+    guard for every path. A worker now names its own card, and may commit only paths that card
+    declares. GLOBAL_DENY is refused even when a write path would match it.
+    """
+    if not staged:
+        return [f"{card}: nothing is staged"]
+    out = []
+    for p in sorted(staged):
+        if G.matches_any(p, G.GLOBAL_DENY):
+            out.append(f"{p}: globally denied for workers")
+        elif not G.matches_any(p, write_paths):
+            out.append(f"{p}: outside {card}'s declared write_paths")
+    return out
+
+
+def _worker_commit_guard(card: str) -> int:
+    """A worker's commit check: its card must have an open dispatch, and every staged path must be in its write_paths."""
+    ins = _open_dispatch(card)
+    if ins is None:
+        print(f"WORKER COMMIT BLOCKED - {card} has no open dispatch on the channel")
+        return G.EXIT_FAIL
+    data, _ = G.load_card_at_rev(card, ins["issue_rev"])
+    _, out, _ = G.run(["git", "diff", "--cached", "--name-only"])
+    staged = [line.strip() for line in out.splitlines() if line.strip()]
+    problems = _worker_commit_problems(card, data.get("write_paths", []), staged)
+    if problems:
+        print(f"WORKER COMMIT BLOCKED - {card}:")
+        for p_ in problems[:20]:
+            print(f"    {p_}")
+        return G.EXIT_FAIL
+    print(f"OK  {card}: every staged path is inside its declared write_paths")
+    return G.EXIT_OK
+
+
 def cmd_commit_guard(args) -> int:
     """Refuse to let the supervisor sweep a worker's uncommitted work into its own commit.
 
@@ -561,6 +598,9 @@ def cmd_commit_guard(args) -> int:
     open, nothing in the tree can be an in-flight worker's forgotten work, by
     definition, and the path heuristic is skipped entirely.
     """
+    worker = getattr(args, "worker", None)
+    if worker:
+        return _worker_commit_guard(worker)
     if not _all_open_dispatches():
         print("OK  no dispatch is open; nothing in the tree can be an in-flight worker's work")
         return G.EXIT_OK
@@ -1093,7 +1133,12 @@ def build_parser():
     sp = sub.add_parser("worker-tick", help="the worker loop's decision point: WORK / WAIT / DONE")
     sp.add_argument("card", nargs="?", help="this worker's own card; omit for the legacy single-worker mode")
 
-    sub.add_parser("commit-guard", help="refuse to sweep a worker's work into a supervisor commit")
+    cg = sub.add_parser("commit-guard", help="refuse to sweep a worker's work into a supervisor commit")
+    cg.add_argument(
+        "--worker",
+        metavar="CARD",
+        help="a worker commits its own card: every staged path must be in that card's write_paths",
+    )
 
     sp = sub.add_parser("holdout-check", help="run a card's holdout against the working tree")
     sp.add_argument("card")

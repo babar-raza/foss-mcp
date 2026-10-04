@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Refuses a supervisor commit that would sweep up a worker's uncommitted work.
+# Refuses a commit that would sweep up work the committer does not own.
 #
 # This is a HOOK and not a command because the command already existed, already
 # printed the right refusal, and was chained past with `;` - twice. A control the
@@ -9,22 +9,31 @@
 # two implementations of the same rule can drift, and one already did (this
 # hook used to inline its own path check, separately from the command).
 #
-# Set FOSS_MCP_WORKER=1 in the worker's own environment: a worker committing its
-# own product paths is exactly what should happen.
+# A worker commits its own card. It names the card in FOSS_MCP_WORKER, for
+# example FOSS_MCP_WORKER=TC-186, and the guard then allows only staged paths
+# inside that card's write_paths, with an open dispatch on the channel. The old
+# value 1 used to skip the guard for every path. It now fails, because no card
+# is named.
 set -euo pipefail
-
-if [ "${FOSS_MCP_WORKER:-0}" = "1" ]; then
-  exit 0
-fi
 
 PY=".venv/Scripts/python.exe"
 [ -x "$PY" ] || PY=".venv/bin/python"
 [ -x "$PY" ] || PY="python"
 
+if [ -n "${FOSS_MCP_WORKER:-}" ]; then
+  if ! "$PY" ops/gatectl.py commit-guard --worker "$FOSS_MCP_WORKER"; then
+    echo >&2
+    echo "pre-commit: BLOCKED - the staged paths are not inside $FOSS_MCP_WORKER's write_paths," >&2
+    echo "or it has no open dispatch. A worker sets FOSS_MCP_WORKER to its own card id." >&2
+    exit 1
+  fi
+  exit 0
+fi
+
 if ! "$PY" ops/gatectl.py commit-guard; then
   echo >&2
   echo "pre-commit: BLOCKED - see gatectl commit-guard's output above." >&2
-  echo "Stage explicit supervisor paths, or set FOSS_MCP_WORKER=1 if this IS" >&2
+  echo "Stage explicit supervisor paths, or set FOSS_MCP_WORKER=<card id> if this IS" >&2
   echo "the worker committing its own card." >&2
   exit 1
 fi
