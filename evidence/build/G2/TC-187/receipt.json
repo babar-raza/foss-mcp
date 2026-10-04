@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-187",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-04T13:10:56Z",
+  "base_rev": "050b3a07773baa11485e6f4b0feace7d0f94d5e8",
+  "head_rev": "deb61130572490e0d39941eaa982a988913a3392",
+  "card_sha256": "ef92a2f05bd2630ce30ab3de7b57107dca33077854673100a8e367616faaab79",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/indexing/example_verifier.py",
+      "tests/indexing/test_go_vet_verdict.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_go_vet_verdict.py -q",
+          "exit_code": 0,
+          "duration_s": 0.928,
+          "stdout_sha256": "cf426ab35f3b06fccef8290fde5325d90af130a79da1d1752031518df77c4236",
+          "tests": 3,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_go_vet_verdict.py -q",
+          "exit_code": 0,
+          "duration_s": 1.0,
+          "stdout_sha256": "cf426ab35f3b06fccef8290fde5325d90af130a79da1d1752031518df77c4236",
+          "tests": 3,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace(chr(34)+'go'+chr(34)+', '+chr(34)+'vet'+chr(34)+', '+chr(34)+'./...'+chr(34),chr(34)+'go'+chr(34)+', '+chr(34)+'vet_off'+chr(34)+', '+chr(34)+'./...'+chr(34)),encoding='utf-8')\"\n",
+    "patch_sha256": "394229435ae9176f9e1062ec88de0dcdeb99f07506dcd3e6613544c575b2e302",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/indexing/example_verifier.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

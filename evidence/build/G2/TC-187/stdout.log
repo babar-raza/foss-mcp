@@ -1,0 +1,112 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_go_vet_verdict.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-bstv9itb\.junit-0.xml"
+--- stdout ---
+...                                                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_go_vet_verdict.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-bstv9itb\.junit-0.xml"
+--- stdout ---
+...                                                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/example_verifier.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_go_vet_verdict.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-bstv9itb\.junit-0.xml"
+--- stdout ---
+FF.                                                                      [100%]
+================================== FAILURES ===================================
+_____________ test_build_and_vet_both_pass_verifies_the_candidate _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001AA4B7C5480>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-341/test_build_and_vet_both_pass_v0')
+
+    def test_build_and_vet_both_pass_verifies_the_candidate(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        calls = _install_scripted_run(
+            monkeypatch,
+            {
+                tuple(BUILD_ARGS): _completed(BUILD_ARGS, 0, stdout="build ok\n"),
+                tuple(VET_ARGS): _completed(VET_ARGS, 0),
+            },
+        )
+    
+>       result = ev.verify_go_example(
+            _candidate(),
+            module_path=GO_MODULE_PATH,
+            library_dir=tmp_path,
+            workdir=tmp_path,
+        )
+
+tests\indexing\test_go_vet_verdict.py:77: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\indexing\example_verifier.py:987: in verify_go_example
+    vet_result = _run(["go", "vet_off", "./..."], cwd=project_dir)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+args = ['go', 'vet_off', './...']
+cwd = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-341/test_build_and_vet_both_pass_v0/candidate_project')
+
+    def fake_run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+        calls.append(list(args))
+        key = tuple(args)
+        if key not in scripted:
+>           raise AssertionError(f"unscripted _run call: {args!r} in {cwd}")
+E           AssertionError: unscripted _run call: ['go', 'vet_off', './...'] in C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-341\test_build_and_vet_both_pass_v0\candidate_project
+
+tests\indexing\test_go_vet_verdict.py:59: AssertionError
+___ test_build_passes_but_vet_fails_is_not_verified_and_reports_vet_output ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001AA4B7C5220>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-341/test_build_passes_but_vet_fail0')
+
+    def test_build_passes_but_vet_fails_is_not_verified_and_reports_vet_output(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        vet_message = "./main.go:5:2: fmt.Printf format %d reads arg #1, but call has 0 args"
+        calls = _install_scripted_run(
+            monkeypatch,
+            {
+                tuple(BUILD_ARGS): _completed(BUILD_ARGS, 0),
+                tuple(VET_ARGS): _completed(VET_ARGS, 1, stderr=vet_message + "\n"),
+            },
+        )
+    
+>       result = ev.verify_go_example(
+            _candidate(),
+            module_path=GO_MODULE_PATH,
+            library_dir=tmp_path,
+            workdir=tmp_path,
+        )
+
+tests\indexing\test_go_vet_verdict.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\indexing\example_verifier.py:987: in verify_go_example
+    vet_result = _run(["go", "vet_off", "./..."], cwd=project_dir)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+args = ['go', 'vet_off', './...']
+cwd = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-341/test_build_passes_but_vet_fail0/candidate_project')
+
+    def fake_run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+        calls.append(list(args))
+        key = tuple(args)
+        if key not in scripted:
+>           raise AssertionError(f"unscripted _run call: {args!r} in {cwd}")
+E           AssertionError: unscripted _run call: ['go', 'vet_off', './...'] in C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-341\test_build_passes_but_vet_fail0\candidate_project
+
+tests\indexing\test_go_vet_verdict.py:59: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_go_vet_verdict.py::test_build_and_vet_both_pass_verifies_the_candidate
+FAILED tests/indexing/test_go_vet_verdict.py::test_build_passes_but_vet_fails_is_not_verified_and_reports_vet_output
+
+--- stderr ---
+
