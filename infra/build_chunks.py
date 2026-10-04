@@ -100,6 +100,10 @@ ENVIRONMENT_FAILURE_EXIT = 75
 #   - verify_kwargs(prepared, args) -> dict of the extra keyword-only arguments verify needs
 #     beyond candidate/workdir, built from the prepared library plus (for rust/go/typescript)
 #     a platform-specific CLI flag.
+#   - shared_page_workdir (TC-190) -> True when the platform's candidates of one page run in ONE
+#     shared candidate workdir, in document order, so a later example can open a file an earlier
+#     example of the same page wrote (real API docs are sequential tutorials). False keeps a
+#     fresh, isolated candidate workdir per candidate. Only python is True.
 _PLATFORM_DISPATCH = {
     "dotnet": {
         "prepare": lambda args, workdir: prepare_reference_library(
@@ -107,6 +111,7 @@ _PLATFORM_DISPATCH = {
         ),
         "verify": verify_dotnet_example,
         "verify_kwargs": lambda prepared, args: {"library_csproj": prepared},
+        "shared_page_workdir": False,
     },
     "python": {
         "prepare": lambda args, workdir: prepare_python_library(
@@ -114,6 +119,7 @@ _PLATFORM_DISPATCH = {
         ),
         "verify": verify_python_example,
         "verify_kwargs": lambda prepared, args: {"venv_python": prepared},
+        "shared_page_workdir": True,
     },
     "rust": {
         "prepare": lambda args, workdir: prepare_rust_library(
@@ -124,6 +130,7 @@ _PLATFORM_DISPATCH = {
             "library_crate_name": args.library_crate_name,
             "library_dir": prepared,
         },
+        "shared_page_workdir": False,
     },
     "go": {
         "prepare": lambda args, workdir: prepare_go_library(
@@ -134,6 +141,7 @@ _PLATFORM_DISPATCH = {
             "module_path": args.library_module_path,
             "library_dir": prepared,
         },
+        "shared_page_workdir": False,
     },
     "java": {
         "prepare": lambda args, workdir: prepare_java_library(
@@ -141,6 +149,7 @@ _PLATFORM_DISPATCH = {
         ),
         "verify": verify_java_example,
         "verify_kwargs": lambda prepared, args: {"library_jar": prepared},
+        "shared_page_workdir": False,
     },
     "typescript": {
         "prepare": lambda args, workdir: prepare_typescript_library(
@@ -151,6 +160,7 @@ _PLATFORM_DISPATCH = {
             "library_dir": prepared,
             "package_name": args.library_package_name,
         },
+        "shared_page_workdir": False,
     },
 }
 
@@ -203,10 +213,20 @@ def _build_verified_example_chunks(args: argparse.Namespace) -> list[Chunk]:
     verify_kwargs = platform_dispatch["verify_kwargs"](prepared_library, args)
     verify = platform_dispatch["verify"]
 
+    # TC-190: a platform whose candidates are sequential tutorials shares one candidate workdir
+    # across every candidate of the page (created once, before the loop, in document order).
+    # Every other platform gets a fresh, isolated workdir per candidate, as before.
+    shared_candidate_workdir: Path | None = None
+    if platform_dispatch["shared_page_workdir"]:
+        shared_candidate_workdir = Path(tempfile.mkdtemp(prefix="build_chunks_page_"))
+
     verified_chunks: list[Chunk] = []
     verified_count = 0
     for candidate in candidates:
-        candidate_workdir = Path(tempfile.mkdtemp(prefix="build_chunks_candidate_"))
+        if shared_candidate_workdir is not None:
+            candidate_workdir = shared_candidate_workdir
+        else:
+            candidate_workdir = Path(tempfile.mkdtemp(prefix="build_chunks_candidate_"))
         verification_result = verify(candidate, workdir=candidate_workdir, **verify_kwargs)
         if verification_result.verified:
             verified_count += 1
