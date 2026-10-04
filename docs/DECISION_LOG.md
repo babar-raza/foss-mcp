@@ -1353,3 +1353,7 @@ Every release returned only its own scope. /readyz returned 200 for each serving
 - Lines 555 and 654: the assertion expected lookup to return a list of symbol matches. lookup returns a TaskAnswer, and the furnished document chunk is in its doc_matches. The assertion now checks that container and the same chunk.
 - Line 785: the precondition expected a sentence to match a symbol, which is the collision the test guards against. The honest-miss rule correctly removes it, so the precondition now checks that search_symbols returns a Miss. The test still asserts that document composition wins.
 The lookup fallback to documents already existed (lookup.py:156-160); the card's premise was wrong, and no lookup change was made.
+
+## 2026-10-04 - TC-202 integrated: an absent symbol is an honest miss (supervisor)
+The successor of TC-199 is accepted at ea12bc9, with evidence c258afd. TC-199 is superseded by it. The worker's reference candidate was checked against the card, not trusted. The rule is an exact FQN or final-segment hit, or every query word a whole word of the FQN's words.
+**Judgement call recorded.** At the pseudo-symbol test (line 654), the worker added a new assertion instead of copying the old exclusion: the pseudo-symbol appears only as the example. That is a stronger check, not a weaker one. The old exclusion does not hold for search_docs, which does not exclude pseudo-symbol chunks (TC-075), so the new check is the correct one. Accepted.
