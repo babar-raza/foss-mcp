@@ -1,0 +1,103 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_manifest_step.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-q4ue_hbt\.junit-0.xml"
+--- stdout ---
+........................................                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_manifest_step.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-q4ue_hbt\.junit-0.xml"
+--- stdout ---
+........................................                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/templates/ingestion-job.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_manifest_step.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-q4ue_hbt\.junit-0.xml"
+--- stdout ---
+FF..FF..................................                                 [100%]
+================================== FAILURES ===================================
+_ test_every_pilot_with_a_manifest_path_gets_the_fetch_step_on_the_read_write_claim _
+
+    def test_every_pilot_with_a_manifest_path_gets_the_fetch_step_on_the_read_write_claim() -> None:
+        values = _values()
+        pilots = _pilots_with_a_manifest_path()
+        assert pilots, "expected at least one pilot with a manifestPath in values.yaml"
+        docs = _render()
+        claim = _claim_name(docs)
+        mount_path = values["manifests"]["mountPath"]
+        for pilot in pilots:
+            job = _job(docs, pilot)
+            tokens = _job_tokens(job)
+>           assert FETCH_COMMAND in tokens, pilot["family"] + "/" + pilot["platform"]
+E           AssertionError: pdf/net
+E           assert '/app/infra/fetch_product_reference.py' in ['python', '/app/infra/build_chunks.py', '--api-surface', '/app/fixtures/pdf_net/api_surface.json', '--title', 'pdf/net API surface', ...]
+
+tests\infra\test_helm_manifest_step.py:113: AssertionError
+___________ test_a_pilot_without_a_manifest_path_gets_no_fetch_step ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-816/test_a_pilot_without_a_manifes0')
+
+    def test_a_pilot_without_a_manifest_path_gets_no_fetch_step(tmp_path: Path) -> None:
+        pilots = copy.deepcopy(_values()["ingestion"]["pilots"])
+        for pilot in pilots:
+            pilot.pop("manifestPath", None)
+        # One pilot keeps its manifest path, so one render shows the step on one Job and none on the rest.
+        pilots[0]["manifestPath"] = _values()["ingestion"]["pilots"][0]["manifestPath"]
+        path = tmp_path / "pilots.yaml"
+        path.write_text(yaml.safe_dump({"ingestion": {"pilots": pilots}}), encoding="utf-8")
+        docs = _render("-f", str(path))
+>       assert FETCH_COMMAND in _job_tokens(_job(docs, pilots[0]))
+E       AssertionError: assert '/app/infra/fetch_product_reference.py' in ['python', '/app/infra/build_chunks.py', '--api-surface', '/app/fixtures/pdf_net/api_surface.json', '--title', 'pdf/net API surface', ...]
+E        +  where ['python', '/app/infra/build_chunks.py', '--api-surface', '/app/fixtures/pdf_net/api_surface.json', '--title', 'pdf/net API surface', ...] = _job_tokens({'apiVersion': 'batch/v1', 'kind': 'Job', 'metadata': {'name': 'foss-mcp-pdf-net-ingest-pdf-net', 'labels': {'app.kube...': 'manifests', 'persistentVolumeClaim': {...}}, {'name': 'tmp', 'emptyDir': {}}, {'name': 'home', 'emptyDir': {}}]}}}})
+E        +    where {'apiVersion': 'batch/v1', 'kind': 'Job', 'metadata': {'name': 'foss-mcp-pdf-net-ingest-pdf-net', 'labels': {'app.kube...': 'manifests', 'persistentVolumeClaim': {...}}, {'name': 'tmp', 'emptyDir': {}}, {'name': 'home', 'emptyDir': {}}]}}}} = _job([{'apiVersion': 'networking.k8s.io/v1', 'kind': 'NetworkPolicy', 'metadata': {'name': 'foss-mcp-pdf-net', 'labels': {'...p': 10001, 'runAsNonRoot': True, 'runAsUser': 10001}, 'containers': [{...}], 'volumes': [{...}, {...}, {...}]}}}}, ...], {'family': 'pdf', 'platform': 'net', 'sourceKind': 'self_extracted', 'heldBy': 'ingestion-pdf-net', ...})
+
+tests\infra\test_helm_manifest_step.py:139: AssertionError
+_ test_the_job_step_writes_the_sidecar_name_sidecar_name_returns_for_its_pilot _
+
+    def test_the_job_step_writes_the_sidecar_name_sidecar_name_returns_for_its_pilot() -> None:
+        values = _values()
+        docs = _render()
+        for pilot in _pilots_with_a_manifest_path():
+>           fetch = _fetch_tokens(_job_tokens(_job(docs, pilot)))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_helm_manifest_step.py:171: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tokens = ['python', '/app/infra/build_chunks.py', '--api-surface', '/app/fixtures/pdf_net/api_surface.json', '--title', 'pdf/net API surface', ...]
+
+    def _fetch_tokens(tokens: list[str]) -> list[str]:
+        """The tokens of the fetch step only: from its command to the end of the chain."""
+>       return tokens[tokens.index(FETCH_COMMAND) - 1 :]
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: '/app/infra/fetch_product_reference.py' is not in list
+
+tests\infra\test_helm_manifest_step.py:90: ValueError
+_ test_the_rendered_job_command_invokes_the_fetch_script_with_the_sidecar_name_for_its_pilot _
+
+    def test_the_rendered_job_command_invokes_the_fetch_script_with_the_sidecar_name_for_its_pilot() -> None:
+        # Reads the command from helm template output, not from the template text. Editing the fetch
+        # command in templates/ingestion-job.yaml changes this rendered command and fails here.
+        values = _values()
+        docs = _render()
+        for pilot in _pilots_with_a_manifest_path():
+            identity = pilot["family"] + "/" + pilot["platform"]
+            tokens = _job_tokens(_job(docs, pilot))
+>           assert FETCH_COMMAND in tokens, identity
+E           AssertionError: pdf/net
+E           assert '/app/infra/fetch_product_reference.py' in ['python', '/app/infra/build_chunks.py', '--api-surface', '/app/fixtures/pdf_net/api_surface.json', '--title', 'pdf/net API surface', ...]
+
+tests\infra\test_helm_manifest_step.py:186: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_manifest_step.py::test_every_pilot_with_a_manifest_path_gets_the_fetch_step_on_the_read_write_claim
+FAILED tests/infra/test_helm_manifest_step.py::test_a_pilot_without_a_manifest_path_gets_no_fetch_step
+FAILED tests/infra/test_helm_manifest_step.py::test_the_job_step_writes_the_sidecar_name_sidecar_name_returns_for_its_pilot
+FAILED tests/infra/test_helm_manifest_step.py::test_the_rendered_job_command_invokes_the_fetch_script_with_the_sidecar_name_for_its_pilot
+
+--- stderr ---
+
