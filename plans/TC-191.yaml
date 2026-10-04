@@ -1,0 +1,67 @@
+id: TC-191
+gate: G2
+lane: extraction
+purpose: 'Persist every candidate''s verification output, not only its verified boolean, so that every
+  rejection can be inspected and fixed from evidence. Today build_chunks keeps only result.verified
+  (infra/build_chunks.py, the candidate loop). The verifier already computes the real compiler or
+  interpreter output for each candidate (VerificationResult.output), but it is thrown away, so no receipt
+  can show why a candidate was rejected. The pdf/java claim of "1 of 3 verified" has no recorded javac
+  output behind it, and that is the evidence gap this card closes. Content fixes to a rejected candidate
+  must come from its recorded output, not from a guess.'
+depends_on:
+- TC-190
+write_paths:
+- infra/build_chunks.py
+- tests/indexing/test_build_chunks_verification_report.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Read infra/build_chunks.py in full, especially the candidate loop, where verification_result is used,
+  and the argument parsing in main. Read VerificationResult in src/foss_mcp/indexing/example_verifier.py to
+  confirm its fields: verified, output, and the others. Do not change example_verifier.py.'
+- 'Add one private function _write_verification_report(path, records), called exactly once from main, after
+  the candidate loop. It writes one JSON object per candidate, with these keys: title, platform, verified,
+  output, and the candidate''s index on its page. The file is UTF-8 JSON, one array. Output is written in
+  full, not truncated, because it is the evidence.'
+- 'Add an optional CLI flag --verification-report PATH. When it is not given, the report is written next to
+  the --out file, with the suffix .verification.json. The report is written whether or not any candidate
+  verified, and before the build can exit with a non-zero code.'
+- 'Add tests/indexing/test_build_chunks_verification_report.py as a new file, offline. Monkeypatch the
+  verifier of one platform to return a fixed result: one verified and one not verified, with a known output
+  string. Test 1: the report exists, is a JSON array of two objects, and has the keys title, platform,
+  verified, output and index. Test 2: the not-verified record carries the full output string. Test 3: the
+  report is written even when no candidate verified.'
+- 'Keep every existing test and assertion. Do not change any furnished fixture, and do not change the
+  content of any chunk.'
+actions:
+- Read the files named in inputs in full.
+- Add the report function, its one call, and the flag.
+- Write the test file.
+- Run it and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/indexing/test_build_chunks_verification_report.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 3
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/build_chunks.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('_write_verification_report(','_write_verification_report_off(',1),encoding='utf-8')"
+  rationale: 'Renames the first match of _write_verification_report(, which is its definition, so the call in
+    main raises a NameError and the report is never written. Either way, no report file is produced. Test 1
+    must fail, because the report does not exist. Tests 2 and 3 read the report and fail the same way. Built
+    with plain text, since it has no quote or backslash.'
+evidence:
+- evidence/build/G2/TC-191/receipt.json
+closeout:
+- Every candidate''s verification output is recorded, verified or not.
+- A rejected candidate can be fixed from its recorded output.
+recovery: Re-run from a clean tree.
