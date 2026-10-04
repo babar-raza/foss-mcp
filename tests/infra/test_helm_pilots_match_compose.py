@@ -8,6 +8,7 @@ network.
 
 from __future__ import annotations
 
+import json
 import shlex
 from pathlib import Path
 from typing import Any
@@ -97,7 +98,16 @@ def _assert_pilot_matches_compose(family: str, platform: str) -> None:
     assert pilot["family"] == family and pilot["platform"] == platform
 
     # A self-extracted pilot has an empty library block and no --library-commit flag: both None.
-    assert pilot["library"].get("commit") == build.get("--library-commit"), "library commit"
+    # pdf/cpp is the one pilot whose compose service defines no library flags, so its library is
+    # checked against its fixture's source_repository and source_commit instead.
+    if (family, platform) == ("pdf", "cpp"):
+        fixture = json.loads(
+            (REPO_ROOT / "tests" / "fixtures" / "pdf_cpp" / "api_surface.json").read_text(encoding="utf-8")
+        )
+        assert pilot["library"]["repository"] == fixture["source_repository"], "library repository"
+        assert pilot["library"]["commit"] == fixture["source_commit"], "library commit"
+    else:
+        assert pilot["library"].get("commit") == build.get("--library-commit"), "library commit"
     assert pilot["apiSurface"] == build["--api-surface"], "apiSurface (build_chunks)"
     assert pilot["apiSurface"] == ingest["--api-surface"], "apiSurface (ingest)"
     # A self-extracted pilot has no furnished page: the key is absent in values.yaml and the flag
@@ -109,8 +119,9 @@ def _assert_pilot_matches_compose(family: str, platform: str) -> None:
     assert pilot["sourceKind"] == ingest["--source-kind"], "sourceKind"
     assert pilot["heldBy"] == ingest["--held-by"], "heldBy"
 
-    compose_library = {key: build[flag] for flag, key in LIBRARY_FLAGS.items() if flag in build}
-    assert pilot["library"] == compose_library, "library block"
+    if (family, platform) != ("pdf", "cpp"):
+        compose_library = {key: build[flag] for flag, key in LIBRARY_FLAGS.items() if flag in build}
+        assert pilot["library"] == compose_library, "library block"
 
 
 def test_pdf_net_pilot_matches_compose() -> None:

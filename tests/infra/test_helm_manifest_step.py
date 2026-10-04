@@ -127,6 +127,18 @@ def test_every_pilot_with_a_manifest_path_gets_the_fetch_step_on_the_read_write_
         )
 
 
+def test_the_rendered_pdf_cpp_fetch_step_passes_its_manifest_path_CMakeLists_txt() -> None:
+    # The expected value is a literal, not read from values.yaml. Editing manifestPath in values.yaml
+    # changes the rendered command and the value together, so the per-pilot equality above cannot
+    # catch it; this literal does.
+    pilot = next(
+        p for p in _values()["ingestion"]["pilots"] if p["family"] == "pdf" and p["platform"] == "cpp"
+    )
+    docs = _render()
+    fetch = _fetch_tokens(_job_tokens(_job(docs, pilot)))
+    assert _flag_after(fetch, 0, "--manifest-path") == "CMakeLists.txt"
+
+
 def test_a_pilot_without_a_manifest_path_gets_no_fetch_step(tmp_path: Path) -> None:
     pilots = copy.deepcopy(_values()["ingestion"]["pilots"])
     for pilot in pilots:
@@ -159,7 +171,7 @@ def test_each_pilot_sidecar_name_is_distinct_and_is_the_name_its_own_pilot_write
     names = []
     for pilot in _pilots_with_a_manifest_path():
         names.append(fetch_product_reference.sidecar_name(pilot["family"], pilot["platform"]))
-    assert len(names) == len(set(names)) == len(_pilots_with_a_manifest_path()) == 6, names
+    assert len(names) == len(set(names)) == len(_pilots_with_a_manifest_path()) == 7, names
     assert "product_reference_pdf_net.json" in names
     assert "product_reference_pdf_java.json" in names
 
