@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-183",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-04T12:48:56Z",
+  "base_rev": "88bf7467f1ff77ac8c2225a6811c5a6fe5766758",
+  "head_rev": "4b0410c9fd0b15075e82b361a6b30810432a9cb0",
+  "card_sha256": "e4b5fc5a7824de93b932277d4cff87699402f6dcf01e0080cb71556fa4132f5a",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/helm/foss-mcp/templates/networkpolicy.yaml",
+      "tests/infra/test_helm_chart.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_chart.py -q",
+          "exit_code": 0,
+          "duration_s": 2.315,
+          "stdout_sha256": "f44919a3367dc52929a8af8f8919d5f9536d2eb90b5c6c6d38b1e58904be21bc",
+          "tests": 17,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_chart.py -q",
+          "exit_code": 0,
+          "duration_s": 2.452,
+          "stdout_sha256": "f44919a3367dc52929a8af8f8919d5f9536d2eb90b5c6c6d38b1e58904be21bc",
+          "tests": 17,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/ingestion-job.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('app.kubernetes.io/component: ingestion','app.kubernetes.io/component: ingestion-off'),encoding='utf-8')\"\n",
+    "patch_sha256": "a7a9bf4d3a03eaf38473cbbf8a1726d6fda5adb0092ca9169b992a604d93f4a7",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/helm/foss-mcp/templates/ingestion-job.yaml",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

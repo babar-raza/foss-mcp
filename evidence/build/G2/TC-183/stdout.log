@@ -1,0 +1,69 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7_pblgj8\.junit-0.xml"
+--- stdout ---
+.................                                                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7_pblgj8\.junit-0.xml"
+--- stdout ---
+.................                                                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/templates/ingestion-job.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7_pblgj8\.junit-0.xml"
+--- stdout ---
+..............FF.                                                        [100%]
+================================== FAILURES ===================================
+____ test_ingestion_job_pod_template_carries_the_ingestion_component_label ____
+
+    def test_ingestion_job_pod_template_carries_the_ingestion_component_label() -> None:
+        jobs = _by_kind(_render(), "Job")
+        assert jobs, "expected at least one ingestion Job"
+        for job in jobs:
+            labels = job["spec"]["template"]["metadata"]["labels"]
+>           assert labels.get("app.kubernetes.io/component") == "ingestion", job["metadata"]["name"]
+E           AssertionError: foss-mcp-pdf-net-ingest-pdf-net
+E           assert 'ingestion-off' == 'ingestion'
+E             
+E             - ingestion
+E             + ingestion-off
+E             ?          ++++
+
+tests\infra\test_helm_chart.py:351: AssertionError
+______ test_tcp_443_to_any_destination_is_granted_only_to_ingestion_pods ______
+
+    def test_tcp_443_to_any_destination_is_granted_only_to_ingestion_pods() -> None:
+        docs = _render()
+        grants = [
+            (policy, rule)
+            for policy in _by_kind(docs, "NetworkPolicy")
+            for rule in policy["spec"].get("egress", [])
+            if _grants_tcp_443_to_any_destination(rule)
+        ]
+        assert len(grants) == 1, f"expected exactly one TCP 443 to 0.0.0.0/0 rule, got {len(grants)}"
+        policy, _ = grants[0]
+        selector = policy["spec"]["podSelector"]["matchLabels"]
+        assert selector.get("app.kubernetes.io/component") == "ingestion", selector
+        jobs = _by_kind(docs, "Job")
+        assert jobs, "expected at least one ingestion Job"
+        for job in jobs:
+            labels = job["spec"]["template"]["metadata"]["labels"]
+>           assert _selects(policy, labels), f"the TCP 443 policy must select {job['metadata']['name']}"
+E           AssertionError: the TCP 443 policy must select foss-mcp-pdf-net-ingest-pdf-net
+E           assert False
+E            +  where False = _selects({'apiVersion': 'networking.k8s.io/v1', 'kind': 'NetworkPolicy', 'metadata': {'name': 'foss-mcp-pdf-net-ingestion-egres...'}}, 'policyTypes': ['Egress'], 'egress': [{'ports': [{'protocol': 'TCP', 'port': 443}], 'to': [{'ipBlock': {...}}]}]}}, {'app.kubernetes.io/name': 'foss-mcp', 'app.kubernetes.io/instance': 'foss-mcp', 'app.kubernetes.io/component': 'ingestion-off'})
+
+tests\infra\test_helm_chart.py:370: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_chart.py::test_ingestion_job_pod_template_carries_the_ingestion_component_label
+FAILED tests/infra/test_helm_chart.py::test_tcp_443_to_any_destination_is_granted_only_to_ingestion_pods
+
+--- stderr ---
+
