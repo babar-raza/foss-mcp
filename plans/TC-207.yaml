@@ -18,6 +18,7 @@ depends_on:
 write_paths:
 - infra/helm/foss-mcp/values.yaml
 - tests/infra/test_helm_manifest_step.py
+- tests/infra/test_helm_pilots_match_compose.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -35,6 +36,11 @@ inputs:
   dotnet, java, go, typescript, rust, cpp.'
 - 'Restate the fixed count in tests/infra/test_helm_manifest_step.py from seven to fourteen, if a test asserts it, keeping the test''s
   name and check. Change nothing else in that file.'
+- 'Contract restatement, by the supervisor after the attempt-1 block. The seven pilots'' compose services are self-extracted and pass no
+  library flags, so the drift test''s library-commit comparison (around line 110 of tests/infra/test_helm_pilots_match_compose.py) cannot
+  hold for them. This is the same case as pdf/cpp, which TC-208 handled. For each of the seven pilots, compare the library block''s repository
+  and commit with the fixture''s source_repository and source_commit, instead of with compose flags. Keep the test names, the platform check and
+  every other assertion. Record the restatement in the commit body. Do not change docker-compose.yml.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
 - Read the values file and the seven fixtures.
