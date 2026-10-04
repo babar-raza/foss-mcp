@@ -1,0 +1,60 @@
+id: TC-208
+gate: G2
+lane: transport-deployment
+purpose: 'Give the pdf/cpp pilot its packaging manifest, CMakeLists.txt, so its get_product_reference check can pass, and make the
+  tests prove the rendered manifest path. TC-206 used all three of its attempts. Its committed content (611ab62) is correct: the pdf/cpp entry
+  gets manifestPath and a library block, the build flags are emitted only with a furnished page, and the drift test compares C++ against
+  its fixture. Its review found the falsifier vacuous: changing manifestPath did not make any test fail, because the tests check that a
+  fetch step exists, not which manifest path it uses. This card carries the same reviewed content and adds that assertion. TC-206 is
+  superseded by this card.'
+depends_on:
+- TC-203
+- TC-205
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
+- tests/infra/test_helm_manifest_step.py
+- tests/infra/test_helm_pilots_match_compose.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'The reviewed content is committed on branch worker/TC-206 at commit 611ab62. Its four files are the content of this card. Take each
+  with git checkout 611ab62 -- <file> from that branch: infra/helm/foss-mcp/values.yaml, infra/helm/foss-mcp/templates/ingestion-job.yaml,
+  tests/infra/test_helm_manifest_step.py and tests/infra/test_helm_pilots_match_compose.py. Read each before you rely on it. Take nothing else
+  from that branch.'
+- 'Add one assertion to tests/infra/test_helm_manifest_step.py. For the pdf/cpp pilot, read the rendered Job from helm template output, and
+  assert that its fetch step passes --manifest-path CMakeLists.txt. Also assert that for each pilot with a manifestPath, the rendered
+  --manifest-path equals that pilot''s manifestPath value from values.yaml. Editing the value must make this fail. The falsifier relies on
+  that.'
+- 'Keep every test and assertion that already exists.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Take the four reviewed files from 611ab62.
+- Add the rendered manifest-path assertion.
+- Run the chart and manifest tests, and helm lint and template, and report exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_manifest_step.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 44
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/values.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('manifestPath: CMakeLists.txt','manifestPath: CMakeLists_off.txt',1),encoding='utf-8')"
+  rationale: 'Renames the pdf/cpp manifest path, so the rendered fetch step passes a path that does not match values. The new rendered
+    manifest-path assertion must fail. The value CMakeLists.txt occurs only in the pdf/cpp entry, because the cells/cpp entry uses a
+    longer path. Built with plain text, since it has no quote or backslash.'
+evidence:
+- evidence/build/G2/TC-208/receipt.json
+closeout:
+- The pdf/cpp pilot writes its own product-reference sidecar during ingestion, from its CMake manifest, and its serving pod reads it.
+- A change to any pilot''s manifest path changes the rendered fetch step, and the tests fail.
+recovery: Re-run from a clean tree.
