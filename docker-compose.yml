@@ -52,6 +52,11 @@ x-serving-base: &serving-base
 # `ingest-cells-rust` service below (which publishes into it) and `serving-cells-rust` (which
 # reads it). Scope is cells/rust only; every other pilot's own volume/service above and below is
 # unaffected.
+#
+# G2/TC-172: pdf/cpp's own equivalent, same shape - shared between the one-shot
+# `ingest-pdf-cpp` service below (which publishes into it) and `serving-pdf-cpp` (which reads
+# it). Publishes API-surface chunks only: no cpp example path exists in build_chunks, so no
+# furnished examples are included. Scope is pdf/cpp only.
 volumes:
   manifests-pdf-net:
   manifests-pdf-typescript:
@@ -59,6 +64,7 @@ volumes:
   manifests-pdf-go:
   manifests-slides-python:
   manifests-cells-rust:
+  manifests-pdf-cpp:
 
 services:
   # G2/TC-064: the real, live first publish for pdf/net - a one-shot init job, not a
@@ -164,10 +170,46 @@ services:
       FOSS_MCP_PLATFORM: typescript
       FOSS_MCP_SOURCE_KIND: self_extracted
 
+  # G2/TC-172: pdf/cpp's real, live first publish - a one-shot init job, mirroring
+  # `ingest-pdf-net`/`ingest-pdf-typescript` above exactly. Builds real Chunk objects from this
+  # pilot's real committed fixture (infra/build_chunks.py, build_chunks_from_api_surface) with NO
+  # --library-* or --furnished-page flags: no cpp example path exists (no prepare/verify for cpp
+  # in _PLATFORM_DISPATCH), so this publishes API-surface chunks only, with no furnished
+  # examples. Then publishes them through the real CAS/citation-validation authority path
+  # (infra/ingest.py) using the real HashingEmbeddingProvider - into the SAME named volume
+  # `serving-pdf-cpp` below reads.
+  ingest-pdf-cpp:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-pdf-cpp:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/pdf_cpp/api_surface.json
+        --title "pdf/cpp API surface"
+        --max-types 20
+        --out /tmp/pdf_cpp_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family pdf
+        --platform cpp
+        --source-kind self_extracted
+        --chunks /tmp/pdf_cpp_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/pdf_cpp/api_surface.json
+        --held-by ingestion-pdf-cpp
+
   serving-pdf-cpp:
     <<: *serving-base
     ports:
       - "8082:8080"
+    volumes:
+      - manifests-pdf-cpp:/data/manifests
     environment:
       FOSS_MCP_FAMILY: pdf
       FOSS_MCP_PLATFORM: cpp
