@@ -1056,3 +1056,13 @@ real-repository regression moved to test_api_surface_java_live.py (opt-in, outsi
 the falsifier is built with chr(). The verified code change from attempt 1 is reusable.
 TC-168 is re-dispatched at attempt 2. Its attempt-1 rejection receipt is kept as evidence. Attempt 1 was
 not a worker defect, so it is not counted as a failed equivalent attempt.
+
+## 2026-10-04 - TC-057 retired from the plan set; G2 open questions decided; repo-wide lint/format restored (supervisor)
+**TC-057 retirement.** TC-057 consumed its 3-attempt cap, each stop a distinct real C++ engine bug, each fixed and accepted (TC-058, TC-059, TC-092). Its goal is carried forward as TC-153, which is accepted. The retirement record is docs/retired-cards/TC-057.md. Following the TC-073 precedent (commit 077f240), plans/TC-057.yaml is deleted so the derived state no longer counts a spent card as a gate failure. Its receipt stays under evidence/build/G2/TC-057 as the historical record. Nothing is lost: the TC-153 successor is accepted with its own receipt.
+
+**Open questions decided (G2).**
+- OQ-002 (search_docs source): keep the repository-presenter sealed candidate. Switch to live upstream only when both conditions in the question hold (presenter can push, and the commit carries a provenance trailer). Neither holds yet.
+- OQ-003 (pdf/typescript furnished doc): accept the gap for G2. TC-119 excluded this product on purpose and no sealed candidate exists. Reopen as a follow-up card when candidates/aspose-pdf-foss__Aspose.PDF-FOSS-for-TypeScript/CURRENT exists.
+- OQ-004 (to_dict/from_dict unwired): keep in place, unwired. Do not add speculative consumers. At G3 review, delete it if no named consumer exists.
+
+**Repo-wide lint/format.** ruff check and ruff format were reporting 4 lint errors and 4 format diffs, all mechanical. Applied ruff check --fix and ruff format (tool-applied, no semantic change). Touched only tests/extraction/test_email_cpp_extraction.py, test_email_net_extraction.py, test_imaging_net_extraction.py and tests/infra/test_fetch_product_reference.py. Ruff is clean across the repo.
