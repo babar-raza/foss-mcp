@@ -171,7 +171,7 @@ def test_each_pilot_sidecar_name_is_distinct_and_is_the_name_its_own_pilot_write
     names = []
     for pilot in _pilots_with_a_manifest_path():
         names.append(fetch_product_reference.sidecar_name(pilot["family"], pilot["platform"]))
-    assert len(names) == len(set(names)) == len(_pilots_with_a_manifest_path()) == 7, names
+    assert len(names) == len(set(names)) == len(_pilots_with_a_manifest_path()) == 14, names
     assert "product_reference_pdf_net.json" in names
     assert "product_reference_pdf_java.json" in names
 
