@@ -1,0 +1,68 @@
+id: TC-196
+gate: G2
+lane: verification
+purpose: 'Stop an environment failure from failing the cells/rust live e2e as if it were a code defect. The
+  live test runs the real ingest-cells-rust container, and cargo sometimes cannot reach its registry from inside
+  it. The container then exits 75, the environment-failure code from TC-181, TC-184 and TC-189, and the fixture
+  asserts exit 0. The 2026-10-04 CI run failed all ten cells/rust e2e tests this way, and the same pilot needed a
+  Job retry in the live POC. A registry outage is an environment fact, not a verdict on the code. The test must
+  retry a bounded number of times on exit 75, and then fail loudly with the environment reason. Any other non-zero
+  exit still fails at once.'
+depends_on:
+- TC-102
+- TC-123
+- TC-184
+- TC-189
+write_paths:
+- tests/e2e/env_retry.py
+- tests/e2e/test_env_retry.py
+- tests/e2e/test_cells_rust_live_content.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Read tests/e2e/test_cells_rust_live_content.py in full, especially the real_generation fixture, which runs
+  _compose up for ingest-cells-rust and asserts returncode 0, and the _compose helper.'
+- 'Add tests/e2e/env_retry.py as a new file. It defines ENVIRONMENT_EXIT = 75 and ATTEMPTS = 3, and one function
+  run_with_environment_retry(run, attempts=ATTEMPTS). It calls run() with no arguments. If the result returncode
+  is 0, it returns that result. If the returncode is ENVIRONMENT_EXIT, it calls run() again, up to attempts times in
+  all. Any other non-zero returncode returns at once, with no retry. When every attempt returns ENVIRONMENT_EXIT, it
+  raises a RuntimeError whose message says that the environment failure, cargo could not reach its registry, persisted
+  after the stated number of attempts, and that this is not a verdict on the code. It must not skip.'
+- 'In real_generation, replace the single _compose up call with run_with_environment_retry. Before each retry, run
+  _compose down -v --remove-orphans, so each attempt starts from empty state. Keep the assertion for any non-zero exit.
+  Keep every other line of the fixture.'
+- 'Add tests/e2e/test_env_retry.py as a new file, offline, with no docker. Test 1: a run that returns 0 is returned
+  once. Test 2: runs that return ENVIRONMENT_EXIT and then 0 return the 0, on the second call. Test 3: a run that returns
+  1 is returned at once, and is called once. Test 4: runs that return ENVIRONMENT_EXIT every time raise RuntimeError
+  after exactly ATTEMPTS calls. Use a plain fake object with a returncode attribute.'
+- 'Keep every existing test and assertion in tests/e2e/test_cells_rust_live_content.py.'
+actions:
+- Read the e2e file and the _compose helper in full.
+- Add the helper module, the fixture change, and the offline test file.
+- Run the offline test file and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/e2e/test_env_retry.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 4
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/e2e/env_retry.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('ATTEMPTS = 3','ATTEMPTS = 1',1),encoding='utf-8')"
+  rationale: 'Sets the retry budget to one attempt. Test 2 expects a second call after ENVIRONMENT_EXIT, so it must
+    fail: with one attempt, the helper raises RuntimeError on the first exit 75. This proves the retry is what the
+    test checks, not only that the module exists. Built with plain text, since it has no quote or backslash.'
+evidence:
+- evidence/build/G2/TC-196/receipt.json
+closeout:
+- A registry outage during the cells/rust live build is retried, then reported as an environment failure, not a code failure.
+- Any other non-zero exit still fails the live test at once.
+recovery: Re-run from a clean tree.
