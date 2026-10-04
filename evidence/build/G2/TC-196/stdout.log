@@ -1,0 +1,62 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_env_retry.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_awd_ht4\.junit-0.xml"
+--- stdout ---
+....                                                                     [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_env_retry.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_awd_ht4\.junit-0.xml"
+--- stdout ---
+....                                                                     [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/e2e/env_retry.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_env_retry.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_awd_ht4\.junit-0.xml"
+--- stdout ---
+.F..                                                                     [100%]
+================================== FAILURES ===================================
+___ test_an_environment_exit_is_retried_and_the_second_success_is_returned ____
+
+    def test_an_environment_exit_is_retried_and_the_second_success_is_returned() -> None:
+        run, given = _scripted([ENVIRONMENT_EXIT, 0])
+    
+>       result = run_with_environment_retry(run)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\e2e\test_env_retry.py:47: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+run = <function _scripted.<locals>.run at 0x0000020D3ACC16C0>, attempts = 1
+
+    def run_with_environment_retry[R: HasReturncode](run: Callable[[], R], attempts: int = ATTEMPTS) -> R:
+        """Call ``run()`` until it returns a result that is not an environment failure.
+    
+        Returns the first result whose ``returncode`` is 0, or any other non-zero ``returncode``
+        straight away. A ``returncode`` of ``ENVIRONMENT_EXIT`` triggers another call, up to
+        ``attempts`` calls in all. If every attempt returns ``ENVIRONMENT_EXIT``, raises
+        ``RuntimeError``.
+        """
+        if attempts < 1:
+            raise ValueError(f"attempts must be at least 1, got {attempts}")
+        for _ in range(attempts):
+            result = run()
+            if result.returncode != ENVIRONMENT_EXIT:
+                return result
+>       raise RuntimeError(
+            "environment failure: cargo could not reach its registry, and this persisted after "
+            f"{attempts} attempts (exit {ENVIRONMENT_EXIT}). This is not a verdict on the code."
+        )
+E       RuntimeError: environment failure: cargo could not reach its registry, and this persisted after 1 attempts (exit 75). This is not a verdict on the code.
+
+tests\e2e\env_retry.py:41: RuntimeError
+=========================== short test summary info ===========================
+FAILED tests/e2e/test_env_retry.py::test_an_environment_exit_is_retried_and_the_second_success_is_returned
+
+--- stderr ---
+
