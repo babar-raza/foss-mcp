@@ -1,0 +1,63 @@
+id: TC-201
+gate: G2
+lane: transport-deployment
+purpose: 'Make the ingestion Job write each product''s packaging-manifest sidecar into the shared manifests volume, so
+  that TC-200''s serving side has something to read. Today nothing in the ingestion Job reads a manifest:
+  fetch_product_reference.py exists and writes the sidecar, but no Job runs it. This card adds that step to the
+  ingestion Job for each pilot that names a manifest path in values.yaml, and gives each pilot that path. A pilot
+  without a manifest path gets no step and serves NotAvailable with its reason, which is explicit rather than silent.'
+depends_on:
+- TC-200
+- TC-195
+write_paths:
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
+- infra/helm/foss-mcp/values.yaml
+- tests/infra/test_helm_manifest_step.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/helm/foss-mcp/templates/ingestion-job.yaml in full, and the way each pilot''s command is built. Read
+  infra/fetch_product_reference.py for its command-line arguments and the file it writes. Read the ingestion.pilots
+  entries in infra/helm/foss-mcp/values.yaml.'
+- 'For each pilot in ingestion.pilots that has a manifestPath key, add a second step to that Job, after the existing
+  build and ingest steps, that runs fetch_product_reference.py with the pilot''s repository, commit and manifestPath,
+  and writes its sidecar to the manifests volume. The Job already mounts that volume read-write. The step must not run
+  for a pilot without manifestPath.'
+- 'Give the six POC pilots their manifestPath values from the repository''s own manifest file at the pinned commit, as
+  listed in tests/fixtures/repo_native. If a pilot has no such file in the fixtures, leave manifestPath out and say so in
+  your report. Do not invent a path.'
+- 'Add tests/infra/test_helm_manifest_step.py as a new file, offline. It renders the chart with helm template, using
+  image.tag set, and checks: (1) a pilot with manifestPath gets the fetch step in its Job, on the read-write claim; (2) a
+  pilot without manifestPath gets no fetch step; (3) the serving Deployment mounts the manifests claim read-only.
+  It must fail, not skip, when helm is missing. Source scripts/toolchain/activate.ps1 in the same command as pytest.'
+- 'Keep every existing chart test and assertion.'
+actions:
+- Read the template, the values entries, and the fetch command in full.
+- Add the step, the values keys, and the test file.
+- Run the chart and manifest tests, and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_manifest_step.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py -q'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 25
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/ingestion-job.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('fetch_product_reference.py','fetch_product_reference_off.py',1),encoding='utf-8')"
+  rationale: 'Renames the fetch command in the ingestion Job template, so the step would call a missing script. The
+    manifest step test looks for the real command in the rendered Job and must then fail. The replace is limited to the
+    first match, which is the one in the template. Built with plain text, since it has no quote or backslash.'
+evidence:
+- evidence/build/G2/TC-201/receipt.json
+closeout:
+- Each pilot with a manifest path writes its sidecar during ingestion, and its serving pod reads it.
+- A pilot without one serves an explicit NotAvailable.
+recovery: Re-run from a clean tree.

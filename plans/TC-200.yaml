@@ -1,0 +1,81 @@
+id: TC-200
+gate: G2
+lane: transport-deployment
+purpose: 'Make get_product_reference answer from the product''s own packaging manifest on the serving side. Live
+  proof (2026-10-04): every pilot answers "no packaging manifest was provided", because the serving process builds
+  ProductReferenceInputs() with no manifest. The design already exists: plans/TC-145 specifies that serve_http reads a
+  sidecar from the manifests volume and passes it to create_server, and fetch_product_reference.py already writes that
+  sidecar. This card closes the serving hop only: serve_http reads the sidecar if it is present, and passes the inputs
+  through build_app to create_server, with the platform taken from the deployment''s PLATFORM environment variable, so
+  that a TypeScript deployment never reaches the .NET branch. With no sidecar, the tool still returns the explicit
+  NotAvailable with its reason, and does not raise.'
+depends_on:
+- TC-145
+- TC-197
+- TC-130
+- TC-134
+- TC-137
+- TC-140
+- TC-141
+- TC-142
+- TC-149
+- TC-178
+write_paths:
+- infra/serve_http.py
+- infra/fetch_product_reference.py
+- tests/infra/test_serve_manifest_sidecar.py
+- tests/test_unwired_modules.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/serve_http.py in full: main, build_app, and where create_server is called. Read infra/fetch_product_reference.py
+  in full, especially _serialize_document and the sidecar format it writes. Read
+  src/foss_mcp/mcp/tools/get_product_reference.py for ProductReferenceInputs and the NotAvailable branch. Read
+  tests/test_unwired_modules.py, which pins modules that are not yet wired.'
+- 'Add a function load_manifest_sidecar(path) to infra/fetch_product_reference.py. It is the inverse of
+  _serialize_document: it rebuilds the DocumentPresent or DocumentNotPresent objects, and returns a ProductReferenceInputs.
+  If the file is absent, it returns None, not an error. The name must appear once as a definition and at its use.'
+- 'In infra/serve_http.py, build_app takes an optional manifests_dir. It loads the sidecar from that directory, using the
+  name the fetch step writes, and passes the result to create_server as product_reference_inputs. The platform comes from
+  the PLATFORM environment variable that the chart already sets, not from the default "net". If the platform is not set,
+  the server must fail at start, not default to .NET.'
+- 'The tool''s input schema must not gain a manifest argument. A client cannot supply manifest_text.'
+- 'Update tests/test_unwired_modules.py only to reflect that fetch_product_reference is now wired into serving. Do not
+  remove any other pin.'
+- 'Add tests/infra/test_serve_manifest_sidecar.py as a new file, offline. It builds a sidecar from
+  tests/fixtures/repo_native/pdf_net.csproj, serves it through create_server, and calls get_product_reference with section
+  "compatibility". Test 1: the answer is the exact TargetFramework from the fixture, not NotAvailable. Test 2: with no
+  sidecar, the answer is NotAvailable with its reason and nothing raises. Test 3: a sidecar for a TypeScript platform
+  reaches the engines.node branch, not the .NET branch. Test 4: the tool input schema exposes only section.'
+- 'Keep every existing test and assertion, except the one pin named above.'
+actions:
+- Read the files named in inputs in full.
+- Add the loader, the build_app parameter, and the offline test file.
+- Update the one pin, run the tests, and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_serve_manifest_sidecar.py tests/test_unwired_modules.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 5
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/fetch_product_reference.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('def load_manifest_sidecar(','def load_manifest_sidecar_off(',1),encoding='utf-8')"
+  rationale: 'Renames the definition of load_manifest_sidecar, so serve_http can no longer load the sidecar. Test 1 needs
+    the exact TargetFramework and then fails with an error on the missing name, rather than passing on NotAvailable. The
+    replace is limited to the first match, which is the definition. Built with plain text, since it has no quote or
+    backslash.'
+evidence:
+- evidence/build/G2/TC-200/receipt.json
+closeout:
+- Serving answers get_product_reference from the product''s own manifest when a sidecar is present.
+- With no sidecar, serving answers with the explicit NotAvailable reason.
+recovery: Re-run from a clean tree.
