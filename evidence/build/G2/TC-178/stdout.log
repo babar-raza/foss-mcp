@@ -1,0 +1,91 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_serve_logging.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i_gh0ne2\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_serve_logging.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i_gh0ne2\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/serve_http.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_serve_logging.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i_gh0ne2\.junit-0.xml"
+--- stdout ---
+.....FFF                                                                 [100%]
+================================== FAILURES ===================================
+______________________ test_shutdown_grace_reads_env_var ______________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019FEBC12E50>
+
+    def test_shutdown_grace_reads_env_var(monkeypatch):
+        monkeypatch.setenv(GRACE_VAR, "40")
+>       assert serve_http.shutdown_grace_seconds() == 40
+E       assert 25 == 40
+E        +  where 25 = <function shutdown_grace_seconds at 0x0000019FEBD696C0>()
+E        +    where <function shutdown_grace_seconds at 0x0000019FEBD696C0> = serve_http.shutdown_grace_seconds
+
+tests\infra\test_serve_logging.py:117: AssertionError
+____________________ test_shutdown_grace_rejects_negative _____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019FEBC12C50>
+
+    def test_shutdown_grace_rejects_negative(monkeypatch):
+        monkeypatch.setenv(GRACE_VAR, "-1")
+>       with pytest.raises(ValueError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\infra\test_serve_logging.py:122: Failed
+_____________ test_main_wires_json_logging_and_grace_into_uvicorn _____________
+
+capsys = <_pytest.capture.CaptureFixture object at 0x0000019FEBD3AFD0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019FEBD168A0>
+restore_root_logging = None
+
+    def test_main_wires_json_logging_and_grace_into_uvicorn(
+        capsys, monkeypatch, restore_root_logging
+    ):
+        """The real entrypoint: main() configures logging, then calls uvicorn.run with the grace
+        window read from the environment. A record emitted while uvicorn is 'running' must reach
+        stdout as JSON."""
+        monkeypatch.delenv(LOG_LEVEL_VAR, raising=False)
+        monkeypatch.setenv(GRACE_VAR, "40")
+        app_sentinel = object()
+        monkeypatch.setattr(serve_http, "build_app", lambda config: app_sentinel)
+    
+        seen: dict = {}
+    
+        def fake_run(app, **kwargs):
+            seen["app"] = app
+            seen["kwargs"] = kwargs
+            logging.getLogger(TOOL_CALL_LOGGER).info(
+                "tool call: %s (%s)", "search", "ok", extra={"tool": "search", "outcome": "ok"}
+            )
+    
+        monkeypatch.setattr(uvicorn, "run", fake_run)
+        serve_http.main()
+    
+        assert seen["app"] is app_sentinel
+>       assert seen["kwargs"]["timeout_graceful_shutdown"] == 40
+E       assert 25 == 40
+
+tests\infra\test_serve_logging.py:150: AssertionError
+---------------------------- Captured stdout call -----------------------------
+{"ts": "2026-10-04T11:15:07.733+00:00", "level": "INFO", "logger": "foss_mcp.mcp.server", "message": "tool call: search (ok)", "tool": "search", "outcome": "ok"}
+------------------------------ Captured log call ------------------------------
+INFO     foss_mcp.mcp.server:test_serve_logging.py:142 tool call: search (ok)
+=========================== short test summary info ===========================
+FAILED tests/infra/test_serve_logging.py::test_shutdown_grace_reads_env_var
+FAILED tests/infra/test_serve_logging.py::test_shutdown_grace_rejects_negative
+FAILED tests/infra/test_serve_logging.py::test_main_wires_json_logging_and_grace_into_uvicorn
+
+--- stderr ---
+
