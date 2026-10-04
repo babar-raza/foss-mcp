@@ -40,3 +40,30 @@ spec:
           podSelector:
             matchLabels:
               k8s-app: kube-dns
+---
+# Ingestion egress. The ingestion Jobs download pinned sources and packages (NuGet, git, package
+# registries) over HTTPS to arbitrary hosts, so TCP 443 to any destination is granted to ingestion
+# pods only. A NetworkPolicy egress rule cannot be scoped to one subset of the pods a policy
+# selects, and the policy above selects serving and ingestion pods alike, so this grant is its own
+# document. Egress is additive: ingestion pods get these rules together with the rules above, and
+# serving pods, which do not carry the ingestion component label, are not selected here at all.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "foss-mcp.fullname" . }}-ingestion-egress
+  labels:
+    {{- include "foss-mcp.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "foss-mcp.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: ingestion
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 443
+      to:
+        - ipBlock:
+            cidr: 0.0.0.0/0

@@ -301,9 +301,12 @@ def _opens_port_53_to_world_or_all_pods(rule: dict[str, Any]) -> bool:
 
 
 def test_dns_egress_reaches_only_kube_dns_on_udp_and_tcp_53() -> None:
-    policies = _by_kind(_render(), "NetworkPolicy")
-    assert len(policies) == 1, "expected exactly one NetworkPolicy"
-    egress = policies[0]["spec"]["egress"]
+    docs = _render()
+    serving, _, _ = _serving(docs)
+    serving_labels = serving["spec"]["template"]["metadata"]["labels"]
+    selecting = [policy for policy in _by_kind(docs, "NetworkPolicy") if _selects(policy, serving_labels)]
+    assert len(selecting) == 1, f"expected one NetworkPolicy selecting the serving pods, got {len(selecting)}"
+    egress = selecting[0]["spec"]["egress"]
     kube_dns_rules = [
         rule
         for rule in egress
@@ -319,3 +322,61 @@ def test_dns_egress_reaches_only_kube_dns_on_udp_and_tcp_53() -> None:
     assert kube_dns_rules, "expected an egress rule allowing UDP and TCP 53 to kube-dns in kube-system"
     wide = [rule for rule in egress if _opens_port_53_to_world_or_all_pods(rule)]
     assert wide == [], f"port 53 must not open to 0.0.0.0/0 or to all pods: {wide}"
+
+
+def _selects(policy: dict[str, Any], labels: dict[str, str]) -> bool:
+    """True when the policy's podSelector matches pods carrying these labels (matchLabels only)."""
+    selector = policy["spec"]["podSelector"]
+    assert "matchExpressions" not in selector, "these checks read matchLabels only"
+    return all(labels.get(key) == value for key, value in selector.get("matchLabels", {}).items())
+
+
+def _grants_any_internet(rule: dict[str, Any]) -> bool:
+    if "to" not in rule:
+        return True  # an egress rule with no destination list allows every destination
+    return any(peer.get("ipBlock", {}).get("cidr") in ("0.0.0.0/0", "::/0") for peer in rule["to"])
+
+
+def _grants_tcp_443_to_any_destination(rule: dict[str, Any]) -> bool:
+    return {"protocol": "TCP", "port": 443} in rule.get("ports", []) and rule.get("to") == [
+        {"ipBlock": {"cidr": "0.0.0.0/0"}}
+    ]
+
+
+def test_ingestion_job_pod_template_carries_the_ingestion_component_label() -> None:
+    jobs = _by_kind(_render(), "Job")
+    assert jobs, "expected at least one ingestion Job"
+    for job in jobs:
+        labels = job["spec"]["template"]["metadata"]["labels"]
+        assert labels.get("app.kubernetes.io/component") == "ingestion", job["metadata"]["name"]
+
+
+def test_tcp_443_to_any_destination_is_granted_only_to_ingestion_pods() -> None:
+    docs = _render()
+    grants = [
+        (policy, rule)
+        for policy in _by_kind(docs, "NetworkPolicy")
+        for rule in policy["spec"].get("egress", [])
+        if _grants_tcp_443_to_any_destination(rule)
+    ]
+    assert len(grants) == 1, f"expected exactly one TCP 443 to 0.0.0.0/0 rule, got {len(grants)}"
+    policy, _ = grants[0]
+    selector = policy["spec"]["podSelector"]["matchLabels"]
+    assert selector.get("app.kubernetes.io/component") == "ingestion", selector
+    jobs = _by_kind(docs, "Job")
+    assert jobs, "expected at least one ingestion Job"
+    for job in jobs:
+        labels = job["spec"]["template"]["metadata"]["labels"]
+        assert _selects(policy, labels), f"the TCP 443 policy must select {job['metadata']['name']}"
+
+
+def test_serving_pods_receive_no_internet_egress_rule() -> None:
+    docs = _render()
+    serving, _, _ = _serving(docs)
+    serving_labels = serving["spec"]["template"]["metadata"]["labels"]
+    assert serving_labels.get("app.kubernetes.io/component") == "serving"
+    selecting = [policy for policy in _by_kind(docs, "NetworkPolicy") if _selects(policy, serving_labels)]
+    assert selecting, "expected at least one NetworkPolicy to select the serving pods"
+    for policy in selecting:
+        for rule in policy["spec"].get("egress", []):
+            assert not _grants_any_internet(rule), (policy["metadata"]["name"], rule)
