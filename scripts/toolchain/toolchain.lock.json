@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "purpose": "Pinned build and test toolchain for foss-mcp on Windows. The binaries live in tools/ (git-ignored, about 8 GB). This file records what they are, where each came from, and how to restore it. Nothing here is a credential.",
+  "tools_root": "tools",
+  "activate": "scripts/toolchain/activate.ps1",
+  "tools": [
+    {
+      "name": "python",
+      "version": "3.13.2",
+      "relative_path": "tools/python313",
+      "kind": "portable",
+      "source": "https://www.python.org/downloads/release/python-3132/ (Windows embeddable or full installer, no admin needed for the zip layout)",
+      "used_by": "project venv (.venv), all ops/gatectl.py and pytest runs"
+    },
+    {
+      "name": "git",
+      "version": "2.48.1.windows.1",
+      "relative_path": "tools/git",
+      "kind": "portable",
+      "source": "https://github.com/git-for-windows/git/releases (PortableGit, 64-bit)",
+      "used_by": "every git call, and bash.exe for .githooks and scripts/ci_check.sh"
+    },
+    {
+      "name": "go",
+      "version": "1.26.4",
+      "relative_path": "tools/go",
+      "kind": "portable",
+      "source": "https://go.dev/dl/ (windows-amd64 zip)",
+      "used_by": "example verifier (Go platform)"
+    },
+    {
+      "name": "cmake",
+      "version": "4.4.1",
+      "relative_path": "tools/cmake",
+      "kind": "portable",
+      "source": "https://cmake.org/download/ (windows-x86_64 zip)",
+      "used_by": "example verifier (cells/cpp)"
+    },
+    {
+      "name": "nodejs",
+      "version": "24.13.1 (npm 11.8.0)",
+      "relative_path": "tools/nodejs",
+      "kind": "portable",
+      "source": "https://nodejs.org/en/download (Windows x64 zip)",
+      "used_by": "example verifier (TypeScript platform)"
+    },
+    {
+      "name": "maven",
+      "version": "3.9.16",
+      "relative_path": "tools/maven",
+      "kind": "portable",
+      "source": "https://maven.apache.org/download.cgi (apache-maven-3.9.16-bin.zip)",
+      "used_by": "example verifier (Java platform)"
+    },
+    {
+      "name": "temurin-jdk",
+      "version": "21.0.11+10 (also 17.0.19+10 kept)",
+      "relative_path": "tools/adoptium",
+      "kind": "portable",
+      "source": "https://adoptium.net/temurin/releases/ (Windows x64 zip)",
+      "used_by": "JAVA_HOME for Maven and javac"
+    },
+    {
+      "name": "rustup-user",
+      "version": "stable toolchain, cargo 1.92.0 (user profile copy)",
+      "relative_path": "tools/rustup-user",
+      "kind": "portable",
+      "source": "https://win.rustup.rs/x86_64 (rustup-init, profile minimal, default toolchain stable)",
+      "used_by": "cargo and rustc, via RUSTUP_HOME"
+    },
+    {
+      "name": "rp-toolchains",
+      "version": "see tools/rp-toolchains/TOOLCHAIN_PATHS.txt (ninja 1.13.2, winlibs GCC 16.2.0, LLVM 19.1.7, rustup cargo 1.98.1, typescript 5.9.3)",
+      "relative_path": "tools/rp-toolchains",
+      "kind": "portable",
+      "source": "Assembled by earlier sessions; each component's own source is recorded in TOOLCHAIN_PATHS.txt inside the folder.",
+      "used_by": "example verifier: ninja, cargo (cargo-home and rustup-home), tsc, and the GCC/Clang probes"
+    },
+    {
+      "name": "dotnet-sdk",
+      "version": "10.0.204",
+      "relative_path": "C:\\Program Files\\dotnet",
+      "kind": "installed-system",
+      "source": "https://dotnet.microsoft.com/download (SDK installer)",
+      "used_by": "example verifier (dotnet platform). Already installed on C:; not copied into tools/."
+    },
+    {
+      "name": "docker-desktop",
+      "version": "4.93.0 (engine 29.8.1, compose v5.5.1)",
+      "relative_path": "C:\\Users\\babar\\AppData\\Local\\Programs\\DockerDesktop",
+      "kind": "installed-system",
+      "source": "https://www.docker.com/products/docker-desktop/ (installer, needs WSL 2)",
+      "used_by": "compose stack, live-content e2e tests, container build tests. Not portable; reinstall with the installer."
+    },
+    {
+      "name": "visual-studio-2022-community",
+      "version": "17.x Community (2022)",
+      "relative_path": "D:\\Program Files\\Microsoft Visual Studio\\2022\\Community",
+      "kind": "installed-system-incomplete",
+      "source": "https://visualstudio.microsoft.com/vs/community/ (installer, admin required)",
+      "used_by": "MSVC link.exe and cl.exe for the Rust build and the cells/cpp verifier. The C++ workload is NOT installed on this machine (no VC\\Tools\\MSVC). Owner action: add the 'Desktop development with C++' workload."
+    }
+  ],
+  "not_restored_by_design": [
+    "Build caches and downloaded packages (npm cache, cargo registry, pip cache)",
+    "Docker images and volumes (rebuilt by docker compose)",
+    "Any other project's tools, such as the actions-runner tree on D:"
+  ]
+}
