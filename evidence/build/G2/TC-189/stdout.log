@@ -1,0 +1,420 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_rust_reference_env_failure.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hzlml51r\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_rust_reference_env_failure.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hzlml51r\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/example_verifier.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_rust_reference_env_failure.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hzlml51r\.junit-0.xml"
+--- stdout ---
+FFFFFFF                                                                  [100%]
+================================== FAILURES ===================================
+_ test_reference_network_failure_without_diagnostic_is_environment_error[spurious network error] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000018E12735810>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-368/test_reference_network_failure0')
+marker = 'spurious network error'
+
+    @pytest.mark.parametrize("marker", ev._CARGO_NETWORK_FAILURE_MARKERS)
+    def test_reference_network_failure_without_diagnostic_is_environment_error(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path, marker: str
+    ) -> None:
+        calls = _script_reference_build(
+            monkeypatch,
+            returncode=101,
+            output=f"warning: {marker} (3 tries remaining)\nerror: failed to download from registry\n",
+        )
+    
+        with pytest.raises(ExampleEnvironmentError) as excinfo:
+>           _build(tmp_path)
+
+tests\indexing\test_rust_reference_env_failure.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_rust_reference_env_failure.py:53: in _build
+    return ev.prepare_rust_library(_REPOSITORY, _COMMIT, tmp_path / "reference")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+repository = 'https://example.invalid/reference-crate.git'
+commit = '0123456789abcdef0123456789abcdef01234567'
+workdir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-368/test_reference_network_failure0/reference')
+
+    def prepare_rust_library(
+        repository: str,
+        commit: str,
+        workdir: Path,
+    ) -> Path:
+        """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``
+        and build the reference crate once with ``cargo build``, proving the
+        real library itself builds clean. Returns ``workdir`` - the cloned
+        crate's own root, where its ``Cargo.toml`` lives - for
+        ``verify_rust_example`` to depend on as a Cargo path dependency.
+    
+        Raises ``ExampleEnvironmentError`` when the failed build's output names a
+        registry or network failure with no rustc diagnostic (see
+        ``_reference_build_failure``). Raises ``RuntimeError`` on any other real
+        failure (clone, checkout, or build).
+        """
+        _clone_pinned_commit(repository, commit, workdir)
+    
+        build_result = _run_cargo(["cargo", "build"], cwd=workdir)
+        if build_result.returncode != 0:
+>           raise _reference_build_failure_off("cargo", repository, commit, build_result)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_reference_build_failure_off' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:797: NameError
+_ test_reference_network_failure_without_diagnostic_is_environment_error[Could not resolve hostname] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000018E125F4D60>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-368/test_reference_network_failure1')
+marker = 'Could not resolve hostname'
+
+    @pytest.mark.parametrize("marker", ev._CARGO_NETWORK_FAILURE_MARKERS)
+    def test_reference_network_failure_without_diagnostic_is_environment_error(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path, marker: str
+    ) -> None:
+        calls = _script_reference_build(
+            monkeypatch,
+            returncode=101,
+            output=f"warning: {marker} (3 tries remaining)\nerror: failed to download from registry\n",
+        )
+    
+        with pytest.raises(ExampleEnvironmentError) as excinfo:
+>           _build(tmp_path)
+
+tests\indexing\test_rust_reference_env_failure.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_rust_reference_env_failure.py:53: in _build
+    return ev.prepare_rust_library(_REPOSITORY, _COMMIT, tmp_path / "reference")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+repository = 'https://example.invalid/reference-crate.git'
+commit = '0123456789abcdef0123456789abcdef01234567'
+workdir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-368/test_reference_network_failure1/reference')
+
+    def prepare_rust_library(
+        repository: str,
+        commit: str,
+        workdir: Path,
+    ) -> Path:
+        """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``
+        and build the reference crate once with ``cargo build``, proving the
+        real library itself builds clean. Returns ``workdir`` - the cloned
+        crate's own root, where its ``Cargo.toml`` lives - for
+        ``verify_rust_example`` to depend on as a Cargo path dependency.
+    
+        Raises ``ExampleEnvironmentError`` when the failed build's output names a
+        registry or network failure with no rustc diagnostic (see
+        ``_reference_build_failure``). Raises ``RuntimeError`` on any other real
+        failure (clone, checkout, or build).
+        """
+        _clone_pinned_commit(repository, commit, workdir)
+    
+        build_result = _run_cargo(["cargo", "build"], cwd=workdir)
+        if build_result.returncode != 0:
+>           raise _reference_build_failure_off("cargo", repository, commit, build_result)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_reference_build_failure_off' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:797: NameError
+_ test_reference_network_failure_without_diagnostic_is_environment_error[SSL connect error] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000018E127843B0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-368/test_reference_network_failure2')
+marker = 'SSL connect error'
+
+    @pytest.mark.parametrize("marker", ev._CARGO_NETWORK_FAILURE_MARKERS)
+    def test_reference_network_failure_without_diagnostic_is_environment_error(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path, marker: str
+    ) -> None:
+        calls = _script_reference_build(
+            monkeypatch,
+            returncode=101,
+            output=f"warning: {marker} (3 tries remaining)\nerror: failed to download from registry\n",
+        )
+    
+        with pytest.raises(ExampleEnvironmentError) as excinfo:
+>           _build(tmp_path)
+
+tests\indexing\test_rust_reference_env_failure.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_rust_reference_env_failure.py:53: in _build
+    return ev.prepare_rust_library(_REPOSITORY, _COMMIT, tmp_path / "reference")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+repository = 'https://example.invalid/reference-crate.git'
+commit = '0123456789abcdef0123456789abcdef01234567'
+workdir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-368/test_reference_network_failure2/reference')
+
+    def prepare_rust_library(
+        repository: str,
+        commit: str,
+        workdir: Path,
+    ) -> Path:
+        """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``
+        and build the reference crate once with ``cargo build``, proving the
+        real library itself builds clean. Returns ``workdir`` - the cloned
+        crate's own root, where its ``Cargo.toml`` lives - for
+        ``verify_rust_example`` to depend on as a Cargo path dependency.
+    
+        Raises ``ExampleEnvironmentError`` when the failed build's output names a
+        registry or network failure with no rustc diagnostic (see
+        ``_reference_build_failure``). Raises ``RuntimeError`` on any other real
+        failure (clone, checkout, or build).
+        """
+        _clone_pinned_commit(repository, commit, workdir)
+    
+        build_result = _run_cargo(["cargo", "build"], cwd=workdir)
+        if build_result.returncode != 0:
+>           raise _reference_build_failure_off("cargo", repository, commit, build_result)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_reference_build_failure_off' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:797: NameError
+_ test_reference_network_failure_without_diagnostic_is_environment_error[download of config.json failed] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000018E12723460>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-368/test_reference_network_failure3')
+marker = 'download of config.json failed'
+
+    @pytest.mark.parametrize("marker", ev._CARGO_NETWORK_FAILURE_MARKERS)
+    def test_reference_network_failure_without_diagnostic_is_environment_error(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path, marker: str
+    ) -> None:
+        calls = _script_reference_build(
+            monkeypatch,
+            returncode=101,
+            output=f"warning: {marker} (3 tries remaining)\nerror: failed to download from registry\n",
+        )
+    
+        with pytest.raises(ExampleEnvironmentError) as excinfo:
+>           _build(tmp_path)
+
+tests\indexing\test_rust_reference_env_failure.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_rust_reference_env_failure.py:53: in _build
+    return ev.prepare_rust_library(_REPOSITORY, _COMMIT, tmp_path / "reference")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+repository = 'https://example.invalid/reference-crate.git'
+commit = '0123456789abcdef0123456789abcdef01234567'
+workdir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-368/test_reference_network_failure3/reference')
+
+    def prepare_rust_library(
+        repository: str,
+        commit: str,
+        workdir: Path,
+    ) -> Path:
+        """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``
+        and build the reference crate once with ``cargo build``, proving the
+        real library itself builds clean. Returns ``workdir`` - the cloned
+        crate's own root, where its ``Cargo.toml`` lives - for
+        ``verify_rust_example`` to depend on as a Cargo path dependency.
+    
+        Raises ``ExampleEnvironmentError`` when the failed build's output names a
+        registry or network failure with no rustc diagnostic (see
+        ``_reference_build_failure``). Raises ``RuntimeError`` on any other real
+        failure (clone, checkout, or build).
+        """
+        _clone_pinned_commit(repository, commit, workdir)
+    
+        build_result = _run_cargo(["cargo", "build"], cwd=workdir)
+        if build_result.returncode != 0:
+>           raise _reference_build_failure_off("cargo", repository, commit, build_result)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_reference_build_failure_off' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:797: NameError
+_ test_reference_network_failure_without_diagnostic_is_environment_error[transfer too slow] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000018E12723AC0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-368/test_reference_network_failure4')
+marker = 'transfer too slow'
+
+    @pytest.mark.parametrize("marker", ev._CARGO_NETWORK_FAILURE_MARKERS)
+    def test_reference_network_failure_without_diagnostic_is_environment_error(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path, marker: str
+    ) -> None:
+        calls = _script_reference_build(
+            monkeypatch,
+            returncode=101,
+            output=f"warning: {marker} (3 tries remaining)\nerror: failed to download from registry\n",
+        )
+    
+        with pytest.raises(ExampleEnvironmentError) as excinfo:
+>           _build(tmp_path)
+
+tests\indexing\test_rust_reference_env_failure.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_rust_reference_env_failure.py:53: in _build
+    return ev.prepare_rust_library(_REPOSITORY, _COMMIT, tmp_path / "reference")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+repository = 'https://example.invalid/reference-crate.git'
+commit = '0123456789abcdef0123456789abcdef01234567'
+workdir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-368/test_reference_network_failure4/reference')
+
+    def prepare_rust_library(
+        repository: str,
+        commit: str,
+        workdir: Path,
+    ) -> Path:
+        """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``
+        and build the reference crate once with ``cargo build``, proving the
+        real library itself builds clean. Returns ``workdir`` - the cloned
+        crate's own root, where its ``Cargo.toml`` lives - for
+        ``verify_rust_example`` to depend on as a Cargo path dependency.
+    
+        Raises ``ExampleEnvironmentError`` when the failed build's output names a
+        registry or network failure with no rustc diagnostic (see
+        ``_reference_build_failure``). Raises ``RuntimeError`` on any other real
+        failure (clone, checkout, or build).
+        """
+        _clone_pinned_commit(repository, commit, workdir)
+    
+        build_result = _run_cargo(["cargo", "build"], cwd=workdir)
+        if build_result.returncode != 0:
+>           raise _reference_build_failure_off("cargo", repository, commit, build_result)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_reference_build_failure_off' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:797: NameError
+___________ test_reference_build_with_rustc_diagnostic_is_a_defect ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000018E127BC350>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-368/test_reference_build_with_rust0')
+
+    def test_reference_build_with_rustc_diagnostic_is_a_defect(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        # A rustc diagnostic is a real compile failure. The network marker printed
+        # alongside it does not turn the failure into an environment error.
+        _script_reference_build(
+            monkeypatch,
+            returncode=101,
+            output=(
+                "error[E0433]: failed to resolve: use of undeclared crate or module `missing`\n"
+                "warning: spurious network error (2 tries remaining)\n"
+            ),
+        )
+    
+        with pytest.raises(RuntimeError) as excinfo:
+>           _build(tmp_path)
+
+tests\indexing\test_rust_reference_env_failure.py:89: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_rust_reference_env_failure.py:53: in _build
+    return ev.prepare_rust_library(_REPOSITORY, _COMMIT, tmp_path / "reference")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+repository = 'https://example.invalid/reference-crate.git'
+commit = '0123456789abcdef0123456789abcdef01234567'
+workdir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-368/test_reference_build_with_rust0/reference')
+
+    def prepare_rust_library(
+        repository: str,
+        commit: str,
+        workdir: Path,
+    ) -> Path:
+        """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``
+        and build the reference crate once with ``cargo build``, proving the
+        real library itself builds clean. Returns ``workdir`` - the cloned
+        crate's own root, where its ``Cargo.toml`` lives - for
+        ``verify_rust_example`` to depend on as a Cargo path dependency.
+    
+        Raises ``ExampleEnvironmentError`` when the failed build's output names a
+        registry or network failure with no rustc diagnostic (see
+        ``_reference_build_failure``). Raises ``RuntimeError`` on any other real
+        failure (clone, checkout, or build).
+        """
+        _clone_pinned_commit(repository, commit, workdir)
+    
+        build_result = _run_cargo(["cargo", "build"], cwd=workdir)
+        if build_result.returncode != 0:
+>           raise _reference_build_failure_off("cargo", repository, commit, build_result)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_reference_build_failure_off' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:797: NameError
+________ test_reference_build_without_marker_or_diagnostic_is_a_defect ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000018E127BC650>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-368/test_reference_build_without_m0')
+
+    def test_reference_build_without_marker_or_diagnostic_is_a_defect(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        _script_reference_build(
+            monkeypatch,
+            returncode=101,
+            output="error: could not compile `reference-crate` due to previous error\n",
+        )
+    
+        with pytest.raises(RuntimeError) as excinfo:
+>           _build(tmp_path)
+
+tests\indexing\test_rust_reference_env_failure.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_rust_reference_env_failure.py:53: in _build
+    return ev.prepare_rust_library(_REPOSITORY, _COMMIT, tmp_path / "reference")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+repository = 'https://example.invalid/reference-crate.git'
+commit = '0123456789abcdef0123456789abcdef01234567'
+workdir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-368/test_reference_build_without_m0/reference')
+
+    def prepare_rust_library(
+        repository: str,
+        commit: str,
+        workdir: Path,
+    ) -> Path:
+        """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``
+        and build the reference crate once with ``cargo build``, proving the
+        real library itself builds clean. Returns ``workdir`` - the cloned
+        crate's own root, where its ``Cargo.toml`` lives - for
+        ``verify_rust_example`` to depend on as a Cargo path dependency.
+    
+        Raises ``ExampleEnvironmentError`` when the failed build's output names a
+        registry or network failure with no rustc diagnostic (see
+        ``_reference_build_failure``). Raises ``RuntimeError`` on any other real
+        failure (clone, checkout, or build).
+        """
+        _clone_pinned_commit(repository, commit, workdir)
+    
+        build_result = _run_cargo(["cargo", "build"], cwd=workdir)
+        if build_result.returncode != 0:
+>           raise _reference_build_failure_off("cargo", repository, commit, build_result)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_reference_build_failure_off' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:797: NameError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_rust_reference_env_failure.py::test_reference_network_failure_without_diagnostic_is_environment_error[spurious network error]
+FAILED tests/indexing/test_rust_reference_env_failure.py::test_reference_network_failure_without_diagnostic_is_environment_error[Could not resolve hostname]
+FAILED tests/indexing/test_rust_reference_env_failure.py::test_reference_network_failure_without_diagnostic_is_environment_error[SSL connect error]
+FAILED tests/indexing/test_rust_reference_env_failure.py::test_reference_network_failure_without_diagnostic_is_environment_error[download of config.json failed]
+FAILED tests/indexing/test_rust_reference_env_failure.py::test_reference_network_failure_without_diagnostic_is_environment_error[transfer too slow]
+FAILED tests/indexing/test_rust_reference_env_failure.py::test_reference_build_with_rustc_diagnostic_is_a_defect
+FAILED tests/indexing/test_rust_reference_env_failure.py::test_reference_build_without_marker_or_diagnostic_is_a_defect
+
+--- stderr ---
+
