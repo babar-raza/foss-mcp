@@ -192,7 +192,20 @@ def _load_furnished_page(path: Path) -> dict:
     return parsed
 
 
-def _build_verified_example_chunks(args: argparse.Namespace) -> list[Chunk]:
+def _write_verification_report(path: Path, records: list[dict]) -> None:
+    """Write one UTF-8 JSON array holding every candidate's verification result (TC-191).
+
+    Verified and unverified candidates alike are recorded. ``output`` is the real compiler or
+    interpreter output, written in full and never truncated, because a rejected candidate must be
+    fixed from this evidence rather than from a guess.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _build_verified_example_chunks(
+    args: argparse.Namespace, verification_records: list[dict] | None = None
+) -> list[Chunk]:
     """Extract, really compile-verify, and chunk every candidate example from
     ``--furnished-page`` - an unverified candidate is silently excluded, never published,
     never logged as an error.
@@ -202,6 +215,10 @@ def _build_verified_example_chunks(args: argparse.Namespace) -> list[Chunk]:
     ``prepare_reference_library``/``verify_dotnet_example`` with exactly the same arguments as
     before this dispatch layer existed - byte-identical behavior for the real, currently-running
     pdf/net production path.
+
+    When ``verification_records`` is a list, one dict is appended per candidate as its verifier
+    returns, verified or not: ``title``, ``platform``, ``verified``, ``output`` (in full) and
+    ``index`` (the candidate's 0-based position in document order on its page).
     """
     page = _load_furnished_page(args.furnished_page)
     candidates = extract_candidate_examples(page)
@@ -222,12 +239,22 @@ def _build_verified_example_chunks(args: argparse.Namespace) -> list[Chunk]:
 
     verified_chunks: list[Chunk] = []
     verified_count = 0
-    for candidate in candidates:
+    for index, candidate in enumerate(candidates):
         if shared_candidate_workdir is not None:
             candidate_workdir = shared_candidate_workdir
         else:
             candidate_workdir = Path(tempfile.mkdtemp(prefix="build_chunks_candidate_"))
         verification_result = verify(candidate, workdir=candidate_workdir, **verify_kwargs)
+        if verification_records is not None:
+            verification_records.append(
+                {
+                    "title": candidate.title,
+                    "platform": args.library_platform,
+                    "verified": verification_result.verified,
+                    "output": verification_result.output,
+                    "index": index,
+                }
+            )
         if verification_result.verified:
             verified_count += 1
             doc = make_document(
@@ -355,6 +382,13 @@ def main() -> None:
         default=None,
         help="pinned reference package's npm package name (typescript only)",
     )
+    parser.add_argument(
+        "--verification-report",
+        type=Path,
+        default=None,
+        help="where to write every candidate's verification result (verified or not, output in full) "
+        "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+    )
     args = parser.parse_args()
 
     furnished_args = (
@@ -379,23 +413,34 @@ def main() -> None:
     fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
     chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
 
+    verification_records: list[dict] = []
     if args.furnished_page is not None:
         # Note: _build_verified_example_chunks loads --furnished-page itself internally, and
         # it is explicitly out of scope for this card to touch (REQ-G2-047/TC-112) - so this
         # is a real, deliberately-accepted duplicate parse, not an oversight.
         page = _load_furnished_page(args.furnished_page)
+        report_path = args.verification_report or args.out.with_suffix(".verification.json")
         try:
-            chunks = chunks + _build_verified_example_chunks(args) + _build_doc_chunks(page, args)
-        except ExampleEnvironmentError as exc:
-            # TC-184: an environment failure is not a verdict on any candidate. End the build
-            # here with a distinct exit code and write nothing, so the candidate is neither
-            # published nor recorded as not verified.
-            print(
-                f"environment failure: {exc.tool} could not reach its registry "
-                f"(marker {exc.marker!r}); build stopped, nothing written",
-                file=sys.stderr,
-            )
-            sys.exit(ENVIRONMENT_FAILURE_EXIT)
+            try:
+                chunks = (
+                    chunks
+                    + _build_verified_example_chunks(args, verification_records)
+                    + _build_doc_chunks(page, args)
+                )
+            except ExampleEnvironmentError as exc:
+                # TC-184: an environment failure is not a verdict on any candidate. End the build
+                # here with a distinct exit code and write no chunks, so the candidate is neither
+                # published nor recorded as not verified.
+                print(
+                    f"environment failure: {exc.tool} could not reach its registry "
+                    f"(marker {exc.marker!r}); build stopped, no chunks written",
+                    file=sys.stderr,
+                )
+                sys.exit(ENVIRONMENT_FAILURE_EXIT)
+        finally:
+            # TC-191: the report is written on every exit from this block (success, environment
+            # failure, or any other error), so the verdicts already reached are never lost.
+            _write_verification_report(report_path, verification_records)
 
     chunks = [_with_source_commit_line(chunk) for chunk in chunks]
 
