@@ -128,10 +128,35 @@ def test_the_status_line_is_copied_verbatim_once(tmp_path):
     assert I._status_line_for("TC-901", "a" * 40, wt, main_status) is None, "never copied twice"
 
 
+def test_a_status_line_is_found_even_when_its_hash_predates_a_rebase(tmp_path):
+    # Canary (2026-10-04). A rebase changes the commit hash but not the content. The worker's
+    # committed line still carries the old hash, so matching on the reviewed head found nothing.
+    wt = tmp_path / "wt"
+    (wt / "ops").mkdir(parents=True)
+    line = json.dumps({"ts": "2026-10-04T10:14:43Z", "card": "TC-901", "phase": "committed",
+                       "verdict": "pass", "summary": "x", "commit": "1" * 40, "attempt": 2})
+    (wt / "ops" / "status.jsonl").write_text(line + "\n", encoding="utf-8")
+    main_status = tmp_path / "status.jsonl"
+    main_status.write_text("", encoding="utf-8")
+    assert I._status_line_for("TC-901", "2" * 40, wt, main_status) == line
+
+
 def test_supervisor_owned_paths_do_not_count_as_dirty_product(repo, monkeypatch):
     monkeypatch.setattr(I.G, "git", lambda *a, **k: (0, " M ops/gatecli.py\n?? plans/TC-999.yaml\n", ""))
     clean, dirty = I._tree_is_clean_of_product_paths()
     assert clean and dirty == []
+
+
+def test_the_first_porcelain_line_keeps_its_full_path(monkeypatch):
+    # Regression canary (2026-10-04). G.git strips the whole output, so the first line of
+    # `git status --porcelain` lost its leading space. A fixed `line[3:]` then reported
+    # "vidence/build/..." as a dirty product path and refused a valid integration.
+    monkeypatch.setattr(I.G, "git", lambda *a, **k: (0, " M evidence/build/G2/TC-175/receipt.json\n M project/state.yaml", ""))
+    clean, dirty = I._tree_is_clean_of_product_paths()
+    assert clean and dirty == [], f"governance paths must not be dirty product paths: {dirty}"
+    monkeypatch.setattr(I.G, "git", lambda *a, **k: (0, " M src/foss_mcp/x.py", ""))
+    clean, dirty = I._tree_is_clean_of_product_paths()
+    assert dirty == ["src/foss_mcp/x.py"], "a real product path must still be reported in full"
 
 
 def test_the_integrate_command_is_wired_into_the_cli():

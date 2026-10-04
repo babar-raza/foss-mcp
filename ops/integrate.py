@@ -45,7 +45,10 @@ def _tree_is_clean_of_product_paths() -> tuple[bool, list[str]]:
     rc, out, _ = G.git("status", "--porcelain")
     dirty = []
     for line in out.splitlines():
-        path = line[3:].strip().strip('"')
+        # G.git strips the whole output, so the first line has lost its leading space. A fixed
+        # offset then cuts the path. Split on the status code instead.
+        parts = line.strip().split(None, 1)
+        path = (parts[1] if len(parts) > 1 else line.strip()).strip('"')
         if path.startswith(_SUPERVISOR_OWNED):
             continue
         dirty.append(path)
@@ -69,7 +72,9 @@ def _status_line_for(card_id: str, head: str, worktree: Path, main_status: Path)
             rec = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if rec.get("card") == card_id and rec.get("commit") == head:
+        # The latest committed line for this card. Its commit hash can predate a rebase of the
+        # worker branch, so the hash is not the match key; the receipt remains the authority.
+        if rec.get("card") == card_id and rec.get("phase") == "committed":
             return None if line in existing else line
     return None
 
