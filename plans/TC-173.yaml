@@ -1,13 +1,13 @@
 id: TC-173
 gate: G2
 lane: verification
-purpose: Fix a fork bomb in tests/test_githooks.py. The GitLab-mirror test runs the real
-  .githooks/pre-push with a URL that matches the hook's allow-list, so the hook falls through
-  into scripts/ci_check.sh, which runs pytest, which runs this same test again. The test's
+purpose: 'Fix a fork bomb in tests/test_githooks.py. The GitLab-mirror test runs the real
+  .githooks/pre-push with a URL that matches the hook allow-list, so the hook falls through
+  into scripts/ci_check.sh, which runs pytest, which runs this same test again. The test
   2-second timeout kills only the immediate bash child, so the nested processes keep running
   and multiply. Make the test prove the allow-list match without ever reaching the CI step.
   Do this by running a probe copy of the real hook with the CI call cut off. Do not add any
-  environment switch to the hook: an env var that skips CI would be a fail-open bypass.
+  environment switch to the hook, because an env var that skips CI would be a fail-open bypass.'
 depends_on:
 - TC-006
 write_paths:
