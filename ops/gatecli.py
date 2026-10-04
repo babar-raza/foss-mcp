@@ -165,9 +165,30 @@ def _ancestors(cards, cid, seen=None):
     return seen
 
 
+def _superseded_card_ids() -> set[str]:
+    """Cards retired by a `supersede` instruction. A superseded card no longer writes anything; its
+    successor carries its write paths (TC-199 -> TC-202, 2026-10-04). Read from the channel directly,
+    so this check never depends on the derived state it is validating."""
+    out: set[str] = set()
+    channel = G.REPO / "ops" / "instructions.jsonl"
+    if not channel.exists():
+        return out
+    for line in channel.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if d.get("kind") == "supersede" and d.get("target_card"):
+            out.add(d["target_card"])
+    return out
+
+
 def _overlap_problems(cards):
     """Overlapping write_paths are a race - but only between cards that can be
-    in flight at the same time.
+    in flight at the same time. A superseded card claims nothing: its successor carries its paths.
 
     Two cards ordered by a dependency edge can never race: the later one starts
     only after the earlier is ACCEPTED. So a skeleton card owning `src/pkg/**`
@@ -176,6 +197,8 @@ def _overlap_problems(cards):
     file-by-file path lists for no safety gain.
     """
     out = []
+    retired = _superseded_card_ids()
+    cards = {cid: c for cid, c in cards.items() if cid not in retired}
     ids = sorted(cards)
     for i, a in enumerate(ids):
         for b in ids[i + 1 :]:

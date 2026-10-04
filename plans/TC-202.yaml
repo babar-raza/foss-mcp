@@ -1,0 +1,82 @@
+id: TC-202
+gate: G2
+lane: transport-deployment
+purpose: 'Make search_symbols an honest miss for an absent symbol, as its successor to TC-199. TC-199 used all three of its
+  attempts and was blocked each time on a contract conflict, so its design is carried here in one card with every decision made.
+  Live evidence (2026-10-04): searching the absent name Tc197AbsentSymbolProbe returned ranked matches on three pilots, for
+  example BarcodeField on pdf/go, with exact_hit_count 0. A symbol search that returns unrelated symbols as matches is wrong.
+  The rule: a result is a symbol match only when the query is an exact symbol hit, or every word of the query is a whole word
+  among the words of the result''s FQN. Words are split at camel-case boundaries and at dots, underscores and whitespace, and
+  lowercased. Anything else is the existing NotFound miss, with suggestions, and it is never a match.'
+depends_on:
+- TC-143
+- TC-197
+- TC-130
+- TC-134
+- TC-137
+- TC-140
+- TC-141
+- TC-142
+- TC-149
+- TC-178
+write_paths:
+- src/foss_mcp/mcp/tools/search_symbols.py
+- tests/mcp/test_search_symbols_honest_miss.py
+- tests/mcp/tools/test_retrieval_tools.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'A reference candidate from the previous attempt is uncommitted in E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-TC-199
+  (src/foss_mcp/mcp/tools/search_symbols.py, tests/mcp/tools/test_retrieval_tools.py, tests/mcp/test_search_symbols_honest_miss.py).
+  Read it, and verify it against this card rather than trusting it. You may copy any of it into your own worktree.'
+- 'Read src/foss_mcp/mcp/tools/search_symbols.py in full, and the existing tests in tests/mcp/tools/test_retrieval_tools.py. Read
+  src/foss_mcp/mcp/tools/lookup.py, which already falls back to its document path (lines 156-160). That fallback is correct, and
+  you must not change lookup.py.'
+- 'Add one private predicate is_exact_symbol_hit(query, fqn). It is true when query equals fqn or its final dotted segment, compared
+  case-insensitively after stripping whitespace; or when every word of query is a whole word among the words of fqn. Define it once
+  and use it once, at the match decision in search_symbols. A result that fails is never a match. When no result passes, return the
+  existing NotFound miss, with suggestions from suggest_similar_fqns, and keep the existing miss fields.'
+- 'Symbol chunks in the test fixtures carry the FQN: line, as real chunks do (src/foss_mcp/indexing/chunk_builder.py:76). Change
+  the fixture helper and the inline body fixture near line 821 that way, and change no assertion except the three restated below.'
+- 'Restate exactly three assertions in tests/mcp/tools/test_retrieval_tools.py, keeping each test name and its intended behaviour.
+  Lines 555 and 654: the assertion "isinstance(result, list) and result" expects lookup to return a list of symbol matches. lookup
+  returns a TaskAnswer, and the furnished document chunk is in its doc_matches. Restate each to: result is a TaskAnswer and its
+  doc_matches contains the same furnished chunk the test names. Line 785: the precondition that search_symbols returns a non-empty
+  list for a task question encodes the collision the test guards against. Restate it to: search_symbols returns a Miss for that
+  question. The rest of the test, which asserts that document composition wins, stays. Record each restatement, with its line number
+  and reason, in the commit body.'
+- 'Restate test_a_partial_name_is_not_a_match in tests/mcp/test_search_symbols_honest_miss.py to use true partial words such as
+  "Watermar" and "Annotat", which are not whole words of any FQN. Keep its name.'
+- 'Add or keep these tests in tests/mcp/test_search_symbols_honest_miss.py: an exact FQN is a match; an exact final segment in another
+  case is a match; a whole-word query such as "watermark" finds the symbol that contains it; an absent name that shares no word with a
+  real one is a NotFound with suggestions, never a match; a partial word is not a match.'
+actions:
+- Read the reference candidate, the search code, and the existing tests in full.
+- Implement the predicate, the miss path, the fixture FQN lines, the three restatements, and the new tests.
+- Run the new file and the retrieval tests, and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 26
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('def is_exact_symbol_hit(','def is_exact_symbol_hit_off(',1),encoding='utf-8')"
+  rationale: 'Renames the definition of is_exact_symbol_hit, so every symbol search raises NameError. The honest-miss tests and the
+    retrieval tests then fail. The replace is limited to the first match, which is the definition. Built with plain text, since it has
+    no quote or backslash.'
+evidence:
+- evidence/build/G2/TC-202/receipt.json
+closeout:
+- An absent symbol returns NotFound with suggestions, and never a match.
+- A whole-word query still finds the symbol that contains it, and lookup still returns its document match for a prose question.
+recovery: Re-run from a clean tree.
