@@ -1215,3 +1215,12 @@ This section is the repo's record of all remaining work. It is not a plan: each 
 - O.3 Visual Studio C++ workload: installed on C: (vswhere confirms). Done.
 
 **Known limits, stated plainly.** Rerun variance is unmeasured. The linter is textual. The container runner is not yet the default. The MSVC tests need a Windows host and cannot run in Linux CI.
+
+## 2026-10-04 - D2 stage B blocked: the widened environment matrix found a real divergence (supervisor)
+Matrix, host versus container, same card, same receipt fields:
+- TC-174, TC-172, TC-166: identical verdicts, test counts and falsifier results. These are offline cards with fixed fixtures.
+- TC-168: host PASS, container FAIL (3 failures; falsifier not applied). Root cause, read from the container log: `tree_sitter_language_pack` downloads its grammar manifest from GitHub on first use. The host had cached it from an earlier run, so the card looked offline and was not. Under `--network none` the download fails. This is the hidden-network class (RC2) and it is exactly what D2's network boundary is meant to expose.
+
+Decision: the container runner does NOT become the default yet. The default flips only after (a) TC-176 bakes the grammars at build time and proves the image parses offline, and (b) the matrix is rerun on a wider set with the harness fixed.
+
+Harness defects found in the same run, recorded so they are not repeated: the matrix script hard-coded gate G2 (TC-006 is G0), and it ran the githooks card with a PATH that lacked Git's usr\bin, so `bash` resolved to the WSL stub and the host run failed for a reason that had nothing to do with the code. Both are harness bugs. The second is the RC1 problem again: a verdict depends on the caller's PATH.
