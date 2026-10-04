@@ -11,10 +11,13 @@ depends_on:
 - TC-195
 - TC-203
 - TC-204
+- TC-088
 write_paths:
 - infra/helm/foss-mcp/values.yaml
 - docker-compose.yml
 - tests/infra/test_helm_pilots_match_compose.py
+- tests/infra/test_helm_chart.py
+- tests/infra/test_docker_compose_multi_instance.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -35,6 +38,12 @@ inputs:
   services record theirs. Self-extracted pilots need no furnished page and no build flag beyond the existing pattern.'
 - 'Update the drift test so it asserts fourteen pilots: two per platform across seven platforms, the list named explicitly. Change
   no other assertion. Keep every test name. Record the pilot count change in your commit body.'
+- 'Contract restatement, by the supervisor after the attempt-1 block. Two pinned counts assume six or seven pilots, and the POC is now
+  fourteen. Restate only these counts to fourteen, keeping each test name and what it checks. (1) tests/infra/test_helm_chart.py,
+  around line 255: the assertion len(jobs) == len(pilots) == 6 becomes fourteen, and the job-name list in the test near it lists the
+  fourteen expected names. (2) tests/infra/test_docker_compose_multi_instance.py: its pinned pilot count of seven becomes fourteen,
+  and the list of compose pilots it expects is extended with the eight new ones. Check that file first, and change nothing else in it.
+  Do not weaken either test. Record both restatements in the commit body.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
 - Read the values file, the compose services, the drift test, and each new fixture in full.
