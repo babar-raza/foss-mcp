@@ -15,11 +15,13 @@ depends_on:
 - TC-190
 - TC-115
 - TC-123
+- TC-193
 write_paths:
 - src/foss_mcp/indexing/example_verifier.py
 - infra/build_chunks.py
 - tests/indexing/test_java_page_imports.py
 - tests/e2e/test_pdf_java_live_content.py
+- tests/infra/test_build_chunks_platforms.py
 satisfies:
 - REQ-G2-048
 source_refs:
@@ -42,6 +44,13 @@ inputs:
 - 'In infra/build_chunks.py, add a helper _page_java_imports(path) that returns the import lines of the
   furnished page, in document order, as the stripped lines that start with import and end with a semicolon.
   The java verify_kwargs passes it as page_imports. Keep the other java kwargs.'
+- 'Contract change, amended by the supervisor on 2026-10-04 after the attempt-1 block. The java verify_kwargs
+  now returns two keys, library_jar and page_imports. The assertion in tests/infra/test_build_chunks_platforms.py
+  named test_java_verify_kwargs_gives_library_jar (TC-188) encodes the old contract, which was library_jar only.
+  Amend that one assertion to the new contract: with an empty namespace the result is {library_jar: prepared,
+  page_imports: ()}. The lambda must read furnished_page with getattr and a default of None, so that an empty
+  namespace still works and gives an empty tuple. Keep the test name, and keep the library_jar assertion. Do not
+  change any other assertion in that file. Record this amendment in your commit message.'
 - 'Add tests/indexing/test_java_page_imports.py as a new file, offline. Test 1: _java_wrapper_source with a
   page import puts that import before public class Candidate. Test 2: _page_java_imports on a short sample page
   returns its import lines and not the prose. Test 3: verify_java_example, with _run monkeypatched to return 0,
