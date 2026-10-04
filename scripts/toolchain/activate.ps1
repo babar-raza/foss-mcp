@@ -8,7 +8,8 @@
 # Tools are described in scripts/toolchain/toolchain.lock.json.
 
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$tools = Join-Path $repoRoot 'tools'
+# The toolchain lives OUTSIDE the OneDrive-synced repo, on C:. Override with FOSS_MCP_TOOLS.
+$tools = if ($env:FOSS_MCP_TOOLS) { $env:FOSS_MCP_TOOLS } else { 'C:\dev-tools\foss-mcp' }
 
 $pathDirs = @(
     (Join-Path $tools 'git\bin'),
