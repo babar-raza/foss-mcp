@@ -948,7 +948,9 @@ def verify_go_example(
 ) -> VerificationResult:
     """Build ``candidate.code`` as ``main.go`` in a throwaway module that
     ``replace``s ``module_path`` with ``library_dir`` (the cloned
-    reference module), and report the real ``go build`` outcome.
+    reference module), and report the real ``go build`` and ``go vet``
+    outcome. A candidate is verified only when both return 0; vet does not
+    run when the build fails.
 
     Real furnished pdf/go content is a bare statement fragment with no
     ``package``/``import``/``func main`` of its own (confirmed by reading
@@ -960,7 +962,8 @@ def verify_go_example(
     ``package`` is compiled as-is.
 
     The literal comparison determining ``verified`` is intentionally exact
-    (``verified = result.returncode == 0``), matching ``verify_dotnet_example``.
+    (``returncode == 0`` for each of build and vet), matching
+    ``verify_dotnet_example``.
     """
     project_dir = workdir / "candidate_project"
     project_dir.mkdir(parents=True, exist_ok=True)
@@ -973,12 +976,21 @@ def verify_go_example(
     wrapped_code = _wrap_go_fragment_if_needed(candidate.code, module_path)
     (project_dir / "main.go").write_text(wrapped_code, encoding="utf-8")
 
-    result = _run(["go", "build", "./..."], cwd=project_dir)
+    build_result = _run(["go", "build", "./..."], cwd=project_dir)
+    if build_result.returncode != 0:
+        output = _truncate(f"{build_result.stdout}\n{build_result.stderr}")
+        return VerificationResult(candidate=candidate, verified=False, output=output)
 
-    verified = result.returncode == 0
-    output = _truncate(f"{result.stdout}\n{result.stderr}")
+    # A candidate that compiles but is statically wrong (an unreachable print,
+    # a misused printf verb) is not verified. Vet runs in the same throwaway
+    # module, so it sees the same replace directive the build used.
+    vet_result = _run(["go", "vet", "./..."], cwd=project_dir)
+    if vet_result.returncode != 0:
+        output = _truncate(f"{vet_result.stdout}\n{vet_result.stderr}")
+        return VerificationResult(candidate=candidate, verified=False, output=output)
 
-    return VerificationResult(candidate=candidate, verified=verified, output=output)
+    output = _truncate(f"{build_result.stdout}\n{build_result.stderr}")
+    return VerificationResult(candidate=candidate, verified=True, output=output)
 
 
 # --- pdf/java --------------------------------------------------------------
