@@ -65,6 +65,14 @@ volumes:
   manifests-slides-python:
   manifests-cells-rust:
   manifests-pdf-cpp:
+  # G2/TC-205: one manifests volume per pilot added in TC-205, same shape as the volumes above.
+  manifests-words-python:
+  manifests-words-net:
+  manifests-slides-java:
+  manifests-cells-go:
+  manifests-cells-typescript:
+  manifests-jmap-rust:
+  manifests-cells-cpp:
 
 services:
   # G2/TC-064: the real, live first publish for pdf/net - a one-shot init job, not a
@@ -421,4 +429,286 @@ services:
     environment:
       FOSS_MCP_FAMILY: cells
       FOSS_MCP_PLATFORM: rust
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-205: words/python, self-extracted, from tests/fixtures/words_python/api_surface.json.
+  # source_repository aspose-words-foss/Aspose.Words-FOSS-for-Python, source_commit
+  # 2d2efee2787cb9e56d071d17f8d7b740dce8b784. No furnished page and no --library-* flag: build_chunks
+  # rejects library flags without --furnished-page, so the fixture alone is published.
+  ingest-words-python:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-words-python:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/words_python/api_surface.json
+        --title "words/python API surface"
+        --max-types 20
+        --out /tmp/words_python_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family words
+        --platform python
+        --source-kind self_extracted
+        --chunks /tmp/words_python_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/words_python/api_surface.json
+        --held-by ingestion-words-python
+
+  serving-words-python:
+    <<: *serving-base
+    ports:
+      - "8087:8080"
+    volumes:
+      - manifests-words-python:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: words
+      FOSS_MCP_PLATFORM: python
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-205: words/net, self-extracted, from tests/fixtures/words_net/api_surface.json.
+  # source_repository aspose-words-foss/Aspose.Words-FOSS-for-.NET, source_commit
+  # 0d3f1add920f5294d726b4f286c2d6ba7c3ae22c. No furnished page and no --library-* flag.
+  ingest-words-net:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-words-net:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/words_net/api_surface.json
+        --title "words/net API surface"
+        --max-types 20
+        --out /tmp/words_net_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family words
+        --platform net
+        --source-kind self_extracted
+        --chunks /tmp/words_net_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/words_net/api_surface.json
+        --held-by ingestion-words-net
+
+  serving-words-net:
+    <<: *serving-base
+    ports:
+      - "8088:8080"
+    volumes:
+      - manifests-words-net:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: words
+      FOSS_MCP_PLATFORM: net
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-205: slides/java, self-extracted, from tests/fixtures/slides_java/api_surface.json.
+  # source_repository aspose-slides-foss/Aspose.Slides-FOSS-for-Java, source_commit
+  # 620a2614418854b4a18966a361e6907ddc88c7cb. No furnished page and no --library-* flag.
+  ingest-slides-java:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-slides-java:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/slides_java/api_surface.json
+        --title "slides/java API surface"
+        --max-types 20
+        --out /tmp/slides_java_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family slides
+        --platform java
+        --source-kind self_extracted
+        --chunks /tmp/slides_java_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/slides_java/api_surface.json
+        --held-by ingestion-slides-java
+
+  serving-slides-java:
+    <<: *serving-base
+    ports:
+      - "8089:8080"
+    volumes:
+      - manifests-slides-java:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: slides
+      FOSS_MCP_PLATFORM: java
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-205: cells/go, self-extracted, from tests/fixtures/cells_go/api_surface.json.
+  # source_repository aspose-cells-foss/Aspose.Cells-FOSS-for-Go, source_commit
+  # fa4e890e46c509efd22d09b97411202c2b0b8a67. No furnished page and no --library-* flag.
+  ingest-cells-go:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-cells-go:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/cells_go/api_surface.json
+        --title "cells/go API surface"
+        --max-types 20
+        --out /tmp/cells_go_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family cells
+        --platform go
+        --source-kind self_extracted
+        --chunks /tmp/cells_go_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/cells_go/api_surface.json
+        --held-by ingestion-cells-go
+
+  serving-cells-go:
+    <<: *serving-base
+    ports:
+      - "8090:8080"
+    volumes:
+      - manifests-cells-go:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: cells
+      FOSS_MCP_PLATFORM: go
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-205: cells/typescript, self-extracted, from tests/fixtures/cells_typescript/api_surface.json.
+  # source_repository aspose-cells-foss/Aspose.Cells-FOSS-for-TypeScript, source_commit
+  # fc186507e5b7124f4664aa6035f25cfd3112367d. No furnished page and no --library-* flag.
+  ingest-cells-typescript:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-cells-typescript:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/cells_typescript/api_surface.json
+        --title "cells/typescript API surface"
+        --max-types 20
+        --out /tmp/cells_typescript_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family cells
+        --platform typescript
+        --source-kind self_extracted
+        --chunks /tmp/cells_typescript_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/cells_typescript/api_surface.json
+        --held-by ingestion-cells-typescript
+
+  serving-cells-typescript:
+    <<: *serving-base
+    ports:
+      - "8091:8080"
+    volumes:
+      - manifests-cells-typescript:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: cells
+      FOSS_MCP_PLATFORM: typescript
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-205: jmap/rust, self-extracted, from tests/fixtures/jmap_rust/api_surface.json.
+  # source_repository aspose-email-foss/Aspose.JMAP-FOSS-for-Rust, source_commit
+  # d7286100735e6d518837fde8639e8de694a08ef6. No furnished page and no --library-* flag.
+  ingest-jmap-rust:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-jmap-rust:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/jmap_rust/api_surface.json
+        --title "jmap/rust API surface"
+        --max-types 20
+        --out /tmp/jmap_rust_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family jmap
+        --platform rust
+        --source-kind self_extracted
+        --chunks /tmp/jmap_rust_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/jmap_rust/api_surface.json
+        --held-by ingestion-jmap-rust
+
+  serving-jmap-rust:
+    <<: *serving-base
+    ports:
+      - "8092:8080"
+    volumes:
+      - manifests-jmap-rust:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: jmap
+      FOSS_MCP_PLATFORM: rust
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-205: cells/cpp, self-extracted, from tests/fixtures/cells_cpp/api_surface.json.
+  # source_repository aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp, source_commit
+  # 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2. No furnished page and no --library-* flag: there is no
+  # cpp example path in build_chunks.py.
+  ingest-cells-cpp:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-cells-cpp:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/cells_cpp/api_surface.json
+        --title "cells/cpp API surface"
+        --max-types 20
+        --out /tmp/cells_cpp_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family cells
+        --platform cpp
+        --source-kind self_extracted
+        --chunks /tmp/cells_cpp_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/cells_cpp/api_surface.json
+        --held-by ingestion-cells-cpp
+
+  serving-cells-cpp:
+    <<: *serving-base
+    ports:
+      - "8093:8080"
+    volumes:
+      - manifests-cells-cpp:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: cells
+      FOSS_MCP_PLATFORM: cpp
       FOSS_MCP_SOURCE_KIND: self_extracted

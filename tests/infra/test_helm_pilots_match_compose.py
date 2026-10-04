@@ -18,13 +18,22 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 COMPOSE = REPO_ROOT / "docker-compose.yml"
 
-SIX_PILOTS = {
+# TC-205: fourteen pilots, two per platform across seven platforms, from different teams.
+FOURTEEN_PILOTS = {
     ("pdf", "net"),
     ("slides", "python"),
     ("pdf", "typescript"),
     ("pdf", "go"),
     ("pdf", "java"),
     ("cells", "rust"),
+    ("pdf", "cpp"),
+    ("words", "python"),
+    ("words", "net"),
+    ("slides", "java"),
+    ("cells", "go"),
+    ("cells", "typescript"),
+    ("jmap", "rust"),
+    ("cells", "cpp"),
 }
 
 # build_chunks.py flag for each library field the chart template can pass, and the key it has in
@@ -87,10 +96,13 @@ def _assert_pilot_matches_compose(family: str, platform: str) -> None:
     assert ingest["--platform"] == platform, platform
     assert pilot["family"] == family and pilot["platform"] == platform
 
-    assert pilot["library"]["commit"] == build["--library-commit"], "library commit"
+    # A self-extracted pilot has an empty library block and no --library-commit flag: both None.
+    assert pilot["library"].get("commit") == build.get("--library-commit"), "library commit"
     assert pilot["apiSurface"] == build["--api-surface"], "apiSurface (build_chunks)"
     assert pilot["apiSurface"] == ingest["--api-surface"], "apiSurface (ingest)"
-    assert pilot["furnishedPage"] == build["--furnished-page"], "furnished page"
+    # A self-extracted pilot has no furnished page: the key is absent in values.yaml and the flag
+    # is absent in compose, so both sides are None and still compare equal.
+    assert pilot.get("furnishedPage") == build.get("--furnished-page"), "furnished page"
     assert pilot["maxTypes"] == int(build["--max-types"]), "maxTypes"
 
     assert pilot["title"] == build["--title"], "title"
@@ -125,8 +137,59 @@ def test_cells_rust_pilot_matches_compose() -> None:
     _assert_pilot_matches_compose("cells", "rust")
 
 
+def test_pdf_cpp_pilot_matches_compose() -> None:
+    _assert_pilot_matches_compose("pdf", "cpp")
+
+
+def test_words_python_pilot_matches_compose() -> None:
+    _assert_pilot_matches_compose("words", "python")
+
+
+def test_words_net_pilot_matches_compose() -> None:
+    _assert_pilot_matches_compose("words", "net")
+
+
+def test_slides_java_pilot_matches_compose() -> None:
+    _assert_pilot_matches_compose("slides", "java")
+
+
+def test_cells_go_pilot_matches_compose() -> None:
+    _assert_pilot_matches_compose("cells", "go")
+
+
+def test_cells_typescript_pilot_matches_compose() -> None:
+    _assert_pilot_matches_compose("cells", "typescript")
+
+
+def test_jmap_rust_pilot_matches_compose() -> None:
+    _assert_pilot_matches_compose("jmap", "rust")
+
+
+def test_cells_cpp_pilot_matches_compose() -> None:
+    _assert_pilot_matches_compose("cells", "cpp")
+
+
+def _serving_name(family: str, platform: str) -> str:
+    # The pdf/net serving service predates the naming pattern and is called plain "serving".
+    return "serving" if (family, platform) == ("pdf", "net") else f"serving-{family}-{platform}"
+
+
+def test_every_pilot_has_a_serving_service_with_its_identity() -> None:
+    services = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))["services"]
+    for family, platform in sorted(FOURTEEN_PILOTS):
+        serving = services[_serving_name(family, platform)]
+        assert serving["environment"]["FOSS_MCP_FAMILY"] == family, (family, platform)
+        assert serving["environment"]["FOSS_MCP_PLATFORM"] == platform, (family, platform)
+        assert serving["environment"]["FOSS_MCP_SOURCE_KIND"] == _pilot(family, platform)["sourceKind"]
+    host_ports = [
+        services[_serving_name(family, platform)]["ports"][0].split(":")[0]
+        for family, platform in sorted(FOURTEEN_PILOTS)
+    ]
+    assert len(set(host_ports)) == len(host_ports), host_ports
+
+
 def test_chart_has_exactly_six_pilots_one_per_platform() -> None:
     keys = [(p["family"], p["platform"]) for p in _pilots()]
-    assert len(keys) == 6, keys
+    assert len(keys) == 14, keys
     assert len(set(keys)) == len(keys), f"duplicate pilot platform: {keys}"
-    assert set(keys) == SIX_PILOTS, keys
+    assert set(keys) == FOURTEEN_PILOTS, keys
