@@ -1,0 +1,527 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_build_chunks_verification_report.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-31uw0srz\.junit-0.xml"
+--- stdout ---
+....                                                                     [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_build_chunks_verification_report.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-31uw0srz\.junit-0.xml"
+--- stdout ---
+....                                                                     [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/build_chunks.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_build_chunks_verification_report.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-31uw0srz\.junit-0.xml"
+--- stdout ---
+FFFF                                                                     [100%]
+================================== FAILURES ===================================
+____ test_report_is_json_array_of_two_candidate_objects_with_required_keys ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-403/test_report_is_json_array_of_t0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000127662A36F0>
+
+    def test_report_is_json_array_of_two_candidate_objects_with_required_keys(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _install_fake_python_verifier(monkeypatch, verified_titles={FIRST_TITLE})
+        page_path = _write_page(tmp_path / "_index.md")
+    
+        # No --verification-report flag: the report must sit next to --out with .verification.json.
+>       _run_main(_argv(tmp_path, page_path))
+
+tests\indexing\test_build_chunks_verification_report.py:136: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_build_chunks_verification_report.py:119: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=20)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+    
+        verification_records: list[dict] = []
+        if args.furnished_page is not None:
+            # Note: _build_verified_example_chunks loads --furnished-page itself internally, and
+            # it is explicitly out of scope for this card to touch (REQ-G2-047/TC-112) - so this
+            # is a real, deliberately-accepted duplicate parse, not an oversight.
+            page = _load_furnished_page(args.furnished_page)
+            report_path = args.verification_report or args.out.with_suffix(".verification.json")
+            try:
+                try:
+                    chunks = (
+                        chunks
+                        + _build_verified_example_chunks(args, verification_records)
+                        + _build_doc_chunks(page, args)
+                    )
+                except ExampleEnvironmentError as exc:
+                    # TC-184: an environment failure is not a verdict on any candidate. End the build
+                    # here with a distinct exit code and write no chunks, so the candidate is neither
+                    # published nor recorded as not verified.
+                    print(
+                        f"environment failure: {exc.tool} could not reach its registry "
+                        f"(marker {exc.marker!r}); build stopped, no chunks written",
+                        file=sys.stderr,
+                    )
+                    sys.exit(ENVIRONMENT_FAILURE_EXIT)
+            finally:
+                # TC-191: the report is written on every exit from this block (success, environment
+                # failure, or any other error), so the verdicts already reached are never lost.
+>               _write_verification_report(report_path, verification_records)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               NameError: name '_write_verification_report' is not defined
+
+infra\build_chunks.py:443: NameError
+---------------------------- Captured stdout call -----------------------------
+verified 1/2 candidate examples
+built 0 doc chunks from 0 doc candidates
+___________ test_not_verified_record_carries_the_full_output_string ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-403/test_not_verified_record_carri0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000127662A3490>
+
+    def test_not_verified_record_carries_the_full_output_string(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _install_fake_python_verifier(monkeypatch, verified_titles={FIRST_TITLE})
+        page_path = _write_page(tmp_path / "_index.md")
+    
+>       _run_main(_argv(tmp_path, page_path))
+
+tests\indexing\test_build_chunks_verification_report.py:157: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_build_chunks_verification_report.py:119: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=20)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+    
+        verification_records: list[dict] = []
+        if args.furnished_page is not None:
+            # Note: _build_verified_example_chunks loads --furnished-page itself internally, and
+            # it is explicitly out of scope for this card to touch (REQ-G2-047/TC-112) - so this
+            # is a real, deliberately-accepted duplicate parse, not an oversight.
+            page = _load_furnished_page(args.furnished_page)
+            report_path = args.verification_report or args.out.with_suffix(".verification.json")
+            try:
+                try:
+                    chunks = (
+                        chunks
+                        + _build_verified_example_chunks(args, verification_records)
+                        + _build_doc_chunks(page, args)
+                    )
+                except ExampleEnvironmentError as exc:
+                    # TC-184: an environment failure is not a verdict on any candidate. End the build
+                    # here with a distinct exit code and write no chunks, so the candidate is neither
+                    # published nor recorded as not verified.
+                    print(
+                        f"environment failure: {exc.tool} could not reach its registry "
+                        f"(marker {exc.marker!r}); build stopped, no chunks written",
+                        file=sys.stderr,
+                    )
+                    sys.exit(ENVIRONMENT_FAILURE_EXIT)
+            finally:
+                # TC-191: the report is written on every exit from this block (success, environment
+                # failure, or any other error), so the verdicts already reached are never lost.
+>               _write_verification_report(report_path, verification_records)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               NameError: name '_write_verification_report' is not defined
+
+infra\build_chunks.py:443: NameError
+---------------------------- Captured stdout call -----------------------------
+verified 1/2 candidate examples
+built 0 doc chunks from 0 doc candidates
+___________ test_report_is_written_even_when_no_candidate_verified ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-403/test_report_is_written_even_wh0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001276665CCB0>
+capsys = <_pytest.capture.CaptureFixture object at 0x00000127662D6510>
+
+    def test_report_is_written_even_when_no_candidate_verified(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _install_fake_python_verifier(monkeypatch, verified_titles=set())
+        page_path = _write_page(tmp_path / "_index.md")
+    
+        # A build with zero verified candidates still completes normally and still writes the report.
+>       _run_main(_argv(tmp_path, page_path))
+
+tests\indexing\test_build_chunks_verification_report.py:177: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_build_chunks_verification_report.py:119: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=20)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+    
+        verification_records: list[dict] = []
+        if args.furnished_page is not None:
+            # Note: _build_verified_example_chunks loads --furnished-page itself internally, and
+            # it is explicitly out of scope for this card to touch (REQ-G2-047/TC-112) - so this
+            # is a real, deliberately-accepted duplicate parse, not an oversight.
+            page = _load_furnished_page(args.furnished_page)
+            report_path = args.verification_report or args.out.with_suffix(".verification.json")
+            try:
+                try:
+                    chunks = (
+                        chunks
+                        + _build_verified_example_chunks(args, verification_records)
+                        + _build_doc_chunks(page, args)
+                    )
+                except ExampleEnvironmentError as exc:
+                    # TC-184: an environment failure is not a verdict on any candidate. End the build
+                    # here with a distinct exit code and write no chunks, so the candidate is neither
+                    # published nor recorded as not verified.
+                    print(
+                        f"environment failure: {exc.tool} could not reach its registry "
+                        f"(marker {exc.marker!r}); build stopped, no chunks written",
+                        file=sys.stderr,
+                    )
+                    sys.exit(ENVIRONMENT_FAILURE_EXIT)
+            finally:
+                # TC-191: the report is written on every exit from this block (success, environment
+                # failure, or any other error), so the verdicts already reached are never lost.
+>               _write_verification_report(report_path, verification_records)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               NameError: name '_write_verification_report' is not defined
+
+infra\build_chunks.py:443: NameError
+---------------------------- Captured stdout call -----------------------------
+verified 0/2 candidate examples
+built 0 doc chunks from 0 doc candidates
+____ test_explicit_verification_report_flag_overrides_the_default_location ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-403/test_explicit_verification_rep0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001276665AAD0>
+
+    def test_explicit_verification_report_flag_overrides_the_default_location(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _install_fake_python_verifier(monkeypatch, verified_titles={FIRST_TITLE})
+        page_path = _write_page(tmp_path / "_index.md")
+        explicit_path = tmp_path / "reports" / "evidence.json"
+    
+>       _run_main(_argv(tmp_path, page_path, ["--verification-report", str(explicit_path)]))
+
+tests\indexing\test_build_chunks_verification_report.py:193: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_build_chunks_verification_report.py:119: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=20)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+    
+        verification_records: list[dict] = []
+        if args.furnished_page is not None:
+            # Note: _build_verified_example_chunks loads --furnished-page itself internally, and
+            # it is explicitly out of scope for this card to touch (REQ-G2-047/TC-112) - so this
+            # is a real, deliberately-accepted duplicate parse, not an oversight.
+            page = _load_furnished_page(args.furnished_page)
+            report_path = args.verification_report or args.out.with_suffix(".verification.json")
+            try:
+                try:
+                    chunks = (
+                        chunks
+                        + _build_verified_example_chunks(args, verification_records)
+                        + _build_doc_chunks(page, args)
+                    )
+                except ExampleEnvironmentError as exc:
+                    # TC-184: an environment failure is not a verdict on any candidate. End the build
+                    # here with a distinct exit code and write no chunks, so the candidate is neither
+                    # published nor recorded as not verified.
+                    print(
+                        f"environment failure: {exc.tool} could not reach its registry "
+                        f"(marker {exc.marker!r}); build stopped, no chunks written",
+                        file=sys.stderr,
+                    )
+                    sys.exit(ENVIRONMENT_FAILURE_EXIT)
+            finally:
+                # TC-191: the report is written on every exit from this block (success, environment
+                # failure, or any other error), so the verdicts already reached are never lost.
+>               _write_verification_report(report_path, verification_records)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               NameError: name '_write_verification_report' is not defined
+
+infra\build_chunks.py:443: NameError
+---------------------------- Captured stdout call -----------------------------
+verified 1/2 candidate examples
+built 0 doc chunks from 0 doc candidates
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_build_chunks_verification_report.py::test_report_is_json_array_of_two_candidate_objects_with_required_keys
+FAILED tests/indexing/test_build_chunks_verification_report.py::test_not_verified_record_carries_the_full_output_string
+FAILED tests/indexing/test_build_chunks_verification_report.py::test_report_is_written_even_when_no_candidate_verified
+FAILED tests/indexing/test_build_chunks_verification_report.py::test_explicit_verification_report_flag_overrides_the_default_location
+
+--- stderr ---
+
