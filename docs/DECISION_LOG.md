@@ -1323,3 +1323,17 @@ TC-180 attempt 2 was reviewed at the worker head `b79ad58`: scope ok (one file),
 **Evidence.** The live run at rev-72dc155 completed all six ingestion Jobs, and /readyz returned 200. But the serving Deployment is pinned to one identity (pdf/net). Search for the five other pilots returns pdf/net scope, and the non-empty answers are fuzzy pdf/net matches, not hits. So the single-release six-pilot design fails step 6 for five of six pilots.
 **Decision for the POC.** One release per pilot. Each release has its own identity, serving pod, manifests volume and Job. The chart already supports this shape, and it needs no code change. TC-195's six-entry list stays in values, as the chart test requires. The POC deploys six releases from per-pilot values files.
 **Production fix, not yet built.** The chart must serve several scopes from one release, or run one serving Deployment and Service per pilot. Until then, production is one release per pilot. This is recorded as open debt, and it is the next chart card.
+
+## 2026-10-04 - POC proven live: six pilots, one release each, exact matches on kind (supervisor)
+Image tag rev-72dc155 (HEAD 72dc155) on kind-foss-mcp (node v1.32.5). Six releases, one per pilot, each with its own identity, serving pod, volume and Job. Each release installed with --wait, one at a time.
+| Pilot | Job | Symbol | Scope | Match |
+|---|---|---|---|---|
+| pdf/net | Complete, 5m43s | AFRelationship | pdf/net | exact, 1 hit |
+| slides/python | Complete, 25s | AdjustValueCollection | slides/python | exact, 2 hits |
+| pdf/typescript | Complete, 42s | AES_WRAP_OID | pdf/typescript | exact, 1 hit |
+| pdf/go | Complete, 54s | AIClient | pdf/go | exact, 1 hit |
+| pdf/java | Complete, 80s | ArtifactCollection | pdf/java | exact, 1 hit |
+| cells/rust | Complete, 7m32s | AutoFilterColorFilter | cells/rust | exact, 1 hit |
+Every release returned only its own scope. /readyz returned 200 for each serving pod.
+**Expected failure, handled as designed.** One cells/rust attempt failed with a registry outage. It exited with the environment failure path (TC-181, TC-184, TC-189), the Job's retry completed, and no chunks were written from the failed attempt.
+**Still open, not blocking the POC.** One release per pilot is the POC shape. Production needs one serving deployment that serves several scopes (recorded in the earlier decision). The pdf/java example set is 2 of 3 (OWNER-07).
