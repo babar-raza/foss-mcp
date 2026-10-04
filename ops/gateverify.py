@@ -34,6 +34,7 @@ from gatectl import (
     sha256_file,
 )
 from capabilities import missing as capabilities_missing
+import containerrun
 
 OWNER_FILE = OPS / "owner_items.yaml"
 
@@ -45,11 +46,65 @@ def receipt_dir(gate: str, card_id: str) -> Path:
 # --------------------------------------------------------------------------
 # running a card's checks
 # --------------------------------------------------------------------------
-def run_checks(card, wt: Path, py: Path, log_lines):
-    """Execute the card's declared checks once. Returns (checks[], all_passed)."""
+def _run_checks_in_container(card, wt: Path, log_lines):
+    """D2: the same checks, each in a container with the pinned toolchain.
+
+    Offline cards get `--network none`, a real boundary. The dead-proxy trick is
+    not used here. Results carry the same fields as the host runner, so receipts and
+    the derived state need no special case.
+    """
+    from gatectl import CANONICAL_ENV
+
+    junit_dir = wt.parent / f"{wt.name}.junit"
+    junit_dir.mkdir(parents=True, exist_ok=True)
+    offline = not card.get("network", False)
+    env = containerrun.container_env(offline, CANONICAL_ENV)
+
+    results, all_passed = [], True
+    for idx, chk in enumerate(card["checks"]):
+        junit_name = f"{idx}.xml" if chk.get("junitxml") else None
+        junit = junit_dir / junit_name if junit_name else None
+        if junit is not None and junit.exists():
+            junit.unlink()  # a stale report from a previous run must never be counted
+        cmd = containerrun.container_command(chk["command"], junit_name)
+        argv = containerrun.docker_run_argv(
+            workdir=str(wt),
+            junit_dir=str(junit_dir),
+            cwd_rel=chk.get("cwd", "."),
+            command=cmd,
+            env=env,
+            offline=offline,
+        )
+        t0 = time.time()
+        rc, out, err = run(argv, timeout=chk.get("timeout_seconds", 600))
+        dur = round(time.time() - t0, 3)
+        log_lines.append(f"$ [container] {cmd}\n--- stdout ---\n{out}\n--- stderr ---\n{err}\n")
+        entry = {
+            "command": chk["command"],
+            "exit_code": rc,
+            "duration_s": dur,
+            "stdout_sha256": sha256_bytes((out + err).encode("utf-8", "replace")),
+        }
+        if junit is not None and junit.exists():
+            entry.update(parse_junit(junit))
+        results.append(entry)
+        if rc != 0:
+            all_passed = False
+    return results, all_passed
+
+
+def run_checks(card, wt: Path, py: Path, log_lines, runner: str = "host"):
+    """Execute the card's declared checks once. Returns (checks[], all_passed).
+
+    `runner` is decided once per card in do_verify, never per check, so a card's
+    receipt describes one environment, not a mixture of two.
+    """
     import os
 
     from gatectl import CANONICAL_ENV
+
+    if runner == "container":
+        return _run_checks_in_container(card, wt, log_lines)
 
     env = dict(CANONICAL_ENV)
     env["PATH"] = str(py.parent) + os.pathsep + os.environ.get("PATH", "")
@@ -193,11 +248,15 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None, 
     clean_passed = False
     holdout_ran, holdout_passed, holdout_detail = False, True, ""
 
+    # D2: one runner per card, decided here, recorded in the fingerprint. A card that
+    # needs a host-only capability stays on the host even when the container runner
+    # is selected, and the receipt says so.
+    runner_used = "container" if containerrun.runner_mode() == "container" and containerrun.eligible(card)[0] else "host"
     wt = make_worktree(head)
     try:
         for i in (1, 2):
-            log_lines.append(f"\n===== CLEAN RUN {i} =====\n")
-            checks, passed = run_checks(card, wt, py, log_lines)
+            log_lines.append(f"\n===== CLEAN RUN {i} ({runner_used}) =====\n")
+            checks, passed = run_checks(card, wt, py, log_lines, runner=runner_used)
             runs.append({"run": i, "checks": checks, "all_passed": passed})
         structural = structural_gate(card, runs[0]["checks"])
         holdout_ran, holdout_passed, holdout_detail = run_holdout(card_id, wt, py, log_lines)
@@ -246,7 +305,7 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None, 
                 negctl["applied"] = True
                 log_lines.append("\n===== NEGATIVE CONTROL (checks MUST now fail) =====\n")
                 log_lines.append("mutated: " + ", ".join(negctl.get("tree_changed", [])) + "\n")
-                nchecks, npassed = run_checks(card, wt, py, log_lines)
+                nchecks, npassed = run_checks(card, wt, py, log_lines, runner=runner_used)
                 negctl["exit_codes"] = [c["exit_code"] for c in nchecks]
                 negctl["patch_applied_failed"] = not npassed
             else:
@@ -287,7 +346,10 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None, 
         "base_rev": base,
         "head_rev": head,
         "card_sha256": card_sha,
-        "fingerprint": fingerprint(),
+        "fingerprint": {
+            **fingerprint(),
+            "env": {**fingerprint()["env"], "verify_runner": runner_used},
+        },
         "scope": {
             "ok": ok_scope,
             "changed_paths": changed,
