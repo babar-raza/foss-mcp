@@ -1102,7 +1102,31 @@ def build_parser():
     sp.add_argument("--kind", required=True)
     sp.add_argument("--instruction", required=True)
     sp.add_argument("--attempt", type=int, default=1)
+
+    sp = sub.add_parser("integrate", help="D7: atomically replay an accepted card onto main with its evidence")
+    sp.add_argument("card")
+    sp.add_argument("--dry-run", action="store_true", help="check every precondition and print the plan; write nothing")
     return p
+
+
+def cmd_integrate(args) -> int:
+    """D7 (DECISION_LOG 2026-10-04). Refuses before writing if any precondition fails."""
+    import integrate as I
+
+    try:
+        if args.dry_run:
+            p = I.plan(args.card)
+            print(f"PLAN {args.card}: {len(p['commits_to_replay'])} commit(s) to replay from {p['branch']}")
+            for sha in p["commits_to_replay"]:
+                print(f"  replay {sha[:12]}")
+            print(f"  status line to copy: {'yes' if p['status_line_to_copy'] else 'already present or none'}")
+            return G.EXIT_OK
+        r = I.integrate(args.card)
+    except I.IntegrateRefused as exc:
+        print(f"REFUSED: {exc}")
+        return G.EXIT_FAIL
+    print(f"INTEGRATED {args.card}: replayed {len(r['replayed'])} commit(s); evidence commit {r['evidence_commit']}")
+    return G.EXIT_OK
 
 
 HANDLERS = {
@@ -1124,6 +1148,7 @@ HANDLERS = {
     "commit-guard": cmd_commit_guard,
     "doctor": cmd_doctor,
     "resume-brief": cmd_resume_brief,
+    "integrate": cmd_integrate,
 }
 
 
