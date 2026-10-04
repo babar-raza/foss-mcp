@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-185",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-04T13:00:18Z",
+  "base_rev": "22197cd6f02caa36e0e01559d0063e82af1f5037",
+  "head_rev": "4dcb31aa4712bd04823a78217cbcfc891fb7cef8",
+  "card_sha256": "5106984b1030be17643a834597282777279fd25dc3e8146e3f9698e0150404c9",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/helm/foss-mcp/templates/networkpolicy.yaml",
+      "tests/infra/test_helm_chart.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_chart.py -q",
+          "exit_code": 0,
+          "duration_s": 2.532,
+          "stdout_sha256": "341d5dca33250b815baddbafb6001e174c20bf1716bb74f3d612e77777db8938",
+          "tests": 18,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_chart.py -q",
+          "exit_code": 0,
+          "duration_s": 2.176,
+          "stdout_sha256": "341d5dca33250b815baddbafb6001e174c20bf1716bb74f3d612e77777db8938",
+          "tests": 18,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/networkpolicy.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('    # DNS to the cluster resolver','    - ports:'+chr(10)+'        - protocol: TCP'+chr(10)+'          port: 443'+chr(10)+'      to:'+chr(10)+'        - namespaceSelector: {}'+chr(10)+'    # DNS to the cluster resolver'),encoding='utf-8')\"\n",
+    "patch_sha256": "5ed97a4b2c0c29580852d633d08ba820c073d4f870f77934d442208650d4d824",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/helm/foss-mcp/templates/networkpolicy.yaml",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

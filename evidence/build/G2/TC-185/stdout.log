@@ -1,0 +1,48 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k2v7sikw\.junit-0.xml"
+--- stdout ---
+..................                                                       [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k2v7sikw\.junit-0.xml"
+--- stdout ---
+..................                                                       [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/templates/networkpolicy.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k2v7sikw\.junit-0.xml"
+--- stdout ---
+.................F                                                       [100%]
+================================== FAILURES ===================================
+____________________ test_serving_policy_grants_no_tcp_443 ____________________
+
+    def test_serving_policy_grants_no_tcp_443() -> None:
+        docs = _render()
+        serving, _, _ = _serving(docs)
+        serving_labels = serving["spec"]["template"]["metadata"]["labels"]
+        selecting = [policy for policy in _by_kind(docs, "NetworkPolicy") if _selects(policy, serving_labels)]
+        assert selecting, "expected at least one NetworkPolicy to select the serving pods"
+        for policy in selecting:
+            for rule in policy["spec"].get("egress", []):
+>               assert {"protocol": "TCP", "port": 443} not in rule.get("ports", []), (
+                    policy["metadata"]["name"],
+                    rule,
+                )
+E               AssertionError: ('foss-mcp-pdf-net', {'ports': [{'protocol': 'TCP', 'port': 443}], 'to': [{'namespaceSelector': {}}]})
+E               assert {'protocol': 'TCP', 'port': 443} not in [{'protocol': 'TCP', 'port': 443}]
+E                +  where [{'protocol': 'TCP', 'port': 443}] = <built-in method get of dict object at 0x000001F6BB3ED280>('ports', [])
+E                +    where <built-in method get of dict object at 0x000001F6BB3ED280> = {'ports': [{'protocol': 'TCP', 'port': 443}], 'to': [{'namespaceSelector': {}}]}.get
+
+tests\infra\test_helm_chart.py:393: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_chart.py::test_serving_policy_grants_no_tcp_443
+
+--- stderr ---
+
