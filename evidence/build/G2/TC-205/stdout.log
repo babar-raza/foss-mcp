@@ -1,0 +1,55 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wd_agaaf\.junit-0.xml"
+--- stdout ---
+..................................                                       [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wd_agaaf\.junit-0.xml"
+--- stdout ---
+..................................                                       [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/values.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wd_agaaf\.junit-0.xml"
+--- stdout ---
+....F.............................                                       [100%]
+================================== FAILURES ===================================
+_____________________ test_pdf_java_pilot_matches_compose _____________________
+
+    def test_pdf_java_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("pdf", "java")
+
+tests\infra\test_helm_pilots_match_compose.py:133: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+family = 'pdf', platform = 'java'
+
+    def _assert_pilot_matches_compose(family: str, platform: str) -> None:
+        pilot = _pilot(family, platform)
+        build, ingest = _compose_arguments(family, platform)
+    
+        assert ingest["--family"] == family, family
+        assert ingest["--platform"] == platform, platform
+        assert pilot["family"] == family and pilot["platform"] == platform
+    
+        # A self-extracted pilot has an empty library block and no --library-commit flag: both None.
+>       assert pilot["library"].get("commit") == build.get("--library-commit"), "library commit"
+E       AssertionError: library commit
+E       assert '000000000000...0000000000000' == 'db2d3f0622f0...7022064f39f15'
+E         
+E         - db2d3f0622f035825419c6d46727022064f39f15
+E         + 0000000000000000000000000000000000000000
+
+tests\infra\test_helm_pilots_match_compose.py:100: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_pdf_java_pilot_matches_compose
+
+--- stderr ---
+
