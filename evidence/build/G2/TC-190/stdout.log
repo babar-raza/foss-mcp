@@ -1,0 +1,60 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_build_chunks_page_sandbox.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8hu8nowl\.junit-0.xml"
+--- stdout ---
+...                                                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_build_chunks_page_sandbox.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8hu8nowl\.junit-0.xml"
+--- stdout ---
+...                                                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/build_chunks.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_build_chunks_page_sandbox.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8hu8nowl\.junit-0.xml"
+--- stdout ---
+FF.                                                                      [100%]
+================================== FAILURES ===================================
+___ test_two_python_candidates_on_one_page_are_both_verified_in_one_sandbox ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-387/test_two_python_candidates_on_0')
+python_sandbox_fakes = [WindowsPath('C:/Users/babar/AppData/Local/Temp/build_chunks_candidate_7a6uvpxs'), WindowsPath('C:/Users/babar/AppData/Local/Temp/build_chunks_candidate_2s9_ogjp')]
+capsys = <_pytest.capture.CaptureFixture object at 0x00000213DD5EA120>
+
+    def test_two_python_candidates_on_one_page_are_both_verified_in_one_sandbox(
+        tmp_path: Path,
+        python_sandbox_fakes: list[Path],
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        page_path = _write_page(tmp_path / "_index.md")
+    
+        chunks = build_chunks._build_verified_example_chunks(_args(page_path))
+    
+        # Both candidates were run, and both verified: example 2 saw the file example 1 wrote.
+        assert len(python_sandbox_fakes) == 2
+>       assert "verified 2/2 candidate examples" in capsys.readouterr().out
+E       AssertionError: assert 'verified 2/2 candidate examples' in 'verified 1/2 candidate examples\n'
+E        +  where 'verified 1/2 candidate examples\n' = CaptureResult(out='verified 1/2 candidate examples\n', err='').out
+E        +    where CaptureResult(out='verified 1/2 candidate examples\n', err='') = readouterr()
+E        +      where readouterr = <_pytest.capture.CaptureFixture object at 0x00000213DD5EA120>.readouterr
+
+tests\indexing\test_build_chunks_page_sandbox.py:122: AssertionError
+___________ test_python_platform_entry_has_shared_page_workdir_true ___________
+
+    def test_python_platform_entry_has_shared_page_workdir_true() -> None:
+>       assert build_chunks._PLATFORM_DISPATCH["python"]["shared_page_workdir"] is True
+E       assert False is True
+
+tests\indexing\test_build_chunks_page_sandbox.py:133: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_build_chunks_page_sandbox.py::test_two_python_candidates_on_one_page_are_both_verified_in_one_sandbox
+FAILED tests/indexing/test_build_chunks_page_sandbox.py::test_python_platform_entry_has_shared_page_workdir_true
+
+--- stderr ---
+
