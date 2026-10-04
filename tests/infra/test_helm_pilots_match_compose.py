@@ -49,6 +49,19 @@ LIBRARY_FLAGS = {
     "--library-crate-name": "crateName",
 }
 
+# Self-extracted pilots whose compose services pass no library flags. Their library block is checked
+# against the fixture's source_repository and source_commit instead of against compose flags.
+FIXTURE_CHECKED_PILOTS = {
+    ("pdf", "cpp"),
+    ("words", "python"),
+    ("words", "net"),
+    ("slides", "java"),
+    ("cells", "go"),
+    ("cells", "typescript"),
+    ("jmap", "rust"),
+    ("cells", "cpp"),
+}
+
 
 def _pilots() -> list[dict[str, Any]]:
     values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
@@ -98,11 +111,13 @@ def _assert_pilot_matches_compose(family: str, platform: str) -> None:
     assert pilot["family"] == family and pilot["platform"] == platform
 
     # A self-extracted pilot has an empty library block and no --library-commit flag: both None.
-    # pdf/cpp is the one pilot whose compose service defines no library flags, so its library is
-    # checked against its fixture's source_repository and source_commit instead.
-    if (family, platform) == ("pdf", "cpp"):
+    # The FIXTURE_CHECKED_PILOTS pilots have compose services that define no library flags, so their
+    # library is checked against their fixture's source_repository and source_commit instead.
+    if (family, platform) in FIXTURE_CHECKED_PILOTS:
         fixture = json.loads(
-            (REPO_ROOT / "tests" / "fixtures" / "pdf_cpp" / "api_surface.json").read_text(encoding="utf-8")
+            (REPO_ROOT / "tests" / "fixtures" / f"{family}_{platform}" / "api_surface.json").read_text(
+                encoding="utf-8"
+            )
         )
         assert pilot["library"]["repository"] == fixture["source_repository"], "library repository"
         assert pilot["library"]["commit"] == fixture["source_commit"], "library commit"
@@ -119,7 +134,7 @@ def _assert_pilot_matches_compose(family: str, platform: str) -> None:
     assert pilot["sourceKind"] == ingest["--source-kind"], "sourceKind"
     assert pilot["heldBy"] == ingest["--held-by"], "heldBy"
 
-    if (family, platform) != ("pdf", "cpp"):
+    if (family, platform) not in FIXTURE_CHECKED_PILOTS:
         compose_library = {key: build[flag] for flag, key in LIBRARY_FLAGS.items() if flag in build}
         assert pilot["library"] == compose_library, "library block"
 
