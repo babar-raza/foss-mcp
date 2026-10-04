@@ -1,14 +1,13 @@
 schema_version: 1
 project: foss-mcp
 generated_by: gatectl
-generated_at: '2026-10-04T07:16:55Z'
+generated_at: '2026-10-04T09:15:41Z'
 current_gate:
-  id: G0
-  status: ACCEPTED
+  id: G2
+  status: READY
 accepted_gates:
 - G0
 - G1
-- G2
 cards:
 - id: TC-001
   gate: G0
@@ -1193,6 +1192,11 @@ cards:
   blocker: null
   commit: f65f90ec562733e9c83b6503403a43bb32a403ae
   receipt: G2/TC-173/receipt.json
+- id: TC-174
+  gate: G2
+  status: READY
+  attempt: 0
+  blocker: null
 owner_items:
 - id: OWNER-01
   status: SATISFIED
@@ -1325,13 +1329,15 @@ owner_items:
 - id: OWNER-06
   status: OPEN
   summary: 'The repo-wide CI equivalent (scripts/ci_check.sh, which runs pytest in
-    full) cannot pass on this machine (2026-10-04). A full pytest run gave 171 failing
-    or erroring tests. Most fail with WinError 2, meaning a required executable is
-    missing. The tools present here are git, python and dotnet. Missing: Java and
-    Maven (example verifier), Go, Rust/cargo, C/C++ build tools (cmake, g++), and
-    Node. Docker is also unavailable (OWNER-05). Several tests also clone real pinned
-    repositories over the network. The gate needs a green repo-wide CI, so G2 cannot
-    close here.'
+    full) cannot pass on this machine (updated 2026-10-04). Toolchains were not missing:
+    Java 21, Maven, Go, Rust, CMake, Node and dotnet are all installed under D:, and
+    work once put on PATH (see the supervisor report). The non-Docker suite now has
+    9 failures, all in tests/indexing/test_example_verifier.py. They need the MSVC
+    C++ build tools: link.exe for the Rust build, and vcvarsall.bat plus cl.exe for
+    cells/cpp. Visual Studio 2022 Community is installed under D:\Program Files\Microsoft
+    Visual Studio\2022\Community, but without the C++ workload. The verifier also
+    hard-codes C:\tools\rp-toolchains\vs-buildtools, which does not exist here. Docker-dependent
+    tests (tests/e2e, container build) are a separate, pending check.'
   resume_predicate: Either (a) a host with Docker running (OWNER-05), Java/Maven,
     Go, Rust, cmake/g++ and Node on PATH runs `bash scripts/ci_check.sh` to exit 0
     at the gate HEAD, or (b) the owner confirms that the GitHub Actions workflow .github/workflows/ci.yml
