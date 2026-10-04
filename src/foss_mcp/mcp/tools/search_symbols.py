@@ -52,21 +52,24 @@ _NON_SYMBOL_FQN_PREFIXES = ("Example: ", "Doc: ")
 
 
 _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
-_WORD_SEPARATORS = re.compile(r"[\s._]+")
+_WORD_SEPARATORS = re.compile(r"[\s._:]+")
+_FINAL_SEGMENT = re.compile(r"\.|::")
 
 
 def _symbol_words(text: str) -> list[str]:
-    """The lowercased words of *text*, split at camel-case boundaries and at whitespace, dots and
-    underscores (``PdfDocument.AddWatermarkAnnotation`` -> pdf, document, add, watermark, annotation).
+    """The lowercased words of *text*, split at camel-case boundaries and at whitespace, dots,
+    colons and underscores (``PdfDocument.AddWatermarkAnnotation`` -> pdf, document, add, watermark,
+    annotation; ``Aspose::Pdf::AFRelationship`` -> aspose, pdf, af, relationship).
     """
     spaced = _CAMEL_BOUNDARY.sub(" ", text)
     return [word.casefold() for word in _WORD_SEPARATORS.split(spaced) if word]
 
 
 def is_exact_symbol_hit(query: str, fqn: str | None) -> bool:
-    """True when *query* names *fqn*: it equals the full FQN or its final dotted segment, compared
-    case-insensitively after stripping whitespace; or every word of *query* is a whole word among
-    the words of *fqn* (words split at camel-case boundaries and at dots and underscores).
+    """True when *query* names *fqn*: it equals the full FQN or its final segment (dotted or
+    ``::``-scoped), compared case-insensitively after stripping whitespace; or every word of *query*
+    is a whole word among the words of *fqn* (words split at camel-case boundaries, dots, ``::``
+    and underscores).
 
     ``watermark`` is a whole word of ``PdfDocument.AddWatermarkAnnotation``, so it is a hit. A
     partial word such as ``Watermar`` is not, and neither is an absent name that shares no whole
@@ -79,7 +82,7 @@ def is_exact_symbol_hit(query: str, fqn: str | None) -> bool:
     if not needle:
         return False
     full = fqn.strip().casefold()
-    if needle == full or needle == full.rsplit(".", 1)[-1]:
+    if needle == full or needle == _FINAL_SEGMENT.split(full)[-1]:
         return True
     query_words = _symbol_words(query)
     if not query_words:

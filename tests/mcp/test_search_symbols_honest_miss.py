@@ -27,13 +27,18 @@ _KNOWN_SYMBOLS = (
     ("Aspose.Pdf.AFRelationship", "Enum", "Describes how an embedded file relates to the document."),
 )
 
+# A C++ product writes its FQNs with the scope operator, not dots (TC-210).
+_CPP_SYMBOLS = (
+    ("Aspose::Pdf::AFRelationship", "Enum", "Describes how an embedded file relates to the document."),
+)
+
 
 class _InMemoryGenerationStore:
     """Stands in for GenerationManifestStore: one active generation, held entirely in memory."""
 
-    def __init__(self) -> None:
+    def __init__(self, symbols: tuple[tuple[str, str, str], ...] = _KNOWN_SYMBOLS) -> None:
         chunks = []
-        for fqn, kind, prose in _KNOWN_SYMBOLS:
+        for fqn, kind, prose in symbols:
             doc = make_document(
                 source_kind=SourceKind.SELF_EXTRACTED,
                 content_type="api_surface",
@@ -118,3 +123,50 @@ def test_a_partial_name_is_not_a_match() -> None:
     for partial in ("Watermar", "Annotat"):
         result = search_symbols(store, PDF_NET_SCOPE, partial)
         assert isinstance(result, Miss), f"partial name {partial!r} must not be a match"
+
+
+def _cpp_result(query: str) -> object:
+    return search_symbols(_InMemoryGenerationStore(_CPP_SYMBOLS), PDF_NET_SCOPE, query)
+
+
+def _assert_cpp_hit(query: str) -> None:
+    texts = _matched_fqns(_cpp_result(query))
+    assert any("FQN: Aspose::Pdf::AFRelationship" in text for text in texts)
+
+
+def test_a_cpp_symbol_is_found_by_its_short_name() -> None:
+    _assert_cpp_hit("AFRelationship")
+
+
+def test_a_cpp_short_name_is_case_insensitive() -> None:
+    _assert_cpp_hit("afrelationship")
+
+
+def test_a_cpp_symbol_is_found_by_its_full_scoped_name() -> None:
+    _assert_cpp_hit("Aspose::Pdf::AFRelationship")
+
+
+def test_a_cpp_whole_word_of_the_short_name_is_a_hit() -> None:
+    _assert_cpp_hit("Relationship")
+
+
+def test_a_cpp_partial_word_is_not_a_hit() -> None:
+    result = _cpp_result("AFRelation")
+
+    assert isinstance(result, Miss)
+    assert result.reason == "no symbol matches 'AFRelation'"
+
+
+def test_an_absent_cpp_scoped_name_is_a_miss() -> None:
+    result = _cpp_result("Aspose::Pdf::Nonexistent")
+
+    assert isinstance(result, Miss)
+    assert result.reason == "no symbol matches 'Aspose::Pdf::Nonexistent'"
+
+
+def test_a_dotted_fqn_still_matches_whole_words_only() -> None:
+    store = _InMemoryGenerationStore()
+
+    assert isinstance(search_symbols(store, PDF_NET_SCOPE, "Watermar"), Miss)
+    texts = _matched_fqns(search_symbols(store, PDF_NET_SCOPE, "watermark"))
+    assert any("FQN: PdfDocument.AddWatermarkAnnotation" in text for text in texts)
