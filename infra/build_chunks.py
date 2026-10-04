@@ -52,6 +52,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import sys
 import tempfile
 from pathlib import Path
 
@@ -61,6 +62,7 @@ from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
 from foss_mcp.indexing.doc_candidates import extract_doc_sections
 from foss_mcp.indexing.example_candidates import extract_candidate_examples
 from foss_mcp.indexing.example_verifier import (
+    ExampleEnvironmentError,
     prepare_go_library,
     prepare_java_library,
     prepare_python_library,
@@ -76,6 +78,12 @@ from foss_mcp.indexing.example_verifier import (
 )
 from foss_mcp.normalization.chunker import Chunk, chunk_document
 from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
+
+# REQ-G2-048 (TC-184): exit status when the verifier hits an environment failure (a toolchain
+# that could not reach its package registry). 75 is EX_TEMPFAIL from sysexits.h: a retryable
+# failure that is not a defect, so the ingestion Job can tell it apart from the exit 1 a
+# defect produces.
+ENVIRONMENT_FAILURE_EXIT = 75
 
 # REQ-G2-048 (TC-091): the single, centrally-readable mapping from --library-platform to how
 # to prepare and verify a candidate example for that pilot. Each entry is
@@ -356,7 +364,18 @@ def main() -> None:
         # it is explicitly out of scope for this card to touch (REQ-G2-047/TC-112) - so this
         # is a real, deliberately-accepted duplicate parse, not an oversight.
         page = _load_furnished_page(args.furnished_page)
-        chunks = chunks + _build_verified_example_chunks(args) + _build_doc_chunks(page, args)
+        try:
+            chunks = chunks + _build_verified_example_chunks(args) + _build_doc_chunks(page, args)
+        except ExampleEnvironmentError as exc:
+            # TC-184: an environment failure is not a verdict on any candidate. End the build
+            # here with a distinct exit code and write nothing, so the candidate is neither
+            # published nor recorded as not verified.
+            print(
+                f"environment failure: {exc.tool} could not reach its registry "
+                f"(marker {exc.marker!r}); build stopped, nothing written",
+                file=sys.stderr,
+            )
+            sys.exit(ENVIRONMENT_FAILURE_EXIT)
 
     chunks = [_with_source_commit_line(chunk) for chunk in chunks]
 
