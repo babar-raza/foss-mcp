@@ -1,0 +1,43 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_manifest_reader_ecosystems.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8heefk1_\.junit-0.xml"
+--- stdout ---
+..................                                                       [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_manifest_reader_ecosystems.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8heefk1_\.junit-0.xml"
+--- stdout ---
+..................                                                       [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/manifest_reader.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_manifest_reader_ecosystems.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8heefk1_\.junit-0.xml"
+--- stdout ---
+...............F..                                                       [100%]
+================================== FAILURES ===================================
+________ test_dotnet_manifest_without_package_id_reports_assembly_name ________
+
+    def test_dotnet_manifest_without_package_id_reports_assembly_name() -> None:
+        csproj = (
+            "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup>"
+            "<TargetFramework>net8.0</TargetFramework>"
+            "<AssemblyName>Aspose.Words.FOSS</AssemblyName>"
+            "</PropertyGroup></Project>"
+        )
+>       assert read_dotnet_manifest(csproj).package_id == "Aspose.Words.FOSS"
+E       AssertionError: assert '' == 'Aspose.Words.FOSS'
+E         
+E         - Aspose.Words.FOSS
+
+tests\extraction\test_manifest_reader_ecosystems.py:209: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_manifest_reader_ecosystems.py::test_dotnet_manifest_without_package_id_reports_assembly_name
+
+--- stderr ---
+
