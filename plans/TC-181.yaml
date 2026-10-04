@@ -1,0 +1,81 @@
+id: TC-181
+gate: G2
+lane: extraction
+purpose: 'Stop an infrastructure failure from being recorded as a compile verdict. The Rust example
+  verifier sets verified = (returncode == 0). So when cargo cannot reach the registry (a DNS
+  failure, a connection reset, or "spurious network error" retries that run out), the example is
+  recorded as NOT verified, the same as a candidate that really fails to compile. During a registry
+  outage a good example is silently dropped from ingestion, and the verdict looks like a code
+  failure. Make the two cases different. A registry or network failure raises a distinct error, the
+  caller surfaces it as an environment failure, and only a real compile failure produces a
+  not-verified verdict.'
+depends_on:
+- TC-067
+- TC-079
+- TC-081
+- TC-082
+- TC-091
+- TC-092
+- TC-096
+- TC-097
+- TC-098
+- TC-099
+- TC-100
+- TC-101
+- TC-102
+- TC-104
+- TC-106
+- TC-175
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_example_verifier_classification.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Read verify_rust_example and every caller of it in src/foss_mcp/indexing/example_verifier.py in
+  full. Find where verified is computed from the return code, and find the callers that persist the
+  verdict.'
+- 'Cargo output that marks a network failure includes these markers: "spurious network error",
+  "Could not resolve hostname", "SSL connect error", "download of config.json failed", and "transfer
+  too slow". Classify a failed cargo run as infrastructure when any marker appears in its output.
+  Otherwise it is a compile failure. Put the marker list in one constant.'
+- 'Add a distinct exception, ExampleEnvironmentError, carrying the tool name and the matched marker.
+  The verifier raises it on an infrastructure failure. It must not return a not-verified result for
+  that case. Keep the existing not-verified path for a real compile failure, unchanged.'
+- 'tests/indexing/test_example_verifier_classification.py (new). Offline tests: a compile failure
+  returns not-verified; each network marker raises ExampleEnvironmentError; a successful build is
+  verified. Fake the cargo output, so the test needs no network and no toolchain.'
+- 'Do not change tests/indexing/test_example_verifier.py. Its existing assertions must keep
+  passing, and the Rust test in it that asserts E0599 must still see a compile result when the
+  network is up.'
+actions:
+- Read the verifier and all its callers in full.
+- Add the marker list, the exception and the classification.
+- Write the offline classification tests.
+- Run them and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/indexing/test_example_verifier_classification.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 5
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('spurious network error','spurious_network_error_OFF'),encoding='utf-8')"
+  rationale: 'Renames the first network marker so cargo output with that marker is no longer
+    classified as infrastructure. The classification test that uses that marker must then fail,
+    which proves the test checks the classifier and not only that the constant exists.'
+evidence:
+- evidence/build/G2/TC-181/receipt.json
+closeout:
+- A registry outage raises ExampleEnvironmentError and never produces a not-verified verdict.
+- A real compile failure still produces a not-verified verdict.
+recovery: Re-run from a clean tree.

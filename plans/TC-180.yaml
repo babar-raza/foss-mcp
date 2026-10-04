@@ -1,0 +1,53 @@
+id: TC-180
+gate: G2
+lane: verification
+purpose: 'Make the githooks tests find a real Git for Windows bash, instead of the first bash on
+  the search path. On this machine a bare "bash" resolves to the WSL launcher, because Python''s
+  subprocess searches System32 before PATH. Four tests in tests/test_githooks.py then fail with
+  "WSL ... execvpe(/bin/bash) failed", so the CI run cannot pass. The fix is in the test only: find
+  Git''s bash explicitly, and fail loudly if it cannot be found. It must never skip.'
+depends_on:
+- TC-006
+- TC-173
+write_paths:
+- tests/test_githooks.py
+satisfies:
+- REQ-G0-009
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.4 Governance adoption map'
+  sha256: 633416b630ef7fe8d06e737dab888cabea30abc6e5e42f20ee33d08773d78d39
+inputs:
+- 'Read tests/test_githooks.py in full. Every subprocess call that runs bash, including _run_hook
+  and the gitlab probe, currently passes the bare string "bash". Keep every assertion and every
+  test name.'
+- 'Resolve one GIT_BASH path, in this order: an environment override FOSS_MCP_GIT_BASH; then the
+  bin\bash.exe that sits next to git (git found with shutil.which, then its parent folder''s bin);
+  then shutil.which("bash") only if it is not under System32 or WindowsApps. Run [GIT_BASH,
+  "--version"] once, and require "GNU bash" in the output. If it cannot be resolved or the check
+  fails, call pytest.fail with a message that names what was tried. Do not use skip.'
+- 'The hook path stays relative, as it is now. Only the program that runs it changes.'
+actions:
+- Read tests/test_githooks.py in full.
+- Add the resolver and use it in every bash call.
+- Run the file and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/test_githooks.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G0-009
+min_tests: 6
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/test_githooks.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('GIT_BASH','GIT_BASH_OFF'),encoding='utf-8')"
+  rationale: 'Renames the resolved bash so the hook calls fail to find it. The githooks tests must
+    then fail. This proves the tests run through the resolver, not around it.'
+evidence:
+- evidence/build/G2/TC-180/receipt.json
+closeout:
+- Every githooks test runs Git for Windows bash, found explicitly.
+- A missing bash fails loudly, naming what was tried.
+recovery: Re-run from a clean tree.

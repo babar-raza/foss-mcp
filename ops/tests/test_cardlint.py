@@ -109,3 +109,29 @@ def test_the_original_tc168_card_would_have_been_caught_before_dispatch():
     problems = L.lint_card(card, REPO, accepted=False)
     assert any("backslash" in p for p in problems), "must catch the shell-mangled falsifier (L1)"
     assert any("reaches the network" in p for p in problems), "must catch network-only fixtures (L2)"
+
+
+def test_a_docstring_that_names_the_ci_script_is_not_a_ci_invocation(repo):
+    # Regression canary (2026-10-04, TC-180). A test that explains the hook is not a test that runs it.
+    (repo / "tests" / "sample" / "test_one.py").write_text(
+        '"""Explains that scripts/ci_check.sh is the gate."""\n\ndef test_ok():\n    assert True\n',
+        encoding="utf-8",
+    )
+    assert L.lint_card(_card(), repo, accepted=False) == []
+
+
+def test_a_url_passed_as_data_is_not_a_network_reach(repo):
+    # Regression canary (2026-10-04, TC-180). A remote URL handed to a hook is data, not a fetch.
+    (repo / "tests" / "sample" / "test_one.py").write_text(
+        "REMOTE = 'https://github.com/someone/unrelated.git'\n", encoding="utf-8"
+    )
+    assert L.lint_card(_card(network=False), repo, accepted=False) == []
+
+
+def test_an_assertion_that_searches_for_the_hook_output_is_not_a_ci_run(repo):
+    # Regression canary (2026-10-04, TC-180). Searching a string for "scripts/ci_check.sh" does not run it.
+    (repo / "tests" / "sample" / "test_one.py").write_text(
+        'def test_ok():\n    assert "running scripts/ci_check.sh" in "x"\n',
+        encoding="utf-8",
+    )
+    assert L.lint_card(_card(), repo, accepted=False) == []

@@ -30,22 +30,42 @@ from pathlib import Path
 NETWORK_HINTS = (
     "git clone",
     "git fetch",
+    "'clone'",
+    "'fetch'",
     "_clone_pinned_commit",
     "urlopen(",
     "requests.get(",
-    "https://github.com/",
-    "https://gitlab.",
 )
 
 # Substrings that mean "this test runs the CI or a hook".
 CI_HINTS = (
-    "scripts/ci_check.sh",
-    "gatectl.py gate-exit",
-    ".githooks/pre-push",
+    # Invocation shapes only. A bare file name also matches assertion strings that search for the
+    # hook's output, which is not a run (TC-180).
+    "'bash', 'scripts/ci_check.sh'",
+    "\"bash\", \"scripts/ci_check.sh\"",
+    "'gatectl.py', 'gate-exit'",
+    "'bash', '.githooks/pre-push'",
 )
 
 _TEST_TOKEN = re.compile(r"^tests/\S*$")
 
+
+def _strip_docstrings(text: str) -> str:
+    """The source with its docstrings removed. A test that explains a hook is not a test that runs it."""
+    import ast
+
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return text
+    out = text
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            body = node.body
+            first = body[0] if body else None
+            if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
+                out = out.replace(first.value.value, "")
+    return out
 
 def _check_commands(card: dict) -> list[str]:
     return [str(c.get("command", "")) for c in card.get("checks", []) or []]
@@ -105,8 +125,9 @@ def lint_card(card: dict, repo: Path, *, accepted: bool) -> list[str]:
                         "from the cache (D4)."
                     )
                     break
+        code = _strip_docstrings(text)
         for hint in CI_HINTS:
-            if hint in text:
+            if hint in code:
                 problems.append(
                     f"{cid}: {rel} invokes the CI or a hook ({hint!r}). A test that runs "
                     "the gate can recurse into itself (TC-173)."
