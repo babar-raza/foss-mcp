@@ -14,6 +14,9 @@ write_paths:
 - infra/helm/foss-mcp/values.yaml
 - tests/infra/test_helm_manifest_step.py
 - Dockerfile.serving
+- Dockerfile.ingestion
+- infra/fetch_product_reference.py
+- infra/serve_http.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -44,6 +47,21 @@ inputs:
   infra/fetch_product_reference.py (the value is "product_reference.json"). Pass that name to the fetch command, or read the
   constant, so the serving side and the ingestion side agree. Add an offline test that asserts the Job passes the same
   file name the serving code reads.'
+- 'Rework, attempt 2, by the supervisor after the attempt-1 review. The attempt-1 commit shares one file name across all
+  pilots. That is a defect: each run overwrites the last, and serving can answer with another product''s manifest. Fix it
+  with these numbered changes, in order.
+  R1. Dockerfile.ingestion does not COPY infra/fetch_product_reference.py, so every ingestion Job fails its new step. Add the COPY
+      line the same way the other infra files are copied. Change nothing else in that Dockerfile.
+  R2. Replace the single PRODUCT_REFERENCE_SIDECAR_NAME with one function, sidecar_name(family, platform), in
+      infra/fetch_product_reference.py. It returns product_reference_<family>_<platform>.json. Ingestion (the Job step) and serving
+      (infra/serve_http.py) both call that function, so they cannot disagree.
+  R3. Serving reads only the file for its own identity, from the FAMILY and PLATFORM environment variables the chart already sets.
+      It must not fall back to another file, and it must not replace the platform with a different value. If the identity is unset,
+      it fails at start, rather than defaulting.
+  R4. Ingestion writes only its own pilot''s file, named by R2, so the six pilots never collide on the shared claim.
+  R5. Tests: (a) two pilots'' sidecar names differ; (b) serving with the pdf/java identity never reads the pdf/net file; (c) the Job
+      step writes the name that sidecar_name returns for its pilot; (d) Dockerfile.ingestion copies infra/fetch_product_reference.py.
+  Replace the earlier single-name test with these. Keep every existing chart test and assertion.'
 - 'Keep every existing chart test and assertion.'
 actions:
 - Read the template, the values entries, and the fetch command in full.
