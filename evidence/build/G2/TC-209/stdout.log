@@ -1,0 +1,48 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_ingestion_image_fixtures.py tests/infra/test_container_pins.py tests/infra/test_verify_image_offline.py tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-javk1vot\.junit-0.xml"
+--- stdout ---
+.................................................                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_ingestion_image_fixtures.py tests/infra/test_container_pins.py tests/infra/test_verify_image_offline.py tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-javk1vot\.junit-0.xml"
+--- stdout ---
+.................................................                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M Dockerfile.ingestion, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_ingestion_image_fixtures.py tests/infra/test_container_pins.py tests/infra/test_verify_image_offline.py tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-javk1vot\.junit-0.xml"
+--- stdout ---
+...............F.................................                        [100%]
+================================== FAILURES ===================================
+_______ test_fixture_is_in_the_ingestion_image[words/python-apiSurface] _______
+
+path = '/app/fixtures/words_python/api_surface.json'
+
+    @pytest.mark.parametrize("path", _cases())
+    def test_fixture_is_in_the_ingestion_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX):]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert (source, destination) in _copy_pairs(), (
+            f"Dockerfile.ingestion has no 'COPY {source} {destination}' for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no 'COPY tests/fixtures/words_python/api_surface.json ./fixtures/words_python/api_surface.json' for /app/fixtures/words_python/api_surface.json
+E       assert ('tests/fixtures/words_python/api_surface.json', './fixtures/words_python/api_surface.json') in {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ....py'), ('infra/ingest.py', './infra/ingest.py'), ('requirements.lock', './requirements.lock'), ('src/', './src/'), ...}
+E        +  where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ....py'), ('infra/ingest.py', './infra/ingest.py'), ('requirements.lock', './requirements.lock'), ('src/', './src/'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:74: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_fixture_is_in_the_ingestion_image[words/python-apiSurface]
+
+--- stderr ---
+
