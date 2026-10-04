@@ -244,10 +244,23 @@ def verify_dotnet_example(
 #     candidate that fails to compile as furnished is exactly what
 #     verification exists to catch.)
 
-_CPP_VCVARSALL = Path(r"C:\tools\rp-toolchains\vs-buildtools\VC\Auxiliary\Build\vcvarsall.bat")
+# Nothing below is guessed. vswhere (the Visual Studio Installer's own
+# locator) finds the installation, and vcvarsall.bat is taken from that
+# installation. ninja and cmake are taken from the toolchain root, which is
+# FOSS_MCP_TOOLS if set, else _DEFAULT_FOSS_MCP_TOOLS. A tool that cannot be
+# resolved raises RuntimeError naming the tool, the place searched, and the
+# override variable - it is never returned as a path that does not exist.
 _CPP_VSWHERE_DIR = Path(r"C:\Program Files (x86)\Microsoft Visual Studio\Installer")
-_CPP_NINJA_EXECUTABLE = Path(r"C:\tools\rp-toolchains\ninja\ninja.exe")
-_CPP_CMAKE_EXECUTABLE = Path(r"C:\tools\rp-toolchains\winlibs\mingw64\bin\cmake.exe")
+_VSWHERE_EXE_NAME = "vswhere.exe"
+_VS_REQUIRED_COMPONENT = "Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+_VCVARSALL_RELATIVE_PATH = Path("VC") / "Auxiliary" / "Build" / "vcvarsall.bat"
+
+_FOSS_MCP_TOOLS_ENV = "FOSS_MCP_TOOLS"
+_DEFAULT_FOSS_MCP_TOOLS = Path(r"C:\dev-tools\foss-mcp")
+_NINJA_EXE_NAME = "ninja.exe"
+_NINJA_RELATIVE_DIR = Path("rp-toolchains") / "ninja"
+_CMAKE_EXE_NAME = "cmake.exe"
+_CMAKE_RELATIVE_DIR = Path("cmake") / "bin"
 
 _CPP_LIBRARY_SUBDIR = "Aspose.Cells.Foss.Cpp"
 _CPP_LIBRARY_TARGET = "aspose_cells_foss"
@@ -267,11 +280,84 @@ class _MsvcEnvironment:
     cl_exe: Path
 
 
+def _toolchain_root() -> Path:
+    """Return the toolchain root: ``FOSS_MCP_TOOLS`` if set and non-empty,
+    else ``_DEFAULT_FOSS_MCP_TOOLS``.
+    """
+    override = os.environ.get(_FOSS_MCP_TOOLS_ENV, "").strip()
+    return Path(override) if override else _DEFAULT_FOSS_MCP_TOOLS
+
+
+def _resolve_toolchain_exe(exe_name: str, relative_dir: Path, tool_label: str) -> Path:
+    """Return ``<toolchain root>/<relative_dir>/<exe_name>`` if it is a real
+    file; otherwise raise ``RuntimeError`` naming the tool, the searched
+    path, and the override variable.
+    """
+    root = _toolchain_root()
+    candidate = root / relative_dir / exe_name
+    if not candidate.is_file():
+        raise RuntimeError(
+            f"{tool_label} ({exe_name}) not found at {candidate}; searched under toolchain "
+            f"root {root}. Install it there or set {_FOSS_MCP_TOOLS_ENV} to the toolchain root."
+        )
+    return candidate
+
+
+def _resolve_ninja() -> Path:
+    return _resolve_toolchain_exe(_NINJA_EXE_NAME, _NINJA_RELATIVE_DIR, "ninja")
+
+
+def _resolve_cmake() -> Path:
+    return _resolve_toolchain_exe(_CMAKE_EXE_NAME, _CMAKE_RELATIVE_DIR, "cmake")
+
+
+def _resolve_vcvarsall() -> Path:
+    """Return the vcvarsall.bat of the Visual Studio installation that
+    vswhere reports (latest, with the x64 C++ tools component).
+
+    Raises ``RuntimeError`` naming vswhere, the searched folder, or the
+    reported installation path if any step does not yield a real file.
+    """
+    vswhere = _CPP_VSWHERE_DIR / _VSWHERE_EXE_NAME
+    if not vswhere.is_file():
+        raise RuntimeError(
+            f"vswhere ({_VSWHERE_EXE_NAME}) not found at {vswhere}; it is installed with the "
+            "Visual Studio Installer. Install Visual Studio Build Tools to provide it."
+        )
+
+    query = _run(
+        [
+            str(vswhere),
+            "-latest",
+            "-products",
+            "*",
+            "-requires",
+            _VS_REQUIRED_COMPONENT,
+            "-property",
+            "installationPath",
+        ],
+        cwd=_CPP_VSWHERE_DIR,
+    )
+    install_lines = [line.strip() for line in query.stdout.splitlines() if line.strip()]
+    if query.returncode != 0 or not install_lines:
+        raise RuntimeError(
+            f"vswhere found no Visual Studio installation with {_VS_REQUIRED_COMPONENT} "
+            f"(exit {query.returncode}):\n{query.stdout}\n{query.stderr}"
+        )
+
+    vcvarsall = Path(install_lines[0]) / _VCVARSALL_RELATIVE_PATH
+    if not vcvarsall.is_file():
+        raise RuntimeError(
+            f"vcvarsall.bat (MSVC developer environment) not found at {vcvarsall}, "
+            f"under the installation vswhere reported: {install_lines[0]}"
+        )
+    return vcvarsall
+
+
 def _msvc_environment(workdir: Path) -> _MsvcEnvironment:
     """Activate the real MSVC x64 developer environment by running
-    ``vcvarsall.bat x64`` in a disposable ``cmd.exe`` subprocess and parsing
-    its own ``set`` output, exactly as
-    ``C:\\tools\\rp-toolchains\\TOOLCHAIN_PATHS.txt`` documents.
+    ``vcvarsall.bat x64`` (located through vswhere by ``_resolve_vcvarsall``)
+    in a disposable ``cmd.exe`` subprocess and parsing its own ``set`` output.
 
     Returns a full environment dict (a copy of this process's own
     ``os.environ``, with ``INCLUDE``/``LIB``/``LIBPATH`` set from
@@ -286,11 +372,12 @@ def _msvc_environment(workdir: Path) -> _MsvcEnvironment:
     INCLUDE/LIB/LIBPATH/the Windows SDK bin directory/cl.exe's own path
     cannot be resolved from its real output.
     """
+    vcvarsall = _resolve_vcvarsall()
     workdir.mkdir(parents=True, exist_ok=True)
     script_path = workdir / "_activate_msvc.bat"
     script_path.write_text(
         "@echo off\r\n"
-        f'call "{_CPP_VCVARSALL}" x64\r\n'
+        f'call "{vcvarsall}" x64\r\n'
         "echo ---MSVC-ENV-START---\r\n"
         "set\r\n"
         "echo ---MSVC-ENV-END---\r\n"
@@ -322,7 +409,13 @@ def _msvc_environment(workdir: Path) -> _MsvcEnvironment:
         if sep:
             captured[key.strip()] = value
 
-    for required_key in ("INCLUDE", "LIB", "LIBPATH", "WindowsSdkVerBinPath"):
+    if not captured.get("WindowsSdkVerBinPath"):
+        raise RuntimeError(
+            "the Windows SDK is not installed or not visible to vcvarsall.bat (WindowsSdkVerBinPath "
+            "unset; rc.exe, mt.exe and kernel32.lib come from it). Install the Windows 10/11 SDK "
+            f"through the Visual Studio Installer.\n{output}"
+        )
+    for required_key in ("INCLUDE", "LIB", "LIBPATH"):
         if not captured.get(required_key):
             raise RuntimeError(f"vcvarsall.bat x64 did not set {required_key}:\n{output}")
 
@@ -368,17 +461,20 @@ def prepare_cpp_library(repository: str, commit: str, workdir: Path) -> Path:
     """
     _clone_pinned_commit(repository, commit, workdir)
 
+    ninja_executable = _resolve_ninja()
+    cmake_executable = _resolve_cmake()
+
     library_source_dir = workdir / _CPP_LIBRARY_SUBDIR
     build_dir = library_source_dir / _CPP_BUILD_DIRNAME
     build_dir.mkdir(parents=True, exist_ok=True)
 
     msvc = _msvc_environment(workdir / "_msvc_env_prepare")
     build_env = dict(msvc.env)
-    build_env["PATH"] = f"{_CPP_NINJA_EXECUTABLE.parent};{build_env.get('PATH', '')}"
+    build_env["PATH"] = f"{ninja_executable.parent};{build_env.get('PATH', '')}"
 
     configure_result = subprocess.run(
         [
-            str(_CPP_CMAKE_EXECUTABLE),
+            str(cmake_executable),
             "-G",
             "Ninja",
             "-DCMAKE_BUILD_TYPE=Release",
@@ -397,7 +493,7 @@ def prepare_cpp_library(repository: str, commit: str, workdir: Path) -> Path:
         )
 
     build_result = subprocess.run(
-        [str(_CPP_NINJA_EXECUTABLE), _CPP_LIBRARY_TARGET],
+        [str(ninja_executable), _CPP_LIBRARY_TARGET],
         cwd=build_dir,
         capture_output=True,
         text=True,
