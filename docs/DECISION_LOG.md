@@ -1234,3 +1234,15 @@ Goal: the app is deployed on Kubernetes and verified there before Monday 2026-10
 4. **Probe defect fixed (governance).** The msvc capability probe used `vswhere -latest`. That returns one instance, so a newer install without the C++ workload hid the working Build Tools install, and the probe reported msvc missing. Fixed, with a canary that fails if `-latest` returns.
 5. **Real cluster.** No kubeconfig for a remote cluster exists on this machine. Deploying to it needs the owner's kubeconfig and registry. The deliverable for that is the same chart and values, plus a runbook. It is not claimed as done.
 6. **Known limits stated up front.** kind's default CNI does not enforce NetworkPolicy, so the chart's network isolation is not proven on the local cluster. The chart's NetworkPolicy is still rendered and tested as a manifest, not as behaviour.
+
+## 2026-10-04 - Process defect: worker worktrees did not see supervisor channel lines (supervisor)
+Observed: the TC-175 rework was dispatched and committed to main, and the worker reported `WAIT: no open dispatch`. The worker runs `worker-tick` inside its own worktree, and that worktree was branched before the dispatch, so its `ops/instructions.jsonl` lacked the line. Nothing in the loop reported this.
+Immediate remedy (recorded, not a precedent): the current channel was copied into the worktree as an uncommitted file, so `worker-tick` printed WORK. Workers were told never to commit it.
+Structural fix (to be a taskcard, plus a gatectl change under review): `instruct` and `dispatch-next` must sync the channel into every live worker worktree, or `worker-tick` must read the channel from the main checkout. Until then, the supervisor copies the channel after every dispatch and checks `worker-tick` in the worktree before spawning the worker.
+
+## 2026-10-04 - POC milestone: publish and serve proven on Kubernetes (kind 1.32.5), supervisor
+Verified on the local kind cluster, same Kubernetes version as the target:
+- Ingestion Job (pdf/net, the exact compose command) completed and published `pdf::net::self_extracted::20261004T100800613955Z-d71a75a4` into a PersistentVolumeClaim.
+- A serving pod on the same claim: `/healthz` 200 `alive`, `/readyz` 200 `ready`.
+- A real MCP session over `/mcp` (initialize, tools/list, tools/call search_symbols for AFRelationship) returned real content: FQN, kind and members, with the generation id that the Job published.
+Limits, stated plainly: this used hand-written manifests, not the Helm chart (TC-177 still open). The cluster had network, so the offline grammar path (TC-176) is not proven here. Probes and the security context are not yet set. Only the pdf/net pilot is proven live. Logging to stdout as JSON (TC-178) is not yet proven.
