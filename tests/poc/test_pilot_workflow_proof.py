@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "scripts" / "poc" / "pilot_workflow_proof.py"
 
@@ -227,6 +229,37 @@ def test_a_pilot_with_no_furnished_page_is_not_applicable_for_check_5(tmp_path: 
     check5 = _check(checks, 5)
     assert check5["status"] == "not_applicable"
     assert "search_docs" not in fake.calls
+
+
+def test_a_one_letter_name_is_not_chosen_and_the_next_valid_name_is() -> None:
+    # "A" is an enum with members, the most preferred kind, so only the length rule keeps it out.
+    types = [
+        {"name": "A", "kind": "enum_item", "enum_members": [{"name": "X"}]},
+        {"name": "Type", "kind": "struct_item", "methods": [{"name": "new"}]},
+        {"name": "Workbook", "kind": "struct_item", "methods": [{"name": "new"}]},
+    ]
+    assert pwp.choose_probe(types, PILOT) == "Workbook"
+
+
+def test_an_enum_is_preferred_over_a_plain_type() -> None:
+    types = [
+        {"name": "Workbook", "kind": "struct_item", "methods": []},
+        {"name": "Canvas", "kind": "struct_item", "methods": [{"name": "draw"}]},
+        {"name": SYMBOL, "kind": "enum_item", "enum_members": [{"name": "Rectangle"}]},
+    ]
+    assert pwp.choose_probe(types, PILOT) == SYMBOL
+
+
+def test_a_fixture_with_no_valid_name_raises_value_error() -> None:
+    types = [
+        {"name": "A", "kind": "enum_item", "enum_members": [{"name": "X"}]},
+        {"name": "Name", "kind": "struct_item", "methods": [{"name": "new"}]},
+        {"name": "Value"},
+        {"name": "9Lives", "kind": "struct_item"},
+        {"name": "x-y-z", "kind": "struct_item"},
+    ]
+    with pytest.raises(ValueError, match=PILOT):
+        pwp.choose_probe(types, PILOT)
 
 
 def test_the_report_is_written_and_exits_zero_only_when_every_applicable_check_passes(tmp_path: Path) -> None:

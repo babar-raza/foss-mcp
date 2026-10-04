@@ -53,6 +53,12 @@ INDEXED_TYPE_LIMIT = 20
 ABSENT_SYMBOL = "Tc197AbsentSymbolProbe"
 # Title words that name the vendor or the shape of the title, not the product.
 TITLE_STOPWORDS = frozenset({"aspose", "foss", "for", "via"})
+# A probe must be a real identifier of at least this many characters, and never a common word.
+MIN_PROBE_LENGTH = 4
+COMMON_WORDS = frozenset(
+    {"name", "none", "null", "value", "type", "item", "data", "list", "object", "result"}
+)
+_IDENTIFIER = re.compile(r"[A-Za-z][A-Za-z0-9_]*")
 
 CHECK_TITLES: dict[int, str] = {
     1: "initialize returns a protocol version and a server name; tools/list returns the nine tools",
@@ -143,33 +149,44 @@ class Pilot:
     family: str
     platform: str
     source_commit: str
-    symbol: str
+    symbol: str | None
     symbol_kind: str
     other_pilot: str | None
     other_symbol: str | None
     furnished_page: Path | None
     furnished_title: str | None
+    probe_error: str | None
 
 
-def probe_symbol(types: list[Any]) -> dict[str, Any] | None:
-    """The symbol this pilot's own fixture offers to probe with.
+def choose_probe(types: list[Any], fixture: str = "the fixture") -> str:
+    """The name this pilot's own fixture offers to probe with.
 
-    It comes from the leading INDEXED_TYPE_LIMIT types, so the live generation publishes it. An
-    enum with members is preferred, then a type with methods or properties, then any named type.
+    It comes from the leading INDEXED_TYPE_LIMIT types, in document order, so the live generation
+    publishes it. A usable name is a real identifier of at least MIN_PROBE_LENGTH characters that is
+    not a common word. An enum with members is preferred, then a type with methods or properties,
+    then any other usable type. A fixture with no usable name raises ValueError naming the fixture,
+    so a short name is never probed.
     """
-    named = [
+    usable = [
         t
         for t in types[:INDEXED_TYPE_LIMIT]
-        if isinstance(t, dict) and isinstance(t.get("name"), str) and t["name"]
+        if isinstance(t, dict)
+        and isinstance(t.get("name"), str)
+        and _IDENTIFIER.fullmatch(t["name"])
+        and len(t["name"]) >= MIN_PROBE_LENGTH
+        and t["name"].lower() not in COMMON_WORDS
     ]
     for predicate in (
         lambda t: "enum" in str(t.get("kind", "")).lower() and bool(t.get("enum_members")),
         lambda t: bool(t.get("methods") or t.get("properties")),
+        lambda t: True,
     ):
-        for candidate in named:
+        for candidate in usable:
             if predicate(candidate):
-                return candidate
-    return named[0] if named else None
+                return str(candidate["name"])
+    raise ValueError(
+        f"{fixture} declares no type with a usable probe name among its first {INDEXED_TYPE_LIMIT} types"
+    )
 
 
 def other_pilot_symbol(fixtures: Path, pilot: str, own_names: set[str]) -> tuple[str, str] | None:
@@ -213,14 +230,17 @@ def load_pilot(name: str, fixtures: Path) -> Pilot:
         raise ValueError(f"pilot name {name!r} must look like family_platform, e.g. pdf_net")
     api_surface = json.loads((fixtures / name / "api_surface.json").read_text(encoding="utf-8"))
     types = api_surface.get("types") or []
-    probe = probe_symbol(types)
-    if probe is None:
-        raise ValueError(f"{name}'s api_surface.json declares no named type to probe with")
     own_names = {t["name"] for t in types if isinstance(t, dict) and isinstance(t.get("name"), str)}
     if ABSENT_SYMBOL in own_names:
         raise ValueError(
             f"{name}'s fixture declares {ABSENT_SYMBOL!r}, so it cannot serve as the absent probe"
         )
+    # A pilot with no usable probe name still loads: check 2 records the reason as its fail.
+    try:
+        symbol, probe_error = choose_probe(types, name), None
+    except ValueError as exc:
+        symbol, probe_error = None, str(exc)
+    probe = next((t for t in types if isinstance(t, dict) and t.get("name") == symbol), {})
     other = other_pilot_symbol(fixtures, name, own_names)
     page = fixtures / "furnished" / name / "pages" / "_index.md"
     furnished = page if page.is_file() else None
@@ -229,12 +249,13 @@ def load_pilot(name: str, fixtures: Path) -> Pilot:
         family=family,
         platform=platform,
         source_commit=str(api_surface.get("source_commit") or ""),
-        symbol=probe["name"],
+        symbol=symbol,
         symbol_kind=str(probe.get("kind", "")),
         other_pilot=other[0] if other else None,
         other_symbol=other[1] if other else None,
         furnished_page=furnished,
         furnished_title=furnished_title(page.read_text(encoding="utf-8")) if furnished else None,
+        probe_error=probe_error,
     )
 
 
@@ -301,6 +322,8 @@ def check_1(run: _Run) -> dict[str, Any]:
 
 def check_2(run: _Run) -> dict[str, Any]:
     pilot = run.pilot
+    if pilot.symbol is None:
+        raise CheckFailed(pilot.probe_error or f"{pilot.name} has no probe symbol")
     results = run.call("search_symbols", {"query": pilot.symbol})
     evidence: dict[str, Any] = {"query": pilot.symbol, "result_kind": shape(results)}
     if not isinstance(results, list) or not results:
@@ -407,6 +430,10 @@ def check_5(run: _Run) -> dict[str, Any]:
 
 def check_6(run: _Run) -> dict[str, Any]:
     symbol = run.pilot.symbol
+    if symbol is None:
+        raise CheckFailed(
+            f"check 6 needs the probe symbol, which check 2 could not choose: {run.pilot.probe_error}"
+        )
     results = run.call("find_examples", {"query": symbol})
     evidence: dict[str, Any] = {"query": symbol, "result_kind": shape(results)}
     if isinstance(results, list):
