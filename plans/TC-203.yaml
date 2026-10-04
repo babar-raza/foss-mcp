@@ -53,11 +53,12 @@ min_tests: 40
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/ingestion-job.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('fetch_product_reference.py','fetch_product_reference_off.py',1),encoding='utf-8')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/ingestion-job.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('python /app/infra/fetch_product_reference.py','python /app/infra/fetch_product_reference_off.py',1),encoding='utf-8')"
   rationale: 'Renames the fetch command in the ingestion Job template, so the rendered Job calls a script that does not exist. The
-    rendered-command assertion added to test_helm_manifest_step.py must then fail. This is the check TC-201''s falsifier showed was
-    missing. The replace is limited to the first match, which is the template command. Built with plain text, since it has no quote
-    or backslash.'
+    target is the full command text, python /app/infra/fetch_product_reference.py, which occurs only in the command. An earlier
+    version matched the bare script name, whose first occurrence is a Helm comment, so the mutation changed nothing that renders and
+    the falsifier could never fail. That defect was found by TC-203''s attempt-1 worker. The rendered-command assertion must then fail.
+    Built with plain text, since it has no quote or backslash.'
 evidence:
 - evidence/build/G2/TC-203/receipt.json
 closeout:
