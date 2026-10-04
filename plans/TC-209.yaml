@@ -1,0 +1,64 @@
+id: TC-209
+gate: G2
+lane: transport-deployment
+purpose: 'Put the seven new POC pilots'' api-surface fixtures into the ingestion image, and add the test that was missing. The live
+  fourteen-pilot run on 2026-10-04 showed the ingestion Jobs for words/python and words/net failing three times each with FileNotFoundError
+  for /app/fixtures/words_python/api_surface.json and /app/fixtures/words_net/api_surface.json. Dockerfile.ingestion COPYs fixtures only for
+  the original pilots (pdf_net, pdf_typescript, pdf_java, pdf_go, slides_python, cells_rust, pdf_cpp). TC-205 added seven pilots to the chart
+  (words_python, words_net, slides_java, cells_go, cells_typescript, jmap_rust, cells_cpp) and nothing put their fixtures in the image, so the
+  five other new pilots fail the same way. No test tied the chart''s pilot list to the image contents, which is why every card passed. This
+  card adds the seven COPY lines and a test that fails for any chart pilot whose apiSurface or furnishedPage path is not COPYed by the
+  Dockerfile.'
+depends_on:
+- TC-208
+- TC-207
+- TC-205
+write_paths:
+- Dockerfile.ingestion
+- tests/infra/test_ingestion_image_fixtures.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read Dockerfile.ingestion in full, especially the COPY lines for tests/fixtures (around lines 137 to 160), and infra/helm/foss-mcp/values.yaml
+  under ingestion.pilots, where each pilot carries apiSurface and, for some, furnishedPage, as paths under /app/.'
+- 'In Dockerfile.ingestion add one COPY line per missing pilot, in the same form as the existing ones: COPY tests/fixtures/<dir>/api_surface.json
+  ./fixtures/<dir>/api_surface.json, for these seven dirs: words_python, words_net, slides_java, cells_go, cells_typescript, jmap_rust, cells_cpp.
+  Place them together after the existing pilot COPY lines, under a comment that says they are the second-product POC pilots. Do not add furnished
+  pages: these pilots are self-extracted and set no furnishedPage. Change nothing else in the file, and do not change the base image, pins, user,
+  or entrypoint.'
+- 'Create tests/infra/test_ingestion_image_fixtures.py. It reads values.yaml and Dockerfile.ingestion as text and parses nothing from the network.
+  For every pilot in ingestion.pilots, for apiSurface and, when set, furnishedPage: assert the path starts with /app/, assert the matching source
+  file exists in the repository (the path with /app/ replaced by tests/ for fixtures: /app/fixtures/X maps to tests/fixtures/X), and assert
+  Dockerfile.ingestion contains a COPY line whose destination is ./ plus the path after /app/ and whose source is that tests/fixtures path. Use
+  one parametrised test per pilot so a failure names the pilot. Add one more test that asserts the pilot list has fourteen entries, so a pilot
+  removed from values cannot silently remove its coverage. Do not skip or xfail any case.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the Dockerfile and the values pilots.
+- Add the seven COPY lines and the new test file.
+- Run the new test and the existing container pin and image tests, and report exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_ingestion_image_fixtures.py tests/infra/test_container_pins.py tests/infra/test_verify_image_offline.py tests/infra/test_helm_chart.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 30
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('Dockerfile.ingestion');s=p.read_text(encoding='utf-8');p.write_text(s.replace('COPY tests/fixtures/words_python/api_surface.json ./fixtures/words_python/api_surface.json','',1),encoding='utf-8')"
+  rationale: 'Removes the words/python fixture COPY from the ingestion Dockerfile, which is the exact defect seen live. The per-pilot test for
+    words/python must fail. The replace is limited to the first match, which is the line this card adds. Built with plain text, since it has no
+    backslash.'
+evidence:
+- evidence/build/G2/TC-209/receipt.json
+closeout:
+- Every pilot in the chart has its api-surface fixture in the ingestion image, and a test fails if one does not.
+recovery: Re-run from a clean tree.
