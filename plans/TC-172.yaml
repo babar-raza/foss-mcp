@@ -1,0 +1,86 @@
+id: TC-172
+gate: G2
+lane: verification
+purpose: 'Close the last G2 deployment gap: pdf/cpp is one of the seven G2 pilots, but
+  docker-compose.yml has a serving-pdf-cpp service with no ingestion job and no volume,
+  so that container can only ever answer "no published generation for this scope". Add a
+  one-shot ingest-pdf-cpp service that publishes real chunks built from pdf/cpp''s own
+  committed, pinned API-surface fixture (TC-153) into a named volume, and mount that volume
+  into serving-pdf-cpp. pdf/cpp has no compile-verified example path in build_chunks (no
+  prepare/verify for cpp in _PLATFORM_DISPATCH), so this publishes API-surface chunks only,
+  with no furnished examples. That is stated, not hidden. Adding cpp examples is a later card.'
+depends_on:
+- TC-056
+- TC-064
+- TC-098
+- TC-102
+- TC-103
+- TC-153
+write_paths:
+- docker-compose.yml
+- Dockerfile.ingestion
+- tests/infra/test_compose_pdf_cpp.py
+- tests/e2e/test_pdf_cpp_live_content.py
+satisfies:
+- REQ-G2-043
+- REQ-G2-044
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model â€” an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes Â§1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Follow the pattern TC-064 (pdf/net) and TC-098 (pdf/typescript) established in docker-compose.yml:
+  a one-shot ingest service with entrypoint ["sh", "-c"] chaining infra/build_chunks.py && infra/ingest.py,
+  a named volume shared with the serving service, and the same HashingEmbeddingProvider.
+  Name the service ingest-pdf-cpp, the volume manifests-pdf-cpp, and the held-by ingestion-pdf-cpp.
+  serving-pdf-cpp keeps its existing port 8082 and its FOSS_MCP_* environment; add only the volume.'
+- 'build_chunks.py must be run for pdf/cpp WITHOUT --library-platform, --library-repository,
+  --library-commit or --furnished-page, because no cpp example path exists. Confirm this from
+  infra/build_chunks.py''s argument validation before writing the command. If validation requires
+  those flags, stop and report. Do not invent a cpp verifier.'
+- 'Dockerfile.ingestion must COPY tests/fixtures/pdf_cpp/api_surface.json to /app/fixtures/pdf_cpp/api_surface.json,
+  matching how the other pilots'' fixtures are copied. Read the existing COPY lines and mirror them.'
+- 'The offline test tests/infra/test_compose_pdf_cpp.py (new) must assert, by parsing docker-compose.yml
+  with PyYAML: (a) service ingest-pdf-cpp exists and its command contains --family pdf, --platform cpp
+  and --held-by ingestion-pdf-cpp; (b) both ingest-pdf-cpp and serving-pdf-cpp mount the same named
+  volume at /data/manifests, and that volume is declared under top-level volumes; (c) serving-pdf-cpp
+  still publishes host port 8082 to container 8080. Also run infra/build_chunks.py yourself against
+  tests/fixtures/pdf_cpp/api_surface.json (no library flags) into a temp file and assert the output
+  JSON has a top-level "chunks" list with at least one entry. That run is part of the test, so it
+  must be a real execution, not a mock.'
+- 'tests/e2e/test_pdf_cpp_live_content.py (new) mirrors tests/e2e/test_pdf_net_live_content.py: bring up
+  the one-shot ingest, then serving, poll /readyz with a bounded retry, then a real MCP query. It must
+  assert non-empty real content: a real class name from tests/fixtures/pdf_cpp/api_surface.json (read the
+  name from the fixture at test time, do not hardcode a guess). Mark it network: true, and it must be
+  skipped unless FOSS_MCP_LIVE_E2E=1 is set. That opt-in is needed because Docker is not available in
+  every environment that runs the offline gate. Do NOT claim the live test passed unless you ran it.
+  If you cannot run Docker here, say so plainly in your report.'
+actions:
+- Read docker-compose.yml's pdf/net and pdf/typescript blocks and Dockerfile.ingestion before editing.
+- Add the ingest-pdf-cpp service, the manifests-pdf-cpp volume, and the serving-pdf-cpp volume mount.
+- Add the fixture COPY line to Dockerfile.ingestion.
+- Write tests/infra/test_compose_pdf_cpp.py and run it.
+- Write tests/e2e/test_pdf_cpp_live_content.py. Run it only if Docker is available, and report the result exactly.
+checks:
+- command: '{python} -m pytest tests/infra/test_compose_pdf_cpp.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+  - REQ-G2-044
+min_tests: 3
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('docker-compose.yml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('manifests-pdf-cpp:/data/manifests','manifests-pdf-cpp-DISABLED:/data/manifests'),encoding='utf-8')"
+  rationale: Renaming the pdf/cpp volume mount in docker-compose.yml breaks the shared-volume contract
+    between the ingest service and the serving service. The offline compose test must fail, which
+    proves it checks the wiring rather than just the file's existence.
+evidence:
+- evidence/build/G2/TC-172/receipt.json
+closeout:
+- docker-compose.yml has an ingest-pdf-cpp service that publishes into the volume serving-pdf-cpp reads.
+- The offline test asserts the wiring and runs a real build_chunks execution against the pdf/cpp fixture.
+- The live content test exists and is opt-in. It is not claimed as passing unless it was run.
+recovery: Re-run from a clean tree; the card is idempotent from committed content.

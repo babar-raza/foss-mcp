@@ -1,14 +1,13 @@
 schema_version: 1
 project: foss-mcp
 generated_by: gatectl
-generated_at: '2026-10-04T06:00:19Z'
+generated_at: '2026-10-04T06:06:23Z'
 current_gate:
-  id: G0
-  status: ACCEPTED
+  id: G2
+  status: READY
 accepted_gates:
 - G0
 - G1
-- G2
 cards:
 - id: TC-001
   gate: G0
@@ -1179,6 +1178,11 @@ cards:
   blocker: null
   commit: 9f690164ffcb45a99b27b574d8bc0d77c0c09923
   receipt: G2/TC-171/receipt.json
+- id: TC-172
+  gate: G2
+  status: READY
+  attempt: 0
+  blocker: null
 owner_items:
 - id: OWNER-01
   status: SATISFIED
@@ -1289,6 +1293,25 @@ owner_items:
     CI), not any card or dispatch. Owner-only: the file is not in the repository and
     no agent can produce it. Does not stop the loop.'
   last_checked_at: '2026-10-03T00:00:00Z'
+- id: OWNER-05
+  status: OPEN
+  summary: The Docker engine cannot start on this machine (2026-10-04). Docker Desktop
+    is installed, but its WSL 2 backend needs WSL, and WSL is not installed (`wsl
+    -l -v` reports it missing). Installing WSL needs an administrator and a reboot.
+    The gate's live-content smoke test (AGENTS.md, Integration and liveness) cannot
+    run without a working engine, so G2 cannot be declared met on this machine.
+  resume_predicate: An administrator runs `wsl --install` and reboots if asked. Then
+    Docker Desktop is started and `docker info` exits 0. After that, the live-content
+    tests (tests/e2e/*_live_content.py, with FOSS_MCP_LIVE_E2E=1) and the pdf/cpp
+    live test from TC-172 are run and pass. Only then is `gatectl gate-exit G2` run
+    for the final gate.
+  consumed_by:
+  - G2
+  recorded_at: '2026-10-04T06:10:00Z'
+  note: 'Owner-only: installing WSL needs administrator rights, and the reboot is
+    a manual step. No agent can do either. This does not block card work. It only
+    blocks the live smoke step and the final gate exit.'
+  last_checked_at: '2026-10-04T06:10:00Z'
 open_questions:
   open: 0
   ids: []
