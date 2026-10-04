@@ -1,0 +1,56 @@
+id: TC-207
+gate: G2
+lane: transport-deployment
+purpose: 'Give the seven remaining new POC pilots their packaging manifests, so that each one''s get_product_reference check can pass,
+  as the original six and the C++ pilot do. The manifests were found by a survey at each pilot''s pinned commit (2026-10-04). Five are at
+  the repository root. Two are judgment calls, taken here: words/net uses Aspose.Words/Aspose.Words.csproj, the library''s own project,
+  one level down, and cells/cpp uses Aspose.Cells.Foss.Cpp/CMakeLists.txt, the library directory''s build file. Each pilot also needs a
+  library block (repository, commit, platform) for the sidecar fetch step, and the template emits build flags only when a furnished page
+  is set (TC-206). These pilots are self-extracted and have no furnished page, so no build flags are emitted.'
+depends_on:
+- TC-206
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- tests/infra/test_helm_manifest_step.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/helm/foss-mcp/values.yaml in full. For each of these pilots, read its fixture tests/fixtures/<family>_<platform>/api_surface.json
+  for source_repository and source_commit, and copy them exactly: words/python, words/net, slides/java, cells/go, cells/typescript, jmap/rust,
+  cells/cpp.'
+- 'Add to each of the seven pilot entries, and only there: manifestPath, and a library block with repository, commit and platform. The
+  manifestPath values are: words/python pyproject.toml; words/net Aspose.Words/Aspose.Words.csproj; slides/java pom.xml; cells/go go.mod;
+  cells/typescript package.json; jmap/rust Cargo.toml; cells/cpp Aspose.Cells.Foss.Cpp/CMakeLists.txt. The platform values are: python,
+  dotnet, java, go, typescript, rust, cpp.'
+- 'Restate the fixed count in tests/infra/test_helm_manifest_step.py from seven to fourteen, if a test asserts it, keeping the test''s
+  name and check. Change nothing else in that file.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the values file and the seven fixtures.
+- Add the eight keys to each of the seven entries, and restate the count if needed.
+- Run the chart and manifest tests, and helm lint and template, and report exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_manifest_step.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 40
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/values.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('manifestPath: Aspose.Words/Aspose.Words.csproj','manifestPath: ""',1),encoding='utf-8')"
+  rationale: 'Removes the manifest path from the words/net pilot. The count of pilots that carry a manifest path then falls below
+    fourteen, and the restated count test must fail. The replace is limited to the first match, which is the words/net entry. Built
+    with plain text, since it has no quote or backslash.'
+evidence:
+- evidence/build/G2/TC-207/receipt.json
+closeout:
+- Each of the fourteen POC pilots carries a packaging manifest and its library block, so each one''s get_product_reference can answer.
+recovery: Re-run from a clean tree.
