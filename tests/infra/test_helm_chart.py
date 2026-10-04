@@ -380,3 +380,31 @@ def test_serving_pods_receive_no_internet_egress_rule() -> None:
     for policy in selecting:
         for rule in policy["spec"].get("egress", []):
             assert not _grants_any_internet(rule), (policy["metadata"]["name"], rule)
+
+
+def test_serving_policy_grants_no_tcp_443() -> None:
+    docs = _render()
+    serving, _, _ = _serving(docs)
+    serving_labels = serving["spec"]["template"]["metadata"]["labels"]
+    selecting = [policy for policy in _by_kind(docs, "NetworkPolicy") if _selects(policy, serving_labels)]
+    assert selecting, "expected at least one NetworkPolicy to select the serving pods"
+    for policy in selecting:
+        for rule in policy["spec"].get("egress", []):
+            assert {"protocol": "TCP", "port": 443} not in rule.get("ports", []), (
+                policy["metadata"]["name"],
+                rule,
+            )
+    kube_dns_rules = [
+        rule
+        for policy in selecting
+        for rule in policy["spec"].get("egress", [])
+        if {"protocol": "UDP", "port": 53} in rule.get("ports", [])
+        and {"protocol": "TCP", "port": 53} in rule.get("ports", [])
+        and any(
+            peer.get("podSelector", {}).get("matchLabels") == {"k8s-app": "kube-dns"}
+            and peer.get("namespaceSelector", {}).get("matchLabels")
+            == {"kubernetes.io/metadata.name": "kube-system"}
+            for peer in rule.get("to", [])
+        )
+    ]
+    assert kube_dns_rules, "the policy selecting the serving pods must keep its DNS rule to kube-dns"
