@@ -1,0 +1,71 @@
+id: TC-190
+gate: G2
+lane: extraction
+purpose: 'Run the candidates of one furnished page in document order, in one shared sandbox, for the
+  python platform. Real API docs are sequential tutorials: example 2 opens output.pptx, which example 1
+  saves. Today build_chunks creates a fresh candidate workdir per candidate (infra/build_chunks.py, the
+  candidate loop, mkdtemp per candidate), so example 2 cannot see that file, and it fails for a reason
+  that is in the verifier, not in the library. The verifier itself is correct. verify_python_example uses
+  a fixed candidate_script folder under the workdir and overwrites only candidate.py, so a shared workdir
+  needs no verifier change. This card changes only how build_chunks chooses the workdir, behind a
+  per-platform flag. Other platforms keep an isolated workdir per candidate.'
+depends_on:
+- TC-112
+- TC-184
+- TC-189
+write_paths:
+- infra/build_chunks.py
+- tests/indexing/test_build_chunks_page_sandbox.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Read infra/build_chunks.py in full: the _PLATFORM_DISPATCH table, especially the python entry, and the
+  candidate loop in _build_verified_example_chunks, where the library workdir and the per-candidate workdir
+  are created. Read verify_python_example in src/foss_mcp/indexing/example_verifier.py to confirm that it
+  writes only candidate.py into its candidate_script folder. Do not change that file.'
+- 'Add the literal key "shared_page_workdir": True to the python entry of _PLATFORM_DISPATCH, and
+  "shared_page_workdir": False to every other platform entry. The key name must be exactly that, so that it
+  can be found by text.'
+- 'In the candidate loop, when the platform entry says shared_page_workdir is True, create one workdir
+  before the loop and use it for every candidate of the page, in document order. Otherwise keep creating a
+  fresh workdir per candidate, as now. Do not change the order in which candidates are processed.'
+- 'Add tests/indexing/test_build_chunks_page_sandbox.py as a new file, offline. Monkeypatch the python
+  prepare function to return a dummy venv path, and the python verify function with a fake. The fake writes
+  output.pptx into the candidate_script folder of the workdir it receives when it is called for the first
+  candidate, and for the second candidate it verifies only if that file exists in the same folder. Test 1:
+  two python candidates on one page are both verified. Test 2: the python platform entry has
+  shared_page_workdir True. Test 3: the java entry has shared_page_workdir False, so per-candidate isolation
+  still holds for the other platforms.'
+- 'Keep every existing test and assertion. Do not change tests/indexing/test_example_verifier.py or any
+  furnished fixture. The single.block bytes that plans/TC-119.yaml freezes must not change.'
+actions:
+- Read the files named in inputs in full.
+- Add the flag, the loop change, and the test file.
+- Run the test file and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/indexing/test_build_chunks_page_sandbox.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 3
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;q=chr(34);p=pathlib.Path('infra/build_chunks.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace(q+'shared_page_workdir'+q+': True',q+'shared_page_workdir'+q+': False',1),encoding='utf-8')"
+  rationale: 'Turns the python flag off, so every candidate gets a fresh workdir again. Test 1 then fails,
+    because the second candidate cannot find output.pptx. Test 2 also fails, because it asserts the flag is
+    True. The replace matches only the python entry, the one platform whose flag is True. Built with chr() so
+    that no quote reaches the shell.'
+evidence:
+- evidence/build/G2/TC-190/receipt.json
+closeout:
+- Example 2 of a page is verified when example 1 of the same page writes the file it opens.
+- Other platforms still run each candidate in an isolated workdir.
+recovery: Re-run from a clean tree.
