@@ -1,0 +1,71 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xi4mae73\.junit-0.xml"
+--- stdout ---
+...................................                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xi4mae73\.junit-0.xml"
+--- stdout ---
+...................................                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_symbols.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xi4mae73\.junit-0.xml"
+--- stdout ---
+.......FF..........................                                      [100%]
+================================== FAILURES ===================================
+________________ test_a_cpp_symbol_is_found_by_its_short_name _________________
+
+    def test_a_cpp_symbol_is_found_by_its_short_name() -> None:
+>       _assert_cpp_hit("AFRelationship")
+
+tests\mcp\test_search_symbols_honest_miss.py:138: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_search_symbols_honest_miss.py:133: in _assert_cpp_hit
+    texts = _matched_fqns(_cpp_result(query))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+result = Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='AFRelationship', reason="no symbol matches 'AFRelationship'", suggestions=('Aspose::Pdf::AFRelationship',))
+
+    def _matched_fqns(result: object) -> list[str]:
+>       assert isinstance(result, list), f"expected a list of matches, got {result!r}"
+E       AssertionError: expected a list of matches, got Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='AFRelationship', reason="no symbol matches 'AFRelationship'", suggestions=('Aspose::Pdf::AFRelationship',))
+E       assert False
+E        +  where False = isinstance(Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='AFRelationship', reason="no symbol matches 'AFRelationship'", suggestions=('Aspose::Pdf::AFRelationship',)), list)
+
+tests\mcp\test_search_symbols_honest_miss.py:63: AssertionError
+__________________ test_a_cpp_short_name_is_case_insensitive __________________
+
+    def test_a_cpp_short_name_is_case_insensitive() -> None:
+>       _assert_cpp_hit("afrelationship")
+
+tests\mcp\test_search_symbols_honest_miss.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_search_symbols_honest_miss.py:133: in _assert_cpp_hit
+    texts = _matched_fqns(_cpp_result(query))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+result = Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='afrelationship', reason="no symbol matches 'afrelationship'", suggestions=())
+
+    def _matched_fqns(result: object) -> list[str]:
+>       assert isinstance(result, list), f"expected a list of matches, got {result!r}"
+E       AssertionError: expected a list of matches, got Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='afrelationship', reason="no symbol matches 'afrelationship'", suggestions=())
+E       assert False
+E        +  where False = isinstance(Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='afrelationship', reason="no symbol matches 'afrelationship'", suggestions=()), list)
+
+tests\mcp\test_search_symbols_honest_miss.py:63: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_a_cpp_symbol_is_found_by_its_short_name
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_a_cpp_short_name_is_case_insensitive
+
+--- stderr ---
+
