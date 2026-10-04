@@ -16,8 +16,11 @@
 # is named.
 set -euo pipefail
 
-PY=".venv/Scripts/python.exe"
-[ -x "$PY" ] || PY=".venv/bin/python"
+# The venv lives in the main checkout. A worktree has none, so resolve the main root from
+# the common git dir, which is the same from every worktree (TC-184 worker, 2026-10-04).
+MAIN_ROOT="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+PY="$MAIN_ROOT/.venv/Scripts/python.exe"
+[ -x "$PY" ] || PY="$MAIN_ROOT/.venv/bin/python"
 [ -x "$PY" ] || PY="python"
 
 if [ -n "${FOSS_MCP_WORKER:-}" ]; then
