@@ -1,0 +1,86 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_build_chunks_platforms.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ipv1o69w\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_build_chunks_platforms.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ipv1o69w\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/build_chunks.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_build_chunks_platforms.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ipv1o69w\.junit-0.xml"
+--- stdout ---
+FF..F                                                                    [100%]
+================================== FAILURES ===================================
+_ test_go_entry_has_prepare_verify_and_verify_kwargs_and_verify_is_verify_go_example _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001BBFFFA76F0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-338/test_go_entry_has_prepare_veri0')
+
+    def test_go_entry_has_prepare_verify_and_verify_kwargs_and_verify_is_verify_go_example(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """The go entry of _PLATFORM_DISPATCH has exactly the three documented keys, its verify is the
+        real verify_go_example from example_verifier, and its prepare calls prepare_go_library with
+        the repository, commit and workdir it is given.
+        """
+>       entry = build_chunks._PLATFORM_DISPATCH["go"]
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'go'
+
+tests\infra\test_build_chunks_platforms.py:51: KeyError
+_ test_go_verify_kwargs_gives_module_path_and_library_dir_from_the_arguments __
+
+    def test_go_verify_kwargs_gives_module_path_and_library_dir_from_the_arguments() -> None:
+        """The go verify_kwargs builds module_path from --library-module-path and library_dir from the
+        prepared library, and reads no other CLI attribute.
+        """
+        args = argparse.Namespace(library_module_path=GO_MODULE_PATH)
+        prepared = Path("workdir") / "go-library"
+    
+>       kwargs = build_chunks._PLATFORM_DISPATCH["go"]["verify_kwargs"](prepared, args)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'go'
+
+tests\infra\test_build_chunks_platforms.py:71: KeyError
+_______ test_required_flags_table_matches_what_go_and_java_entries_use ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-338/test_required_flags_table_matc0')
+capsys = <_pytest.capture.CaptureFixture object at 0x000001BB814297F0>
+
+    def test_required_flags_table_matches_what_go_and_java_entries_use(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """_PLATFORM_REQUIRED_FLAGS lists go with exactly the CLI attribute its verify_kwargs reads, and
+        does not list java, whose verify_kwargs needs no CLI flag. The go flag is also enforced by the
+        real CLI: --library-platform go without --library-module-path is a usage error that names it.
+        """
+        required = build_chunks._PLATFORM_REQUIRED_FLAGS
+    
+        assert "java" not in required
+    
+        attr_name, flag_name = required["go"]
+        assert flag_name == "--" + attr_name.replace("_", "-")
+>       go_kwargs = build_chunks._PLATFORM_DISPATCH["go"]["verify_kwargs"](
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            Path("workdir"), argparse.Namespace(**{attr_name: GO_MODULE_PATH})
+        )
+E       KeyError: 'go'
+
+tests\infra\test_build_chunks_platforms.py:120: KeyError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_build_chunks_platforms.py::test_go_entry_has_prepare_verify_and_verify_kwargs_and_verify_is_verify_go_example
+FAILED tests/infra/test_build_chunks_platforms.py::test_go_verify_kwargs_gives_module_path_and_library_dir_from_the_arguments
+FAILED tests/infra/test_build_chunks_platforms.py::test_required_flags_table_matches_what_go_and_java_entries_use
+
+--- stderr ---
+
