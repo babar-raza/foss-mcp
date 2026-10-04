@@ -1,0 +1,40 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_release_images.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ggygw9n3\.junit-0.xml"
+--- stdout ---
+...                                                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_release_images.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ggygw9n3\.junit-0.xml"
+--- stdout ---
+...                                                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M .dockerignore, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_release_images.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ggygw9n3\.junit-0.xml"
+--- stdout ---
+F..                                                                      [100%]
+================================== FAILURES ===================================
+__________________ test_dockerignore_excludes_nested_pycache __________________
+
+    def test_dockerignore_excludes_nested_pycache():
+        lines = DOCKERIGNORE_PATH.read_text(encoding="utf-8").splitlines()
+>       assert "**/__pycache__/" in [line.strip() for line in lines], (
+            ".dockerignore has no literal line '**/__pycache__/'; nested "
+            "src/**/__pycache__ .pyc files would be sent to the image build"
+        )
+E       AssertionError: .dockerignore has no literal line '**/__pycache__/'; nested src/**/__pycache__ .pyc files would be sent to the image build
+E       assert '**/__pycache__/' in ['# foss-mcp build context exclusions (TC-127 / REQ-G2-047).', '#', '# Without this file, `docker build .` sends the E...ch any image build ever needs.', '# Both Dockerfile.serving and Dockerfile.ingestion COPY only a small, explicit', ...]
+
+tests\infra\test_release_images.py:24: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_release_images.py::test_dockerignore_excludes_nested_pycache
+
+--- stderr ---
+
