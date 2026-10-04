@@ -1,0 +1,907 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qbd294qd\.junit-0.xml"
+--- stdout ---
+............................                                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qbd294qd\.junit-0.xml"
+--- stdout ---
+............................                                             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_symbols.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qbd294qd\.junit-0.xml"
+--- stdout ---
+FFFFF..F.FFF.......F......FF                                             [100%]
+================================== FAILURES ===================================
+______________________ test_an_exact_fqn_returns_a_match ______________________
+
+    def test_an_exact_fqn_returns_a_match() -> None:
+>       result = search_symbols(_InMemoryGenerationStore(), PDF_NET_SCOPE, "PdfDocument.AddWatermarkAnnotation")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_search_symbols_honest_miss.py:64: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <tests.mcp.test_search_symbols_honest_miss._InMemoryGenerationStore object at 0x0000018F69D26270>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'PdfDocument.AddWatermarkAnnotation', top_k = 10
+
+    def search_symbols(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 10
+    ) -> list[SymbolMatch] | Miss:
+        """Search only ``scope``'s currently active generation's self-extracted symbol index.
+    
+        TC-068's ``Example: <title>`` pseudo-symbol chunks and TC-112's ``Doc: <title>`` furnished
+        documentation chunks live in this exact same generation but are never real symbols, so they
+        are excluded from this tool's own notion of a match: the whole corpus is ranked first
+        (mirroring ``find_examples.py``'s own ``query_lexical_index(..., top_k=len(documents))``
+        pattern, so a real symbol is never lost to a premature cut), pseudo-symbols are dropped, and
+        only then is the result truncated to the caller's real ``top_k``.
+    
+        A query with no match returns an explicit ``Miss`` - never a widened search, never a
+        fallback to a different generation or scope.
+        """
+        from foss_mcp.mcp.tools.get_symbol import extract_fqn
+    
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return Miss(scope, query, "no published generation for this scope")
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        if not lexical_payload or not lexical_payload.get("documents"):
+            return Miss(scope, query, "published generation has no symbol index")
+    
+        documents = lexical_payload["documents"]
+        ranked = query_lexical_index(lexical_payload, query, top_k=len(documents))
+        doc_ids: list[str] = []
+        for doc_id in ranked:
+            fqn = extract_fqn(documents[doc_id]["text"])
+            if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+                continue
+>           if is_exact_symbol_hit(query, fqn):
+               ^^^^^^^^^^^^^^^^^^^
+E           NameError: name 'is_exact_symbol_hit' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:169: NameError
+_________ test_an_exact_final_segment_in_another_case_returns_a_match _________
+
+    def test_an_exact_final_segment_in_another_case_returns_a_match() -> None:
+>       result = search_symbols(_InMemoryGenerationStore(), PDF_NET_SCOPE, "addwatermarkannotation")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_search_symbols_honest_miss.py:71: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <tests.mcp.test_search_symbols_honest_miss._InMemoryGenerationStore object at 0x0000018F69A62E90>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'addwatermarkannotation', top_k = 10
+
+    def search_symbols(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 10
+    ) -> list[SymbolMatch] | Miss:
+        """Search only ``scope``'s currently active generation's self-extracted symbol index.
+    
+        TC-068's ``Example: <title>`` pseudo-symbol chunks and TC-112's ``Doc: <title>`` furnished
+        documentation chunks live in this exact same generation but are never real symbols, so they
+        are excluded from this tool's own notion of a match: the whole corpus is ranked first
+        (mirroring ``find_examples.py``'s own ``query_lexical_index(..., top_k=len(documents))``
+        pattern, so a real symbol is never lost to a premature cut), pseudo-symbols are dropped, and
+        only then is the result truncated to the caller's real ``top_k``.
+    
+        A query with no match returns an explicit ``Miss`` - never a widened search, never a
+        fallback to a different generation or scope.
+        """
+        from foss_mcp.mcp.tools.get_symbol import extract_fqn
+    
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return Miss(scope, query, "no published generation for this scope")
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        if not lexical_payload or not lexical_payload.get("documents"):
+            return Miss(scope, query, "published generation has no symbol index")
+    
+        documents = lexical_payload["documents"]
+        ranked = query_lexical_index(lexical_payload, query, top_k=len(documents))
+        doc_ids: list[str] = []
+        for doc_id in ranked:
+            fqn = extract_fqn(documents[doc_id]["text"])
+            if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+                continue
+>           if is_exact_symbol_hit(query, fqn):
+               ^^^^^^^^^^^^^^^^^^^
+E           NameError: name 'is_exact_symbol_hit' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:169: NameError
+_ test_an_absent_symbol_sharing_a_token_with_a_real_one_is_a_miss_not_a_match _
+
+    def test_an_absent_symbol_sharing_a_token_with_a_real_one_is_a_miss_not_a_match() -> None:
+        # "PdfDocument" is a real token in two indexed FQNs, but "PdfDocument.Rotate" is not one of them.
+>       result = search_symbols(_InMemoryGenerationStore(), PDF_NET_SCOPE, "PdfDocument.Rotate")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_search_symbols_honest_miss.py:79: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <tests.mcp.test_search_symbols_honest_miss._InMemoryGenerationStore object at 0x0000018F69A63250>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'PdfDocument.Rotate', top_k = 10
+
+    def search_symbols(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 10
+    ) -> list[SymbolMatch] | Miss:
+        """Search only ``scope``'s currently active generation's self-extracted symbol index.
+    
+        TC-068's ``Example: <title>`` pseudo-symbol chunks and TC-112's ``Doc: <title>`` furnished
+        documentation chunks live in this exact same generation but are never real symbols, so they
+        are excluded from this tool's own notion of a match: the whole corpus is ranked first
+        (mirroring ``find_examples.py``'s own ``query_lexical_index(..., top_k=len(documents))``
+        pattern, so a real symbol is never lost to a premature cut), pseudo-symbols are dropped, and
+        only then is the result truncated to the caller's real ``top_k``.
+    
+        A query with no match returns an explicit ``Miss`` - never a widened search, never a
+        fallback to a different generation or scope.
+        """
+        from foss_mcp.mcp.tools.get_symbol import extract_fqn
+    
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return Miss(scope, query, "no published generation for this scope")
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        if not lexical_payload or not lexical_payload.get("documents"):
+            return Miss(scope, query, "published generation has no symbol index")
+    
+        documents = lexical_payload["documents"]
+        ranked = query_lexical_index(lexical_payload, query, top_k=len(documents))
+        doc_ids: list[str] = []
+        for doc_id in ranked:
+            fqn = extract_fqn(documents[doc_id]["text"])
+            if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+                continue
+>           if is_exact_symbol_hit(query, fqn):
+               ^^^^^^^^^^^^^^^^^^^
+E           NameError: name 'is_exact_symbol_hit' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:169: NameError
+________ test_the_miss_for_an_absent_symbol_suggests_a_close_real_name ________
+
+    def test_the_miss_for_an_absent_symbol_suggests_a_close_real_name() -> None:
+        # A single dropped trailing character of a real FQN: a miss, with that FQN as the hint.
+>       result = search_symbols(_InMemoryGenerationStore(), PDF_NET_SCOPE, "PdfDocument.AddWatermarkAnnotatio")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_search_symbols_honest_miss.py:89: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <tests.mcp.test_search_symbols_honest_miss._InMemoryGenerationStore object at 0x0000018F69C68640>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'PdfDocument.AddWatermarkAnnotatio', top_k = 10
+
+    def search_symbols(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 10
+    ) -> list[SymbolMatch] | Miss:
+        """Search only ``scope``'s currently active generation's self-extracted symbol index.
+    
+        TC-068's ``Example: <title>`` pseudo-symbol chunks and TC-112's ``Doc: <title>`` furnished
+        documentation chunks live in this exact same generation but are never real symbols, so they
+        are excluded from this tool's own notion of a match: the whole corpus is ranked first
+        (mirroring ``find_examples.py``'s own ``query_lexical_index(..., top_k=len(documents))``
+        pattern, so a real symbol is never lost to a premature cut), pseudo-symbols are dropped, and
+        only then is the result truncated to the caller's real ``top_k``.
+    
+        A query with no match returns an explicit ``Miss`` - never a widened search, never a
+        fallback to a different generation or scope.
+        """
+        from foss_mcp.mcp.tools.get_symbol import extract_fqn
+    
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return Miss(scope, query, "no published generation for this scope")
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        if not lexical_payload or not lexical_payload.get("documents"):
+            return Miss(scope, query, "published generation has no symbol index")
+    
+        documents = lexical_payload["documents"]
+        ranked = query_lexical_index(lexical_payload, query, top_k=len(documents))
+        doc_ids: list[str] = []
+        for doc_id in ranked:
+            fqn = extract_fqn(documents[doc_id]["text"])
+            if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+                continue
+>           if is_exact_symbol_hit(query, fqn):
+               ^^^^^^^^^^^^^^^^^^^
+E           NameError: name 'is_exact_symbol_hit' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:169: NameError
+__________ test_a_whole_word_query_finds_the_symbol_that_contains_it __________
+
+    def test_a_whole_word_query_finds_the_symbol_that_contains_it() -> None:
+>       result = search_symbols(_InMemoryGenerationStore(), PDF_NET_SCOPE, "watermark")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_search_symbols_honest_miss.py:96: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <tests.mcp.test_search_symbols_honest_miss._InMemoryGenerationStore object at 0x0000018F69C68E90>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'watermark', top_k = 10
+
+    def search_symbols(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 10
+    ) -> list[SymbolMatch] | Miss:
+        """Search only ``scope``'s currently active generation's self-extracted symbol index.
+    
+        TC-068's ``Example: <title>`` pseudo-symbol chunks and TC-112's ``Doc: <title>`` furnished
+        documentation chunks live in this exact same generation but are never real symbols, so they
+        are excluded from this tool's own notion of a match: the whole corpus is ranked first
+        (mirroring ``find_examples.py``'s own ``query_lexical_index(..., top_k=len(documents))``
+        pattern, so a real symbol is never lost to a premature cut), pseudo-symbols are dropped, and
+        only then is the result truncated to the caller's real ``top_k``.
+    
+        A query with no match returns an explicit ``Miss`` - never a widened search, never a
+        fallback to a different generation or scope.
+        """
+        from foss_mcp.mcp.tools.get_symbol import extract_fqn
+    
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return Miss(scope, query, "no published generation for this scope")
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        if not lexical_payload or not lexical_payload.get("documents"):
+            return Miss(scope, query, "published generation has no symbol index")
+    
+        documents = lexical_payload["documents"]
+        ranked = query_lexical_index(lexical_payload, query, top_k=len(documents))
+        doc_ids: list[str] = []
+        for doc_id in ranked:
+            fqn = extract_fqn(documents[doc_id]["text"])
+            if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+                continue
+>           if is_exact_symbol_hit(query, fqn):
+               ^^^^^^^^^^^^^^^^^^^
+E           NameError: name 'is_exact_symbol_hit' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:169: NameError
+______________ test_search_symbols_finds_a_real_published_symbol ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-757/test_search_symbols_finds_a_re0')
+
+    def test_search_symbols_finds_a_real_published_symbol(tmp_path: Path) -> None:
+        store = _store(tmp_path)
+        _publish_pdf_net_symbols(store)
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        real_name = fixture["types"][0]["name"]
+    
+>       result = search_symbols(store, PDF_NET_SCOPE, real_name)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:140: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000018F69D26CF0>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'AFRelationship', top_k = 10
+
+    def search_symbols(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 10
+    ) -> list[SymbolMatch] | Miss:
+        """Search only ``scope``'s currently active generation's self-extracted symbol index.
+    
+        TC-068's ``Example: <title>`` pseudo-symbol chunks and TC-112's ``Doc: <title>`` furnished
+        documentation chunks live in this exact same generation but are never real symbols, so they
+        are excluded from this tool's own notion of a match: the whole corpus is ranked first
+        (mirroring ``find_examples.py``'s own ``query_lexical_index(..., top_k=len(documents))``
+        pattern, so a real symbol is never lost to a premature cut), pseudo-symbols are dropped, and
+        only then is the result truncated to the caller's real ``top_k``.
+    
+        A query with no match returns an explicit ``Miss`` - never a widened search, never a
+        fallback to a different generation or scope.
+        """
+        from foss_mcp.mcp.tools.get_symbol import extract_fqn
+    
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return Miss(scope, query, "no published generation for this scope")
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        if not lexical_payload or not lexical_payload.get("documents"):
+            return Miss(scope, query, "published generation has no symbol index")
+    
+        documents = lexical_payload["documents"]
+        ranked = query_lexical_index(lexical_payload, query, top_k=len(documents))
+        doc_ids: list[str] = []
+        for doc_id in ranked:
+            fqn = extract_fqn(documents[doc_id]["text"])
+            if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+                continue
+>           if is_exact_symbol_hit(query, fqn):
+               ^^^^^^^^^^^^^^^^^^^
+E           NameError: name 'is_exact_symbol_hit' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:169: NameError
+_ test_search_symbols_excludes_tc068_pseudo_symbol_chunks_from_its_own_matching _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-757/test_search_symbols_excludes_t0')
+
+    def test_search_symbols_excludes_tc068_pseudo_symbol_chunks_from_its_own_matching(
+        tmp_path: Path,
+    ) -> None:
+        """TC-068's ``Example: <title>`` pseudo-symbols are published into the exact same
+        self_extracted generation search_symbols reads (see infra/build_chunks.py's own real
+        chunk shape: a heading, an ``FQN: Example: <title>`` line, then an ``Example:`` code
+        block). A pseudo-symbol is not a real symbol and search_symbols's own module docstring
+        says so - it must never be reported as a match, even when it lexically matches at least
+        as strongly as a real symbol answering the very same query.
+    
+        Real regression, not a mock: one real symbol chunk and one Example:-prefixed pseudo-symbol
+        chunk are published side by side, both containing the word "watermark" in their own prose,
+        so a lexical scan with no filter would return both.
+        """
+        store = _store(tmp_path)
+        real_symbol_body = """## PdfDocument.AddWatermarkAnnotation
+    
+    FQN: PdfDocument.AddWatermarkAnnotation
+    Kind: Method
+    Adds a watermark annotation to the page.
+    """
+        pseudo_symbol_body = (
+            "# Example: Add a Watermark Annotation\n\n"
+            "FQN: Example: Add a Watermark Annotation\n"
+            "Kind: verified_example\n"
+            "Adds a watermark annotation to a document using a real, verified snippet.\n\n"
+            'Example:\ndocument.AddWatermarkAnnotation("Confidential")'
+        )
+        real_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="api_surface",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="pdf/net API surface",
+            body=real_symbol_body,
+        )
+        pseudo_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="example",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="Add a Watermark Annotation",
+            body=pseudo_symbol_body,
+        )
+        chunks = chunk_document(real_doc) + chunk_document(pseudo_doc)
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+    
+>       result = search_symbols(store, PDF_NET_SCOPE, "watermark")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:204: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000018F69A639D0>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'watermark', top_k = 10
+
+    def search_symbols(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 10
+    ) -> list[SymbolMatch] | Miss:
+        """Search only ``scope``'s currently active generation's self-extracted symbol index.
+    
+        TC-068's ``Example: <title>`` pseudo-symbol chunks and TC-112's ``Doc: <title>`` furnished
+        documentation chunks live in this exact same generation but are never real symbols, so they
+        are excluded from this tool's own notion of a match: the whole corpus is ranked first
+        (mirroring ``find_examples.py``'s own ``query_lexical_index(..., top_k=len(documents))``
+        pattern, so a real symbol is never lost to a premature cut), pseudo-symbols are dropped, and
+        only then is the result truncated to the caller's real ``top_k``.
+    
+        A query with no match returns an explicit ``Miss`` - never a widened search, never a
+        fallback to a different generation or scope.
+        """
+        from foss_mcp.mcp.tools.get_symbol import extract_fqn
+    
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return Miss(scope, query, "no published generation for this scope")
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        if not lexical_payload or not lexical_payload.get("documents"):
+            return Miss(scope, query, "published generation has no symbol index")
+    
+        documents = lexical_payload["documents"]
+        ranked = query_lexical_index(lexical_payload, query, top_k=len(documents))
+        doc_ids: list[str] = []
+        for doc_id in ranked:
+            fqn = extract_fqn(documents[doc_id]["text"])
+            if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+                continue
+>           if is_exact_symbol_hit(query, fqn):
+               ^^^^^^^^^^^^^^^^^^^
+E           NameError: name 'is_exact_symbol_hit' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:169: NameError
+_ test_search_symbols_excludes_tc112_doc_pseudo_symbol_chunks_from_its_own_matching _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-757/test_search_symbols_excludes_t1')
+
+    def test_search_symbols_excludes_tc112_doc_pseudo_symbol_chunks_from_its_own_matching(
+        tmp_path: Path,
+    ) -> None:
+        """TC-112's furnished documentation chunks are published into this exact same
+        self_extracted generation search_symbols reads, marked with a parallel pseudo-FQN of the
+        literal shape ``Doc: <title>`` (see ``infra/build_chunks.py``'s own
+        ``FQN: Doc: {candidate.title}\\n{chunk.text}`` construction, applied to each chunk AFTER
+        ``chunk_document`` splits the candidate's body - reproduced exactly the same way here, not
+        baked into the document body). A doc chunk is not a real symbol and must never be reported
+        as one, exactly like a TC-068 ``Example:`` chunk already isn't (see the sibling test above).
+    
+        Real regression, not a mock: one real symbol chunk and one Doc:-prefixed pseudo-symbol
+        chunk are published side by side, both containing the word "watermark" in their own prose,
+        so a lexical scan with no filter would return both.
+        """
+        import dataclasses
+    
+        store = _store(tmp_path)
+        real_symbol_body = """## PdfDocument.AddWatermarkAnnotation
+    
+    FQN: PdfDocument.AddWatermarkAnnotation
+    Kind: Method
+    Adds a watermark annotation to the page.
+    """
+        doc_title = "Adding a Watermark"
+        pseudo_doc_body = """## Adding a Watermark
+    
+    Use PdfDocument.AddWatermarkAnnotation to add a watermark to a PDF document, stamping
+    confidential markings onto every exported page.
+    """
+        real_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="api_surface",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="pdf/net API surface",
+            body=real_symbol_body,
+        )
+        pseudo_doc = make_document(
+            source_kind=SourceKind.FURNISHED,
+            content_type="doc",
+            provenance=Provenance(repository="Aspose/aspose.org", commit="x", path="content/pdf/net"),
+            evidence_refs=(),
+            title=doc_title,
+            body=pseudo_doc_body,
+        )
+        pseudo_chunks = [
+            dataclasses.replace(chunk, text=f"FQN: Doc: {doc_title}\n{chunk.text}")
+            for chunk in chunk_document(pseudo_doc)
+        ]
+        chunks = chunk_document(real_doc) + pseudo_chunks
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+    
+>       result = search_symbols(store, PDF_NET_SCOPE, "watermark")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:269: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000018F69C68E90>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'watermark', top_k = 10
+
+    def search_symbols(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 10
+    ) -> list[SymbolMatch] | Miss:
+        """Search only ``scope``'s currently active generation's self-extracted symbol index.
+    
+        TC-068's ``Example: <title>`` pseudo-symbol chunks and TC-112's ``Doc: <title>`` furnished
+        documentation chunks live in this exact same generation but are never real symbols, so they
+        are excluded from this tool's own notion of a match: the whole corpus is ranked first
+        (mirroring ``find_examples.py``'s own ``query_lexical_index(..., top_k=len(documents))``
+        pattern, so a real symbol is never lost to a premature cut), pseudo-symbols are dropped, and
+        only then is the result truncated to the caller's real ``top_k``.
+    
+        A query with no match returns an explicit ``Miss`` - never a widened search, never a
+        fallback to a different generation or scope.
+        """
+        from foss_mcp.mcp.tools.get_symbol import extract_fqn
+    
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return Miss(scope, query, "no published generation for this scope")
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        if not lexical_payload or not lexical_payload.get("documents"):
+            return Miss(scope, query, "published generation has no symbol index")
+    
+        documents = lexical_payload["documents"]
+        ranked = query_lexical_index(lexical_payload, query, top_k=len(documents))
+        doc_ids: list[str] = []
+        for doc_id in ranked:
+            fqn = extract_fqn(documents[doc_id]["text"])
+            if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+                continue
+>           if is_exact_symbol_hit(query, fqn):
+               ^^^^^^^^^^^^^^^^^^^
+E           NameError: name 'is_exact_symbol_hit' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:169: NameError
+_ test_search_symbols_miss_suggests_a_real_close_fqn_from_this_same_generation _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-757/test_search_symbols_miss_sugge0')
+
+    def test_search_symbols_miss_suggests_a_real_close_fqn_from_this_same_generation(tmp_path: Path) -> None:
+        """TC-143 (G2/REQ-G2-047): a genuine Miss may carry a purely additive 'did you mean' hint.
+    
+        ``Annotation`` is a real class confirmed present in the committed pdf/net fixture
+        (``Aspose.Pdf.Annotations.Annotation``, see ``tests/fixtures/pdf_net/api_surface.json``).
+        ``Annotatio`` (a single dropped trailing character) shares zero BM25 tokens with the
+        published chunk's own prose - confirmed directly against ``tokenize`` before writing this
+        test - so this is a genuine lexical Miss, not an accidental real hit. The suggestion itself
+        comes only from ``difflib.get_close_matches`` against the real FQN this exact generation
+        published - never a fabricated or stale one - and the Miss verdict/reason stay completely
+        unchanged.
+        """
+        store = _store(tmp_path)
+        real_symbol_body = """## Annotation
+    
+    FQN: Annotation
+    Kind: Class
+    Serves as the abstract base for every markup element placed on a PDF page.
+    """
+        real_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="api_surface",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="pdf/net API surface",
+            body=real_symbol_body,
+        )
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(real_doc))
+    
+        result = search_symbols(store, PDF_NET_SCOPE, "Annotatio")
+    
+        assert isinstance(result, SymbolsMiss)
+        assert result.scope == PDF_NET_SCOPE
+        assert result.reason == "no symbol matches 'Annotatio'"
+        assert result.suggestions == ("Annotation",)
+    
+        # A genuinely unrelated query (no real close match) stays empty - never fabricated.
+        unrelated_result = search_symbols(store, PDF_NET_SCOPE, "CompletelyUnrelatedXyzzyWombatTerm")
+    
+        assert isinstance(unrelated_result, SymbolsMiss)
+        assert unrelated_result.suggestions == ()
+    
+        # A real, successful match is completely unaffected - no suggestions field pollution on a hit.
+>       hit_result = search_symbols(store, PDF_NET_SCOPE, "Annotation")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:324: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000018F69C68770>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'Annotation', top_k = 10
+
+    def search_symbols(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 10
+    ) -> list[SymbolMatch] | Miss:
+        """Search only ``scope``'s currently active generation's self-extracted symbol index.
+    
+        TC-068's ``Example: <title>`` pseudo-symbol chunks and TC-112's ``Doc: <title>`` furnished
+        documentation chunks live in this exact same generation but are never real symbols, so they
+        are excluded from this tool's own notion of a match: the whole corpus is ranked first
+        (mirroring ``find_examples.py``'s own ``query_lexical_index(..., top_k=len(documents))``
+        pattern, so a real symbol is never lost to a premature cut), pseudo-symbols are dropped, and
+        only then is the result truncated to the caller's real ``top_k``.
+    
+        A query with no match returns an explicit ``Miss`` - never a widened search, never a
+        fallback to a different generation or scope.
+        """
+        from foss_mcp.mcp.tools.get_symbol import extract_fqn
+    
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return Miss(scope, query, "no published generation for this scope")
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        if not lexical_payload or not lexical_payload.get("documents"):
+            return Miss(scope, query, "published generation has no symbol index")
+    
+        documents = lexical_payload["documents"]
+        ranked = query_lexical_index(lexical_payload, query, top_k=len(documents))
+        doc_ids: list[str] = []
+        for doc_id in ranked:
+            fqn = extract_fqn(documents[doc_id]["text"])
+            if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+                continue
+>           if is_exact_symbol_hit(query, fqn):
+               ^^^^^^^^^^^^^^^^^^^
+E           NameError: name 'is_exact_symbol_hit' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:169: NameError
+_________ test_lookup_dispatches_to_search_symbols_for_a_symbol_query _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-757/test_lookup_dispatches_to_sear0')
+
+    def test_lookup_dispatches_to_search_symbols_for_a_symbol_query(tmp_path: Path) -> None:
+        store = _store(tmp_path)
+        _publish_pdf_net_symbols(store)
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        real_name = fixture["types"][0]["name"]
+    
+>       result = lookup(store, PDF_NET_SCOPE, real_name)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:502: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\lookup.py:156: in lookup
+    symbol_result = search_symbols(store, scope, query, top_k=top_k)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000018F69C27930>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'AFRelationship', top_k = 10
+
+    def search_symbols(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 10
+    ) -> list[SymbolMatch] | Miss:
+        """Search only ``scope``'s currently active generation's self-extracted symbol index.
+    
+        TC-068's ``Example: <title>`` pseudo-symbol chunks and TC-112's ``Doc: <title>`` furnished
+        documentation chunks live in this exact same generation but are never real symbols, so they
+        are excluded from this tool's own notion of a match: the whole corpus is ranked first
+        (mirroring ``find_examples.py``'s own ``query_lexical_index(..., top_k=len(documents))``
+        pattern, so a real symbol is never lost to a premature cut), pseudo-symbols are dropped, and
+        only then is the result truncated to the caller's real ``top_k``.
+    
+        A query with no match returns an explicit ``Miss`` - never a widened search, never a
+        fallback to a different generation or scope.
+        """
+        from foss_mcp.mcp.tools.get_symbol import extract_fqn
+    
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return Miss(scope, query, "no published generation for this scope")
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        if not lexical_payload or not lexical_payload.get("documents"):
+            return Miss(scope, query, "published generation has no symbol index")
+    
+        documents = lexical_payload["documents"]
+        ranked = query_lexical_index(lexical_payload, query, top_k=len(documents))
+        doc_ids: list[str] = []
+        for doc_id in ranked:
+            fqn = extract_fqn(documents[doc_id]["text"])
+            if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+                continue
+>           if is_exact_symbol_hit(query, fqn):
+               ^^^^^^^^^^^^^^^^^^^
+E           NameError: name 'is_exact_symbol_hit' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:169: NameError
+_ test_lookup_prefers_doc_composition_over_an_incidental_symbol_collision_for_a_task_question _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-757/test_lookup_prefers_doc_compos0')
+
+    def test_lookup_prefers_doc_composition_over_an_incidental_symbol_collision_for_a_task_question(
+        tmp_path: Path,
+    ) -> None:
+        """Reproduces the real 'pdf' collision TC-073's worker found live, at fixture scale: a real
+        symbol's FQN (``PdfDocument.Merge``) lexically overlaps one of a natural-language question's
+        own words (``pdf``, via camelCase sub-word splitting), purely incidentally - the symbol is
+        about merging, the question is about watermarking. Before this card, lookup's own "any
+        non-empty search_symbols result wins" dispatch order let that incidental overlap capture a
+        real task question and starve it of the doc+example answer it actually needed.
+    
+        Proves BOTH halves of the card's closeout: the task-shaped question now gets the composed
+        TaskAnswer instead of the incidental symbol match, while a short, bare query for that exact
+        same overlapping symbol still correctly returns the symbol match unchanged.
+        """
+        store = _store(tmp_path)
+        real_symbol_body = """## PdfDocument.Merge
+    
+    FQN: PdfDocument.Merge
+    Kind: Method
+    Merges multiple PDF files into a single output document.
+    """
+        real_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="api_surface",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="pdf/net API surface",
+            body=real_symbol_body,
+        )
+        watermark_guide_doc = make_document(
+            source_kind=SourceKind.FURNISHED,
+            content_type="product_page",
+            provenance=Provenance(repository="Aspose/aspose.org", commit="x", path="content/pdf/net"),
+            evidence_refs=(),
+            title="pdf/net watermarking guide",
+            body="""## Adding a Watermark to a PDF
+    
+    Use PdfDocument.AddWatermarkAnnotation to add a watermark to a PDF document, stamping
+    confidential markings onto every exported page.
+    """,
+        )
+        # One combined publish, matching every real pilot's actual shape (TC-109, G2/REQ-G2-047):
+        # there is no separate "furnished" scope key for search_docs to read anymore.
+        chunks = chunk_document(real_doc) + chunk_document(watermark_guide_doc)
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+    
+        task_question = "how do I add a watermark to a PDF"
+    
+        # TC-202 restatement (line 785): the Merge symbol's FQN shares only the word "pdf" with the
+        # question. The exact-hit predicate needs every query word to be a whole word of the FQN, so
+        # the collision is rejected and search_symbols returns a Miss for the question.
+>       raw_symbol_result = search_symbols(store, PDF_NET_SCOPE, task_question)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:792: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000018F6A37B800>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'how do I add a watermark to a PDF', top_k = 10
+
+    def search_symbols(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 10
+    ) -> list[SymbolMatch] | Miss:
+        """Search only ``scope``'s currently active generation's self-extracted symbol index.
+    
+        TC-068's ``Example: <title>`` pseudo-symbol chunks and TC-112's ``Doc: <title>`` furnished
+        documentation chunks live in this exact same generation but are never real symbols, so they
+        are excluded from this tool's own notion of a match: the whole corpus is ranked first
+        (mirroring ``find_examples.py``'s own ``query_lexical_index(..., top_k=len(documents))``
+        pattern, so a real symbol is never lost to a premature cut), pseudo-symbols are dropped, and
+        only then is the result truncated to the caller's real ``top_k``.
+    
+        A query with no match returns an explicit ``Miss`` - never a widened search, never a
+        fallback to a different generation or scope.
+        """
+        from foss_mcp.mcp.tools.get_symbol import extract_fqn
+    
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return Miss(scope, query, "no published generation for this scope")
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        if not lexical_payload or not lexical_payload.get("documents"):
+            return Miss(scope, query, "published generation has no symbol index")
+    
+        documents = lexical_payload["documents"]
+        ranked = query_lexical_index(lexical_payload, query, top_k=len(documents))
+        doc_ids: list[str] = []
+        for doc_id in ranked:
+            fqn = extract_fqn(documents[doc_id]["text"])
+            if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+                continue
+>           if is_exact_symbol_hit(query, fqn):
+               ^^^^^^^^^^^^^^^^^^^
+E           NameError: name 'is_exact_symbol_hit' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:169: NameError
+____ test_every_result_carries_the_scope_that_was_passed_in_never_another _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-757/test_every_result_carries_the_0')
+
+    def test_every_result_carries_the_scope_that_was_passed_in_never_another(tmp_path: Path) -> None:
+        """The generation-isolation regression the card names: two different products, published
+        separately, and a search in one must never surface or be attributed to the other."""
+        store = _store(tmp_path)
+        _publish_pdf_net_symbols(store)
+    
+        cells_generation_id = _publish(
+            store,
+            CELLS_PYTHON_SCOPE,
+            "self_extracted",
+            chunk_document(
+                make_document(
+                    source_kind=SourceKind.SELF_EXTRACTED,
+                    content_type="api_surface",
+                    provenance=Provenance(
+                        repository="aspose-cells-foss/Aspose.Cells-FOSS-for-Python", commit="y"
+                    ),
+                    evidence_refs=(),
+                    title="cells/python API surface",
+                    body="## Workbook\n\nFQN: Workbook\nWorkbook is a class. Methods: Save, Open.",
+                )
+            ),
+        )
+    
+        pdf_result = search_symbols(store, PDF_NET_SCOPE, "Workbook")
+>       cells_result = search_symbols(store, CELLS_PYTHON_SCOPE, "Workbook")
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:835: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000018F6A070F50>
+scope = Scope(family='cells', platform='python', source_kind='self_extracted')
+query = 'Workbook', top_k = 10
+
+    def search_symbols(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 10
+    ) -> list[SymbolMatch] | Miss:
+        """Search only ``scope``'s currently active generation's self-extracted symbol index.
+    
+        TC-068's ``Example: <title>`` pseudo-symbol chunks and TC-112's ``Doc: <title>`` furnished
+        documentation chunks live in this exact same generation but are never real symbols, so they
+        are excluded from this tool's own notion of a match: the whole corpus is ranked first
+        (mirroring ``find_examples.py``'s own ``query_lexical_index(..., top_k=len(documents))``
+        pattern, so a real symbol is never lost to a premature cut), pseudo-symbols are dropped, and
+        only then is the result truncated to the caller's real ``top_k``.
+    
+        A query with no match returns an explicit ``Miss`` - never a widened search, never a
+        fallback to a different generation or scope.
+        """
+        from foss_mcp.mcp.tools.get_symbol import extract_fqn
+    
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return Miss(scope, query, "no published generation for this scope")
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        if not lexical_payload or not lexical_payload.get("documents"):
+            return Miss(scope, query, "published generation has no symbol index")
+    
+        documents = lexical_payload["documents"]
+        ranked = query_lexical_index(lexical_payload, query, top_k=len(documents))
+        doc_ids: list[str] = []
+        for doc_id in ranked:
+            fqn = extract_fqn(documents[doc_id]["text"])
+            if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+                continue
+>           if is_exact_symbol_hit(query, fqn):
+               ^^^^^^^^^^^^^^^^^^^
+E           NameError: name 'is_exact_symbol_hit' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:169: NameError
+=========================== short test summary info ===========================
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_an_exact_fqn_returns_a_match
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_an_exact_final_segment_in_another_case_returns_a_match
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_an_absent_symbol_sharing_a_token_with_a_real_one_is_a_miss_not_a_match
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_the_miss_for_an_absent_symbol_suggests_a_close_real_name
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_a_whole_word_query_finds_the_symbol_that_contains_it
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_finds_a_real_published_symbol
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_excludes_tc068_pseudo_symbol_chunks_from_its_own_matching
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_excludes_tc112_doc_pseudo_symbol_chunks_from_its_own_matching
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_miss_suggests_a_real_close_fqn_from_this_same_generation
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_lookup_dispatches_to_search_symbols_for_a_symbol_query
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_lookup_prefers_doc_composition_over_an_incidental_symbol_collision_for_a_task_question
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_every_result_carries_the_scope_that_was_passed_in_never_another
+
+--- stderr ---
+
