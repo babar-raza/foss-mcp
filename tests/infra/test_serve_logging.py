@@ -18,7 +18,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 import uvicorn
 
 # infra/ is not a package (no __init__.py, matching scripts/ convention) - import its module
@@ -96,9 +95,7 @@ def test_log_level_warning_suppresses_info(capsys, monkeypatch, restore_root_log
     logging.getLogger(TOOL_CALL_LOGGER).warning("warning record must survive")
 
     records = _stdout_json_lines(capsys)
-    assert [(r["level"], r["message"]) for r in records] == [
-        ("WARNING", "warning record must survive")
-    ]
+    assert [(r["level"], r["message"]) for r in records] == [("WARNING", "warning record must survive")]
 
 
 def test_unknown_log_level_fails_at_startup(monkeypatch, restore_root_logging):
@@ -123,9 +120,7 @@ def test_shutdown_grace_rejects_negative(monkeypatch):
         serve_http.shutdown_grace_seconds()
 
 
-def test_main_wires_json_logging_and_grace_into_uvicorn(
-    capsys, monkeypatch, restore_root_logging
-):
+def test_main_wires_json_logging_and_grace_into_uvicorn(capsys, monkeypatch, restore_root_logging):
     """The real entrypoint: main() configures logging, then calls uvicorn.run with the grace
     window read from the environment. A record emitted while uvicorn is 'running' must reach
     stdout as JSON."""

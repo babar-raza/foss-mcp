@@ -133,8 +133,17 @@ def test_a_status_line_is_found_even_when_its_hash_predates_a_rebase(tmp_path):
     # committed line still carries the old hash, so matching on the reviewed head found nothing.
     wt = tmp_path / "wt"
     (wt / "ops").mkdir(parents=True)
-    line = json.dumps({"ts": "2026-10-04T10:14:43Z", "card": "TC-901", "phase": "committed",
-                       "verdict": "pass", "summary": "x", "commit": "1" * 40, "attempt": 2})
+    line = json.dumps(
+        {
+            "ts": "2026-10-04T10:14:43Z",
+            "card": "TC-901",
+            "phase": "committed",
+            "verdict": "pass",
+            "summary": "x",
+            "commit": "1" * 40,
+            "attempt": 2,
+        }
+    )
     (wt / "ops" / "status.jsonl").write_text(line + "\n", encoding="utf-8")
     main_status = tmp_path / "status.jsonl"
     main_status.write_text("", encoding="utf-8")
@@ -151,7 +160,9 @@ def test_the_first_porcelain_line_keeps_its_full_path(monkeypatch):
     # Regression canary (2026-10-04). G.git strips the whole output, so the first line of
     # `git status --porcelain` lost its leading space. A fixed `line[3:]` then reported
     # "vidence/build/..." as a dirty product path and refused a valid integration.
-    monkeypatch.setattr(I.G, "git", lambda *a, **k: (0, " M evidence/build/G2/TC-175/receipt.json\n M project/state.yaml", ""))
+    monkeypatch.setattr(
+        I.G, "git", lambda *a, **k: (0, " M evidence/build/G2/TC-175/receipt.json\n M project/state.yaml", "")
+    )
     clean, dirty = I._tree_is_clean_of_product_paths()
     assert clean and dirty == [], f"governance paths must not be dirty product paths: {dirty}"
     monkeypatch.setattr(I.G, "git", lambda *a, **k: (0, " M src/foss_mcp/x.py", ""))

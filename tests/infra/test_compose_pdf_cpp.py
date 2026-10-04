@@ -55,7 +55,9 @@ def test_serving_pdf_cpp_keeps_host_port_8082_to_container_8080(compose: dict) -
     assert "8082:8080" in ports, ports
 
 
-def test_build_chunks_really_runs_against_the_pdf_cpp_fixture_without_library_flags(tmp_path: pathlib.Path) -> None:
+def test_build_chunks_really_runs_against_the_pdf_cpp_fixture_without_library_flags(
+    tmp_path: pathlib.Path,
+) -> None:
     out = tmp_path / "pdf_cpp_chunks.json"
     env = dict(os.environ, PYTHONPATH=str(REPO_ROOT / "src"))
     result = subprocess.run(

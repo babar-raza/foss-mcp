@@ -43,7 +43,7 @@ def _logical_lines(path: Path) -> list[str]:
 
 def _arg_default(lines: list[str], name: str) -> str | None:
     for line in lines:
-        m = re.fullmatch(r"ARG\s+%s=(\S+)" % re.escape(name), line)
+        m = re.fullmatch(rf"ARG\s+{re.escape(name)}=(\S+)", line)
         if m:
             return m.group(1)
     return None
@@ -88,12 +88,11 @@ def test_every_curl_download_is_sha256_checked_against_lock() -> None:
             if not re.search(r"\bcurl\b", ln):
                 continue
             matches = [
-                (name, entry) for name, entry in downloads.items()
+                (name, entry)
+                for name, entry in downloads.items()
                 if entry.get("url_marker") and entry["url_marker"] in ln
             ]
-            assert len(matches) == 1, (
-                f"{df.name}: curl download matches {len(matches)} lock rows: {ln!r}"
-            )
+            assert len(matches) == 1, f"{df.name}: curl download matches {len(matches)} lock rows: {ln!r}"
             name, entry = matches[0]
             if entry.get("status") == "UNPINNED":
                 assert entry.get("reason"), f"{name} is UNPINNED without a recorded reason"
