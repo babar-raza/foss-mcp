@@ -31,6 +31,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # The nine tools, exactly as tools/list names them (server.py's tool registry).
@@ -102,14 +104,19 @@ def fqn_of(item: dict[str, Any]) -> str:
     return extract_fqn(text) if isinstance(text, str) else ""
 
 
+# The final segment of an FQN follows its last dot or its last ::, so Aspose.Pdf.Document and
+# Aspose::Pdf::Document both end in Document.
+_FINAL_SEGMENT = re.compile(r"\.|::")
+
+
 def is_exact_hit(fqn: str, symbol: str) -> bool:
     """The exact-match rule every symbol check applies.
 
-    A result is an exact hit only when the final dot-separated segment of its FQN equals the
+    A result is an exact hit only when the final dot or :: separated segment of its FQN equals the
     symbol. A fuzzy or partial match never satisfies it: "Aspose.Pdf.Document.Save" is not a hit
     for "Document", and "DocumentBuilder" is not a hit for "Document".
     """
-    return bool(fqn) and bool(symbol) and fqn.rsplit(".", 1)[-1] == symbol
+    return bool(fqn) and bool(symbol) and _FINAL_SEGMENT.split(fqn)[-1] == symbol
 
 
 def exact_hits(results: list[dict[str, Any]], symbol: str) -> list[dict[str, Any]]:
@@ -224,7 +231,23 @@ def furnished_title(page_text: str) -> str | None:
     return None
 
 
-def load_pilot(name: str, fixtures: Path) -> Pilot:
+def chart_furnishes_page(chart_values: Path, family: str, platform: str) -> bool:
+    """True when the chart's ingestion.pilots entry for this family and platform sets furnishedPage."""
+    values = yaml.safe_load(chart_values.read_text(encoding="utf-8")) or {}
+    ingestion = values.get("ingestion") if isinstance(values, dict) else None
+    pilots = ingestion.get("pilots") if isinstance(ingestion, dict) else None
+    for entry in pilots or []:
+        if isinstance(entry, dict) and entry.get("family") == family and entry.get("platform") == platform:
+            return bool(entry.get("furnishedPage"))
+    return False
+
+
+def load_pilot(name: str, fixtures: Path, *, chart_values: Path | None = None) -> Pilot:
+    """Load one pilot's fixtures.
+
+    With chart_values None, a furnished fixture file alone gives the pilot a furnished page. With a
+    path to the chart's values file, the page also needs the chart to ingest one for the pilot.
+    """
     family, separator, platform = name.partition("_")
     if not separator or not family or not platform:
         raise ValueError(f"pilot name {name!r} must look like family_platform, e.g. pdf_net")
@@ -244,6 +267,9 @@ def load_pilot(name: str, fixtures: Path) -> Pilot:
     other = other_pilot_symbol(fixtures, name, own_names)
     page = fixtures / "furnished" / name / "pages" / "_index.md"
     furnished = page if page.is_file() else None
+    if furnished is not None and chart_values is not None:
+        if not chart_furnishes_page(chart_values, family, platform):
+            furnished = None
     return Pilot(
         name=name,
         family=family,
@@ -397,7 +423,8 @@ def check_5(run: _Run) -> dict[str, Any]:
     pilot = run.pilot
     if pilot.furnished_page is None:
         raise NotApplicable(
-            f"pilot {pilot.name} has no furnished page at fixtures/furnished/{pilot.name}/pages/_index.md"
+            f"the chart ingests no furnished page for pilot {pilot.name} "
+            f"(fixtures/furnished/{pilot.name}/pages/_index.md is absent or not ingested)"
         )
     title = pilot.furnished_title
     if not title:
@@ -743,7 +770,9 @@ def main(argv: list[str] | None = None, client_factory: Callable[[str], Any] | N
     url = args.url.rstrip("/")
     pilot: Pilot | None = None
     try:
-        pilot = load_pilot(args.pilot, args.fixtures)
+        pilot = load_pilot(
+            args.pilot, args.fixtures, chart_values=REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
+        )
     except Exception as exc:
         checks = unrunnable_checks(f"pilot fixtures could not be loaded: {type(exc).__name__}: {exc}")
     else:
