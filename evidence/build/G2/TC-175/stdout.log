@@ -1,224 +1,233 @@
 
 ===== CLEAN RUN 1 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier_toolchain.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1lr6_vlj\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier_toolchain.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4gevrpkg\.junit-0.xml"
 --- stdout ---
-..........                                                               [100%]
+................                                                         [100%]
 
 --- stderr ---
 
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1lr6_vlj\.junit-1.xml"
---- stdout ---
-...EEE...............                                                    [100%]
-=================================== ERRORS ====================================
-__ ERROR at setup of test_prepare_rust_library_builds_the_real_pinned_commit __
-
-tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000011AA1A3BA80>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-109'), _retention_count=3, _retention_policy='all')
-
-    @pytest.fixture(scope="module")
-    def rust_library(tmp_path_factory: pytest.TempPathFactory) -> Path:
-        workdir = tmp_path_factory.mktemp("cells_rust_reference")
->       return prepare_rust_library(
-            repository=RUST_REPOSITORY,
-            commit=RUST_COMMIT,
-            workdir=workdir,
-        )
-
-tests\indexing\test_example_verifier.py:297: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-
-repository = 'aspose-cells-foss/Aspose.Cells-FOSS-for-Rust'
-commit = '1a6004af47b1ef15385f9d36d381a8172428cc7e'
-workdir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-109/cells_rust_reference0')
-
-    def prepare_rust_library(
-        repository: str,
-        commit: str,
-        workdir: Path,
-    ) -> Path:
-        """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``
-        and build the reference crate once with ``cargo build``, proving the
-        real library itself builds clean. Returns ``workdir`` - the cloned
-        crate's own root, where its ``Cargo.toml`` lives - for
-        ``verify_rust_example`` to depend on as a Cargo path dependency.
-    
-        Raises ``RuntimeError`` on any real failure (clone, checkout, or
-        build).
-        """
-        _clone_pinned_commit(repository, commit, workdir)
-    
-        build_result = _run(["cargo", "build"], cwd=workdir)
-        if build_result.returncode != 0:
->           raise RuntimeError(
-                f"reference crate at {repository}@{commit} failed to build cleanly:\n"
-                f"{build_result.stdout}\n{build_result.stderr}"
-            )
-E           RuntimeError: reference crate at aspose-cells-foss/Aspose.Cells-FOSS-for-Rust@1a6004af47b1ef15385f9d36d381a8172428cc7e failed to build cleanly:
-E           
-E               Updating crates.io index
-E           warning: spurious network error (3 tries remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
-E           warning: spurious network error (2 tries remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
-E           warning: spurious network error (1 try remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
-E           error: failed to get `base64` as a dependency of package `aspose-cells-foss-rust v26.7.0 (C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-109\cells_rust_reference0)`
-E           
-E           Caused by:
-E             failed to load source for dependency `base64`
-E           
-E           Caused by:
-E             unable to update registry `crates-io`
-E           
-E           Caused by:
-E             download of config.json failed
-E           
-E           Caused by:
-E             transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
-
-src\foss_mcp\indexing\example_verifier.py:719: RuntimeError
-______ ERROR at setup of test_rust_known_working_candidate_builds_clean _______
-
-tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000011AA1A3BA80>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-109'), _retention_count=3, _retention_policy='all')
-
-    @pytest.fixture(scope="module")
-    def rust_library(tmp_path_factory: pytest.TempPathFactory) -> Path:
-        workdir = tmp_path_factory.mktemp("cells_rust_reference")
->       return prepare_rust_library(
-            repository=RUST_REPOSITORY,
-            commit=RUST_COMMIT,
-            workdir=workdir,
-        )
-
-tests\indexing\test_example_verifier.py:297: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-
-repository = 'aspose-cells-foss/Aspose.Cells-FOSS-for-Rust'
-commit = '1a6004af47b1ef15385f9d36d381a8172428cc7e'
-workdir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-109/cells_rust_reference0')
-
-    def prepare_rust_library(
-        repository: str,
-        commit: str,
-        workdir: Path,
-    ) -> Path:
-        """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``
-        and build the reference crate once with ``cargo build``, proving the
-        real library itself builds clean. Returns ``workdir`` - the cloned
-        crate's own root, where its ``Cargo.toml`` lives - for
-        ``verify_rust_example`` to depend on as a Cargo path dependency.
-    
-        Raises ``RuntimeError`` on any real failure (clone, checkout, or
-        build).
-        """
-        _clone_pinned_commit(repository, commit, workdir)
-    
-        build_result = _run(["cargo", "build"], cwd=workdir)
-        if build_result.returncode != 0:
->           raise RuntimeError(
-                f"reference crate at {repository}@{commit} failed to build cleanly:\n"
-                f"{build_result.stdout}\n{build_result.stderr}"
-            )
-E           RuntimeError: reference crate at aspose-cells-foss/Aspose.Cells-FOSS-for-Rust@1a6004af47b1ef15385f9d36d381a8172428cc7e failed to build cleanly:
-E           
-E               Updating crates.io index
-E           warning: spurious network error (3 tries remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
-E           warning: spurious network error (2 tries remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
-E           warning: spurious network error (1 try remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
-E           error: failed to get `base64` as a dependency of package `aspose-cells-foss-rust v26.7.0 (C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-109\cells_rust_reference0)`
-E           
-E           Caused by:
-E             failed to load source for dependency `base64`
-E           
-E           Caused by:
-E             unable to update registry `crates-io`
-E           
-E           Caused by:
-E             download of config.json failed
-E           
-E           Caused by:
-E             transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
-
-src\foss_mcp\indexing\example_verifier.py:719: RuntimeError
-____ ERROR at setup of test_rust_known_broken_candidate_fails_real_compile ____
-
-tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000011AA1A3BA80>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-109'), _retention_count=3, _retention_policy='all')
-
-    @pytest.fixture(scope="module")
-    def rust_library(tmp_path_factory: pytest.TempPathFactory) -> Path:
-        workdir = tmp_path_factory.mktemp("cells_rust_reference")
->       return prepare_rust_library(
-            repository=RUST_REPOSITORY,
-            commit=RUST_COMMIT,
-            workdir=workdir,
-        )
-
-tests\indexing\test_example_verifier.py:297: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-
-repository = 'aspose-cells-foss/Aspose.Cells-FOSS-for-Rust'
-commit = '1a6004af47b1ef15385f9d36d381a8172428cc7e'
-workdir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-109/cells_rust_reference0')
-
-    def prepare_rust_library(
-        repository: str,
-        commit: str,
-        workdir: Path,
-    ) -> Path:
-        """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``
-        and build the reference crate once with ``cargo build``, proving the
-        real library itself builds clean. Returns ``workdir`` - the cloned
-        crate's own root, where its ``Cargo.toml`` lives - for
-        ``verify_rust_example`` to depend on as a Cargo path dependency.
-    
-        Raises ``RuntimeError`` on any real failure (clone, checkout, or
-        build).
-        """
-        _clone_pinned_commit(repository, commit, workdir)
-    
-        build_result = _run(["cargo", "build"], cwd=workdir)
-        if build_result.returncode != 0:
->           raise RuntimeError(
-                f"reference crate at {repository}@{commit} failed to build cleanly:\n"
-                f"{build_result.stdout}\n{build_result.stderr}"
-            )
-E           RuntimeError: reference crate at aspose-cells-foss/Aspose.Cells-FOSS-for-Rust@1a6004af47b1ef15385f9d36d381a8172428cc7e failed to build cleanly:
-E           
-E               Updating crates.io index
-E           warning: spurious network error (3 tries remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
-E           warning: spurious network error (2 tries remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
-E           warning: spurious network error (1 try remaining): transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
-E           error: failed to get `base64` as a dependency of package `aspose-cells-foss-rust v26.7.0 (C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-109\cells_rust_reference0)`
-E           
-E           Caused by:
-E             failed to load source for dependency `base64`
-E           
-E           Caused by:
-E             unable to update registry `crates-io`
-E           
-E           Caused by:
-E             download of config.json failed
-E           
-E           Caused by:
-E             transfer too slow: failed to transfer more than 10 bytes in 30s (transferred 0 bytes)
-
-src\foss_mcp\indexing\example_verifier.py:719: RuntimeError
-=========================== short test summary info ===========================
-ERROR tests/indexing/test_example_verifier.py::test_prepare_rust_library_builds_the_real_pinned_commit
-ERROR tests/indexing/test_example_verifier.py::test_rust_known_working_candidate_builds_clean
-ERROR tests/indexing/test_example_verifier.py::test_rust_known_broken_candidate_fails_real_compile
-
---- stderr ---
-
-
-===== CLEAN RUN 2 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier_toolchain.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1lr6_vlj\.junit-0.xml"
---- stdout ---
-..........                                                               [100%]
-
---- stderr ---
-
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1lr6_vlj\.junit-1.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4gevrpkg\.junit-1.xml"
 --- stdout ---
 .....................                                                    [100%]
 
 --- stderr ---
 
 
-!! clean runs failed; falsifier skipped (it would prove nothing)
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier_toolchain.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4gevrpkg\.junit-0.xml"
+--- stdout ---
+................                                                         [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4gevrpkg\.junit-1.xml"
+--- stdout ---
+.....................                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/example_verifier.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier_toolchain.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4gevrpkg\.junit-0.xml"
+--- stdout ---
+..F.F...........                                                         [100%]
+================================== FAILURES ===================================
+___________ test_resolve_ninja_finds_real_file_under_override_root ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000020E17934CB0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-131/test_resolve_ninja_finds_real_0')
+
+    def test_resolve_ninja_finds_real_file_under_override_root(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("FOSS_MCP_TOOLS", str(tmp_path))
+        ninja = _write_file(tmp_path / "rp-toolchains" / "ninja" / "ninja.exe")
+    
+>       assert ev._resolve_ninja() == ninja
+               ^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_example_verifier_toolchain.py:47: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\indexing\example_verifier.py:336: in _resolve_ninja
+    return _resolve_toolchain_exe(_NINJA_EXE_NAME, _NINJA_RELATIVE_DIR, "ninja")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+exe_name = 'ninja_missing.exe'
+relative_dir = WindowsPath('rp-toolchains/ninja'), tool_label = 'ninja'
+
+    def _resolve_toolchain_exe(exe_name: str, relative_dir: Path, tool_label: str) -> Path:
+        """Return ``<toolchain root>/<relative_dir>/<exe_name>`` if it is a real
+        file; otherwise raise ``RuntimeError`` naming the tool, the searched
+        path, and the override variable.
+        """
+        root = _toolchain_root()
+        candidate = root / relative_dir / exe_name
+        if not candidate.is_file():
+>           raise RuntimeError(
+                f"{tool_label} ({exe_name}) not found at {candidate}; searched under toolchain "
+                f"root {root}. Install it there or set {_FOSS_MCP_TOOLS_ENV} to the toolchain root."
+            )
+E           RuntimeError: ninja (ninja_missing.exe) not found at C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-131\test_resolve_ninja_finds_real_0\rp-toolchains\ninja\ninja_missing.exe; searched under toolchain root C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-131\test_resolve_ninja_finds_real_0. Install it there or set FOSS_MCP_TOOLS to the toolchain root.
+
+src\foss_mcp\indexing\example_verifier.py:328: RuntimeError
+___________ test_missing_ninja_error_names_tool_place_and_override ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000020E17866AD0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-131/test_missing_ninja_error_names0')
+
+    def test_missing_ninja_error_names_tool_place_and_override(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("FOSS_MCP_TOOLS", str(tmp_path))
+    
+        with pytest.raises(RuntimeError) as excinfo:
+            ev._resolve_ninja()
+    
+        message = str(excinfo.value)
+        assert "ninja" in message
+>       assert "ninja.exe" in message
+E       AssertionError: assert 'ninja.exe' in 'ninja (ninja_missing.exe) not found at C:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-131\\test_miss...t-of-babar\\pytest-131\\test_missing_ninja_error_names0. Install it there or set FOSS_MCP_TOOLS to the toolchain root.'
+
+tests\indexing\test_example_verifier_toolchain.py:69: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_example_verifier_toolchain.py::test_resolve_ninja_finds_real_file_under_override_root
+FAILED tests/indexing/test_example_verifier_toolchain.py::test_missing_ninja_error_names_tool_place_and_override
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4gevrpkg\.junit-1.xml"
+--- stdout ---
+.................EEE.                                                    [100%]
+=================================== ERRORS ====================================
+__ ERROR at setup of test_prepare_cpp_library_builds_the_real_pinned_commit ___
+
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000001FE4A1BBA80>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-132'), _retention_count=3, _retention_policy='all')
+
+    @pytest.fixture(scope="module")
+    def cpp_library(tmp_path_factory: pytest.TempPathFactory) -> Path:
+        workdir = tmp_path_factory.mktemp("cells_cpp_reference")
+>       return prepare_cpp_library(
+            repository=CPP_REPOSITORY,
+            commit=CPP_COMMIT,
+            workdir=workdir,
+        )
+
+tests\indexing\test_example_verifier.py:548: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\indexing\example_verifier.py:493: in prepare_cpp_library
+    ninja_executable = _resolve_ninja()
+                       ^^^^^^^^^^^^^^^^
+src\foss_mcp\indexing\example_verifier.py:336: in _resolve_ninja
+    return _resolve_toolchain_exe(_NINJA_EXE_NAME, _NINJA_RELATIVE_DIR, "ninja")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+exe_name = 'ninja_missing.exe'
+relative_dir = WindowsPath('rp-toolchains/ninja'), tool_label = 'ninja'
+
+    def _resolve_toolchain_exe(exe_name: str, relative_dir: Path, tool_label: str) -> Path:
+        """Return ``<toolchain root>/<relative_dir>/<exe_name>`` if it is a real
+        file; otherwise raise ``RuntimeError`` naming the tool, the searched
+        path, and the override variable.
+        """
+        root = _toolchain_root()
+        candidate = root / relative_dir / exe_name
+        if not candidate.is_file():
+>           raise RuntimeError(
+                f"{tool_label} ({exe_name}) not found at {candidate}; searched under toolchain "
+                f"root {root}. Install it there or set {_FOSS_MCP_TOOLS_ENV} to the toolchain root."
+            )
+E           RuntimeError: ninja (ninja_missing.exe) not found at C:\dev-tools\foss-mcp\rp-toolchains\ninja\ninja_missing.exe; searched under toolchain root C:\dev-tools\foss-mcp. Install it there or set FOSS_MCP_TOOLS to the toolchain root.
+
+src\foss_mcp\indexing\example_verifier.py:328: RuntimeError
+_______ ERROR at setup of test_cpp_known_working_candidate_builds_clean _______
+
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000001FE4A1BBA80>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-132'), _retention_count=3, _retention_policy='all')
+
+    @pytest.fixture(scope="module")
+    def cpp_library(tmp_path_factory: pytest.TempPathFactory) -> Path:
+        workdir = tmp_path_factory.mktemp("cells_cpp_reference")
+>       return prepare_cpp_library(
+            repository=CPP_REPOSITORY,
+            commit=CPP_COMMIT,
+            workdir=workdir,
+        )
+
+tests\indexing\test_example_verifier.py:548: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\indexing\example_verifier.py:493: in prepare_cpp_library
+    ninja_executable = _resolve_ninja()
+                       ^^^^^^^^^^^^^^^^
+src\foss_mcp\indexing\example_verifier.py:336: in _resolve_ninja
+    return _resolve_toolchain_exe(_NINJA_EXE_NAME, _NINJA_RELATIVE_DIR, "ninja")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+exe_name = 'ninja_missing.exe'
+relative_dir = WindowsPath('rp-toolchains/ninja'), tool_label = 'ninja'
+
+    def _resolve_toolchain_exe(exe_name: str, relative_dir: Path, tool_label: str) -> Path:
+        """Return ``<toolchain root>/<relative_dir>/<exe_name>`` if it is a real
+        file; otherwise raise ``RuntimeError`` naming the tool, the searched
+        path, and the override variable.
+        """
+        root = _toolchain_root()
+        candidate = root / relative_dir / exe_name
+        if not candidate.is_file():
+>           raise RuntimeError(
+                f"{tool_label} ({exe_name}) not found at {candidate}; searched under toolchain "
+                f"root {root}. Install it there or set {_FOSS_MCP_TOOLS_ENV} to the toolchain root."
+            )
+E           RuntimeError: ninja (ninja_missing.exe) not found at C:\dev-tools\foss-mcp\rp-toolchains\ninja\ninja_missing.exe; searched under toolchain root C:\dev-tools\foss-mcp. Install it there or set FOSS_MCP_TOOLS to the toolchain root.
+
+src\foss_mcp\indexing\example_verifier.py:328: RuntimeError
+____ ERROR at setup of test_cpp_known_broken_candidate_fails_real_compile _____
+
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000001FE4A1BBA80>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-132'), _retention_count=3, _retention_policy='all')
+
+    @pytest.fixture(scope="module")
+    def cpp_library(tmp_path_factory: pytest.TempPathFactory) -> Path:
+        workdir = tmp_path_factory.mktemp("cells_cpp_reference")
+>       return prepare_cpp_library(
+            repository=CPP_REPOSITORY,
+            commit=CPP_COMMIT,
+            workdir=workdir,
+        )
+
+tests\indexing\test_example_verifier.py:548: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\indexing\example_verifier.py:493: in prepare_cpp_library
+    ninja_executable = _resolve_ninja()
+                       ^^^^^^^^^^^^^^^^
+src\foss_mcp\indexing\example_verifier.py:336: in _resolve_ninja
+    return _resolve_toolchain_exe(_NINJA_EXE_NAME, _NINJA_RELATIVE_DIR, "ninja")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+exe_name = 'ninja_missing.exe'
+relative_dir = WindowsPath('rp-toolchains/ninja'), tool_label = 'ninja'
+
+    def _resolve_toolchain_exe(exe_name: str, relative_dir: Path, tool_label: str) -> Path:
+        """Return ``<toolchain root>/<relative_dir>/<exe_name>`` if it is a real
+        file; otherwise raise ``RuntimeError`` naming the tool, the searched
+        path, and the override variable.
+        """
+        root = _toolchain_root()
+        candidate = root / relative_dir / exe_name
+        if not candidate.is_file():
+>           raise RuntimeError(
+                f"{tool_label} ({exe_name}) not found at {candidate}; searched under toolchain "
+                f"root {root}. Install it there or set {_FOSS_MCP_TOOLS_ENV} to the toolchain root."
+            )
+E           RuntimeError: ninja (ninja_missing.exe) not found at C:\dev-tools\foss-mcp\rp-toolchains\ninja\ninja_missing.exe; searched under toolchain root C:\dev-tools\foss-mcp. Install it there or set FOSS_MCP_TOOLS to the toolchain root.
+
+src\foss_mcp\indexing\example_verifier.py:328: RuntimeError
+=========================== short test summary info ===========================
+ERROR tests/indexing/test_example_verifier.py::test_prepare_cpp_library_builds_the_real_pinned_commit
+ERROR tests/indexing/test_example_verifier.py::test_cpp_known_working_candidate_builds_clean
+ERROR tests/indexing/test_example_verifier.py::test_cpp_known_broken_candidate_fails_real_compile
+
+--- stderr ---
+

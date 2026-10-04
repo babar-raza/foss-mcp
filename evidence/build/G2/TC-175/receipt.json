@@ -3,9 +3,9 @@
   "card": "TC-175",
   "gate": "G2",
   "generated_by": "gatectl",
-  "generated_at": "2026-10-04T10:04:05Z",
-  "base_rev": "105358226ef0f014308289c80c1caad9def7c315",
-  "head_rev": "967b93e3b70df44cad6cd8530befd2ae5117779b",
+  "generated_at": "2026-10-04T10:44:59Z",
+  "base_rev": "31dd45b18cb38072888bce8ebf90f1af506f48b0",
+  "head_rev": "a94188d473093a2e522546eaeb49379f1bc8a813",
   "card_sha256": "67a05460fe2b66ddd92d9c8d8286e21d981e6868593d81928675cb5ef619bca9",
   "fingerprint": {
     "python": "3.13.2",
@@ -38,25 +38,25 @@
         {
           "command": "{python} -m pytest tests/indexing/test_example_verifier_toolchain.py -q",
           "exit_code": 0,
-          "duration_s": 0.684,
-          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
-          "tests": 10,
+          "duration_s": 0.479,
+          "stdout_sha256": "ecf57d762b443151696ef4727347520d0d5715719bac1e0cd93caddf627ffa61",
+          "tests": 16,
           "skipped": 0,
           "errors": 0,
           "failures": 0
         },
         {
           "command": "{python} -m pytest tests/indexing/test_example_verifier.py -q",
-          "exit_code": 1,
-          "duration_s": 346.024,
-          "stdout_sha256": "fe36eeb2e734f56a0240e0b21cb24f0dba7a73ec2e27e6faae9094e6da144e48",
+          "exit_code": 0,
+          "duration_s": 287.574,
+          "stdout_sha256": "32faef56d0289369b1ac111e68ee0bb7b2ed1bcf92d3f33b75313bd0556c3e6f",
           "tests": 21,
           "skipped": 0,
-          "errors": 3,
+          "errors": 0,
           "failures": 0
         }
       ],
-      "all_passed": false
+      "all_passed": true
     },
     {
       "run": 2,
@@ -64,9 +64,9 @@
         {
           "command": "{python} -m pytest tests/indexing/test_example_verifier_toolchain.py -q",
           "exit_code": 0,
-          "duration_s": 0.513,
-          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
-          "tests": 10,
+          "duration_s": 0.484,
+          "stdout_sha256": "ecf57d762b443151696ef4727347520d0d5715719bac1e0cd93caddf627ffa61",
+          "tests": 16,
           "skipped": 0,
           "errors": 0,
           "failures": 0
@@ -74,7 +74,7 @@
         {
           "command": "{python} -m pytest tests/indexing/test_example_verifier.py -q",
           "exit_code": 0,
-          "duration_s": 318.706,
+          "duration_s": 282.194,
           "stdout_sha256": "32faef56d0289369b1ac111e68ee0bb7b2ed1bcf92d3f33b75313bd0556c3e6f",
           "tests": 21,
           "skipped": 0,
@@ -88,16 +88,24 @@
   "negative_control": {
     "kind": "mutate",
     "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('ninja.exe','ninja_missing.exe'),encoding='utf-8')\"",
-    "patch_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-    "applied": false,
-    "patch_applied_failed": false,
-    "exit_codes": []
+    "patch_sha256": "8412856440657c40f34be0b4793c4686a8e4e6dfa0295ad66debd7fb80b200e0",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/indexing/example_verifier.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
   },
   "holdout": {
     "ran": false,
     "passed": true,
     "detail": "no holdout for this card"
   },
-  "accepted": false,
-  "reason": "FLAKY: the two clean runs disagreed; structural gate: {python} -m pytest tests/indexing/test_example_verifier.py -q: 3 collection error(s); negative-control patch did not apply"
+  "accepted": true,
+  "reason": "all gates passed"
 }
