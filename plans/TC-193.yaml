@@ -1,0 +1,56 @@
+id: TC-193
+gate: G2
+lane: extraction
+purpose: 'Repair a regression that TC-190 caused in an accepted card. TC-188 added offline tests that each
+  platform entry of the dispatch table has exactly the keys prepare, verify and verify_kwargs. TC-190 then
+  added the key shared_page_workdir to every entry, so those two tests (test_go_entry_... and
+  test_java_entry_... in tests/infra/test_build_chunks_platforms.py) now fail on main. TC-190 passed review
+  because review runs only its own checks, not the tests of the cards it touches. The test is correct about
+  what the table should hold. Its expected key set is out of date. This card updates the expected key set
+  to the current table, and makes the test say what the flag is for.'
+depends_on:
+- TC-188
+- TC-190
+write_paths:
+- tests/infra/test_build_chunks_platforms.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Read tests/infra/test_build_chunks_platforms.py in full, and the _PLATFORM_DISPATCH table in infra/build_chunks.py,
+  to see the current keys of each entry. Do not change infra/build_chunks.py.'
+- 'Update the expected key set in the go and java tests to exactly prepare, verify, verify_kwargs and
+  shared_page_workdir. Also assert the value of shared_page_workdir for each: False for go and False for
+  java, matching the table. Keep every other assertion in those tests, and keep each test name.'
+- 'Keep every other test in the file unchanged. Keep every existing assertion that is still true.'
+- 'Add one test, test_python_entry_shares_one_page_workdir: the python entry of the table has exactly the same
+  four keys, and its shared_page_workdir value is True. This is what makes the falsifier provable. Without it,
+  turning the python flag off would not fail any test.'
+actions:
+- Read the test file and the table in full.
+- Update the two expected key sets and add the flag value assertions.
+- Run the test file and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_build_chunks_platforms.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 5
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;q=chr(34);p=pathlib.Path('infra/build_chunks.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace(q+'shared_page_workdir'+q+': True',q+'shared_page_workdir'+q+': False',1),encoding='utf-8')"
+  rationale: 'Turns the python flag off in the dispatch table. test_python_entry_shares_one_page_workdir asserts
+    the python value is True, so it must fail. The replace matches only the python entry, the one platform whose
+    flag is True. Built with chr() so that no backslash or quote reaches the shell.'
+evidence:
+- evidence/build/G2/TC-193/receipt.json
+closeout:
+- The platforms test file passes on main, and its expectations match the dispatch table.
+recovery: Re-run from a clean tree.
