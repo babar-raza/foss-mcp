@@ -95,6 +95,8 @@ from pathlib import Path
 import httpx2 as httpx
 import pytest
 
+from .env_retry import run_with_environment_retry
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_FILE = REPO_ROOT / "docker-compose.yml"
 PROJECT_NAME = "foss-mcp-e2e-tc102"
@@ -266,14 +268,25 @@ def real_generation() -> Iterator[None]:
     """
     _compose("down", "-v", "--remove-orphans")
     try:
-        ingest = _compose(
-            "up",
-            "--build",
-            "--exit-code-from",
-            "ingest-cells-rust",
-            "ingest-cells-rust",
-            timeout=INGEST_TIMEOUT_SECONDS,
-        )
+        attempts_made = 0
+
+        def _ingest_once() -> subprocess.CompletedProcess[str]:
+            # REQ-G2-048 (TC-196): a registry outage exits 75 and is retried. Each retry first
+            # tears the stack down with its volume, so every attempt starts from empty state.
+            nonlocal attempts_made
+            if attempts_made:
+                _compose("down", "-v", "--remove-orphans")
+            attempts_made += 1
+            return _compose(
+                "up",
+                "--build",
+                "--exit-code-from",
+                "ingest-cells-rust",
+                "ingest-cells-rust",
+                timeout=INGEST_TIMEOUT_SECONDS,
+            )
+
+        ingest = run_with_environment_retry(_ingest_once)
         assert ingest.returncode == 0, (ingest.stdout + ingest.stderr)[-4000:]
 
         up = _compose("up", "-d", "--build", "serving-cells-rust")
