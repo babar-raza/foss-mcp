@@ -107,6 +107,55 @@
                                    "Docker images and volumes (rebuilt by docker compose)",
                                    "Any other project\u0027s tools, such as the actions-runner tree on D:"
                                ],
+    "container_pins":  {
+                           "observed_on":  "2026-10-04",
+                           "note":  "What the Dockerfiles pin. tests/infra/test_container_pins.py enforces that each FROM digest, each ARG version default and each sha256 check equals these values. Every value was read from its official source on observed_on; nothing was typed from memory.",
+                           "base_images":  {
+                                               "python:3.13-slim":  {
+                                                                        "platform":  "linux/amd64",
+                                                                        "digest":  "sha256:b92e6b9bb1ea9d826e9956fd8d30bf18bc384c130231d74fdf0ba3460c290b0b",
+                                                                        "index_digest":  "sha256:3dd7cc108ec1493442514f5c2a871af6af0ec31d768ff6e378a93340c3b3db5f",
+                                                                        "source":  "docker buildx imagetools inspect python:3.13-slim (Docker Hub, read 2026-10-04)"
+                                                                    }
+                                           },
+                           "downloads":  {
+                                             "go":  {
+                                                        "version":  "1.26.4",
+                                                        "filename":  "go1.26.4.linux-amd64.tar.gz",
+                                                        "sha256":  "1153d3d50e0ac764b447adfe05c2bcf08e889d42a02e0fe0259bd47f6733ad7f",
+                                                        "url_marker":  "go.dev/dl/go",
+                                                        "source":  "https://go.dev/dl/?mode=json&include=all (sha256 field, linux amd64 archive)"
+                                                    },
+                                             "node":  {
+                                                          "version":  "24.13.1",
+                                                          "filename":  "node-v24.13.1-linux-x64.tar.gz",
+                                                          "sha256":  "7ad28fb172a9ab0593f86c1a39e5c268d0d8fc3d6cb0167f455b5655a7a6e2fd",
+                                                          "url_marker":  "nodejs.org/dist/v",
+                                                          "source":  "https://nodejs.org/dist/v24.13.1/SHASUMS256.txt"
+                                                      },
+                                             "rustup-init":  {
+                                                                 "artifact":  "rustup-init, x86_64-unknown-linux-gnu (the bytes are pinned; the file tracks the current rustup release)",
+                                                                 "sha256":  "dda7234360b7f578ca8b0ddcb80145646fa61a67c1720a5abc7051b35c9fcb71",
+                                                                 "url_marker":  "static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init",
+                                                                 "source":  "https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init.sha256"
+                                                             },
+                                             "dotnet-install":  {
+                                                                    "status":  "UNPINNED",
+                                                                    "url_marker":  "dot.net/v1/dotnet-install.sh",
+                                                                    "reason":  "Microsoft publishes no sha256 for dotnet-install.sh at an official URL that could be fetched on 2026-10-04, and no checksum was invented. The script also floats on channel 8.0. Owner or follow-up: pin it when an official checksum is available."
+                                                                }
+                                         },
+                           "rust_toolchain":  {
+                                                  "version":  "1.98.1",
+                                                  "source":  "https://static.rust-lang.org/dist/channel-rust-1.98.1.toml (HTTP 200 on 2026-10-04); matches host cargo 1.98.1"
+                                              },
+                           "residual_risks":  [
+                                                  "apt packages (git, curl, ca-certificates, build-essential, openjdk-21-jdk, maven) float with the Debian trixie mirror. They are not pinned to a snapshot date. Reason: a snapshot pin was not made in TC-174.",
+                                                  "Java: the image uses Debian openjdk-21 (21.0.x). The host uses Temurin 21.0.11+10. They are different JDK builds and are not reconciled by this lock.",
+                                                  "dotnet-install.sh is UNPINNED (see downloads.dotnet-install) and runs on channel 8.0 with a floating patch level.",
+                                                  "The python base image is pinned to the linux/amd64 manifest digest. An arm64 build needs the index digest (index_digest) or a per-platform digest instead."
+                                              ]
+                       },
     "container_pins_observed":  {
                                     "observed_on":  "2026-10-04",
                                     "note":  "Host versus container pins. Each row must converge to host_lock. Until it does, reruns can differ by environment.",
@@ -114,33 +163,33 @@
                                                  {
                                                      "tool":  "go",
                                                      "host_lock":  "1.26.4",
-                                                     "dockerfile_ingestion":  "1.27.1 (ARG GO_VERSION, no sha256)",
-                                                     "status":  "DRIFT"
+                                                     "dockerfile_ingestion":  "1.26.4 (ARG GO_VERSION, sha256 pinned)",
+                                                     "status":  "MATCH"
                                                  },
                                                  {
                                                      "tool":  "nodejs",
                                                      "host_lock":  "24.13.1",
-                                                     "dockerfile_ingestion":  "24.21.0 (ARG NODE_VERSION, no sha256)",
-                                                     "status":  "DRIFT"
+                                                     "dockerfile_ingestion":  "24.13.1 (ARG NODE_VERSION, sha256 pinned)",
+                                                     "status":  "MATCH"
                                                  },
                                                  {
                                                      "tool":  "java",
                                                      "host_lock":  "temurin 21.0.11+10",
                                                      "dockerfile_ingestion":  "Debian openjdk-21 (floating apt)",
-                                                     "status":  "DRIFT"
+                                                     "status":  "DRIFT_RESIDUAL"
                                                  },
                                                  {
                                                      "tool":  "rust",
                                                      "host_lock":  "cargo 1.98.1",
-                                                     "dockerfile_ingestion":  "floating \u0027stable\u0027 via sh.rustup.rs, no sha256",
-                                                     "status":  "DRIFT"
+                                                     "dockerfile_ingestion":  "1.98.1 (ARG RUST_VERSION, rustup-init sha256 pinned)",
+                                                     "status":  "PINNED"
                                                  },
                                                  {
                                                      "tool":  "base-image",
                                                      "host_lock":  "n/a",
-                                                     "dockerfile_ingestion":  "python:3.13-slim (tag, not digest)",
-                                                     "dockerfile_serving":  "python:3.13-slim (tag, not digest)",
-                                                     "status":  "UNPINNED"
+                                                     "dockerfile_ingestion":  "python:3.13-slim@sha256:b92e6b9bb1ea9d826e9956fd8d30bf18bc384c130231d74fdf0ba3460c290b0b (digest pinned)",
+                                                     "dockerfile_serving":  "python:3.13-slim@sha256:b92e6b9bb1ea9d826e9956fd8d30bf18bc384c130231d74fdf0ba3460c290b0b (digest pinned)",
+                                                     "status":  "PINNED"
                                                  },
                                                  {
                                                      "tool":  "dotnet",

@@ -5,7 +5,7 @@
 # Exactly one of the two build paths this project ships (the other is Dockerfile.serving).
 # Do NOT add a third: an unreferenced alternate Dockerfile is a confirmed crash-loop trap in
 # the reference system, still sitting unused in its tree.
-FROM python:3.13-slim
+FROM python:3.13-slim@sha256:b92e6b9bb1ea9d826e9956fd8d30bf18bc384c130231d74fdf0ba3460c290b0b
 
 WORKDIR /app
 
@@ -47,8 +47,11 @@ ENV PATH="/usr/share/dotnet:${PATH}" \
 # .tar.xz) is used because this slim base has no `xz` binary and GNU tar here has no
 # built-in liblzma support, only zlib (gzip) - confirmed by hand against this exact
 # image.
-ARG NODE_VERSION=24.21.0
+# TC-174: the version and the sha256 are pinned to scripts/toolchain/toolchain.lock.json, taken
+# from https://nodejs.org/dist/v24.13.1/SHASUMS256.txt. Any other version fails the checksum.
+ARG NODE_VERSION=24.13.1
 RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" -o /tmp/node.tar.gz \
+    && echo "7ad28fb172a9ab0593f86c1a39e5c268d0d8fc3d6cb0167f455b5655a7a6e2fd  /tmp/node.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1 \
     && rm /tmp/node.tar.gz
 
@@ -68,8 +71,11 @@ RUN apt-get update \
 # 1.24 (~early 2025), already behind upstream's current 1.27 line (confirmed against
 # https://go.dev/VERSION?m=text) - the same "distro package is stale" situation as
 # dotnet and Node above. go.dev's own official Linux tarball is used instead.
-ARG GO_VERSION=1.27.1
+# TC-174: pinned to the host toolchain version in toolchain.lock.json (go 1.26.4). The sha256 is
+# the linux-amd64 archive checksum from the official https://go.dev/dl/?mode=json&include=all.
+ARG GO_VERSION=1.26.4
 RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tar.gz \
+    && echo "1153d3d50e0ac764b447adfe05c2bcf08e889d42a02e0fe0259bd47f6733ad7f  /tmp/go.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/go.tar.gz -C /usr/local \
     && rm /tmp/go.tar.gz
 ENV PATH="/usr/local/go/bin:${PATH}"
@@ -87,13 +93,18 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH="/usr/local/cargo/bin:${PATH}"
+# TC-174: the toolchain is pinned by RUST_VERSION (the host cargo version in toolchain.lock.json),
+# not the floating "stable" channel. rustup-init is fetched as a binary and checked by sha256
+# against https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init.sha256.
+ARG RUST_VERSION=1.98.1
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential \
     && rm -rf /var/lib/apt/lists/* \
-    && curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o /tmp/rustup-init.sh \
-    && chmod +x /tmp/rustup-init.sh \
-    && /tmp/rustup-init.sh -y --profile minimal --default-toolchain stable --no-modify-path \
-    && rm /tmp/rustup-init.sh \
+    && curl --proto '=https' --tlsv1.2 -fsSL https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init -o /tmp/rustup-init \
+    && echo "dda7234360b7f578ca8b0ddcb80145646fa61a67c1720a5abc7051b35c9fcb71  /tmp/rustup-init" | sha256sum -c - \
+    && chmod +x /tmp/rustup-init \
+    && /tmp/rustup-init -y --profile minimal --default-toolchain "${RUST_VERSION}" --no-modify-path \
+    && rm /tmp/rustup-init \
     && chmod -R a+w "$RUSTUP_HOME" "$CARGO_HOME"
 
 # Hash-verified install: every dependency, and its transitive closure, is pinned by exact
