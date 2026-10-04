@@ -9,9 +9,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
+import cardlint as CL
 import gatectl as G
 import gateverify as V
 
@@ -638,6 +641,54 @@ def cmd_commit_guard(args) -> int:
     return G.EXIT_OK
 
 
+def related_offline_tests(write_paths: list[str], tests: dict[str, str]) -> list[str]:
+    """Test files that exercise the same modules as a card's write_paths and can run offline.
+
+    Pure, so the rule is testable without git. A test is related when its text names the stem of a
+    product or infrastructure write path (build_chunks for infra/build_chunks.py). A test that reaches
+    the network, or that runs the CI or a hook, is excluded: it cannot run in review, and it would
+    recurse. These are the same rules cardlint applies to cards.
+    """
+    stems = {Path(p).stem for p in write_paths if not p.startswith("tests/") and len(Path(p).stem) >= 5}
+    out = []
+    for name, text in sorted(tests.items()):
+        if not any(s in text for s in stems):
+            continue
+        if any(h in text for h in CL.NETWORK_HINTS) or any(h in text for h in CL.CI_HINTS):
+            continue
+        out.append(name)
+    return out
+
+
+def _review_related_tests(card: str, head: str, issue: str) -> tuple[bool, str]:
+    """Run the offline tests related to the card's write_paths at the head, in a throwaway worktree.
+
+    Returns (passed, output). The worktree is removed afterwards, so the main checkout is not touched.
+    """
+    data, _ = G.load_card_at_rev(card, issue)
+    _, listing, _ = G.run(["git", "ls-tree", "-r", "--name-only", head, "--", "tests", "ops/tests"])
+    texts: dict[str, str] = {}
+    for p in listing.splitlines():
+        if p.endswith(".py"):
+            _, text, _ = G.run(["git", "show", f"{head}:{p}"])
+            texts[p] = text
+    related = related_offline_tests(data.get("write_paths", []), texts)
+    if not related:
+        return True, "no related offline tests"
+    tmp = Path(tempfile.mkdtemp(prefix="review_related_"))
+    try:
+        G.run(["git", "worktree", "add", "--detach", str(tmp), head])
+        proc = subprocess.run(
+            [str(V.venv_python()), "-m", "pytest", *related, "-q", "-p", "no:cacheprovider"],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+        )
+        return proc.returncode == 0, (proc.stdout + proc.stderr)[-3000:]
+    finally:
+        G.run(["git", "worktree", "remove", "--force", str(tmp)])
+
+
 def cmd_review(args) -> int:
     """The supervisor's whole per-card action: verify, then accept or reject.
 
@@ -676,6 +727,13 @@ def cmd_review(args) -> int:
     print(f"verdict      : {r['reason']}")
     if not r["accepted"]:
         print(f"REWORK REQUIRED — see evidence/build/{r['gate']}/{args.card}/stdout.log")
+        return G.EXIT_FAIL
+    # Coverage (2026-10-04, after TC-190 broke an accepted card's test): the offline tests of the files
+    # this card touches must also pass at the head. A card's own checks are not the whole contract.
+    related_ok, related_out = _review_related_tests(args.card, args.head, issue)
+    if not related_ok:
+        print("REWORK REQUIRED — offline tests of files this card touches fail at the head:")
+        print(related_out)
         return G.EXIT_FAIL
     args_accept = argparse.Namespace(card=args.card, force_order=args.force_order)
     return cmd_accept(args_accept)
