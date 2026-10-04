@@ -1255,3 +1255,12 @@ Limits, stated plainly: this used hand-written manifests, not the Helm chart (TC
 **My error.** I committed TC-179 with an unquoted scalar containing `: `. That broke the derived state on `main` until it was fixed in the next commit. It was caught because the state rebuild failed, not by a review. Card YAML must be parsed before it is committed, and this now belongs in the authoring check.
 
 **Status.** TC-179 is dispatched to its worker. The release is installed on kind but its ingestion Job is failing on DNS, so the chart is not yet proven. It will be re-proven after TC-179 is integrated, and only then is the POC claimed as deployed through the chart.
+
+## 2026-10-04 - Operator-directed push of main (supervisor)
+The operator instructed the supervisor to push the local commits that were stuck (76 at the time). This is an explicit exception to the gate-boundary rule in AGENTS.md (push once per accepted gate). The operator decides that rule, and this record makes the exception visible.
+Limits set for the push:
+- Push `main` only. Local `worker/*` branches and worktrees are not pushed.
+- No `git push --force` of any kind. No tags.
+- The push runs from a clean worktree at main's committed HEAD, so uncommitted supervisor edits are not published.
+- The pre-push hook is run as normal. Its blockers are fixed where they can be fixed. If the only remaining blocker is OWNER-04 (the mission plan is absent on this machine, so `gatectl validate` fails on source-ref checks), a `--no-verify` push is used, and the reason is this entry.
+- Known open CI failures at the time of the push, all recorded above and in owner items: validate source-ref (OWNER-04); test_githooks bash resolution (TC-180 card); the Rust cargo network flake and its classification gap (TC-181 card); the build-chunks .NET SDK missing on this host.
