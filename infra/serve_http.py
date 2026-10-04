@@ -33,8 +33,11 @@ import json
 import logging
 import os
 import sys
+from dataclasses import replace
 from datetime import UTC, datetime
+from pathlib import Path
 
+from fetch_product_reference import PRODUCT_REFERENCE_SIDECAR_NAME, load_manifest_sidecar
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
@@ -46,10 +49,17 @@ from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.health import DeploymentGenerationStore, is_alive, round_trip_check
 from foss_mcp.mcp.routing import DeploymentConfig, resolve_scope
 from foss_mcp.mcp.server import _default_manifest_store, create_server
+from foss_mcp.mcp.tools.get_product_reference import ProductReferenceInputs
 from foss_mcp.mcp.transport_security import reject_request
 from foss_mcp.telemetry.usage_recorder import UsageRecorder
 
 DEFAULT_PORT = 8080
+# The chart sets FOSS_MCP_PLATFORM on every serving deployment; it is the platform the sidecar
+# is read for. There is deliberately no default: an unset platform must never fall back to .NET.
+PLATFORM_ENV = "FOSS_MCP_PLATFORM"
+# The chart mounts the manifests claim at this path (values.yaml manifests.mountPath).
+MANIFESTS_DIR_ENV = "FOSS_MCP_MANIFESTS_DIR"
+DEFAULT_MANIFESTS_DIR = "/data/manifests"
 HEALTHZ_PATH = "/healthz"
 READYZ_PATH = "/readyz"
 METRICS_PATH = "/metrics"
@@ -219,11 +229,30 @@ def _metrics_route(usage_recorder: UsageRecorder) -> Route:
     return Route(METRICS_PATH, metrics, methods=["GET"])
 
 
+def _serving_product_reference_inputs(manifests_dir: Path) -> ProductReferenceInputs | None:
+    """The product's own packaging manifest, from the sidecar in *manifests_dir*, or None when
+    no sidecar exists (create_server then answers the explicit NotAvailable for every
+    manifest-derived section).
+
+    The sidecar's own ``platform`` field is replaced by the deployment's ``FOSS_MCP_PLATFORM``:
+    the deployment, not the file, names the product this container serves. A sidecar present with
+    the platform unset raises, so serving fails at start rather than parsing a manifest as .NET.
+    """
+    sidecar = load_manifest_sidecar(manifests_dir / PRODUCT_REFERENCE_SIDECAR_NAME)
+    if sidecar is None:
+        return None
+    platform = os.environ.get(PLATFORM_ENV, "").strip()
+    if not platform:
+        raise RuntimeError(f"{PLATFORM_ENV} must be set when a product reference sidecar is present")
+    return replace(sidecar, platform=platform)
+
+
 def build_app(
     deployment_config: DeploymentConfig,
     manifest_store: GenerationManifestStore | None = None,
     allowed_origins: list[str] | None = None,
     usage_recorder: UsageRecorder | None = None,
+    manifests_dir: Path | None = None,
 ) -> ASGIApp:
     """The ASGI app this container serves: the same ``create_server`` dispatch core as
     stdio, wrapped in Origin/protocol-version rejection, plus real ``/healthz``, ``/readyz``,
@@ -234,7 +263,9 @@ def build_app(
     ``manifest_store``, ``allowed_origins``, and ``usage_recorder`` default to the real
     deployment's own store (``foss_mcp.mcp.server``'s ``/data/manifests``), the
     ``FOSS_MCP_ALLOWED_ORIGINS`` env var, and a fresh real ``UsageRecorder()`` respectively; all
-    three are overridable so tests never touch any of them. ``manifest_store`` and
+    three are overridable so tests never touch any of them. ``manifests_dir`` defaults to
+    ``FOSS_MCP_MANIFESTS_DIR`` or ``/data/manifests``; the product reference sidecar in it, when
+    present, is passed to ``create_server`` as ``product_reference_inputs``. ``manifest_store`` and
     ``usage_recorder`` are each resolved ONCE, here, and handed to both ``create_server`` and
     their own route (``/readyz``, ``/metrics``) - never two separate instances for one running
     deployment, so ``/metrics`` always reports the exact counters ``_call_tool`` is live
@@ -242,7 +273,17 @@ def build_app(
     """
     resolved_store = manifest_store if manifest_store is not None else _default_manifest_store()
     resolved_usage_recorder = usage_recorder if usage_recorder is not None else UsageRecorder()
-    server = create_server(deployment_config, resolved_store, usage_recorder=resolved_usage_recorder)
+    resolved_manifests_dir = (
+        manifests_dir
+        if manifests_dir is not None
+        else Path(os.environ.get(MANIFESTS_DIR_ENV, DEFAULT_MANIFESTS_DIR))
+    )
+    server = create_server(
+        deployment_config,
+        resolved_store,
+        product_reference_inputs=_serving_product_reference_inputs(resolved_manifests_dir),
+        usage_recorder=resolved_usage_recorder,
+    )
     allowed_origins = allowed_origins_from_env() if allowed_origins is None else allowed_origins
     inner = server.streamable_http_app(
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),

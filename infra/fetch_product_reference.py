@@ -14,10 +14,9 @@ API, and writes the results to a JSON sidecar file shaped to match
 ``contributing``, ``agent_guidance``. Each ``DocumentResult`` serializes to an explicit
 present/not_present shape; absence is never smoothed into a fabricated value.
 
-Consuming that sidecar from ``infra/serve_http.py`` at server-start time is intentionally OUT
-of scope here (a separate follow-up card): this module only produces the sidecar file, mirroring
-``infra/ingest.py``'s own plain-print, argparse-based CLI convention exactly rather than
-inventing a different one.
+``load_manifest_sidecar`` is the inverse: ``infra/serve_http.py`` reads the sidecar back at
+server start and passes the rebuilt ``ProductReferenceInputs`` to ``create_server``. This module
+keeps ``infra/ingest.py``'s own plain-print, argparse-based CLI convention.
 """
 
 from __future__ import annotations
@@ -27,7 +26,17 @@ import json
 from pathlib import Path
 
 from foss_mcp.extraction.manifest_reader import fetch_manifest_file
-from foss_mcp.extraction.repo_native_reader import DocumentPresent, DocumentResult, read_repo_document
+from foss_mcp.extraction.repo_native_reader import (
+    DocumentNotPresent,
+    DocumentPresent,
+    DocumentResult,
+    read_repo_document,
+)
+from foss_mcp.mcp.tools.get_product_reference import ProductReferenceInputs
+
+# The file name serving looks for inside its manifests directory. The CLI writes wherever
+# --output points; the ingestion side must place the sidecar at this name for serving to see it.
+PRODUCT_REFERENCE_SIDECAR_NAME = "product_reference.json"
 
 
 def _serialize_document(document: DocumentResult) -> dict:
@@ -42,6 +51,36 @@ def _serialize_document(document: DocumentResult) -> dict:
             "content": document.content,
         }
     return {"status": "not_present", "path": document.path}
+
+
+def _deserialize_document(data: dict) -> DocumentResult:
+    """The inverse of ``_serialize_document``: rebuild the exact ``DocumentResult`` it wrote."""
+    status = data.get("status")
+    if status == "present":
+        return DocumentPresent(path=data["path"], sha=data["sha"], size=data["size"], content=data["content"])
+    if status == "not_present":
+        return DocumentNotPresent(path=data["path"])
+    raise ValueError(f"unknown document status {status!r} in product reference sidecar")
+
+
+def load_manifest_sidecar(path: Path) -> ProductReferenceInputs | None:
+    """Read the JSON sidecar *path* back into the ``ProductReferenceInputs`` it was built from.
+
+    Returns None when the file is absent (no ingestion has written it yet) - an absence, not an
+    error. A present but malformed sidecar raises, so serving fails at start rather than
+    answering from a half-read file.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return None
+    data = json.loads(text)
+    return ProductReferenceInputs(
+        manifest_text=data["manifest_text"],
+        platform=data["platform"],
+        contributing=_deserialize_document(data["contributing"]),
+        agent_guidance=_deserialize_document(data["agent_guidance"]),
+    )
 
 
 def build_sidecar(
