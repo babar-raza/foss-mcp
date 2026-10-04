@@ -22,7 +22,8 @@ $pathDirs = @(
     (Join-Path $tools 'maven\bin'),
     (Join-Path $tools 'rp-toolchains\ninja'),
     (Join-Path $tools 'rp-toolchains\npm\prefix'),
-    (Join-Path $tools 'adoptium\jdk-21.0.11.10-hotspot\bin')
+    (Join-Path $tools 'adoptium\jdk-21.0.11.10-hotspot\bin'),
+    (Join-Path $tools 'helm\windows-amd64')
 )
 
 # Rust: the same RUSTUP_HOME and CARGO_HOME pair that tools/rp-toolchains/TOOLCHAIN_PATHS.txt

@@ -1,0 +1,17 @@
+# The manifests claim. Serving mounts it read-only; every ingestion Job mounts the same claim
+# read-write. Until a Job publishes a generation, /readyz answers 503 and the pod gets no traffic.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "foss-mcp.manifestsClaimName" . }}
+  labels:
+    {{- include "foss-mcp.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .Values.manifests.accessModes | nindent 4 }}
+  {{- with .Values.manifests.storageClassName }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.manifests.size }}

@@ -1,0 +1,98 @@
+{{- /*
+One Job per entry in .Values.ingestion.pilots. Each runs the same two-step chain as the
+ingest-<pilot> services in docker-compose.yml: infra/build_chunks.py, then infra/ingest.py. Every
+Job mounts the manifests claim read-write, so the serving pod (read-only) reads what it publishes.
+*/ -}}
+{{- range $p := .Values.ingestion.pilots }}
+{{- $lib := $p.library | default (dict) }}
+{{- $chunk := printf "/tmp/%s_%s_chunks.json" $p.family $p.platform }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "foss-mcp.fullname" $ }}-ingest-{{ $p.family }}-{{ $p.platform }}
+  labels:
+    {{- include "foss-mcp.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: ingestion
+spec:
+  backoffLimit: {{ $.Values.ingestion.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "foss-mcp.selectorLabels" $ | nindent 8 }}
+        app.kubernetes.io/component: ingestion
+    spec:
+      restartPolicy: Never
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: ingest
+          image: "{{ $.Values.ingestion.image.repository }}:{{ required "image.tag must be set to a pinned version or digest" $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          command: ["sh", "-c"]
+          args:
+            - >-
+              python /app/infra/build_chunks.py
+              --api-surface {{ $p.apiSurface }}
+              --title {{ $p.title | quote }}
+              --max-types {{ $p.maxTypes }}
+              {{- with $p.furnishedPage }}
+              --furnished-page {{ . }}
+              {{- end }}
+              {{- with $lib.repository }}
+              --library-repository {{ . }}
+              --library-commit {{ $lib.commit | quote }}
+              --library-platform {{ $lib.platform }}
+              {{- end }}
+              {{- with $lib.csproj }}
+              --library-csproj {{ . }}
+              {{- end }}
+              {{- with $lib.packageName }}
+              --library-package-name {{ . }}
+              {{- end }}
+              {{- with $lib.modulePath }}
+              --library-module-path {{ . }}
+              {{- end }}
+              {{- with $lib.crateName }}
+              --library-crate-name {{ . }}
+              {{- end }}
+              --out {{ $chunk }}
+              &&
+              python /app/infra/ingest.py
+              --family {{ $p.family }}
+              --platform {{ $p.platform }}
+              --source-kind {{ $p.sourceKind }}
+              --chunks {{ $chunk }}
+              --manifest-store {{ $.Values.manifests.mountPath }}
+              --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+              --api-surface {{ $p.apiSurface }}
+              --held-by {{ $p.heldBy }}
+          # The root filesystem is read-only. The library steps write under /tmp (tempfile), and
+          # their toolchain caches write under HOME. cargo's registry lives in CARGO_HOME, which the
+          # image sets inside the read-only root, so it is redirected to the home emptyDir. The
+          # rustup binaries stay where the image put them.
+          env:
+            - name: HOME
+              value: /home/foss-mcp
+            - name: CARGO_HOME
+              value: /home/foss-mcp/.cargo
+          securityContext:
+            {{- toYaml $.Values.containerSecurityContext | nindent 12 }}
+          resources:
+            {{- toYaml $.Values.ingestion.resources | nindent 12 }}
+          volumeMounts:
+            - name: manifests
+              mountPath: {{ $.Values.manifests.mountPath }}
+            - name: tmp
+              mountPath: /tmp
+            - name: home
+              mountPath: /home/foss-mcp
+      volumes:
+        - name: manifests
+          persistentVolumeClaim:
+            claimName: {{ include "foss-mcp.manifestsClaimName" $ }}
+        - name: tmp
+          emptyDir: {}
+        - name: home
+          emptyDir: {}
+{{- end }}

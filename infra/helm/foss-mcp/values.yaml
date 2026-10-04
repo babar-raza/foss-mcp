@@ -7,14 +7,103 @@ deployment:
 
 image:
   repository: foss-mcp-serving
-  tag: latest
+  # REQUIRED. A pinned release version (for example --set image.tag=1.4.0). The chart never
+  # chooses a version: it refuses to render while this is empty, and it is never `latest`.
+  # The same tag is applied to the ingestion image below, so one release is one tag.
+  tag: ""
   pullPolicy: IfNotPresent
 
 replicaCount: 1
 
-resources: {}
+service:
+  type: ClusterIP
+  port: 80
+  # targetPort is not a value: infra/serve_http.py binds its own DEFAULT_PORT (8080), which is
+  # not overridable by env, so the Deployment and Service hardcode 8080 to match it.
 
-# NOTE: there is no `networkPolicy.enabled` toggle here, deliberately. The reference overlay
-# disabled its NetworkPolicy through a values flag like this one; that is the defect this
-# chart exists to reverse, not a pattern to reproduce. templates/networkpolicy.yaml always
-# renders - see that file's own header comment.
+probes:
+  # /healthz is liveness (process alive). /readyz is readiness (a real active generation is
+  # readable). A pod with an empty manifests claim answers /readyz 503 and receives no traffic.
+  liveness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    failureThreshold: 3
+
+terminationGracePeriodSeconds: 30
+
+# Serving is a Python ASGI server whose image installs only requirements-serving.lock (mcp and its
+# transitive closure, per Dockerfile.serving). 256Mi covers CPython and that import set with
+# headroom, and 512Mi is 2x the request. Estimated from the image, not load-tested.
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# The manifests claim is shared: serving mounts it read-only, and each ingestion Job mounts it
+# read-write. An empty claimName means "<fullname>-manifests". An empty storageClassName omits
+# the field, so the cluster default class is used. ReadWriteOnce means serving pods and Jobs must
+# schedule on one node; use a ReadWriteMany class if they cannot.
+manifests:
+  mountPath: /data/manifests
+  claimName: ""
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 1Gi
+
+# uid 10001 is the user both Dockerfiles create (useradd --uid 10001 foss-mcp). fsGroup makes the
+# freshly provisioned claim writable for that uid, which the ingestion Jobs need.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  fsGroup: 10001
+
+# readOnlyRootFilesystem is on, so every path the process must write to is an emptyDir: /tmp for
+# both pods, and the home directory for ingestion (go, maven, npm and dotnet caches).
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+ingestion:
+  image:
+    repository: foss-mcp-ingestion
+  # Each Job runs infra/build_chunks.py then infra/ingest.py, the same two-step chain
+  # docker-compose.yml runs. A failed chain retries up to backoffLimit times, then stays failed.
+  backoffLimit: 2
+  # Ingestion compiles real reference libraries (dotnet build, cargo build, mvn, go build, a
+  # Python venv) per candidate example, so its limits are several times the serving pod's.
+  # Estimated from the toolchains installed in Dockerfile.ingestion, not measured.
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  # One Job per entry. Each entry copies its arguments from docker-compose.yml exactly. One
+  # release serves one deployment identity over one manifests claim, so list only the pilot this
+  # release's serving pod reads. A second pilot here would publish into the same store.
+  pilots:
+    - family: pdf
+      platform: net
+      sourceKind: self_extracted
+      heldBy: ingestion-pdf-net
+      apiSurface: /app/fixtures/pdf_net/api_surface.json
+      title: pdf/net API surface
+      maxTypes: 20
+      furnishedPage: /app/fixtures/furnished/pdf_net/pages/_index.md
+      library:
+        repository: aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET
+        commit: "b7172877651413cff57a8bfe41fb8a8befb2406b"
+        platform: dotnet
+        csproj: src/Aspose.Pdf.Foss.csproj
