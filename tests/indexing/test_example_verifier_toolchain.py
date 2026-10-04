@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from foss_mcp.indexing import example_verifier as ev
+from foss_mcp.indexing.example_candidates import CandidateExample
 
 
 def _write_file(path: Path) -> Path:
@@ -149,3 +150,77 @@ def test_vcvarsall_missing_under_reported_installation_raises(
 
     assert "vcvarsall.bat" in str(excinfo.value)
     assert str(install_dir) in str(excinfo.value)
+
+
+def _record_subprocess_run(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
+    calls: list[dict[str, object]] = []
+
+    def fake_subprocess_run(args, *, cwd, capture_output, text, env=None):  # type: ignore[no-untyped-def]
+        calls.append({"args": list(args), "cwd": cwd, "env": env})
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(ev.subprocess, "run", fake_subprocess_run)
+    return calls
+
+
+def test_cargo_environment_carries_retry_and_timeout_policy() -> None:
+    env = ev._cargo_environment()
+
+    assert env["CARGO_NET_RETRY"] == "5"
+    assert env["CARGO_HTTP_TIMEOUT"] == "120"
+
+
+def test_cargo_policy_overrides_a_caller_supplied_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CARGO_NET_RETRY", "0")
+    monkeypatch.setenv("CARGO_HTTP_TIMEOUT", "1")
+
+    env = ev._cargo_environment()
+
+    assert env["CARGO_NET_RETRY"] == "5"
+    assert env["CARGO_HTTP_TIMEOUT"] == "120"
+
+
+def test_cargo_environment_keeps_inherited_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FOSS_MCP_TEST_SENTINEL", "inherited")
+
+    env = ev._cargo_environment()
+
+    assert env["FOSS_MCP_TEST_SENTINEL"] == "inherited"
+
+
+def test_run_cargo_passes_policy_to_the_subprocess(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    calls = _record_subprocess_run(monkeypatch)
+
+    ev._run_cargo(["cargo", "build"], cwd=tmp_path)
+
+    assert calls[0]["args"] == ["cargo", "build"]
+    assert calls[0]["env"]["CARGO_NET_RETRY"] == "5"  # type: ignore[index]
+    assert calls[0]["env"]["CARGO_HTTP_TIMEOUT"] == "120"  # type: ignore[index]
+
+
+def test_rust_reference_build_runs_cargo_with_policy(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    calls = _record_subprocess_run(monkeypatch)
+    monkeypatch.setattr(ev, "_clone_pinned_commit", lambda repository, commit, workdir: None)
+
+    ev.prepare_rust_library("owner/repo", "abc123", tmp_path)
+
+    assert calls[0]["args"] == ["cargo", "build"]
+    assert calls[0]["env"]["CARGO_NET_RETRY"] == "5"  # type: ignore[index]
+    assert calls[0]["env"]["CARGO_HTTP_TIMEOUT"] == "120"  # type: ignore[index]
+
+
+def test_rust_candidate_build_runs_cargo_with_policy(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    calls = _record_subprocess_run(monkeypatch)
+    candidate = CandidateExample(title="t", description="d", language="rust", code="fn main() {}\n")
+
+    result = ev.verify_rust_example(
+        candidate,
+        library_crate_name="lib",
+        library_dir=tmp_path,
+        workdir=tmp_path,
+    )
+
+    assert result.verified is True
+    assert calls[0]["args"] == ["cargo", "build"]
+    assert calls[0]["env"]["CARGO_NET_RETRY"] == "5"  # type: ignore[index]
+    assert calls[0]["env"]["CARGO_HTTP_TIMEOUT"] == "120"  # type: ignore[index]

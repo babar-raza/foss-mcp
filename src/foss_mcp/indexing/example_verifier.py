@@ -101,6 +101,35 @@ def _run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
+# Cargo's crates.io index download is the one network step in the Rust pilot
+# that can stall transiently (observed: "transfer too slow: failed to transfer
+# more than 10 bytes in 30s"). Every cargo invocation goes through
+# _run_cargo, which sets this policy in the subprocess environment so it cannot
+# silently disappear from a call site.
+_CARGO_NET_RETRY = "5"
+_CARGO_HTTP_TIMEOUT = "120"
+
+
+def _cargo_environment() -> dict[str, str]:
+    """Return the environment for a cargo subprocess: this process's own
+    environment plus the explicit retry and timeout policy.
+    """
+    env = dict(os.environ)
+    env["CARGO_NET_RETRY"] = _CARGO_NET_RETRY
+    env["CARGO_HTTP_TIMEOUT"] = _CARGO_HTTP_TIMEOUT
+    return env
+
+
+def _run_cargo(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        args,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        env=_cargo_environment(),
+    )
+
+
 def _truncate(text: str) -> str:
     if len(text) <= _OUTPUT_TRUNCATE_CHARS:
         return text
@@ -714,7 +743,7 @@ def prepare_rust_library(
     """
     _clone_pinned_commit(repository, commit, workdir)
 
-    build_result = _run(["cargo", "build"], cwd=workdir)
+    build_result = _run_cargo(["cargo", "build"], cwd=workdir)
     if build_result.returncode != 0:
         raise RuntimeError(
             f"reference crate at {repository}@{commit} failed to build cleanly:\n"
@@ -749,7 +778,7 @@ def verify_rust_example(
     (project_dir / "Cargo.toml").write_text(cargo_toml_content, encoding="utf-8")
     (project_dir / "src" / "main.rs").write_text(candidate.code, encoding="utf-8")
 
-    result = _run(["cargo", "build"], cwd=project_dir)
+    result = _run_cargo(["cargo", "build"], cwd=project_dir)
 
     verified = result.returncode == 0
     output = _truncate(f"{result.stdout}\n{result.stderr}")
