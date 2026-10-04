@@ -112,6 +112,21 @@ RUN apt-get update \
 COPY requirements.lock ./requirements.lock
 RUN pip install --no-cache-dir --require-hashes -r requirements.lock
 
+# TC-176: the tree-sitter grammars are downloaded HERE, at build time, while the build has network
+# access. tree_sitter_language_pack 1.16.1 otherwise fetches its manifest and grammar shared objects
+# from GitHub on the first get_parser() call, and an offline container then fails with DownloadError.
+# The cache base is read from the installed package (tree_sitter_language_pack 1.16.1, cache_dir()
+# and the native module's own error text): TREE_SITTER_LANGUAGE_PACK_CACHE_DIR overrides the platform
+# default (XDG_CACHE_HOME / HOME on Linux), and the pack writes manifest.json, bundles/ and
+# libs/ under <base>/tree-sitter-language-pack/v1.16.1/. The language set is the seven keys of
+# src/foss_mcp/extraction/tree_sitter_engine/lang/__init__.py LANGUAGES. A failed load fails this RUN.
+# The pack refuses a cache directory owned by a uid other than the running process, and the runtime
+# user foss-mcp is uid 10001 (created below), so the baked directory is chowned to that uid.
+ENV TREE_SITTER_LANGUAGE_PACK_CACHE_DIR=/opt/tree-sitter-cache
+RUN python -c "from tree_sitter_language_pack import get_parser as g; names = ('python', 'rust', 'csharp', 'typescript', 'java', 'cpp', 'go'); [g(n) for n in names]; print('baked tree-sitter grammars:', ' '.join(names))" \
+    && chown -R 10001:10001 /opt/tree-sitter-cache \
+    && chmod -R a+rX /opt/tree-sitter-cache
+
 # foss_mcp has no [build-system] in pyproject.toml (src/ layout only, per docs/REPOSITORY_LAYOUT.md);
 # it is placed on PYTHONPATH rather than pip-installed, the same way tests/conftest.py does it locally.
 COPY src/ ./src/
