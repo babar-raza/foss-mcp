@@ -3,10 +3,10 @@
   "card": "TC-168",
   "gate": "G2",
   "generated_by": "gatectl",
-  "generated_at": "2026-10-04T05:33:32Z",
-  "base_rev": "8cff18d462a36ae700459746bd888da9cffc09c4",
-  "head_rev": "2c3b89824836479344217eaf88ed74fc91ea536c",
-  "card_sha256": "dfba9cb144b614b254511fe36f94c1358159cc47f5304ada3f0e1c2e25005bf7",
+  "generated_at": "2026-10-04T05:38:47Z",
+  "base_rev": "e970efd2695bedab61dc392ea7b43c2951051b43",
+  "head_rev": "da9ed770f40b9d40ddc133adeeed27ff769d3b7f",
+  "card_sha256": "49e27a051e96e61c0c628738019ee5b8c799f4bd1914394e9dc93d41645be73b",
   "fingerprint": {
     "python": "3.13.2",
     "platform": "Windows-11-10.0.26200-SP0",
@@ -25,7 +25,8 @@
     "ok": true,
     "changed_paths": [
       "src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py",
-      "tests/extraction/tree_sitter_engine/test_api_surface_java.py"
+      "tests/extraction/tree_sitter_engine/test_api_surface_java.py",
+      "tests/extraction/tree_sitter_engine/test_api_surface_java_live.py"
     ],
     "violations": [],
     "evaluated": true
@@ -35,48 +36,54 @@
       "run": 1,
       "checks": [
         {
-          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/ tests/extraction/ -q",
-          "exit_code": 1,
-          "duration_s": 5.738,
-          "stdout_sha256": "00985dafd6c9b4f7cdc47eb7433b5b534d0a52dc047d2ac5111a98984ec7ed48",
-          "tests": 273,
-          "skipped": 1,
-          "errors": 2,
+          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/test_api_surface_java.py -q",
+          "exit_code": 0,
+          "duration_s": 0.789,
+          "stdout_sha256": "cf426ab35f3b06fccef8290fde5325d90af130a79da1d1752031518df77c4236",
+          "tests": 3,
+          "skipped": 0,
+          "errors": 0,
           "failures": 0
         }
       ],
-      "all_passed": false
+      "all_passed": true
     },
     {
       "run": 2,
       "checks": [
         {
-          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/ tests/extraction/ -q",
-          "exit_code": 1,
-          "duration_s": 5.461,
-          "stdout_sha256": "fc86b37f0e673dacb0a2e0db0bd611c01153822731f2b9ac4d3bea3f8e3779fc",
-          "tests": 273,
-          "skipped": 1,
-          "errors": 2,
+          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/test_api_surface_java.py -q",
+          "exit_code": 0,
+          "duration_s": 0.582,
+          "stdout_sha256": "cf426ab35f3b06fccef8290fde5325d90af130a79da1d1752031518df77c4236",
+          "tests": 3,
+          "skipped": 0,
+          "errors": 0,
           "failures": 0
         }
       ],
-      "all_passed": false
+      "all_passed": true
     }
   ],
   "negative_control": {
     "kind": "mutate",
-    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py');s=p.read_text(encoding='utf-8');s=s.replace('\\\"record_declaration\\\"', '\\\"record_declaration_DISABLED\\\"');p.write_text(s,encoding='utf-8')\"",
-    "patch_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-    "applied": false,
-    "patch_applied_failed": false,
-    "exit_codes": []
+    "patch": "python -X utf8 -c \"import pathlib;q=chr(34);p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace(q+'record_declaration'+q,q+'record_declaration_DISABLED'+q,1),encoding='utf-8')\"",
+    "patch_sha256": "efaeda79c6659e5af5e00949297a97f0ff364df1fa5a5eaeed416680b9515dff",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py",
+      "?? .junit-0.xml"
+    ]
   },
   "holdout": {
     "ran": false,
     "passed": true,
     "detail": "no holdout for this card"
   },
-  "accepted": false,
-  "reason": "checks failed: {python} -m pytest tests/extraction/tree_sitter_engine/ tests/extraction/ -q; structural gate: {python} -m pytest tests/extraction/tree_sitter_engine/ tests/extraction/ -q: 1 skipped test(s); skips are not evidence; {python} -m pytest tests/extraction/tree_sitter_engine/ tests/extraction/ -q: 2 collection error(s); negative-control patch did not apply"
+  "accepted": true,
+  "reason": "all gates passed"
 }
