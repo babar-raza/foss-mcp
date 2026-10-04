@@ -1,0 +1,59 @@
+id: TC-210
+gate: G2
+lane: storage-retrieval
+purpose: 'Make search_symbols treat the C++ scope operator as a segment separator, so a C++ symbol is found by its short name. The live proof
+  on 2026-10-04 against the pdf/cpp pilot showed search_symbols for AFRelationship answering "no symbol matches" while the index holds
+  Aspose::Pdf::AFRelationship and the response itself suggested it. is_exact_symbol_hit compares the query with the final dotted segment of the
+  FQN and splits FQN words only at dots and underscores, so a C++ FQN written with :: is never split, and no short C++ name can be an exact hit.
+  That is a false honest-miss for every C++ product (pdf/cpp and cells/cpp). The fix is narrow: a final segment is whatever follows the last dot
+  or the last ::, and :: separates words as a dot does. Nothing else about matching changes.'
+depends_on:
+- TC-202
+- TC-209
+write_paths:
+- src/foss_mcp/mcp/tools/search_symbols.py
+- tests/mcp/test_search_symbols_honest_miss.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read src/foss_mcp/mcp/tools/search_symbols.py in full, especially _WORD_SEPARATORS, _symbol_words and is_exact_symbol_hit, and
+  tests/mcp/test_search_symbols_honest_miss.py in full.'
+- 'Make exactly two changes in src/foss_mcp/mcp/tools/search_symbols.py. (1) Add the colon to the word separator class, so the pattern source is
+  [\s._:]+ . (2) Replace the final-segment comparison full.rsplit(".", 1)[-1] with a split on a module-level compiled pattern whose source is
+  \.|::  , taking the last piece. Name it _FINAL_SEGMENT. Write both patterns exactly so, because the negative control edits them by text. The
+  text |:: must appear nowhere else in the file, and neither the new pattern nor a comment may contain it twice. Update the docstring of
+  is_exact_symbol_hit to say dotted or ::-scoped.'
+- 'Add tests to tests/mcp/test_search_symbols_honest_miss.py, keeping every existing test: with the FQN Aspose::Pdf::AFRelationship, the query
+  AFRelationship is an exact hit; the query afrelationship is an exact hit; the query Aspose::Pdf::AFRelationship is an exact hit; the query
+  Relationship is an exact hit (whole word); the query AFRelation is not a hit; the query Aspose::Pdf::Nonexistent is not a hit; and a dotted FQN
+  still behaves as before: the query Watermar is not a hit for PdfDocument.AddWatermarkAnnotation and watermark is.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the module and its test file.
+- Make the two edits and add the tests.
+- Run the card check and report exact counts.
+checks:
+- command: '{python} -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 28
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('|::','',1).replace('._:]+','._]+',1),encoding='utf-8')"
+  rationale: 'Removes :: from both the final-segment pattern and the word separators, which restores the defect seen live. Both edits are needed,
+    because either one alone still lets AFRelationship match. The new test for the short name of a :: scoped FQN must fail. Built with plain
+    text, since the patterns hold no quote.'
+evidence:
+- evidence/build/G2/TC-210/receipt.json
+closeout:
+- A C++ symbol is found by its short name, and an absent C++ name is still an honest miss.
+recovery: Re-run from a clean tree.

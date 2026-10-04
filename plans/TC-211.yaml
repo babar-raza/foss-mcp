@@ -1,0 +1,57 @@
+id: TC-211
+gate: G2
+lane: transport-deployment
+purpose: 'Make proof check 7 ask a C++ pilot a product-reference question the product can answer. The live proof on 2026-10-04 asks every
+  pilot for the install section. For C++ the server correctly answers NotAvailable with "cpp has no package-manager install command", because
+  C++ has no package manager and the server must never guess an install command. So check 7 can never pass for a C++ pilot even though the
+  server is right. The server also answers the compatibility section for C++ from CMakeLists.txt (the C++ standard), which is real product
+  information. This card makes check 7 fall back to compatibility for the cpp platform only, and still require non-empty text. It does not
+  relax any other platform, and a C++ pilot with neither section still fails.'
+depends_on:
+- TC-198
+- TC-209
+write_paths:
+- scripts/poc/pilot_workflow_proof.py
+- tests/poc/test_pilot_workflow_proof.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read scripts/poc/pilot_workflow_proof.py in full (check_7 and how checks reach the client and the pilot platform) and
+  tests/poc/test_pilot_workflow_proof.py in full, including how a fake client is built.'
+- 'Change check_7 only. It still asks for the install section first. When the pilot platform is cpp and the install answer has no non-empty
+  text, it asks for the compatibility section and passes only if that answer has non-empty text. Record both sections asked and both result
+  kinds in the evidence. For every other platform, behaviour is unchanged: no fallback. The word compatibility must appear in this file only
+  in that fallback code, with no comment or docstring containing it, because the negative control edits it by text. Update the check 7 title
+  string only if it needs to; the title must still contain get_product_reference.'
+- 'Add tests to tests/poc/test_pilot_workflow_proof.py, keeping every existing test: a cpp pilot whose install answer is NotAvailable and whose
+  compatibility answer has text passes check 7; a cpp pilot with both answers unavailable fails check 7; a non-cpp pilot whose install answer is
+  NotAvailable and whose compatibility answer has text still fails check 7, which proves no fallback leaks to other platforms.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the script and its test file.
+- Change check_7 and add the three tests.
+- Run the card check and report exact counts.
+checks:
+- command: '{python} -m pytest tests/poc/test_pilot_workflow_proof.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 11
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/poc/pilot_workflow_proof.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('compatibility','nonesuch'),encoding='utf-8')"
+  rationale: 'Renames the fallback section everywhere it appears in the script, so the cpp fallback asks a section the fake client does not
+    answer. The test where a cpp pilot passes through the fallback must fail. Built with plain text, since the word holds no quote.'
+evidence:
+- evidence/build/G2/TC-211/receipt.json
+closeout:
+- Check 7 passes for a C++ pilot when the server returns real compatibility information, and no other platform is relaxed.
+recovery: Re-run from a clean tree.
