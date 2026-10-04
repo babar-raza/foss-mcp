@@ -1,0 +1,75 @@
+id: TC-176
+gate: G2
+lane: verification
+purpose: 'Remove the hidden network dependency that the D2 container runner exposed. The
+  tree-sitter language pack downloads its grammar manifest from GitHub on first use. On the host,
+  an earlier run cached it, so an offline card looked offline and was not. Inside the verify
+  container, which has no network, TC-168 fails with a DownloadError (matrix canary,
+  scratchpad env_matrix2.log, 2026-10-04). Bake the grammars into the image at BUILD time, when
+  the network is allowed, and prove the image then parses offline. The default runner cannot
+  flip to the container until this holds.'
+depends_on:
+- TC-174
+- TC-175
+write_paths:
+- Dockerfile.ingestion
+- tests/infra/test_verify_image_offline.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model â€” an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes Â§1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'The language pack is tree_sitter_language_pack==1.16.1 (pinned in requirements.lock). Its
+  DownloadError message names https://github.com/xberg-io/tree-sitter-language-pack/releases/download/v1.16.1/parsers.json.
+  Find out, by reading the installed package source inside the image, which environment variable
+  or directory controls where it caches the manifest and grammar shared objects. Do not guess the
+  name: read it from the package.'
+- 'The grammar set must cover every language the extraction engine uses. Read
+  src/foss_mcp/extraction/tree_sitter_engine (the language list and the get_parser calls) and list
+  the language names in your report. Bake exactly that set.'
+- 'Add a RUN step to Dockerfile.ingestion, after the pip install, that sets the cache location and
+  calls get_parser for each language in the set, so the grammars are downloaded during docker build.
+  The build has network access. The runtime does not need it.'
+- 'tests/infra/test_verify_image_offline.py (new). It runs the built image with --network none and
+  parses a small Java snippet and a small Python snippet with the same get_parser call the extraction
+  engine makes, then asserts a non-empty tree. It must not mock anything.'
+- 'Build the image with docker build -f Dockerfile.ingestion -t foss-mcp-verify:local . . It takes
+  several minutes. The checks rebuild it, so the card is self-contained.'
+actions:
+- Read the installed tree_sitter_language_pack package to find its cache setting. Record the name you found.
+- Read src/foss_mcp/extraction/tree_sitter_engine to list the languages the engine uses.
+- Edit Dockerfile.ingestion to bake the grammars at build time, with the cache location set.
+- Write tests/infra/test_verify_image_offline.py.
+- Build the image, then run the offline test.
+checks:
+- command: 'docker build -f Dockerfile.ingestion -t foss-mcp-verify:local .'
+  expect: exit 0
+  timeout_seconds: 3000
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/infra/test_verify_image_offline.py -q'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 2
+network: false
+requires:
+- docker
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('Dockerfile.ingestion');s=p.read_text(encoding='utf-8');p.write_text(s.replace('tree_sitter_language_pack','tree_sitter_language_pack_OFF'),encoding='utf-8')"
+  rationale: 'Renames the language pack inside Dockerfile.ingestion. The grammar bake step then no
+    longer loads the pack, so the offline image cannot parse, and the offline test must fail. This
+    proves the test depends on the bake, not on a cache that happens to exist. Built without
+    backslashes or nested quotes.'
+evidence:
+- evidence/build/G2/TC-176/receipt.json
+closeout:
+- Dockerfile.ingestion bakes the grammars during the build.
+- The image parses with --network none, proven by the offline test.
+- The mutation that removes the bake makes the offline test fail.
+recovery: Re-run from a clean tree.
