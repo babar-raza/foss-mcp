@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-172",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-04T06:09:27Z",
+  "base_rev": "e5aa9d3d1f0d6d0fd848a80307109a8d8f7db4b5",
+  "head_rev": "04e546028da454965a79a54c3cdf16a62336233f",
+  "card_sha256": "4851bf27c8796608ed528be145820b7a60bfb9da7be46df050f505d6e4cf0502",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "Dockerfile.ingestion",
+      "docker-compose.yml",
+      "tests/e2e/test_pdf_cpp_live_content.py",
+      "tests/infra/test_compose_pdf_cpp.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_compose_pdf_cpp.py -q",
+          "exit_code": 0,
+          "duration_s": 0.866,
+          "stdout_sha256": "c4b808d34f4db00b333696dec1f3a43a2887d8bfe0cb7af07a3cb98ff43a7830",
+          "tests": 4,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_compose_pdf_cpp.py -q",
+          "exit_code": 0,
+          "duration_s": 0.559,
+          "stdout_sha256": "c4b808d34f4db00b333696dec1f3a43a2887d8bfe0cb7af07a3cb98ff43a7830",
+          "tests": 4,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('docker-compose.yml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('manifests-pdf-cpp:/data/manifests','manifests-pdf-cpp-DISABLED:/data/manifests'),encoding='utf-8')\"",
+    "patch_sha256": "cc144e19cdd4f355b4a85c8eeda09938269318e891b70aed331df342abe60921",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M docker-compose.yml",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
