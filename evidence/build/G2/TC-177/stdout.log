@@ -1,0 +1,39 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ntg99fed\.junit-0.xml"
+--- stdout ---
+.............                                                            [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ntg99fed\.junit-0.xml"
+--- stdout ---
+.............                                                            [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/templates/deployment.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ntg99fed\.junit-0.xml"
+--- stdout ---
+...F.........                                                            [100%]
+================================== FAILURES ===================================
+______________ test_serving_deployment_runs_the_http_entrypoint _______________
+
+    def test_serving_deployment_runs_the_http_entrypoint() -> None:
+        _, _, container = _serving(_render())
+>       assert container["command"] == ["python", "/app/infra/serve_http.py"]
+E       AssertionError: assert ['python', '/..._http_OFF.py'] == ['python', '/...erve_http.py']
+E         
+E         At index 1 diff: '/app/infra/serve_http_OFF.py' != '/app/infra/serve_http.py'
+E         Use -v to get more diff
+
+tests\infra\test_helm_chart.py:171: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_chart.py::test_serving_deployment_runs_the_http_entrypoint
+
+--- stderr ---
+

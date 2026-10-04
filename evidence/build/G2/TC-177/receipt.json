@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "card": "TC-177",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-04T11:11:08Z",
+  "base_rev": "f57999c89e3b3d5ddc1dae03f16c904d6472ffae",
+  "head_rev": "14d6d07a1564fa24e097eb887e3f31d6ceb9d775",
+  "card_sha256": "6477ae0ff749890a03110cb3d58fabc3326020f86b38a34538eac10a2e7f3648",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/helm/foss-mcp/templates/_helpers.tpl",
+      "infra/helm/foss-mcp/templates/deployment.yaml",
+      "infra/helm/foss-mcp/templates/ingestion-job.yaml",
+      "infra/helm/foss-mcp/templates/networkpolicy.yaml",
+      "infra/helm/foss-mcp/templates/pvc.yaml",
+      "infra/helm/foss-mcp/templates/service.yaml",
+      "infra/helm/foss-mcp/values.yaml",
+      "scripts/toolchain/activate.ps1",
+      "tests/infra/test_helm_chart.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_chart.py -q",
+          "exit_code": 0,
+          "duration_s": 2.158,
+          "stdout_sha256": "cfc14fd2dc11c362cccf5421245ca5ab0e9d286b54a604a80bd2dd5522f6feb9",
+          "tests": 13,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_chart.py -q",
+          "exit_code": 0,
+          "duration_s": 1.794,
+          "stdout_sha256": "cfc14fd2dc11c362cccf5421245ca5ab0e9d286b54a604a80bd2dd5522f6feb9",
+          "tests": 13,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/deployment.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('serve_http.py','serve_http_OFF.py'),encoding='utf-8')\"",
+    "patch_sha256": "5115216d7d124c3ffb7b2c4718d43cfee2285fb7e20644e786fec1994f18d640",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/helm/foss-mcp/templates/deployment.yaml",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
