@@ -1,0 +1,66 @@
+id: TC-203
+gate: G2
+lane: transport-deployment
+purpose: 'Finish the packaging-manifest sidecar work that TC-201 started, and make its tests detect the breaks they claim to
+  detect. TC-201 used all three of its attempts. Its reviewed rework is correct: each product writes its own sidecar, named by its
+  identity, serving reads only its own identity''s file, and the ingestion image carries the reader. But its falsifier was vacuous:
+  breaking the fetch command in the ingestion Job template did not make any test fail, so nothing proves the Job runs the sidecar
+  step. This card carries the same reviewed content and adds the assertion that closes that gap. TC-201 is superseded by this card.'
+depends_on:
+- TC-200
+- TC-197
+write_paths:
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
+- infra/helm/foss-mcp/values.yaml
+- tests/infra/test_helm_manifest_step.py
+- Dockerfile.serving
+- Dockerfile.ingestion
+- infra/fetch_product_reference.py
+- infra/serve_http.py
+- tests/infra/test_serve_manifest_sidecar.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'The reviewed content is committed on branch worker/TC-201 at commit 0b37ea5. Its six files are the content of this card.
+  Take them with git checkout 0b37ea5 -- <file> from that branch, one file at a time, into your worktree. Read each file before
+  you rely on it. Do not take anything else from that branch.'
+- 'Read plans/TC-201.yaml at this revision for the rework list R1 to R5 and the five restated tests, which are already in the code.
+  Do not restate anything again.'
+- 'Add one assertion to tests/infra/test_helm_manifest_step.py that the rendered Job command for each pilot with a manifestPath
+  invokes /app/infra/fetch_product_reference.py with the output name that sidecar_name returns for that pilot. It must read the
+  rendered Job from helm template, not the template text, so that editing the template command makes it fail. The falsifier relies
+  on that.'
+- 'Keep every test and assertion that already exists.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Take the six reviewed files from worker/TC-201 at 0b37ea5.
+- Add the rendered-command assertion.
+- Run the chart and manifest tests, and report the exact counts.
+- Commit the changed files as one commit tagged for this card.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_manifest_step.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py -q'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 40
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/ingestion-job.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('fetch_product_reference.py','fetch_product_reference_off.py',1),encoding='utf-8')"
+  rationale: 'Renames the fetch command in the ingestion Job template, so the rendered Job calls a script that does not exist. The
+    rendered-command assertion added to test_helm_manifest_step.py must then fail. This is the check TC-201''s falsifier showed was
+    missing. The replace is limited to the first match, which is the template command. Built with plain text, since it has no quote
+    or backslash.'
+evidence:
+- evidence/build/G2/TC-203/receipt.json
+closeout:
+- Each pilot with a manifest path writes its own sidecar during ingestion, and its serving pod reads only that file.
+- A break in the Job''s fetch command makes the test suite fail.
+recovery: Re-run from a clean tree.
