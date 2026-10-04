@@ -712,6 +712,41 @@ def _review_related_tests(card: str, head: str, issue: str) -> tuple[bool, str]:
         G.run(["git", "worktree", "remove", "--force", str(tmp)])
 
 
+def format_check_targets(changed_paths: list[str]) -> list[str]:
+    """The Python files a card changed, which the repository formatter must leave untouched.
+
+    Pure, so the rule is testable without git or ruff.
+    """
+    return sorted(p for p in changed_paths if p.endswith(".py"))
+
+
+def _review_format(changed_paths: list[str], head: str) -> tuple[bool, str]:
+    """Run `ruff format --check` on the card's changed Python files at the head.
+
+    Added 2026-10-05, after three accepted cards (TC-209, TC-212, TC-213) left test files the CI format
+    gate rejects: a card's own checks are not the whole contract, and the formatter is part of it.
+    Returns (passed, output). Files the card deleted are skipped. The worktree is removed afterwards.
+    """
+    targets = format_check_targets(changed_paths)
+    if not targets:
+        return True, "no python files changed"
+    tmp = Path(tempfile.mkdtemp(prefix="review_format_"))
+    try:
+        G.run(["git", "worktree", "add", "--detach", str(tmp), head])
+        present = [p for p in targets if (tmp / p).is_file()]
+        if not present:
+            return True, "no python files remain at the head"
+        proc = subprocess.run(
+            [str(G.venv_python()), "-m", "ruff", "format", "--check", *present],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+        )
+        return proc.returncode == 0, (proc.stdout + proc.stderr)[-2000:]
+    finally:
+        G.run(["git", "worktree", "remove", "--force", str(tmp)])
+
+
 def cmd_review(args) -> int:
     """The supervisor's whole per-card action: verify, then accept or reject.
 
@@ -759,6 +794,12 @@ def cmd_review(args) -> int:
         print(related_out)
         return G.EXIT_FAIL
     print(f"coverage     : ok ({related_out.splitlines()[-1] if related_out else 'no related tests'})")
+    format_ok, format_out = _review_format(r["scope"]["changed_paths"], args.head)
+    if not format_ok:
+        print("REWORK REQUIRED — ruff format --check fails for files this card changed:")
+        print(format_out)
+        return G.EXIT_FAIL
+    print(f"format       : ok ({format_out.splitlines()[-1] if format_out else 'clean'})")
     args_accept = argparse.Namespace(card=args.card, force_order=args.force_order)
     return cmd_accept(args_accept)
 

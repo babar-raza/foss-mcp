@@ -1,0 +1,34 @@
+"""Canaries for the review format rule (2026-10-05).
+
+Review ran a card's own checks and the related offline tests, but never the formatter. TC-209, TC-212
+and TC-213 were accepted with test files that `ruff format --check` rejects, and the CI format gate
+would have failed on push. The rule now: review also runs the formatter over the Python files the card
+changed. These canaries pin the selection rule, which is pure, and prove the review command calls the
+step, because a correct helper that nothing calls is the failure this project has already had.
+"""
+
+from __future__ import annotations
+
+import inspect
+
+import gatecli as C
+
+
+def test_only_python_files_are_selected():
+    changed = ["src/a.py", "plans/TC-1.yaml", "Dockerfile.ingestion", "tests/test_a.py"]
+    assert C.format_check_targets(changed) == ["src/a.py", "tests/test_a.py"]
+
+
+def test_the_selection_is_sorted_and_stable():
+    assert C.format_check_targets(["z.py", "a.py"]) == ["a.py", "z.py"]
+
+
+def test_no_python_change_selects_nothing():
+    assert C.format_check_targets(["docs/DECISION_LOG.md"]) == []
+
+
+def test_review_calls_the_format_step_after_coverage():
+    source = inspect.getsource(C.cmd_review)
+    assert "_review_format(" in source
+    assert source.index("_review_related_tests(") < source.index("_review_format(")
+    assert source.index("_review_format(") < source.index("cmd_accept(")
