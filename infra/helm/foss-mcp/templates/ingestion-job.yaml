@@ -2,6 +2,13 @@
 One Job per entry in .Values.ingestion.pilots. Each runs the same two-step chain as the
 ingest-<pilot> services in docker-compose.yml: infra/build_chunks.py, then infra/ingest.py. Every
 Job mounts the manifests claim read-write, so the serving pod (read-only) reads what it publishes.
+
+A pilot with a manifestPath gets a third step after the chain: infra/fetch_product_reference.py,
+which writes that pilot's packaging-manifest sidecar to the manifests claim. The file name is
+product_reference_<family>_<platform>.json, the name sidecar_name(family, platform) returns in
+infra/fetch_product_reference.py, which the serving pod for the same identity reads. Each pilot
+has its own file, so the pilots never overwrite one another. A pilot without manifestPath gets
+no such step.
 */ -}}
 {{- range $p := .Values.ingestion.pilots }}
 {{- $lib := $p.library | default (dict) }}
@@ -67,6 +74,15 @@ spec:
               --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
               --api-surface {{ $p.apiSurface }}
               --held-by {{ $p.heldBy }}
+              {{- with $p.manifestPath }}
+              &&
+              python /app/infra/fetch_product_reference.py
+              --repository {{ $lib.repository }}
+              --platform {{ $p.platform }}
+              --manifest-path {{ . }}
+              --ref {{ $lib.commit | quote }}
+              --output {{ $.Values.manifests.mountPath }}/{{ printf "product_reference_%s_%s.json" $p.family $p.platform }}
+              {{- end }}
           # The root filesystem is read-only. The library steps write under /tmp (tempfile), and
           # their toolchain caches write under HOME. cargo's registry lives in CARGO_HOME, which the
           # image sets inside the read-only root, so it is redirected to the home emptyDir. The

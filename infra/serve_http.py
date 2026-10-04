@@ -33,11 +33,10 @@ import json
 import logging
 import os
 import sys
-from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fetch_product_reference import PRODUCT_REFERENCE_SIDECAR_NAME, load_manifest_sidecar
+from fetch_product_reference import load_manifest_sidecar, sidecar_name
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
@@ -54,8 +53,10 @@ from foss_mcp.mcp.transport_security import reject_request
 from foss_mcp.telemetry.usage_recorder import UsageRecorder
 
 DEFAULT_PORT = 8080
-# The chart sets FOSS_MCP_PLATFORM on every serving deployment; it is the platform the sidecar
-# is read for. There is deliberately no default: an unset platform must never fall back to .NET.
+# The chart sets FOSS_MCP_FAMILY and FOSS_MCP_PLATFORM on every serving deployment. Together they
+# name the one identity this container serves, and the only sidecar it reads is that identity's.
+# There are deliberately no defaults: an unset identity must never fall back to another product.
+FAMILY_ENV = "FOSS_MCP_FAMILY"
 PLATFORM_ENV = "FOSS_MCP_PLATFORM"
 # The chart mounts the manifests claim at this path (values.yaml manifests.mountPath).
 MANIFESTS_DIR_ENV = "FOSS_MCP_MANIFESTS_DIR"
@@ -229,22 +230,35 @@ def _metrics_route(usage_recorder: UsageRecorder) -> Route:
     return Route(METRICS_PATH, metrics, methods=["GET"])
 
 
-def _serving_product_reference_inputs(manifests_dir: Path) -> ProductReferenceInputs | None:
-    """The product's own packaging manifest, from the sidecar in *manifests_dir*, or None when
-    no sidecar exists (create_server then answers the explicit NotAvailable for every
-    manifest-derived section).
+def _required_env(name: str) -> str:
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise RuntimeError(f"{name} must be set: serving reads only its own identity's sidecar")
+    return value
 
-    The sidecar's own ``platform`` field is replaced by the deployment's ``FOSS_MCP_PLATFORM``:
-    the deployment, not the file, names the product this container serves. A sidecar present with
-    the platform unset raises, so serving fails at start rather than parsing a manifest as .NET.
+
+def _serving_product_reference_inputs(
+    manifests_dir: Path, deployment_config: DeploymentConfig
+) -> ProductReferenceInputs | None:
+    """The product's own packaging manifest, from the sidecar for this deployment's identity in
+    *manifests_dir*, or None when that sidecar does not exist yet (create_server then answers the
+    explicit NotAvailable for every manifest-derived section).
+
+    The identity is the deployment's family and platform, which ``main`` reads from the required
+    ``FOSS_MCP_FAMILY`` and ``FOSS_MCP_PLATFORM``. Only the file ``sidecar_name`` gives for that
+    identity is read; there is no fallback to another file. A sidecar whose platform differs from
+    the deployment's raises rather than being rewritten.
     """
-    sidecar = load_manifest_sidecar(manifests_dir / PRODUCT_REFERENCE_SIDECAR_NAME)
+    family = deployment_config.family
+    platform = deployment_config.platform
+    sidecar = load_manifest_sidecar(manifests_dir / sidecar_name(family, platform))
     if sidecar is None:
         return None
-    platform = os.environ.get(PLATFORM_ENV, "").strip()
-    if not platform:
-        raise RuntimeError(f"{PLATFORM_ENV} must be set when a product reference sidecar is present")
-    return replace(sidecar, platform=platform)
+    if sidecar.platform != platform:
+        raise RuntimeError(
+            f"sidecar platform {sidecar.platform!r} does not match {PLATFORM_ENV}={platform!r}"
+        )
+    return sidecar
 
 
 def build_app(
@@ -281,7 +295,7 @@ def build_app(
     server = create_server(
         deployment_config,
         resolved_store,
-        product_reference_inputs=_serving_product_reference_inputs(resolved_manifests_dir),
+        product_reference_inputs=_serving_product_reference_inputs(resolved_manifests_dir, deployment_config),
         usage_recorder=resolved_usage_recorder,
     )
     allowed_origins = allowed_origins_from_env() if allowed_origins is None else allowed_origins
@@ -298,15 +312,21 @@ def build_app(
     )
 
 
+def deployment_config_from_env() -> DeploymentConfig:
+    """The identity this container serves, from the environment. Raises when FOSS_MCP_FAMILY or
+    FOSS_MCP_PLATFORM is unset, so a container with no identity fails at start."""
+    return DeploymentConfig(
+        family=_required_env(FAMILY_ENV),
+        platform=_required_env(PLATFORM_ENV),
+        source_kind=os.environ.get("FOSS_MCP_SOURCE_KIND", "self_extracted"),
+    )
+
+
 def main() -> None:
     import uvicorn
 
     configure_logging()
-    config = DeploymentConfig(
-        family=os.environ.get("FOSS_MCP_FAMILY", "pdf"),
-        platform=os.environ.get("FOSS_MCP_PLATFORM", "net"),
-        source_kind=os.environ.get("FOSS_MCP_SOURCE_KIND", "self_extracted"),
-    )
+    config = deployment_config_from_env()
     # log_config=None: uvicorn must not install its own dictConfig over configure_logging(),
     # or its access/error lines would bypass the JSON formatter and go to stderr as plain text.
     uvicorn.run(

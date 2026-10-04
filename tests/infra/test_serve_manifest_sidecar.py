@@ -43,6 +43,7 @@ def _write_sidecar(
     *,
     platform: str,
     manifest_text: str,
+    family: str = "pdf",
 ) -> Path:
     """Build the sidecar through the real build_sidecar, with only its network readers faked, and
     write it to the file name serving reads."""
@@ -62,7 +63,7 @@ def _write_sidecar(
         agent_guidance_path="AGENTS.md",
         ref=None,
     )
-    (tmp_path / fetch_product_reference.PRODUCT_REFERENCE_SIDECAR_NAME).write_text(
+    (tmp_path / fetch_product_reference.sidecar_name(family, platform)).write_text(
         json.dumps(sidecar), encoding="utf-8"
     )
     return tmp_path
@@ -71,7 +72,7 @@ def _write_sidecar(
 def _serve(tmp_path: Path, config: DeploymentConfig, manifests_dir: Path) -> dict:
     """The tool registry for the serving-side inputs read from *manifests_dir*. create_server is
     built with the same inputs first, so the registry is the one a real server would expose."""
-    inputs = serve_http._serving_product_reference_inputs(manifests_dir)
+    inputs = serve_http._serving_product_reference_inputs(manifests_dir, config)
     store = GenerationManifestStore(tmp_path / "store")
     assert create_server(config, store, product_reference_inputs=inputs) is not None
     scope = resolve_scope(config, request=None)
@@ -82,7 +83,6 @@ def test_serving_with_a_sidecar_answers_the_exact_target_framework(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     manifests = _write_sidecar(tmp_path, monkeypatch, platform="net", manifest_text=PDF_NET_CSPROJ)
-    monkeypatch.setenv(serve_http.PLATFORM_ENV, "net")
 
     registry = _serve(tmp_path, NET_CONFIG, manifests)
     answer = registry["get_product_reference"](section="compatibility")
@@ -94,7 +94,6 @@ def test_serving_with_a_sidecar_answers_the_exact_target_framework(
 def test_serving_with_no_sidecar_answers_not_available_with_its_reason_and_does_not_raise(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.delenv(serve_http.PLATFORM_ENV, raising=False)
     empty_manifests = tmp_path / "no-sidecar"
     empty_manifests.mkdir()
 
@@ -112,7 +111,6 @@ def test_a_typescript_sidecar_reaches_the_engines_node_branch_not_the_dotnet_bra
     manifests = _write_sidecar(
         tmp_path, monkeypatch, platform="typescript", manifest_text=TYPESCRIPT_PACKAGE_JSON
     )
-    monkeypatch.setenv(serve_http.PLATFORM_ENV, "typescript")
     ts_config = DeploymentConfig(family="pdf", platform="typescript")
 
     registry = _serve(tmp_path, ts_config, manifests)
@@ -126,7 +124,6 @@ def test_a_typescript_sidecar_reaches_the_engines_node_branch_not_the_dotnet_bra
 
 def test_the_tool_input_schema_exposes_only_section(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     manifests = _write_sidecar(tmp_path, monkeypatch, platform="net", manifest_text=PDF_NET_CSPROJ)
-    monkeypatch.setenv(serve_http.PLATFORM_ENV, "net")
 
     registry = _serve(tmp_path, NET_CONFIG, manifests)
     schema = schema_for(registry["get_product_reference"])
@@ -139,7 +136,8 @@ def test_a_present_sidecar_with_the_platform_unset_fails_at_start(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _write_sidecar(tmp_path, monkeypatch, platform="net", manifest_text=PDF_NET_CSPROJ)
+    monkeypatch.setenv(serve_http.FAMILY_ENV, "pdf")
     monkeypatch.delenv(serve_http.PLATFORM_ENV, raising=False)
 
     with pytest.raises(RuntimeError, match="FOSS_MCP_PLATFORM"):
-        serve_http._serving_product_reference_inputs(tmp_path)
+        serve_http.deployment_config_from_env()

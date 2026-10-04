@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 from foss_mcp.extraction.manifest_reader import fetch_manifest_file
@@ -34,9 +35,21 @@ from foss_mcp.extraction.repo_native_reader import (
 )
 from foss_mcp.mcp.tools.get_product_reference import ProductReferenceInputs
 
-# The file name serving looks for inside its manifests directory. The CLI writes wherever
-# --output points; the ingestion side must place the sidecar at this name for serving to see it.
-PRODUCT_REFERENCE_SIDECAR_NAME = "product_reference.json"
+_IDENTITY_PART = re.compile(r"[a-z0-9]+")
+
+
+def sidecar_name(family: str, platform: str) -> str:
+    """The file name one identity's sidecar lives under in the manifests directory.
+
+    The ingestion Job for a pilot writes this name, and serving for the same identity reads it.
+    Every pilot has its own name, so the pilots never overwrite one another on the shared claim.
+    The parts are restricted to lowercase letters and digits, so the name cannot leave the
+    directory.
+    """
+    for part in (family, platform):
+        if not _IDENTITY_PART.fullmatch(part):
+            raise ValueError(f"sidecar identity part {part!r} must be lowercase letters and digits")
+    return f"product_reference_{family}_{platform}.json"
 
 
 def _serialize_document(document: DocumentResult) -> dict:
