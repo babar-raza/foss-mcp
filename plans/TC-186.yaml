@@ -1,0 +1,62 @@
+id: TC-186
+gate: G2
+lane: transport-deployment
+purpose: 'Put the .NET 8 SDK toolchain change under governance. The SDK 8.0.425 is installed under
+  C:\dev-tools\foss-mcp\dotnet-8 and pinned in scripts/toolchain/toolchain.lock.json by SHA-512.
+  scripts/toolchain/activate.ps1 puts it on PATH and sets DOTNET_ROOT. The change was made directly
+  for test_build_chunks, which fails loudly without an SDK, and it was never committed, because the
+  commit guard treats scripts/ as product paths. This card lets a worker commit the verified change,
+  with a test that the lock and the activation script agree about where the SDK lives. Without that
+  test, the lock and the activation could drift apart silently.'
+depends_on:
+- TC-177
+write_paths:
+- scripts/toolchain/activate.ps1
+- scripts/toolchain/toolchain.lock.json
+- tests/toolchain/test_dotnet_toolchain.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'The candidate is already in your worktree, uncommitted: scripts/toolchain/activate.ps1 and
+  scripts/toolchain/toolchain.lock.json. Read both in full. They are the candidate under review. Do not
+  replace them with other content. Fix them only if a check below fails for a reason inside your card.'
+- 'The lock must contain an entry named dotnet-8-sdk with version 8.0.425, relative_path dotnet-8, and a
+  128-character SHA-512 that matches Microsoft''s release metadata. The existing dotnet-sdk entry for the
+  system install must be left unchanged.'
+- 'Add tests/toolchain/test_dotnet_toolchain.py as a new file. It must be offline and static. Three tests:
+  (1) the lock has dotnet-8-sdk with version 8.0.425, relative_path dotnet-8, and a 128-hex sha512;
+  (2) activate.ps1 contains the dotnet-8 folder in both the PATH list and the DOTNET_ROOT assignment, and
+  each occurrence names the same folder as the lock''s relative_path; (3) the existing dotnet-sdk system
+  entry is still present and unchanged. Do not read C:\dev-tools in the test, so that CI can run it.'
+- 'Do not skip any test. Do not change the existing helm and other toolchain entries.'
+actions:
+- Read both candidate files and the new test requirement in full.
+- Write the new test file.
+- Run the test with the toolchain activated in the same command, and report the exact counts.
+- Commit the three write_paths files.
+checks:
+- command: '{python} -m pytest tests/toolchain/test_dotnet_toolchain.py -q'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 3
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/toolchain/activate.ps1');s=p.read_text(encoding='utf-8');p.write_text(s.replace(chr(39)+'dotnet-8'+chr(39),chr(39)+'dotnet-9'+chr(39)),encoding='utf-8')"
+  rationale: 'Renames the dotnet-8 folder in activate.ps1 to dotnet-9, in both places it appears. The
+    lock still says dotnet-8. Test 2 compares the two and must fail. This proves the test reads the
+    activation script, not only the lock. Built with chr() so that no backslash reaches the shell.'
+evidence:
+- evidence/build/G2/TC-186/receipt.json
+closeout:
+- The lock and the activation script name the same .NET SDK folder, and a test enforces it.
+- The system dotnet-sdk entry is unchanged.
+recovery: Re-run from a clean tree.
