@@ -6,6 +6,7 @@ eleven checks the live run does, against small fixtures written under tmp_path.
 
 from __future__ import annotations
 
+import dataclasses
 import importlib.util
 import json
 import sys
@@ -286,3 +287,62 @@ def test_the_report_is_written_and_exits_zero_only_when_every_applicable_check_p
     assert exit_code == 1
     assert report["all_applicable_passed"] is False
     assert _check(report["checks"], 2)["status"] == "fail"
+
+
+UNAVAILABLE_INSTALL = {"section": "install", "reason": "cpp has no package-manager install command"}
+UNAVAILABLE_OTHER = {"section": "other", "reason": "not available"}
+STANDARD_TEXT = "Requires a C++17 compiler and CMake 3.20."
+
+
+def _reference_answers(by_section: dict[str, Any]) -> dict[str, Any]:
+    answers = passing_answers()
+    answers["get_product_reference"] = lambda arguments: by_section.get(arguments["section"], UNAVAILABLE_OTHER)
+    return answers
+
+
+def _check_7_for(root: Path, platform: str, by_section: dict[str, Any]) -> tuple[dict[str, Any], FakeClient]:
+    pilot = dataclasses.replace(pwp.load_pilot(PILOT, root), platform=platform)
+    client = FakeClient(_reference_answers(by_section))
+    return _check(pwp.run_checks(client, pilot), 7), client
+
+
+def test_a_cpp_pilot_with_no_install_command_passes_check_7_on_its_compatibility_text(tmp_path: Path) -> None:
+    _write_fixtures(tmp_path)
+    check7, _ = _check_7_for(
+        tmp_path,
+        "cpp",
+        {"install": UNAVAILABLE_INSTALL, "compatibility": {"section": "compatibility", "text": STANDARD_TEXT}},
+    )
+    assert check7["status"] == "pass"
+    assert check7["evidence"]["sections_asked"] == ["install", "compatibility"]
+    assert check7["evidence"]["result_kinds"] == [
+        "object with keys ['reason', 'section']",
+        "object with keys ['section', 'text']",
+    ]
+    assert check7["evidence"]["text"] == STANDARD_TEXT
+
+
+def test_a_cpp_pilot_with_neither_section_fails_check_7(tmp_path: Path) -> None:
+    _write_fixtures(tmp_path)
+    check7, _ = _check_7_for(
+        tmp_path,
+        "cpp",
+        {
+            "install": UNAVAILABLE_INSTALL,
+            "compatibility": {"section": "compatibility", "text": "   ", "reason": "no standard found"},
+        },
+    )
+    assert check7["status"] == "fail"
+    assert check7["evidence"]["sections_asked"] == ["install", "compatibility"]
+
+
+def test_a_non_cpp_pilot_gets_no_compatibility_fallback_in_check_7(tmp_path: Path) -> None:
+    _write_fixtures(tmp_path)
+    check7, client = _check_7_for(
+        tmp_path,
+        "rust",
+        {"install": UNAVAILABLE_INSTALL, "compatibility": {"section": "compatibility", "text": STANDARD_TEXT}},
+    )
+    assert check7["status"] == "fail"
+    assert check7["evidence"]["sections_asked"] == ["install"]
+    assert client.calls.count("get_product_reference") == 1

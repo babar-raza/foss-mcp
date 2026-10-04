@@ -454,13 +454,31 @@ def check_6(run: _Run) -> dict[str, Any]:
 
 def check_7(run: _Run) -> dict[str, Any]:
     result = run.call("get_product_reference", {"section": "install"})
-    evidence: dict[str, Any] = {"section": "install", "result_kind": shape(result)}
+    evidence: dict[str, Any] = {
+        "section": "install",
+        "sections_asked": ["install"],
+        "result_kind": shape(result),
+        "result_kinds": [shape(result)],
+    }
     if not isinstance(result, dict):
         raise CheckFailed(f"get_product_reference returned {shape(result)}", evidence)
     text = result.get("text")
     if isinstance(text, str) and text.strip():
         evidence["text"] = text.strip()[:200]
         return evidence
+    if run.pilot.platform == "cpp":
+        fallback = run.call("get_product_reference", {"section": "compatibility"})
+        evidence["section"] = "compatibility"
+        evidence["sections_asked"].append("compatibility")
+        evidence["result_kind"] = shape(fallback)
+        evidence["result_kinds"].append(shape(fallback))
+        if not isinstance(fallback, dict):
+            raise CheckFailed(f"get_product_reference returned {shape(fallback)}", evidence)
+        fallback_text = fallback.get("text")
+        if isinstance(fallback_text, str) and fallback_text.strip():
+            evidence["text"] = fallback_text.strip()[:200]
+            return evidence
+        result = fallback
     raise CheckFailed(
         f"get_product_reference returned no product information: {result.get('reason', result)}", evidence
     )
