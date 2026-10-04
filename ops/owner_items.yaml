@@ -91,3 +91,19 @@ owner_items:
     safety practice, now sized for the REAL hook runtime (multiple minutes, not
     25s) given how large this project''s test suite has grown.'
   last_checked_at: '2026-09-27T00:00:00Z'
+- id: OWNER-04
+  status: BLOCKED_EXTERNAL
+  summary: 'The mission plan (C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md)
+    is absent on this machine (2026-10-03). `gatectl validate` fails 184 source_ref
+    checks on it. Nothing else is affected: review, accept, gate-exit and worker-tick
+    never read source_refs. Workers must not read the plan, so card execution is unaffected.'
+  resume_predicate: 'Restore the mission plan file to C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+    (read-only reference; never edited by any agent), then `.venv\Scripts\python.exe
+    ops\gatectl.py validate` exits 0. If its content differs from the version the cards
+    were digested against, validate will report the changed anchors; those are a
+    finding to resolve, not to hand-edit around.'
+  consumed_by:
+  - NONE
+  recorded_at: '2026-10-03T00:00:00Z'
+  note: 'Blocks validate only (a governance assertion run at gate boundaries and in CI), not any card or dispatch. Owner-only: the file is not in the repository and no agent can produce it. Does not stop the loop.'
+  last_checked_at: '2026-10-03T00:00:00Z'
