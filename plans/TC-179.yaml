@@ -45,7 +45,8 @@ checks:
 min_tests: 14
 network: false
 negative_control:
-  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/networkpolicy.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('port: 53','port: 5353'),encoding='utf-8')"
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/networkpolicy.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('port: 53','port: 5353'),encoding='utf-8')"
   rationale: 'Changes the DNS port in the rendered rule from 53 to 5353. The new test asserts port 53,
     so it must fail. This proves the test reads the rendered policy, not just that a rule exists.'
 evidence:
