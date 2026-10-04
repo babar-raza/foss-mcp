@@ -14,6 +14,7 @@ depends_on:
 - TC-197
 write_paths:
 - src/foss_mcp/mcp/tools/search_symbols.py
+- src/foss_mcp/mcp/tools/lookup.py
 - tests/mcp/test_search_symbols_honest_miss.py
 - tests/mcp/tools/test_retrieval_tools.py
 satisfies:
@@ -48,6 +49,17 @@ inputs:
   or its final segment, compared case-insensitively, OR every word of the query, split at camel-case boundaries and at dots and
   underscores and lowercased, is a whole word among the words of the FQN. "Tc197AbsentSymbolProbe" shares no word with
   "BarcodeField" and so still misses. A fuzzy or partial word such as "Probe" alone must still not match a longer unrelated word.'
+- 'Third amendment, same date, after the attempt-2 block. Four assertions in tests/mcp/tools/test_retrieval_tools.py (lines
+  555, 654, 785 and 830) break under the token rule, for a reason the rule does not own. lookup''s symbol-first path stops at a
+  symbol miss, so a prose question ("how do I add a watermark to a PDF") or a bare word never reaches the document path, which
+  is where its furnished match lives. The honest-miss rule belongs to search_symbols. lookup must fall back to its document
+  path when its symbol-first search returns a miss, so a prose query still returns the furnished document match. Make that
+  change in src/foss_mcp/mcp/tools/lookup.py only. Do not change those four assertions. The inline "Workbook" body fixture near
+  line 830 gets its FQN: line, as a real chunk has, with no assertion change.'
+- 'Fourth amendment, same date. test_a_partial_name_is_not_a_match in tests/mcp/test_search_symbols_honest_miss.py must use a
+  true partial word, such as "Watermar", which is not a whole word of any FQN. "PdfDocument" and "AddWatermark" are whole words of
+  "PdfDocument.AddWatermarkAnnotation", so under the token rule they are matches, and that is the rule. Restate that test to
+  partial-word input and keep its name.'
 - 'Second amendment, same date. Three existing tests in tests/mcp/tools/test_retrieval_tools.py fail because their fixture helper
   builds symbol chunks without the FQN: line that every real chunk carries (src/foss_mcp/indexing/chunk_builder.py:76). Change the
   fixture helper so that a symbol chunk carries that line, matching the real chunk shape. Do not change any assertion in those
