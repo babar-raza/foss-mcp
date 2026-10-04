@@ -19,6 +19,24 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      # serve_http.py reads its packaging-manifest sidecar once, at process start. The serving
+      # container therefore starts only after the ingestion Job has written this identity's sidecar
+      # (product_reference_<family>_<platform>.json, the name sidecar_name returns in
+      # infra/fetch_product_reference.py). The gate is a loop over one test; it runs no other command.
+      initContainers:
+        - name: wait-for-product-reference
+          image: "{{ .Values.image.repository }}:{{ required "image.tag must be set to a pinned version or digest" .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - "sh"
+            - "-c"
+            - {{ printf "until [ -f %s/product_reference_%s_%s.json ]; do sleep 2; done" .Values.manifests.mountPath .Values.deployment.family .Values.deployment.platform | quote }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            - name: manifests
+              mountPath: {{ .Values.manifests.mountPath }}
+              readOnly: true
       containers:
         - name: serving
           image: "{{ .Values.image.repository }}:{{ required "image.tag must be set to a pinned version or digest" .Values.image.tag }}"
