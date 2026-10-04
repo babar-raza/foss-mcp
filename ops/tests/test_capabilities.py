@@ -50,10 +50,23 @@ def test_an_unknown_capability_raises_rather_than_passing_silently():
         CAP.missing(["teleport"])
 
 
+def test_the_msvc_probe_does_not_restrict_vswhere_to_the_latest_instance():
+    # Regression canary (2026-10-04). `-latest` returns only one Visual Studio instance.
+    # A newer install without the C++ workload hid the working Build Tools install, so the
+    # probe reported msvc missing on a machine that had it. The probe must inspect every instance.
+    import inspect
+
+    src = inspect.getsource(CAP._msvc)
+    assert '"-latest"' not in src, "msvc probe must not use -latest"
+    assert "Microsoft.VisualStudio.Component.VC.Tools.x86.x64" in src
+
+
 def test_bash_from_windowsapps_or_system32_is_not_accepted(monkeypatch):
     # The WSL launcher resolves as `bash` on this machine. It broke .githooks, so it
     # must never count as the Git bash this project needs.
-    monkeypatch.setattr(CAP.shutil, "which", lambda name: r"C:\Users\x\AppData\Local\Microsoft\WindowsApps\bash.exe")
+    monkeypatch.setattr(
+        CAP.shutil, "which", lambda name: r"C:\Users\x\AppData\Local\Microsoft\WindowsApps\bash.exe"
+    )
     assert CAP.missing(["bash"]) == ["bash"]
     monkeypatch.setattr(CAP.shutil, "which", lambda name: r"C:\Windows\System32\bash.exe")
     assert CAP.missing(["bash"]) == ["bash"]

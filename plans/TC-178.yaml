@@ -1,0 +1,67 @@
+id: TC-178
+gate: G2
+lane: transport-deployment
+purpose: 'Make the serving process operable in a cluster. The 2026-10-04 readiness sweep found
+  that nothing configures logging: no handler, no format, and INFO is dropped, so tool-call logs
+  never reach stdout where Kubernetes collects them. The uvicorn server also runs with default
+  shutdown, and no graceful-shutdown window is configured, so a rolling update can cut off
+  in-flight tool calls. Fix both, in the serving entrypoint, and prove them with unit tests of the
+  configuration that is actually passed.'
+depends_on:
+- TC-177
+write_paths:
+- infra/serve_http.py
+- tests/infra/test_serve_logging.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model â€” an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes Â§1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/serve_http.py in full. The uvicorn.run call is near the end of the file. Find every
+  place that configures logging, and confirm there is none. The tool-call logger lines are in
+  src/foss_mcp/mcp/server.py (logger.info with extra fields). Do not edit server.py: it is outside
+  this card''s write_paths. Your job is to configure logging at the entrypoint, so those records
+  reach stdout.'
+- 'Logging: add a JSON formatter at the entrypoint, writing one JSON object per line to stdout. Set
+  the root logger level from the FOSS_MCP_LOG_LEVEL environment variable, default INFO. Include the
+  logger name, level, message, and any extra fields the record carries. Do not add a dependency:
+  use the standard library.'
+- 'Graceful shutdown: pass timeout_graceful_shutdown to uvicorn from FOSS_MCP_SHUTDOWN_GRACE_SECONDS,
+  default 25, which is inside the 30-second terminationGracePeriodSeconds default in the Helm
+  chart (TC-177). Uvicorn already handles SIGTERM. Do not add a signal handler on top of it.'
+- 'tests/infra/test_serve_logging.py (new). It must test the configuration that is actually
+  passed, not a copy of it. Factor the logging setup and the shutdown argument into small functions
+  in serve_http.py that the entrypoint calls, and test those functions. Assert: a tool-call-style
+  record emitted through a child logger appears on stdout as one valid JSON line that carries its
+  extra fields; FOSS_MCP_LOG_LEVEL=WARNING suppresses INFO; the grace value defaults to 25 and
+  reads FOSS_MCP_SHUTDOWN_GRACE_SECONDS.'
+- Do not change any route, tool, or readiness behaviour. This card is logging and shutdown only.
+actions:
+- Read infra/serve_http.py and tests/infra for existing test style.
+- Add the logging and grace functions and call them from the entrypoint.
+- Write tests/infra/test_serve_logging.py.
+- Run the test.
+checks:
+- command: '{python} -m pytest tests/infra/test_serve_logging.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 4
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('infra/serve_http.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('FOSS_MCP_SHUTDOWN_GRACE_SECONDS','FOSS_MCP_SHUTDOWN_GRACE_OFF'),encoding='utf-8')"
+  rationale: 'Breaks the environment variable name the grace value is read from. The test that
+    asserts the grace value reads the variable must then fail. This proves the test checks the real
+    configuration path, not a constant.'
+evidence:
+- evidence/build/G2/TC-178/receipt.json
+closeout:
+- Tool-call logs reach stdout as one JSON object per line.
+- The log level is configurable from the environment.
+- The graceful-shutdown window is configured from the environment, with a default inside the chart's grace period.
+recovery: Re-run from a clean tree.

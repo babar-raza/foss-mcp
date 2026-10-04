@@ -11,6 +11,8 @@ import json
 import time
 from pathlib import Path
 
+import containerrun
+from capabilities import missing as capabilities_missing
 from gatectl import (
     EVIDENCE,
     GATES,
@@ -33,8 +35,6 @@ from gatectl import (
     sha256_bytes,
     sha256_file,
 )
-from capabilities import missing as capabilities_missing
-import containerrun
 
 OWNER_FILE = OPS / "owner_items.yaml"
 
@@ -251,7 +251,11 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None, 
     # D2: one runner per card, decided here, recorded in the fingerprint. A card that
     # needs a host-only capability stays on the host even when the container runner
     # is selected, and the receipt says so.
-    runner_used = "container" if containerrun.runner_mode() == "container" and containerrun.eligible(card)[0] else "host"
+    runner_used = (
+        "container"
+        if containerrun.runner_mode() == "container" and containerrun.eligible(card)[0]
+        else "host"
+    )
     wt = make_worktree(head)
     try:
         for i in (1, 2):

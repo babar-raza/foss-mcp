@@ -60,8 +60,12 @@ def test_an_offline_container_sees_no_proxy_and_no_host_path():
 
 def test_an_offline_card_gets_no_network_at_the_docker_boundary():
     argv = CR.docker_run_argv(
-        workdir=r"E:\wt", junit_dir=r"E:\wt.junit", cwd_rel=".", command="python -m pytest -q",
-        env={"PYTHONUTF8": "1"}, offline=True,
+        workdir=r"E:\wt",
+        junit_dir=r"E:\wt.junit",
+        cwd_rel=".",
+        command="python -m pytest -q",
+        env={"PYTHONUTF8": "1"},
+        offline=True,
     )
     i = argv.index("--network")
     assert argv[i + 1] == "none"
@@ -69,16 +73,24 @@ def test_an_offline_card_gets_no_network_at_the_docker_boundary():
 
 def test_an_online_card_gets_the_bridge_network_only_when_it_declares_network():
     argv = CR.docker_run_argv(
-        workdir=r"E:\wt", junit_dir=r"E:\wt.junit", cwd_rel=".", command="python -m pytest -q",
-        env={}, offline=False,
+        workdir=r"E:\wt",
+        junit_dir=r"E:\wt.junit",
+        cwd_rel=".",
+        command="python -m pytest -q",
+        env={},
+        offline=False,
     )
     assert argv[argv.index("--network") + 1] == "bridge"
 
 
 def test_the_argv_is_a_list_with_the_command_as_one_argument_and_a_fixed_shape():
     argv = CR.docker_run_argv(
-        workdir=r"E:\wt", junit_dir=r"E:\wt.junit", cwd_rel="sub", command="python -m pytest -q; echo done",
-        env={"A": "1"}, offline=True,
+        workdir=r"E:\wt",
+        junit_dir=r"E:\wt.junit",
+        cwd_rel="sub",
+        command="python -m pytest -q; echo done",
+        env={"A": "1"},
+        offline=True,
     )
     assert isinstance(argv, list)
     assert argv[0:2] == ["docker", "run"]
@@ -94,7 +106,9 @@ def test_the_check_runner_is_wired_into_do_verify_before_any_check():
     src = Path(V.__file__).read_text(encoding="utf-8")
     start = src.index("def do_verify(")
     body = src[start : src.index("\ndef ", start + 1)]
-    assert body.index("runner_used = ") < body.index("run_checks(card, wt, py, log_lines, runner=runner_used)")
+    assert body.index("runner_used = ") < body.index(
+        "run_checks(card, wt, py, log_lines, runner=runner_used)"
+    )
     assert "runner=runner_used" in body
 
 

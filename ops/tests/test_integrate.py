@@ -109,8 +109,17 @@ def test_a_reviewed_commit_not_on_the_branch_is_refused(repo, monkeypatch):
 def test_the_status_line_is_copied_verbatim_once(tmp_path):
     wt = tmp_path / "wt"
     (wt / "ops").mkdir(parents=True)
-    line = json.dumps({"ts": "2026-10-04T01:00:00Z", "card": "TC-901", "phase": "committed",
-                       "verdict": "pass", "summary": "x", "commit": "a" * 40, "attempt": 1})
+    line = json.dumps(
+        {
+            "ts": "2026-10-04T01:00:00Z",
+            "card": "TC-901",
+            "phase": "committed",
+            "verdict": "pass",
+            "summary": "x",
+            "commit": "a" * 40,
+            "attempt": 1,
+        }
+    )
     (wt / "ops" / "status.jsonl").write_text(line + "\n", encoding="utf-8")
     main_status = tmp_path / "status.jsonl"
     main_status.write_text("", encoding="utf-8")
@@ -120,9 +129,7 @@ def test_the_status_line_is_copied_verbatim_once(tmp_path):
 
 
 def test_supervisor_owned_paths_do_not_count_as_dirty_product(repo, monkeypatch):
-    monkeypatch.setattr(
-        I.G, "git", lambda *a, **k: (0, " M ops/gatecli.py\n?? plans/TC-999.yaml\n", "")
-    )
+    monkeypatch.setattr(I.G, "git", lambda *a, **k: (0, " M ops/gatecli.py\n?? plans/TC-999.yaml\n", ""))
     clean, dirty = I._tree_is_clean_of_product_paths()
     assert clean and dirty == []
 

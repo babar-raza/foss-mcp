@@ -120,7 +120,7 @@ def integrate(card_id: str) -> dict:
     """Run the plan. Cherry-picks, copies the status line, rebuilds state, commits evidence."""
     p = plan(card_id)
     _, start, _ = G.git("rev-parse", "HEAD")
-    applied = []
+    applied: list[str] = []
     for sha in p["commits_to_replay"]:
         rc, out, err = G.git("cherry-pick", sha)
         if rc != 0:

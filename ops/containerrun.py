@@ -81,12 +81,19 @@ def docker_run_argv(
     """The exact `docker run` argv for one check. A list, so no host shell touches it."""
     work = posixpath.normpath(posixpath.join(MOUNT_WORK, cwd_rel))
     argv = [
-        "docker", "run", "--rm",
-        "--entrypoint", "sh",
-        "--network", "none" if offline else "bridge",
-        "-v", f"{workdir}:{MOUNT_WORK}",
-        "-v", f"{junit_dir}:{MOUNT_JUNIT}",
-        "-w", work,
+        "docker",
+        "run",
+        "--rm",
+        "--entrypoint",
+        "sh",
+        "--network",
+        "none" if offline else "bridge",
+        "-v",
+        f"{workdir}:{MOUNT_WORK}",
+        "-v",
+        f"{junit_dir}:{MOUNT_JUNIT}",
+        "-w",
+        work,
     ]
     for key in sorted(env):
         argv += ["-e", f"{key}={env[key]}"]

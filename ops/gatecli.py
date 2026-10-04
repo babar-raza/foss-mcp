@@ -364,7 +364,11 @@ def cmd_worker_tick(args) -> int:
     state = V.rebuild_state()
     cards = state["cards"]
 
-    if cards and all(c["status"] in ("ACCEPTED", "SUPERSEDED") for c in cards) and not state["open_questions"]["open"]:
+    if (
+        cards
+        and all(c["status"] in ("ACCEPTED", "SUPERSEDED") for c in cards)
+        and not state["open_questions"]["open"]
+    ):
         print("DONE")
         print("Every card is ACCEPTED and no open question remains. Stop the loop.")
         return G.EXIT_OK
@@ -372,7 +376,9 @@ def cmd_worker_tick(args) -> int:
     ins = _open_dispatch()
     if ins is None:
         print("WAIT")
-        blocked = [c["id"] for c in cards if c["status"] in ("FAILED_INTERNAL", "BLOCKED_EXTERNAL", "BLOCKED_ENV")]
+        blocked = [
+            c["id"] for c in cards if c["status"] in ("FAILED_INTERNAL", "BLOCKED_EXTERNAL", "BLOCKED_ENV")
+        ]
         if blocked:
             print(f"No open dispatch. Cards needing supervisor attention: {blocked}")
         else:
@@ -382,7 +388,7 @@ def cmd_worker_tick(args) -> int:
 
     card_id = ins["target_card"]
     # D1: a worker must not be sent to a card whose checks cannot run here.
-    row = next((c for c in cards if c["id"] == card_id), {})
+    row: dict = next((c for c in cards if c["id"] == card_id), {})
     if row.get("status") == "BLOCKED_ENV":
         print("WAIT")
         print(f"{card_id} is BLOCKED_ENV: {row['blocker']['summary']}.")
@@ -645,7 +651,8 @@ def cmd_gate_exit(args) -> int:
     # D8: an OPEN owner item consumed by this gate is a hard block. Before this, gate-exit
     # never read ops/owner_items.yaml, so OWNER-05 and OWNER-06 could not stop it.
     owner_open = [
-        o["id"] for o in V.load_owner_items()
+        o["id"]
+        for o in V.load_owner_items()
         if o.get("status") == "OPEN" and args.gate in (o.get("consumed_by") or [])
     ]
     # D6: a superseded card is complete once its accepted successor exists. Its plan
@@ -864,7 +871,7 @@ def cmd_instruct(args) -> int:
     line = {
         "ts": G.now_utc(),
         "target_card": args.target,
-        **({'successor': args.successor} if getattr(args, 'successor', None) else {}),
+        **({"successor": args.successor} if getattr(args, "successor", None) else {}),
         "kind": args.kind,
         "instruction": args.instruction,
         "card_sha256": card_sha,
@@ -1108,11 +1115,17 @@ def build_parser():
     sp.add_argument("--kind", required=True)
     sp.add_argument("--instruction", required=True)
     sp.add_argument("--attempt", type=int, default=1)
-    sp.add_argument("--successor", help="kind supersede only: the accepted card that carries this card's work")
+    sp.add_argument(
+        "--successor", help="kind supersede only: the accepted card that carries this card's work"
+    )
 
-    sp = sub.add_parser("integrate", help="D7: atomically replay an accepted card onto main with its evidence")
+    sp = sub.add_parser(
+        "integrate", help="D7: atomically replay an accepted card onto main with its evidence"
+    )
     sp.add_argument("card")
-    sp.add_argument("--dry-run", action="store_true", help="check every precondition and print the plan; write nothing")
+    sp.add_argument(
+        "--dry-run", action="store_true", help="check every precondition and print the plan; write nothing"
+    )
     return p
 
 
@@ -1126,13 +1139,17 @@ def cmd_integrate(args) -> int:
             print(f"PLAN {args.card}: {len(p['commits_to_replay'])} commit(s) to replay from {p['branch']}")
             for sha in p["commits_to_replay"]:
                 print(f"  replay {sha[:12]}")
-            print(f"  status line to copy: {'yes' if p['status_line_to_copy'] else 'already present or none'}")
+            print(
+                f"  status line to copy: {'yes' if p['status_line_to_copy'] else 'already present or none'}"
+            )
             return G.EXIT_OK
         r = I.integrate(args.card)
     except I.IntegrateRefused as exc:
         print(f"REFUSED: {exc}")
         return G.EXIT_FAIL
-    print(f"INTEGRATED {args.card}: replayed {len(r['replayed'])} commit(s); evidence commit {r['evidence_commit']}")
+    print(
+        f"INTEGRATED {args.card}: replayed {len(r['replayed'])} commit(s); evidence commit {r['evidence_commit']}"
+    )
     return G.EXIT_OK
 
 

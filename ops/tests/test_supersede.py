@@ -40,9 +40,14 @@ def _rows(state):
 
 
 SUPERSEDE_001_BY_002 = {
-    "ts": "2026-10-04T10:00:00Z", "target_card": "TC-001", "kind": "supersede",
-    "instruction": "carried by TC-002", "card_sha256": "NONE", "issue_rev": "NONE",
-    "attempt": 0, "successor": "TC-002",
+    "ts": "2026-10-04T10:00:00Z",
+    "target_card": "TC-001",
+    "kind": "supersede",
+    "instruction": "carried by TC-002",
+    "card_sha256": "NONE",
+    "issue_rev": "NONE",
+    "attempt": 0,
+    "successor": "TC-002",
 }
 
 

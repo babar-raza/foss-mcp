@@ -69,9 +69,7 @@ def _docker() -> bool:
     if not _which("docker"):
         return False
     try:
-        r = subprocess.run(
-            ["docker", "info"], capture_output=True, text=True, timeout=20
-        )
+        r = subprocess.run(["docker", "info"], capture_output=True, text=True, timeout=20)
     except (OSError, subprocess.TimeoutExpired):
         return False
     return r.returncode == 0
@@ -96,7 +94,6 @@ def _msvc() -> bool:
         r = subprocess.run(
             [
                 _VSWHERE,
-                "-latest",
                 "-products",
                 "*",
                 "-requires",

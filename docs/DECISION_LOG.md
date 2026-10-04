@@ -1224,3 +1224,13 @@ Matrix, host versus container, same card, same receipt fields:
 Decision: the container runner does NOT become the default yet. The default flips only after (a) TC-176 bakes the grammars at build time and proves the image parses offline, and (b) the matrix is rerun on a wider set with the harness fixed.
 
 Harness defects found in the same run, recorded so they are not repeated: the matrix script hard-coded gate G2 (TC-006 is G0), and it ran the githooks card with a PATH that lacked Git's usr\bin, so `bash` resolved to the WSL stub and the host run failed for a reason that had nothing to do with the code. Both are harness bugs. The second is the RC1 problem again: a verdict depends on the caller's PATH.
+
+## 2026-10-04 - Monday POC decisions (supervisor)
+Goal: the app is deployed on Kubernetes and verified there before Monday 2026-10-05. The verification target is the local kind cluster at Kubernetes 1.32.5, which matches the target version and the same image and chart, so the cluster behaviour carries over.
+
+1. **Scope for Monday.** Serving plus one live-published pilot (pdf/net), with `/healthz` and `/readyz` checked and a real MCP query returning real content. The other six pilots keep their ingestion jobs in the chart and are NOT claimed live on Monday. Each is recorded as unproven until its own live run.
+2. **Order of work.** TC-175 (verifier toolchain) rework, then TC-176 (grammar bake), TC-177 (Helm chart), TC-178 (logs and shutdown), then the kind deployment proof. The one-worker rule stays. Parallel workers would require changing the state schema, which is not done under a deadline.
+3. **TC-175 rework.** Only after the Windows SDK is complete, and only from a reproduced failure. The review of commit 967b93e reproduces the Rust link failure. Rework is a numbered defect list from that reproduction, not a guess.
+4. **Probe defect fixed (governance).** The msvc capability probe used `vswhere -latest`. That returns one instance, so a newer install without the C++ workload hid the working Build Tools install, and the probe reported msvc missing. Fixed, with a canary that fails if `-latest` returns.
+5. **Real cluster.** No kubeconfig for a remote cluster exists on this machine. Deploying to it needs the owner's kubeconfig and registry. The deliverable for that is the same chart and values, plus a runbook. It is not claimed as done.
+6. **Known limits stated up front.** kind's default CNI does not enforce NetworkPolicy, so the chart's network isolation is not proven on the local cluster. The chart's NetworkPolicy is still rendered and tested as a manifest, not as behaviour.

@@ -23,7 +23,7 @@ def _card(**over):
         "gate": "G2",
         "checks": [{"command": "{python} -m pytest tests/sample/test_one.py -q"}],
         "network": False,
-        "negative_control": {"mutate": "python -c \"print(1)\""},
+        "negative_control": {"mutate": 'python -c "print(1)"'},
     }
     base.update(over)
     return base
@@ -42,7 +42,7 @@ def test_a_clean_offline_card_has_no_findings(repo):
 
 
 def test_an_accepted_card_is_grandfathered_even_if_it_is_bad(repo):
-    bad = _card(negative_control={"mutate": "x \\\" y"})
+    bad = _card(negative_control={"mutate": 'x \\" y'})
     (repo / "tests" / "sample" / "test_one.py").write_text("GIT_CLONE = 'git clone x'\n", encoding="utf-8")
     assert L.lint_card(bad, repo, accepted=True) == [], "accepted cards must never be retroactively failed"
 
@@ -66,7 +66,9 @@ def test_network_reach_under_an_offline_card_is_flagged_l2(repo):
 
 
 def test_the_same_network_test_is_fine_when_the_card_declares_network_l2(repo):
-    (repo / "tests" / "sample" / "test_one.py").write_text("def f():\n    git('clone', 'x')\n", encoding="utf-8")
+    (repo / "tests" / "sample" / "test_one.py").write_text(
+        "def f():\n    git('clone', 'x')\n", encoding="utf-8"
+    )
     assert L.lint_card(_card(network=True), repo, accepted=False) == []
 
 
@@ -96,7 +98,11 @@ def test_the_original_tc168_card_would_have_been_caught_before_dispatch():
     # network-only fixtures under network: false. Load its card as it stood at its
     # issue revision, and require the linter to flag both defects.
     rc = subprocess.run(
-        ["git", "show", "e607ceff:plans/TC-168.yaml"], cwd=REPO, capture_output=True, text=True, encoding="utf-8"
+        ["git", "show", "e607ceff:plans/TC-168.yaml"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
     )
     assert rc.returncode == 0, rc.stderr
     card = G.load_yaml_text(rc.stdout)
