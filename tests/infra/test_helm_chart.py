@@ -247,12 +247,12 @@ def test_one_ingestion_job_is_rendered_per_listed_pilot_all_on_the_same_claim(tm
 
 def test_default_values_render_exactly_one_ingestion_job_for_the_deployment_identity() -> None:
     # TC-195 amendment: the chart runs one ingestion Job per entry of ingestion.pilots, and the
-    # POC lists six pilots. The original assertion, exactly one Job, predates the six-pilot POC.
+    # POC lists fourteen pilots. The original assertion, exactly one Job, predates the POC.
     # The expected names are written out here, not derived from values.yaml, so the set is pinned.
     pilots = yaml.safe_load((CHART / "values.yaml").read_text(encoding="utf-8"))["ingestion"]["pilots"]
     jobs = _by_kind(_render(), "Job")
     names = sorted(job["metadata"]["name"] for job in jobs)
-    assert len(jobs) == len(pilots) == 6
+    assert len(jobs) == len(pilots) == 14
     assert names == sorted(
         [
             "foss-mcp-pdf-net-ingest-pdf-net",
@@ -261,6 +261,14 @@ def test_default_values_render_exactly_one_ingestion_job_for_the_deployment_iden
             "foss-mcp-pdf-net-ingest-pdf-go",
             "foss-mcp-pdf-net-ingest-pdf-java",
             "foss-mcp-pdf-net-ingest-cells-rust",
+            "foss-mcp-pdf-net-ingest-pdf-cpp",
+            "foss-mcp-pdf-net-ingest-words-python",
+            "foss-mcp-pdf-net-ingest-words-net",
+            "foss-mcp-pdf-net-ingest-slides-java",
+            "foss-mcp-pdf-net-ingest-cells-go",
+            "foss-mcp-pdf-net-ingest-cells-typescript",
+            "foss-mcp-pdf-net-ingest-jmap-rust",
+            "foss-mcp-pdf-net-ingest-cells-cpp",
         ]
     )
     assert "foss-mcp-pdf-net-ingest-pdf-net" in names

@@ -16,8 +16,8 @@ import yaml
 
 COMPOSE_PATH = pathlib.Path(__file__).resolve().parents[2] / "docker-compose.yml"
 
-# The 7 pilots and their exact (family, platform) pairs, pinned by the taskcard.
-# pdf/net keeps host port 8080 (pre-existing); the other 6 get 8081-8086 in this order.
+# The 14 pilots and their exact (family, platform) pairs, pinned by the taskcard.
+# pdf/net keeps host port 8080 (pre-existing); the other 13 get 8081-8093 in this order.
 EXPECTED_PAIRS = [
     ("pdf", "net"),
     ("pdf", "typescript"),
@@ -26,9 +26,16 @@ EXPECTED_PAIRS = [
     ("pdf", "go"),
     ("slides", "python"),
     ("cells", "rust"),
+    ("words", "python"),
+    ("words", "net"),
+    ("slides", "java"),
+    ("cells", "go"),
+    ("cells", "typescript"),
+    ("jmap", "rust"),
+    ("cells", "cpp"),
 ]
 
-EXPECTED_HOST_PORTS = {8080, 8081, 8082, 8083, 8084, 8085, 8086}
+EXPECTED_HOST_PORTS = {8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089, 8090, 8091, 8092, 8093}
 
 
 # A service with no "ports" key is a one-shot build/ingestion job (e.g. ingest-pdf-net),
@@ -49,8 +56,8 @@ def _port_mapping(service: dict) -> tuple[str, str]:
 
 def test_exactly_seven_services():
     services = _load_services()
-    assert len(services) == 7, (
-        f"expected exactly 7 services (one per G2 pilot), found {len(services)}: {sorted(services)}"
+    assert len(services) == 14, (
+        f"expected exactly 14 services (one per G2 pilot), found {len(services)}: {sorted(services)}"
     )
 
 
@@ -62,15 +69,15 @@ def test_family_platform_pairs_match_pinned_list_exactly():
         found_pairs.append((env["FOSS_MCP_FAMILY"], env["FOSS_MCP_PLATFORM"]))
     assert sorted(found_pairs) == sorted(EXPECTED_PAIRS), (
         f"service family/platform pairs {sorted(found_pairs)} do not match the pinned "
-        f"7-pilot list {sorted(EXPECTED_PAIRS)}"
+        f"14-pilot list {sorted(EXPECTED_PAIRS)}"
     )
 
 
 def test_all_host_ports_are_distinct():
     services = _load_services()
     host_ports = [int(_port_mapping(svc)[0]) for svc in services.values()]
-    assert len(host_ports) == 7
-    assert len(set(host_ports)) == 7, f"host ports are not all distinct: {host_ports}"
+    assert len(host_ports) == 14
+    assert len(set(host_ports)) == 14, f"host ports are not all distinct: {host_ports}"
 
 
 def test_host_ports_are_exactly_8080_through_8086():
