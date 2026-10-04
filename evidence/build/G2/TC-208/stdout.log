@@ -1,0 +1,47 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_manifest_step.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gcm811pl\.junit-0.xml"
+--- stdout ---
+.............................................                            [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_manifest_step.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gcm811pl\.junit-0.xml"
+--- stdout ---
+.............................................                            [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/values.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_manifest_step.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gcm811pl\.junit-0.xml"
+--- stdout ---
+.F...........................................                            [100%]
+================================== FAILURES ===================================
+_ test_the_rendered_pdf_cpp_fetch_step_passes_its_manifest_path_CMakeLists_txt _
+
+    def test_the_rendered_pdf_cpp_fetch_step_passes_its_manifest_path_CMakeLists_txt() -> None:
+        # The expected value is a literal, not read from values.yaml. Editing manifestPath in values.yaml
+        # changes the rendered command and the value together, so the per-pilot equality above cannot
+        # catch it; this literal does.
+        pilot = next(
+            p for p in _values()["ingestion"]["pilots"] if p["family"] == "pdf" and p["platform"] == "cpp"
+        )
+        docs = _render()
+        fetch = _fetch_tokens(_job_tokens(_job(docs, pilot)))
+>       assert _flag_after(fetch, 0, "--manifest-path") == "CMakeLists.txt"
+E       AssertionError: assert 'CMakeLists_off.txt' == 'CMakeLists.txt'
+E         
+E         - CMakeLists.txt
+E         + CMakeLists_off.txt
+E         ?           ++++
+
+tests\infra\test_helm_manifest_step.py:139: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_manifest_step.py::test_the_rendered_pdf_cpp_fetch_step_passes_its_manifest_path_CMakeLists_txt
+
+--- stderr ---
+
