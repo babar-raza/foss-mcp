@@ -292,9 +292,13 @@ def commits_recorded_for(card_id: str) -> set:
     burning one of three attempts on a commit message would push good work
     toward FAILED_INTERNAL for no safety gain.
     """
-    out: set[str] = set()
+    # The latest line for each attempt governs. A status line recorded from the wrong checkout
+    # names the wrong commit (TC-196: the supervisor's dispatch commit, not the worker's), and an
+    # append-only channel cannot be corrected in place, so a later line for the same attempt
+    # replaces the earlier one. Without this, one wrong line would keep a supervisor commit in scope.
+    latest: dict[int, str] = {}
     if not STATUS_JSONL.exists():
-        return out
+        return set()
     for line in STATUS_JSONL.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line:
@@ -304,8 +308,8 @@ def commits_recorded_for(card_id: str) -> set:
         except json.JSONDecodeError:
             continue
         if d.get("card") == card_id and isinstance(d.get("commit"), str):
-            out.add(d["commit"])
-    return out
+            latest[int(d.get("attempt", 1))] = d["commit"]
+    return set(latest.values())
 
 
 def commit_subject(rev: str) -> str:

@@ -977,13 +977,21 @@ def _gate_of(card_id: str) -> str:
 # --------------------------------------------------------------------------
 def cmd_status_append(args) -> int:
     rc, head, _ = G.git("rev-parse", "HEAD")
+    commit = head
+    if args.phase == "committed":
+        # A worker's commit lives on its own branch. Run from the main checkout, HEAD is the
+        # supervisor's, and a committed line that names it would put the supervisor's commit in
+        # the card's scope (TC-196). So the commit for this phase is the card's branch tip.
+        rc_b, tip, _ = G.git("rev-parse", "--verify", f"worker/{args.card}^{{commit}}")
+        if rc_b == 0 and tip:
+            commit = tip
     line = {
         "ts": G.now_utc(),
         "card": args.card,
         "phase": args.phase,
         "verdict": args.verdict,
         "summary": args.summary,
-        "commit": head,
+        "commit": commit,
         "attempt": args.attempt,
     }
     errs = G.schema_errors(G.load_schema(SCHEMA_FOR["status"]), line)
