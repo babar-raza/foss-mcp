@@ -13,6 +13,7 @@ write_paths:
 - infra/helm/foss-mcp/templates/ingestion-job.yaml
 - infra/helm/foss-mcp/values.yaml
 - tests/infra/test_helm_manifest_step.py
+- Dockerfile.serving
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -35,6 +36,14 @@ inputs:
   image.tag set, and checks: (1) a pilot with manifestPath gets the fetch step in its Job, on the read-write claim; (2) a
   pilot without manifestPath gets no fetch step; (3) the serving Deployment mounts the manifests claim read-only.
   It must fail, not skip, when helm is missing. Source scripts/toolchain/activate.ps1 in the same command as pytest.'
+- 'Two gaps that TC-200 left, found by its worker and recorded here by the supervisor. (1) serve_http.py now imports
+  fetch_product_reference at module top, but Dockerfile.serving copies only serve_stdio.py and serve_http.py, so the serving image
+  would fail to start with ModuleNotFoundError. Add the COPY line for infra/fetch_product_reference.py to Dockerfile.serving, the
+  same way the other infra files are copied. Do not change anything else in that Dockerfile. (2) The ingestion step must write
+  its sidecar to the manifests volume under the exact name PRODUCT_REFERENCE_SIDECAR_NAME, which TC-200 defined in
+  infra/fetch_product_reference.py (the value is "product_reference.json"). Pass that name to the fetch command, or read the
+  constant, so the serving side and the ingestion side agree. Add an offline test that asserts the Job passes the same
+  file name the serving code reads.'
 - 'Keep every existing chart test and assertion.'
 actions:
 - Read the template, the values entries, and the fetch command in full.
