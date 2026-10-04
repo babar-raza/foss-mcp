@@ -679,7 +679,7 @@ def _review_related_tests(card: str, head: str, issue: str) -> tuple[bool, str]:
     try:
         G.run(["git", "worktree", "add", "--detach", str(tmp), head])
         proc = subprocess.run(
-            [str(V.venv_python()), "-m", "pytest", *related, "-q", "-p", "no:cacheprovider"],
+            [str(G.venv_python()), "-m", "pytest", *related, "-q", "-p", "no:cacheprovider"],
             cwd=tmp,
             capture_output=True,
             text=True,
@@ -735,6 +735,7 @@ def cmd_review(args) -> int:
         print("REWORK REQUIRED — offline tests of files this card touches fail at the head:")
         print(related_out)
         return G.EXIT_FAIL
+    print(f"coverage     : ok ({related_out.splitlines()[-1] if related_out else 'no related tests'})")
     args_accept = argparse.Namespace(card=args.card, force_order=args.force_order)
     return cmd_accept(args_accept)
 
