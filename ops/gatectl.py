@@ -109,6 +109,12 @@ def run(cmd, cwd=None, env=None, timeout=None, text=True):
             timeout=timeout,
             capture_output=True,
             text=text,
+            # Decode as UTF-8, never the locale codec. On this Windows host the
+            # default is cp1252, which has no mapping for byte 0x9D (the second
+            # byte of U+201D), so one curly quote in a card made git show return
+            # None and crashed review. Undecodable bytes are replaced, not fatal.
+            encoding="utf-8" if text else None,
+            errors="replace" if text else None,
             shell=isinstance(cmd, str),
         )
         return p.returncode, (p.stdout or ""), (p.stderr or "")
