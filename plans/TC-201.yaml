@@ -17,6 +17,7 @@ write_paths:
 - Dockerfile.ingestion
 - infra/fetch_product_reference.py
 - infra/serve_http.py
+- tests/infra/test_serve_manifest_sidecar.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -62,6 +63,15 @@ inputs:
   R5. Tests: (a) two pilots'' sidecar names differ; (b) serving with the pdf/java identity never reads the pdf/net file; (c) the Job
       step writes the name that sidecar_name returns for its pilot; (d) Dockerfile.ingestion copies infra/fetch_product_reference.py.
   Replace the earlier single-name test with these. Keep every existing chart test and assertion.'
+- 'Contract restatement, by the supervisor after the attempt-2 block. The five tests in tests/infra/test_serve_manifest_sidecar.py
+  (TC-200) encode the single-name contract that R2 and R3 retire: they use the removed constant, and they call the serving
+  signature with only FOSS_MCP_PLATFORM set. Restate those five, and only those five, to the identity contract: the sidecar is
+  sidecar_name(family, platform), and serving takes the FAMILY and PLATFORM it is started with. Keep each test name and its
+  intended check: exact TargetFramework answer for a present sidecar; NotAvailable with its reason and no exception when there
+  is no sidecar; the TypeScript sidecar reaches the engines.node branch; the input schema exposes only section; and a present
+  sidecar with the identity unset fails at start. Record the five restatements in the commit body.'
+- 'Commit your rework first, as one commit, and only then rebase it onto main, so the rebase runs on a clean tree. Do not stash.
+  Your commit must descend from this card''s issue revision after the rebase.'
 - 'Keep every existing chart test and assertion.'
 actions:
 - Read the template, the values entries, and the fetch command in full.
