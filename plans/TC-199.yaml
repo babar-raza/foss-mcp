@@ -15,6 +15,7 @@ depends_on:
 write_paths:
 - src/foss_mcp/mcp/tools/search_symbols.py
 - tests/mcp/test_search_symbols_honest_miss.py
+- tests/mcp/tools/test_retrieval_tools.py
 satisfies:
 - REQ-G2-047
 source_refs:
@@ -40,6 +41,17 @@ inputs:
   (3) an absent symbol that shares a token with a real one returns NotFound, not a match; (4) the NotFound carries
   suggestions that include a close real name; (5) a partial name is not a match.'
 - 'Keep every existing test and assertion, unless input says a conflict must be reported.'
+- 'Contract amendment, by the supervisor on 2026-10-04 after the attempt-1 block. The exact-match rule alone is too strict.
+  Five existing tests in tests/mcp/tools/test_retrieval_tools.py search a single word that is a whole word inside a real symbol
+  (for example "watermark", inside PdfDocument.AddWatermarkAnnotation), and expect that symbol. That is a legitimate search,
+  and the existing assertions stay as they are. Widen is_exact_symbol_hit so that it is true when the query equals the FQN
+  or its final segment, compared case-insensitively, OR every word of the query, split at camel-case boundaries and at dots and
+  underscores and lowercased, is a whole word among the words of the FQN. "Tc197AbsentSymbolProbe" shares no word with
+  "BarcodeField" and so still misses. A fuzzy or partial word such as "Probe" alone must still not match a longer unrelated word.'
+- 'Second amendment, same date. Three existing tests in tests/mcp/tools/test_retrieval_tools.py fail because their fixture helper
+  builds symbol chunks without the FQN: line that every real chunk carries (src/foss_mcp/indexing/chunk_builder.py:76). Change the
+  fixture helper so that a symbol chunk carries that line, matching the real chunk shape. Do not change any assertion in those
+  tests, and do not change any other fixture.'
 actions:
 - Read the search code and the existing search tests in full.
 - Add the predicate and the change to the miss path.
