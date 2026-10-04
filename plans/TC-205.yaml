@@ -1,0 +1,62 @@
+id: TC-205
+gate: G2
+lane: transport-deployment
+purpose: 'Grow the POC from seven pilots to fourteen: two products per platform, from different teams, as the operator set
+  on 2026-10-04. Add pdf/cpp to the chart pilots, which the seven-platform POC needs. Add a second product for each of the
+  seven platforms: words/python, words/net (or slides/net), slides/java, cells/go, cells/typescript, jmap/rust, and cells/cpp
+  or slides/cpp. Each new pilot is self-extracted: its api surface is already in tests/fixtures, and it needs no furnished
+  page and no compile step, so the work is configuration. Each entry must take its arguments from a compose ingestion service
+  and serving service, and the drift test must prove it.'
+depends_on:
+- TC-195
+- TC-203
+- TC-204
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- docker-compose.yml
+- tests/infra/test_helm_pilots_match_compose.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/helm/foss-mcp/values.yaml in full, especially ingestion.pilots, which holds six entries today. Read docker-compose.yml
+  in full: its ingest and serving services, and the serving service pattern for each family and platform. Read
+  tests/infra/test_helm_pilots_match_compose.py, which asserts six pilots and parses compose text.'
+- 'For each of these, add one pilot entry to ingestion.pilots and one ingest service and one serving service to docker-compose.yml,
+  copied from the pattern of the existing services: pdf/cpp (its ingest service already exists in compose; add only its values entry),
+  words/python, words/net, slides/java, cells/go, cells/typescript, jmap/rust, and cells/cpp. Each value comes from the fixture for
+  that pilot: its api_surface.json, which carries source_repository and source_commit. Do not invent a value. If a field is missing,
+  stop and report it. Pick slides/cpp instead of cells/cpp only if cells/cpp has no fixture.'
+- 'For pilots whose api surface carries a source_commit, record that commit as the library commit in compose, the same way the existing
+  services record theirs. Self-extracted pilots need no furnished page and no build flag beyond the existing pattern.'
+- 'Update the drift test so it asserts fourteen pilots: two per platform across seven platforms, the list named explicitly. Change
+  no other assertion. Keep every test name. Record the pilot count change in your commit body.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the values file, the compose services, the drift test, and each new fixture in full.
+- Add the eight entries and their compose services, and update the drift test.
+- Run the drift and chart tests, and helm lint and template, and report exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_chart.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 25
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/values.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('db2d3f0622f035825419c6d46727022064f39f15','0000000000000000000000000000000000000000',1),encoding='utf-8')"
+  rationale: 'Replaces the pdf/java library commit in values.yaml with zeros. The drift test compares every pilot''s commit with
+    docker-compose.yml and must fail. The replace is limited to the first match. That commit is pinned in the chart today, so the
+    literal exists before any worker change. Built with plain text, since it has no quote or backslash.'
+evidence:
+- evidence/build/G2/TC-205/receipt.json
+closeout:
+- The chart lists fourteen pilots, two per platform, each matching its compose service and its fixture.
+recovery: Re-run from a clean tree.
