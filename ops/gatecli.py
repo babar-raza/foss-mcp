@@ -328,21 +328,58 @@ def _last_rev_touching(path: str):
 # --------------------------------------------------------------------------
 # the worker loop's single decision point
 # --------------------------------------------------------------------------
-def _open_dispatch():
+def _main_checkout() -> Path:
+    """The main checkout's root, even when called from a worker worktree.
+
+    Every worktree shares one git common directory, and its parent is the main checkout.
+    The supervisor channel lives there, so a worker reads one authority and never a stale copy.
+    """
+    rc, out, _ = G.git("rev-parse", "--git-common-dir")
+    if rc != 0 or not out:
+        return G.REPO
+    common = Path(out.strip())
+    if not common.is_absolute():
+        common = G.REPO / common
+    return common.resolve().parent
+
+
+def _all_open_dispatches() -> list:
+    """Every open dispatch, one per card. The commit guard must see all of them, not only the newest."""
+    latest = {}
+    for ins in V.read_jsonl(_main_checkout() / "ops" / "instructions.jsonl"):
+        if ins.get("kind") in ("dispatch", "rework") and ins.get("target_card") != "ALL":
+            latest[ins["target_card"]] = ins
+    closed = {
+        (st.get("card"), st.get("attempt"))
+        for st in V.read_jsonl(G.STATUS_JSONL)
+        if st.get("phase") in ("committed", "blocked")
+    }
+    return [ins for ins in latest.values() if (ins["target_card"], ins["attempt"]) not in closed]
+
+
+def _open_dispatch(card: str | None = None):
     """The dispatch the worker still owes work for, if any.
 
-    A dispatch is OPEN when the latest dispatch/rework instruction for a card
-    has no matching `committed` status line at that same attempt. This is the
-    whole handshake: two append-only files, one writer each, and no shared
-    mutable state to race over.
+    A dispatch is OPEN when the latest dispatch/rework instruction for a card has no matching
+    `committed` or `blocked` status line at that same attempt. With `card`, only that card is
+    considered, which is what lets several workers run at once, each in its own worktree. Without
+    it, the most recent open dispatch across all cards is returned, as before.
+
+    The instructions come from the main checkout (see _main_checkout). The status lines come from
+    the current checkout, because the worker appends its own status in its worktree.
     """
     latest = {}
-    for ins in V.read_jsonl(G.INSTRUCTIONS_JSONL):
+    for ins in V.read_jsonl(_main_checkout() / "ops" / "instructions.jsonl"):
         if ins.get("kind") in ("dispatch", "rework") and ins.get("target_card") != "ALL":
             latest[ins["target_card"]] = ins
     if not latest:
         return None
-    ins = max(latest.values(), key=lambda i: i["ts"])
+    if card is not None:
+        ins = latest.get(card)
+        if ins is None:
+            return None
+    else:
+        ins = max(latest.values(), key=lambda i: i["ts"])
 
     done = any(
         st.get("card") == ins["target_card"]
@@ -373,7 +410,7 @@ def cmd_worker_tick(args) -> int:
         print("Every card is ACCEPTED and no open question remains. Stop the loop.")
         return G.EXIT_OK
 
-    ins = _open_dispatch()
+    ins = _open_dispatch(getattr(args, "card", None))
     if ins is None:
         print("WAIT")
         blocked = [
@@ -524,7 +561,7 @@ def cmd_commit_guard(args) -> int:
     open, nothing in the tree can be an in-flight worker's forgotten work, by
     definition, and the path heuristic is skipped entirely.
     """
-    if _open_dispatch() is None:
+    if not _all_open_dispatches():
         print("OK  no dispatch is open; nothing in the tree can be an in-flight worker's work")
         return G.EXIT_OK
 
@@ -1053,7 +1090,8 @@ def build_parser():
 
     sub.add_parser("next", help="print exactly one card id to dispatch")
     sub.add_parser("tick", help="the supervisor's bounded per-iteration brief")
-    sub.add_parser("worker-tick", help="the worker loop's single decision point: WORK / WAIT / DONE")
+    sp = sub.add_parser("worker-tick", help="the worker loop's decision point: WORK / WAIT / DONE")
+    sp.add_argument("card", nargs="?", help="this worker's own card; omit for the legacy single-worker mode")
 
     sub.add_parser("commit-guard", help="refuse to sweep a worker's work into a supervisor commit")
 

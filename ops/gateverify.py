@@ -38,6 +38,9 @@ from gatectl import (
 
 OWNER_FILE = OPS / "owner_items.yaml"
 
+# D-parallel (DECISION_LOG 2026-10-04): the concurrency cap. Keep equal to the schema maximum.
+MAX_WORKERS_IN_FLIGHT = 4
+
 
 def receipt_dir(gate: str, card_id: str) -> Path:
     return EVIDENCE / "build" / gate / card_id
@@ -583,7 +586,7 @@ def rebuild_state(as_if_unstarted: str | None = None):
         "owner_items": load_owner_items(),
         "open_questions": {"open": len(open_q), "ids": sorted(open_q)},
         "execution_limits": {
-            "workers_in_flight": 1,
+            "workers_in_flight": MAX_WORKERS_IN_FLIGHT,
             "max_attempts_per_card": 3,
             "supervisor_writes_product_code": False,
             "worker_issues_verdicts": False,
