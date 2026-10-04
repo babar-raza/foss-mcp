@@ -41,6 +41,7 @@ from foss_mcp.indexing.example_candidates import CandidateExample
 
 __all__ = [
     "VerificationResult",
+    "ExampleEnvironmentError",
     "prepare_reference_library",
     "verify_dotnet_example",
     "prepare_python_library",
@@ -134,6 +135,52 @@ def _truncate(text: str) -> str:
     if len(text) <= _OUTPUT_TRUNCATE_CHARS:
         return text
     return text[:_OUTPUT_TRUNCATE_CHARS] + "\n...[truncated]"
+
+
+# Cargo output that marks a failed run as an infrastructure failure (the
+# registry or the network could not be reached), not a compile failure. Matched
+# as plain substrings against a non-zero run's stdout+stderr. Kept in exactly
+# one place: the classifier below reads it, and so do the tests.
+_CARGO_NETWORK_FAILURE_MARKERS: tuple[str, ...] = (
+    "spurious network error",
+    "Could not resolve hostname",
+    "SSL connect error",
+    "download of config.json failed",
+    "transfer too slow",
+)
+
+
+class ExampleEnvironmentError(RuntimeError):
+    """A candidate could not be verified because its toolchain could not reach
+    the package registry. This is an environment failure, never a verdict on
+    the candidate's code, so it is raised rather than returned as
+    ``VerificationResult(verified=False)``.
+    """
+
+    def __init__(self, tool: str, marker: str, output: str) -> None:
+        self.tool = tool
+        self.marker = marker
+        self.output = output
+        super().__init__(
+            f"{tool} could not reach its registry (matched {marker!r}); this is an "
+            "environment failure, not a verdict on the candidate"
+        )
+
+
+# A rustc diagnostic line, e.g. ``error[E0599]: no method named ...``. Cargo
+# prints the network retry warning ("spurious network error (N tries
+# remaining)") on real compile runs too, so a marker alone does not prove the
+# run was infrastructure. A run that carries a rustc diagnostic is a compile
+# failure, whatever markers it also prints.
+_RUSTC_DIAGNOSTIC = re.compile(r"error\[E\d+\]")
+
+
+def _match_network_failure_marker(output: str) -> str | None:
+    """Return the first network-failure marker found in ``output``, else None."""
+    for marker in _CARGO_NETWORK_FAILURE_MARKERS:
+        if marker in output:
+            return marker
+    return None
 
 
 @dataclass(frozen=True)
@@ -765,6 +812,12 @@ def verify_rust_example(
     Cargo path dependency named ``library_crate_name``, and report the
     real ``cargo build`` outcome.
 
+    Raises ``ExampleEnvironmentError`` when a failed build's output names a
+    registry or network failure (see ``_CARGO_NETWORK_FAILURE_MARKERS``) AND
+    carries no rustc diagnostic (``error[E<digits>]``). A failed build that
+    carries a rustc diagnostic is a real compile failure and returns
+    ``verified=False``, even if a network marker also appears.
+
     The literal comparison determining ``verified`` is intentionally exact
     (``verified = result.returncode == 0``), matching ``verify_dotnet_example``.
     """
@@ -779,9 +832,18 @@ def verify_rust_example(
     (project_dir / "src" / "main.rs").write_text(candidate.code, encoding="utf-8")
 
     result = _run_cargo(["cargo", "build"], cwd=project_dir)
+    output_text = f"{result.stdout}\n{result.stderr}"
+
+    # A failed run whose output names a network failure and carries no rustc
+    # diagnostic could not reach the registry: that is an environment failure,
+    # not a compile verdict. Raise rather than return a not-verified result.
+    if result.returncode != 0 and _RUSTC_DIAGNOSTIC.search(output_text) is None:
+        marker = _match_network_failure_marker(output_text)
+        if marker is not None:
+            raise ExampleEnvironmentError("cargo", marker, _truncate(output_text))
 
     verified = result.returncode == 0
-    output = _truncate(f"{result.stdout}\n{result.stderr}")
+    output = _truncate(output_text)
 
     return VerificationResult(candidate=candidate, verified=verified, output=output)
 
