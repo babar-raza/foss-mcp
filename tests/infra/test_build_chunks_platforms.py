@@ -50,8 +50,9 @@ def test_go_entry_has_prepare_verify_and_verify_kwargs_and_verify_is_verify_go_e
     """
     entry = build_chunks._PLATFORM_DISPATCH["go"]
 
-    assert set(entry) == {"prepare", "verify", "verify_kwargs"}
+    assert set(entry) == {"prepare", "verify", "verify_kwargs", "shared_page_workdir"}
     assert entry["verify"] is verify_go_example
+    assert entry["shared_page_workdir"] is False
 
     sentinel = object()
     calls = _record_prepare(monkeypatch, "prepare_go_library", sentinel)
@@ -82,8 +83,9 @@ def test_java_entry_has_prepare_verify_and_verify_kwargs_and_verify_is_verify_ja
     """
     entry = build_chunks._PLATFORM_DISPATCH["java"]
 
-    assert set(entry) == {"prepare", "verify", "verify_kwargs"}
+    assert set(entry) == {"prepare", "verify", "verify_kwargs", "shared_page_workdir"}
     assert entry["verify"] is verify_java_example
+    assert entry["shared_page_workdir"] is False
 
     sentinel = object()
     calls = _record_prepare(monkeypatch, "prepare_java_library", sentinel)
@@ -91,6 +93,17 @@ def test_java_entry_has_prepare_verify_and_verify_kwargs_and_verify_is_verify_ja
 
     assert entry["prepare"](args, tmp_path) is sentinel
     assert calls == [(JAVA_REPOSITORY, JAVA_COMMIT, tmp_path)]
+
+
+def test_python_entry_shares_one_page_workdir() -> None:
+    """The python entry of _PLATFORM_DISPATCH has the same four keys as the go and java entries, and
+    its shared_page_workdir is True, so the candidates of one page run in one shared workdir in
+    document order. Turning that flag off must fail this test.
+    """
+    entry = build_chunks._PLATFORM_DISPATCH["python"]
+
+    assert set(entry) == {"prepare", "verify", "verify_kwargs", "shared_page_workdir"}
+    assert entry["shared_page_workdir"] is True
 
 
 def test_java_verify_kwargs_gives_library_jar() -> None:
