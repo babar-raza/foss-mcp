@@ -1,0 +1,69 @@
+id: TC-199
+gate: G2
+lane: transport-deployment
+purpose: 'Make search_symbols an honest miss for an absent symbol. The live workflow proof (2026-10-04) searched for
+  Tc197AbsentSymbolProbe on the pdf/go, slides/python and pdf/typescript pilots. Each returned one or more ranked
+  matches (for example BarcodeField on pdf/go) with exact_hit_count 0. search_symbols returns its top-ranked hits
+  whatever their score, so an absent symbol comes back as a list of unrelated symbols that look like answers. The
+  honest-miss path, NotFound with difflib suggestions, already exists, but it runs only when nothing ranks at all.
+  The fix: a match must be an exact symbol hit, meaning the query equals the full FQN or its final segment, compared
+  without regard to case. Anything else is a NotFound with suggestions. An absent symbol then never appears as a
+  match, and the suggestions stay available as a "did you mean" hint.'
+depends_on:
+- TC-143
+- TC-197
+write_paths:
+- src/foss_mcp/mcp/tools/search_symbols.py
+- tests/mcp/test_search_symbols_honest_miss.py
+satisfies:
+- REQ-G2-047
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read src/foss_mcp/mcp/tools/search_symbols.py in full, especially search_symbols and its miss path, the difflib
+  suggest_similar_fqns helper, and how results are ranked and returned. Read the existing tests for search_symbols
+  (grep tests for search_symbols) to learn what they assert today.'
+- 'Add a single private predicate is_exact_symbol_hit(query, fqn) in search_symbols.py. It is true when query equals
+  fqn, or equals the final dotted segment of fqn, compared case-insensitively and after stripping whitespace. Use it
+  wherever search_symbols decides whether a result is a match. The name must appear once as a definition and at each
+  use, so that the falsifier can find it.'
+- 'A result that fails is_exact_symbol_hit is not a match. When no result passes, search_symbols returns the existing
+  NotFound miss, with suggestions from suggest_similar_fqns. Keep the existing miss fields, and do not add a new field
+  that a caller must read.'
+- 'If an EXISTING test asserts that a non-exact ranked result is returned as a match, that is a contract conflict, not a
+  bug to hide. Do not weaken that test. Stop and report it with the test name and the assertion.'
+- 'Add tests/mcp/test_search_symbols_honest_miss.py as a new file, offline. Build a tiny in-memory index with a few
+  known FQNs, and check: (1) an exact FQN returns a match; (2) an exact final segment, in another case, returns a match;
+  (3) an absent symbol that shares a token with a real one returns NotFound, not a match; (4) the NotFound carries
+  suggestions that include a close real name; (5) a partial name is not a match.'
+- 'Keep every existing test and assertion, unless input says a conflict must be reported.'
+actions:
+- Read the search code and the existing search tests in full.
+- Add the predicate and the change to the miss path.
+- Write the offline test file.
+- Run the search tests and the new file, and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/mcp/test_search_symbols_honest_miss.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-047
+min_tests: 5
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('def is_exact_symbol_hit(','def is_exact_symbol_hit_off(',1),encoding='utf-8')"
+  rationale: 'Renames the definition of is_exact_symbol_hit, so the call sites raise NameError on any search. Test 1 and
+    test 2 then fail, because they need a match. Test 3 expects NotFound and would fail with NameError rather than
+    pass by accident. The replace is limited to the first match, which is the definition. Built with plain text, since
+    it has no quote or backslash.'
+evidence:
+- evidence/build/G2/TC-199/receipt.json
+closeout:
+- An absent symbol returns NotFound with suggestions, and never a match.
+- An exact symbol or an exact final segment still returns its match.
+recovery: Re-run from a clean tree.

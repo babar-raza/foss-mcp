@@ -1,0 +1,55 @@
+id: TC-198
+gate: G2
+lane: verification
+purpose: 'Fix the proof script''s probe selection. The live workflow proof for pdf/typescript searched for the single
+  letter A, because the probe came from the first symbol that fit the rule, and a one-letter symbol is not a real
+  probe. Checks 2, 3, 4 and 8 then failed for pdf/typescript, and the failures came from the probe, not from the
+  product. A probe must be a real identifier of at least four characters, so that a failure in the workflow means a
+  failure in the MCP, not in the script.'
+depends_on:
+- TC-197
+write_paths:
+- scripts/poc/pilot_workflow_proof.py
+- tests/poc/test_pilot_workflow_proof.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read scripts/poc/pilot_workflow_proof.py in full, especially the probe selection, which picks the probe symbol from the
+  fixture''s first types. Read tests/poc/test_pilot_workflow_proof.py.'
+- 'Add a single function choose_probe(types) that returns the probe symbol. It takes the fixture types in document
+  order, and returns the first name that is a real identifier (letters, digits and underscores, starting with a
+  letter), at least four characters long, and not a common word such as Type, Name or Value. Prefer an enum or a type
+  with members, as the script does today. The function name must appear once as a definition and once at each use.'
+- 'If no name passes, choose_probe raises a ValueError naming the fixture. The script then records check 2 as a fail
+  with that reason. It must not pick a short name.'
+- 'Add tests to tests/poc/test_pilot_workflow_proof.py: (1) a one-letter name is not chosen, and the next valid name is;
+  (2) an enum is preferred over a plain type; (3) a fixture with no valid name raises ValueError. Keep every existing test.'
+actions:
+- Read the script and its tests in full.
+- Add choose_probe and use it.
+- Add the three tests, and run the file, and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/poc/test_pilot_workflow_proof.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 8
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/poc/pilot_workflow_proof.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('def choose_probe(','def choose_probe_off(',1),encoding='utf-8')"
+  rationale: 'Renames the definition of choose_probe, so the script cannot pick a probe. The new probe tests then fail with
+    a NameError, and the earlier tests that run the script fail with it too. The replace is limited to the first match,
+    which is the definition. Built with plain text, since it has no quote or backslash.'
+evidence:
+- evidence/build/G2/TC-198/receipt.json
+closeout:
+- The proof script never probes with a one-letter or otherwise meaningless name.
+recovery: Re-run from a clean tree.
