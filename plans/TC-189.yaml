@@ -1,0 +1,72 @@
+id: TC-189
+gate: G2
+lane: extraction
+purpose: 'Route a registry or network failure while building the Rust reference crate through the same
+  classifier that TC-181 gave the candidate build. prepare_rust_library builds the real pinned library
+  with cargo build. When that build fails, it raises a plain RuntimeError (example_verifier.py, the
+  prepare_rust_library body). A registry outage there therefore looks exactly like a defect in the
+  library, and the build aborts as a code failure, with no environment exit. The candidate path already
+  separates the two cases, so the reference path must too: a failed reference build whose output carries
+  a network marker and no rustc diagnostic raises ExampleEnvironmentError, and every other failed
+  reference build keeps raising RuntimeError as it does now.'
+depends_on:
+- TC-181
+- TC-175
+- TC-187
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_rust_reference_env_failure.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Read prepare_rust_library in full, and the classifier that TC-181 added: _CARGO_NETWORK_FAILURE_MARKERS,
+  _match_network_failure_marker, the rustc diagnostic check, and ExampleEnvironmentError with its
+  constructor. Use the same marker list and the same rustc diagnostic rule. Do not add a second list.'
+- 'Add one private helper, _reference_build_failure(tool, repository, commit, result), in
+  src/foss_mcp/indexing/example_verifier.py. It returns the exception to raise. When the output has a
+  network marker and no rustc diagnostic, it returns ExampleEnvironmentError for the tool cargo, carrying
+  the matched marker. Otherwise it returns the existing RuntimeError message, unchanged. In
+  prepare_rust_library, replace the raise with raise _reference_build_failure(...). The helper name must be
+  exactly _reference_build_failure.'
+- 'Do not change verify_rust_example, the candidate classifier, or any other verifier.'
+- 'Add tests/indexing/test_rust_reference_env_failure.py as a new file. It must be offline. Monkeypatch
+  _clone_pinned_commit to do nothing, and _run_cargo to return a scripted result. Test 1: a failed reference
+  build whose output has a network marker and no rustc diagnostic raises ExampleEnvironmentError with tool
+  cargo and the marker. Test 2: a failed reference build whose output has error[E0433] raises RuntimeError
+  and is not ExampleEnvironmentError. Test 3: a failed reference build with no marker and no diagnostic
+  raises RuntimeError and is not ExampleEnvironmentError.'
+- 'Keep every existing test and assertion. Do not edit tests/indexing/test_example_verifier.py.'
+actions:
+- Read prepare_rust_library and the TC-181 classifier in full.
+- Add the helper and the call.
+- Write the offline test file.
+- Run it and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/indexing/test_rust_reference_env_failure.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 3
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('_reference_build_failure(','_reference_build_failure_off(',1),encoding='utf-8')"
+  rationale: 'Renames the one call to _reference_build_failure in the reference path, so the reference build
+    raises a NameError instead of the classified error. Test 1 expects ExampleEnvironmentError and must then
+    fail. Test 2 and test 3 expect RuntimeError, so they would still fail on the NameError only if the
+    NameError is not a RuntimeError, which it is not. The replace is limited to the first match, which is
+    the reference path, because the helper is defined once and called once there. Built with a plain string,
+    since it has no backslash or quote.'
+evidence:
+- evidence/build/G2/TC-189/receipt.json
+closeout:
+- A registry outage while building the Rust reference crate raises ExampleEnvironmentError and is not a code failure.
+- A real reference-build defect still raises RuntimeError.
+recovery: Re-run from a clean tree.
