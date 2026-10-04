@@ -57,6 +57,14 @@ def cmd_validate(args) -> int:
     # 3. no two non-terminal cards may own overlapping write_paths
     problems.extend(_overlap_problems(cards))
 
+    # 3b. D5 (DECISION_LOG 2026-10-04): authoring-time lint of each card's checks.
+    # Cards with an accepted receipt are grandfathered inside lint_card.
+    import cardlint
+
+    for cid, c in sorted(cards.items()):
+        accepted = bool((V.load_receipt(c["gate"], cid) or {}).get("accepted"))
+        problems.extend(cardlint.lint_card(c, G.REPO, accepted=accepted))
+
     # 4. case-only collisions are invisible on this repo (core.ignorecase=true)
     seen: dict[str, str] = {}
     for cid, c in sorted(cards.items()):

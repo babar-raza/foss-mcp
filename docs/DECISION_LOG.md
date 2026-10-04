@@ -1139,3 +1139,22 @@ Taskcard as the complete contract. Scope enforcement. Two clean runs plus a fals
 - I have not measured rerun variance. The drift, the flake and the 103 failures are observed instances, not statistics. Variance measurement is one of the controls above, and its result should decide whether D2 and D4 are worth their cost.
 - The supervisor cannot implement any of D1 to D9 directly, because AGENTS puts verdict and product code outside supervisor authorship. Each item therefore needs a taskcard.
 - This entry is not a plan. Implementation steps will become taskcards. This log is the record of why.
+
+## 2026-10-04 - Redesign approved; ownership split for implementation (supervisor)
+Approved by the operator: implement D1, then D5, then D3, then D2, as in the 2026-10-04 analysis entry above.
+
+**Ownership split, forced by the rules, not by preference.** `ops/gatectl.py`, `ops/gateverify.py`, `schemas/*` and `docs/REPOSITORY_LAYOUT.md` are in `GLOBAL_DENY` (`ops/**`, `schemas/*`). No taskcard may write them, so no worker can implement a change to the verdict engine or the control-plane schemas.
+- **D3 (pinned container inputs): worker taskcard.** Dockerfiles, the toolchain lock and a static test are all card-writable. Filed as TC-174.
+- **D1 (capability declaration and BLOCKED_ENV), D5 (card linter in `validate`), D2 (hermetic verify runner): supervisor implementation.** Each change goes with canary tests in `ops/tests/`, a regression run of the existing 68 governance tests, and a read-only review by a separate agent before it is merged. This is the same as the verdict-engine rule in the analysis entry, not a new exception.
+- **Schema changes** (new `requires` field, `BLOCKED_ENV` and `SUPERSEDED` states, `RE_ISSUED` transition) ride with the supervisor implementation, because they are control-plane.
+
+**Order and dependencies.** D1 first, because D5 and D2 both read the capability model. Then D5, then D3, then D2. D3 is worker-side and independent of D1, so it may run in parallel as a worker card.
+
+**Install (operator-approved).** Visual Studio 2022 Build Tools, with the C++ workload, installed to `C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools`. The Community install on `D:` is not used, because `D:` is being deleted. The bootstrapper is kept at `C:\dev-tools\downloads\vs_BuildTools.exe`.
+
+## 2026-10-04 - D1 and D5 implemented (supervisor, governance); canaries recorded
+**D1, capability gating (commit d0ee692).** `requires:` on a taskcard; `ops/capabilities.py` probes the closed vocabulary. A missing capability yields BLOCKED_ENV before any check runs, recorded as `env_blocked.json` (schema `schemas/env-blocked.schema.json`). It never counts against attempts, and it is never reported as FAIL. It governs only while newer than the receipt, so a fixed environment is never blocked by an old record. Canary: the real verify path, with msvc forced absent on TC-174, gives BLOCKED_ENV at verify, card and gate; clearing the record restores IN_PROGRESS. Regression: the rebuilt state matches the committed state on all 170 cards.
+
+**D5, card linter (this commit).** `ops/cardlint.py`, called from `validate`, checks three rules on cards with no accepted receipt: L1 a backslash in a falsifier, L2 network reach under `network: false`, L3 a test that invokes the CI or a hook. Cards with an accepted receipt are grandfathered, so nothing already accepted can start failing. Canaries: the original TC-168 card, loaded from commit e607ceff, is flagged on L1 and L2, so the linter would have caught attempt 1 before dispatch. The card in progress lints clean.
+
+**Not done yet, recorded as limits.** The linter is textual, so it has false positives and false negatives. The falsifier dry-run at authoring time (in D5's original design) is not in this change, because it needs a scratch copy of the tree. D1 and D5 are verified only by the governance suite and these canaries. Neither has been run against a full gate.
