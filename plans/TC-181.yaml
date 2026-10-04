@@ -44,6 +44,7 @@ inputs:
   "Could not resolve hostname", "SSL connect error", "download of config.json failed", and "transfer
   too slow". Classify a failed cargo run as infrastructure when any marker appears in its output.
   Otherwise it is a compile failure. Put the marker list in one constant.'
+- 'Amended by the supervisor on 2026-10-04 after the attempt-1 block. Cargo prints its retry warning, "spurious network error (N tries remaining)", on real compile runs too, so a marker alone does not mean the run was infrastructure. Classify a failed run as infrastructure only when a marker appears AND the output contains no rustc diagnostic (a line matching error[E followed by digits]). A run that has a rustc diagnostic is a compile failure and returns not-verified, even if a marker also appears. Add an offline test: a failed run whose output has both a marker and error[E0599] returns not-verified and raises nothing. The existing E0599 Rust test in tests/indexing/test_example_verifier.py must pass with the network up.'
 - 'Add a distinct exception, ExampleEnvironmentError, carrying the tool name and the matched marker.
   The verifier raises it on an infrastructure failure. It must not return a not-verified result for
   that case. Keep the existing not-verified path for a real compile failure, unchanged.'
