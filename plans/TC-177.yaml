@@ -1,0 +1,97 @@
+id: TC-177
+gate: G2
+lane: transport-deployment
+purpose: 'Make the Helm chart able to serve the app in a cluster. The 2026-10-04 readiness sweep
+  found that infra/helm/foss-mcp is not deployable: the Deployment runs the stdio command, so
+  nothing listens on 8080; it has no liveness or readiness probes, so Kubernetes never checks the
+  pod; there is no Service; there is no volume for /data/manifests and no ingestion Job, so a
+  serving pod starts with an empty store and /readyz answers 503; there is no securityContext and
+  no resource limit; and the image tag defaults to latest. Fix each, and prove it by rendering the
+  chart and parsing the output.'
+depends_on:
+- TC-172
+- TC-174
+- TC-175
+- TC-176
+write_paths:
+- infra/helm/foss-mcp/Chart.yaml
+- infra/helm/foss-mcp/values.yaml
+- infra/helm/foss-mcp/templates/deployment.yaml
+- infra/helm/foss-mcp/templates/service.yaml
+- infra/helm/foss-mcp/templates/pvc.yaml
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
+- infra/helm/foss-mcp/templates/_helpers.tpl
+- infra/helm/foss-mcp/templates/networkpolicy.yaml
+- tests/infra/test_helm_chart.py
+- scripts/toolchain/activate.ps1
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model â€” an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes Â§1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read every file in infra/helm/foss-mcp in full first. The Deployment has no command override, so
+  the pod runs the stdio CMD of Dockerfile.serving. The correct command is
+  ["python", "/app/infra/serve_http.py"], the same override docker-compose.yml uses. The HTTP server
+  listens on 8080 and exposes /healthz (liveness: process alive) and /readyz (readiness: a real
+  active generation is readable). Use those two, and do not invent a third endpoint.'
+- 'Image tag: values.yaml sets latest. Replace it with a required value. In the template use
+  {{ required "image.tag must be set to a pinned version or digest" .Values.image.tag }}. Do not
+  choose a default version yourself.'
+- 'Manifests volume: serving mounts a PersistentVolumeClaim at /data/manifests read-only. The
+  ingestion Job mounts the SAME claim read-write. The claim name, size and storageClassName come
+  from values. A pod with an empty claim is correct behaviour, because /readyz then returns 503
+  and the pod is not routed traffic.'
+- 'Ingestion Job: one Job per pilot listed in values.ingestion.pilots. Each runs the same two-step
+  chain docker-compose.yml runs (infra/build_chunks.py then infra/ingest.py), with the pilot''s
+  family, platform and fixture arguments. Read docker-compose.yml to copy the arguments exactly, and
+  do not invent them. Use restartPolicy Never and a backoffLimit.'
+- 'Security: pod securityContext runAsNonRoot true, runAsUser 10001 (the uid both images create);
+  container securityContext allowPrivilegeEscalation false, readOnlyRootFilesystem true, capabilities
+  drop ALL; mount an emptyDir at /tmp because readOnlyRootFilesystem is on.'
+- 'Probes: livenessProbe httpGet /healthz on port 8080; readinessProbe httpGet /readyz on port 8080.
+  Give the readiness probe an initialDelaySeconds and a periodSeconds from values.'
+- 'Resources: requests and limits from values, with defaults you can justify from the image. Do not
+  leave them empty.'
+- 'Service: ClusterIP, port 80 to targetPort 8080.'
+- 'terminationGracePeriodSeconds from values, default 30. Uvicorn handles SIGTERM itself, so no
+  preStop hook is needed unless a test shows otherwise.'
+- 'scripts/toolchain/activate.ps1: add the helm directory to the PATH list, so helm resolves for this
+  shell. Its location is C:\dev-tools\foss-mcp\helm\windows-amd64 under the default toolchain root.
+  The helm entry in scripts/toolchain/toolchain.lock.json records the version. Do not edit the lock in
+  this card.'
+- 'tests/infra/test_helm_chart.py (new). It runs helm lint, then helm template with image.tag set on
+  the command line, parses every YAML document with PyYAML, and asserts: the Deployment command is
+  serve_http.py; both probes exist and point at /healthz and /readyz; securityContext runAsNonRoot is
+  true; no container image ends in :latest; a Service exists; a PersistentVolumeClaim exists and is
+  mounted at /data/manifests; an ingestion Job is rendered for each pilot listed. It must fail, not
+  skip, when helm is missing.'
+actions:
+- Read the whole chart and docker-compose.yml first.
+- Make the template changes described above.
+- Write tests/infra/test_helm_chart.py.
+- Run helm lint and the test.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_chart.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 8
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/deployment.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('serve_http.py','serve_http_OFF.py'),encoding='utf-8')"
+  rationale: 'Renames the HTTP server entry in the Deployment command. The rendered command no longer
+    runs the HTTP server, so the chart test must fail. This proves the test reads the rendered command,
+    not the template text alone.'
+evidence:
+- evidence/build/G2/TC-177/receipt.json
+closeout:
+- The Deployment runs serve_http.py and has both probes.
+- The image tag is required, and no :latest appears.
+- A Service, a PVC and one ingestion Job per pilot are rendered.
+- The security context and resource limits are set.
+recovery: Re-run from a clean tree.
