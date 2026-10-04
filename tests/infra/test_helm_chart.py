@@ -268,3 +268,54 @@ def test_every_container_declares_resource_requests_and_limits() -> None:
         resources = container["resources"]
         for key in ("requests", "limits"):
             assert {"cpu", "memory"} <= set(resources[key]), (workload["metadata"]["name"], key)
+
+
+def _covers_port_53(entry: dict[str, Any]) -> bool:
+    port = entry.get("port")
+    if port is None:
+        return True
+    return port <= 53 <= entry.get("endPort", port)
+
+
+def _rule_permits_port_53(rule: dict[str, Any]) -> bool:
+    if "ports" not in rule:
+        return True  # no ports list means every port, including 53
+    return any(_covers_port_53(entry) for entry in rule["ports"])
+
+
+def _is_world_or_all_pods(peer: dict[str, Any]) -> bool:
+    if peer.get("ipBlock", {}).get("cidr") in ("0.0.0.0/0", "::/0"):
+        return True
+    # An empty namespaceSelector selects every namespace; with no podSelector restriction that is
+    # every pod in the cluster. A podSelector alone is scoped to the policy's own namespace.
+    return peer.get("namespaceSelector") == {} and peer.get("podSelector", {}) == {}
+
+
+def _opens_port_53_to_world_or_all_pods(rule: dict[str, Any]) -> bool:
+    if not _rule_permits_port_53(rule):
+        return False
+    peers = rule.get("to")
+    if not peers:
+        return True  # no destination list means any destination
+    return any(_is_world_or_all_pods(peer) for peer in peers)
+
+
+def test_dns_egress_reaches_only_kube_dns_on_udp_and_tcp_53() -> None:
+    policies = _by_kind(_render(), "NetworkPolicy")
+    assert len(policies) == 1, "expected exactly one NetworkPolicy"
+    egress = policies[0]["spec"]["egress"]
+    kube_dns_rules = [
+        rule
+        for rule in egress
+        if {"protocol": "UDP", "port": 53} in rule.get("ports", [])
+        and {"protocol": "TCP", "port": 53} in rule.get("ports", [])
+        and any(
+            peer.get("podSelector", {}).get("matchLabels") == {"k8s-app": "kube-dns"}
+            and peer.get("namespaceSelector", {}).get("matchLabels")
+            == {"kubernetes.io/metadata.name": "kube-system"}
+            for peer in rule.get("to", [])
+        )
+    ]
+    assert kube_dns_rules, "expected an egress rule allowing UDP and TCP 53 to kube-dns in kube-system"
+    wide = [rule for rule in egress if _opens_port_53_to_world_or_all_pods(rule)]
+    assert wide == [], f"port 53 must not open to 0.0.0.0/0 or to all pods: {wide}"
