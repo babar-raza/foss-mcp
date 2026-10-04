@@ -598,6 +598,26 @@ def cmd_review(args) -> int:
     return cmd_accept(args_accept)
 
 
+def _live_smoke():
+    """Run the live-content e2e tests against real containers (D8).
+
+    Returns (status, detail), status one of PASS, FAIL, BLOCKED_ENV. Docker absent is
+    BLOCKED_ENV, because that is an environment fact and not a defect in the code.
+    """
+    import sys
+
+    rc, _, err = G.run(["docker", "info"], timeout=60)
+    if rc != 0:
+        return "BLOCKED_ENV", "docker engine not reachable: " + (err or "").strip()[:160]
+    rc, out, err = G.run(
+        [sys.executable, "-m", "pytest", "tests/e2e", "-k", "live_content", "-q", "-p", "no:cacheprovider"],
+        env={"FOSS_MCP_LIVE_E2E": "1"},
+        timeout=5400,
+    )
+    tail = [ln for ln in (out or "").splitlines() if ln.strip()][-1:] or [""]
+    return ("PASS" if rc == 0 else "FAIL"), tail[0][:200]
+
+
 def cmd_gate_exit(args) -> int:
     """Re-verify EVERY card in the gate from scratch, ignoring stored receipts.
 
@@ -621,7 +641,13 @@ def cmd_gate_exit(args) -> int:
     ]
 
     rc, head, _ = G.git("rev-parse", "HEAD")
-    results, failures = {}, []
+    results, failures, blocked = {}, [], []
+    # D8: an OPEN owner item consumed by this gate is a hard block. Before this, gate-exit
+    # never read ops/owner_items.yaml, so OWNER-05 and OWNER-06 could not stop it.
+    owner_open = [
+        o["id"] for o in V.load_owner_items()
+        if o.get("status") == "OPEN" and args.gate in (o.get("consumed_by") or [])
+    ]
     for cid in sorted(cards):
         base = _dispatch_rev_for(cid)
         if not base:
@@ -631,7 +657,9 @@ def cmd_gate_exit(args) -> int:
         print(f"re-verifying {cid} at HEAD ...", flush=True)
         r = V.do_verify(cid, base, head, issue, evaluate_scope=False)
         results[cid] = r
-        if not r["accepted"]:
+        if r.get("blocked_env"):
+            blocked.append(f"{cid}: {r['reason']}")
+        elif not r["accepted"]:
             failures.append(f"{cid}: {r['reason']}")
 
     # Repo-wide CI is a GATE property, not a card property. Card checks are
@@ -652,21 +680,37 @@ def cmd_gate_exit(args) -> int:
     if rc_ci != 0:
         failures.append("repo-wide CI failed: " + "; ".join(ci_summary) or (ci_err or "")[:200])
 
+    # D8 live-content smoke (AGENTS.md, Integration and liveness). A real container must
+    # answer a real query. Without Docker the result is BLOCKED_ENV, never a silent pass.
+    live_status, live_detail = _live_smoke()
+    if live_status == "FAIL":
+        failures.append(f"live-content smoke test failed: {live_detail}")
+    elif live_status == "BLOCKED_ENV":
+        blocked.append(f"live-content smoke needs Docker: {live_detail}")
+
     print()
     print(f"=== GATE {args.gate} EXIT ===")
     for ln in ci_summary:
         print(f"  CI {ln.strip()}")
     for cid in sorted(results):
         r = results[cid]
-        mark = "PASS" if r["accepted"] else "FAIL"
+        mark = "BLOCKED_ENV" if r.get("blocked_env") else ("PASS" if r["accepted"] else "FAIL")
         print(f"  [{mark}] {cid}")
+    print(f"  [live-content smoke] {live_status}")
     for f in failures:
         print(f"  ! {f}")
+    for b in blocked:
+        print(f"  ~ BLOCKED_ENV: {b}")
     if open_q:
         print(f"  ! unresolved open questions consumed by {args.gate}: {open_q}")
+    if owner_open:
+        print(f"  ! OPEN owner items consumed by {args.gate}: {owner_open}")
 
-    if failures or open_q:
-        print(f"GATE {args.gate} NOT MET")
+    if failures or open_q or owner_open or blocked:
+        if failures or open_q or owner_open:
+            print(f"GATE {args.gate} NOT MET")
+        else:
+            print(f"GATE {args.gate} BLOCKED_ENV - no code failure; the environment must be fixed")
         return G.EXIT_FAIL
 
     outdir = G.EVIDENCE / "build" / args.gate
