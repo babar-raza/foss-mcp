@@ -1,0 +1,62 @@
+id: TC-173
+gate: G2
+lane: verification
+purpose: Fix a fork bomb in tests/test_githooks.py. The GitLab-mirror test runs the real
+  .githooks/pre-push with a URL that matches the hook's allow-list, so the hook falls through
+  into scripts/ci_check.sh, which runs pytest, which runs this same test again. The test's
+  2-second timeout kills only the immediate bash child, so the nested processes keep running
+  and multiply. Make the test prove the allow-list match without ever reaching the CI step.
+  Do this by running a probe copy of the real hook with the CI call cut off. Do not add any
+  environment switch to the hook: an env var that skips CI would be a fail-open bypass.
+depends_on:
+- TC-006
+write_paths:
+- tests/test_githooks.py
+satisfies:
+- REQ-G0-009
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.4 Governance adoption map'
+  sha256: 633416b630ef7fe8d06e737dab888cabea30abc6e5e42f20ee33d08773d78d39
+inputs:
+- .githooks/pre-push is OFF LIMITS. Do not edit it, and do not add any environment variable or
+  flag to it that changes whether CI runs.
+- 'Replace test_gitlab_mirror_remote_is_recognized_as_this_project_not_refused. Keep its name,
+  its gitlab URL and its two assertions: "refusing" must not appear in the output, and
+  "running scripts/ci_check.sh" must appear in it. Change only how the hook runs. Read HOOK_PATH
+  as text. Assert the exact CI line is present, then build a probe copy in tmp_path with
+  `exit 0` inserted directly after that line. Run the probe with cwd=tmp_path and the relative
+  name ./pre-push-probe (Git Bash mangles absolute Windows paths). Use timeout=60, and assert
+  returncode == 0. The real CI step must never run from inside this test.'
+- 'Remove the 2-second timeout path and its exception handling. The probe cannot hang, so no
+  timeout catch is needed.'
+- Keep the other tests in this file unchanged. Use the same subprocess style they use.
+- Run the file with Git''s bash first on PATH. Set $env:Path = "D:\Program Files\Git\bin;" + $env:Path,
+  so bash resolves to Git for Windows and not the WSL launcher.
+actions:
+- Read tests/test_githooks.py in full, and .githooks/pre-push in full.
+- Rewrite only the gitlab test as described.
+- Run tests/test_githooks.py. It must finish in well under a minute. A slow run means you have
+  let the CI step run, which is a defect in your change.
+checks:
+- command: '{python} -m pytest tests/test_githooks.py -q'
+  expect: exit 0
+  timeout_seconds: 180
+  junitxml: true
+  proves:
+  - REQ-G0-009
+min_tests: 5
+network: false
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('.githooks/pre-push');s=p.read_text(encoding='utf-8');p.write_text(s.replace(chr(42)+'aspose-foss-dev-context-mcp'+chr(42),chr(42)+'aspose-foss-dev-context-mcpX'+chr(42)),encoding='utf-8')"
+  rationale: Changes the hook's allow-list so the GitLab mirror URL no longer matches. The
+    gitlab test must then fail, because the hook refuses the URL. This proves the test checks the
+    real allow-list, not just the hook's existence. Built with chr() so no backslash or quote
+    problem reaches the shell.
+evidence:
+- evidence/build/G2/TC-173/receipt.json
+closeout:
+- The gitlab-mirror test no longer runs the CI step, so the recursion cannot start.
+- The allow-list match is still proven against the real hook text.
+- Changing the allow-list makes the gitlab test fail.
+recovery: Test-only; re-run from a clean tree. Kill any stray pre-push or ci_check.sh processes first.
