@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "card": "TC-176",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-04T11:02:00Z",
+  "base_rev": "f10d883b365d4284aee2b524c6425fb6d25ace5c",
+  "head_rev": "d26140fd1a11802a6740039b4d2dbe1b91b0844a",
+  "card_sha256": "18904669562f17f6dadb2b63b44ba59a4e4c70df945610785824f7e3683c71b0",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "Dockerfile.ingestion",
+      "tests/infra/test_verify_image_offline.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "docker build -f Dockerfile.ingestion -t foss-mcp-verify:local .",
+          "exit_code": 0,
+          "duration_s": 575.315,
+          "stdout_sha256": "e23d755454e02e889394e507c5c5084a5e740710fb4621c080e39bd291db32f9"
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_verify_image_offline.py -q",
+          "exit_code": 0,
+          "duration_s": 6.379,
+          "stdout_sha256": "cf426ab35f3b06fccef8290fde5325d90af130a79da1d1752031518df77c4236",
+          "tests": 3,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "docker build -f Dockerfile.ingestion -t foss-mcp-verify:local .",
+          "exit_code": 0,
+          "duration_s": 2.782,
+          "stdout_sha256": "4b5e81efbb52006900fa22ec3578ca3f20397240bc3f2288d15d5a44036c1ff5"
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_verify_image_offline.py -q",
+          "exit_code": 0,
+          "duration_s": 6.221,
+          "stdout_sha256": "cf426ab35f3b06fccef8290fde5325d90af130a79da1d1752031518df77c4236",
+          "tests": 3,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('Dockerfile.ingestion');s=p.read_text(encoding='utf-8');p.write_text(s.replace('tree_sitter_language_pack','tree_sitter_language_pack_OFF'),encoding='utf-8')\"",
+    "patch_sha256": "39663093a60b262a00b0074b7d74345168cd166a85610d6cceec0ccaab78401d",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M Dockerfile.ingestion",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
