@@ -1,0 +1,91 @@
+id: TC-175
+gate: G2
+lane: verification
+purpose: 'Remove the hard-coded toolchain paths from the cells/cpp example verifier. Its constants
+  point at C:\tools\rp-toolchains, which does not exist on this machine, so the C++ verifier and
+  the Rust link step both fail (9 tests in tests/indexing/test_example_verifier.py). The MSVC
+  workload now lives under C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools. Resolve
+  every tool from a documented place instead: vcvarsall.bat through vswhere, and ninja and cmake
+  from the toolchain root, which defaults to C:\dev-tools\foss-mcp and can be overridden with
+  FOSS_MCP_TOOLS. Nothing may be found by guessing a path. A tool that cannot be resolved must fail
+  with a message that names what is missing.'
+depends_on:
+- TC-067
+- TC-079
+- TC-081
+- TC-082
+- TC-091
+- TC-092
+- TC-096
+- TC-097
+- TC-098
+- TC-099
+- TC-100
+- TC-101
+- TC-102
+- TC-104
+- TC-106
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_example_verifier_toolchain.py
+satisfies:
+- REQ-G2-048
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '## 22. Verification obligations mapped to gates (extends §10''s and §18''s
+    acceptance tests with the items §8 of the Round-6 review specifically required)'
+  sha256: b417ef557a656b43c9fec9afeb5cbb1d856e9db8f3056ec331c464c5e0ab0d23
+inputs:
+- 'Current hard-coded constants, read on 2026-10-04: _CPP_VCVARSALL, _CPP_NINJA_EXECUTABLE and
+  _CPP_CMAKE_EXECUTABLE all point under C:\tools\rp-toolchains. _CPP_VSWHERE_DIR already points at the
+  real Installer folder. Keep vswhere as the way to find the Visual Studio installation.'
+- 'Real locations on this machine, to be used as the defaults that the resolver reports, not as
+  hidden fallbacks: vcvarsall.bat under C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build;
+  ninja.exe under <FOSS_MCP_TOOLS or C:\dev-tools\foss-mcp>\rp-toolchains\ninja; cmake.exe under
+  <toolchain root>\cmake\bin. Read the root from the FOSS_MCP_TOOLS environment variable, with
+  C:\dev-tools\foss-mcp as the default.'
+- 'The resolver must return the resolved path, or raise an error that names the tool, the place it
+  looked, and the environment variable that overrides it. It must never silently return a path that
+  does not exist.'
+- 'Write tests/indexing/test_example_verifier_toolchain.py as offline unit tests. Cover: vswhere
+  resolution with a faked vswhere output, the FOSS_MCP_TOOLS override, the missing-tool error text,
+  and the default root. Do not touch the existing test_example_verifier.py.'
+- 'The existing tests/indexing/test_example_verifier.py must pass unchanged. It needs the network to
+  clone the pinned repositories, and it needs MSVC. Run it. If a test fails for a reason inside the
+  verifier, that is part of this card. If it fails because a tool is absent, report it exactly.'
+actions:
+- Read src/foss_mcp/indexing/example_verifier.py around the _CPP constants and every function that uses them, in full.
+- Replace each hard-coded constant with a resolver that follows the inputs above.
+- Write the offline unit tests.
+- Run the offline unit tests, then the full existing verifier test file.
+checks:
+- command: '{python} -m pytest tests/indexing/test_example_verifier_toolchain.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-048
+- command: '{python} -m pytest tests/indexing/test_example_verifier.py -q'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G2-048
+min_tests: 4
+network: true
+requires:
+- msvc
+- cmake
+- net
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('ninja.exe','ninja_missing.exe'),encoding='utf-8')"
+  rationale: 'Renames the ninja executable the resolver looks for. The C++ build must then fail, so the
+    verifier tests fail. This proves the tests depend on the resolver finding the real tool. Built
+    without backslashes or nested quotes.'
+evidence:
+- evidence/build/G2/TC-175/receipt.json
+closeout:
+- No constant in example_verifier.py points at a path that does not exist on this machine.
+- A missing tool produces an error naming the tool and the override variable.
+- The existing verifier test file passes unchanged.
+recovery: Re-run from a clean tree.
