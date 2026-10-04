@@ -12,7 +12,9 @@ depends_on:
 - TC-203
 write_paths:
 - infra/helm/foss-mcp/values.yaml
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
 - tests/infra/test_helm_manifest_step.py
+- tests/infra/test_helm_pilots_match_compose.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -32,6 +34,16 @@ inputs:
   recorded in tests/fixtures/pdf_cpp/api_surface.json (source_repository and source_commit). Copy them exactly. No other entry changes.'
 - 'Restate the fixed pilot count in tests/infra/test_helm_manifest_step.py, around line 162, from six to seven, since seven pilots now have
   a manifest path. Keep the test name and its check.'
+- 'Final-attempt contract, by the supervisor after the attempt-2 block. The ingestion template emits --library-repository,
+  --library-commit and --library-platform to the builder whenever a pilot''s library.repository is set. The builder requires a furnished
+  page with those flags (infra/build_chunks.py, the library flag check). pdf/cpp has no furnished page, so those flags must not be emitted
+  for it. The fetch step needs only the repository and commit, so it must stay. Make two changes. (1) In
+  infra/helm/foss-mcp/templates/ingestion-job.yaml, emit the --library-* build flags only when the pilot also has furnishedPage set,
+  and keep the manifest fetch step conditioned on manifestPath as it is. Change nothing else in that template. (2) In
+  tests/infra/test_helm_pilots_match_compose.py, the pdf/cpp pilot test compares its library block with the compose service, and compose
+  defines no library flags for C++. Change only that comparison, for pdf/cpp, to compare library.repository and library.commit with the
+  fixture''s source_repository and source_commit in tests/fixtures/pdf_cpp/api_surface.json. Keep every other assertion in that file and
+  keep the test name. Record both changes in the commit body.'
 - 'In tests/infra/test_helm_manifest_step.py, if a test asserts the number of pilots with manifestPath as a fixed count, restate
   that count to match the new value, keeping the test name and what it checks. Change nothing else. Record any such restatement in
   the commit body. If no test asserts a fixed count, change nothing in that file.'
