@@ -1,0 +1,54 @@
+id: TC-214
+gate: G2
+lane: verification
+purpose: 'Bring three test files to the repository formatter''s output. ruff format --check fails at HEAD fdfd892 for
+  tests/extraction/test_manifest_reader_ecosystems.py, tests/infra/test_ingestion_image_fixtures.py and tests/poc/test_pilot_workflow_proof.py, all
+  written by workers under TC-209, TC-211, TC-212 and TC-213. gatectl review ran each card''s own check but never the formatter, so the CI
+  format gate would have failed on push. This card applies the formatter to exactly those three files and changes nothing else: no test is added,
+  removed, renamed or weakened.'
+depends_on:
+- TC-209
+- TC-212
+- TC-213
+write_paths:
+- tests/extraction/test_manifest_reader_ecosystems.py
+- tests/infra/test_ingestion_image_fixtures.py
+- tests/poc/test_pilot_workflow_proof.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Run python -m ruff format on exactly the three write_paths files, and nothing else. Do not run it on the whole repository. Then read the
+  diff: it must be whitespace and line-wrapping only. If the diff changes the meaning of any line, stop and say so.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Format the three files.
+- Confirm the diff is formatting only.
+- Run the card checks and report exact counts.
+checks:
+- command: '{python} -m ruff format --check tests/extraction/test_manifest_reader_ecosystems.py tests/infra/test_ingestion_image_fixtures.py tests/poc/test_pilot_workflow_proof.py'
+  expect: exit 0
+  timeout_seconds: 300
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/extraction/test_manifest_reader_ecosystems.py tests/infra/test_ingestion_image_fixtures.py tests/poc/test_pilot_workflow_proof.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 57
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/poc/test_pilot_workflow_proof.py');p.write_text(p.read_text(encoding='utf-8')+chr(10)+'ZZ  =  1'+chr(10),encoding='utf-8')"
+  rationale: 'Appends a badly formatted statement to one of the three files, so the formatter check must fail. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-214/receipt.json
+closeout:
+- ruff format --check passes for the whole repository.
+recovery: Re-run from a clean tree.
