@@ -1,0 +1,69 @@
+id: TC-195
+gate: G2
+lane: transport-deployment
+purpose: 'Put the six POC pilots into the chart, one per platform: pdf/net, slides/python, pdf/typescript,
+  pdf/go, pdf/java and cells/rust. The chart already runs one ingestion Job per entry of
+  ingestion.pilots, and all Jobs publish to one manifests volume that serving reads, so the six pilots fit
+  in one release. Today the values list only pdf/net. Each new entry must take its arguments from the same
+  platform''s ingestion service in docker-compose.yml, so the chart cannot drift from the proven compose
+  pipeline. A test enforces that.'
+depends_on:
+- TC-192
+- TC-194
+- TC-177
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- tests/infra/test_helm_pilots_match_compose.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/helm/foss-mcp/values.yaml in full, especially ingestion.pilots, which holds one entry today (pdf/net).
+  Read infra/helm/foss-mcp/templates/ingestion-job.yaml to see which library fields each platform needs.
+  Read docker-compose.yml, and for each of the five platforms slides/python, pdf/typescript, pdf/go, pdf/java and
+  cells/rust, read its ingestion service: the command arguments, the library repository and commit, and the
+  furnished page and API surface paths.'
+- 'Add one pilot entry to ingestion.pilots in values.yaml for each of the five platforms. Each entry takes its
+  family, platform, sourceKind, apiSurface, title, maxTypes, furnishedPage, library repository and commit, and
+  any library field the chart template requires, exactly as the compose service gives them. Paths use the
+  container locations that the existing pdf/net entry uses (/app/fixtures/...). Do not invent a value. If a
+  platform needs a field the compose service does not give, stop and report it.'
+- 'Add tests/infra/test_helm_pilots_match_compose.py. It is offline. It reads values.yaml and docker-compose.yml as
+  text and parses them. For each pilot entry, it finds the compose ingestion service for the same family and
+  platform, and asserts that the library commit, the apiSurface path, the furnished page path and the maxTypes value
+  are the same in both. Test 1 covers pdf/net. Tests 2 to 6 cover the other five. Test 7 asserts the chart has
+  exactly six pilot entries, one per platform.'
+- 'Keep every existing test and assertion. In particular the chart tests that count NetworkPolicy documents and check
+  pilot labels must still pass. If one of them fails because it hard-codes one pilot, stop and report it.'
+- 'Do not change the templates, the Dockerfiles, or any fixture.'
+actions:
+- Read the values, the template, and the compose services in full.
+- Add the five entries.
+- Write the drift test.
+- Run the chart and drift tests and report the exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_chart.py -q'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 25
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/values.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('b7172877651413cff57a8bfe41fb8a8befb2406b','0000000000000000000000000000000000000000',1),encoding='utf-8')"
+  rationale: 'Replaces the pdf/net library commit in values.yaml with zeros. The drift test compares that commit with
+    docker-compose.yml and must fail. The replace is limited to the first match, which is the pdf/net entry, the
+    first pilot in the list. The commit is the one already pinned in the chart today, so the literal exists before
+    any worker change. Built with plain text, since it has no quote or backslash.'
+evidence:
+- evidence/build/G2/TC-195/receipt.json
+closeout:
+- The chart lists six pilots, one per platform, each matching its compose service.
+- The chart tests still pass with six pilots.
+recovery: Re-run from a clean tree.
