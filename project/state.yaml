@@ -1,7 +1,7 @@
 schema_version: 1
 project: foss-mcp
 generated_by: gatectl
-generated_at: '2026-10-04T06:09:55Z'
+generated_at: '2026-10-04T06:24:08Z'
 current_gate:
   id: G0
   status: ACCEPTED
@@ -1315,6 +1315,28 @@ owner_items:
     a manual step. No agent can do either. This does not block card work. It only
     blocks the live smoke step and the final gate exit.'
   last_checked_at: '2026-10-04T06:10:00Z'
+- id: OWNER-06
+  status: OPEN
+  summary: 'The repo-wide CI equivalent (scripts/ci_check.sh, which runs pytest in
+    full) cannot pass on this machine (2026-10-04). A full pytest run gave 171 failing
+    or erroring tests. Most fail with WinError 2, meaning a required executable is
+    missing. The tools present here are git, python and dotnet. Missing: Java and
+    Maven (example verifier), Go, Rust/cargo, C/C++ build tools (cmake, g++), and
+    Node. Docker is also unavailable (OWNER-05). Several tests also clone real pinned
+    repositories over the network. The gate needs a green repo-wide CI, so G2 cannot
+    close here.'
+  resume_predicate: Either (a) a host with Docker running (OWNER-05), Java/Maven,
+    Go, Rust, cmake/g++ and Node on PATH runs `bash scripts/ci_check.sh` to exit 0
+    at the gate HEAD, or (b) the owner confirms that the GitHub Actions workflow .github/workflows/ci.yml
+    is green for the gate HEAD after a push. Only then is `gatectl gate-exit G2` run,
+    after the live-content smoke test.
+  consumed_by:
+  - G2
+  recorded_at: '2026-10-04T06:40:00Z'
+  note: 'Owner-only: installing toolchains and Docker needs administrator rights on
+    this machine, and the choice between (a) and (b) is the owner''s. Does not block
+    card work.'
+  last_checked_at: '2026-10-04T06:40:00Z'
 open_questions:
   open: 0
   ids: []
