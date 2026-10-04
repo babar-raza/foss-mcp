@@ -1,0 +1,51 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3m70a11w\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3m70a11w\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/templates/networkpolicy.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3m70a11w\.junit-0.xml"
+--- stdout ---
+.............F                                                           [100%]
+================================== FAILURES ===================================
+___________ test_dns_egress_reaches_only_kube_dns_on_udp_and_tcp_53 ___________
+
+    def test_dns_egress_reaches_only_kube_dns_on_udp_and_tcp_53() -> None:
+        policies = _by_kind(_render(), "NetworkPolicy")
+        assert len(policies) == 1, "expected exactly one NetworkPolicy"
+        egress = policies[0]["spec"]["egress"]
+        kube_dns_rules = [
+            rule
+            for rule in egress
+            if {"protocol": "UDP", "port": 53} in rule.get("ports", [])
+            and {"protocol": "TCP", "port": 53} in rule.get("ports", [])
+            and any(
+                peer.get("podSelector", {}).get("matchLabels") == {"k8s-app": "kube-dns"}
+                and peer.get("namespaceSelector", {}).get("matchLabels")
+                == {"kubernetes.io/metadata.name": "kube-system"}
+                for peer in rule.get("to", [])
+            )
+        ]
+>       assert kube_dns_rules, "expected an egress rule allowing UDP and TCP 53 to kube-dns in kube-system"
+E       AssertionError: expected an egress rule allowing UDP and TCP 53 to kube-dns in kube-system
+E       assert []
+
+tests\infra\test_helm_chart.py:319: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_chart.py::test_dns_egress_reaches_only_kube_dns_on_udp_and_tcp_53
+
+--- stderr ---
+
