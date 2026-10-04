@@ -1,0 +1,45 @@
+
+===== CLEAN RUN 1 =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_container_pins.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lw9bxlm2\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_container_pins.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lw9bxlm2\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M Dockerfile.ingestion, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_container_pins.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lw9bxlm2\.junit-0.xml"
+--- stdout ---
+.F....                                                                   [100%]
+================================== FAILURES ===================================
+_________________ test_arg_version_defaults_equal_lock_values _________________
+
+    def test_arg_version_defaults_equal_lock_values() -> None:
+        pins = _lock()["container_pins"]
+        lines = _logical_lines(INGESTION)
+        expected = {
+            "GO_VERSION": pins["downloads"]["go"]["version"],
+            "NODE_VERSION": pins["downloads"]["node"]["version"],
+            "RUST_VERSION": pins["rust_toolchain"]["version"],
+        }
+        for arg, want in expected.items():
+            got = _arg_default(lines, arg)
+>           assert got is not None, f"Dockerfile.ingestion has no 'ARG {arg}=<default>' line"
+E           AssertionError: Dockerfile.ingestion has no 'ARG GO_VERSION=<default>' line
+E           assert None is not None
+
+tests\infra\test_container_pins.py:72: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_container_pins.py::test_arg_version_defaults_equal_lock_values
+
+--- stderr ---
+

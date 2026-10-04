@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-174",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-04T09:22:24Z",
+  "base_rev": "ccfa81e6dfebe3178b6de1d9298b048b42ee5361",
+  "head_rev": "ad35e81697a574994c76eab2ab4cd3a2968f2823",
+  "card_sha256": "cd62fddb12d14ec50347f5bcb1179c5ba50bf4dcc54408870241e38f0833323b",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "Dockerfile.ingestion",
+      "Dockerfile.serving",
+      "scripts/toolchain/toolchain.lock.json",
+      "tests/infra/test_container_pins.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_container_pins.py -q",
+          "exit_code": 0,
+          "duration_s": 0.831,
+          "stdout_sha256": "700bc0322b00f8e8db3ce495047983b54ab27ab59ed1fedac05f3aeba47dae24",
+          "tests": 6,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_container_pins.py -q",
+          "exit_code": 0,
+          "duration_s": 0.425,
+          "stdout_sha256": "700bc0322b00f8e8db3ce495047983b54ab27ab59ed1fedac05f3aeba47dae24",
+          "tests": 6,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('Dockerfile.ingestion');s=p.read_text(encoding='utf-8');p.write_text(s.replace('ARG GO_VERSION=','ARG GO_VERSION_OFF='),encoding='utf-8')\"",
+    "patch_sha256": "e71c5bd9313cf4d8683f3b086fba88efd59aa94e0d7692339dd6589d8ce938d5",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M Dockerfile.ingestion",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
