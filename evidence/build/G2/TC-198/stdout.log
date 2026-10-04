@@ -1,0 +1,279 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/poc/test_pilot_workflow_proof.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dl9qh2f0\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/poc/test_pilot_workflow_proof.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dl9qh2f0\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/poc/pilot_workflow_proof.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/poc/test_pilot_workflow_proof.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dl9qh2f0\.junit-0.xml"
+--- stdout ---
+FFFFFFFF                                                                 [100%]
+================================== FAILURES ===================================
+__ test_exact_match_rule_accepts_the_final_segment_and_rejects_a_fuzzy_match __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-717/test_exact_match_rule_accepts_0')
+
+    def test_exact_match_rule_accepts_the_final_segment_and_rejects_a_fuzzy_match(tmp_path: Path) -> None:
+        assert pwp.is_exact_hit("Aspose.Pdf.Document", "Document")
+        assert pwp.is_exact_hit("Document", "Document")
+        assert not pwp.is_exact_hit("Aspose.Pdf.DocumentBuilder", "Document")
+        assert not pwp.is_exact_hit("Aspose.Pdf.Document.Save", "Document")
+        assert not pwp.is_exact_hit("", "Document")
+    
+        # The same rule decides check 2: a fuzzy-only result is not an exact match.
+        _write_fixtures(tmp_path)
+        answers = passing_answers()
+        fuzzy_text = f"FQN: {SYMBOL}Extended\nKind: enum_item\n"
+        answers["search_symbols"] = lambda arguments: [
+            {"scope": SCOPE, "generation_id": GEN, "doc_id": "d", "chunk_id": "c", "text": fuzzy_text}
+        ]
+>       check2 = _check(_run_checks(tmp_path, answers), 2)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\poc\test_pilot_workflow_proof.py:204: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\poc\test_pilot_workflow_proof.py:183: in _run_checks
+    return pwp.run_checks(FakeClient(answers), pwp.load_pilot(PILOT, root))
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+name = 'cells_rust'
+fixtures = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-717/test_exact_match_rule_accepts_0')
+
+    def load_pilot(name: str, fixtures: Path) -> Pilot:
+        family, separator, platform = name.partition("_")
+        if not separator or not family or not platform:
+            raise ValueError(f"pilot name {name!r} must look like family_platform, e.g. pdf_net")
+        api_surface = json.loads((fixtures / name / "api_surface.json").read_text(encoding="utf-8"))
+        types = api_surface.get("types") or []
+        own_names = {t["name"] for t in types if isinstance(t, dict) and isinstance(t.get("name"), str)}
+        if ABSENT_SYMBOL in own_names:
+            raise ValueError(
+                f"{name}'s fixture declares {ABSENT_SYMBOL!r}, so it cannot serve as the absent probe"
+            )
+        # A pilot with no usable probe name still loads: check 2 records the reason as its fail.
+        try:
+>           symbol, probe_error = choose_probe(types, name), None
+                                  ^^^^^^^^^^^^
+E           NameError: name 'choose_probe' is not defined
+
+scripts\poc\pilot_workflow_proof.py:240: NameError
+_______________ test_a_scope_mismatch_in_a_result_fails_check_2 _______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-717/test_a_scope_mismatch_in_a_res0')
+
+    def test_a_scope_mismatch_in_a_result_fails_check_2(tmp_path: Path) -> None:
+        _write_fixtures(tmp_path)
+>       check2 = _check(_run_checks(tmp_path, passing_answers(search_scope={**SCOPE, "family": "slides"})), 2)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\poc\test_pilot_workflow_proof.py:211: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\poc\test_pilot_workflow_proof.py:183: in _run_checks
+    return pwp.run_checks(FakeClient(answers), pwp.load_pilot(PILOT, root))
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+name = 'cells_rust'
+fixtures = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-717/test_a_scope_mismatch_in_a_res0')
+
+    def load_pilot(name: str, fixtures: Path) -> Pilot:
+        family, separator, platform = name.partition("_")
+        if not separator or not family or not platform:
+            raise ValueError(f"pilot name {name!r} must look like family_platform, e.g. pdf_net")
+        api_surface = json.loads((fixtures / name / "api_surface.json").read_text(encoding="utf-8"))
+        types = api_surface.get("types") or []
+        own_names = {t["name"] for t in types if isinstance(t, dict) and isinstance(t.get("name"), str)}
+        if ABSENT_SYMBOL in own_names:
+            raise ValueError(
+                f"{name}'s fixture declares {ABSENT_SYMBOL!r}, so it cannot serve as the absent probe"
+            )
+        # A pilot with no usable probe name still loads: check 2 records the reason as its fail.
+        try:
+>           symbol, probe_error = choose_probe(types, name), None
+                                  ^^^^^^^^^^^^
+E           NameError: name 'choose_probe' is not defined
+
+scripts\poc\pilot_workflow_proof.py:240: NameError
+__________ test_an_absent_symbol_that_returns_a_match_fails_check_10 __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-717/test_an_absent_symbol_that_ret0')
+
+    def test_an_absent_symbol_that_returns_a_match_fails_check_10(tmp_path: Path) -> None:
+        _write_fixtures(tmp_path)
+        answers = passing_answers()
+        answers["search_symbols"] = lambda arguments: _hit(SYMBOL)  # every query "matches" the real symbol
+>       checks = _run_checks(tmp_path, answers)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\poc\test_pilot_workflow_proof.py:220: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\poc\test_pilot_workflow_proof.py:183: in _run_checks
+    return pwp.run_checks(FakeClient(answers), pwp.load_pilot(PILOT, root))
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+name = 'cells_rust'
+fixtures = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-717/test_an_absent_symbol_that_ret0')
+
+    def load_pilot(name: str, fixtures: Path) -> Pilot:
+        family, separator, platform = name.partition("_")
+        if not separator or not family or not platform:
+            raise ValueError(f"pilot name {name!r} must look like family_platform, e.g. pdf_net")
+        api_surface = json.loads((fixtures / name / "api_surface.json").read_text(encoding="utf-8"))
+        types = api_surface.get("types") or []
+        own_names = {t["name"] for t in types if isinstance(t, dict) and isinstance(t.get("name"), str)}
+        if ABSENT_SYMBOL in own_names:
+            raise ValueError(
+                f"{name}'s fixture declares {ABSENT_SYMBOL!r}, so it cannot serve as the absent probe"
+            )
+        # A pilot with no usable probe name still loads: check 2 records the reason as its fail.
+        try:
+>           symbol, probe_error = choose_probe(types, name), None
+                                  ^^^^^^^^^^^^
+E           NameError: name 'choose_probe' is not defined
+
+scripts\poc\pilot_workflow_proof.py:240: NameError
+______ test_a_pilot_with_no_furnished_page_is_not_applicable_for_check_5 ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-717/test_a_pilot_with_no_furnished0')
+
+    def test_a_pilot_with_no_furnished_page_is_not_applicable_for_check_5(tmp_path: Path) -> None:
+        _write_fixtures(tmp_path, furnished=False)
+        fake = FakeClient(passing_answers())
+>       checks = pwp.run_checks(fake, pwp.load_pilot(PILOT, tmp_path))
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\poc\test_pilot_workflow_proof.py:228: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+name = 'cells_rust'
+fixtures = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-717/test_a_pilot_with_no_furnished0')
+
+    def load_pilot(name: str, fixtures: Path) -> Pilot:
+        family, separator, platform = name.partition("_")
+        if not separator or not family or not platform:
+            raise ValueError(f"pilot name {name!r} must look like family_platform, e.g. pdf_net")
+        api_surface = json.loads((fixtures / name / "api_surface.json").read_text(encoding="utf-8"))
+        types = api_surface.get("types") or []
+        own_names = {t["name"] for t in types if isinstance(t, dict) and isinstance(t.get("name"), str)}
+        if ABSENT_SYMBOL in own_names:
+            raise ValueError(
+                f"{name}'s fixture declares {ABSENT_SYMBOL!r}, so it cannot serve as the absent probe"
+            )
+        # A pilot with no usable probe name still loads: check 2 records the reason as its fail.
+        try:
+>           symbol, probe_error = choose_probe(types, name), None
+                                  ^^^^^^^^^^^^
+E           NameError: name 'choose_probe' is not defined
+
+scripts\poc\pilot_workflow_proof.py:240: NameError
+_______ test_a_one_letter_name_is_not_chosen_and_the_next_valid_name_is _______
+
+    def test_a_one_letter_name_is_not_chosen_and_the_next_valid_name_is() -> None:
+        # "A" is an enum with members, the most preferred kind, so only the length rule keeps it out.
+        types = [
+            {"name": "A", "kind": "enum_item", "enum_members": [{"name": "X"}]},
+            {"name": "Type", "kind": "struct_item", "methods": [{"name": "new"}]},
+            {"name": "Workbook", "kind": "struct_item", "methods": [{"name": "new"}]},
+        ]
+>       assert pwp.choose_probe(types, PILOT) == "Workbook"
+               ^^^^^^^^^^^^^^^^
+E       AttributeError: module 'pilot_workflow_proof' has no attribute 'choose_probe'. Did you mean: 'choose_probe_off'?
+
+tests\poc\test_pilot_workflow_proof.py:241: AttributeError
+_________________ test_an_enum_is_preferred_over_a_plain_type _________________
+
+    def test_an_enum_is_preferred_over_a_plain_type() -> None:
+        types = [
+            {"name": "Workbook", "kind": "struct_item", "methods": []},
+            {"name": "Canvas", "kind": "struct_item", "methods": [{"name": "draw"}]},
+            {"name": SYMBOL, "kind": "enum_item", "enum_members": [{"name": "Rectangle"}]},
+        ]
+>       assert pwp.choose_probe(types, PILOT) == SYMBOL
+               ^^^^^^^^^^^^^^^^
+E       AttributeError: module 'pilot_workflow_proof' has no attribute 'choose_probe'. Did you mean: 'choose_probe_off'?
+
+tests\poc\test_pilot_workflow_proof.py:250: AttributeError
+____________ test_a_fixture_with_no_valid_name_raises_value_error _____________
+
+    def test_a_fixture_with_no_valid_name_raises_value_error() -> None:
+        types = [
+            {"name": "A", "kind": "enum_item", "enum_members": [{"name": "X"}]},
+            {"name": "Name", "kind": "struct_item", "methods": [{"name": "new"}]},
+            {"name": "Value"},
+            {"name": "9Lives", "kind": "struct_item"},
+            {"name": "x-y-z", "kind": "struct_item"},
+        ]
+        with pytest.raises(ValueError, match=PILOT):
+>           pwp.choose_probe(types, PILOT)
+            ^^^^^^^^^^^^^^^^
+E           AttributeError: module 'pilot_workflow_proof' has no attribute 'choose_probe'. Did you mean: 'choose_probe_off'?
+
+tests\poc\test_pilot_workflow_proof.py:262: AttributeError
+_ test_the_report_is_written_and_exits_zero_only_when_every_applicable_check_passes _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-717/test_the_report_is_written_and0')
+
+    def test_the_report_is_written_and_exits_zero_only_when_every_applicable_check_passes(tmp_path: Path) -> None:
+        _write_fixtures(tmp_path)
+        base = ["--pilot", PILOT, "--url", "http://fake.invalid", "--fixtures", str(tmp_path)]
+    
+        passing_report = tmp_path / "out" / "passing.json"
+        exit_code = pwp.main(
+            [*base, "--report", str(passing_report)],
+            client_factory=lambda url: FakeClient(passing_answers()),
+        )
+        report = json.loads(passing_report.read_text(encoding="utf-8"))
+>       assert exit_code == 0
+E       assert 1 == 0
+
+tests\poc\test_pilot_workflow_proof.py:275: AssertionError
+---------------------------- Captured stdout call -----------------------------
+[FAIL          ]  1 initialize returns a protocol version and a server name; tools/list returns the nine tools
+                 reason: pilot fixtures could not be loaded: NameError: name 'choose_probe' is not defined
+[FAIL          ]  2 search_symbols returns an exact match, every result carries this pilot's scope
+                 reason: pilot fixtures could not be loaded: NameError: name 'choose_probe' is not defined
+[FAIL          ]  3 lookup resolves the same symbol to the same FQN
+                 reason: pilot fixtures could not be loaded: NameError: name 'choose_probe' is not defined
+[FAIL          ]  4 get_symbol returns the kind; list_members returns members where the symbol declares them
+                 reason: pilot fixtures could not be loaded: NameError: name 'choose_probe' is not defined
+[FAIL          ]  5 search_docs returns a non-empty answer about this pilot, for the furnished page title
+                 reason: pilot fixtures could not be loaded: NameError: name 'choose_probe' is not defined
+[FAIL          ]  6 find_examples returns a verified example, or an honest no-example answer
+                 reason: pilot fixtures could not be loaded: NameError: name 'choose_probe' is not defined
+[FAIL          ]  7 get_product_reference returns non-empty product information
+                 reason: pilot fixtures could not be loaded: NameError: name 'choose_probe' is not defined
+[FAIL          ]  8 report_index_freshness reports the same generation id search_symbols reported
+                 reason: pilot fixtures could not be loaded: NameError: name 'choose_probe' is not defined
+[FAIL          ]  9 list_recent_changes returns a well-formed list
+                 reason: pilot fixtures could not be loaded: NameError: name 'choose_probe' is not defined
+[FAIL          ] 10 an absent symbol returns an honest miss, never a match
+                 reason: pilot fixtures could not be loaded: NameError: name 'choose_probe' is not defined
+[FAIL          ] 11 a symbol from another pilot's fixture returns no exact match on this endpoint
+                 reason: pilot fixtures could not be loaded: NameError: name 'choose_probe' is not defined
+cells_rust: 0 of 11 applicable checks passed, 0 not applicable; report: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-717\test_the_report_is_written_and0\out\passing.json
+=========================== short test summary info ===========================
+FAILED tests/poc/test_pilot_workflow_proof.py::test_exact_match_rule_accepts_the_final_segment_and_rejects_a_fuzzy_match
+FAILED tests/poc/test_pilot_workflow_proof.py::test_a_scope_mismatch_in_a_result_fails_check_2
+FAILED tests/poc/test_pilot_workflow_proof.py::test_an_absent_symbol_that_returns_a_match_fails_check_10
+FAILED tests/poc/test_pilot_workflow_proof.py::test_a_pilot_with_no_furnished_page_is_not_applicable_for_check_5
+FAILED tests/poc/test_pilot_workflow_proof.py::test_a_one_letter_name_is_not_chosen_and_the_next_valid_name_is
+FAILED tests/poc/test_pilot_workflow_proof.py::test_an_enum_is_preferred_over_a_plain_type
+FAILED tests/poc/test_pilot_workflow_proof.py::test_a_fixture_with_no_valid_name_raises_value_error
+FAILED tests/poc/test_pilot_workflow_proof.py::test_the_report_is_written_and_exits_zero_only_when_every_applicable_check_passes
+
+--- stderr ---
+
