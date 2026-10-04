@@ -11,9 +11,12 @@ depends_on:
 - TC-192
 - TC-194
 - TC-177
+- TC-183
+- TC-185
 write_paths:
 - infra/helm/foss-mcp/values.yaml
 - tests/infra/test_helm_pilots_match_compose.py
+- tests/infra/test_helm_chart.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -37,8 +40,14 @@ inputs:
   platform, and asserts that the library commit, the apiSurface path, the furnished page path and the maxTypes value
   are the same in both. Test 1 covers pdf/net. Tests 2 to 6 cover the other five. Test 7 asserts the chart has
   exactly six pilot entries, one per platform.'
-- 'Keep every existing test and assertion. In particular the chart tests that count NetworkPolicy documents and check
-  pilot labels must still pass. If one of them fails because it hard-codes one pilot, stop and report it.'
+- 'Keep every existing test and assertion, except one, amended as follows. Contract change, amended by the supervisor on
+  2026-10-04 after the attempt-1 block: test_default_values_render_exactly_one_ingestion_job_for_the_deployment_identity
+  in tests/infra/test_helm_chart.py asserts exactly one ingestion Job for the default values. That assumption was written
+  when the chart had one pilot. The POC runs six pilots, so the chart now renders one Job per pilot. Amend that one test
+  so that: the default values render exactly one ingestion Job per entry of ingestion.pilots; the set of Job names is
+  exactly the six expected names; and the pdf/net Job is still named foss-mcp-pdf-net-ingest-pdf-net. Keep the test name.
+  Change no other assertion in that file. Record the amendment in your commit message.'
+- 'Do not change any other chart test, and do not change the templates.'
 - 'Do not change the templates, the Dockerfiles, or any fixture.'
 actions:
 - Read the values, the template, and the compose services in full.
