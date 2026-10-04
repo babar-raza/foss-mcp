@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-200",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-04T16:46:12Z",
+  "base_rev": "e2aaad63e6221efa8e19884ad4ab898a9ad07fbb",
+  "head_rev": "86d9fb056e90ee8e2cf997af8942fa618b596ff5",
+  "card_sha256": "552719bcbc3aee59faeac5854fd62ba82793cfa2ecdd726d5aac2bde12b386cb",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/fetch_product_reference.py",
+      "infra/serve_http.py",
+      "tests/infra/test_serve_manifest_sidecar.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_serve_manifest_sidecar.py tests/test_unwired_modules.py -q",
+          "exit_code": 0,
+          "duration_s": 5.265,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_serve_manifest_sidecar.py tests/test_unwired_modules.py -q",
+          "exit_code": 0,
+          "duration_s": 1.748,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/fetch_product_reference.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('def load_manifest_sidecar(','def load_manifest_sidecar_off(',1),encoding='utf-8')\"\n",
+    "patch_sha256": "3db7074aa07036ca4a045be9e63afe894bf3beddbc9a0168c45e5c59ac11d861",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      2
+    ],
+    "tree_changed": [
+      "M infra/fetch_product_reference.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
