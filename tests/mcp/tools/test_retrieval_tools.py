@@ -763,9 +763,7 @@ def test_an_example_answer_survives_zero_documentation_matches(
         *args: object,
         **kwargs: object,
     ) -> DocsMiss:
-        return DocsMiss(
-            scope=scope, query=query, content_type=content_type, reason="forced miss"
-        )
+        return DocsMiss(scope=scope, query=query, content_type=content_type, reason="forced miss")
 
     monkeypatch.setattr("foss_mcp.mcp.tools.lookup.search_docs", _forced_miss)
 
