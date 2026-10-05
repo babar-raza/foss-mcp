@@ -1,0 +1,168 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_github_http.py tests/extraction/test_manifest_reader_ecosystems.py tests/extraction/test_repo_native.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-77fr3z3q\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 80%]
+..................                                                       [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_github_http.py tests/extraction/test_manifest_reader_ecosystems.py tests/extraction/test_repo_native.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-77fr3z3q\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 80%]
+..................                                                       [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/github_http.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_github_http.py tests/extraction/test_manifest_reader_ecosystems.py tests/extraction/test_repo_native.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-77fr3z3q\.junit-0.xml"
+--- stdout ---
+.......FFF.F.....FF....F..............F................................. [ 80%]
+..................                                                       [100%]
+================================== FAILURES ===================================
+__________ test_a_403_with_remaining_zero_waits_until_the_reset_time __________
+
+    def test_a_403_with_remaining_zero_waits_until_the_reset_time() -> None:
+        headers = {"x-ratelimit-remaining": "0", "x-ratelimit-reset": str(int(_NOW) + 30)}
+>       assert rate_limit_wait_seconds(403, headers, _NOW) == 30.0
+E       AssertionError: assert None == 30.0
+E        +  where None = rate_limit_wait_seconds(403, {'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1000030'}, 1000000.0)
+
+tests\extraction\test_github_http.py:141: AssertionError
+________ test_a_past_reset_time_gives_a_zero_wait_never_a_negative_one ________
+
+    def test_a_past_reset_time_gives_a_zero_wait_never_a_negative_one() -> None:
+        headers = {"x-ratelimit-remaining": "0", "x-ratelimit-reset": str(int(_NOW) - 90)}
+>       assert rate_limit_wait_seconds(403, headers, _NOW) == 0.0
+E       AssertionError: assert None == 0.0
+E        +  where None = rate_limit_wait_seconds(403, {'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '999910'}, 1000000.0)
+
+tests\extraction\test_github_http.py:146: AssertionError
+______________ test_retry_after_is_preferred_over_the_reset_time ______________
+
+    def test_retry_after_is_preferred_over_the_reset_time() -> None:
+        headers = {
+            "Retry-After": "5",
+            "x-ratelimit-remaining": "0",
+            "x-ratelimit-reset": str(int(_NOW) + 300),
+        }
+>       assert rate_limit_wait_seconds(403, headers, _NOW) == 5.0
+E       AssertionError: assert None == 5.0
+E        +  where None = rate_limit_wait_seconds(403, {'Retry-After': '5', 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1000300'}, 1000000.0)
+
+tests\extraction\test_github_http.py:155: AssertionError
+___________ test_a_garbage_retry_after_falls_back_to_the_reset_time ___________
+
+    def test_a_garbage_retry_after_falls_back_to_the_reset_time() -> None:
+        headers = {"Retry-After": "soon", "x-ratelimit-remaining": "0", "x-ratelimit-reset": str(int(_NOW) + 12)}
+>       assert rate_limit_wait_seconds(403, headers, _NOW) == 12.0
+E       AssertionError: assert None == 12.0
+E        +  where None = rate_limit_wait_seconds(403, {'Retry-After': 'soon', 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1000012'}, 1000000.0)
+
+tests\extraction\test_github_http.py:167: AssertionError
+__________ test_the_rate_limit_header_is_matched_case_insensitively ___________
+
+    def test_the_rate_limit_header_is_matched_case_insensitively() -> None:
+        headers = {"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": str(int(_NOW) + 9)}
+>       assert rate_limit_wait_seconds(403, headers, _NOW) == 9.0
+E       AssertionError: assert None == 9.0
+E        +  where None = rate_limit_wait_seconds(403, {'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': '1000009'}, 1000000.0)
+
+tests\extraction\test_github_http.py:195: AssertionError
+__________ test_an_email_message_header_block_is_read_like_a_mapping __________
+
+    def test_an_email_message_header_block_is_read_like_a_mapping() -> None:
+        message = email.message.Message()
+        message["X-RateLimit-Remaining"] = "0"
+        message["X-RateLimit-Reset"] = str(int(_NOW) + 4)
+>       assert rate_limit_wait_seconds(403, message, _NOW) == 4.0
+E       assert None == 4.0
+E        +  where None = rate_limit_wait_seconds(403, <email.message.Message object at 0x000001D6802AECF0>, 1000000.0)
+
+tests\extraction\test_github_http.py:202: AssertionError
+______ test_a_403_rate_limit_reset_is_waited_out_then_the_retry_succeeds ______
+
+    def test_a_403_rate_limit_reset_is_waited_out_then_the_retry_succeeds() -> None:
+        headers = {"x-ratelimit-remaining": "0", "x-ratelimit-reset": str(int(_NOW) + 20)}
+        response = _Response(b"ok")
+        sleep = _Recorder()
+        opener = _Opener([_http_error(403, headers), response])
+>       result = urlopen_with_backoff(_request(), sleep=sleep, now=lambda: _NOW, opener=opener)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_github_http.py:243: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\extraction\github_http.py:125: in urlopen_with_backoff
+    return open_fn(request, timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tests.extraction.test_github_http._Opener object at 0x000001D680439F30>
+request = <urllib.request.Request object at 0x000001D68043A060>, timeout = 30
+
+    def __call__(self, request: urllib.request.Request, timeout: float = 30) -> object:
+        self.calls.append({"request": request, "timeout": timeout})
+        item = self._script.pop(0)
+        if isinstance(item, BaseException):
+>           raise item
+E           urllib.error.HTTPError: HTTP Error 403: status 403
+
+tests\extraction\test_github_http.py:91: HTTPError
+__ test_read_repo_document_retries_a_rate_limit_and_then_reads_the_document ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D6803805F0>
+
+    def test_read_repo_document_retries_a_rate_limit_and_then_reads_the_document(monkeypatch) -> None:
+        _no_token(monkeypatch)
+        sleep = _no_real_wait(monkeypatch, repo_native_reader)
+        payload = json.dumps({"sha": "abc", "size": 2, "content": base64.b64encode(b"hi").decode()}).encode()
+        script = [
+            _http_error(403, {"x-ratelimit-remaining": "0", "x-ratelimit-reset": str(int(_NOW) + 5)}),
+            _Response(payload),
+        ]
+    
+        def fake_urlopen(request, timeout=30):
+            item = script.pop(0)
+            if isinstance(item, BaseException):
+                raise item
+            return item
+    
+        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+>       result = repo_native_reader.read_repo_document("owner/name", "README.md")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_github_http.py:423: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\extraction\repo_native_reader.py:55: in read_repo_document
+    with urlopen_with_backoff(request, timeout=30) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\extraction\github_http.py:125: in urlopen_with_backoff
+    return open_fn(request, timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+request = <urllib.request.Request object at 0x000001D6803CB710>, timeout = 30
+
+    def fake_urlopen(request, timeout=30):
+        item = script.pop(0)
+        if isinstance(item, BaseException):
+>           raise item
+E           urllib.error.HTTPError: HTTP Error 403: status 403
+
+tests\extraction\test_github_http.py:419: HTTPError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_github_http.py::test_a_403_with_remaining_zero_waits_until_the_reset_time
+FAILED tests/extraction/test_github_http.py::test_a_past_reset_time_gives_a_zero_wait_never_a_negative_one
+FAILED tests/extraction/test_github_http.py::test_retry_after_is_preferred_over_the_reset_time
+FAILED tests/extraction/test_github_http.py::test_a_garbage_retry_after_falls_back_to_the_reset_time
+FAILED tests/extraction/test_github_http.py::test_the_rate_limit_header_is_matched_case_insensitively
+FAILED tests/extraction/test_github_http.py::test_an_email_message_header_block_is_read_like_a_mapping
+FAILED tests/extraction/test_github_http.py::test_a_403_rate_limit_reset_is_waited_out_then_the_retry_succeeds
+FAILED tests/extraction/test_github_http.py::test_read_repo_document_retries_a_rate_limit_and_then_reads_the_document
+
+--- stderr ---
+
