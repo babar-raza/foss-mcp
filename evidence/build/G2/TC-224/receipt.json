@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-224",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-05T10:42:18Z",
+  "base_rev": "c5dc6a4a4b0c9ed19195c58531149cb47cda9217",
+  "head_rev": "677cedaf50fba202aa3551cb6c49be8c8db8d646",
+  "card_sha256": "91af30e773bda37e8d3629feb4877619d122145613d1c110dced6b82af8d6330",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/toolchain/activate.ps1",
+      "scripts/toolchain/toolchain.lock.json",
+      "tests/toolchain/test_dotnet_toolchain.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/toolchain/test_dotnet_toolchain.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.601,
+          "stdout_sha256": "cf426ab35f3b06fccef8290fde5325d90af130a79da1d1752031518df77c4236",
+          "tests": 3,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/toolchain/test_dotnet_toolchain.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.402,
+          "stdout_sha256": "cf426ab35f3b06fccef8290fde5325d90af130a79da1d1752031518df77c4236",
+          "tests": 3,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('scripts/toolchain/toolchain.lock.json');s=p.read_text(encoding='utf-8');p.write_text(s.replace('dotnet-8-sdk','dotnet-8-sdk-off'),encoding='utf-8')\"\n",
+    "patch_sha256": "6ee506cf6930f63aced625bdde8652e0105bb96d1e1dc3eda2ec806bb98261b9",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M scripts/toolchain/toolchain.lock.json",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

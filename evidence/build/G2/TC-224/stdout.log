@@ -1,0 +1,67 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/toolchain/test_dotnet_toolchain.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tjo5_vkt\.junit-0.xml"
+--- stdout ---
+...                                                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/toolchain/test_dotnet_toolchain.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tjo5_vkt\.junit-0.xml"
+--- stdout ---
+...                                                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/toolchain/toolchain.lock.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/toolchain/test_dotnet_toolchain.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tjo5_vkt\.junit-0.xml"
+--- stdout ---
+FF.                                                                      [100%]
+================================== FAILURES ===================================
+_____________________ test_lock_pins_dotnet_8_sdk_8_0_425 _____________________
+
+    def test_lock_pins_dotnet_8_sdk_8_0_425():
+>       entry = _lock_entry(SDK_NAME)
+                ^^^^^^^^^^^^^^^^^^^^^
+
+tests\toolchain\test_dotnet_toolchain.py:47: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+name = 'dotnet-8-sdk'
+
+    def _lock_entry(name: str) -> dict:
+        matches = [tool for tool in _lock_tools() if tool.get("name") == name]
+>       assert len(matches) == 1, f"expected exactly one lock entry named {name!r}, found {len(matches)}"
+E       AssertionError: expected exactly one lock entry named 'dotnet-8-sdk', found 0
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\toolchain\test_dotnet_toolchain.py:38: AssertionError
+_________ test_activate_puts_dotnet_8_folder_on_path_and_dotnet_root __________
+
+    def test_activate_puts_dotnet_8_folder_on_path_and_dotnet_root():
+>       lock_rel = _lock_entry(SDK_NAME)["relative_path"]
+                   ^^^^^^^^^^^^^^^^^^^^^
+
+tests\toolchain\test_dotnet_toolchain.py:57: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+name = 'dotnet-8-sdk'
+
+    def _lock_entry(name: str) -> dict:
+        matches = [tool for tool in _lock_tools() if tool.get("name") == name]
+>       assert len(matches) == 1, f"expected exactly one lock entry named {name!r}, found {len(matches)}"
+E       AssertionError: expected exactly one lock entry named 'dotnet-8-sdk', found 0
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\toolchain\test_dotnet_toolchain.py:38: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/toolchain/test_dotnet_toolchain.py::test_lock_pins_dotnet_8_sdk_8_0_425
+FAILED tests/toolchain/test_dotnet_toolchain.py::test_activate_puts_dotnet_8_folder_on_path_and_dotnet_root
+
+--- stderr ---
+
