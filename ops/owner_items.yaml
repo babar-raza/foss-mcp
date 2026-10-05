@@ -127,7 +127,7 @@ owner_items:
     and the final gate exit. SATISFIED 2026-10-04: the Docker engine responds (docker info exits 0), and the pinned live rerun built its images. The operator installed WSL.'
   last_checked_at: '2026-10-04T12:00:00Z'
 - id: OWNER-06
-  status: OPEN
+  status: SATISFIED
   summary: 'The repo-wide CI equivalent (scripts/ci_check.sh, which runs pytest in full) cannot pass
     on this machine (updated 2026-10-04). Toolchains were not missing: Java 21, Maven, Go, Rust,
     CMake, Node and dotnet are all installed under D:, and work once put on PATH (see the
@@ -157,3 +157,13 @@ owner_items:
   recorded_at: '2026-10-04T12:00:00Z'
   note: 'Owner-only: the upstream documentation belongs to its owner, not to this repository. Blocks no card and no gate. It is a content item, not a verifier defect; the evidence is the grep of the pinned source, and the live build output recorded in the decision log.'
   last_checked_at: '2026-10-04T12:00:00Z'
+
+- id: OWNER-08
+  status: OPEN
+  summary: 'The fetch of product references from GitHub (infra/fetch_product_reference.py and the readers in src/foss_mcp/extraction) is rate limited to 60 requests per hour without a token. TC-220 makes the readers wait out a limit and use GITHUB_TOKEN when it is set, and TC-221 delivers that token to the ingestion Jobs from a Kubernetes Secret the operator creates. The token itself is a credential only the owner can create. Without it a fourteen-pilot install can still hit the limit (HTTP 403).'
+  resume_predicate: 'A Kubernetes Secret named by ingestion.githubToken.existingSecret exists in the target namespace, with the key named by ingestion.githubToken.key holding a GitHub token, and a fourteen-pilot install completes with every ingestion Job Complete on the first attempt.'
+  consumed_by:
+  - NONE
+  recorded_at: '2026-10-05T13:58:56Z'
+  note: 'Owner-only credential. Blocks no card and no gate.'
+  last_checked_at: '2026-10-05T13:58:56Z'

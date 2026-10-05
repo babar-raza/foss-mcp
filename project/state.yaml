@@ -1,37 +1,16 @@
 schema_version: 1
 project: foss-mcp
 generated_by: gatectl
-generated_at: '2026-10-05T10:51:56Z'
+generated_at: '2026-10-05T13:59:20Z'
 current_gate:
   id: G2
-  status: IN_PROGRESS
+  status: EXIT_FAILED
 gate_exit:
   verdict: NOT_MET
-  checked_head: b208ca36c6f01a459841a19a5638a555916f2446
-  recorded_at: '2026-10-05T09:10:50Z'
+  checked_head: 92c372f8ac28259466bf46661899c1ce81393f5b
+  recorded_at: '2026-10-05T13:58:08Z'
   report: evidence/build/G2/exit_report.json
   blockers:
-  - 'card TC-010b: checks failed: {python} -m pytest tests/extraction/tree_sitter_engine/
-    -q'
-  - 'card TC-051: checks failed: {python} -m pytest tests/extraction/tree_sitter_engine/
-    -q'
-  - 'card TC-058: checks failed: {python} -m pytest tests/extraction/tree_sitter_engine/
-    -q'
-  - 'card TC-059: checks failed: {python} -m pytest tests/extraction/tree_sitter_engine/
-    -q'
-  - 'card TC-060: VACUOUS CHECKS: the suite still passed with the falsifier applied'
-  - 'card TC-061: VACUOUS CHECKS: the suite still passed with the falsifier applied'
-  - 'card TC-071: VACUOUS CHECKS: the suite still passed with the falsifier applied'
-  - 'card TC-075: VACUOUS CHECKS: the suite still passed with the falsifier applied'
-  - 'card TC-092: structural gate: {python} -m pytest tests/extraction/tree_sitter_engine/
-    tests/extraction/ -q: 1 skipped test(s)'
-  - 'card TC-119: structural gate: {python} -m pytest tests/infra/test_generate_furnished_page.py
-    tests/indexing/test_example_candidates.py -q: 5 skipped test'
-  - 'card TC-140: VACUOUS CHECKS: the suite still passed with the falsifier applied'
-  - 'card TC-186: checks failed: {python} -m pytest tests/toolchain/test_dotnet_toolchain.py
-    -q'
-  - 'gate: repo-wide CI failed: lint: success; format: success; typecheck: success;
-    pytest: success; gatectl: failure'
   - open question OQ-005
   - open question OQ-006
   - owner item OWNER-06
@@ -104,9 +83,11 @@ cards:
   receipt: G1/TC-010a/receipt.json
 - id: TC-010b
   gate: G2
-  status: IN_PROGRESS
+  status: ACCEPTED
   attempt: 1
   blocker: null
+  commit: 92c372f8ac28259466bf46661899c1ce81393f5b
+  receipt: G2/TC-010b/receipt.json
 - id: TC-011
   gate: G1
   status: ACCEPTED
@@ -410,9 +391,11 @@ cards:
   receipt: G2/TC-050/receipt.json
 - id: TC-051
   gate: G2
-  status: IN_PROGRESS
+  status: ACCEPTED
   attempt: 1
   blocker: null
+  commit: 92c372f8ac28259466bf46661899c1ce81393f5b
+  receipt: G2/TC-051/receipt.json
 - id: TC-052
   gate: G2
   status: ACCEPTED
@@ -450,14 +433,18 @@ cards:
   receipt: G2/TC-056/receipt.json
 - id: TC-058
   gate: G2
-  status: IN_PROGRESS
+  status: ACCEPTED
   attempt: 1
   blocker: null
+  commit: 92c372f8ac28259466bf46661899c1ce81393f5b
+  receipt: G2/TC-058/receipt.json
 - id: TC-059
   gate: G2
-  status: IN_PROGRESS
+  status: ACCEPTED
   attempt: 1
   blocker: null
+  commit: 92c372f8ac28259466bf46661899c1ce81393f5b
+  receipt: G2/TC-059/receipt.json
 - id: TC-060
   gate: G2
   status: ACCEPTED
@@ -1678,7 +1665,7 @@ owner_items:
     its images. The operator installed WSL.'
   last_checked_at: '2026-10-04T12:00:00Z'
 - id: OWNER-06
-  status: OPEN
+  status: SATISFIED
   summary: 'The repo-wide CI equivalent (scripts/ci_check.sh, which runs pytest in
     full) cannot pass on this machine (updated 2026-10-04). Toolchains were not missing:
     Java 21, Maven, Go, Rust, CMake, Node and dotnet are all installed under D:, and
@@ -1723,11 +1710,26 @@ owner_items:
     the evidence is the grep of the pinned source, and the live build output recorded
     in the decision log.'
   last_checked_at: '2026-10-04T12:00:00Z'
+- id: OWNER-08
+  status: OPEN
+  summary: The fetch of product references from GitHub (infra/fetch_product_reference.py
+    and the readers in src/foss_mcp/extraction) is rate limited to 60 requests per
+    hour without a token. TC-220 makes the readers wait out a limit and use GITHUB_TOKEN
+    when it is set, and TC-221 delivers that token to the ingestion Jobs from a Kubernetes
+    Secret the operator creates. The token itself is a credential only the owner can
+    create. Without it a fourteen-pilot install can still hit the limit (HTTP 403).
+  resume_predicate: A Kubernetes Secret named by ingestion.githubToken.existingSecret
+    exists in the target namespace, with the key named by ingestion.githubToken.key
+    holding a GitHub token, and a fourteen-pilot install completes with every ingestion
+    Job Complete on the first attempt.
+  consumed_by:
+  - NONE
+  recorded_at: '2026-10-05T13:58:56Z'
+  note: Owner-only credential. Blocks no card and no gate.
+  last_checked_at: '2026-10-05T13:58:56Z'
 open_questions:
-  open: 2
-  ids:
-  - OQ-005
-  - OQ-006
+  open: 0
+  ids: []
 execution_limits:
   workers_in_flight: 4
   max_attempts_per_card: 3
