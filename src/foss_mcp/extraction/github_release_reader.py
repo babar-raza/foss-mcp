@@ -16,6 +16,8 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from foss_mcp.extraction.github_http import urlopen_with_backoff, with_auth
+
 _API_ROOT = "https://api.github.com"
 _HEADERS = {"Accept": "application/vnd.github+json", "User-Agent": "foss-mcp-extraction"}
 
@@ -112,12 +114,12 @@ def _get_json(url: str, *, etag: str | None = None) -> tuple[int, Any, str | Non
     gets a cheap 304 instead of the full payload - a conditional read does not count against
     GitHub's unauthenticated rate limit either way.
     """
-    headers = dict(_HEADERS)
+    headers = with_auth(_HEADERS)
     if etag:
         headers["If-None-Match"] = etag
     request = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with urlopen_with_backoff(request, timeout=30) as response:
             body = response.read()
             return response.status, (json.loads(body) if body else None), response.headers.get("ETag")
     except urllib.error.HTTPError as exc:
