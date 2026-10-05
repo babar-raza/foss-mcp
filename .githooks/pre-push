@@ -27,7 +27,10 @@ case "$remote_url" in
 esac
 
 echo "pre-push: running scripts/ci_check.sh before pushing to $remote_name"
-if ! bash scripts/ci_check.sh; then
+# Run it with the bash that is running this hook. A bare `bash` on a Windows host resolves to the
+# WSL launcher (C:\Windows\System32\bash.exe), which has no distribution here and fails without output,
+# so every push was blocked by a launcher stub (found 2026-10-05). The same defect was fixed in gate exit.
+if ! "${BASH:-bash}" scripts/ci_check.sh; then
   echo >&2
   echo "pre-push: scripts/ci_check.sh failed - push blocked." >&2
   exit 1
