@@ -1,12 +1,13 @@
-"""Opt-in real-repository regression for Java records (TC-168).
+"""Opt-in real-repository regression for Java records (TC-168, marker ``live`` per TC-216).
 
-Needs network access and an explicit opt-in (``FOSS_MCP_NETWORK_TESTS=1``). It is not part of
-the offline gate; the offline synthetic tests live in test_api_surface_java.py.
+Marked ``live``: it needs network access and an explicit opt-in (``FOSS_MCP_NETWORK_TESTS=1``).
+Without the opt-in it is deselected at collection (absent from the run, not skipped, and counted
+in the terminal summary). It is not part of the offline gate; the offline synthetic tests live
+in test_api_surface_java.py.
 """
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -20,11 +21,9 @@ LIVE_REPO = "https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-Java.g
 LIVE_COMMIT = "620a2614418854b4a18966a361e6907ddc88c7cb"
 
 
-@pytest.mark.skipif(
-    os.environ.get("FOSS_MCP_NETWORK_TESTS") != "1" or shutil.which("git") is None,
-    reason="real-repository regression needs network; set FOSS_MCP_NETWORK_TESTS=1",
-)
+@pytest.mark.live
 def test_java_record_live_regression(tmp_path: Path) -> None:
+    assert shutil.which("git") is not None, "the live regression needs git on PATH"
     clone = tmp_path / "slides-java"
     subprocess.run(
         ["git", "clone", "--filter=blob:none", "--no-checkout", LIVE_REPO, str(clone)],
