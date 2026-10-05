@@ -1,0 +1,283 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_generate_furnished_page.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8krycbaw\.junit-0.xml"
+--- stdout ---
+..............................                                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_generate_furnished_page.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8krycbaw\.junit-0.xml"
+--- stdout ---
+..............................                                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/infra/test_generate_furnished_page.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_generate_furnished_page.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8krycbaw\.junit-0.xml"
+--- stdout ---
+.......................FFFFFF.                                           [100%]
+================================== FAILURES ===================================
+___ test_doc_source_commit_is_the_sealed_candidates_own_commit[cells_rust] ____
+
+pilot = 'cells_rust'
+
+    @pytest.mark.parametrize("pilot", sorted(_EXPECTED_SINGLE_BLOCK_SHA256))
+    def test_doc_source_commit_is_the_sealed_candidates_own_commit(pilot: str) -> None:
+        """Proves the closeout requirement directly: each regenerated page's own
+        ``doc_source_commit`` is the vendored sealed-candidate commit for that pilot
+        (tests/fixtures/furnished/sealed_current_missing/<pilot>.CURRENT). It always runs, with no
+        skip and no xfail. Where a real repository-presenter checkout is present, the
+        vendored value is also asserted equal to that checkout's own CURRENT file, so the
+        drift check still happens on machines that have the checkout. The page's commit is
+        NOT conflated with this project's ``--library-commit`` pin (asserted to differ for
+        pdf/net and slides/python).
+        """
+>       vendored_commit = _vendored_sealed_commit(pilot)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:360: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:100: in _vendored_sealed_commit
+    return (SEALED_CURRENT_ROOT / f"{pilot}.CURRENT").read_text(encoding="utf-8").strip()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\pathlib\_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('tests/fixtures/furnished/sealed_current_missing/cells_rust.CURRENT')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'tests\\fixtures\\furnished\\sealed_current_missing\\cells_rust.CURRENT'
+
+C:\dev-tools\foss-mcp\python313\Lib\pathlib\_local.py:537: FileNotFoundError
+_____ test_doc_source_commit_is_the_sealed_candidates_own_commit[pdf_go] ______
+
+pilot = 'pdf_go'
+
+    @pytest.mark.parametrize("pilot", sorted(_EXPECTED_SINGLE_BLOCK_SHA256))
+    def test_doc_source_commit_is_the_sealed_candidates_own_commit(pilot: str) -> None:
+        """Proves the closeout requirement directly: each regenerated page's own
+        ``doc_source_commit`` is the vendored sealed-candidate commit for that pilot
+        (tests/fixtures/furnished/sealed_current_missing/<pilot>.CURRENT). It always runs, with no
+        skip and no xfail. Where a real repository-presenter checkout is present, the
+        vendored value is also asserted equal to that checkout's own CURRENT file, so the
+        drift check still happens on machines that have the checkout. The page's commit is
+        NOT conflated with this project's ``--library-commit`` pin (asserted to differ for
+        pdf/net and slides/python).
+        """
+>       vendored_commit = _vendored_sealed_commit(pilot)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:360: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:100: in _vendored_sealed_commit
+    return (SEALED_CURRENT_ROOT / f"{pilot}.CURRENT").read_text(encoding="utf-8").strip()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\pathlib\_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('tests/fixtures/furnished/sealed_current_missing/pdf_go.CURRENT')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'tests\\fixtures\\furnished\\sealed_current_missing\\pdf_go.CURRENT'
+
+C:\dev-tools\foss-mcp\python313\Lib\pathlib\_local.py:537: FileNotFoundError
+____ test_doc_source_commit_is_the_sealed_candidates_own_commit[pdf_java] _____
+
+pilot = 'pdf_java'
+
+    @pytest.mark.parametrize("pilot", sorted(_EXPECTED_SINGLE_BLOCK_SHA256))
+    def test_doc_source_commit_is_the_sealed_candidates_own_commit(pilot: str) -> None:
+        """Proves the closeout requirement directly: each regenerated page's own
+        ``doc_source_commit`` is the vendored sealed-candidate commit for that pilot
+        (tests/fixtures/furnished/sealed_current_missing/<pilot>.CURRENT). It always runs, with no
+        skip and no xfail. Where a real repository-presenter checkout is present, the
+        vendored value is also asserted equal to that checkout's own CURRENT file, so the
+        drift check still happens on machines that have the checkout. The page's commit is
+        NOT conflated with this project's ``--library-commit`` pin (asserted to differ for
+        pdf/net and slides/python).
+        """
+>       vendored_commit = _vendored_sealed_commit(pilot)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:360: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:100: in _vendored_sealed_commit
+    return (SEALED_CURRENT_ROOT / f"{pilot}.CURRENT").read_text(encoding="utf-8").strip()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\pathlib\_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('tests/fixtures/furnished/sealed_current_missing/pdf_java.CURRENT')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'tests\\fixtures\\furnished\\sealed_current_missing\\pdf_java.CURRENT'
+
+C:\dev-tools\foss-mcp\python313\Lib\pathlib\_local.py:537: FileNotFoundError
+_____ test_doc_source_commit_is_the_sealed_candidates_own_commit[pdf_net] _____
+
+pilot = 'pdf_net'
+
+    @pytest.mark.parametrize("pilot", sorted(_EXPECTED_SINGLE_BLOCK_SHA256))
+    def test_doc_source_commit_is_the_sealed_candidates_own_commit(pilot: str) -> None:
+        """Proves the closeout requirement directly: each regenerated page's own
+        ``doc_source_commit`` is the vendored sealed-candidate commit for that pilot
+        (tests/fixtures/furnished/sealed_current_missing/<pilot>.CURRENT). It always runs, with no
+        skip and no xfail. Where a real repository-presenter checkout is present, the
+        vendored value is also asserted equal to that checkout's own CURRENT file, so the
+        drift check still happens on machines that have the checkout. The page's commit is
+        NOT conflated with this project's ``--library-commit`` pin (asserted to differ for
+        pdf/net and slides/python).
+        """
+>       vendored_commit = _vendored_sealed_commit(pilot)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:360: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:100: in _vendored_sealed_commit
+    return (SEALED_CURRENT_ROOT / f"{pilot}.CURRENT").read_text(encoding="utf-8").strip()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\pathlib\_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('tests/fixtures/furnished/sealed_current_missing/pdf_net.CURRENT')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'tests\\fixtures\\furnished\\sealed_current_missing\\pdf_net.CURRENT'
+
+C:\dev-tools\foss-mcp\python313\Lib\pathlib\_local.py:537: FileNotFoundError
+__ test_doc_source_commit_is_the_sealed_candidates_own_commit[slides_python] __
+
+pilot = 'slides_python'
+
+    @pytest.mark.parametrize("pilot", sorted(_EXPECTED_SINGLE_BLOCK_SHA256))
+    def test_doc_source_commit_is_the_sealed_candidates_own_commit(pilot: str) -> None:
+        """Proves the closeout requirement directly: each regenerated page's own
+        ``doc_source_commit`` is the vendored sealed-candidate commit for that pilot
+        (tests/fixtures/furnished/sealed_current_missing/<pilot>.CURRENT). It always runs, with no
+        skip and no xfail. Where a real repository-presenter checkout is present, the
+        vendored value is also asserted equal to that checkout's own CURRENT file, so the
+        drift check still happens on machines that have the checkout. The page's commit is
+        NOT conflated with this project's ``--library-commit`` pin (asserted to differ for
+        pdf/net and slides/python).
+        """
+>       vendored_commit = _vendored_sealed_commit(pilot)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:360: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:100: in _vendored_sealed_commit
+    return (SEALED_CURRENT_ROOT / f"{pilot}.CURRENT").read_text(encoding="utf-8").strip()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\pathlib\_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\pathlib\_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('tests/fixtures/furnished/sealed_current_missing/slides_python.CURRENT')
+mode = 'r', buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'tests\\fixtures\\furnished\\sealed_current_missing\\slides_python.CURRENT'
+
+C:\dev-tools\foss-mcp\python313\Lib\pathlib\_local.py:537: FileNotFoundError
+____________ test_every_pilot_has_a_vendored_40_hex_sealed_commit _____________
+
+    def test_every_pilot_has_a_vendored_40_hex_sealed_commit() -> None:
+        """Every pilot in the sealed-commit test has a vendored CURRENT file holding exactly
+        one 40-hex commit, so that test never depends on a local checkout to have a value."""
+        assert set(_PILOT_REPOSITORY) == set(_EXPECTED_SINGLE_BLOCK_SHA256)
+        for pilot in sorted(_PILOT_REPOSITORY):
+            path = SEALED_CURRENT_ROOT / f"{pilot}.CURRENT"
+>           assert path.is_file(), f"missing vendored sealed commit: {path}"
+E           AssertionError: missing vendored sealed commit: tests\fixtures\furnished\sealed_current_missing\cells_rust.CURRENT
+E           assert False
+E            +  where False = is_file()
+E            +    where is_file = WindowsPath('tests/fixtures/furnished/sealed_current_missing/cells_rust.CURRENT').is_file
+
+tests\infra\test_generate_furnished_page.py:385: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_generate_furnished_page.py::test_doc_source_commit_is_the_sealed_candidates_own_commit[cells_rust]
+FAILED tests/infra/test_generate_furnished_page.py::test_doc_source_commit_is_the_sealed_candidates_own_commit[pdf_go]
+FAILED tests/infra/test_generate_furnished_page.py::test_doc_source_commit_is_the_sealed_candidates_own_commit[pdf_java]
+FAILED tests/infra/test_generate_furnished_page.py::test_doc_source_commit_is_the_sealed_candidates_own_commit[pdf_net]
+FAILED tests/infra/test_generate_furnished_page.py::test_doc_source_commit_is_the_sealed_candidates_own_commit[slides_python]
+FAILED tests/infra/test_generate_furnished_page.py::test_every_pilot_has_a_vendored_40_hex_sealed_commit
+
+--- stderr ---
+
