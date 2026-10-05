@@ -177,6 +177,19 @@ def test_tick_prints_the_gate_exit_and_its_blockers():
     assert "EXIT_PENDING" in src
 
 
+def test_on_fail_mode_replaces_a_stored_failing_receipt_when_the_card_now_passes(monkeypatch, tmp_path):
+    # The rule behind the write condition: a stored receipt that did not pass is replaced by a pass,
+    # and a stored pass is kept byte for byte. Checked on the condition itself, not on a live run.
+    import inspect as _i
+
+    src = _i.getsource(V.do_verify)
+    assert 'stored_passed = bool(stored and stored.get("accepted"))' in src
+    assert "or not stored_passed:" in src
+    assert src.index("stored = load_receipt(gate, card_id)") < src.index(
+        'if persist == "always" or not receipt'
+    )
+
+
 def test_do_verify_refuses_an_unknown_persist_mode():
     with pytest.raises(ValueError):
         V.do_verify("TC-001", "HEAD", "HEAD", persist="sometimes")

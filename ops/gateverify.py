@@ -384,7 +384,11 @@ def do_verify(
         "accepted": len(reasons) == 0,
         "reason": "; ".join(reasons) if reasons else "all gates passed",
     }
-    if persist == "always" or not receipt["accepted"]:
+    # A pass now replaces a stored receipt that did not pass. Without this, a card that failed, was fixed,
+    # and passed again at gate exit kept its old failing receipt and stayed red (found 2026-10-05).
+    stored = load_receipt(gate, card_id)
+    stored_passed = bool(stored and stored.get("accepted"))
+    if persist == "always" or not receipt["accepted"] or not stored_passed:
         (outdir / "stdout.log").write_text(log_text, encoding="utf-8")
         (outdir / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
     return receipt
