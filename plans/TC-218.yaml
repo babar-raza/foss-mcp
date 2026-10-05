@@ -1,0 +1,59 @@
+id: TC-218
+gate: G2
+lane: storage-retrieval
+purpose: 'Give lookup''s example-only branch a test that can fail. Gate exit on 2026-10-05 failed TC-075 with "VACUOUS CHECKS": its negative control narrows
+  `if not doc_matches and example is None:` back to `if not doc_matches:` in src/foss_mcp/mcp/tools/lookup.py, the mutation applies, and the suite still passes.
+  The test TC-075 added, test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere, was written when an example chunk could exist with zero
+  documentation matches. TC-109 later made search_docs classify the Example chunk as developer_guide, so the test now asserts result.doc_matches is non-empty and
+  no longer reaches the branch it was written for. The branch is real behaviour (a pilot with a verified example and no documentation must still answer with the
+  example), and it has no covering test. This card adds one that forces zero documentation matches, so the card''s own falsifier bites again.'
+depends_on:
+- TC-109
+- TC-120
+- TC-143
+- TC-202
+write_paths:
+- tests/mcp/tools/test_retrieval_tools.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read src/foss_mcp/mcp/tools/lookup.py (the doc composition around line 146) and tests/mcp/tools/test_retrieval_tools.py in full, especially
+  test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere and the helpers it uses to publish an Example pseudo-symbol chunk into an
+  in-memory store for PDF_NET_SCOPE.'
+- 'Add one new test, keeping every existing test unchanged. It publishes the same Example pseudo-symbol chunk (fqn "Example: Add a Watermark Annotation"),
+  monkeypatches foss_mcp.mcp.tools.lookup.search_docs so it returns a DocsMiss for the scope, the query and the content type with the reason "forced miss"
+  (use the real DocsMiss type and its real constructor fields), calls lookup(store, PDF_NET_SCOPE, "how do I add a watermark to a PDF"), and asserts that the
+  result is a TaskAnswer whose doc_matches is empty and whose example.fqn is "Example: Add a Watermark Annotation". Name it so it says the example answer
+  survives zero documentation matches.'
+- 'Run the new test against the mutated lookup.py yourself (the card''s negative control) and report that it fails there with lookup returning a Miss, and
+  passes unmutated.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read lookup.py and the existing test.
+- Add the one test.
+- Run the check clean and with the negative control, and report exact counts.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_retrieval_tools.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 22
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/lookup.py');s=p.read_text(encoding='utf-8');s=s.replace('if not doc_matches and example is None:','if not doc_matches:');p.write_text(s,encoding='utf-8')"
+  rationale: 'Narrows the compose-or-fall-through condition back to ignoring whether an example exists. With documentation forced to zero matches, lookup then returns a
+    Miss instead of an example-only TaskAnswer, so the new test must fail. Verified against the current code on 2026-10-05: 21 pass clean, and with the new
+    test 1 fails under this mutate. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-218/receipt.json
+closeout:
+- lookup answers with a verified example when no documentation matches, and a test fails if that branch is removed.
+recovery: Re-run from a clean tree.

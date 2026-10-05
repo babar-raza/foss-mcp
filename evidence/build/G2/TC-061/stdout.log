@@ -1,6 +1,6 @@
 
 ===== CLEAN RUN 1 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_serve_http.py tests/mcp/test_server_wiring.py tests/test_container_build.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2dfv8bzf\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_serve_http.py tests/mcp/test_server_wiring.py tests/test_container_build.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0cd9cr8s\.junit-0.xml"
 --- stdout ---
 ........................................................................ [ 71%]
 .............................                                            [100%]
@@ -15,7 +15,7 @@ $ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e
 
 
 ===== CLEAN RUN 2 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_serve_http.py tests/mcp/test_server_wiring.py tests/test_container_build.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2dfv8bzf\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_serve_http.py tests/mcp/test_server_wiring.py tests/test_container_build.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0cd9cr8s\.junit-0.xml"
 --- stdout ---
 ........................................................................ [ 71%]
 .............................                                            [100%]
@@ -30,17 +30,82 @@ $ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e
 
 
 ===== NEGATIVE CONTROL (checks MUST now fail) =====
-mutated: M src/foss_mcp/mcp/health.py, ?? .junit-0.xml
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_serve_http.py tests/mcp/test_server_wiring.py tests/test_container_build.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2dfv8bzf\.junit-0.xml"
+mutated: M infra/serve_http.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_serve_http.py tests/mcp/test_server_wiring.py tests/test_container_build.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0cd9cr8s\.junit-0.xml"
 --- stdout ---
-........................................................................ [ 71%]
+...FF.F................................................................. [ 71%]
 .............................                                            [100%]
+================================== FAILURES ===================================
+_____ test_readyz_returns_503_for_a_generation_with_no_queryable_content ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-2017/test_readyz_returns_503_for_a_0')
+
+    def test_readyz_returns_503_for_a_generation_with_no_queryable_content(tmp_path: Path) -> None:
+        """A real, published, ACTIVE generation that carries zero chunks (so its lexical index has
+        no documents) must still report 503 - this is the real behavior change round_trip_check
+        brings over the old is_ready check: is_ready would see the active-generation pointer and
+        wrongly report ready, because it never looks past the pointer to the content it names."""
+        store = _store(tmp_path)
+        _publish(store, "pdf::net::self_extracted", "pdf", "net", [])
+        with _client(store) as client:
+            response = client.get("/readyz")
+>           assert response.status_code == 503
+E           assert 200 == 503
+E            +  where 200 = <Response [200 OK]>.status_code
+
+tests\infra\test_serve_http.py:124: AssertionError
+_______________ test_readyz_returns_503_against_an_empty_store ________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-2017/test_readyz_returns_503_agains0')
+
+    def test_readyz_returns_503_against_an_empty_store(tmp_path: Path) -> None:
+        """No generation has ever been published for this deployment's scope - readiness must be
+        honest about that, never merely "the process answers"."""
+        store = _store(tmp_path)
+        with _client(store) as client:
+            response = client.get("/readyz")
+>           assert response.status_code == 503
+E           assert 200 == 503
+E            +  where 200 = <Response [200 OK]>.status_code
+
+tests\infra\test_serve_http.py:133: AssertionError
+___________ test_readyz_for_a_different_deployment_scope_stays_503 ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-2017/test_readyz_for_a_different_de0')
+
+    def test_readyz_for_a_different_deployment_scope_stays_503(tmp_path: Path) -> None:
+        """Publishing a generation for a DIFFERENT (family, platform) must never make an unrelated
+        deployment's /readyz report ready - readiness is scoped, never global."""
+        store = _store(tmp_path)
+        other_scope = "slides::python::self_extracted"
+        lease = store.acquire_lease(other_scope, held_by="test-worker", generation_id="pending")
+        publish_generation(
+            store,
+            family="slides",
+            platform="python",
+            source_kind="self_extracted",
+            expected_active=None,
+            chunks=_chunks(),
+            embedding_provider=DeterministicEmbeddingProvider(),
+            lease=lease,
+        )
+        with _client(store) as client:  # client is still bound to DEPLOYMENT_CONFIG (pdf/net)
+            response = client.get("/readyz")
+>           assert response.status_code == 503
+E           assert 200 == 503
+E            +  where 200 = <Response [200 OK]>.status_code
+
+tests\infra\test_serve_http.py:175: AssertionError
 ============================== warnings summary ===============================
 ..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
   E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
     _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/infra/test_serve_http.py::test_readyz_returns_503_for_a_generation_with_no_queryable_content
+FAILED tests/infra/test_serve_http.py::test_readyz_returns_503_against_an_empty_store
+FAILED tests/infra/test_serve_http.py::test_readyz_for_a_different_deployment_scope_stays_503
 
 --- stderr ---
 

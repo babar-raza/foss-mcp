@@ -1,6 +1,6 @@
 
 ===== CLEAN RUN 1 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yan22ujd\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kka54xri\.junit-0.xml"
 --- stdout ---
 .....................                                                    [100%]
 
@@ -8,7 +8,7 @@ $ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e
 
 
 ===== CLEAN RUN 2 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yan22ujd\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kka54xri\.junit-0.xml"
 --- stdout ---
 .....................                                                    [100%]
 
@@ -17,9 +17,281 @@ $ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e
 
 ===== NEGATIVE CONTROL (checks MUST now fail) =====
 mutated: M src/foss_mcp/mcp/tools/search_symbols.py, ?? .junit-0.xml
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yan22ujd\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kka54xri\.junit-0.xml"
 --- stdout ---
-.....................                                                    [100%]
+..FF.F..........F....                                                    [100%]
+================================== FAILURES ===================================
+_ test_search_symbols_excludes_tc068_pseudo_symbol_chunks_from_its_own_matching _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-2021/test_search_symbols_excludes_t0')
+
+    def test_search_symbols_excludes_tc068_pseudo_symbol_chunks_from_its_own_matching(
+        tmp_path: Path,
+    ) -> None:
+        """TC-068's ``Example: <title>`` pseudo-symbols are published into the exact same
+        self_extracted generation search_symbols reads (see infra/build_chunks.py's own real
+        chunk shape: a heading, an ``FQN: Example: <title>`` line, then an ``Example:`` code
+        block). A pseudo-symbol is not a real symbol and search_symbols's own module docstring
+        says so - it must never be reported as a match, even when it lexically matches at least
+        as strongly as a real symbol answering the very same query.
+    
+        Real regression, not a mock: one real symbol chunk and one Example:-prefixed pseudo-symbol
+        chunk are published side by side, both containing the word "watermark" in their own prose,
+        so a lexical scan with no filter would return both.
+        """
+        store = _store(tmp_path)
+        real_symbol_body = """## PdfDocument.AddWatermarkAnnotation
+    
+    FQN: PdfDocument.AddWatermarkAnnotation
+    Kind: Method
+    Adds a watermark annotation to the page.
+    """
+        pseudo_symbol_body = (
+            "# Example: Add a Watermark Annotation\n\n"
+            "FQN: Example: Add a Watermark Annotation\n"
+            "Kind: verified_example\n"
+            "Adds a watermark annotation to a document using a real, verified snippet.\n\n"
+            'Example:\ndocument.AddWatermarkAnnotation("Confidential")'
+        )
+        real_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="api_surface",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="pdf/net API surface",
+            body=real_symbol_body,
+        )
+        pseudo_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="example",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="Add a Watermark Annotation",
+            body=pseudo_symbol_body,
+        )
+        chunks = chunk_document(real_doc) + chunk_document(pseudo_doc)
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+    
+        result = search_symbols(store, PDF_NET_SCOPE, "watermark")
+    
+        assert isinstance(result, list) and result
+        assert all(isinstance(match, SymbolMatch) for match in result)
+>       assert all("Example: Add a Watermark Annotation" not in match.text for match in result)
+E       assert False
+E        +  where False = all(<generator object test_search_symbols_excludes_tc068_pseudo_symbol_chunks_from_its_own_matching.<locals>.<genexpr> at 0x0000021C0A4A9A40>)
+
+tests\mcp\tools\test_retrieval_tools.py:208: AssertionError
+_ test_search_symbols_excludes_tc112_doc_pseudo_symbol_chunks_from_its_own_matching _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-2021/test_search_symbols_excludes_t1')
+
+    def test_search_symbols_excludes_tc112_doc_pseudo_symbol_chunks_from_its_own_matching(
+        tmp_path: Path,
+    ) -> None:
+        """TC-112's furnished documentation chunks are published into this exact same
+        self_extracted generation search_symbols reads, marked with a parallel pseudo-FQN of the
+        literal shape ``Doc: <title>`` (see ``infra/build_chunks.py``'s own
+        ``FQN: Doc: {candidate.title}\\n{chunk.text}`` construction, applied to each chunk AFTER
+        ``chunk_document`` splits the candidate's body - reproduced exactly the same way here, not
+        baked into the document body). A doc chunk is not a real symbol and must never be reported
+        as one, exactly like a TC-068 ``Example:`` chunk already isn't (see the sibling test above).
+    
+        Real regression, not a mock: one real symbol chunk and one Doc:-prefixed pseudo-symbol
+        chunk are published side by side, both containing the word "watermark" in their own prose,
+        so a lexical scan with no filter would return both.
+        """
+        import dataclasses
+    
+        store = _store(tmp_path)
+        real_symbol_body = """## PdfDocument.AddWatermarkAnnotation
+    
+    FQN: PdfDocument.AddWatermarkAnnotation
+    Kind: Method
+    Adds a watermark annotation to the page.
+    """
+        doc_title = "Adding a Watermark"
+        pseudo_doc_body = """## Adding a Watermark
+    
+    Use PdfDocument.AddWatermarkAnnotation to add a watermark to a PDF document, stamping
+    confidential markings onto every exported page.
+    """
+        real_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="api_surface",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="pdf/net API surface",
+            body=real_symbol_body,
+        )
+        pseudo_doc = make_document(
+            source_kind=SourceKind.FURNISHED,
+            content_type="doc",
+            provenance=Provenance(repository="Aspose/aspose.org", commit="x", path="content/pdf/net"),
+            evidence_refs=(),
+            title=doc_title,
+            body=pseudo_doc_body,
+        )
+        pseudo_chunks = [
+            dataclasses.replace(chunk, text=f"FQN: Doc: {doc_title}\n{chunk.text}")
+            for chunk in chunk_document(pseudo_doc)
+        ]
+        chunks = chunk_document(real_doc) + pseudo_chunks
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+    
+        result = search_symbols(store, PDF_NET_SCOPE, "watermark")
+    
+        assert isinstance(result, list) and result
+        assert all(isinstance(match, SymbolMatch) for match in result)
+>       assert all("Doc: Adding a Watermark" not in match.text for match in result)
+E       assert False
+E        +  where False = all(<generator object test_search_symbols_excludes_tc112_doc_pseudo_symbol_chunks_from_its_own_matching.<locals>.<genexpr> at 0x0000021C0A4A0450>)
+
+tests\mcp\tools\test_retrieval_tools.py:273: AssertionError
+___ test_search_symbols_miss_suggestions_never_include_a_pseudo_symbol_fqn ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-2021/test_search_symbols_miss_sugge1')
+
+    def test_search_symbols_miss_suggestions_never_include_a_pseudo_symbol_fqn(tmp_path: Path) -> None:
+        """The suggestion pool is drawn from the same real-symbol corpus search_symbols itself
+        matches against - TC-068's ``Example: <title>`` / TC-112's ``Doc: <title>`` pseudo-symbol
+        chunks are excluded from it exactly as they already are from a real match (see this
+        module's own docstring), so a typo'd query is never pointed at a pseudo-symbol as if it
+        were a real "did you mean" answer.
+        """
+        store = _store(tmp_path)
+        real_symbol_body = """## Annotation
+    
+    FQN: Annotation
+    Kind: Class
+    Serves as the abstract base for every markup element placed on a PDF page.
+    """
+        pseudo_symbol_body = (
+            "# Example: Annotatio\n\n"
+            "FQN: Example: Annotatio\n"
+            "Kind: verified_example\n"
+            "A pseudo-symbol chunk that must never be suggested as a real FQN.\n\n"
+            "Example:\nannotation.DoSomething()"
+        )
+        real_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="api_surface",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="pdf/net API surface",
+            body=real_symbol_body,
+        )
+        pseudo_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="example",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="Annotatio",
+            body=pseudo_symbol_body,
+        )
+        chunks = chunk_document(real_doc) + chunk_document(pseudo_doc)
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+    
+        result = search_symbols(store, PDF_NET_SCOPE, "Annotatio")
+    
+>       assert isinstance(result, SymbolsMiss)
+E       AssertionError: assert False
+E        +  where False = isinstance([SymbolMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_ex...ied_example\nA pseudo-symbol chunk that must never be suggested as a real FQN.\n\nExample:\nannotation.DoSomething()')], SymbolsMiss)
+
+tests\mcp\tools\test_retrieval_tools.py:372: AssertionError
+_ test_lookup_symbol_first_dispatch_surfaces_furnished_doc_not_the_excluded_pseudo_symbol _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-2021/test_lookup_symbol_first_dispa1')
+
+    def test_lookup_symbol_first_dispatch_surfaces_furnished_doc_not_the_excluded_pseudo_symbol(
+        tmp_path: Path,
+    ) -> None:
+        """This test used to be named "...composes_doc_guidance_with_a_real_example_when_no_real_
+        symbol_matches" (REQ-G2-049 scenario 3) and relied on the furnished watermarking guide living
+        under a "furnished" scope key search_symbols never read - so search_symbols only ever saw the
+        real (unrelated) symbol and the excluded pseudo-symbol, genuinely missed, and lookup fell
+        through to ``_compose_from_docs``.
+    
+        TC-109 (G2/REQ-G2-047) fixes search_docs's own routing bug so it reads the exact SAME
+        generation search_symbols and find_examples already did - the one every real pilot actually
+        publishes. Reproduced, real consequence: search_symbols.py excludes ONLY TC-068's
+        ``Example: <title>`` pseudo-symbol chunks (see its own module docstring); it has no OTHER
+        content-shape filter, so the furnished watermarking-guide chunk below (no ``Example:``
+        prefix) is not excluded, and a bare query matching it is reported as a genuine symbol match.
+        lookup()'s bare-query dispatch order - try ``search_symbols`` first, unchanged - faithfully
+        returns that, never reaching ``_compose_from_docs``.
+    
+        This still proves TC-068's own exclusion works correctly (the pseudo-symbol chunk never
+        appears in the result, below), which is the one thing search_symbols.py already promises.
+        Closing the REMAINING gap - a furnished doc chunk also needs to be excluded from
+        search_symbols's own matching, the same way the pseudo-symbol already is - is a follow-up
+        card's job: search_symbols.py is not in TC-109's write_paths.
+    
+        TC-202 (G2/REQ-G2-047) closes that gap: the query is an honest Miss in search_symbols, and the
+        furnished guide chunk reaches the answer as a doc match (restated at line 654).
+        """
+        store = _store(tmp_path)
+        real_symbol_body = """## PdfDocument
+    
+    FQN: PdfDocument
+    Kind: Class
+    Represents a PDF document that can be loaded, edited, and saved.
+    """
+        pseudo_symbol_body = (
+            "# Example: Add a Watermark Annotation\n\n"
+            "FQN: Example: Add a Watermark Annotation\n"
+            "Kind: verified_example\n"
+            "Adds a watermark annotation to a document using a real, verified snippet.\n\n"
+            'Example:\ndocument.AddWatermarkAnnotation("Confidential")'
+        )
+        real_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="api_surface",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="pdf/net API surface",
+            body=real_symbol_body,
+        )
+        pseudo_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="example",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="Add a Watermark Annotation",
+            body=pseudo_symbol_body,
+        )
+        watermark_guide_doc = make_document(
+            source_kind=SourceKind.FURNISHED,
+            content_type="product_page",
+            provenance=Provenance(repository="Aspose/aspose.org", commit="x", path="content/pdf/net"),
+            evidence_refs=(),
+            title="pdf/net watermarking guide",
+            body="""## Adding a Watermark
+    
+    Use PdfDocument.AddWatermarkAnnotation to overlay a watermark on every page. This approach
+    works well for stamping confidential markings onto exported PDF documents.
+    """,
+        )
+        # One combined publish, matching every real pilot's actual shape: symbol, pseudo-symbol,
+        # and doc chunks all live in the SAME self_extracted generation (TC-109, G2/REQ-G2-047) -
+        # there is no separate "furnished" scope key for search_docs to read anymore.
+        chunks = chunk_document(real_doc) + chunk_document(pseudo_doc) + chunk_document(watermark_guide_doc)
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+    
+        result = lookup(store, PDF_NET_SCOPE, "watermark")
+    
+        # TC-202 restatement (line 654): "watermark" is a whole word of no symbol FQN here (the real
+        # symbol is PdfDocument, and the furnished chunk has no FQN line), so search_symbols returns an
+        # honest Miss and lookup composes a TaskAnswer; the furnished guide chunk is in its doc_matches.
+>       assert isinstance(result, TaskAnswer)
+E       assert False
+E        +  where False = isinstance([SymbolMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_ex...nnotation to a document using a real, verified snippet.\n\nExample:\ndocument.AddWatermarkAnnotation("Confidential")')], TaskAnswer)
+
+tests\mcp\tools\test_retrieval_tools.py:660: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_excludes_tc068_pseudo_symbol_chunks_from_its_own_matching
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_excludes_tc112_doc_pseudo_symbol_chunks_from_its_own_matching
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_miss_suggestions_never_include_a_pseudo_symbol_fqn
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_lookup_symbol_first_dispatch_surfaces_furnished_doc_not_the_excluded_pseudo_symbol
 
 --- stderr ---
 

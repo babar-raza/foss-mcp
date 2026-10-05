@@ -1,0 +1,68 @@
+id: TC-219
+gate: G2
+lane: verification
+purpose: 'Let the Rust example verifier fall back to cargo --offline when the registry is unreachable but the crates are already cached. Gate exit on 2026-10-05
+  failed TC-081 as FLAKY: clean run 1 passed 21 tests in 460 s, clean run 2 had three setup errors from the module-scoped rust_library fixture, all
+  "ExampleEnvironmentError: cargo could not reach its registry (matched ''spurious network error'')" raised from prepare_rust_library. The pinned reference crate has
+  no Cargo.lock, so each fresh clone makes cargo refresh the crates.io index even when every crate is already in the local cache, and a short registry outage fails a
+  build that needs no network. The same exposure exists in production, where the ingestion Job builds Rust candidates. The existing retry (CARGO_NET_RETRY=5) does
+  not cover a sustained outage. On a fresh shallow clone of the pinned reference commit with a warm cache, cargo build --offline built clean in 26 s. This card
+  retries the same cargo command once with --offline when it failed with a network marker and produced no compiler diagnostic. A genuine failure still raises, a cold
+  cache still raises ExampleEnvironmentError as today, and no test is weakened.'
+depends_on:
+- TC-082
+- TC-096
+- TC-104
+- TC-175
+- TC-181
+- TC-187
+- TC-189
+- TC-194
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_example_verifier.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read src/foss_mcp/indexing/example_verifier.py around _CARGO_NETWORK_FAILURE_MARKERS, _reference_build_failure, the cargo retry environment (CARGO_NET_RETRY and the
+  timeout), prepare_rust_library and verify_rust_example, and find every place a cargo subprocess is run. Do the change once, in the single place that runs cargo (a
+  helper such as _run_cargo), not at each call site; if there is no single place, introduce one and route the existing call sites through it without changing their
+  arguments.'
+- 'Behaviour: when a cargo run exits non-zero, its output matches a network marker, and its output contains no compiler diagnostic (no line matching error[E followed
+  by digits), run the same command once more with --offline added. If that second run succeeds, return it. If it fails, raise exactly what the existing code would have
+  raised for the second run (a network marker with a cold cache is still ExampleEnvironmentError, a compiler error is still a candidate failure). A first run that
+  failed with a compiler diagnostic is never retried. The flag lives in a module constant whose value is the text --offline; that text must not appear elsewhere in
+  the file except in comments and messages, because the negative control edits it by text.'
+- 'Add tests to tests/indexing/test_example_verifier.py, keeping every existing test, with subprocess.run mocked (no real cargo, no network): a network-marker failure
+  followed by success returns success and the second call carries --offline; a network-marker failure followed by a network-marker failure still raises
+  ExampleEnvironmentError; a failure with an error[E0308] diagnostic is not retried (exactly one call); and a first-run success makes exactly one call. These must
+  run without the module-scoped real fixtures.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the cargo code paths and the existing tests.
+- Add the helper behaviour and the four mocked tests.
+- Run the card check and report exact counts. The existing real-build tests need network and cargo; if they cannot run here, say so and run the new mocked tests alone.
+checks:
+- command: '{python} -m pytest tests/indexing/test_example_verifier.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1500
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 25
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('--offline','--no-such-flag-x'),encoding='utf-8')"
+  rationale: 'Replaces the offline flag everywhere in the verifier, so the retry no longer passes --offline, and the mocked test that checks the second call carries it
+    must fail. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-219/receipt.json
+closeout:
+- A brief registry outage no longer fails a Rust build whose crates are cached, and a real compiler error is never retried.
+recovery: Re-run from a clean tree.

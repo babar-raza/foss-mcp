@@ -1,0 +1,75 @@
+id: TC-223
+gate: G2
+lane: transport-deployment
+purpose: 'Make the fourteen-pilot deployment repeatable by an operator who was not in this session. The fourteen-pilot proof of 2026-10-05 was driven by three throwaway
+  scripts (per-pilot values files, an install loop, a proof loop) that lived only in a scratch directory, and the repository has no deployment documentation: no chart README,
+  no runbook, and the README never mentions Helm. This card commits those three tools, tested, and the runbook: scripts/deploy/pilots.py (the chart''s pilots to one release each,
+  with minimal per-pilot values), scripts/deploy/install_pilots.py (helm install every pilot, bounded parallelism, a result table, and on failure the pod states and the ingestion
+  Job log tail), scripts/deploy/prove_pilots.py (port-forward each release, check /healthz and /readyz, run the eleven-check proof, print a table), and docs/DEPLOYMENT.md. The
+  tools only call helm, kubectl and the existing proof script; they change no chart and no product code.'
+depends_on:
+- TC-205
+- TC-197
+- TC-212
+write_paths:
+- scripts/deploy/**
+- tests/deploy/**
+- docs/DEPLOYMENT.md
+- docs/REPOSITORY_LAYOUT.md
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/helm/foss-mcp/values.yaml (ingestion.pilots, deployment, image, manifests), the templates (ingestion-job.yaml, deployment.yaml, service.yaml), scripts/poc/pilot_workflow_proof.py
+  (main, its arguments and exit code), scripts/release/build_images.py, docs/REPOSITORY_LAYOUT.md and the existing tests under tests/infra that render the chart. A release serves one
+  pilot: its values set deployment.family, deployment.platform and deployment.sourceKind, and ingestion.pilots holds only that pilot''s entry (a list replaces the chart default as a whole).'
+- 'scripts/deploy/pilots.py: RELEASE_PREFIX is a module constant whose value is the text foss-mcp- and which is the only place that text appears in the file; load_pilots(values_path) returns the
+  chart''s ingestion.pilots; release_name(pilot) is the prefix plus family, a hyphen and platform; pilot_values(pilot) returns the minimal mapping {deployment: {family, platform, sourceKind},
+  ingestion: {pilots: [pilot]}}; write_values(pilots, directory) writes one YAML file per pilot and returns their paths. Pure functions, importable without helm or kubectl.'
+- 'scripts/deploy/install_pilots.py: arguments --namespace (required), --image-tag (required), --chart (default infra/helm/foss-mcp), --values-dir, --parallel (default 2), --timeout
+  (default 30m), --only (repeatable family_platform), --dry-run. It creates the namespace if absent, runs helm upgrade --install release chart -n namespace --set image.tag=tag -f values --wait
+  --timeout, at most --parallel at a time, records rc and duration per pilot, prints a table, writes install-results.json in --values-dir, and exits non-zero if any install failed. For a failed
+  install it prints the pod states and the last 20 lines of the ingestion Job pod log for that release, so the cause is on screen. --dry-run prints each helm command and runs nothing. It must not
+  run helm uninstall or delete anything.'
+- 'scripts/deploy/prove_pilots.py: arguments --namespace (required), --base-port (default 8401), --only, --report-dir. For each release it starts kubectl port-forward on a distinct local port, waits
+  up to 30 s for /healthz and /readyz to answer 200, runs scripts/poc/pilot_workflow_proof.py for that pilot against it, always stops the port-forward, and prints one row per pilot with healthz,
+  readyz, passed, failed and not applicable counts. It exits 0 only if every pilot passed every applicable check, and says which pilots had none applicable.'
+- 'docs/DEPLOYMENT.md, for an operator: prerequisites (Docker, a cluster, helm 3, kubectl); building the two images with scripts/release/build_images.py and making them available to the cluster
+  (kind load docker-image for kind; a registry push is an owner action for a remote cluster); installing the fourteen pilots with install_pilots.py; proving them with prove_pilots.py; what the
+  init container does and why a serving pod waits at Init until its ingestion Job has written the product-reference sidecar; the optional GITHUB_TOKEN secret (TC-221) and why a rate limit
+  (HTTP 403) fails an ingestion Job; how to retry one pilot; uninstalling; a troubleshooting table covering exactly these failures seen in practice: FileNotFoundError for
+  /app/fixtures/<pilot>/api_surface.json (the image was built before the fixture was added), HTTP 403 rate limit exceeded, a serving pod stuck at Init:0/1, port 8201 already in use,
+  and Docker not running. State the known limits plainly: the two C++ pilots and six other second-product pilots prove symbols, lookup, members, product reference, freshness, honest miss and
+  isolation but no documentation search or verified examples; each release has its own 1 Gi volume. Do not invent values you cannot confirm from the repository.'
+- 'docs/REPOSITORY_LAYOUT.md: add a short section saying scripts/deploy holds the deployment tools and tests/deploy their tests, in the document''s existing style, and change nothing else.'
+- 'Tests in tests/deploy/ run offline with subprocess mocked and no helm or kubectl: pilots.py yields exactly fourteen releases whose names are unique and start with foss-mcp-; the minimal values
+  hold one pilot and the right deployment identity; install_pilots builds the exact helm command for a pilot, honours --only and --dry-run (no subprocess), never builds an uninstall command,
+  respects --parallel, returns non-zero and prints diagnostics when a mocked install fails; prove_pilots exits 0 only when all mocked proofs pass and always stops the port-forward when a
+  proof raises; docs/DEPLOYMENT.md names every script and every troubleshooting failure listed above (read the file in the test, which proves the runbook and the tools agree).'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the chart, the proof script and the layout document.
+- Write the three tools, the tests, the runbook and the layout section.
+- Run the card check and python -m ruff check and ruff format --check on the new files, and report exact counts.
+checks:
+- command: '{python} -m pytest tests/deploy -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 15
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/deploy/pilots.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('foss-mcp-','foss-mcp-x-'),encoding='utf-8')"
+  rationale: 'Changes the release prefix, so the test that pins the fourteen release names and the install command must fail. The prefix text appears once in pilots.py. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-223/receipt.json
+closeout:
+- An operator can install and prove the fourteen pilots from the repository alone, and the runbook and the tools are checked against each other.
+recovery: Re-run from a clean tree.

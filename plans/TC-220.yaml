@@ -1,0 +1,69 @@
+id: TC-220
+gate: G2
+lane: extraction
+purpose: 'Make the GitHub readers survive the rate limit and use a token when one is provided (OQ-005). The three readers call the unauthenticated GitHub Contents and
+  Releases API directly with urllib, 60 requests per hour per IP. In the 2026-10-05 fourteen-pilot run, three ingestion Jobs (cells/rust, slides/java, cells/go) failed three
+  times each with "HTTP Error 403: rate limit exceeded" from the product-reference fetch, and because a failed Job leaves no sidecar and the serving pod''s init container waits
+  for it, those pods never started. A deployment of fourteen pilots needs about 40 requests, so a second install in the same hour fails. Two changes, in one shared helper:
+  an Authorization header from the GITHUB_TOKEN environment variable when it is set (5000 requests per hour), and a bounded wait-and-retry on a rate-limit answer (HTTP 429, or
+  403 with x-ratelimit-remaining 0) that honours Retry-After or x-ratelimit-reset. A wait that would exceed the bound, or any other error, still raises the original
+  HTTPError, so nothing is swallowed and no answer is guessed. Providing the token itself is an owner action (OWNER-08), not part of this card.'
+depends_on:
+- TC-213
+write_paths:
+- src/foss_mcp/extraction/github_http.py
+- src/foss_mcp/extraction/manifest_reader.py
+- src/foss_mcp/extraction/github_release_reader.py
+- src/foss_mcp/extraction/repo_native_reader.py
+- tests/extraction/test_github_http.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read the HTTP code in manifest_reader.fetch_manifest_file (around line 326), github_release_reader._get_json (around line 108) and
+  repo_native_reader.read_repo_document (around line 36), and every existing test that patches urllib.request.urlopen for them. Each builds a Request with a copy of _HEADERS
+  and calls urllib.request.urlopen(request, timeout=30).'
+- 'Create src/foss_mcp/extraction/github_http.py with: a module constant GITHUB_TOKEN_ENV whose value is the text GITHUB_TOKEN; with_auth(headers) returning a copy of the
+  headers plus Authorization: Bearer <token> when the environment variable is set and non-empty, and returning the copy unchanged otherwise; rate_limit_wait_seconds(code,
+  headers, now) returning the number of seconds to wait for a rate-limit answer (429, or 403 with x-ratelimit-remaining equal to 0), taken from Retry-After when present
+  else from x-ratelimit-reset minus now, never negative, and returning None for any other answer (a 403 without that header is a permission error and is not retried); and
+  urlopen_with_backoff(request, timeout=30, max_attempts=4, max_total_wait=120, sleep=time.sleep, now=time.time, opener=None) which calls the opener (default
+  urllib.request.urlopen, looked up at call time so existing patches still work), and on an HTTPError with a rate-limit wait that fits the remaining budget sleeps that
+  long plus one second and tries again, and otherwise re-raises the original error unchanged. Never log or print the token, and never put it in an exception message.'
+- 'Change the three readers to build their headers with with_auth and to open requests with urlopen_with_backoff, with no other change to their behaviour: a 304 and a 404
+  must still reach the existing handlers as HTTPError exactly as now. The module names github_http and urlopen_with_backoff must appear in each reader, which is the wiring
+  proof; the new test must assert it by reading the three source files.'
+- 'Add tests/extraction/test_github_http.py, offline, with no real sleep and no network: with_auth adds the header only when the variable is set; rate_limit_wait_seconds for
+  429 with Retry-After, 403 with remaining 0 and a reset time, 403 without the header (None), and a 500 (None); urlopen_with_backoff succeeds after one rate-limit answer and
+  sleeps the computed time; raises the original error when the wait exceeds the budget; raises after max_attempts; passes a 404 and a 304 through on the first attempt without
+  sleeping; and the token never appears in a raised error or in a captured log. Keep every existing reader test passing; where an existing test would see an ambient
+  GITHUB_TOKEN, make it independent by clearing the variable in that test, and say so in the commit body.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the three readers and their tests.
+- Add the helper, route the readers through it, add the tests.
+- Run the card check and the existing reader tests, and report exact counts.
+checks:
+- command: '{python} -m pytest tests/extraction/test_github_http.py tests/extraction/test_manifest_reader_ecosystems.py tests/extraction/test_repo_native.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 30
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/github_http.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('x-ratelimit-remaining','x-ratelimit-remaining-off'),encoding='utf-8')"
+  rationale: 'Renames the rate-limit header the helper looks for, so a 403 with remaining 0 is no longer recognised as a rate limit and is raised at once. The test that
+    expects a retry after that answer must fail. Every occurrence in the helper is replaced, so a header constant used twice stays consistent with itself and the
+    helper''s tests still send the real header name. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-220/receipt.json
+closeout:
+- A rate-limited GitHub read waits and retries within a bound, a token raises the limit, and every other error still surfaces unchanged.
+recovery: Re-run from a clean tree.

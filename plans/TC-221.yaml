@@ -1,0 +1,57 @@
+id: TC-221
+gate: G2
+lane: transport-deployment
+purpose: 'Let the chart hand a GitHub token to the ingestion Jobs without ever putting it in values or in the repository (OQ-005, second half). TC-220 makes the readers use
+  GITHUB_TOKEN when it is set. This card sets it from a Kubernetes Secret the operator creates: a new optional value ingestion.githubToken with existingSecret and key, empty by
+  default. When existingSecret is set, every ingestion Job container gets env GITHUB_TOKEN from that secret key, marked optional so a missing key does not stop the pod. When it
+  is empty, nothing is emitted and the Jobs behave exactly as today. The token itself is created by the owner (OWNER-08); this card never sees it.'
+depends_on:
+- TC-220
+- TC-208
+- TC-207
+- TC-205
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
+- tests/infra/test_helm_github_token.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/helm/foss-mcp/values.yaml under ingestion, infra/helm/foss-mcp/templates/ingestion-job.yaml in full, and tests/infra/test_helm_manifest_step.py to see how the tests render
+  the chart with the helm binary and read the rendered Jobs.'
+- 'Add under ingestion in values.yaml: githubToken with existingSecret set to an empty string and key set to token, with a comment saying the secret is created by the operator and
+  the value is never stored in the chart. In ingestion-job.yaml, when ingestion.githubToken.existingSecret is non-empty, add to the ingest container an env entry named GITHUB_TOKEN
+  with valueFrom secretKeyRef using that name and key and optional true. Change nothing else in the template or the values.'
+- 'Add tests/infra/test_helm_github_token.py, rendering with helm template: by default no rendered Job mentions GITHUB_TOKEN; with --set ingestion.githubToken.existingSecret=gh-token
+  every pilot Job has env GITHUB_TOKEN from secretKeyRef name gh-token key token with optional true; a custom key is honoured; and no rendered output ever contains a token value
+  (set a recognisable fake value in the environment of the test and assert it never appears). The text secretKeyRef must appear in the template only in that env entry, because the
+  negative control edits it by text.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the values, the Job template and the helm test helpers.
+- Add the values, the env entry, and the tests.
+- Run the card check, helm lint and template, and report exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_github_token.py tests/infra/test_helm_chart.py tests/infra/test_helm_manifest_step.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 45
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/ingestion-job.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('secretKeyRef','secretKeyRefOff'),encoding='utf-8')"
+  rationale: 'Renames the secret reference key in the template, so the rendered env entry is no longer a secretKeyRef, and the test that expects GITHUB_TOKEN to come from the named
+    secret must fail. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-221/receipt.json
+closeout:
+- An operator can give the ingestion Jobs a GitHub token through a Secret, and the chart stores no token.
+recovery: Re-run from a clean tree.

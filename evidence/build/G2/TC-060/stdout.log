@@ -1,6 +1,6 @@
 
 ===== CLEAN RUN 1 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_ingest.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-z2sjfa82\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_ingest.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ma25e7oi\.junit-0.xml"
 --- stdout ---
 ..............                                                           [100%]
 
@@ -8,7 +8,7 @@ $ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e
 
 
 ===== CLEAN RUN 2 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_ingest.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-z2sjfa82\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_ingest.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ma25e7oi\.junit-0.xml"
 --- stdout ---
 ..............                                                           [100%]
 
@@ -17,9 +17,171 @@ $ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e
 
 ===== NEGATIVE CONTROL (checks MUST now fail) =====
 mutated: M infra/ingest.py, ?? .junit-0.xml
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_ingest.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-z2sjfa82\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_ingest.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ma25e7oi\.junit-0.xml"
 --- stdout ---
-..............                                                           [100%]
+..FF..........                                                           [100%]
+================================== FAILURES ===================================
+_ test_main_with_api_surface_excludes_unresolvable_claims_from_what_gets_published _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-2013/test_main_with_api_surface_exc0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019382A94D60>
+
+    def test_main_with_api_surface_excludes_unresolvable_claims_from_what_gets_published(
+        tmp_path: Path, monkeypatch
+    ) -> None:
+        """The card's core wiring: a chunk whose inline code-span anchor resolves against the
+        ``--api-surface`` fixture's types IS published; a chunk making an unresolvable claim - an
+        anchor naming a symbol absent from the fixture, or a numeric claim contradicting the
+        fixture's real counts - is EXCLUDED from what gets published. Verified by reading the
+        published generation's actual content back, not merely that the CLI exits 0.
+        """
+        chunks_path = tmp_path / "chunks.json"
+        api_surface_path = tmp_path / "api_surface.json"
+        manifest_store_path = tmp_path / "manifests"
+        _write_chunks_fixture(
+            chunks_path,
+            [
+                _chunk_entry("Document.Open", "`Document.Open` opens a file."),
+                _chunk_entry("Document.Nope", "`Document.Nope` does not exist."),
+                _chunk_entry("Count", "The API exposes 999 classes."),
+                _chunk_entry("Plain", "Document is the root object of a PDF file."),
+            ],
+        )
+        _write_api_surface_fixture(api_surface_path)
+    
+        argv = [*_base_argv(chunks_path, manifest_store_path), "--api-surface", str(api_surface_path)]
+        monkeypatch.setattr(sys, "argv", ["ingest.py", *argv])
+>       ingest.main()
+
+tests\infra\test_ingest.py:178: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--family", required=True)
+        parser.add_argument("--platform", required=True)
+        parser.add_argument("--source-kind", required=True)
+        parser.add_argument("--chunks", type=Path, required=True, help="pre-built chunks, as JSON")
+        parser.add_argument("--manifest-store", type=Path, required=True)
+        parser.add_argument("--embedding-provider", required=True, help="module.path:ClassName")
+        parser.add_argument("--held-by", default="ingestion")
+        parser.add_argument(
+            "--api-surface",
+            type=Path,
+            default=None,
+            help=(
+                "self-extracted api_surface.json to validate chunks' citations against "
+                "(TC-014's validate_document/citable_chunks). Omit to publish all loaded "
+                "chunks unchanged, as before this card - not every source_kind has a "
+                "self-extracted symbol index to validate against."
+            ),
+        )
+        args = parser.parse_args()
+    
+        store = GenerationManifestStore(args.manifest_store)
+        scope = "::".join((args.family, args.platform, args.source_kind))
+        expected_active = store.read_active(scope)
+        lease = store.acquire_lease(scope, args.held_by, "pending")
+        chunks = _load_chunks(args.chunks)
+        if args.api_surface is not None:
+            fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+            symbol_index = symbol_index_from_api_surface(fixture["types"])
+            known_counts = known_counts_from_fixture(fixture)
+            validated_chunks = validate_document(chunks, symbol_index, known_counts)
+            for section_title, resolution in describe_unresolved_anchors(validated_chunks, symbol_index):
+                print(
+                    f"excluded: {section_title!r} anchor {resolution.anchor!r} -> "
+                    f"{resolution.semantic_support_verdict.value} (match_count={resolution.match_count})"
+                )
+>           chunks = citable_chunks_DISABLED(validated_chunks)
+                     ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name 'citable_chunks_DISABLED' is not defined
+
+infra\ingest.py:129: NameError
+---------------------------- Captured stdout call -----------------------------
+excluded: 'Document.Nope' anchor 'Document.Nope' -> unsupported (match_count=0)
+_ test_main_with_api_surface_prints_a_diagnostic_line_per_excluded_anchor_and_leaves_publishing_unchanged _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-2013/test_main_with_api_surface_pri0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019382B872F0>
+capsys = <_pytest.capture.CaptureFixture object at 0x0000019382BE6510>
+
+    def test_main_with_api_surface_prints_a_diagnostic_line_per_excluded_anchor_and_leaves_publishing_unchanged(
+        tmp_path: Path, monkeypatch, capsys
+    ) -> None:
+        """TC-144: the --api-surface branch must print one diagnostic line per excluded anchor
+        (distinguishing a near-miss from a genuinely absent symbol) on top of the exact same
+        publish behavior as before this card - the published chunk set must be byte-identical to
+        test_main_with_api_surface_excludes_unresolvable_claims_from_what_gets_published above.
+        """
+        chunks_path = tmp_path / "chunks.json"
+        api_surface_path = tmp_path / "api_surface.json"
+        manifest_store_path = tmp_path / "manifests"
+        _write_chunks_fixture(
+            chunks_path,
+            [
+                _chunk_entry("Document.Open", "`Document.Open` opens a file."),
+                _chunk_entry("Document.Nope", "`Document.Nope` does not exist."),
+                _chunk_entry("Count", "The API exposes 999 classes."),
+                _chunk_entry("Plain", "Document is the root object of a PDF file."),
+            ],
+        )
+        _write_api_surface_fixture(api_surface_path)
+    
+        argv = [*_base_argv(chunks_path, manifest_store_path), "--api-surface", str(api_surface_path)]
+        monkeypatch.setattr(sys, "argv", ["ingest.py", *argv])
+>       ingest.main()
+
+tests\infra\test_ingest.py:223: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--family", required=True)
+        parser.add_argument("--platform", required=True)
+        parser.add_argument("--source-kind", required=True)
+        parser.add_argument("--chunks", type=Path, required=True, help="pre-built chunks, as JSON")
+        parser.add_argument("--manifest-store", type=Path, required=True)
+        parser.add_argument("--embedding-provider", required=True, help="module.path:ClassName")
+        parser.add_argument("--held-by", default="ingestion")
+        parser.add_argument(
+            "--api-surface",
+            type=Path,
+            default=None,
+            help=(
+                "self-extracted api_surface.json to validate chunks' citations against "
+                "(TC-014's validate_document/citable_chunks). Omit to publish all loaded "
+                "chunks unchanged, as before this card - not every source_kind has a "
+                "self-extracted symbol index to validate against."
+            ),
+        )
+        args = parser.parse_args()
+    
+        store = GenerationManifestStore(args.manifest_store)
+        scope = "::".join((args.family, args.platform, args.source_kind))
+        expected_active = store.read_active(scope)
+        lease = store.acquire_lease(scope, args.held_by, "pending")
+        chunks = _load_chunks(args.chunks)
+        if args.api_surface is not None:
+            fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+            symbol_index = symbol_index_from_api_surface(fixture["types"])
+            known_counts = known_counts_from_fixture(fixture)
+            validated_chunks = validate_document(chunks, symbol_index, known_counts)
+            for section_title, resolution in describe_unresolved_anchors(validated_chunks, symbol_index):
+                print(
+                    f"excluded: {section_title!r} anchor {resolution.anchor!r} -> "
+                    f"{resolution.semantic_support_verdict.value} (match_count={resolution.match_count})"
+                )
+>           chunks = citable_chunks_DISABLED(validated_chunks)
+                     ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name 'citable_chunks_DISABLED' is not defined
+
+infra\ingest.py:129: NameError
+---------------------------- Captured stdout call -----------------------------
+excluded: 'Document.Nope' anchor 'Document.Nope' -> unsupported (match_count=0)
+=========================== short test summary info ===========================
+FAILED tests/infra/test_ingest.py::test_main_with_api_surface_excludes_unresolvable_claims_from_what_gets_published
+FAILED tests/infra/test_ingest.py::test_main_with_api_surface_prints_a_diagnostic_line_per_excluded_anchor_and_leaves_publishing_unchanged
 
 --- stderr ---
 

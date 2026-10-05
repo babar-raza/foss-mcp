@@ -214,8 +214,10 @@ def _overlap_problems(cards):
     """
     out = []
     retired = _superseded_card_ids()
-    cards = {cid: c for cid, c in cards.items() if cid not in retired}
-    ids = sorted(cards)
+    # 2026-10-05: retired cards leave the racing set but stay in the dependency graph. A chain
+    # A -> R -> B through a superseded R still orders A before B; dropping R would make A and B look
+    # concurrent and flag a race that cannot happen (found when four cards were superseded at once).
+    ids = sorted(cid for cid in cards if cid not in retired)
     for i, a in enumerate(ids):
         for b in ids[i + 1 :]:
             if b in _ancestors(cards, a) or a in _ancestors(cards, b):

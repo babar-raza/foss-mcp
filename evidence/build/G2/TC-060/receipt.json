@@ -3,10 +3,10 @@
   "card": "TC-060",
   "gate": "G2",
   "generated_by": "gatectl",
-  "generated_at": "2026-10-05T06:37:43Z",
+  "generated_at": "2026-10-05T09:13:44Z",
   "base_rev": "399c38031b79d41443409839a993b10c5071a52c",
-  "head_rev": "b208ca36c6f01a459841a19a5638a555916f2446",
-  "card_sha256": "f354c915328b0b5aff23ac75b475c3316721420ab389b8304487d10487f3fb75",
+  "head_rev": "a3d6533617fe1dcb7c71e9de64cfdd2dded9ca8d",
+  "card_sha256": "2c46e9ec472ea06ec37bdafee7dd23c0c250e9e22adc0d02de94f1b3f769e56f",
   "fingerprint": {
     "python": "3.13.2",
     "platform": "Windows-11-10.0.26200-SP0",
@@ -24,9 +24,12 @@
   },
   "scope": {
     "ok": true,
-    "changed_paths": [],
+    "changed_paths": [
+      "infra/ingest.py",
+      "tests/infra/test_ingest.py"
+    ],
     "violations": [],
-    "evaluated": false
+    "evaluated": true
   },
   "runs": [
     {
@@ -35,7 +38,7 @@
         {
           "command": "{python} -m pytest tests/infra/test_ingest.py -q",
           "exit_code": 0,
-          "duration_s": 0.568,
+          "duration_s": 0.92,
           "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
           "tests": 14,
           "skipped": 0,
@@ -51,7 +54,7 @@
         {
           "command": "{python} -m pytest tests/infra/test_ingest.py -q",
           "exit_code": 0,
-          "duration_s": 0.553,
+          "duration_s": 0.54,
           "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
           "tests": 14,
           "skipped": 0,
@@ -64,12 +67,12 @@
   ],
   "negative_control": {
     "kind": "mutate",
-    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/ingest.py');s=p.read_text(encoding='utf-8');s=s.replace('citable_chunks(validate_document(','citable_chunks_DISABLED(validate_document(');p.write_text(s,encoding='utf-8')\"",
-    "patch_sha256": "55f3e37f491e73e5473c173c27e934c4395271fc017b8d8615e59076b03d8915",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/ingest.py');s=p.read_text(encoding='utf-8');s=s.replace('chunks = citable_chunks(validated_chunks)','chunks = citable_chunks_DISABLED(validated_chunks)');p.write_text(s,encoding='utf-8')\"\n",
+    "patch_sha256": "e09fde0d891d1f52c884be6569dd7605c422edfbcb3d6bdc86b78f7d2f123a99",
     "applied": true,
-    "patch_applied_failed": false,
+    "patch_applied_failed": true,
     "exit_codes": [
-      0
+      1
     ],
     "tree_changed": [
       "M infra/ingest.py",
@@ -81,6 +84,6 @@
     "passed": true,
     "detail": "no holdout for this card"
   },
-  "accepted": false,
-  "reason": "VACUOUS CHECKS: the suite still passed with the falsifier applied"
+  "accepted": true,
+  "reason": "all gates passed"
 }

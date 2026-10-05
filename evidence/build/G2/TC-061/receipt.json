@@ -3,10 +3,10 @@
   "card": "TC-061",
   "gate": "G2",
   "generated_by": "gatectl",
-  "generated_at": "2026-10-05T06:38:43Z",
+  "generated_at": "2026-10-05T09:17:59Z",
   "base_rev": "709ba2b0e42bfcb6b7d5b63c789700d0973e1f88",
-  "head_rev": "b208ca36c6f01a459841a19a5638a555916f2446",
-  "card_sha256": "224065a8e922d439a1dbb6374c9635a411b55ac009857c4292a00529d29f07fd",
+  "head_rev": "a3d6533617fe1dcb7c71e9de64cfdd2dded9ca8d",
+  "card_sha256": "6edc8dbaa1a13e92713235b06c12a2375a72c8330f1fb6ac8ae10b5e945c2f1a",
   "fingerprint": {
     "python": "3.13.2",
     "platform": "Windows-11-10.0.26200-SP0",
@@ -24,9 +24,13 @@
   },
   "scope": {
     "ok": true,
-    "changed_paths": [],
+    "changed_paths": [
+      "Dockerfile.serving",
+      "infra/serve_http.py",
+      "tests/infra/test_serve_http.py"
+    ],
     "violations": [],
-    "evaluated": false
+    "evaluated": true
   },
   "runs": [
     {
@@ -35,7 +39,7 @@
         {
           "command": "{python} -m pytest tests/infra/test_serve_http.py tests/mcp/test_server_wiring.py tests/test_container_build.py -q",
           "exit_code": 0,
-          "duration_s": 20.837,
+          "duration_s": 43.134,
           "stdout_sha256": "0624a8aab74bbb636a2b09cbe55a6bd11d09cda4513a8ceafcfe3099ac4a75db",
           "tests": 101,
           "skipped": 0,
@@ -51,7 +55,7 @@
         {
           "command": "{python} -m pytest tests/infra/test_serve_http.py tests/mcp/test_server_wiring.py tests/test_container_build.py -q",
           "exit_code": 0,
-          "duration_s": 17.715,
+          "duration_s": 40.598,
           "stdout_sha256": "0624a8aab74bbb636a2b09cbe55a6bd11d09cda4513a8ceafcfe3099ac4a75db",
           "tests": 101,
           "skipped": 0,
@@ -64,15 +68,15 @@
   ],
   "negative_control": {
     "kind": "mutate",
-    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/health.py');s=p.read_text(encoding='utf-8');s=s.replace('return store.active_generation_id() is not None','return True');p.write_text(s,encoding='utf-8')\"",
-    "patch_sha256": "28160e40cedd1e4b6f27dd0d6148ab722d03b5670a64a598888f5eef31429cf4",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/serve_http.py');s=p.read_text(encoding='utf-8');s=s.replace('if round_trip_check(generation_store):','if True:');p.write_text(s,encoding='utf-8')\"\n",
+    "patch_sha256": "ab25901250d9fe3a804ba33e22e74bf7fa62615704a27816f8263ee06ef609d3",
     "applied": true,
-    "patch_applied_failed": false,
+    "patch_applied_failed": true,
     "exit_codes": [
-      0
+      1
     ],
     "tree_changed": [
-      "M src/foss_mcp/mcp/health.py",
+      "M infra/serve_http.py",
       "?? .junit-0.xml"
     ]
   },
@@ -81,6 +85,6 @@
     "passed": true,
     "detail": "no holdout for this card"
   },
-  "accepted": false,
-  "reason": "VACUOUS CHECKS: the suite still passed with the falsifier applied"
+  "accepted": true,
+  "reason": "all gates passed"
 }

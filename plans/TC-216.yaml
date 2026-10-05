@@ -1,0 +1,59 @@
+id: TC-216
+gate: G2
+lane: verification
+purpose: 'Replace the one skipped test in tests/extraction/tree_sitter_engine/ with an opt-in marker that is deselected, not skipped. Gate exit on
+  2026-10-05 failed TC-010b, TC-051, TC-058, TC-059 and TC-092 in part because "1 skipped test(s); skips are not evidence". The skip is
+  test_java_record_live_regression in test_api_surface_java_live.py (added by TC-168), a real-repository regression that needs the network and an explicit
+  FOSS_MCP_NETWORK_TESTS=1. It was never part of the offline gate, and it is correct that it does not run there, but a skip is counted against every card whose
+  check runs the directory. A test marked live is deselected at collection unless the opt-in is set, so it is absent from the run (no skip, no hidden pass),
+  the test stays in the repository, and the reporter prints how many were deselected so the gap is visible. It runs with FOSS_MCP_NETWORK_TESTS=1.'
+depends_on:
+- TC-168
+write_paths:
+- tests/conftest.py
+- tests/extraction/tree_sitter_engine/test_api_surface_java_live.py
+- tests/test_live_marker.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read tests/conftest.py (it only puts src on sys.path today) and tests/extraction/tree_sitter_engine/test_api_surface_java_live.py in full.'
+- 'In tests/conftest.py add three hooks and keep the existing sys.path code. pytest_configure registers the marker: live, described as needing the network and
+  FOSS_MCP_NETWORK_TESTS=1. pytest_collection_modifyitems, unless the environment variable FOSS_MCP_NETWORK_TESTS equals 1, removes every item that has
+  the live marker from the item list and reports them through config.hook.pytest_deselected. pytest_terminal_summary prints one line when any were deselected,
+  for example "N live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them". Put the variable name in one module constant. The text
+  FOSS_MCP_NETWORK_TESTS must appear in tests/conftest.py only as that constant and in its messages, because the negative control edits it by text.'
+- 'In test_api_surface_java_live.py replace the skipif decorator with pytest.mark.live, keep the shutil.which("git") check as a plain skip-free guard
+  inside the test only if the test would otherwise error, and keep the test body, the repository and the commit exactly. Update the docstring.'
+- 'Add tests/test_live_marker.py with at least three tests that call the hooks directly with small fake items (an object with get_closest_marker returning a
+  marker or None) and a fake config: with the variable unset a live item is dropped and a plain item is kept; with FOSS_MCP_NETWORK_TESTS set to 1 via
+  monkeypatch both are kept; and the summary hook prints the count only when something was deselected. Do not use xfail or skip. Also assert that the
+  Java live test function carries the live marker, which proves the call site.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the conftest and the live test.
+- Add the hooks, change the marker, add the tests.
+- Run the check and report exact counts, and run the tree_sitter_engine directory once with and once without the variable set to show the difference.
+checks:
+- command: '{python} -m pytest tests/test_live_marker.py tests/extraction/tree_sitter_engine/test_api_surface_java_live.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 3
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/conftest.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('FOSS_MCP_NETWORK_TESTS','FOSS_MCP_NETWORK_TESTS_OFF'),encoding='utf-8')"
+  rationale: 'Renames the opt-in variable everywhere in the conftest, so the hook no longer sees the value the tests set, and the test that expects live items
+    to be kept when the opt-in is set must fail. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-216/receipt.json
+closeout:
+- A live test is deselected offline, never skipped, and the number deselected is printed.
+recovery: Re-run from a clean tree.

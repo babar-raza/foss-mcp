@@ -3,10 +3,10 @@
   "card": "TC-071",
   "gate": "G2",
   "generated_by": "gatectl",
-  "generated_at": "2026-10-05T07:06:55Z",
+  "generated_at": "2026-10-05T09:19:40Z",
   "base_rev": "05beef5f1c6136bec8d38ebdd3ca3f648acbcb2a",
-  "head_rev": "b208ca36c6f01a459841a19a5638a555916f2446",
-  "card_sha256": "a5e110e225cff4b982d72649fb2dbb3d8cc2f3eed7135670f5ebb16172f11c4c",
+  "head_rev": "a3d6533617fe1dcb7c71e9de64cfdd2dded9ca8d",
+  "card_sha256": "03629a51cbac8c6967e1e124cf136052074edb0f1b1db19f447c8783e423f07c",
   "fingerprint": {
     "python": "3.13.2",
     "platform": "Windows-11-10.0.26200-SP0",
@@ -24,9 +24,12 @@
   },
   "scope": {
     "ok": true,
-    "changed_paths": [],
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/search_symbols.py",
+      "tests/mcp/tools/test_retrieval_tools.py"
+    ],
     "violations": [],
-    "evaluated": false
+    "evaluated": true
   },
   "runs": [
     {
@@ -35,7 +38,7 @@
         {
           "command": "{python} -m pytest tests/mcp/tools/test_retrieval_tools.py -q",
           "exit_code": 0,
-          "duration_s": 1.133,
+          "duration_s": 1.18,
           "stdout_sha256": "32faef56d0289369b1ac111e68ee0bb7b2ed1bcf92d3f33b75313bd0556c3e6f",
           "tests": 21,
           "skipped": 0,
@@ -51,7 +54,7 @@
         {
           "command": "{python} -m pytest tests/mcp/tools/test_retrieval_tools.py -q",
           "exit_code": 0,
-          "duration_s": 0.755,
+          "duration_s": 0.697,
           "stdout_sha256": "32faef56d0289369b1ac111e68ee0bb7b2ed1bcf92d3f33b75313bd0556c3e6f",
           "tests": 21,
           "skipped": 0,
@@ -64,12 +67,12 @@
   ],
   "negative_control": {
     "kind": "mutate",
-    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py');s=p.read_text(encoding='utf-8');s=s.replace('startswith('+chr(39)+'Example: '+chr(39)+')','startswith('+chr(39)+'Example: DISABLED_'+chr(39)+')');p.write_text(s,encoding='utf-8')\"",
-    "patch_sha256": "1a67deb5cf2347bc739e6b25242d4888b2d46d6344ccded9ac28635196936be7",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py');s=p.read_text(encoding='utf-8');s=s.replace('startswith(_NON_SYMBOL_FQN_PREFIXES)','startswith(())');p.write_text(s,encoding='utf-8')\"\n",
+    "patch_sha256": "7ca8ea905aa70359831f949f8e7d0454d5d3f472fd65a2ceeb2e385079c1e204",
     "applied": true,
-    "patch_applied_failed": false,
+    "patch_applied_failed": true,
     "exit_codes": [
-      0
+      1
     ],
     "tree_changed": [
       "M src/foss_mcp/mcp/tools/search_symbols.py",
@@ -81,6 +84,6 @@
     "passed": true,
     "detail": "no holdout for this card"
   },
-  "accepted": false,
-  "reason": "VACUOUS CHECKS: the suite still passed with the falsifier applied"
+  "accepted": true,
+  "reason": "all gates passed"
 }

@@ -3,10 +3,10 @@
   "card": "TC-140",
   "gate": "G2",
   "generated_by": "gatectl",
-  "generated_at": "2026-10-05T08:34:20Z",
+  "generated_at": "2026-10-05T09:21:27Z",
   "base_rev": "6155d56d78b735b45996080ea094ea58d5b8bc1b",
-  "head_rev": "b208ca36c6f01a459841a19a5638a555916f2446",
-  "card_sha256": "bf4327f630017463b81d3e99dc3e6535c21b8b77448065bc2087ce648a128b64",
+  "head_rev": "a3d6533617fe1dcb7c71e9de64cfdd2dded9ca8d",
+  "card_sha256": "245e9b5af7ae1d4ebdfd615fee854a34c6b18ef099d4e1c129148210a49f0d47",
   "fingerprint": {
     "python": "3.13.2",
     "platform": "Windows-11-10.0.26200-SP0",
@@ -24,9 +24,13 @@
   },
   "scope": {
     "ok": true,
-    "changed_paths": [],
+    "changed_paths": [
+      "src/foss_mcp/mcp/health.py",
+      "tests/mcp/test_health.py",
+      "tests/test_unwired_modules.py"
+    ],
     "violations": [],
-    "evaluated": false
+    "evaluated": true
   },
   "runs": [
     {
@@ -35,7 +39,7 @@
         {
           "command": "{python} -m pytest tests/test_unwired_modules.py tests/mcp/test_health.py tests/infra/test_serve_http.py -q",
           "exit_code": 0,
-          "duration_s": 2.439,
+          "duration_s": 2.301,
           "stdout_sha256": "29fbf3fc2c4eda1e6316ddd50ba53946b5b0832daf471e346ec40f6959754f2c",
           "tests": 21,
           "skipped": 0,
@@ -51,7 +55,7 @@
         {
           "command": "{python} -m pytest tests/test_unwired_modules.py tests/mcp/test_health.py tests/infra/test_serve_http.py -q",
           "exit_code": 0,
-          "duration_s": 1.872,
+          "duration_s": 1.927,
           "stdout_sha256": "29fbf3fc2c4eda1e6316ddd50ba53946b5b0832daf471e346ec40f6959754f2c",
           "tests": 21,
           "skipped": 0,
@@ -64,12 +68,12 @@
   ],
   "negative_control": {
     "kind": "mutate",
-    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('tests/test_unwired_modules.py');s=p.read_text(encoding='utf-8');s=s.replace('\\\"foss_mcp.extraction.claim_id_bridge.resolve_anchor\\\",\\n','\\\"foss_mcp.extraction.claim_id_bridge.resolve_anchor\\\",\\n        \\\"foss_mcp.mcp.health.is_alive\\\",\\n');p.write_text(s,encoding='utf-8')\"",
-    "patch_sha256": "ed8cf43338a7401f05116205888a4138090d33ea9dfac845941328f04a04bbc5",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('tests/test_unwired_modules.py');s=p.read_text(encoding='utf-8');s=s.replace('example_verifier.prepare_cpp_library','example_verifier.prepare_cpp_library_GONE');p.write_text(s,encoding='utf-8')\"\n",
+    "patch_sha256": "c8b95a9a4988a7ed7e35fe2a1f0bed6814f60d77aa07cb040fadf71040ed0125",
     "applied": true,
-    "patch_applied_failed": false,
+    "patch_applied_failed": true,
     "exit_codes": [
-      0
+      1
     ],
     "tree_changed": [
       "M tests/test_unwired_modules.py",
@@ -81,6 +85,6 @@
     "passed": true,
     "detail": "no holdout for this card"
   },
-  "accepted": false,
-  "reason": "VACUOUS CHECKS: the suite still passed with the falsifier applied"
+  "accepted": true,
+  "reason": "all gates passed"
 }
