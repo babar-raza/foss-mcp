@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "card": "TC-186",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-05T08:51:34Z",
+  "base_rev": "63cb4b652e415f7aa0af5a73c1362e2c7519a73f",
+  "head_rev": "b208ca36c6f01a459841a19a5638a555916f2446",
+  "card_sha256": "d2d3feaf3a85eb25815a1c47de5f962996b4b58ff72ff806ab7afea25e5d3f8f",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [],
+    "violations": [],
+    "evaluated": false
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/toolchain/test_dotnet_toolchain.py -q",
+          "exit_code": 4,
+          "duration_s": 0.414,
+          "stdout_sha256": "282b466677ccd502bd2cc0f8073b87e9218d2b6a319f361ab994382e0517916a",
+          "tests": 0,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": false
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/toolchain/test_dotnet_toolchain.py -q",
+          "exit_code": 4,
+          "duration_s": 0.368,
+          "stdout_sha256": "282b466677ccd502bd2cc0f8073b87e9218d2b6a319f361ab994382e0517916a",
+          "tests": 0,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": false
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('scripts/toolchain/activate.ps1');s=p.read_text(encoding='utf-8');p.write_text(s.replace(chr(39)+'dotnet-8'+chr(39),chr(39)+'dotnet-9'+chr(39)),encoding='utf-8')\"\n",
+    "patch_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "applied": false,
+    "patch_applied_failed": false,
+    "exit_codes": []
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": false,
+  "reason": "checks failed: {python} -m pytest tests/toolchain/test_dotnet_toolchain.py -q; structural gate: {python} -m pytest tests/toolchain/test_dotnet_toolchain.py -q: collected 0 tests, card requires >= 3; negative-control patch did not apply"
+}

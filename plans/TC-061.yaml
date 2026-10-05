@@ -83,13 +83,9 @@ checks:
 min_tests: 4
 network: false
 negative_control:
-  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/health.py');s=p.read_text(encoding='utf-8');s=s.replace('return
-    store.active_generation_id() is not None','return True');p.write_text(s,encoding='utf-8')"
-  rationale: Corrupting health.py's is_ready to unconditionally return True must break
-    the new test asserting /readyz returns 503 against an empty store - this is implementation-independent
-    of exactly how the Starlette route is wired, since every correct implementation
-    must depend on this exact line. Self-checked end-to-end against the real committed
-    file before being persisted.
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/serve_http.py');s=p.read_text(encoding='utf-8');s=s.replace('if round_trip_check(generation_store):','if True:');p.write_text(s,encoding='utf-8')"
+  rationale: 'TC-137 wired /readyz to round_trip_check and TC-140 deleted the superseded is_ready, so the old target line in health.py no longer exists and the old mutate changed nothing (gate exit 2026-10-05: VACUOUS CHECKS). Making the readiness condition unconditionally true at the real call site must break the tests that expect /readyz to answer 503 for an empty store or another deployment scope. Applied in a throwaway worktree: the card''s check passes clean and fails with this mutate.'
 evidence:
 - evidence/build/G2/TC-061/receipt.json
 closeout:

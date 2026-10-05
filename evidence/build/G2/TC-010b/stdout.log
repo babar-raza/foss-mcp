@@ -1,68 +1,218 @@
 
-===== CLEAN RUN 1 =====
-$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/ -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5plusz0r\.junit-0.xml"
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/ -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ixoulwz6\.junit-0.xml"
 --- stdout ---
-...........................................                              [100%]
+.........s...............EE...............................               [100%]
+=================================== ERRORS ====================================
+_ ERROR at setup of test_real_cells_cpp_isnullorwhitespace_no_longer_collapsed _
 
---- stderr ---
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x00000231D6DBBA80>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-1682'), _retention_count=3, _retention_policy='all')
 
+    @pytest.fixture(scope="module")
+    def cells_cpp_checkout(tmp_path_factory: pytest.TempPathFactory) -> Path:
+        workdir = tmp_path_factory.mktemp("cells_cpp_tc092")
+>       _clone_pinned_commit(CELLS_CPP_REPOSITORY, CELLS_CPP_COMMIT, workdir)
 
-===== CLEAN RUN 2 =====
-$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/ -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5plusz0r\.junit-0.xml"
---- stdout ---
-...........................................                              [100%]
+tests\extraction\tree_sitter_engine\test_consolidate_classes_free_functions.py:309: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
---- stderr ---
+repository = 'aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp'
+commit = '9f852d0ff1cfdad2d661556d6b87a8eff8c063a2'
+workdir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-1682/cells_cpp_tc0920')
 
-
-===== NEGATIVE CONTROL (checks MUST now fail) =====
-mutated: M src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py, ?? .junit-0.xml
-$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/ -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5plusz0r\.junit-0.xml"
---- stdout ---
-..........FF...............................                              [100%]
-================================== FAILURES ===================================
-________ test_cpp_class_with_single_public_base_has_base_in_bases_list ________
-
-tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-35/test_cpp_class_with_single_pub0')
-
-    def test_cpp_class_with_single_public_base_has_base_in_bases_list(tmp_path: Path) -> None:
-        package = tmp_path / "src"
-        package.mkdir()
-        (package / "widget.cpp").write_text(CPP, encoding="utf-8")
-        types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, "widget")
-        by_name = {t["name"]: t for t in types}
+    def _clone_pinned_commit(repository: str, commit: str, workdir: Path) -> None:
+        """Shallow-fetch exactly one pinned commit of *repository* into *workdir*.
     
->       assert by_name["Widget"]["bases"] == ["OnlyBase"]
-E       AssertionError: assert [] == ['OnlyBase']
-E         
-E         Right contains one more item: 'OnlyBase'
-E         Use -v to get more diff
-
-tests\extraction\tree_sitter_engine\test_api_surface_other_languages.py:173: AssertionError
-_ test_cpp_class_with_multiple_bases_and_mixed_access_specifiers_has_all_bases _
-
-tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-35/test_cpp_class_with_multiple_b0')
-
-    def test_cpp_class_with_multiple_bases_and_mixed_access_specifiers_has_all_bases(tmp_path: Path) -> None:
-        package = tmp_path / "src"
-        package.mkdir()
-        (package / "widget.cpp").write_text(CPP, encoding="utf-8")
-        types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, "widget")
-        by_name = {t["name"]: t for t in types}
+        Real ``git init`` + ``git remote add`` + ``git fetch --depth 1`` + ``git
+        checkout`` -- the same real, network-dependent plumbing already used by
+        tests/indexing/test_example_verifier.py's pinned-commit fixtures. Nothing
+        here is mocked. Raises on any real failure.
+        """
+        workdir.mkdir(parents=True, exist_ok=True)
+        repo_url = f"https://github.com/{repository}.git"
     
-        # Verified against the real grammar via a live parse probe: public,
-        # protected and private bases all appear as base_class_clause children
-        # and must all be captured regardless of their access specifier.
->       assert by_name["MixedWidget"]["bases"] == ["PubBase", "ProtBase", "PrivBase"]
-E       AssertionError: assert [] == ['PubBase', '...', 'PrivBase']
-E         
-E         Right contains 3 more items, first extra item: 'PubBase'
-E         Use -v to get more diff
+        init_result = _run(["git", "init"], cwd=workdir)
+        if init_result.returncode != 0:
+            raise RuntimeError(f"git init failed in {workdir}:\n{init_result.stdout}\n{init_result.stderr}")
+    
+        remote_result = _run(["git", "remote", "add", "origin", repo_url], cwd=workdir)
+        if remote_result.returncode != 0:
+            raise RuntimeError(
+                f"git remote add failed for {repo_url}:\n{remote_result.stdout}\n{remote_result.stderr}"
+            )
+    
+        fetch_result = _run(["git", "fetch", "--depth", "1", "origin", commit], cwd=workdir)
+        if fetch_result.returncode != 0:
+>           raise RuntimeError(
+                f"git fetch of commit {commit} from {repo_url} failed:\n"
+                f"{fetch_result.stdout}\n{fetch_result.stderr}"
+            )
+E           RuntimeError: git fetch of commit 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2 from https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp.git failed:
+E           
+E           fatal: unable to access 'https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp.git/': Failed to connect to 127.0.0.1 port 9 after 2057 ms: Could not connect to server
 
-tests\extraction\tree_sitter_engine\test_api_surface_other_languages.py:186: AssertionError
+tests\extraction\tree_sitter_engine\test_consolidate_classes_free_functions.py:294: RuntimeError
+_ ERROR at setup of test_real_cells_cpp_free_function_count_increases_substantially _
+
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x00000231D6DBBA80>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-1682'), _retention_count=3, _retention_policy='all')
+
+    @pytest.fixture(scope="module")
+    def cells_cpp_checkout(tmp_path_factory: pytest.TempPathFactory) -> Path:
+        workdir = tmp_path_factory.mktemp("cells_cpp_tc092")
+>       _clone_pinned_commit(CELLS_CPP_REPOSITORY, CELLS_CPP_COMMIT, workdir)
+
+tests\extraction\tree_sitter_engine\test_consolidate_classes_free_functions.py:309: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+repository = 'aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp'
+commit = '9f852d0ff1cfdad2d661556d6b87a8eff8c063a2'
+workdir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-1682/cells_cpp_tc0920')
+
+    def _clone_pinned_commit(repository: str, commit: str, workdir: Path) -> None:
+        """Shallow-fetch exactly one pinned commit of *repository* into *workdir*.
+    
+        Real ``git init`` + ``git remote add`` + ``git fetch --depth 1`` + ``git
+        checkout`` -- the same real, network-dependent plumbing already used by
+        tests/indexing/test_example_verifier.py's pinned-commit fixtures. Nothing
+        here is mocked. Raises on any real failure.
+        """
+        workdir.mkdir(parents=True, exist_ok=True)
+        repo_url = f"https://github.com/{repository}.git"
+    
+        init_result = _run(["git", "init"], cwd=workdir)
+        if init_result.returncode != 0:
+            raise RuntimeError(f"git init failed in {workdir}:\n{init_result.stdout}\n{init_result.stderr}")
+    
+        remote_result = _run(["git", "remote", "add", "origin", repo_url], cwd=workdir)
+        if remote_result.returncode != 0:
+            raise RuntimeError(
+                f"git remote add failed for {repo_url}:\n{remote_result.stdout}\n{remote_result.stderr}"
+            )
+    
+        fetch_result = _run(["git", "fetch", "--depth", "1", "origin", commit], cwd=workdir)
+        if fetch_result.returncode != 0:
+>           raise RuntimeError(
+                f"git fetch of commit {commit} from {repo_url} failed:\n"
+                f"{fetch_result.stdout}\n{fetch_result.stderr}"
+            )
+E           RuntimeError: git fetch of commit 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2 from https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp.git failed:
+E           
+E           fatal: unable to access 'https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp.git/': Failed to connect to 127.0.0.1 port 9 after 2057 ms: Could not connect to server
+
+tests\extraction\tree_sitter_engine\test_consolidate_classes_free_functions.py:294: RuntimeError
 =========================== short test summary info ===========================
-FAILED tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py::test_cpp_class_with_single_public_base_has_base_in_bases_list
-FAILED tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py::test_cpp_class_with_multiple_bases_and_mixed_access_specifiers_has_all_bases
+ERROR tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py::test_real_cells_cpp_isnullorwhitespace_no_longer_collapsed
+ERROR tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py::test_real_cells_cpp_free_function_count_increases_substantially
 
 --- stderr ---
 
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/ -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ixoulwz6\.junit-0.xml"
+--- stdout ---
+.........s...............EE...............................               [100%]
+=================================== ERRORS ====================================
+_ ERROR at setup of test_real_cells_cpp_isnullorwhitespace_no_longer_collapsed _
+
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000001ED57F2BA80>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-1683'), _retention_count=3, _retention_policy='all')
+
+    @pytest.fixture(scope="module")
+    def cells_cpp_checkout(tmp_path_factory: pytest.TempPathFactory) -> Path:
+        workdir = tmp_path_factory.mktemp("cells_cpp_tc092")
+>       _clone_pinned_commit(CELLS_CPP_REPOSITORY, CELLS_CPP_COMMIT, workdir)
+
+tests\extraction\tree_sitter_engine\test_consolidate_classes_free_functions.py:309: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+repository = 'aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp'
+commit = '9f852d0ff1cfdad2d661556d6b87a8eff8c063a2'
+workdir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-1683/cells_cpp_tc0920')
+
+    def _clone_pinned_commit(repository: str, commit: str, workdir: Path) -> None:
+        """Shallow-fetch exactly one pinned commit of *repository* into *workdir*.
+    
+        Real ``git init`` + ``git remote add`` + ``git fetch --depth 1`` + ``git
+        checkout`` -- the same real, network-dependent plumbing already used by
+        tests/indexing/test_example_verifier.py's pinned-commit fixtures. Nothing
+        here is mocked. Raises on any real failure.
+        """
+        workdir.mkdir(parents=True, exist_ok=True)
+        repo_url = f"https://github.com/{repository}.git"
+    
+        init_result = _run(["git", "init"], cwd=workdir)
+        if init_result.returncode != 0:
+            raise RuntimeError(f"git init failed in {workdir}:\n{init_result.stdout}\n{init_result.stderr}")
+    
+        remote_result = _run(["git", "remote", "add", "origin", repo_url], cwd=workdir)
+        if remote_result.returncode != 0:
+            raise RuntimeError(
+                f"git remote add failed for {repo_url}:\n{remote_result.stdout}\n{remote_result.stderr}"
+            )
+    
+        fetch_result = _run(["git", "fetch", "--depth", "1", "origin", commit], cwd=workdir)
+        if fetch_result.returncode != 0:
+>           raise RuntimeError(
+                f"git fetch of commit {commit} from {repo_url} failed:\n"
+                f"{fetch_result.stdout}\n{fetch_result.stderr}"
+            )
+E           RuntimeError: git fetch of commit 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2 from https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp.git failed:
+E           
+E           fatal: unable to access 'https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp.git/': Failed to connect to 127.0.0.1 port 9 after 2050 ms: Could not connect to server
+
+tests\extraction\tree_sitter_engine\test_consolidate_classes_free_functions.py:294: RuntimeError
+_ ERROR at setup of test_real_cells_cpp_free_function_count_increases_substantially _
+
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000001ED57F2BA80>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-1683'), _retention_count=3, _retention_policy='all')
+
+    @pytest.fixture(scope="module")
+    def cells_cpp_checkout(tmp_path_factory: pytest.TempPathFactory) -> Path:
+        workdir = tmp_path_factory.mktemp("cells_cpp_tc092")
+>       _clone_pinned_commit(CELLS_CPP_REPOSITORY, CELLS_CPP_COMMIT, workdir)
+
+tests\extraction\tree_sitter_engine\test_consolidate_classes_free_functions.py:309: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+repository = 'aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp'
+commit = '9f852d0ff1cfdad2d661556d6b87a8eff8c063a2'
+workdir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-1683/cells_cpp_tc0920')
+
+    def _clone_pinned_commit(repository: str, commit: str, workdir: Path) -> None:
+        """Shallow-fetch exactly one pinned commit of *repository* into *workdir*.
+    
+        Real ``git init`` + ``git remote add`` + ``git fetch --depth 1`` + ``git
+        checkout`` -- the same real, network-dependent plumbing already used by
+        tests/indexing/test_example_verifier.py's pinned-commit fixtures. Nothing
+        here is mocked. Raises on any real failure.
+        """
+        workdir.mkdir(parents=True, exist_ok=True)
+        repo_url = f"https://github.com/{repository}.git"
+    
+        init_result = _run(["git", "init"], cwd=workdir)
+        if init_result.returncode != 0:
+            raise RuntimeError(f"git init failed in {workdir}:\n{init_result.stdout}\n{init_result.stderr}")
+    
+        remote_result = _run(["git", "remote", "add", "origin", repo_url], cwd=workdir)
+        if remote_result.returncode != 0:
+            raise RuntimeError(
+                f"git remote add failed for {repo_url}:\n{remote_result.stdout}\n{remote_result.stderr}"
+            )
+    
+        fetch_result = _run(["git", "fetch", "--depth", "1", "origin", commit], cwd=workdir)
+        if fetch_result.returncode != 0:
+>           raise RuntimeError(
+                f"git fetch of commit {commit} from {repo_url} failed:\n"
+                f"{fetch_result.stdout}\n{fetch_result.stderr}"
+            )
+E           RuntimeError: git fetch of commit 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2 from https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp.git failed:
+E           
+E           fatal: unable to access 'https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp.git/': Failed to connect to 127.0.0.1 port 9 after 2050 ms: Could not connect to server
+
+tests\extraction\tree_sitter_engine\test_consolidate_classes_free_functions.py:294: RuntimeError
+=========================== short test summary info ===========================
+ERROR tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py::test_real_cells_cpp_isnullorwhitespace_no_longer_collapsed
+ERROR tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py::test_real_cells_cpp_free_function_count_increases_substantially
+
+--- stderr ---
+
+
+!! clean runs failed; falsifier skipped (it would prove nothing)

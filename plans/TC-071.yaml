@@ -104,16 +104,9 @@ checks:
 min_tests: 6
 network: false
 negative_control:
-  mutate: 'python -X utf8 -c "import pathlib;p=pathlib.Path(''src/foss_mcp/mcp/tools/search_symbols.py'');s=p.read_text(encoding=''utf-8'');s=s.replace(''startswith(''+chr(39)+''Example:
-    ''+chr(39)+'')'',''startswith(''+chr(39)+''Example: DISABLED_''+chr(39)+'')'');p.write_text(s,encoding=''utf-8'')"'
-  rationale: Corrupting the exclusion literal so it never matches any real pseudo-symbol
-    prefix must break BOTH the direct search_symbols exclusion test AND the lookup
-    scenario-3 composition test (since search_symbols would once again incorrectly
-    intercept the query) - proving the fix is the actual load-bearing mechanism connecting
-    both, not a coincidental pass. This replaces attempt 1's negative control, which
-    attempt 1 itself proved vacuous via gatectl review's own mechanical VACUOUS CHECKS
-    verdict - not overridden, corrected. Self-checked end-to-end against a fixture
-    implementing the exact prescribed literal before being persisted.
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py');s=p.read_text(encoding='utf-8');s=s.replace('startswith(_NON_SYMBOL_FQN_PREFIXES)','startswith(())');p.write_text(s,encoding='utf-8')"
+  rationale: 'TC-120 and TC-143 turned the literal startswith(''Example: '') into the tuple _NON_SYMBOL_FQN_PREFIXES, so the old anchor no longer exists and the old mutate changed nothing (gate exit 2026-10-05: VACUOUS CHECKS). Replacing the tuple with an empty one means no pseudo-symbol prefix is ever excluded, which must break the exclusion and symbol-first lookup tests. Applied in a throwaway worktree: the card''s check passes clean and fails with this mutate.'
 evidence:
 - evidence/build/G2/TC-071/receipt.json
 closeout:

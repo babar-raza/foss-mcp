@@ -3,10 +3,10 @@
   "card": "TC-058",
   "gate": "G2",
   "generated_by": "gatectl",
-  "generated_at": "2026-09-25T07:33:29Z",
+  "generated_at": "2026-10-05T06:37:31Z",
   "base_rev": "d43aade9f1c56409e0339615656b570451c13559",
-  "head_rev": "3336ac4bd178af44b0409f2e1219a24968d6510a",
-  "card_sha256": "a7a77f20684b4962ebaf0239aecdfcfa986ab0f1a5fa071a8d16e112532a0f01",
+  "head_rev": "b208ca36c6f01a459841a19a5638a555916f2446",
+  "card_sha256": "34c15723b27572d08c14b5b5f6853535b03bc6a4e304abf0ffedb15c1ca5f49d",
   "fingerprint": {
     "python": "3.13.2",
     "platform": "Windows-11-10.0.26200-SP0",
@@ -18,17 +18,15 @@
       "PYTHONIOENCODING": "utf-8",
       "TZ": "UTC",
       "LC_ALL": "C.UTF-8",
-      "SOURCE_DATE_EPOCH": "1700000000"
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
     }
   },
   "scope": {
     "ok": true,
-    "changed_paths": [
-      "src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py",
-      "tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py"
-    ],
+    "changed_paths": [],
     "violations": [],
-    "evaluated": true
+    "evaluated": false
   },
   "runs": [
     {
@@ -36,53 +34,47 @@
       "checks": [
         {
           "command": "{python} -m pytest tests/extraction/tree_sitter_engine/ -q",
-          "exit_code": 0,
-          "duration_s": 2.518,
-          "stdout_sha256": "70bd93f29a65727e5cc0991aac37bb59b433f6d667824853361ad51e262a38ec",
-          "tests": 44,
-          "skipped": 0,
-          "errors": 0,
+          "exit_code": 1,
+          "duration_s": 15.468,
+          "stdout_sha256": "c85fadb35b255ee436def0707594475050ec505cf08e5ee721938149bc4c031f",
+          "tests": 58,
+          "skipped": 1,
+          "errors": 2,
           "failures": 0
         }
       ],
-      "all_passed": true
+      "all_passed": false
     },
     {
       "run": 2,
       "checks": [
         {
           "command": "{python} -m pytest tests/extraction/tree_sitter_engine/ -q",
-          "exit_code": 0,
-          "duration_s": 1.991,
-          "stdout_sha256": "70bd93f29a65727e5cc0991aac37bb59b433f6d667824853361ad51e262a38ec",
-          "tests": 44,
-          "skipped": 0,
-          "errors": 0,
+          "exit_code": 1,
+          "duration_s": 3.493,
+          "stdout_sha256": "a12bf60e17263e38aea84ba2c9bb24a2d1bea9210524f21c211e6a3995213a45",
+          "tests": 58,
+          "skipped": 1,
+          "errors": 2,
           "failures": 0
         }
       ],
-      "all_passed": true
+      "all_passed": false
     }
   ],
   "negative_control": {
     "kind": "mutate",
     "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py');s=p.read_text(encoding='utf-8');s=s.replace('def _cpp_free_function_name','def _cpp_free_function_name_DISABLED');p.write_text(s,encoding='utf-8')\"",
-    "patch_sha256": "03108f6c2b2f0550687ef0e984cfbae7790f46034652357cf45c72b94f323683",
-    "applied": true,
-    "patch_applied_failed": true,
-    "exit_codes": [
-      1
-    ],
-    "tree_changed": [
-      "M src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py",
-      "?? .junit-0.xml"
-    ]
+    "patch_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "applied": false,
+    "patch_applied_failed": false,
+    "exit_codes": []
   },
   "holdout": {
     "ran": false,
     "passed": true,
     "detail": "no holdout for this card"
   },
-  "accepted": true,
-  "reason": "all gates passed"
+  "accepted": false,
+  "reason": "checks failed: {python} -m pytest tests/extraction/tree_sitter_engine/ -q; structural gate: {python} -m pytest tests/extraction/tree_sitter_engine/ -q: 1 skipped test(s); skips are not evidence; {python} -m pytest tests/extraction/tree_sitter_engine/ -q: 2 collection error(s); negative-control patch did not apply"
 }

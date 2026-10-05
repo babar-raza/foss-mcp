@@ -1,162 +1,25 @@
 
-===== CLEAN RUN 1 =====
-$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g85eimnv\.junit-0.xml"
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yan22ujd\.junit-0.xml"
 --- stdout ---
-............                                                             [100%]
+.....................                                                    [100%]
 
 --- stderr ---
 
 
-===== CLEAN RUN 2 =====
-$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g85eimnv\.junit-0.xml"
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yan22ujd\.junit-0.xml"
 --- stdout ---
-............                                                             [100%]
+.....................                                                    [100%]
 
 --- stderr ---
 
 
 ===== NEGATIVE CONTROL (checks MUST now fail) =====
 mutated: M src/foss_mcp/mcp/tools/search_symbols.py, ?? .junit-0.xml
-$ H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g85eimnv\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yan22ujd\.junit-0.xml"
 --- stdout ---
-..F.......F.                                                             [100%]
-================================== FAILURES ===================================
-_ test_search_symbols_excludes_tc068_pseudo_symbol_chunks_from_its_own_matching _
-
-tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-314/test_search_symbols_excludes_t0')
-
-    def test_search_symbols_excludes_tc068_pseudo_symbol_chunks_from_its_own_matching(
-        tmp_path: Path,
-    ) -> None:
-        """TC-068's ``Example: <title>`` pseudo-symbols are published into the exact same
-        self_extracted generation search_symbols reads (see infra/build_chunks.py's own real
-        chunk shape: a heading, an ``FQN: Example: <title>`` line, then an ``Example:`` code
-        block). A pseudo-symbol is not a real symbol and search_symbols's own module docstring
-        says so - it must never be reported as a match, even when it lexically matches at least
-        as strongly as a real symbol answering the very same query.
-    
-        Real regression, not a mock: one real symbol chunk and one Example:-prefixed pseudo-symbol
-        chunk are published side by side, both containing the word "watermark" in their own prose,
-        so a lexical scan with no filter would return both.
-        """
-        store = _store(tmp_path)
-        real_symbol_body = """## PdfDocument.AddWatermarkAnnotation
-    
-    FQN: PdfDocument.AddWatermarkAnnotation
-    Kind: Method
-    Adds a watermark annotation to the page.
-    """
-        pseudo_symbol_body = (
-            "# Example: Add a Watermark Annotation\n\n"
-            "FQN: Example: Add a Watermark Annotation\n"
-            "Kind: verified_example\n"
-            "Adds a watermark annotation to a document using a real, verified snippet.\n\n"
-            'Example:\ndocument.AddWatermarkAnnotation("Confidential")'
-        )
-        real_doc = make_document(
-            source_kind=SourceKind.SELF_EXTRACTED,
-            content_type="api_surface",
-            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
-            evidence_refs=(),
-            title="pdf/net API surface",
-            body=real_symbol_body,
-        )
-        pseudo_doc = make_document(
-            source_kind=SourceKind.SELF_EXTRACTED,
-            content_type="example",
-            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
-            evidence_refs=(),
-            title="Add a Watermark Annotation",
-            body=pseudo_symbol_body,
-        )
-        chunks = chunk_document(real_doc) + chunk_document(pseudo_doc)
-        _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
-    
-        result = search_symbols(store, PDF_NET_SCOPE, "watermark")
-    
-        assert isinstance(result, list) and result
-        assert all(isinstance(match, SymbolMatch) for match in result)
->       assert all("Example: Add a Watermark Annotation" not in match.text for match in result)
-E       assert False
-E        +  where False = all(<generator object test_search_symbols_excludes_tc068_pseudo_symbol_chunks_from_its_own_matching.<locals>.<genexpr> at 0x00000276D7F54E10>)
-
-tests\mcp\tools\test_retrieval_tools.py:190: AssertionError
-_ test_lookup_composes_doc_guidance_with_a_real_example_when_no_real_symbol_matches _
-
-tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-prora/pytest-314/test_lookup_composes_doc_guida0')
-
-    def test_lookup_composes_doc_guidance_with_a_real_example_when_no_real_symbol_matches(
-        tmp_path: Path,
-    ) -> None:
-        """REQ-G2-049 (scenario 3), now genuinely reachable after search_symbols excludes TC-068's
-        ``Example: <title>`` pseudo-symbols from its own matching (attempt 1's negative control had
-        proved this was architecturally impossible before that fix - it is not a mock workaround).
-    
-        A real, non-mocked generation carries all three kinds of chunk for the SAME scope: a real
-        symbol (unrelated to the query, proving the miss below is genuine and not just an empty
-        corpus), an Example:-prefixed pseudo-symbol chunk that matches the query, and a furnished
-        documentation chunk that also matches the query. search_symbols now honestly misses (the
-        only lexical match is the excluded pseudo-symbol), so lookup falls through to search_docs,
-        finds the real doc match, and composes it with find_examples's own real example into one
-        TaskAnswer - never fabricating what it cannot verify.
-        """
-        store = _store(tmp_path)
-        real_symbol_body = """## PdfDocument
-    
-    FQN: PdfDocument
-    Kind: Class
-    Represents a PDF document that can be loaded, edited, and saved.
-    """
-        pseudo_symbol_body = (
-            "# Example: Add a Watermark Annotation\n\n"
-            "FQN: Example: Add a Watermark Annotation\n"
-            "Kind: verified_example\n"
-            "Adds a watermark annotation to a document using a real, verified snippet.\n\n"
-            'Example:\ndocument.AddWatermarkAnnotation("Confidential")'
-        )
-        real_doc = make_document(
-            source_kind=SourceKind.SELF_EXTRACTED,
-            content_type="api_surface",
-            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
-            evidence_refs=(),
-            title="pdf/net API surface",
-            body=real_symbol_body,
-        )
-        pseudo_doc = make_document(
-            source_kind=SourceKind.SELF_EXTRACTED,
-            content_type="example",
-            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
-            evidence_refs=(),
-            title="Add a Watermark Annotation",
-            body=pseudo_symbol_body,
-        )
-        chunks = chunk_document(real_doc) + chunk_document(pseudo_doc)
-        _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
-    
-        watermark_guide_doc = make_document(
-            source_kind=SourceKind.FURNISHED,
-            content_type="product_page",
-            provenance=Provenance(repository="Aspose/aspose.org", commit="x", path="content/pdf/net"),
-            evidence_refs=(),
-            title="pdf/net watermarking guide",
-            body="""## Adding a Watermark
-    
-    Use PdfDocument.AddWatermarkAnnotation to overlay a watermark on every page. This approach
-    works well for stamping confidential markings onto exported PDF documents.
-    """,
-        )
-        _publish(store, PDF_NET_SCOPE, "furnished", chunk_document(watermark_guide_doc))
-    
-        result = lookup(store, PDF_NET_SCOPE, "watermark")
-    
->       assert isinstance(result, TaskAnswer)
-E       assert False
-E        +  where False = isinstance([SymbolMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_ex...nnotation to a document using a real, verified snippet.\n\nExample:\ndocument.AddWatermarkAnnotation("Confidential")')], TaskAnswer)
-
-tests\mcp\tools\test_retrieval_tools.py:353: AssertionError
-=========================== short test summary info ===========================
-FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_excludes_tc068_pseudo_symbol_chunks_from_its_own_matching
-FAILED tests/mcp/tools/test_retrieval_tools.py::test_lookup_composes_doc_guidance_with_a_real_example_when_no_real_symbol_matches
+.....................                                                    [100%]
 
 --- stderr ---
 

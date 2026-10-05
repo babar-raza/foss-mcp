@@ -75,12 +75,9 @@ checks:
 min_tests: 4
 network: false
 negative_control:
-  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('infra/ingest.py');s=p.read_text(encoding='utf-8');s=s.replace('citable_chunks(validate_document(','citable_chunks_DISABLED(validate_document(');p.write_text(s,encoding='utf-8')"
-  rationale: Disabling citable_chunks (renaming the call so it raises NameError) must
-    break the test that proves an unresolvable-claim chunk gets excluded when --api-surface
-    is passed - proving that test genuinely exercises the filtering, not merely that
-    validate_document runs. Self-checked end-to-end against a fixture implementing
-    the exact prescribed code shape before being persisted.
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/ingest.py');s=p.read_text(encoding='utf-8');s=s.replace('chunks = citable_chunks(validated_chunks)','chunks = citable_chunks_DISABLED(validated_chunks)');p.write_text(s,encoding='utf-8')"
+  rationale: 'TC-144 split the call into validated_chunks = validate_document(...) and chunks = citable_chunks(validated_chunks), so the original anchor citable_chunks(validate_document( no longer exists and the old mutate changed nothing (gate exit 2026-10-05: VACUOUS CHECKS). Renaming the current call raises NameError and must break the tests that prove an unresolvable-claim chunk is excluded when --api-surface is passed. Applied in a throwaway worktree: the card''s check passes clean and fails with this mutate.'
 evidence:
 - evidence/build/G2/TC-060/receipt.json
 closeout:
