@@ -18,12 +18,15 @@ C:\\tools\\rp-toolchains\\TOOLCHAIN_PATHS.txt.
 from __future__ import annotations
 
 import dataclasses
+import subprocess
 from pathlib import Path
 
 import pytest
 
+import foss_mcp.indexing.example_verifier as example_verifier
 from foss_mcp.indexing.example_candidates import CandidateExample
 from foss_mcp.indexing.example_verifier import (
+    ExampleEnvironmentError,
     VerificationResult,
     prepare_cpp_library,
     prepare_go_library,
@@ -609,3 +612,115 @@ def test_dataclasses_replace_still_works_on_candidate_example(python_venv: Path,
     result = verify_python_example(corrected_candidate, venv_python=python_venv, workdir=tmp_path)
 
     assert result.verified is True, result.output
+
+
+# --- cargo offline fallback (REQ-G2-043) -------------------------------------
+#
+# These four tests mock subprocess.run, so they need no network, no cargo and
+# no real reference crate. They drive verify_rust_example, which runs every
+# cargo command through _run_cargo, and record each argv that was started.
+
+_NETWORK_FAILURE_OUTPUT = (
+    "    Updating crates.io index\n"
+    "warning: spurious network error (4 tries remaining): failed to get `serde`\n"
+    "error: failed to get `serde` as a dependency\n"
+)
+_RUSTC_E0308_OUTPUT = (
+    "   Compiling candidate v0.0.0\n"
+    "error[E0308]: mismatched types\n"
+    " --> src/main.rs:2:18\n"
+    "error: could not compile `candidate` (bin \"candidate\") due to 1 previous error\n"
+)
+_RUST_CANDIDATE = _candidate("Cargo fallback", "rust", "fn main() {}\n")
+
+
+def _script_cargo_runs(
+    monkeypatch: pytest.MonkeyPatch,
+    outcomes: list[tuple[int, str]],
+) -> list[list[str]]:
+    """Replace subprocess.run with a script of (returncode, output) outcomes, one
+    per call, and return the list that records each argv in call order.
+    """
+    calls: list[list[str]] = []
+    remaining = list(outcomes)
+
+    def fake_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append(list(args))
+        returncode, output = remaining.pop(0)
+        return subprocess.CompletedProcess(args, returncode, stdout="", stderr=output)
+
+    monkeypatch.setattr(example_verifier.subprocess, "run", fake_run)
+    return calls
+
+
+def test_cargo_network_failure_then_offline_success_returns_verified(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls = _script_cargo_runs(monkeypatch, [(101, _NETWORK_FAILURE_OUTPUT), (0, "Finished")])
+
+    result = verify_rust_example(
+        _RUST_CANDIDATE,
+        library_crate_name="reference",
+        library_dir=tmp_path,
+        workdir=tmp_path / "work",
+    )
+
+    assert result.verified is True
+    assert len(calls) == 2
+    assert calls[0] == ["cargo", "build"]
+    assert calls[1] == ["cargo", "build", "--offline"]
+
+
+def test_cargo_network_failure_twice_still_raises_environment_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls = _script_cargo_runs(
+        monkeypatch,
+        [(101, _NETWORK_FAILURE_OUTPUT), (101, _NETWORK_FAILURE_OUTPUT)],
+    )
+
+    with pytest.raises(ExampleEnvironmentError) as excinfo:
+        verify_rust_example(
+            _RUST_CANDIDATE,
+            library_crate_name="reference",
+            library_dir=tmp_path,
+            workdir=tmp_path / "work",
+        )
+
+    assert excinfo.value.tool == "cargo"
+    assert excinfo.value.marker == "spurious network error"
+    assert len(calls) == 2
+    assert calls[1] == ["cargo", "build", "--offline"]
+
+
+def test_cargo_compiler_diagnostic_is_never_retried(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls = _script_cargo_runs(monkeypatch, [(101, _RUSTC_E0308_OUTPUT)])
+
+    result = verify_rust_example(
+        _RUST_CANDIDATE,
+        library_crate_name="reference",
+        library_dir=tmp_path,
+        workdir=tmp_path / "work",
+    )
+
+    assert result.verified is False
+    assert len(calls) == 1
+    assert calls[0] == ["cargo", "build"]
+
+
+def test_cargo_first_run_success_makes_exactly_one_call(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls = _script_cargo_runs(monkeypatch, [(0, "Finished")])
+
+    result = verify_rust_example(
+        _RUST_CANDIDATE,
+        library_crate_name="reference",
+        library_dir=tmp_path,
+        workdir=tmp_path / "work",
+    )
+
+    assert result.verified is True
+    assert calls == [["cargo", "build"]]

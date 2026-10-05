@@ -121,7 +121,7 @@ def _cargo_environment() -> dict[str, str]:
     return env
 
 
-def _run_cargo(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+def _run_cargo_subprocess(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         args,
         cwd=cwd,
@@ -129,6 +129,36 @@ def _run_cargo(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str
         text=True,
         env=_cargo_environment(),
     )
+
+
+# Offline fallback. The reference crate has no Cargo.lock, so every fresh clone
+# makes cargo refresh the crates.io index even when each crate is already in the
+# local cache; a short registry outage then fails a build that needs no network.
+# When a cargo run fails with a network marker and no rustc diagnostic, _run_cargo
+# runs the same command once more with this flag. A run that carries a rustc
+# diagnostic is a genuine compile failure and is never retried.
+_CARGO_OFFLINE_FLAG = "--offline"
+
+
+def _run_cargo(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+    """Run one cargo command, retrying it once offline after a network failure.
+
+    This is the only place a cargo subprocess is started. The first run's result
+    is returned unless it failed with a network marker and no rustc diagnostic
+    (``error[E<digits>]``); only then is the same command run once more with the
+    offline flag appended, and that second result is returned whether it
+    succeeded or not. A cold cache therefore still fails on the second run, and
+    the caller classifies that result exactly as it would any other.
+    """
+    first = _run_cargo_subprocess(args, cwd=cwd)
+    if first.returncode == 0:
+        return first
+    output_text = f"{first.stdout}\n{first.stderr}"
+    if _RUSTC_DIAGNOSTIC.search(output_text) is not None:
+        return first
+    if _match_network_failure_marker(output_text) is None:
+        return first
+    return _run_cargo_subprocess([*args, _CARGO_OFFLINE_FLAG], cwd=cwd)
 
 
 def _truncate(text: str) -> str:
