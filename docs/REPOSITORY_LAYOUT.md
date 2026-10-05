@@ -19,6 +19,15 @@ package docstring/version marker and re-exports that form the public surface
 of the whole library, if any. It does not hold business logic — that belongs
 in one of the subpackages below. It never imports from `ops/`.
 
+## Deployment tools (`scripts/deploy/`, `tests/deploy/`)
+
+`scripts/deploy/` holds the deployment tools for the Helm chart at
+`infra/helm/foss-mcp`: the pilot release mapping, the installer and the proof
+runner. Their offline tests live in `tests/deploy/`. These tools are not product
+code and are not imported by `src/`; they call `helm`, `kubectl` and the proof
+script `scripts/poc/pilot_workflow_proof.py`. The operator runbook is
+`docs/DEPLOYMENT.md`.
+
 ## `foss_mcp.mcp` (`src/foss_mcp/mcp/`)
 
 The MCP (Model Context Protocol) server surface: server construction,
