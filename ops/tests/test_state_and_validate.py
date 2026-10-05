@@ -120,13 +120,19 @@ def test_next_card_is_deterministic(sandbox):
     assert picks == {"TC-001"}, "next must be stable and lowest-id-first"
 
 
-def test_a_gate_is_accepted_only_when_every_card_is(sandbox):
+def test_a_gate_is_accepted_only_when_every_card_is_and_its_exit_was_met(sandbox):
+    # Restated 2026-10-05: every card accepted used to be enough. The first G2 exit then found thirteen
+    # failing cards while the state would have called the gate accepted, so a MET exit is now required too.
     write_card(sandbox, "TC-001")
     write_card(sandbox, "TC-002")
     write_receipt(sandbox, "TC-001")
     s = V.rebuild_state()
     assert s["accepted_gates"] == [], "one accepted card is not an accepted gate"
     write_receipt(sandbox, "TC-002")
+    assert V.rebuild_state()["accepted_gates"] == [], "every card accepted, exit not yet met"
+    (G.EVIDENCE / "build" / "G0" / "manifest.json").write_text(
+        json.dumps({"gate_status": "ACCEPTED"}), encoding="utf-8"
+    )
     assert V.rebuild_state()["accepted_gates"] == ["G0"]
 
 

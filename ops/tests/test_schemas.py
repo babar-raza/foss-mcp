@@ -94,6 +94,7 @@ def _state(**over):
         "generated_by": "gatectl",
         "generated_at": "2026-09-10T12:00:00Z",
         "current_gate": {"id": "G0", "status": "READY"},
+        "gate_exit": None,  # 2026-10-05: required, null until a gate exit has run
         "accepted_gates": [],
         "cards": [{"id": "TC-001", "gate": "G0", "status": "READY", "attempt": 0, "blocker": None}],
         "owner_items": [],

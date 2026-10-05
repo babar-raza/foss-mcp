@@ -205,14 +205,29 @@ def run_holdout(card_id: str, wt: Path, py: Path, log_lines):
 # --------------------------------------------------------------------------
 # verify
 # --------------------------------------------------------------------------
-def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None, evaluate_scope: bool = True):
+def do_verify(
+    card_id: str,
+    base: str,
+    head: str,
+    issue_rev: str | None = None,
+    evaluate_scope: bool = True,
+    persist: str = "always",
+):
     """Run a card's checks for real and write the receipt.
 
     Order matters: clean run twice (flake detection), structural gate, then the
     negative-control patch, which MUST make the checks fail. If the checks still
     pass with the falsifier applied they prove nothing, and the card is rejected
     however green it looked.
+
+    persist is "always" (review and verify: the receipt is the evidence) or "on_fail"
+    (gate exit, 2026-10-05): a card that still passes keeps its stored receipt byte for
+    byte, so re-verifying a whole gate does not rewrite hundreds of files, while a card
+    that fails writes its failing receipt, which reopens it in the derived state. The
+    gate-exit report, not the receipt, records that the passing card was re-proved.
     """
+    if persist not in ("always", "on_fail"):
+        raise ValueError(f"persist must be 'always' or 'on_fail', got {persist!r}")
     base = resolve_rev(base)
     head = resolve_rev(head)
     issue_rev = resolve_rev(issue_rev or head)
@@ -322,7 +337,7 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None, 
     finally:
         drop_worktree(wt)
 
-    (outdir / "stdout.log").write_text("".join(log_lines), encoding="utf-8")
+    log_text = "".join(log_lines)
 
     reasons = []
     if holdout_ran and not holdout_passed:
@@ -369,8 +384,134 @@ def do_verify(card_id: str, base: str, head: str, issue_rev: str | None = None, 
         "accepted": len(reasons) == 0,
         "reason": "; ".join(reasons) if reasons else "all gates passed",
     }
-    (outdir / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+    if persist == "always" or not receipt["accepted"]:
+        (outdir / "stdout.log").write_text(log_text, encoding="utf-8")
+        (outdir / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
     return receipt
+
+
+# --------------------------------------------------------------------------
+# gate exit evidence (2026-10-05)
+# --------------------------------------------------------------------------
+# Gate exit used to print a verdict and, unless the gate was MET, persist nothing about
+# itself. The derived state then still said "G2 IN_PROGRESS, no READY card" after a run
+# that had found thirteen failing cards, a broken CI step and open questions. The exit
+# report is the primary evidence that fixes that: it is written every time, MET or not,
+# and rebuild_state reads it, so the blockers are part of the status authority.
+GATE_EXIT_VERDICTS = ("MET", "NOT_MET", "BLOCKED_ENV")
+
+
+def exit_report_path(gate: str) -> Path:
+    return EVIDENCE / "build" / gate / "exit_report.json"
+
+
+def gate_manifest_path(gate: str) -> Path:
+    return EVIDENCE / "build" / gate / "manifest.json"
+
+
+def load_exit_report(gate: str):
+    f = exit_report_path(gate)
+    if not f.exists():
+        return None
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+
+
+def gate_manifest_accepted(gate: str) -> bool:
+    """True when gate exit wrote an ACCEPTED manifest for this gate (the MET artifact)."""
+    f = gate_manifest_path(gate)
+    if not f.exists():
+        return False
+    try:
+        return json.loads(f.read_text(encoding="utf-8")).get("gate_status") == "ACCEPTED"
+    except json.JSONDecodeError:
+        return False
+
+
+def build_exit_report(
+    gate: str,
+    head: str,
+    results: dict,
+    gate_level: list[str],
+    ci: dict,
+    live_smoke: dict,
+    open_questions: list[str],
+    owner_items: list[str],
+    blocked_env: list[str],
+) -> dict:
+    """The compact, committed record of one gate-exit run. Pure, so it is testable.
+
+    Failing cards carry their reason (cut at 400 characters); passing cards carry only the
+    fact and the test count, because their stored receipts already hold the detail.
+    """
+    cards = {}
+    for cid, r in sorted(results.items()):
+        entry: dict[str, object] = {"accepted": bool(r["accepted"])}
+        tests = (r.get("runs") or [{}])[0].get("checks", [{}])[0].get("tests")
+        if tests is not None:
+            entry["tests"] = tests
+        if not r["accepted"]:
+            entry["reason"] = str(r.get("reason", ""))[:400]
+        cards[cid] = entry
+    failing = [cid for cid, e in cards.items() if not e["accepted"]]
+    if failing or gate_level or open_questions or owner_items:
+        verdict = "NOT_MET"
+    elif blocked_env:
+        verdict = "BLOCKED_ENV"
+    else:
+        verdict = "MET"
+    return {
+        "schema_version": 1,
+        "gate": gate,
+        "verdict": verdict,
+        "generated_by": "gatectl",
+        "recorded_at": now_utc(),
+        "checked_head": head,
+        "cards": cards,
+        "failing_cards": failing,
+        "gate_level_failures": [str(g)[:400] for g in gate_level],
+        "repo_wide_ci": ci,
+        "live_smoke": live_smoke,
+        "open_questions": sorted(open_questions),
+        "owner_items": sorted(owner_items),
+        "blocked_env": [str(b)[:400] for b in blocked_env],
+    }
+
+
+def gate_exit_blockers(report: dict | None) -> list[str]:
+    """One short line per thing that stops the gate, in the order the supervisor should clear them."""
+    if not report or report.get("verdict") == "MET":
+        return []
+    lines = []
+    for cid in report.get("failing_cards", []):
+        reason = (report.get("cards", {}).get(cid, {}).get("reason") or "").split(";")[0][:140]
+        lines.append(f"card {cid}: {reason}")
+    lines += [f"gate: {g[:160]}" for g in report.get("gate_level_failures", [])]
+    lines += [f"open question {q}" for q in report.get("open_questions", [])]
+    lines += [f"owner item {o}" for o in report.get("owner_items", [])]
+    lines += [f"environment: {b[:160]}" for b in report.get("blocked_env", [])]
+    return lines
+
+
+def gate_status(card_statuses: list[str], exit_accepted: bool, exit_verdict: str | None) -> str:
+    """The current gate's status from its cards and its exit evidence. Pure.
+
+    Every card accepted is necessary and no longer sufficient: the gate is ACCEPTED only when
+    its exit was MET. Until then it is EXIT_PENDING (never tried) or EXIT_FAILED (tried, not met).
+    """
+    if card_statuses and all(s in ("ACCEPTED", "SUPERSEDED") for s in card_statuses):
+        if exit_accepted:
+            return "ACCEPTED"
+        return "EXIT_FAILED" if exit_verdict in ("NOT_MET", "BLOCKED_ENV") else "EXIT_PENDING"
+    if any(s in ("IN_PROGRESS", "VERIFYING") for s in card_statuses):
+        return "IN_PROGRESS"
+    if any(s == "BLOCKED_ENV" for s in card_statuses):
+        return "BLOCKED_ENV"
+    if any(s == "FAILED_INTERNAL" for s in card_statuses):
+        return "FAILED_INTERNAL"
+    return "READY"
 
 
 # --------------------------------------------------------------------------
@@ -558,21 +699,32 @@ def rebuild_state(as_if_unstarted: str | None = None):
     for g in GATES:
         if g in gates_present:
             ids = [r for r in rows if r["gate"] == g]
-            if ids and all(r["status"] in ("ACCEPTED", "SUPERSEDED") for r in ids):
+            # 2026-10-05: every card accepted is necessary, not sufficient. A gate is accepted
+            # only once its exit was MET (the ACCEPTED manifest gate-exit writes then).
+            if (
+                ids
+                and all(r["status"] in ("ACCEPTED", "SUPERSEDED") for r in ids)
+                and gate_manifest_accepted(g)
+            ):
                 accepted_gates.append(g)
 
     current = next((g for g in GATES if g in gates_present and g not in accepted_gates), GATES[0])
     cg_rows = [r for r in rows if r["gate"] == current]
-    if cg_rows and all(r["status"] in ("ACCEPTED", "SUPERSEDED") for r in cg_rows):
-        cg_status = "ACCEPTED"
-    elif any(r["status"] in ("IN_PROGRESS", "VERIFYING") for r in cg_rows):
-        cg_status = "IN_PROGRESS"
-    elif any(r["status"] == "BLOCKED_ENV" for r in cg_rows):
-        cg_status = "BLOCKED_ENV"
-    elif any(r["status"] == "FAILED_INTERNAL" for r in cg_rows):
-        cg_status = "FAILED_INTERNAL"
-    else:
-        cg_status = "READY"
+    exit_report = load_exit_report(current)
+    cg_status = gate_status(
+        [r["status"] for r in cg_rows],
+        current in accepted_gates,
+        (exit_report or {}).get("verdict"),
+    )
+    gate_exit = None
+    if exit_report and exit_report.get("verdict") in GATE_EXIT_VERDICTS:
+        gate_exit = {
+            "verdict": exit_report["verdict"],
+            "checked_head": exit_report.get("checked_head", ""),
+            "recorded_at": exit_report.get("recorded_at", ""),
+            "report": f"evidence/build/{current}/exit_report.json",
+            "blockers": gate_exit_blockers(exit_report),
+        }
 
     open_q = [q["id"] for q in questions if q.get("status") == "OPEN"]
     return {
@@ -581,6 +733,7 @@ def rebuild_state(as_if_unstarted: str | None = None):
         "generated_by": "gatectl",
         "generated_at": now_utc(),
         "current_gate": {"id": current, "status": cg_status},
+        "gate_exit": gate_exit,
         "accepted_gates": accepted_gates,
         "cards": rows,
         "owner_items": load_owner_items(),

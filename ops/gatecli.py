@@ -25,6 +25,7 @@ SCHEMA_FOR = {
     "instruction": "instruction-line.schema.json",
     "receipt": "receipt.schema.json",
     "question": "open-question.schema.json",
+    "gate_exit": "gate-exit.schema.json",
 }
 
 
@@ -92,6 +93,21 @@ def cmd_validate(args) -> int:
             continue
         for e in G.schema_errors(receipt_schema, r):
             problems.append(f"{f}: {e}")
+
+    # 6b. gate-exit reports validate (2026-10-05), and a report that names a failing card must
+    #     name it among its cards, so the blockers list cannot drift from the evidence.
+    exit_schema = G.load_schema(SCHEMA_FOR["gate_exit"])
+    for f in sorted((G.EVIDENCE / "build").rglob("exit_report.json")):
+        try:
+            rep = json.loads(f.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            problems.append(f"{f}: unparseable ({exc})")
+            continue
+        for e in G.schema_errors(exit_schema, rep):
+            problems.append(f"{f}: {e}")
+        for cid in rep.get("failing_cards", []):
+            if rep.get("cards", {}).get(cid, {}).get("accepted", True):
+                problems.append(f"{f}: failing_cards names {cid} but its entry is accepted")
 
     # 7. source_refs must resolve, and the plan must not have moved under an
     #    issued card (bootstrap-fidelity control F2)
@@ -867,7 +883,10 @@ def cmd_gate_exit(args) -> int:
             continue
         issue = _last_rev_touching(f"plans/{cid}.yaml") or head
         print(f"re-verifying {cid} at HEAD ...", flush=True)
-        r = V.do_verify(cid, base, head, issue, evaluate_scope=False)
+        # persist="on_fail": a card that still passes keeps its stored receipt byte for byte, so a
+        # gate exit does not rewrite hundreds of files; a failing card writes its failing receipt,
+        # which reopens it in the derived state. The exit report records every card either way.
+        r = V.do_verify(cid, base, head, issue, evaluate_scope=False, persist="on_fail")
         results[cid] = r
         if r.get("blocked_env"):
             blocked.append(f"{cid}: {r['reason']}")
@@ -886,19 +905,43 @@ def cmd_gate_exit(args) -> int:
     G.STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
     G.STATE_FILE.write_text(G.dump_yaml(V.rebuild_state()), encoding="utf-8")
 
+    gate_level: list[str] = []
     print("running the repo-wide CI-equivalent ...", flush=True)
-    rc_ci, ci_out, ci_err = G.run(["bash", "scripts/ci_check.sh"], timeout=3600)
-    ci_summary = [ln for ln in (ci_out or "").splitlines() if ": success" in ln or ": failure" in ln]
-    if rc_ci != 0:
-        failures.append("repo-wide CI failed: " + "; ".join(ci_summary) or (ci_err or "")[:200])
+    bash = G.bash_exe()
+    ci_summary: list[str] = []
+    ci_detail = ""
+    if bash is None:
+        rc_ci = 127
+        blocked.append("no usable bash for scripts/ci_check.sh (only the Windows WSL launcher was found)")
+    else:
+        rc_ci, ci_out, ci_err = G.run([bash, "scripts/ci_check.sh"], timeout=3600)
+        ci_summary = [ln for ln in (ci_out or "").splitlines() if ": success" in ln or ": failure" in ln]
+        if rc_ci != 0:
+            # The old text was `"..." + "; ".join(summary) or stderr`, which never reached stderr.
+            ci_detail = ((ci_err or "") or (ci_out or ""))[-300:].strip()
+            gate_level.append(
+                "repo-wide CI failed: " + ("; ".join(ci_summary) or ci_detail or f"exit {rc_ci}")
+            )
 
     # D8 live-content smoke (AGENTS.md, Integration and liveness). A real container must
     # answer a real query. Without Docker the result is BLOCKED_ENV, never a silent pass.
     live_status, live_detail = _live_smoke()
     if live_status == "FAIL":
-        failures.append(f"live-content smoke test failed: {live_detail}")
+        gate_level.append(f"live-content smoke test failed: {live_detail}")
     elif live_status == "BLOCKED_ENV":
         blocked.append(f"live-content smoke needs Docker: {live_detail}")
+
+    report = V.build_exit_report(
+        args.gate,
+        head,
+        results,
+        gate_level + [f for f in failures if f.endswith("never dispatched")],
+        {"exit_code": rc_ci, "steps": [s.strip() for s in ci_summary], "detail": ci_detail},
+        {"status": live_status, "detail": live_detail},
+        open_q,
+        owner_open,
+        blocked,
+    )
 
     print()
     print(f"=== GATE {args.gate} EXIT ===")
@@ -909,7 +952,7 @@ def cmd_gate_exit(args) -> int:
         mark = "BLOCKED_ENV" if r.get("blocked_env") else ("PASS" if r["accepted"] else "FAIL")
         print(f"  [{mark}] {cid}")
     print(f"  [live-content smoke] {live_status}")
-    for f in failures:
+    for f in failures + gate_level:
         print(f"  ! {f}")
     for b in blocked:
         print(f"  ~ BLOCKED_ENV: {b}")
@@ -918,15 +961,22 @@ def cmd_gate_exit(args) -> int:
     if owner_open:
         print(f"  ! OPEN owner items consumed by {args.gate}: {owner_open}")
 
-    if failures or open_q or owner_open or blocked:
-        if failures or open_q or owner_open:
-            print(f"GATE {args.gate} NOT MET")
+    # The report is written on EVERY run (2026-10-05), so a failed exit is evidence that the
+    # derived state reads, not a verdict that scrolled past. The state is rebuilt right after.
+    outdir = G.EVIDENCE / "build" / args.gate
+    outdir.mkdir(parents=True, exist_ok=True)
+    V.exit_report_path(args.gate).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+
+    if report["verdict"] != "MET":
+        G.STATE_FILE.write_text(G.dump_yaml(V.rebuild_state()), encoding="utf-8")
+        if report["verdict"] == "NOT_MET":
+            print(
+                f"GATE {args.gate} NOT MET - {len(V.gate_exit_blockers(report))} blocker(s) in {V.exit_report_path(args.gate).relative_to(G.REPO)}"
+            )
         else:
             print(f"GATE {args.gate} BLOCKED_ENV - no code failure; the environment must be fixed")
         return G.EXIT_FAIL
 
-    outdir = G.EVIDENCE / "build" / args.gate
-    outdir.mkdir(parents=True, exist_ok=True)
     manifest = {
         "schema_version": 1,
         "gate": args.gate,
@@ -1149,11 +1199,40 @@ def cmd_tick(args) -> int:
                 f"  {r['id']}: {r['status']} attempt={r['attempt']}"
                 + (f" blocker={r['blocker']['summary'][:80]}" if r["blocker"] else "")
             )
+    ge = s.get("gate_exit")
+    if ge:
+        print(
+            f"GATE EXIT {ge['verdict']}  checked {ge['checked_head'][:7]} at {ge['recorded_at']}  ({ge['report']})"
+        )
+        for line in ge["blockers"][:40]:
+            print(f"  blocker: {line}")
+        if len(ge["blockers"]) > 40:
+            print(f"  ... and {len(ge['blockers']) - 40} more in the report")
     nxt = V.next_card(s)
-    if all(r["status"] in ("ACCEPTED", "SUPERSEDED") for r in s["cards"]) and not s["open_questions"]["open"]:
+    gate_open = s["current_gate"]["status"] in ("EXIT_PENDING", "EXIT_FAILED")
+    if (
+        not gate_open
+        and all(r["status"] in ("ACCEPTED", "SUPERSEDED") for r in s["cards"])
+        and not s["open_questions"]["open"]
+    ):
         print("ALL_GATES_COMPLETE")
         return G.EXIT_OK
-    print(f"ACTION: dispatch {nxt}" if nxt else "ACTION: no READY card - resolve a blocker above")
+    if nxt:
+        print(f"ACTION: dispatch {nxt}")
+    elif gate_open:
+        print(
+            f"ACTION: run `gatectl gate-exit {s['current_gate']['id']}`"
+            if s["current_gate"]["status"] == "EXIT_PENDING"
+            else "ACTION: clear the gate-exit blockers above, then re-run `gatectl gate-exit "
+            f"{s['current_gate']['id']}`"
+        )
+    elif ge and ge["blockers"]:
+        print(
+            "ACTION: clear the gate-exit blockers above (rework a failing card with `gatectl dispatch-next "
+            "--card X --kind rework`, or supersede it with an accepted successor), then re-run gate-exit"
+        )
+    else:
+        print("ACTION: no READY card - resolve a blocker above")
     return G.EXIT_OK
 
 

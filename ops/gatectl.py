@@ -129,6 +129,38 @@ def git(*args, cwd=None):
     return rc, out.strip(), err.strip()
 
 
+def pick_bash(candidates):
+    """The first candidate that is a real bash, never the Windows WSL launcher.
+
+    C:\\Windows\\System32\\bash.exe is first on PATH on a Windows host and exits non-zero with
+    no output when no WSL distribution is installed. Gate exit ran the repo-wide CI through it on
+    2026-10-05 and reported "repo-wide CI failed:" with nothing after the colon, because no
+    ci_check step ever ran. Pure, so the rule is testable.
+    """
+    for c in candidates:
+        if not c:
+            continue
+        norm = str(c).replace("/", "\\").lower()
+        if norm.endswith("\\windows\\system32\\bash.exe") or norm.endswith("\\windows\\sysnative\\bash.exe"):
+            continue
+        return str(c)
+    return None
+
+
+def bash_exe():
+    """A usable bash for scripts/ci_check.sh: Git for Windows next to git.exe first, then PATH."""
+    import shutil
+
+    candidates = []
+    git_exe = shutil.which("git")
+    if git_exe:
+        root = Path(git_exe).resolve().parent.parent
+        candidates += [str(root / "usr" / "bin" / "bash.exe"), str(root / "bin" / "bash.exe")]
+    candidates = [c for c in candidates if Path(c).is_file()]
+    candidates.append(shutil.which("bash"))
+    return pick_bash(candidates)
+
+
 def die(msg: str, code: int = EXIT_FAIL):
     print(f"FAIL: {msg}", file=sys.stderr)
     sys.exit(code)

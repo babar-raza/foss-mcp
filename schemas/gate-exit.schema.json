@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/babar-raza/foss-mcp/schemas/gate-exit.schema.json",
+  "title": "foss-mcp gate-exit report",
+  "description": "evidence/build/<gate>/exit_report.json. Written by `gatectl gate-exit` on EVERY run, met or not, so a failed exit is evidence the derived state can read instead of a verdict that scrolled past. It is compact on purpose: a passing card carries only the fact and its test count (its stored receipt holds the detail); a failing card carries its reason.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "gate", "verdict", "generated_by", "recorded_at", "checked_head", "cards",
+               "failing_cards", "gate_level_failures", "repo_wide_ci", "live_smoke", "open_questions",
+               "owner_items", "blocked_env"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "gate": {"type": "string", "pattern": "^G[0-5]$"},
+    "verdict": {"enum": ["MET", "NOT_MET", "BLOCKED_ENV"]},
+    "generated_by": {"const": "gatectl"},
+    "recorded_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+    "checked_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "cards": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false,
+        "required": ["accepted"],
+        "properties": {
+          "accepted": {"type": "boolean"},
+          "tests": {"type": "integer", "minimum": 0},
+          "reason": {"type": "string"}
+        }
+      }
+    },
+    "failing_cards": {"type": "array", "items": {"type": "string", "pattern": "^TC-[0-9]{3}[a-z]?$"}},
+    "gate_level_failures": {"type": "array", "items": {"type": "string"}},
+    "repo_wide_ci": {
+      "type": "object", "additionalProperties": false,
+      "required": ["exit_code", "steps"],
+      "properties": {
+        "exit_code": {"type": "integer"},
+        "steps": {"type": "array", "items": {"type": "string"}},
+        "detail": {"type": "string"}
+      }
+    },
+    "live_smoke": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "detail"],
+      "properties": {"status": {"enum": ["PASS", "FAIL", "BLOCKED_ENV"]}, "detail": {"type": "string"}}
+    },
+    "open_questions": {"type": "array", "items": {"type": "string", "pattern": "^OQ-[0-9]{3}$"}},
+    "owner_items": {"type": "array", "items": {"type": "string", "pattern": "^OWNER-[0-9]{2}$"}},
+    "blocked_env": {"type": "array", "items": {"type": "string"}}
+  }
+}

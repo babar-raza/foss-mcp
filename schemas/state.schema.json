@@ -6,7 +6,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "project", "generated_by", "generated_at",
-               "current_gate", "accepted_gates", "cards", "owner_items",
+               "current_gate", "gate_exit", "accepted_gates", "cards", "owner_items",
                "open_questions", "execution_limits"],
   "properties": {
     "schema_version": {"const": 1},
@@ -17,7 +17,21 @@
       "type": "object", "additionalProperties": false,
       "required": ["id", "status"],
       "properties": {"id": {"$ref": "#/$defs/gate_id"},
-                     "status": {"enum": ["READY", "IN_PROGRESS", "VERIFYING", "ACCEPTED", "BLOCKED_EXTERNAL", "BLOCKED_ENV", "FAILED_INTERNAL"]}}
+                     "status": {"enum": ["READY", "IN_PROGRESS", "VERIFYING", "ACCEPTED", "BLOCKED_EXTERNAL", "BLOCKED_ENV", "FAILED_INTERNAL", "EXIT_PENDING", "EXIT_FAILED"]}}
+    },
+    "gate_exit": {
+      "description": "The latest gate-exit run for the current gate (evidence/build/<gate>/exit_report.json), or null when none exists. EXIT_PENDING means every card is accepted and the exit has not been tried; EXIT_FAILED means it was tried and these blockers remain.",
+      "oneOf": [
+        {"type": "null"},
+        {"type": "object", "additionalProperties": false,
+         "required": ["verdict", "checked_head", "recorded_at", "report", "blockers"],
+         "properties": {
+           "verdict": {"enum": ["MET", "NOT_MET", "BLOCKED_ENV"]},
+           "checked_head": {"type": "string"},
+           "recorded_at": {"type": "string"},
+           "report": {"type": "string"},
+           "blockers": {"type": "array", "items": {"type": "string"}}}}
+      ]
     },
     "accepted_gates": {"type": "array", "items": {"$ref": "#/$defs/gate_id"}, "uniqueItems": true, "maxItems": 6},
     "cards": {
