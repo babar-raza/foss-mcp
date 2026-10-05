@@ -629,7 +629,7 @@ _RUSTC_E0308_OUTPUT = (
     "   Compiling candidate v0.0.0\n"
     "error[E0308]: mismatched types\n"
     " --> src/main.rs:2:18\n"
-    "error: could not compile `candidate` (bin \"candidate\") due to 1 previous error\n"
+    'error: could not compile `candidate` (bin "candidate") due to 1 previous error\n'
 )
 _RUST_CANDIDATE = _candidate("Cargo fallback", "rust", "fn main() {}\n")
 
@@ -693,9 +693,7 @@ def test_cargo_network_failure_twice_still_raises_environment_error(
     assert calls[1] == ["cargo", "build", "--offline"]
 
 
-def test_cargo_compiler_diagnostic_is_never_retried(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_cargo_compiler_diagnostic_is_never_retried(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     calls = _script_cargo_runs(monkeypatch, [(101, _RUSTC_E0308_OUTPUT)])
 
     result = verify_rust_example(
