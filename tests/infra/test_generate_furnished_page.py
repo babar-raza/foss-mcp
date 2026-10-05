@@ -63,6 +63,39 @@ _EXPECTED_EXAMPLE_COUNT = {
 }
 
 _REPOSITORY_PRESENTER_ROOT = Path("H:/Users/prora/OneDrive/Documents/GitHub/repository-presenter")
+_REPOSITORY_PRESENTER_ROOT_ON_THIS_HOST = Path("E:/Users/prora/OneDrive/Documents/GitHub/repository-presenter")
+
+# The sealed-candidate commit for each pilot, vendored as plain data (G2/TC-217). The
+# test below always compares against these, so it never skips for want of a checkout.
+SEALED_CURRENT_ROOT = FIXTURE_ROOT / "sealed_current"
+
+_PILOT_REPOSITORY = {
+    "pdf_net": ("pdf", "net"),
+    "pdf_java": ("pdf", "java"),
+    "pdf_go": ("pdf", "go"),
+    "slides_python": ("slides", "python"),
+    "cells_rust": ("cells", "rust"),
+}
+
+
+def _real_repository_presenter_root() -> Path | None:
+    """The real checkout, if this host has one: FOSS_MCP_REPOSITORY_PRESENTER, then the
+    constant above, then the E: checkout. Returns None when none is present."""
+    import os
+
+    candidates = [
+        os.environ.get("FOSS_MCP_REPOSITORY_PRESENTER"),
+        _REPOSITORY_PRESENTER_ROOT,
+        _REPOSITORY_PRESENTER_ROOT_ON_THIS_HOST,
+    ]
+    for candidate in candidates:
+        if candidate and Path(candidate).is_dir():
+            return Path(candidate)
+    return None
+
+
+def _vendored_sealed_commit(pilot: str) -> str:
+    return (SEALED_CURRENT_ROOT / f"{pilot}.CURRENT").read_text(encoding="utf-8").strip()
 
 
 def _single_block_sha256(fixture_path: Path) -> str:
@@ -314,33 +347,41 @@ def test_regenerated_fixture_loads_through_the_real_production_parser(pilot: str
 @pytest.mark.parametrize("pilot", sorted(_EXPECTED_SINGLE_BLOCK_SHA256))
 def test_doc_source_commit_is_the_sealed_candidates_own_commit(pilot: str) -> None:
     """Proves the closeout requirement directly: each regenerated page's own
-    ``doc_source_commit`` is repository-presenter's real, current sealed-candidate
-    commit for that repository - read fresh from the real local checkout, never
-    hardcoded - and is NOT conflated with this project's own ``--library-commit`` pin
-    (asserted to differ for the 2 pilots confirmed to genuinely differ: pdf/net and
-    slides/python).
+    ``doc_source_commit`` is the vendored sealed-candidate commit for that pilot
+    (tests/fixtures/furnished/sealed_current/<pilot>.CURRENT). It always runs, with no
+    skip and no xfail. Where a real repository-presenter checkout is present, the
+    vendored value is also asserted equal to that checkout's own CURRENT file, so the
+    drift check still happens on machines that have the checkout. The page's commit is
+    NOT conflated with this project's ``--library-commit`` pin (asserted to differ for
+    pdf/net and slides/python).
     """
-    if not _REPOSITORY_PRESENTER_ROOT.is_dir():
-        pytest.skip(f"repository-presenter checkout not present at {_REPOSITORY_PRESENTER_ROOT}")
-
-    family, platform = {
-        "pdf_net": ("pdf", "net"),
-        "pdf_java": ("pdf", "java"),
-        "pdf_go": ("pdf", "go"),
-        "slides_python": ("slides", "python"),
-        "cells_rust": ("cells", "rust"),
-    }[pilot]
-    repository = gen._read_repository(family, platform, Path("."))
-    current_path = _REPOSITORY_PRESENTER_ROOT / "candidates" / repository.replace("/", "__") / "CURRENT"
-    real_current_commit = current_path.read_text(encoding="utf-8").strip()
+    vendored_commit = _vendored_sealed_commit(pilot)
 
     fixture_path = FIXTURE_ROOT / pilot / "pages" / "_index.md"
     page = build_chunks._load_furnished_page(fixture_path)
 
-    assert page["doc_source_commit"] == real_current_commit
+    assert page["doc_source_commit"] == vendored_commit
+
+    real_root = _real_repository_presenter_root()
+    if real_root is not None:
+        family, platform = _PILOT_REPOSITORY[pilot]
+        repository = gen._read_repository(family, platform, Path("."))
+        current_path = real_root / "candidates" / repository.replace("/", "__") / "CURRENT"
+        real_current_commit = current_path.read_text(encoding="utf-8").strip()
+        assert vendored_commit == real_current_commit
 
     if pilot in ("pdf_net", "slides_python"):
         assert page["doc_source_commit"] != _LIBRARY_COMMIT[pilot]
+
+
+def test_every_pilot_has_a_vendored_40_hex_sealed_commit() -> None:
+    """Every pilot in the sealed-commit test has a vendored CURRENT file holding exactly
+    one 40-hex commit, so that test never depends on a local checkout to have a value."""
+    assert set(_PILOT_REPOSITORY) == set(_EXPECTED_SINGLE_BLOCK_SHA256)
+    for pilot in sorted(_PILOT_REPOSITORY):
+        path = SEALED_CURRENT_ROOT / f"{pilot}.CURRENT"
+        assert path.is_file(), f"missing vendored sealed commit: {path}"
+        assert re.fullmatch(r"[0-9a-f]{40}", _vendored_sealed_commit(pilot)), path
 
 
 def test_pdf_typescript_fixture_is_left_completely_untouched() -> None:
