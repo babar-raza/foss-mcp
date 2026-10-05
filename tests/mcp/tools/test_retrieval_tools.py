@@ -728,6 +728,55 @@ def test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere
     assert 'document.AddWatermarkAnnotation("Confidential")' in result.example.snippet
 
 
+def test_an_example_answer_survives_zero_documentation_matches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """TC-218: forces ``lookup``'s example-only branch (``if not doc_matches and example is
+    None``) to be reached. TC-109 made ``search_docs`` classify the Example pseudo-symbol chunk
+    as developer_guide, so the TC-075 test above no longer sees zero doc matches and cannot
+    catch a regression that narrows the condition. Here ``search_docs`` is forced to miss for
+    every content type, so the verified example must still answer on its own.
+    """
+    store = _store(tmp_path)
+    pseudo_symbol_body = (
+        "# Example: Add a Watermark Annotation\n\n"
+        "FQN: Example: Add a Watermark Annotation\n"
+        "Kind: verified_example\n"
+        "Adds a watermark annotation to a document using a real, verified snippet.\n\n"
+        'Example:\ndocument.AddWatermarkAnnotation("Confidential")'
+    )
+    pseudo_doc = make_document(
+        source_kind=SourceKind.SELF_EXTRACTED,
+        content_type="example",
+        provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+        evidence_refs=(),
+        title="Add a Watermark Annotation",
+        body=pseudo_symbol_body,
+    )
+    _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(pseudo_doc))
+
+    def _forced_miss(
+        store_arg: GenerationManifestStore,
+        scope: Scope,
+        query: str,
+        content_type: str,
+        *args: object,
+        **kwargs: object,
+    ) -> DocsMiss:
+        return DocsMiss(
+            scope=scope, query=query, content_type=content_type, reason="forced miss"
+        )
+
+    monkeypatch.setattr("foss_mcp.mcp.tools.lookup.search_docs", _forced_miss)
+
+    result = lookup(store, PDF_NET_SCOPE, "how do I add a watermark to a PDF")
+
+    assert isinstance(result, TaskAnswer)
+    assert result.doc_matches == ()
+    assert isinstance(result.example, ExampleMatch)
+    assert result.example.fqn == "Example: Add a Watermark Annotation"
+
+
 def test_looks_like_a_task_question_classifies_by_query_shape() -> None:
     """The exact classification the card requires: real symbol-shaped queries from the actual
     pdf/net fixture stay NOT-task-shaped (existing tests depend on those staying on the
