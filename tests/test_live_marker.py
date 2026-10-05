@@ -100,4 +100,6 @@ def test_java_live_test_carries_live_marker() -> None:
     module = importlib.import_module("tests.extraction.tree_sitter_engine.test_api_surface_java_live")
     marks = [m.name for m in getattr(module.test_java_record_live_regression, "pytestmark", [])]
     assert "live" in marks
-    assert not any(m.name == "skipif" for m in getattr(module.test_java_record_live_regression, "pytestmark", []))
+    assert not any(
+        m.name == "skipif" for m in getattr(module.test_java_record_live_regression, "pytestmark", [])
+    )
