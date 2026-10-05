@@ -1,0 +1,79 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k5ksckdv\.junit-0.xml"
+--- stdout ---
+......................                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k5ksckdv\.junit-0.xml"
+--- stdout ---
+......................                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/lookup.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k5ksckdv\.junit-0.xml"
+--- stdout ---
+..................F...                                                   [100%]
+================================== FAILURES ===================================
+_________ test_an_example_answer_survives_zero_documentation_matches __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-2074/test_an_example_answer_survive0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002327E173BB0>
+
+    def test_an_example_answer_survives_zero_documentation_matches(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """TC-218: forces ``lookup``'s example-only branch (``if not doc_matches and example is
+        None``) to be reached. TC-109 made ``search_docs`` classify the Example pseudo-symbol chunk
+        as developer_guide, so the TC-075 test above no longer sees zero doc matches and cannot
+        catch a regression that narrows the condition. Here ``search_docs`` is forced to miss for
+        every content type, so the verified example must still answer on its own.
+        """
+        store = _store(tmp_path)
+        pseudo_symbol_body = (
+            "# Example: Add a Watermark Annotation\n\n"
+            "FQN: Example: Add a Watermark Annotation\n"
+            "Kind: verified_example\n"
+            "Adds a watermark annotation to a document using a real, verified snippet.\n\n"
+            'Example:\ndocument.AddWatermarkAnnotation("Confidential")'
+        )
+        pseudo_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="example",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="Add a Watermark Annotation",
+            body=pseudo_symbol_body,
+        )
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(pseudo_doc))
+    
+        def _forced_miss(
+            store_arg: GenerationManifestStore,
+            scope: Scope,
+            query: str,
+            content_type: str,
+            *args: object,
+            **kwargs: object,
+        ) -> DocsMiss:
+            return DocsMiss(scope=scope, query=query, content_type=content_type, reason="forced miss")
+    
+        monkeypatch.setattr("foss_mcp.mcp.tools.lookup.search_docs", _forced_miss)
+    
+        result = lookup(store, PDF_NET_SCOPE, "how do I add a watermark to a PDF")
+    
+>       assert isinstance(result, TaskAnswer)
+E       assert False
+E        +  where False = isinstance(Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='how do I add a watermark to a PDF', reason="no symbol matches 'how do I add a watermark to a PDF'", suggestions=()), TaskAnswer)
+
+tests\mcp\tools\test_retrieval_tools.py:772: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_an_example_answer_survives_zero_documentation_matches
+
+--- stderr ---
+
