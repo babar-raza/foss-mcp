@@ -1,0 +1,79 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_live_marker.py tests/extraction/tree_sitter_engine/test_api_surface_java_live.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2jwkpw6k\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_live_marker.py tests/extraction/tree_sitter_engine/test_api_surface_java_live.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2jwkpw6k\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/conftest.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_live_marker.py tests/extraction/tree_sitter_engine/test_api_surface_java_live.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2jwkpw6k\.junit-0.xml"
+--- stdout ---
+.F.F.                                                                    [100%]
+================================== FAILURES ===================================
+___________________ test_live_items_kept_when_opt_in_is_one ___________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000269F9668D60>
+
+    def test_live_items_kept_when_opt_in_is_one(monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv(OPT_IN, "1")
+        config, hook = make_config()
+        live = FakeItem("live_one", live=True)
+        plain = FakeItem("plain_one", live=False)
+        items = [live, plain]
+    
+        conftest.pytest_collection_modifyitems(config, items)
+    
+>       assert items == [live, plain]
+E       assert [<tests.test_...0269F9765CD0>] == [<tests.test_...0269F9765CD0>]
+E         
+E         At index 0 diff: <tests.test_live_marker.FakeItem object at 0x00000269F9765CD0> != <tests.test_live_marker.FakeItem object at 0x00000269F964EE90>
+E         Right contains one more item: <tests.test_live_marker.FakeItem object at 0x00000269F9765CD0>
+E         Use -v to get more diff
+
+tests\test_live_marker.py:65: AssertionError
+________ test_summary_prints_count_only_when_something_was_deselected _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000269F95B7680>
+
+    def test_summary_prints_count_only_when_something_was_deselected(monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv(OPT_IN, raising=False)
+        lines: list[str] = []
+        reporter = SimpleNamespace(write_line=lines.append)
+    
+        config, _ = make_config()
+        conftest.pytest_collection_modifyitems(config, [FakeItem("plain_one", live=False)])
+        conftest.pytest_terminal_summary(reporter, 0, config)
+        assert lines == []
+    
+        config, _ = make_config()
+        conftest.pytest_collection_modifyitems(
+            config, [FakeItem("live_one", live=True), FakeItem("live_two", live=True)]
+        )
+        conftest.pytest_terminal_summary(reporter, 0, config)
+>       assert lines == [f"2 live test(s) deselected; set {OPT_IN}=1 to run them"]
+E       AssertionError: assert ['2 live test... to run them'] == ['2 live test... to run them']
+E         
+E         At index 0 diff: '2 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS_OFF=1 to run them' != '2 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them'
+E         Use -v to get more diff
+
+tests\test_live_marker.py:96: AssertionError
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS_OFF=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/test_live_marker.py::test_live_items_kept_when_opt_in_is_one - a...
+FAILED tests/test_live_marker.py::test_summary_prints_count_only_when_something_was_deselected
+
+--- stderr ---
+
