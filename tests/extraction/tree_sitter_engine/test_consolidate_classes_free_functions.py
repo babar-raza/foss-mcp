@@ -25,18 +25,19 @@ recorded for the same file). It is wired additively into
 in the namespace-group is a free function, strictly BEFORE categories 1-6 --
 which must remain completely unchanged for every class/struct/enum entry.
 
-Part 1 below (this file) is the direct, hand-built unit proof. Part 2
-(``test_real_cells_cpp_free_function_collapse_is_fixed``) is the real
-end-to-end regression against a real, pinned cells/cpp checkout -- it needs
-real network access to clone GitHub, mirroring the real-repo-clone convention
-used by tests/indexing/test_example_verifier.py (a module-scoped fixture does
-the real ``git init``/``fetch``/``checkout``, and the test asserts on the real
-resulting data; no mocking).
+Part 1 below (this file) is the direct, hand-built unit proof. Part 2 (the two ``test_real_cells_cpp_*`` tests) is the real end-to-end
+regression against the real, pinned cells/cpp source. That source is the
+vendored, checksummed snapshot in tests/fixtures/cells_cpp_pinned_source/
+(see its PINNED.txt), so the tests run offline: no network, no clone. The
+module-scoped fixture verifies SHA256SUMS.txt before any real parse, and the
+tests assert on real parsed data with no mocking.
 """
 
 from __future__ import annotations
 
-import subprocess
+import hashlib
+import re
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +53,15 @@ from foss_mcp.extraction.tree_sitter_engine.api_surface import consolidate_class
 # this card fixes (61 colliding names, worst case IsNullOrWhiteSpace 10 -> 1).
 CELLS_CPP_REPOSITORY = "aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp"
 CELLS_CPP_COMMIT = "9f852d0ff1cfdad2d661556d6b87a8eff8c063a2"
+# The committed, checksummed snapshot of that commit's C++ sources (TC-215).
+# tests/fixtures/cells_cpp_pinned_source/PINNED.txt names the same repository and
+# commit; a test below asserts that, so the snapshot and the constants cannot drift.
+VENDORED_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "cells_cpp_pinned_source"
+MANIFEST_NAME = "SHA256SUMS.txt"
+
+
+class SnapshotIntegrityError(RuntimeError):
+    """The vendored cells/cpp snapshot does not match its SHA256SUMS.txt manifest."""
 
 
 def _function_entry(name: str, file: str, **overrides: Any) -> dict[str, Any]:
@@ -264,58 +274,64 @@ def test_fallback_merge_for_non_function_entries_still_applies() -> None:
 # --- real, pinned cells/cpp end-to-end regression ---------------------------
 
 
-def _run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(args, cwd=cwd, capture_output=True, text=True)
+def _snapshot_files(root: Path) -> dict[str, Path]:
+    """Every regular file under *root* except the manifest, keyed by POSIX relative path."""
+    return {
+        path.relative_to(root).as_posix(): path
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and path.name != MANIFEST_NAME
+    }
 
 
-def _clone_pinned_commit(repository: str, commit: str, workdir: Path) -> None:
-    """Shallow-fetch exactly one pinned commit of *repository* into *workdir*.
+def verify_vendored_snapshot(root: Path) -> None:
+    """Check *root* against its SHA256SUMS.txt before any real parse uses it.
 
-    Real ``git init`` + ``git remote add`` + ``git fetch --depth 1`` + ``git
-    checkout`` -- the same real, network-dependent plumbing already used by
-    tests/indexing/test_example_verifier.py's pinned-commit fixtures. Nothing
-    here is mocked. Raises on any real failure.
+    Raises SnapshotIntegrityError naming the offending path when a listed file is
+    missing or its sha256 differs, when a file on disk is not listed (an unlisted
+    extra source file included), or when the manifest itself is absent.
     """
-    workdir.mkdir(parents=True, exist_ok=True)
-    repo_url = f"https://github.com/{repository}.git"
+    manifest = root / MANIFEST_NAME
+    if not manifest.is_file():
+        raise SnapshotIntegrityError(f"{MANIFEST_NAME} is missing from {root}")
 
-    init_result = _run(["git", "init"], cwd=workdir)
-    if init_result.returncode != 0:
-        raise RuntimeError(f"git init failed in {workdir}:\n{init_result.stdout}\n{init_result.stderr}")
+    listed: dict[str, str] = {}
+    for line_number, line in enumerate(manifest.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip():
+            continue
+        digest, sep, relative = line.partition("  ")
+        if not sep or len(digest) != 64:
+            raise SnapshotIntegrityError(f"{MANIFEST_NAME} line {line_number} is malformed: {line!r}")
+        listed[relative] = digest
 
-    remote_result = _run(["git", "remote", "add", "origin", repo_url], cwd=workdir)
-    if remote_result.returncode != 0:
-        raise RuntimeError(
-            f"git remote add failed for {repo_url}:\n{remote_result.stdout}\n{remote_result.stderr}"
-        )
+    on_disk = _snapshot_files(root)
 
-    fetch_result = _run(["git", "fetch", "--depth", "1", "origin", commit], cwd=workdir)
-    if fetch_result.returncode != 0:
-        raise RuntimeError(
-            f"git fetch of commit {commit} from {repo_url} failed:\n"
-            f"{fetch_result.stdout}\n{fetch_result.stderr}"
-        )
+    for relative in sorted(listed):
+        if relative not in on_disk:
+            raise SnapshotIntegrityError(f"vendored file listed in {MANIFEST_NAME} is missing: {relative}")
+        actual = hashlib.sha256(on_disk[relative].read_bytes()).hexdigest()
+        if actual != listed[relative]:
+            raise SnapshotIntegrityError(
+                f"vendored file {relative} does not match its sha256 in {MANIFEST_NAME}: "
+                f"expected {listed[relative]}, got {actual}"
+            )
 
-    checkout_result = _run(["git", "checkout", commit], cwd=workdir)
-    if checkout_result.returncode != 0:
-        raise RuntimeError(
-            f"git checkout of commit {commit} failed:\n{checkout_result.stdout}\n{checkout_result.stderr}"
-        )
+    for relative in sorted(set(on_disk) - set(listed)):
+        raise SnapshotIntegrityError(f"file on disk is not listed in {MANIFEST_NAME}: {relative}")
 
 
 @pytest.fixture(scope="module")
-def cells_cpp_checkout(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    workdir = tmp_path_factory.mktemp("cells_cpp_tc092")
-    _clone_pinned_commit(CELLS_CPP_REPOSITORY, CELLS_CPP_COMMIT, workdir)
-    return workdir
+def cells_cpp_checkout() -> Path:
+    """The vendored, checksum-verified cells/cpp snapshot. No network is used."""
+    verify_vendored_snapshot(VENDORED_DIR)
+    return VENDORED_DIR
 
 
 @pytest.fixture(scope="module")
 def cells_cpp_free_functions(cells_cpp_checkout: Path) -> list[dict[str, Any]]:
-    """Run this project's real extraction engine once over the real, pinned
-    cells/cpp checkout and return the surviving free-function entries, shared
-    by both real-data assertions below so the (slow) real clone + real parse
-    of ~375 real C++ files only happens once per test session.
+    """Run this project's real extraction engine once over the vendored, pinned
+    cells/cpp snapshot and return the surviving free-function entries, shared
+    by both real-data assertions below so the real parse of the ~375 vendored
+    C++ files only happens once per test session.
     """
     pkg_root = package_root.detect_package_root(cells_cpp_checkout, "cpp")
     parser = get_parser("cpp")
@@ -344,8 +360,8 @@ def test_real_cells_cpp_isnullorwhitespace_no_longer_collapsed(
 def test_real_cells_cpp_free_function_count_increases_substantially(
     cells_cpp_free_functions: list[dict[str, Any]],
 ) -> None:
-    """Real end-to-end regression against real cells/cpp data (network
-    required): before this fix, 353 raw free functions collapsed to 192 by
+    """Real end-to-end regression against the vendored, pinned cells/cpp
+    snapshot (no network needed): before this fix, 353 raw free functions collapsed to 192 by
     the bug this card fixes (confirmed by direct instrumentation). This
     asserts a much higher surviving count after the fix.
 
@@ -399,3 +415,56 @@ def test_real_cells_cpp_free_function_count_increases_substantially(
     # Always a genuine, large improvement over the pre-fix baseline, regardless
     # of the separate defect described above.
     assert len(cells_cpp_free_functions) > 192
+
+
+# --- vendored snapshot integrity (TC-215) -----------------------------------
+
+
+def _copy_snapshot(destination: Path) -> Path:
+    """A private, writable copy of the whole vendored snapshot, for tampering."""
+    copied = destination / "cells_cpp_pinned_source"
+    shutil.copytree(VENDORED_DIR, copied)
+    return copied
+
+
+def test_manifest_rejects_tampered_file(tmp_path: Path) -> None:
+    """Flip one byte in one vendored file: verification must fail and name it."""
+    snapshot = _copy_snapshot(tmp_path)
+    victim = "Aspose.Cells.Foss.Cpp/include/aspose/cells_foss/AutoFilter.h"
+    target = snapshot / victim
+    assert target.is_file()
+    data = bytearray(target.read_bytes())
+    data[0] ^= 0x01
+    target.write_bytes(bytes(data))
+
+    with pytest.raises(SnapshotIntegrityError, match=re.escape(victim)):
+        verify_vendored_snapshot(snapshot)
+
+
+def test_manifest_rejects_unlisted_extra_source_file(tmp_path: Path) -> None:
+    """A source file that SHA256SUMS.txt does not list must fail verification by name."""
+    snapshot = _copy_snapshot(tmp_path)
+    extra = "Aspose.Cells.Foss.Cpp/src/unlisted_extra_tc215.cpp"
+    (snapshot / extra).write_text("int unlisted_extra_tc215() { return 0; }\n", encoding="utf-8")
+
+    with pytest.raises(SnapshotIntegrityError, match=re.escape(extra)):
+        verify_vendored_snapshot(snapshot)
+
+
+def test_fixture_path_is_the_vendored_directory(cells_cpp_checkout: Path) -> None:
+    """Wiring proof: the real-data fixture returns the committed snapshot directory
+    itself, and that directory holds the verified, pinned sources (no clone).
+    """
+    assert cells_cpp_checkout.resolve() == VENDORED_DIR.resolve()
+    assert "cells_cpp_pinned_source" in cells_cpp_checkout.parts
+    assert (cells_cpp_checkout / "Aspose.Cells.Foss.Cpp").is_dir()
+    assert len(list((cells_cpp_checkout / "Aspose.Cells.Foss.Cpp").rglob("*.cpp"))) > 0
+
+
+def test_pinned_file_names_the_repository_and_commit_constants() -> None:
+    """PINNED.txt must name exactly the repository and commit the constants pin,
+    so the vendored snapshot and the constants cannot drift apart.
+    """
+    pinned = (VENDORED_DIR / "PINNED.txt").read_text(encoding="utf-8")
+    assert CELLS_CPP_REPOSITORY in pinned
+    assert CELLS_CPP_COMMIT in pinned
