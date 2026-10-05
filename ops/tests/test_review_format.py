@@ -27,6 +27,24 @@ def test_no_python_change_selects_nothing():
     assert C.format_check_targets(["docs/DECISION_LOG.md"]) == []
 
 
+def test_a_format_rejection_turns_the_accepted_receipt_into_a_rejected_one():
+    accepted = {"accepted": True, "reason": "all gates passed", "card": "TC-217", "runs": [{"run": 1}]}
+    rejected = C.receipt_rejected_by_format(accepted, "unformatted: File would be reformatted\n  --> x.py:1")
+    assert rejected["accepted"] is False, "the derived state reads this, so it must not stay accepted"
+    assert rejected["reason"].startswith("ruff format --check failed: unformatted")
+    assert rejected["runs"] == accepted["runs"], "the evidence of what ran is kept"
+    assert accepted["accepted"] is True, "the input is not mutated"
+
+
+def test_review_rejects_the_receipt_when_the_format_step_fails():
+    import inspect as _i
+
+    src = _i.getsource(C.cmd_review)
+    assert "_reject_receipt(args.card" in src
+    assert src.index("_review_format(") < src.index("_reject_receipt(args.card")
+    assert src.index("_reject_receipt(args.card") < src.index("cmd_accept(")
+
+
 def test_review_calls_the_format_step_after_coverage():
     source = inspect.getsource(C.cmd_review)
     assert "_review_format(" in source
