@@ -1,0 +1,87 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ddhq7ic_\.junit-0.xml"
+--- stdout ---
+.........................                                                [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ddhq7ic_\.junit-0.xml"
+--- stdout ---
+.........................                                                [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/example_verifier.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ddhq7ic_\.junit-0.xml"
+--- stdout ---
+.....................FF..                                                [100%]
+================================== FAILURES ===================================
+______ test_cargo_network_failure_then_offline_success_returns_verified _______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198BD039940>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-2086/test_cargo_network_failure_the0')
+
+    def test_cargo_network_failure_then_offline_success_returns_verified(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        calls = _script_cargo_runs(monkeypatch, [(101, _NETWORK_FAILURE_OUTPUT), (0, "Finished")])
+    
+        result = verify_rust_example(
+            _RUST_CANDIDATE,
+            library_crate_name="reference",
+            library_dir=tmp_path,
+            workdir=tmp_path / "work",
+        )
+    
+        assert result.verified is True
+        assert len(calls) == 2
+        assert calls[0] == ["cargo", "build"]
+>       assert calls[1] == ["cargo", "build", "--offline"]
+E       AssertionError: assert ['cargo', 'bu...-such-flag-x'] == ['cargo', 'bu..., '--offline']
+E         
+E         At index 2 diff: '--no-such-flag-x' != '--offline'
+E         Use -v to get more diff
+
+tests\indexing\test_example_verifier.py:671: AssertionError
+_______ test_cargo_network_failure_twice_still_raises_environment_error _______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198BD039F30>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-2086/test_cargo_network_failure_twi0')
+
+    def test_cargo_network_failure_twice_still_raises_environment_error(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        calls = _script_cargo_runs(
+            monkeypatch,
+            [(101, _NETWORK_FAILURE_OUTPUT), (101, _NETWORK_FAILURE_OUTPUT)],
+        )
+    
+        with pytest.raises(ExampleEnvironmentError) as excinfo:
+            verify_rust_example(
+                _RUST_CANDIDATE,
+                library_crate_name="reference",
+                library_dir=tmp_path,
+                workdir=tmp_path / "work",
+            )
+    
+        assert excinfo.value.tool == "cargo"
+        assert excinfo.value.marker == "spurious network error"
+        assert len(calls) == 2
+>       assert calls[1] == ["cargo", "build", "--offline"]
+E       AssertionError: assert ['cargo', 'bu...-such-flag-x'] == ['cargo', 'bu..., '--offline']
+E         
+E         At index 2 diff: '--no-such-flag-x' != '--offline'
+E         Use -v to get more diff
+
+tests\indexing\test_example_verifier.py:693: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_example_verifier.py::test_cargo_network_failure_then_offline_success_returns_verified
+FAILED tests/indexing/test_example_verifier.py::test_cargo_network_failure_twice_still_raises_environment_error
+
+--- stderr ---
+
