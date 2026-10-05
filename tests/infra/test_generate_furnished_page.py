@@ -63,7 +63,9 @@ _EXPECTED_EXAMPLE_COUNT = {
 }
 
 _REPOSITORY_PRESENTER_ROOT = Path("H:/Users/prora/OneDrive/Documents/GitHub/repository-presenter")
-_REPOSITORY_PRESENTER_ROOT_ON_THIS_HOST = Path("E:/Users/prora/OneDrive/Documents/GitHub/repository-presenter")
+_REPOSITORY_PRESENTER_ROOT_ON_THIS_HOST = Path(
+    "E:/Users/prora/OneDrive/Documents/GitHub/repository-presenter"
+)
 
 # The sealed-candidate commit for each pilot, vendored as plain data (G2/TC-217). The
 # test below always compares against these, so it never skips for want of a checkout.
