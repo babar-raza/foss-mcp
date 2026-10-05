@@ -80,6 +80,14 @@ ingestion:
   # Each Job runs infra/build_chunks.py then infra/ingest.py, the same two-step chain
   # docker-compose.yml runs. A failed chain retries up to backoffLimit times, then stays failed.
   backoffLimit: 2
+  # Optional GitHub token for the reference readers (GITHUB_TOKEN). The token is never a value
+  # here and never in the chart: the operator creates the Secret, and the chart only names it. When
+  # existingSecret is empty (the default) nothing is emitted and the Jobs run unauthenticated. When
+  # it is set, every ingestion Job gets GITHUB_TOKEN from that Secret's key, optional so a missing
+  # key does not stop the pod.
+  githubToken:
+    existingSecret: ""
+    key: token
   # Ingestion compiles real reference libraries (dotnet build, cargo build, mvn, go build, a
   # Python venv) per candidate example, so its limits are several times the serving pod's.
   # Estimated from the toolchains installed in Dockerfile.ingestion, not measured.

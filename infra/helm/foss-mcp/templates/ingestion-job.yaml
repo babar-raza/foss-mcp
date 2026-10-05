@@ -94,6 +94,18 @@ spec:
               value: /home/foss-mcp
             - name: CARGO_HOME
               value: /home/foss-mcp/.cargo
+            {{- with $.Values.ingestion.githubToken }}
+            {{- if .existingSecret }}
+            # The token is read from an operator-created Secret. optional keeps a missing key from
+            # failing the pod; the reader then runs unauthenticated, as it does with no token set.
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .existingSecret | quote }}
+                  key: {{ .key | quote }}
+                  optional: true
+            {{- end }}
+            {{- end }}
           securityContext:
             {{- toYaml $.Values.containerSecurityContext | nindent 12 }}
           resources:
