@@ -23,6 +23,7 @@ $pathDirs = @(
     (Join-Path $tools 'rp-toolchains\ninja'),
     (Join-Path $tools 'rp-toolchains\npm\prefix'),
     (Join-Path $tools 'adoptium\jdk-21.0.11.10-hotspot\bin'),
+    (Join-Path $tools 'dotnet-8'),
     (Join-Path $tools 'helm\windows-amd64')
 )
 
@@ -33,6 +34,7 @@ $env:CARGO_HOME = Join-Path $tools 'rp-toolchains\rustup\cargo-home'
 $pathDirs += (Join-Path $env:CARGO_HOME 'bin')
 
 $env:JAVA_HOME = Join-Path $tools 'adoptium\jdk-21.0.11.10-hotspot'
+$env:DOTNET_ROOT = Join-Path $tools 'dotnet-8'
 $env:NPM_CONFIG_PREFIX = Join-Path $tools 'rp-toolchains\npm\prefix'
 $env:NPM_CONFIG_CACHE = Join-Path $tools 'rp-toolchains\npm\cache'
 
