@@ -1,4 +1,9 @@
-#!/usr/bin/env bash
+#!/bin/sh
+# POSIX sh on purpose, with an absolute shebang: `#!/usr/bin/env bash` searches PATH, and on a
+# Windows host the first `bash` on PATH can be C:/Windows/System32/bash.exe, the WSL launcher. GitHub
+# Desktop's bundled git ships sh.exe but no bash.exe, so there that launcher was the only candidate and
+# every commit and push died with "WSL Relay ... execvpe(/bin/bash) failed" (found 2026-10-06).
+# /bin/sh is resolved by git's own runtime, never by PATH. Keep this file POSIX (no pipefail, no [[ ]]).
 # Refuses a commit that would sweep up work the committer does not own.
 #
 # This is a HOOK and not a command because the command already existed, already
@@ -14,7 +19,7 @@
 # inside that card's write_paths, with an open dispatch on the channel. The old
 # value 1 used to skip the guard for every path. It now fails, because no card
 # is named.
-set -euo pipefail
+set -eu
 
 # The venv lives in the main checkout. A worktree has none, so resolve the main root from
 # the common git dir, which is the same from every worktree (TC-184 worker, 2026-10-04).

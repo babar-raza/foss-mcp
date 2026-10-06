@@ -1,4 +1,9 @@
-#!/usr/bin/env bash
+#!/bin/sh
+# POSIX sh on purpose, with an absolute shebang: `#!/usr/bin/env bash` searches PATH, and on a
+# Windows host the first `bash` on PATH can be C:/Windows/System32/bash.exe, the WSL launcher. GitHub
+# Desktop's bundled git ships sh.exe but no bash.exe, so there that launcher was the only candidate and
+# every commit and push died with "WSL Relay ... execvpe(/bin/bash) failed" (found 2026-10-06).
+# /bin/sh is resolved by git's own runtime, never by PATH. Keep this file POSIX (no pipefail, no [[ ]]).
 # Blocks a push unless the local CI-equivalent passes.
 #
 # FAILS CLOSED, deliberately. The reference system's version of this hook matched
@@ -7,7 +12,7 @@
 # pushed to a differently-named remote would silently run no checks at all. So
 # here an unrecognised remote BLOCKS and asks, rather than waving the push
 # through.
-set -euo pipefail
+set -eu
 
 remote_name="${1:-origin}"
 remote_url="${2:-}"
