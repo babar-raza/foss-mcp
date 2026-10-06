@@ -107,6 +107,17 @@ RUN apt-get update \
     && rm /tmp/rustup-init \
     && chmod -R a+w "$RUSTUP_HOME" "$CARGO_HOME"
 
+# REQ-G2-043 (TC-222): pdf/cpp's ingestion path (build_chunks.py's --library-platform cpp) builds the
+# pinned library with CMake and compiles each candidate example with g++ (-std=c++20). Both come from
+# Debian trixie's own repos, which carry the same line the 2026-10-04 feasibility build used: g++ 14
+# (package g++ 4:14.2.0-1, gcc-14 14.2.0-19) and CMake 3.31 (cmake 3.31.6-2), confirmed against
+# deb.debian.org's trixie index. apt is used directly, as for openjdk and maven above, so both float with
+# the trixie mirror and are not pinned to a snapshot date. The versions are recorded here; toolchain.lock.json
+# does not carry a row for them yet (outside TC-222's write_paths). make is supplied by build-essential below.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends g++ cmake \
+    && rm -rf /var/lib/apt/lists/*
+
 # Hash-verified install: every dependency, and its transitive closure, is pinned by exact
 # sha256 in requirements.lock. --require-hashes refuses to install anything that isn't.
 COPY requirements.lock ./requirements.lock

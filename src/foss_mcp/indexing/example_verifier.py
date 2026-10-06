@@ -56,6 +56,8 @@ __all__ = [
     "verify_typescript_example",
     "prepare_cpp_library",
     "verify_cpp_example",
+    "prepare_cpp_library_linux",
+    "verify_cpp_example_linux",
 ]
 
 _OUTPUT_TRUNCATE_CHARS = 8000
@@ -1350,4 +1352,175 @@ def verify_typescript_example(
     verified = result.returncode == 0
     output = _truncate(f"{result.stdout}\n{result.stderr}")
 
+    return VerificationResult(candidate=candidate, verified=verified, output=output)
+
+
+# --- pdf/cpp on Linux (TC-222) -----------------------------------------------
+#
+# The Linux ingestion image compiles C++ candidates with g++ and CMake. The
+# pinned pdf/cpp library (aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp at
+# 4b83c9fec1e37fd205156770161f6843bac00ceb) was confirmed on 2026-10-04 to
+# configure and build with g++ 14 and CMake 3.31 on Linux, with twelve
+# examples linking against the result (DECISION_LOG 2026-10-04).
+#
+# These functions sit beside the MSVC pair above and do not replace it: the
+# MSVC pair serves cells/cpp on the Windows host and its tests import the
+# same names, so the Linux pair carries a _linux suffix. The dispatch in
+# infra/build_chunks.py selects this pair for --library-platform cpp.
+#
+# The library's CMakeLists.txt has no option that disables its examples or
+# its gtest suite, so only the aspose_pdf_foss target is built. That gives
+# the same effect: no example or test executable is compiled. The configure
+# step still runs FetchContent for googletest (v1.14.0, from github.com)
+# unconditionally, so configuring needs the same GitHub access as the pinned
+# fetch; no separate host is involved.
+
+_CPP_LINUX_COMPILER = "g++"
+_CPP_LINUX_CMAKE = "cmake"
+_CPP_LINUX_LIBRARY_TARGET = "aspose_pdf_foss"
+_CPP_LINUX_ARTIFACT_NAME = "libaspose_pdf_foss.a"
+_CPP_LINUX_BUILD_DIRNAME = "_build"
+_CPP_LINUX_INCLUDE_DIRNAME = "include"
+_CPP_LINUX_RUN_TIMEOUT_SECONDS = 30
+
+
+def _require_linux_tool(tool: str) -> None:
+    """Raise ``ExampleEnvironmentError`` when ``tool`` is not on PATH.
+
+    A missing compiler is an environment failure, never a verdict on a
+    candidate, so it is raised rather than returned as not verified.
+    """
+    if shutil.which(tool) is None:
+        raise ExampleEnvironmentError(
+            tool, "not found on PATH", f"{tool} is not installed in this environment"
+        )
+
+
+def prepare_cpp_library_linux(repository: str, commit: str, workdir: Path) -> Path:
+    """Shallow-fetch ``repository`` at exactly ``commit`` into ``workdir``,
+    configure it with CMake (Release, g++ as the C++ compiler), and build the
+    ``aspose_pdf_foss`` static library. Returns the build directory, which
+    holds ``libaspose_pdf_foss.a``. The header root is the sibling
+    ``include`` directory of that build directory, which is what
+    ``verify_cpp_example_linux`` takes as ``include_dir``.
+
+    Raises ``ExampleEnvironmentError`` when g++ or cmake is missing, or when
+    the pinned commit cannot be fetched. Raises ``RuntimeError`` when the
+    library itself fails to configure or build, because the reference library
+    must always build clean.
+    """
+    _require_linux_tool(_CPP_LINUX_COMPILER)
+    _require_linux_tool(_CPP_LINUX_CMAKE)
+
+    try:
+        _clone_pinned_commit(repository, commit, workdir)
+    except RuntimeError as exc:
+        raise ExampleEnvironmentError("git", "fetch of the pinned commit failed", str(exc)) from exc
+
+    build_dir = workdir / _CPP_LINUX_BUILD_DIRNAME
+    build_dir.mkdir(parents=True, exist_ok=True)
+
+    configure_result = subprocess.run(
+        [
+            _CPP_LINUX_CMAKE,
+            "-S",
+            str(workdir),
+            "-B",
+            str(build_dir),
+            "-G",
+            "Unix Makefiles",
+            "-DCMAKE_BUILD_TYPE=Release",
+            f"-DCMAKE_CXX_COMPILER={_CPP_LINUX_COMPILER}",
+        ],
+        cwd=workdir,
+        capture_output=True,
+        text=True,
+    )
+    if configure_result.returncode != 0:
+        raise RuntimeError(
+            f"cmake configure of {repository}@{commit} failed:\n"
+            f"{configure_result.stdout}\n{configure_result.stderr}"
+        )
+
+    build_result = subprocess.run(
+        [_CPP_LINUX_CMAKE, "--build", str(build_dir), "--target", _CPP_LINUX_LIBRARY_TARGET, "--parallel"],
+        cwd=workdir,
+        capture_output=True,
+        text=True,
+    )
+    if build_result.returncode != 0:
+        raise RuntimeError(
+            f"build of {_CPP_LINUX_LIBRARY_TARGET} for {repository}@{commit} failed:\n"
+            f"{build_result.stdout}\n{build_result.stderr}"
+        )
+
+    if not (build_dir / _CPP_LINUX_ARTIFACT_NAME).is_file():
+        raise RuntimeError(
+            f"cmake reported success building {_CPP_LINUX_LIBRARY_TARGET} but "
+            f"{build_dir / _CPP_LINUX_ARTIFACT_NAME} was not produced"
+        )
+
+    return build_dir
+
+
+def verify_cpp_example_linux(
+    candidate: CandidateExample,
+    workdir: Path,
+    library_dir: Path,
+    include_dir: Path,
+) -> VerificationResult:
+    """Compile and link ``candidate.code`` as a throwaway ``candidate.cpp``
+    against ``library_dir/libaspose_pdf_foss.a`` (``library_dir`` is the
+    build directory from ``prepare_cpp_library_linux``) with ``include_dir``
+    on the include path, then run the executable under a timeout.
+
+    A candidate is verified only when it compiles, links and exits 0. A
+    compile or link error, a non-zero exit, or a run that exceeds the timeout
+    is a candidate failure and is returned as not verified. A missing g++ is
+    an environment failure and raises ``ExampleEnvironmentError``.
+    """
+    _require_linux_tool(_CPP_LINUX_COMPILER)
+
+    project_dir = workdir / "candidate_project"
+    project_dir.mkdir(parents=True, exist_ok=True)
+    source_path = project_dir / "candidate.cpp"
+    source_path.write_text(candidate.code, encoding="utf-8")
+    library_artifact = library_dir / _CPP_LINUX_ARTIFACT_NAME
+    output_exe = project_dir / "candidate"
+
+    compile_result = _run(
+        [
+            _CPP_LINUX_COMPILER,
+            "-std=c++20",
+            f"-I{include_dir}",
+            str(source_path),
+            str(library_artifact),
+            "-o",
+            str(output_exe),
+        ],
+        cwd=project_dir,
+    )
+    if compile_result.returncode != 0:
+        output = _truncate(f"{compile_result.stdout}\n{compile_result.stderr}")
+        return VerificationResult(candidate=candidate, verified=False, output=output)
+
+    try:
+        run_result = subprocess.run(
+            [str(output_exe)],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            timeout=_CPP_LINUX_RUN_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        output = _truncate(
+            f"run exceeded {_CPP_LINUX_RUN_TIMEOUT_SECONDS}s and was stopped\n"
+            f"{exc.stdout or ''}\n{exc.stderr or ''}"
+        )
+        return VerificationResult(candidate=candidate, verified=False, output=output)
+
+    verified = run_result.returncode == 0
+    output = _truncate(
+        f"{compile_result.stdout}\n{compile_result.stderr}\n{run_result.stdout}\n{run_result.stderr}"
+    )
     return VerificationResult(candidate=candidate, verified=verified, output=output)

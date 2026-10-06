@@ -63,12 +63,14 @@ from foss_mcp.indexing.doc_candidates import extract_doc_sections
 from foss_mcp.indexing.example_candidates import extract_candidate_examples
 from foss_mcp.indexing.example_verifier import (
     ExampleEnvironmentError,
+    prepare_cpp_library_linux,
     prepare_go_library,
     prepare_java_library,
     prepare_python_library,
     prepare_reference_library,
     prepare_rust_library,
     prepare_typescript_library,
+    verify_cpp_example_linux,
     verify_dotnet_example,
     verify_go_example,
     verify_java_example,
@@ -164,6 +166,21 @@ _PLATFORM_DISPATCH = {
             "package_name": args.library_package_name,
         },
         "shared_page_workdir": False,
+    },
+    # TC-222: pdf/cpp is compiled with g++ and CMake in the Linux ingestion image. prepared is the
+    # build directory (holding libaspose_pdf_foss.a); the header root is its sibling include/.
+    # verifier_name labels the Linux verifier pair; the test suite checks it by name.
+    "cpp": {
+        "prepare": lambda args, workdir: prepare_cpp_library_linux(
+            args.library_repository, args.library_commit, workdir
+        ),
+        "verify": verify_cpp_example_linux,
+        "verify_kwargs": lambda prepared, args: {
+            "library_dir": prepared,
+            "include_dir": prepared.parent / "include",
+        },
+        "shared_page_workdir": False,
+        "verifier_name": "cpp_verifier_linux",
     },
 }
 
