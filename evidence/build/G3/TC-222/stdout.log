@@ -1,0 +1,52 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_cpp_verifier_linux.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ym94y0xe\.junit-0.xml"
+--- stdout ---
+................                                                         [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_cpp_verifier_linux.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ym94y0xe\.junit-0.xml"
+--- stdout ---
+................                                                         [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/build_chunks.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_cpp_verifier_linux.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ym94y0xe\.junit-0.xml"
+--- stdout ---
+F...............                                                         [100%]
+================================== FAILURES ===================================
+_____ test_dispatch_cpp_entry_names_the_linux_pair_and_its_verifier_label _____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001E295073E10>
+
+    def test_dispatch_cpp_entry_names_the_linux_pair_and_its_verifier_label(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """The cpp entry of _PLATFORM_DISPATCH names verify_cpp_example_linux and the label cpp_verifier_linux."""
+        entry = build_chunks._PLATFORM_DISPATCH["cpp"]
+    
+        assert set(entry) == {"prepare", "verify", "verify_kwargs", "shared_page_workdir", "verifier_name"}
+        assert entry["verify"] is verify_cpp_example_linux
+        assert entry["shared_page_workdir"] is False
+>       assert entry["verifier_name"] == "cpp_verifier_linux"
+E       AssertionError: assert 'cpp_verifier_linux_off' == 'cpp_verifier_linux'
+E         
+E         - cpp_verifier_linux
+E         + cpp_verifier_linux_off
+E         ?                   ++++
+
+tests\indexing\test_cpp_verifier_linux.py:106: AssertionError
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_cpp_verifier_linux.py::test_dispatch_cpp_entry_names_the_linux_pair_and_its_verifier_label
+
+--- stderr ---
+

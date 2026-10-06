@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "card": "TC-222",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-06T04:01:55Z",
+  "base_rev": "ec973eff9f74468d00ebcc53b254cac84d2f6589",
+  "head_rev": "05b573686aabf2a1d64c2f2b61874b3c33ac2651",
+  "card_sha256": "43920a9683bd3da57d444c8f3a4b448c24157f6cea12e0ddb0e4d1af99b1b459",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "Dockerfile.ingestion",
+      "infra/build_chunks.py",
+      "src/foss_mcp/indexing/example_verifier.py",
+      "tests/indexing/test_cpp_verifier_linux.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_cpp_verifier_linux.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.757,
+          "stdout_sha256": "88f32782433f46d1bcc412767205fc593075a0701434c82cb607decc261d9c43",
+          "tests": 16,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_cpp_verifier_linux.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.638,
+          "stdout_sha256": "88f32782433f46d1bcc412767205fc593075a0701434c82cb607decc261d9c43",
+          "tests": 16,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/build_chunks.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('cpp_verifier_linux','cpp_verifier_linux_off'),encoding='utf-8')\"\n",
+    "patch_sha256": "c5573e55eb447f16fe5f5019e8dd3e7a3404342af95cc1c829544632f983ea25",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/build_chunks.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
