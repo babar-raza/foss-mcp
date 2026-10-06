@@ -124,3 +124,11 @@ itself.
   A/B result) to every future instance, confirm the measurement mechanism can
   actually produce more than one outcome. A decision only one branch of the
   code can ever reach is not a measurement.
+
+## Toolchain
+
+Run `scripts/toolchain/activate.ps1` in the same shell command as any build,
+test, CI or push. The toolchain (Go, Rust, Java, Node, .NET, helm, kubectl) is
+on PATH only after activation, and the pre-push hook inherits the caller's
+PATH. A push without activation fails the CI check for reasons unrelated to the
+code.
