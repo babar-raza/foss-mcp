@@ -1,0 +1,37 @@
+id: TC-225
+gate: G2
+lane: control-plane
+purpose: 'Record in AGENTS.md that scripts/toolchain/activate.ps1 must run in the same shell command as any build, test, CI or push. The rule was missing: the toolchain is on PATH only after activation, and the pre-push hook inherits the caller''s PATH, so a push without it failed the CI check for reasons unrelated to the code (2026-10-05). AGENTS.md may change only through a taskcard that names it, so this card is the only route.'
+depends_on: []
+write_paths:
+- AGENTS.md
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read AGENTS.md in full. Its total length must stay within the 200-line budget that gatectl validate --budgets enforces.'
+- 'Add one short section titled "## Toolchain". It must say: run scripts/toolchain/activate.ps1 in the same shell command as any build, test, CI or push, because the toolchain (Go, Rust, Java, Node, .NET, helm, kubectl) is on PATH only after activation, and the pre-push hook inherits the caller''s PATH. Change nothing else in the file.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read AGENTS.md, add the section, and check the line count stays at or under 200.
+checks:
+- command: '{python} -c "import pathlib,sys; t=pathlib.Path(''AGENTS.md'').read_text(encoding=''utf-8''); sys.exit(0 if ''activate.ps1'' in t and ''## Toolchain'' in t else 1)"'
+  expect: exit 0
+  timeout_seconds: 60
+  proves:
+  - REQ-G2-043
+min_tests: 1
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('AGENTS.md');s=p.read_text(encoding='utf-8');p.write_text(s.replace('activate.ps1','activate_off.ps1'),encoding='utf-8')"
+  rationale: 'Renames the activation script everywhere in AGENTS.md, so the check that the section names it must fail. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-225/receipt.json
+closeout:
+- AGENTS.md states the toolchain activation rule, and a check fails if the rule is removed.
+recovery: Re-run from a clean tree.
