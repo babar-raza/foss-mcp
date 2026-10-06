@@ -1,0 +1,55 @@
+id: TC-226
+gate: G3
+lane: verification
+purpose: 'Make tests/test_githooks.py honest about the way git actually runs a hook, and make it work under GitHub Desktop''s bundled git.
+  Every existing test ran `<bash> <hook>`, which skips the shebang, so `#!/usr/bin/env bash` shipped and failed for the owner on every
+  GitHub Desktop commit and push (WSL Relay execvpe(/bin/bash) failed: Desktop''s MinGit has sh.exe and no bash.exe, so `bash` on PATH
+  was the WSL launcher in System32). The supervisor has already changed both hooks to `#!/bin/sh`; this card adds the tests that keep
+  them that way, and teaches the bash resolver to find usr/bin/sh.exe next to git, because without that the pre-push CI step fails
+  inside Desktop.'
+depends_on:
+- TC-006
+- TC-173
+- TC-180
+write_paths:
+- tests/test_githooks.py
+satisfies:
+- REQ-G0-009
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 19.4 Governance adoption map'
+  sha256: 633416b630ef7fe8d06e737dab888cabea30abc6e5e42f20ee33d08773d78d39
+inputs:
+- 'The finished file is prepared by the supervisor at C:\Users\babar\AppData\Local\Temp\test_githooks.new.py. Copy it over tests/test_githooks.py byte for byte
+  (UTF-8, LF, no byte-order mark), then run python -m ruff format on that one file. Do not edit .githooks/*: they are off limits and already changed.'
+- 'The change has two parts. (1) _git_bash() additionally tries usr/bin/bash.exe and usr/bin/sh.exe under each directory it already tried. (2) Four new
+  tests: for each of the two hooks, a decoy `bash` first on PATH must never run (the hook is executed through its shebang with `<bash> -c ./hook`), and
+  the hook must start with #!/bin/sh and be mode 100755 in the index.'
+actions:
+- Copy the prepared file over tests/test_githooks.py and format it.
+- Run both card checks and report exact counts.
+checks:
+- command: '{python} -m pytest tests/test_githooks.py -q'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G0-009
+- command: '{python} -m ruff format --check tests/test_githooks.py'
+  expect: exit 0
+  timeout_seconds: 120
+  proves:
+  - REQ-G0-009
+min_tests: 10
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('.githooks/pre-push');p.write_bytes(p.read_bytes().replace(b'#!/bin/sh',b'#!/usr/bin/env bash',1))"
+  rationale: 'Puts the old PATH-searching shebang back on the pre-push hook. The decoy-bash test and the shebang test must then fail, which is the exact
+    regression that broke GitHub Desktop and that no earlier test could see. Raw bytes, no backslashes.'
+evidence:
+- evidence/build/G3/TC-226/receipt.json
+closeout:
+- A hook whose shebang searches PATH for bash fails the suite.
+- The suite resolves a bash under GitHub Desktop's bundled git.
+recovery: Test-only; re-run from a clean tree.
