@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "card": "TC-226",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-06T07:32:43Z",
+  "base_rev": "61d0089cb8a3de36d1a7321673ca6277e1203e84",
+  "head_rev": "d873bb6f3672f6ccfbac58c3b69aae3f0a5f1c59",
+  "card_sha256": "f1b717e2588814112ea6b5423ae5057f351ec580a3a322c1e9271c603e377254",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/test_githooks.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/test_githooks.py -q",
+          "exit_code": 0,
+          "duration_s": 1.958,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m ruff format --check tests/test_githooks.py",
+          "exit_code": 0,
+          "duration_s": 2.113,
+          "stdout_sha256": "fd2299c9f1c6dc869070883e281051bfe93aacf66c1a3b0069f45b4aa410ca50"
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/test_githooks.py -q",
+          "exit_code": 0,
+          "duration_s": 1.321,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m ruff format --check tests/test_githooks.py",
+          "exit_code": 0,
+          "duration_s": 0.172,
+          "stdout_sha256": "fd2299c9f1c6dc869070883e281051bfe93aacf66c1a3b0069f45b4aa410ca50"
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('.githooks/pre-push');p.write_bytes(p.read_bytes().replace(b'#!/bin/sh',b'#!/usr/bin/env bash',1))\"\n",
+    "patch_sha256": "6116c30b3e6a8c55dfbca45ae86adb775cc389116197f32a9540cae9ec2a402e",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M .githooks/pre-push",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

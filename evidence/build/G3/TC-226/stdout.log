@@ -1,0 +1,110 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_githooks.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-iaby9hje\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m ruff format --check tests/test_githooks.py
+--- stdout ---
+1 file already formatted
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_githooks.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-iaby9hje\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m ruff format --check tests/test_githooks.py
+--- stdout ---
+1 file already formatted
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M .githooks/pre-push, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_githooks.py -q "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-iaby9hje\.junit-0.xml"
+--- stdout ---
+......F.F.                                                               [100%]
+================================== FAILURES ===================================
+___ test_hook_shebang_never_resolves_bash_through_path[.githooks/pre-push] ____
+
+hook = '.githooks/pre-push'
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-2882/test_hook_shebang_never_resolv0')
+
+    @pytest.mark.parametrize("hook", HOOKS)
+    def test_hook_shebang_never_resolves_bash_through_path(hook, tmp_path):
+        """Run each hook the way git does - by executing the file, so its shebang is honoured.
+    
+        Every other test here runs `<bash> <hook>`, which skips the shebang entirely. That is
+        how `#!/usr/bin/env bash` shipped: on a Windows host the first `bash` on PATH can be
+        the WSL launcher (System32/bash.exe), and GitHub Desktop's bundled git has no
+        bash.exe, so there every commit and push failed with "WSL Relay ... execvpe(/bin/bash)
+        failed" while this suite stayed green.
+    
+        A decoy `bash` is placed first on PATH. A hook whose shebang searches PATH runs the
+        decoy and prints its marker; a hook with an absolute shebang never reaches it.
+        """
+        marker = "DECOY-BASH-WAS-RUN"
+        decoy = tmp_path / "bash"
+        decoy.write_text(f"#!/bin/sh\necho {marker}\nexit 97\n", encoding="utf-8", newline="\n")
+        decoy.chmod(0o755)
+        env = {**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"}
+        args = "origin https://github.com/someone/unrelated.git" if hook.endswith("pre-push") else ""
+        result = subprocess.run(
+            [_git_bash(), "-c", f"./{hook} {args}"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+        combined = result.stdout + result.stderr
+>       assert marker not in combined, (
+            f"{hook} resolved `bash` through PATH and ran the decoy - its shebang must be absolute "
+            f"(#!/bin/sh), not `#!/usr/bin/env bash`.\n{combined[:400]}"
+        )
+E       AssertionError: .githooks/pre-push resolved `bash` through PATH and ran the decoy - its shebang must be absolute (#!/bin/sh), not `#!/usr/bin/env bash`.
+E         DECOY-BASH-WAS-RUN
+E         
+E       assert 'DECOY-BASH-WAS-RUN' not in 'DECOY-BASH-WAS-RUN\n'
+E         
+E         'DECOY-BASH-WAS-RUN' is contained here:
+E         Strings contain only whitespace, escaping them using repr()
+E           'DECOY-BASH-WAS-RUN\n'
+
+tests\test_githooks.py:319: AssertionError
+____ test_hook_is_posix_sh_and_executable_in_the_index[.githooks/pre-push] ____
+
+hook = '.githooks/pre-push'
+
+    @pytest.mark.parametrize("hook", HOOKS)
+    def test_hook_is_posix_sh_and_executable_in_the_index(hook):
+        """The shebang interpreter, and the mode bit Linux/WSL clones need to execute the file."""
+        first = (REPO_ROOT / hook).read_bytes().split(b"\n", 1)[0]
+>       assert first == b"#!/bin/sh", f"{hook} first line is {first!r}"
+E       AssertionError: .githooks/pre-push first line is b'#!/usr/bin/env bash'
+E       assert b'#!/usr/bin/env bash' == b'#!/bin/sh'
+E         
+E         At index 3 diff: b'u' != b'b'
+E         Use -v to get more diff
+
+tests\test_githooks.py:334: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_githooks.py::test_hook_shebang_never_resolves_bash_through_path[.githooks/pre-push]
+FAILED tests/test_githooks.py::test_hook_is_posix_sh_and_executable_in_the_index[.githooks/pre-push]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m ruff format --check tests/test_githooks.py
+--- stdout ---
+1 file already formatted
+
+--- stderr ---
+
