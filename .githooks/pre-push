@@ -35,7 +35,23 @@ echo "pre-push: running scripts/ci_check.sh before pushing to $remote_name"
 # Run it with the bash that is running this hook. A bare `bash` on a Windows host resolves to the
 # WSL launcher (C:\Windows\System32\bash.exe), which has no distribution here and fails without output,
 # so every push was blocked by a launcher stub (found 2026-10-05). The same defect was fixed in gate exit.
-if ! "${BASH:-bash}" scripts/ci_check.sh; then
+#
+# The repo toolchain (Go, Java, Node, ...) is on PATH only after scripts/toolchain/activate.ps1, which a
+# GUI client such as GitHub Desktop never runs, so the Go/Java/TypeScript fixtures errored there for reasons
+# unrelated to the code (found 2026-10-06). On Windows the hook therefore activates it itself, in a child
+# PowerShell, and runs the CI check under the toolchain's own Git bash, which activation puts first on PATH.
+PS="$(command -v powershell.exe 2>/dev/null || true)"
+if [ -z "$PS" ] && [ -x /c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe ]; then
+  PS=/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe
+fi
+run_ci() {
+  if [ -n "$PS" ] && [ -f scripts/toolchain/activate.ps1 ]; then
+    "$PS" -NoProfile -ExecutionPolicy Bypass -Command '. ./scripts/toolchain/activate.ps1 *> $null; bash scripts/ci_check.sh; exit $LASTEXITCODE'
+  else
+    "${BASH:-bash}" scripts/ci_check.sh
+  fi
+}
+if ! run_ci; then
   echo >&2
   echo "pre-push: scripts/ci_check.sh failed - push blocked." >&2
   exit 1
