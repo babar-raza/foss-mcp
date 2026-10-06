@@ -101,12 +101,14 @@ def _git_bash() -> str:
     if git is None:
         tried.append("git on PATH (not found)")
     else:
+        # GitHub Desktop bundles a MinGit that has usr\bin\sh.exe (GNU bash) but no bash.exe at all.
         for base in (Path(git).parent, Path(git).parent.parent):
-            candidate = base / "bin" / "bash.exe"
-            if candidate.is_file():
-                tried.append(f"next to git: {candidate}")
-                return _verified_bash(str(candidate), tried)
-            tried.append(f"next to git: {candidate} (not a file)")
+            for rel in ("bin/bash.exe", "usr/bin/bash.exe", "usr/bin/sh.exe"):
+                candidate = base / rel
+                if candidate.is_file():
+                    tried.append(f"next to git: {candidate}")
+                    return _verified_bash(str(candidate), tried)
+                tried.append(f"next to git: {candidate} (not a file)")
 
     on_path = shutil.which("bash")
     if on_path is None:
@@ -281,3 +283,56 @@ def test_gitlab_mirror_remote_is_recognized_as_this_project_not_refused(tmp_path
         f"the hook did not proceed past the case statement for the gitlab mirror URL, so the "
         f"pattern match is unproven: {combined[:300]}"
     )
+
+
+HOOKS = (".githooks/pre-push", ".githooks/pre-commit")
+
+
+@pytest.mark.parametrize("hook", HOOKS)
+def test_hook_shebang_never_resolves_bash_through_path(hook, tmp_path):
+    """Run each hook the way git does - by executing the file, so its shebang is honoured.
+
+    Every other test here runs `<bash> <hook>`, which skips the shebang entirely. That is
+    how `#!/usr/bin/env bash` shipped: on a Windows host the first `bash` on PATH can be
+    the WSL launcher (System32/bash.exe), and GitHub Desktop's bundled git has no
+    bash.exe, so there every commit and push failed with "WSL Relay ... execvpe(/bin/bash)
+    failed" while this suite stayed green.
+
+    A decoy `bash` is placed first on PATH. A hook whose shebang searches PATH runs the
+    decoy and prints its marker; a hook with an absolute shebang never reaches it.
+    """
+    marker = "DECOY-BASH-WAS-RUN"
+    decoy = tmp_path / "bash"
+    decoy.write_text(f"#!/bin/sh\necho {marker}\nexit 97\n", encoding="utf-8", newline="\n")
+    decoy.chmod(0o755)
+    env = {**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}"}
+    args = "origin https://github.com/someone/unrelated.git" if hook.endswith("pre-push") else ""
+    result = subprocess.run(
+        [_git_bash(), "-c", f"./{hook} {args}"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
+    )
+    combined = result.stdout + result.stderr
+    assert marker not in combined, (
+        f"{hook} resolved `bash` through PATH and ran the decoy - its shebang must be absolute "
+        f"(#!/bin/sh), not `#!/usr/bin/env bash`.\n{combined[:400]}"
+    )
+    assert result.returncode not in (97, 127), (
+        f"{hook} did not run (returncode={result.returncode}): {combined[:400]}"
+    )
+    if hook.endswith("pre-push"):
+        assert "refusing" in result.stderr, f"pre-push did not reach its own logic: {combined[:400]}"
+
+
+@pytest.mark.parametrize("hook", HOOKS)
+def test_hook_is_posix_sh_and_executable_in_the_index(hook):
+    """The shebang interpreter, and the mode bit Linux/WSL clones need to execute the file."""
+    first = (REPO_ROOT / hook).read_bytes().split(b"\n", 1)[0]
+    assert first == b"#!/bin/sh", f"{hook} first line is {first!r}"
+    staged = subprocess.run(
+        ["git", "ls-files", "-s", hook], cwd=REPO_ROOT, capture_output=True, text=True, timeout=30
+    )
+    assert staged.stdout.startswith("100755 "), f"{hook} is not executable in the index: {staged.stdout!r}"
