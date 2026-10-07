@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "card": "TC-239",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-07T17:23:30Z",
+  "base_rev": "47cb6a30078530c4356223f5d526e687b72ce8ef",
+  "head_rev": "186e1975a4d20b9ee1c277484cba27ddeb3f9bfd",
+  "card_sha256": "2dd8c050fc210bd2eb83c1c2aeb81d02e42d0be5a8aca233ef1824271da0ba23",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/server.py",
+      "src/foss_mcp/telemetry/usage_recorder.py",
+      "tests/mcp/test_server_wiring.py",
+      "tests/telemetry/test_usage_recorder.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/telemetry/test_usage_recorder.py tests/mcp/test_server_wiring.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 2.358,
+          "stdout_sha256": "e1e7514a96f28deeea4a8b67600844ba047a362cb5dfaad1a4937e02e7b64083",
+          "tests": 90,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/telemetry/test_usage_recorder.py tests/mcp/test_server_wiring.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.885,
+          "stdout_sha256": "e1e7514a96f28deeea4a8b67600844ba047a362cb5dfaad1a4937e02e7b64083",
+          "tests": 90,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/telemetry/usage_recorder.py');s=p.read_text(encoding='utf-8');old='if not isinstance(query, str) or not query.strip():';new='if query is None or not query.strip():';i=s.index(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')\"\n",
+    "patch_sha256": "e7f565065f62cd88e8d067507687e44540093249338e3b22ed6fd7d6028864d4",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/telemetry/usage_recorder.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

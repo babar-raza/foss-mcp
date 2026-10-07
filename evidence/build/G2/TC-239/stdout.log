@@ -1,0 +1,74 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/telemetry/test_usage_recorder.py tests/mcp/test_server_wiring.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-chbo8lab\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 80%]
+..................                                                       [100%]
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/telemetry/test_usage_recorder.py tests/mcp/test_server_wiring.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-chbo8lab\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 80%]
+..................                                                       [100%]
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/telemetry/usage_recorder.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/telemetry/test_usage_recorder.py tests/mcp/test_server_wiring.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-chbo8lab\.junit-0.xml"
+--- stdout ---
+...F.................................................................... [ 80%]
+..................                                                       [100%]
+================================== FAILURES ===================================
+______ test_classify_query_shape_is_defensive_against_a_non_string_input ______
+
+    def test_classify_query_shape_is_defensive_against_a_non_string_input() -> None:
+        """G2/TC-239: a raw, unvalidated client argument (e.g. {"query": 12345}) must never crash
+        telemetry - classify_query_shape must treat any non-str value the same as None, never
+        assume str | None and call .strip() unconditionally."""
+>       assert classify_query_shape(12345) == classify_query_shape(None)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\telemetry\test_usage_recorder.py:71: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 12345
+
+    def classify_query_shape(query: str | None) -> QueryShapeCategory:
+        """A bounded, label-safe stand-in for the raw query text - never the text itself.
+    
+        Four buckets, never more: an empty caller query, a dotted-or-capitalized exact-FQN-shaped
+        query, a multi-word phrase, or a single bare keyword.
+        """
+>       if query is None or not query.strip():
+                                ^^^^^^^^^^^
+E       AttributeError: 'int' object has no attribute 'strip'
+
+src\foss_mcp\telemetry\usage_recorder.py:82: AttributeError
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/telemetry/test_usage_recorder.py::test_classify_query_shape_is_defensive_against_a_non_string_input
+
+--- stderr ---
+
