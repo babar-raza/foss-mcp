@@ -89,6 +89,14 @@ volumes:
   manifests-html-python:
   manifests-page-python:
   manifests-imaging-net:
+  # G2/TC-235: one manifests volume per pilot added in TC-235, same shape as the volumes above.
+  manifests-cells-java:
+  manifests-jmap-typescript:
+  manifests-jmap-go:
+  manifests-jmap-net:
+  manifests-jmap-cpp:
+  manifests-jmap-java:
+  manifests-jmap-nodejs:
 
 services:
   # G2/TC-064: the real, live first publish for pdf/net - a one-shot init job, not a
@@ -1287,4 +1295,284 @@ services:
     environment:
       FOSS_MCP_FAMILY: imaging
       FOSS_MCP_PLATFORM: net
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-235: cells/java, self-extracted, from tests/fixtures/cells_java/api_surface.json.
+  # source_repository aspose-cells-foss/Aspose.Cells-FOSS-for-Java, source_commit
+  # c65329e7257b1311abb9686d7e4957a8cc002955. No furnished page and no --library-* flag.
+  ingest-cells-java:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-cells-java:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/cells_java/api_surface.json
+        --title "cells/java API surface"
+        --max-types 20
+        --out /tmp/cells_java_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family cells
+        --platform java
+        --source-kind self_extracted
+        --chunks /tmp/cells_java_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/cells_java/api_surface.json
+        --held-by ingestion-cells-java
+
+  serving-cells-java:
+    <<: *serving-base
+    ports:
+      - "8108:8080"
+    volumes:
+      - manifests-cells-java:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: cells
+      FOSS_MCP_PLATFORM: java
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-235: jmap/typescript, self-extracted, from tests/fixtures/jmap_typescript/api_surface.json.
+  # source_repository aspose-email-foss/Aspose.JMAP-FOSS-for-TypeScript, source_commit
+  # d8fdf9e8f3367424c3a900271eb3bd0b99c6195e. No furnished page and no --library-* flag.
+  ingest-jmap-typescript:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-jmap-typescript:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/jmap_typescript/api_surface.json
+        --title "jmap/typescript API surface"
+        --max-types 20
+        --out /tmp/jmap_typescript_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family jmap
+        --platform typescript
+        --source-kind self_extracted
+        --chunks /tmp/jmap_typescript_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/jmap_typescript/api_surface.json
+        --held-by ingestion-jmap-typescript
+
+  serving-jmap-typescript:
+    <<: *serving-base
+    ports:
+      - "8109:8080"
+    volumes:
+      - manifests-jmap-typescript:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: jmap
+      FOSS_MCP_PLATFORM: typescript
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-235: jmap/go, self-extracted, from tests/fixtures/jmap_go/api_surface.json.
+  # source_repository aspose-email-foss/Aspose.JMAP-FOSS-for-Go, source_commit
+  # 327dda39116ba02657fa49ec6dbeb69965628447. No furnished page and no --library-* flag.
+  ingest-jmap-go:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-jmap-go:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/jmap_go/api_surface.json
+        --title "jmap/go API surface"
+        --max-types 20
+        --out /tmp/jmap_go_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family jmap
+        --platform go
+        --source-kind self_extracted
+        --chunks /tmp/jmap_go_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/jmap_go/api_surface.json
+        --held-by ingestion-jmap-go
+
+  serving-jmap-go:
+    <<: *serving-base
+    ports:
+      - "8110:8080"
+    volumes:
+      - manifests-jmap-go:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: jmap
+      FOSS_MCP_PLATFORM: go
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-235: jmap/net, self-extracted, from tests/fixtures/jmap_net/api_surface.json.
+  # source_repository aspose-email-foss/Aspose.JMAP-FOSS-for-.NET, source_commit
+  # 0d5cf17e0e9ee185eea2847f6587b918ac0eb016. No furnished page and no --library-* flag.
+  ingest-jmap-net:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-jmap-net:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/jmap_net/api_surface.json
+        --title "jmap/net API surface"
+        --max-types 20
+        --out /tmp/jmap_net_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family jmap
+        --platform net
+        --source-kind self_extracted
+        --chunks /tmp/jmap_net_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/jmap_net/api_surface.json
+        --held-by ingestion-jmap-net
+
+  serving-jmap-net:
+    <<: *serving-base
+    ports:
+      - "8111:8080"
+    volumes:
+      - manifests-jmap-net:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: jmap
+      FOSS_MCP_PLATFORM: net
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-235: jmap/cpp, self-extracted, from tests/fixtures/jmap_cpp/api_surface.json.
+  # source_repository aspose-email-foss/Aspose.JMAP-FOSS-for-Cpp, source_commit
+  # 559c962081323468039dc75cf38676499f32b20e. No furnished page and no --library-* flag.
+  ingest-jmap-cpp:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-jmap-cpp:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/jmap_cpp/api_surface.json
+        --title "jmap/cpp API surface"
+        --max-types 20
+        --out /tmp/jmap_cpp_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family jmap
+        --platform cpp
+        --source-kind self_extracted
+        --chunks /tmp/jmap_cpp_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/jmap_cpp/api_surface.json
+        --held-by ingestion-jmap-cpp
+
+  serving-jmap-cpp:
+    <<: *serving-base
+    ports:
+      - "8112:8080"
+    volumes:
+      - manifests-jmap-cpp:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: jmap
+      FOSS_MCP_PLATFORM: cpp
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-235: jmap/java, self-extracted, from tests/fixtures/jmap_java/api_surface.json.
+  # source_repository aspose-email-foss/Aspose.JMAP-FOSS-for-Java, source_commit
+  # f0d6ba73dc92db4b3effaa7c1fa76682e2d09fd4. No furnished page and no --library-* flag.
+  ingest-jmap-java:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-jmap-java:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/jmap_java/api_surface.json
+        --title "jmap/java API surface"
+        --max-types 20
+        --out /tmp/jmap_java_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family jmap
+        --platform java
+        --source-kind self_extracted
+        --chunks /tmp/jmap_java_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/jmap_java/api_surface.json
+        --held-by ingestion-jmap-java
+
+  serving-jmap-java:
+    <<: *serving-base
+    ports:
+      - "8113:8080"
+    volumes:
+      - manifests-jmap-java:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: jmap
+      FOSS_MCP_PLATFORM: java
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-235: jmap/nodejs, self-extracted, from tests/fixtures/jmap_nodejs/api_surface.json.
+  # source_repository aspose-email-foss/Aspose.JMAP-FOSS-for-Node.js, source_commit
+  # 93f22fb57ba83484d14af5af2017590a0f5bf55f. No furnished page and no --library-* flag.
+  ingest-jmap-nodejs:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-jmap-nodejs:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/jmap_nodejs/api_surface.json
+        --title "jmap/nodejs API surface"
+        --max-types 20
+        --out /tmp/jmap_nodejs_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family jmap
+        --platform nodejs
+        --source-kind self_extracted
+        --chunks /tmp/jmap_nodejs_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/jmap_nodejs/api_surface.json
+        --held-by ingestion-jmap-nodejs
+
+  serving-jmap-nodejs:
+    <<: *serving-base
+    ports:
+      - "8114:8080"
+    volumes:
+      - manifests-jmap-nodejs:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: jmap
+      FOSS_MCP_PLATFORM: nodejs
       FOSS_MCP_SOURCE_KIND: self_extracted

@@ -164,7 +164,7 @@ def test_dry_run_prints_one_delete_and_one_upgrade_line_per_pilot_and_never_a_re
     rc = install.main(["--namespace", "ns", "--image-tag", "t", "--dry-run", "--values-dir", str(tmp_path)])
     lines = capsys.readouterr().out.strip().splitlines()
     assert rc == 0
-    assert len(lines) == 56
+    assert len(lines) == 70
     for delete_line, helm_line in zip(lines[0::2], lines[1::2], strict=True):
         assert delete_line.split()[:3] == ["kubectl", "delete", "job"]
         assert helm_line.split()[:3] == ["helm", "upgrade", "--install"]
@@ -177,13 +177,13 @@ def test_install_runs_one_helm_upgrade_per_pilot_and_writes_results(tmp_path, mo
     fake = _fake(monkeypatch)
     rc = install.main(["--namespace", "ns", "--image-tag", "t", "--values-dir", str(tmp_path)])
     assert rc == 0
-    assert len(fake.helm_calls()) == 28
+    assert len(fake.helm_calls()) == 35
     assert all(c[:3] == ["helm", "upgrade", "--install"] for c in fake.helm_calls())
     results = json.loads((tmp_path / install.RESULTS_FILE).read_text(encoding="utf-8"))
-    assert len(results) == 28
+    assert len(results) == 35
     assert all(r["rc"] == 0 for r in results)
-    assert len({r["release"] for r in results}) == 28
-    assert "28 of 28 installed" in capsys.readouterr().out
+    assert len({r["release"] for r in results}) == 35
+    assert "35 of 35 installed" in capsys.readouterr().out
 
 
 def test_install_one_deletes_the_job_before_every_helm_upgrade_and_records_job_delete_rc(
@@ -193,7 +193,7 @@ def test_install_one_deletes_the_job_before_every_helm_upgrade_and_records_job_d
     rc = install.main(["--namespace", "ns", "--image-tag", "t", "--values-dir", str(tmp_path)])
     assert rc == 0
     results = json.loads((tmp_path / install.RESULTS_FILE).read_text(encoding="utf-8"))
-    assert len(results) == 28
+    assert len(results) == 35
     assert all(r["job_delete_rc"] == 0 for r in results)
     for result in results:
         delete_cmd = install.job_delete_command("ns", result["release"])
