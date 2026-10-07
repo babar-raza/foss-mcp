@@ -1,0 +1,136 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_lookup_doc_fallback_query_safety.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xsyfqds6\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_lookup_doc_fallback_query_safety.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xsyfqds6\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/indexing/test_lookup_doc_fallback_query_safety.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_lookup_doc_fallback_query_safety.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xsyfqds6\.junit-0.xml"
+--- stdout ---
+.FFFFF                                                                   [100%]
+================================== FAILURES ===================================
+______________ test_offline_safe_query_reads_as_a_task_question _______________
+
+offline_replica = _OfflineReplica(payload={'generation_id': 'tc248-offline-replica', 'documents': {'tc248-offline-replica::doc::chunk-0'...ss', 'getmediabox', 'document', 'doc', 'border', 'new', 'dimensions', 'option', 'rectangle', 'create', '70', 'group'}))
+
+    def test_offline_safe_query_reads_as_a_task_question(offline_replica: _OfflineReplica) -> None:
+        """``lookup`` only tries the doc-composition fallback FIRST for a query that
+        ``_looks_like_a_task_question`` recognizes as a task question - confirming OFFLINE_SAFE_QUERY
+        actually takes the code path this whole card is about, the same real function ``lookup.py``
+        itself calls.
+        """
+>       assert _looks_like_a_task_question(OFFLINE_SAFE_QUERY) is True
+                                           ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'OFFLINE_SAFE_QUERY' is not defined
+
+tests\indexing\test_lookup_doc_fallback_query_safety.py:270: NameError
+______ test_offline_safe_query_reaches_troubleshooting_without_intercept ______
+
+offline_replica = _OfflineReplica(payload={'generation_id': 'tc248-offline-replica', 'documents': {'tc248-offline-replica::doc::chunk-0'...ss', 'getmediabox', 'document', 'doc', 'border', 'new', 'dimensions', 'option', 'rectangle', 'create', '70', 'group'}))
+
+    def test_offline_safe_query_reaches_troubleshooting_without_intercept(
+        offline_replica: _OfflineReplica,
+    ) -> None:
+        """The concrete replacement for the live e2e test's own assertion: getting_started and
+        developer_guide are both genuine, honest misses for OFFLINE_SAFE_QUERY (never intercepted,
+        unlike the stale query above), so ``_compose_from_docs``'s own ``CONTENT_TYPES``-ordered
+        loop genuinely reaches "troubleshooting" and surfaces the real chunk carrying
+        REAL_DOC_FRAGMENT - the same real content the live test's REAL_DOC_FRAGMENT already names.
+        """
+>       assert _search_docs_like(offline_replica, OFFLINE_SAFE_QUERY, "getting_started") == []
+                                                  ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'OFFLINE_SAFE_QUERY' is not defined
+
+tests\indexing\test_lookup_doc_fallback_query_safety.py:282: NameError
+_ test_every_offline_safe_query_token_is_unique_to_the_troubleshooting_chunk __
+
+offline_replica = _OfflineReplica(payload={'generation_id': 'tc248-offline-replica', 'documents': {'tc248-offline-replica::doc::chunk-0'...ss', 'getmediabox', 'document', 'doc', 'border', 'new', 'dimensions', 'option', 'rectangle', 'create', '70', 'group'}))
+
+    def test_every_offline_safe_query_token_is_unique_to_the_troubleshooting_chunk(
+        offline_replica: _OfflineReplica,
+    ) -> None:
+        """The precise reason OFFLINE_SAFE_QUERY is safe, asserted directly rather than inferred
+        from the composed result alone: every one of its own real BM25 tokens (via the real
+        ``tokenize``) has a document frequency of exactly 1 across this ENTIRE real generation
+        (150 real type chunks plus every real doc chunk) - and that one document is the real
+        troubleshooting-classified "Scope and Limitations" paragraph. No other chunk in this
+        fixture, of any content_type, can ever score a nonzero BM25 match for this query.
+        """
+        documents = offline_replica.payload["documents"]
+        doc_freq = offline_replica.payload["doc_freq"]
+    
+>       query_tokens = tokenize(OFFLINE_SAFE_QUERY)
+                                ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'OFFLINE_SAFE_QUERY' is not defined
+
+tests\indexing\test_lookup_doc_fallback_query_safety.py:310: NameError
+__________ test_offline_safe_query_has_no_exact_or_near_symbol_match __________
+
+offline_replica = _OfflineReplica(payload={'generation_id': 'tc248-offline-replica', 'documents': {'tc248-offline-replica::doc::chunk-0'...ss', 'getmediabox', 'document', 'doc', 'border', 'new', 'dimensions', 'option', 'rectangle', 'create', '70', 'group'}))
+
+    def test_offline_safe_query_has_no_exact_or_near_symbol_match(offline_replica: _OfflineReplica) -> None:
+        """``search_symbols``'s own match rule (``is_exact_symbol_hit``) never fires for
+        OFFLINE_SAFE_QUERY against any real FQN this fixture publishes - confirming a bare-query
+        dispatch landing on ``search_symbols`` instead (not this card's concern directly, since
+        ``lookup`` tries the doc-fallback path first for a task question, but asserted precisely
+        because the card's own safety bar names it explicitly).
+        """
+        real_fqns = [
+            fqn
+            for fqn in offline_replica.doc_id_to_fqn.values()
+            if fqn is not None and not fqn.startswith(("Example: ", "Doc: "))
+        ]
+        assert real_fqns, "expected real symbol FQNs from the real type fixture"
+    
+>       assert not any(is_exact_symbol_hit(OFFLINE_SAFE_QUERY, fqn) for fqn in real_fqns)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_lookup_doc_fallback_query_safety.py:343: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+.0 = <list_iterator object at 0x000001C676C4E5C0>
+
+>   assert not any(is_exact_symbol_hit(OFFLINE_SAFE_QUERY, fqn) for fqn in real_fqns)
+                                       ^^^^^^^^^^^^^^^^^^
+E   NameError: name 'OFFLINE_SAFE_QUERY' is not defined
+
+tests\indexing\test_lookup_doc_fallback_query_safety.py:343: NameError
+_________ test_offline_safe_query_overlaps_no_candidate_example_text __________
+
+offline_replica = _OfflineReplica(payload={'generation_id': 'tc248-offline-replica', 'documents': {'tc248-offline-replica::doc::chunk-0'...ss', 'getmediabox', 'document', 'doc', 'border', 'new', 'dimensions', 'option', 'rectangle', 'create', '70', 'group'}))
+
+    def test_offline_safe_query_overlaps_no_candidate_example_text(offline_replica: _OfflineReplica) -> None:
+        """No real candidate example (``extract_candidate_examples`` - pure, offline, over the
+        same real furnished page; a candidate's compiled/verified status is the ONLY thing a real
+        container adds) shares a single BM25 token with OFFLINE_SAFE_QUERY. Since every real,
+        compile-verified example chunk ``find_examples`` could ever publish is drawn from this same
+        candidate set, zero candidate-level overlap means zero possible verified-example overlap
+        too - OFFLINE_SAFE_QUERY's composed ``TaskAnswer`` is doc-match-only, never accidentally
+        carrying an unrelated example.
+        """
+>       query_tokens = set(tokenize(OFFLINE_SAFE_QUERY))
+                                    ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'OFFLINE_SAFE_QUERY' is not defined
+
+tests\indexing\test_lookup_doc_fallback_query_safety.py:355: NameError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_lookup_doc_fallback_query_safety.py::test_offline_safe_query_reads_as_a_task_question
+FAILED tests/indexing/test_lookup_doc_fallback_query_safety.py::test_offline_safe_query_reaches_troubleshooting_without_intercept
+FAILED tests/indexing/test_lookup_doc_fallback_query_safety.py::test_every_offline_safe_query_token_is_unique_to_the_troubleshooting_chunk
+FAILED tests/indexing/test_lookup_doc_fallback_query_safety.py::test_offline_safe_query_has_no_exact_or_near_symbol_match
+FAILED tests/indexing/test_lookup_doc_fallback_query_safety.py::test_offline_safe_query_overlaps_no_candidate_example_text
+
+--- stderr ---
+
