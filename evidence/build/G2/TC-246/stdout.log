@@ -1,0 +1,347 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_transport_security.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k8rn4b58\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_transport_security.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k8rn4b58\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/transport_security.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_transport_security.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k8rn4b58\.junit-0.xml"
+--- stdout ---
+.F..FFF.                                                                 [100%]
+================================== FAILURES ===================================
+______________ test_an_absent_origin_is_not_rejected_on_its_own _______________
+
+    def test_an_absent_origin_is_not_rejected_on_its_own() -> None:
+        """Non-browser clients legitimately never send an Origin header at all - only a
+        PRESENT, disallowed Origin is rejected."""
+>       reason = reject_request({"MCP-Protocol-Version": "2025-06-18"}, allowed_origins=ALLOWED_ORIGINS)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_transport_security.py:65: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+headers = {'MCP-Protocol-Version': '2025-06-18'}
+allowed_origins = ['https://example.com']
+supported_revisions = ('2024-11-05', '2025-03-26', '2025-06-18')
+
+    def reject_request(
+        headers: Mapping[str, str],
+        *,
+        allowed_origins: Iterable[str] = (),
+        supported_revisions: Iterable[str] = SUPPORTED_PROTOCOL_REVISIONS,
+    ) -> str | None:
+        """A human-readable reason to reject this request, or ``None`` to allow it.
+    
+        Checked in this order - Origin, then protocol version - so the reason string always names
+        the FIRST MUST the request actually failed:
+    
+        - an Origin header that is present but not in ``allowed_origins`` is rejected (an absent
+          Origin is not rejected on its own: non-browser clients legitimately never send one, and
+          DNS rebinding - the attack this check exists for - is a browser-specific threat).
+        - an ABSENT ``MCP-Protocol-Version`` header is ALLOWED THROUGH: it is a Streamable HTTP
+          transport-layer convention used only on requests made AFTER a protocol version has been
+          negotiated - a genuine client's very first ``initialize`` request never carries it yet
+          (the client has not negotiated a version, or predates the header's existence entirely).
+          That request's REQUIRED protocol version lives in the JSON-RPC body's own
+          ``initialize.params.protocolVersion`` field instead, which the mcp SDK's own initialize
+          handler validates independently once it parses the body - this function has no business
+          re-enforcing that same MUST a second time, against the wrong location, before the body is
+          even read.
+        - a PRESENT-but-unparseable ``MCP-Protocol-Version`` header is still rejected: once a client
+          sends the header at all, it must be a value this server can actually reason about.
+        - a PRESENT, well-formed ``MCP-Protocol-Version`` header naming a revision this server does
+          NOT itself declare support for is ALSO rejected: ``negotiate_revision`` had to fall back
+          to its nearest-supported-or-min policy rather than match one of ``supported_revisions``
+          exactly. This server's own supported-revision list is a deliberate allow-list, not a lower
+          bound - letting a well-formed-but-undeclared revision through here would let it reach the
+          installed MCP SDK's own internal initialize handler, which has its own, broader,
+          independently-maintained accepted-version list and would answer as if this project had
+          verified support for a revision it never has.
+    
+        Returns ``None`` only when the Origin check passes AND the protocol-version header is either
+        absent or an EXACT match against ``supported_revisions`` - any negotiation fallback, below-
+        minimum or nearest-unknown alike, is a rejection here, never a pass-through.
+        """
+        origin = _header(headers, ORIGIN_HEADER)
+        allowed = set(allowed_origins)
+        if origin is not None and origin not in allowed:
+            return f"origin {origin!r} is not in the allowed origin list"
+    
+        protocol_version = _header(headers, MCP_PROTOCOL_VERSION_HEADER)
+        if protocol_version is None:
+            return None
+    
+        try:
+            result = negotiate_revision(
+                requested_revision=protocol_version, supported_revisions=supported_revisions
+            )
+        except MissingProtocolVersionError:
+            return "missing MCP-Protocol-Version header"
+        except InvalidRevisionFormatError:
+            return f"invalid MCP-Protocol-Version header: {protocol_version!r}"
+    
+>       if result.fallback_applied_off:
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'RevisionNegotiationResult' object has no attribute 'fallback_applied_off'. Did you mean: 'fallback_applied'?
+
+src\foss_mcp\mcp\transport_security.py:98: AttributeError
+____________ test_a_present_valid_protocol_version_is_not_rejected ____________
+
+    def test_a_present_valid_protocol_version_is_not_rejected() -> None:
+>       reason = reject_request(
+            {"Origin": "https://example.com", "MCP-Protocol-Version": "2025-06-18"},
+            allowed_origins=ALLOWED_ORIGINS,
+        )
+
+tests\mcp\test_transport_security.py:91: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+headers = {'Origin': 'https://example.com', 'MCP-Protocol-Version': '2025-06-18'}
+allowed_origins = ['https://example.com']
+supported_revisions = ('2024-11-05', '2025-03-26', '2025-06-18')
+
+    def reject_request(
+        headers: Mapping[str, str],
+        *,
+        allowed_origins: Iterable[str] = (),
+        supported_revisions: Iterable[str] = SUPPORTED_PROTOCOL_REVISIONS,
+    ) -> str | None:
+        """A human-readable reason to reject this request, or ``None`` to allow it.
+    
+        Checked in this order - Origin, then protocol version - so the reason string always names
+        the FIRST MUST the request actually failed:
+    
+        - an Origin header that is present but not in ``allowed_origins`` is rejected (an absent
+          Origin is not rejected on its own: non-browser clients legitimately never send one, and
+          DNS rebinding - the attack this check exists for - is a browser-specific threat).
+        - an ABSENT ``MCP-Protocol-Version`` header is ALLOWED THROUGH: it is a Streamable HTTP
+          transport-layer convention used only on requests made AFTER a protocol version has been
+          negotiated - a genuine client's very first ``initialize`` request never carries it yet
+          (the client has not negotiated a version, or predates the header's existence entirely).
+          That request's REQUIRED protocol version lives in the JSON-RPC body's own
+          ``initialize.params.protocolVersion`` field instead, which the mcp SDK's own initialize
+          handler validates independently once it parses the body - this function has no business
+          re-enforcing that same MUST a second time, against the wrong location, before the body is
+          even read.
+        - a PRESENT-but-unparseable ``MCP-Protocol-Version`` header is still rejected: once a client
+          sends the header at all, it must be a value this server can actually reason about.
+        - a PRESENT, well-formed ``MCP-Protocol-Version`` header naming a revision this server does
+          NOT itself declare support for is ALSO rejected: ``negotiate_revision`` had to fall back
+          to its nearest-supported-or-min policy rather than match one of ``supported_revisions``
+          exactly. This server's own supported-revision list is a deliberate allow-list, not a lower
+          bound - letting a well-formed-but-undeclared revision through here would let it reach the
+          installed MCP SDK's own internal initialize handler, which has its own, broader,
+          independently-maintained accepted-version list and would answer as if this project had
+          verified support for a revision it never has.
+    
+        Returns ``None`` only when the Origin check passes AND the protocol-version header is either
+        absent or an EXACT match against ``supported_revisions`` - any negotiation fallback, below-
+        minimum or nearest-unknown alike, is a rejection here, never a pass-through.
+        """
+        origin = _header(headers, ORIGIN_HEADER)
+        allowed = set(allowed_origins)
+        if origin is not None and origin not in allowed:
+            return f"origin {origin!r} is not in the allowed origin list"
+    
+        protocol_version = _header(headers, MCP_PROTOCOL_VERSION_HEADER)
+        if protocol_version is None:
+            return None
+    
+        try:
+            result = negotiate_revision(
+                requested_revision=protocol_version, supported_revisions=supported_revisions
+            )
+        except MissingProtocolVersionError:
+            return "missing MCP-Protocol-Version header"
+        except InvalidRevisionFormatError:
+            return f"invalid MCP-Protocol-Version header: {protocol_version!r}"
+    
+>       if result.fallback_applied_off:
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'RevisionNegotiationResult' object has no attribute 'fallback_applied_off'. Did you mean: 'fallback_applied'?
+
+src\foss_mcp\mcp\transport_security.py:98: AttributeError
+_______ test_each_declared_supported_revision_passes_through_unchanged ________
+
+    def test_each_declared_supported_revision_passes_through_unchanged() -> None:
+        """Exact-match case, unaffected by the fallback_applied fix: every revision this project
+        currently declares in ``SUPPORTED_PROTOCOL_REVISIONS`` must still be allowed through."""
+        for revision in SUPPORTED_PROTOCOL_REVISIONS:
+>           reason = reject_request(
+                {"Origin": "https://example.com", "MCP-Protocol-Version": revision},
+                allowed_origins=ALLOWED_ORIGINS,
+            )
+
+tests\mcp\test_transport_security.py:102: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+headers = {'Origin': 'https://example.com', 'MCP-Protocol-Version': '2024-11-05'}
+allowed_origins = ['https://example.com']
+supported_revisions = ('2024-11-05', '2025-03-26', '2025-06-18')
+
+    def reject_request(
+        headers: Mapping[str, str],
+        *,
+        allowed_origins: Iterable[str] = (),
+        supported_revisions: Iterable[str] = SUPPORTED_PROTOCOL_REVISIONS,
+    ) -> str | None:
+        """A human-readable reason to reject this request, or ``None`` to allow it.
+    
+        Checked in this order - Origin, then protocol version - so the reason string always names
+        the FIRST MUST the request actually failed:
+    
+        - an Origin header that is present but not in ``allowed_origins`` is rejected (an absent
+          Origin is not rejected on its own: non-browser clients legitimately never send one, and
+          DNS rebinding - the attack this check exists for - is a browser-specific threat).
+        - an ABSENT ``MCP-Protocol-Version`` header is ALLOWED THROUGH: it is a Streamable HTTP
+          transport-layer convention used only on requests made AFTER a protocol version has been
+          negotiated - a genuine client's very first ``initialize`` request never carries it yet
+          (the client has not negotiated a version, or predates the header's existence entirely).
+          That request's REQUIRED protocol version lives in the JSON-RPC body's own
+          ``initialize.params.protocolVersion`` field instead, which the mcp SDK's own initialize
+          handler validates independently once it parses the body - this function has no business
+          re-enforcing that same MUST a second time, against the wrong location, before the body is
+          even read.
+        - a PRESENT-but-unparseable ``MCP-Protocol-Version`` header is still rejected: once a client
+          sends the header at all, it must be a value this server can actually reason about.
+        - a PRESENT, well-formed ``MCP-Protocol-Version`` header naming a revision this server does
+          NOT itself declare support for is ALSO rejected: ``negotiate_revision`` had to fall back
+          to its nearest-supported-or-min policy rather than match one of ``supported_revisions``
+          exactly. This server's own supported-revision list is a deliberate allow-list, not a lower
+          bound - letting a well-formed-but-undeclared revision through here would let it reach the
+          installed MCP SDK's own internal initialize handler, which has its own, broader,
+          independently-maintained accepted-version list and would answer as if this project had
+          verified support for a revision it never has.
+    
+        Returns ``None`` only when the Origin check passes AND the protocol-version header is either
+        absent or an EXACT match against ``supported_revisions`` - any negotiation fallback, below-
+        minimum or nearest-unknown alike, is a rejection here, never a pass-through.
+        """
+        origin = _header(headers, ORIGIN_HEADER)
+        allowed = set(allowed_origins)
+        if origin is not None and origin not in allowed:
+            return f"origin {origin!r} is not in the allowed origin list"
+    
+        protocol_version = _header(headers, MCP_PROTOCOL_VERSION_HEADER)
+        if protocol_version is None:
+            return None
+    
+        try:
+            result = negotiate_revision(
+                requested_revision=protocol_version, supported_revisions=supported_revisions
+            )
+        except MissingProtocolVersionError:
+            return "missing MCP-Protocol-Version header"
+        except InvalidRevisionFormatError:
+            return f"invalid MCP-Protocol-Version header: {protocol_version!r}"
+    
+>       if result.fallback_applied_off:
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'RevisionNegotiationResult' object has no attribute 'fallback_applied_off'. Did you mean: 'fallback_applied'?
+
+src\foss_mcp\mcp\transport_security.py:98: AttributeError
+_______ test_a_wellformed_but_unsupported_protocol_version_is_rejected ________
+
+    def test_a_wellformed_but_unsupported_protocol_version_is_rejected() -> None:
+        """The TC-246 fix: a well-formed MCP-Protocol-Version header naming a revision this project
+        does NOT itself declare support for must be rejected at the transport boundary, instead of
+        passing through to the installed MCP SDK's own broader internal negotiation. "2025-11-25" is
+        the exact revision this card's own audit confirmed the installed SDK accepts natively - one
+        more than this project's own three declared revisions - so this is a real observed
+        divergence, not a hypothetical one."""
+        unsupported_revision = "2025-11-25"
+        assert unsupported_revision not in SUPPORTED_PROTOCOL_REVISIONS
+    
+>       reason = reject_request(
+            {"Origin": "https://example.com", "MCP-Protocol-Version": unsupported_revision},
+            allowed_origins=ALLOWED_ORIGINS,
+        )
+
+tests\mcp\test_transport_security.py:119: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+headers = {'Origin': 'https://example.com', 'MCP-Protocol-Version': '2025-11-25'}
+allowed_origins = ['https://example.com']
+supported_revisions = ('2024-11-05', '2025-03-26', '2025-06-18')
+
+    def reject_request(
+        headers: Mapping[str, str],
+        *,
+        allowed_origins: Iterable[str] = (),
+        supported_revisions: Iterable[str] = SUPPORTED_PROTOCOL_REVISIONS,
+    ) -> str | None:
+        """A human-readable reason to reject this request, or ``None`` to allow it.
+    
+        Checked in this order - Origin, then protocol version - so the reason string always names
+        the FIRST MUST the request actually failed:
+    
+        - an Origin header that is present but not in ``allowed_origins`` is rejected (an absent
+          Origin is not rejected on its own: non-browser clients legitimately never send one, and
+          DNS rebinding - the attack this check exists for - is a browser-specific threat).
+        - an ABSENT ``MCP-Protocol-Version`` header is ALLOWED THROUGH: it is a Streamable HTTP
+          transport-layer convention used only on requests made AFTER a protocol version has been
+          negotiated - a genuine client's very first ``initialize`` request never carries it yet
+          (the client has not negotiated a version, or predates the header's existence entirely).
+          That request's REQUIRED protocol version lives in the JSON-RPC body's own
+          ``initialize.params.protocolVersion`` field instead, which the mcp SDK's own initialize
+          handler validates independently once it parses the body - this function has no business
+          re-enforcing that same MUST a second time, against the wrong location, before the body is
+          even read.
+        - a PRESENT-but-unparseable ``MCP-Protocol-Version`` header is still rejected: once a client
+          sends the header at all, it must be a value this server can actually reason about.
+        - a PRESENT, well-formed ``MCP-Protocol-Version`` header naming a revision this server does
+          NOT itself declare support for is ALSO rejected: ``negotiate_revision`` had to fall back
+          to its nearest-supported-or-min policy rather than match one of ``supported_revisions``
+          exactly. This server's own supported-revision list is a deliberate allow-list, not a lower
+          bound - letting a well-formed-but-undeclared revision through here would let it reach the
+          installed MCP SDK's own internal initialize handler, which has its own, broader,
+          independently-maintained accepted-version list and would answer as if this project had
+          verified support for a revision it never has.
+    
+        Returns ``None`` only when the Origin check passes AND the protocol-version header is either
+        absent or an EXACT match against ``supported_revisions`` - any negotiation fallback, below-
+        minimum or nearest-unknown alike, is a rejection here, never a pass-through.
+        """
+        origin = _header(headers, ORIGIN_HEADER)
+        allowed = set(allowed_origins)
+        if origin is not None and origin not in allowed:
+            return f"origin {origin!r} is not in the allowed origin list"
+    
+        protocol_version = _header(headers, MCP_PROTOCOL_VERSION_HEADER)
+        if protocol_version is None:
+            return None
+    
+        try:
+            result = negotiate_revision(
+                requested_revision=protocol_version, supported_revisions=supported_revisions
+            )
+        except MissingProtocolVersionError:
+            return "missing MCP-Protocol-Version header"
+        except InvalidRevisionFormatError:
+            return f"invalid MCP-Protocol-Version header: {protocol_version!r}"
+    
+>       if result.fallback_applied_off:
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'RevisionNegotiationResult' object has no attribute 'fallback_applied_off'. Did you mean: 'fallback_applied'?
+
+src\foss_mcp\mcp\transport_security.py:98: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/mcp/test_transport_security.py::test_an_absent_origin_is_not_rejected_on_its_own
+FAILED tests/mcp/test_transport_security.py::test_a_present_valid_protocol_version_is_not_rejected
+FAILED tests/mcp/test_transport_security.py::test_each_declared_supported_revision_passes_through_unchanged
+FAILED tests/mcp/test_transport_security.py::test_a_wellformed_but_unsupported_protocol_version_is_rejected
+
+--- stderr ---
+
