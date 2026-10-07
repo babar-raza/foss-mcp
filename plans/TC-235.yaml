@@ -1,0 +1,91 @@
+id: TC-235
+gate: G2
+lane: transport-deployment
+purpose: 'Wire the seven fixtures TC-232 and TC-233 already extracted but never deployed: cells/java, jmap/typescript, jmap/go,
+  jmap/net, jmap/cpp, jmap/java, jmap/nodejs. An earlier card already ran real extraction for each (config/products/<family>/<platform>.yaml
+  and tests/fixtures/<family>_<platform>/api_surface.json both exist and are committed on main); this card only adds the chart,
+  compose and deploy-tooling configuration, exactly the pattern TC-227 and TC-231 proved for the prior fourteen self-extracted
+  pilots, growing the POC from twenty-eight pilots to thirty-five - every combo of the real forty-combo portfolio except the 3d
+  and tex families (TC-234''s own fixtures, queued for a later wiring card). No extraction and no new network access are needed
+  for the work this card does; only each repository''s packaging-manifest path needs a quick, read-only survey.'
+depends_on:
+- TC-232
+- TC-233
+- TC-231
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- docker-compose.yml
+- Dockerfile.ingestion
+- tests/infra/test_helm_pilots_match_compose.py
+- tests/infra/test_helm_chart.py
+- tests/infra/test_docker_compose_multi_instance.py
+- tests/infra/test_ingestion_image_fixtures.py
+- tests/infra/test_helm_manifest_step.py
+- scripts/deploy/pilots.py
+- tests/deploy/test_pilots.py
+- tests/deploy/test_install_pilots.py
+- tests/deploy/test_prove_pilots.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/helm/foss-mcp/values.yaml under ingestion.pilots in full (twenty-eight entries today), the seven config/products/*.yaml
+  manifests for these combos, and each of the seven fixtures'' source_repository and source_commit. Copy repository and commit
+  verbatim from the fixture; never invent one.'
+- 'For each repository''s packaging-manifest path, do a quick, read-only check with no GitHub API call: a shallow git clone
+  (git clone --depth 1 <url> <tmp dir>, matching run_extraction.py''s own clone_shallow) into a throwaway directory, then look at
+  its root. Defaults that already hold for every other pilot on this platform, unless the actual clone shows otherwise: java ->
+  pom.xml, typescript -> package.json, go -> go.mod. jmap/net and jmap/cpp need an actual look, since the existing net and cpp
+  pilots'' manifest paths vary per repository (for example cells/net''s is src/Aspose.Cells_FOSS/Aspose.Cells_FOSS.csproj, not a bare
+  root .csproj; cells/cpp''s is Aspose.Cells.Foss.Cpp/CMakeLists.txt, not root). jmap/nodejs also needs an actual look even though
+  the default for a JavaScript/TypeScript repository is package.json - confirm it sits at the root. Delete every throwaway clone
+  when done.'
+- 'Add seven pilot entries to ingestion.pilots in values.yaml, each self_extracted, no furnishedPage, with the manifestPath found
+  above and a library block (repository, commit, platform). Platforms: cells/java java, jmap/typescript typescript, jmap/go go,
+  jmap/net net, jmap/cpp cpp, jmap/java java, jmap/nodejs nodejs.'
+- 'Add one ingest service and one serving service per new pilot to docker-compose.yml, and one COPY line per new pilot to
+  Dockerfile.ingestion, matching the exact pattern TC-209, TC-227 and TC-231 used for every other self-extracted pilot.'
+- 'Restate every fixed pilot count from twenty-eight to thirty-five across the nine files in write_paths that pin a count, keeping
+  each test''s name and what it checks, and renaming any test or constant whose own name says "twenty-eight" (for example a
+  PINNED_RELEASES list and any test named for the exact count) to say "thirty-five". Record every restatement in the commit body.
+  Do not weaken any assertion. Do not touch any `--tail=20` / "last N lines" log-tail literal - that is an unrelated convention,
+  not a pilot count (TC-231''s own worker correctly left these alone; do the same).'
+- 'Add exactly one new test to tests/infra/test_helm_manifest_step.py: test_the_rendered_jmap_java_fetch_step_passes_its_manifest_path_pom_xml,
+  mirroring test_the_rendered_pdf_cpp_fetch_step_passes_its_manifest_path_CMakeLists_txt''s and TC-231''s
+  test_the_rendered_email_python_fetch_step_passes_its_manifest_path_pyproject_toml''s exact shape and reasoning (a literal expected
+  value, never read back from values.yaml, since the generic per-pilot check at
+  test_every_pilot_with_a_manifest_path_gets_the_fetch_step_on_the_read_write_claim is deliberately self-referential and cannot
+  catch a wrong value - TC-231''s own review found this the hard way on its first attempt). Look up the jmap/java pilot
+  specifically (family == "jmap" and platform == "java" - cells/java also has platform java, so match on family too), render the
+  chart, and assert its fetch step''s --manifest-path flag equals the literal string "pom.xml". This is the negative control''s
+  real target (see negative_control.mutate below, which edits jmap/java''s manifestPath specifically via a two-line anchor, not
+  the file''s first occurrence of the string, learning directly from TC-231''s review finding).'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the values file, the seven manifests and fixtures, and all nine test files.
+- Shallow-clone the net, cpp and nodejs repos to confirm their real manifest paths; discard the clones.
+- Add the seven pilot entries, compose services, Dockerfile lines, restate every fixed count, and add the one literal-pin test.
+- Run the chart, compose, manifest and deploy tests, and helm lint and template, and report exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_chart.py tests/infra/test_docker_compose_multi_instance.py tests/infra/test_ingestion_image_fixtures.py tests/infra/test_helm_manifest_step.py tests/infra/test_container_pins.py tests/deploy -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 161
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/values.yaml');s=p.read_text(encoding='utf-8');marker=chr(10).join(['    - family: jmap','      platform: java']);old='manifestPath: pom.xml';new='manifestPath: pom_off.xml';i=s.index(marker);j=s.index(old,i);s=s[:j]+new+s[j+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: 'Renames jmap/java''s manifestPath specifically (found via a two-line family+platform anchor unique to that one pilot, not the file''s first match of the string - TC-231''s own review found that approach VACUOUS when the first match was a pre-existing pilot no test pinned), so the new literal-pinned test for this card''s own jmap/java pilot must fail. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-235/receipt.json
+closeout:
+- The chart and compose carry thirty-five pilots, each matching its already-extracted fixture - every combo of the real
+  forty-combo portfolio except 3d and tex is now a live pilot.
+recovery: Re-run from a clean tree.
