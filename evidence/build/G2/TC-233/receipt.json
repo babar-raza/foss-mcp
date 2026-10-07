@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "card": "TC-233",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-07T13:52:22Z",
+  "base_rev": "5e129c9e237b1c655bb7516cd706c5d976c3ea42",
+  "head_rev": "7aba2de80e507fc184fad9a5535f8aa7a606265d",
+  "card_sha256": "72f15c968567f66e03766f19121c985c46ba414d33920a6d19238a3d65ac90af",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/extraction/run_extraction.py",
+      "tests/extraction/test_jmap_nodejs_extraction.py",
+      "tests/extraction/test_run_extraction_language_mapping.py",
+      "tests/fixtures/jmap_nodejs/api_surface.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_run_extraction_language_mapping.py tests/extraction/test_jmap_nodejs_extraction.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.891,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_run_extraction_language_mapping.py tests/extraction/test_jmap_nodejs_extraction.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.559,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/extraction/run_extraction.py');q=chr(34);s=p.read_text(encoding='utf-8');s=s.replace(q+'nodejs'+q+': '+q+'javascript'+q,q+'nodejs'+q+': '+q+'typescript'+q,1);p.write_text(s,encoding='utf-8')\"\n",
+    "patch_sha256": "52c7e62460698903672dd8efdf13d9b7c390c15c8e1520e6fd137f1cfa55f0f6",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/run_extraction.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
