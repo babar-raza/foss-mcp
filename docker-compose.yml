@@ -73,6 +73,13 @@ volumes:
   manifests-cells-typescript:
   manifests-jmap-rust:
   manifests-cells-cpp:
+  # G2/TC-227: one manifests volume per pilot added in TC-227, same shape as the volumes above.
+  manifests-cells-net:
+  manifests-cells-python:
+  manifests-jmap-python:
+  manifests-pdf-python:
+  manifests-slides-cpp:
+  manifests-slides-net:
 
 services:
   # G2/TC-064: the real, live first publish for pdf/net - a one-shot init job, not a
@@ -711,4 +718,244 @@ services:
     environment:
       FOSS_MCP_FAMILY: cells
       FOSS_MCP_PLATFORM: cpp
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-227: cells/net, self-extracted, from tests/fixtures/cells_net/api_surface.json.
+  # source_repository aspose-cells-foss/Aspose.Cells-FOSS-for-.NET, source_commit
+  # 941814fd138dc28cf47123d48194f329f283498d. No furnished page and no --library-* flag.
+  ingest-cells-net:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-cells-net:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/cells_net/api_surface.json
+        --title "cells/net API surface"
+        --max-types 20
+        --out /tmp/cells_net_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family cells
+        --platform net
+        --source-kind self_extracted
+        --chunks /tmp/cells_net_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/cells_net/api_surface.json
+        --held-by ingestion-cells-net
+
+  serving-cells-net:
+    <<: *serving-base
+    ports:
+      - "8094:8080"
+    volumes:
+      - manifests-cells-net:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: cells
+      FOSS_MCP_PLATFORM: net
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-227: cells/python, self-extracted, from tests/fixtures/cells_python/api_surface.json.
+  # source_repository aspose-cells-foss/Aspose.Cells-FOSS-for-Python, source_commit
+  # 4f6768a7b349a1309644f456eb43bc35f70c16d7. No furnished page and no --library-* flag.
+  ingest-cells-python:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-cells-python:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/cells_python/api_surface.json
+        --title "cells/python API surface"
+        --max-types 20
+        --out /tmp/cells_python_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family cells
+        --platform python
+        --source-kind self_extracted
+        --chunks /tmp/cells_python_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/cells_python/api_surface.json
+        --held-by ingestion-cells-python
+
+  serving-cells-python:
+    <<: *serving-base
+    ports:
+      - "8095:8080"
+    volumes:
+      - manifests-cells-python:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: cells
+      FOSS_MCP_PLATFORM: python
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-227: jmap/python, self-extracted, from tests/fixtures/jmap_python/api_surface.json.
+  # source_repository aspose-email-foss/Aspose.JMAP-FOSS-for-Python, source_commit
+  # f2137fa6bade0002c317e3a73081f2a0b5173a23. No furnished page and no --library-* flag.
+  ingest-jmap-python:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-jmap-python:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/jmap_python/api_surface.json
+        --title "jmap/python API surface"
+        --max-types 20
+        --out /tmp/jmap_python_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family jmap
+        --platform python
+        --source-kind self_extracted
+        --chunks /tmp/jmap_python_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/jmap_python/api_surface.json
+        --held-by ingestion-jmap-python
+
+  serving-jmap-python:
+    <<: *serving-base
+    ports:
+      - "8096:8080"
+    volumes:
+      - manifests-jmap-python:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: jmap
+      FOSS_MCP_PLATFORM: python
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-227: pdf/python, self-extracted, from tests/fixtures/pdf_python/api_surface.json.
+  # source_repository aspose-pdf-foss/Aspose-PDF-FOSS-for-Python, source_commit
+  # 1da0ec0f55990f99ef7e5b631385523a1055b460. No furnished page and no --library-* flag.
+  ingest-pdf-python:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-pdf-python:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/pdf_python/api_surface.json
+        --title "pdf/python API surface"
+        --max-types 20
+        --out /tmp/pdf_python_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family pdf
+        --platform python
+        --source-kind self_extracted
+        --chunks /tmp/pdf_python_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/pdf_python/api_surface.json
+        --held-by ingestion-pdf-python
+
+  serving-pdf-python:
+    <<: *serving-base
+    ports:
+      - "8097:8080"
+    volumes:
+      - manifests-pdf-python:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: pdf
+      FOSS_MCP_PLATFORM: python
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-227: slides/cpp, self-extracted, from tests/fixtures/slides_cpp/api_surface.json.
+  # source_repository aspose-slides-foss/Aspose.Slides-FOSS-for-Cpp, source_commit
+  # c41f8dddc499fb0058fc9557cb364d70fbd3cef1. No furnished page and no --library-* flag.
+  ingest-slides-cpp:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-slides-cpp:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/slides_cpp/api_surface.json
+        --title "slides/cpp API surface"
+        --max-types 20
+        --out /tmp/slides_cpp_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family slides
+        --platform cpp
+        --source-kind self_extracted
+        --chunks /tmp/slides_cpp_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/slides_cpp/api_surface.json
+        --held-by ingestion-slides-cpp
+
+  serving-slides-cpp:
+    <<: *serving-base
+    ports:
+      - "8098:8080"
+    volumes:
+      - manifests-slides-cpp:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: slides
+      FOSS_MCP_PLATFORM: cpp
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-227: slides/net, self-extracted, from tests/fixtures/slides_net/api_surface.json.
+  # source_repository aspose-slides-foss/Aspose.Slides-FOSS-for-.NET, source_commit
+  # 86c441b5d81e707f2ea9e01b197dbb6ff7a3859b. No furnished page and no --library-* flag.
+  ingest-slides-net:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-slides-net:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/slides_net/api_surface.json
+        --title "slides/net API surface"
+        --max-types 20
+        --out /tmp/slides_net_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family slides
+        --platform net
+        --source-kind self_extracted
+        --chunks /tmp/slides_net_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/slides_net/api_surface.json
+        --held-by ingestion-slides-net
+
+  serving-slides-net:
+    <<: *serving-base
+    ports:
+      - "8099:8080"
+    volumes:
+      - manifests-slides-net:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: slides
+      FOSS_MCP_PLATFORM: net
       FOSS_MCP_SOURCE_KIND: self_extracted

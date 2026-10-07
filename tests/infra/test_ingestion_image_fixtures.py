@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 VALUES = ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 DOCKERFILE = ROOT / "Dockerfile.ingestion"
 
-EXPECTED_PILOT_COUNT = 14
+EXPECTED_PILOT_COUNT = 20
 APP_PREFIX = "/app/"
 FIXTURES_PREFIX = "fixtures/"
 
@@ -52,7 +52,7 @@ def _cases() -> list:
     return cases
 
 
-def test_chart_has_fourteen_pilots() -> None:
+def test_chart_has_twenty_pilots() -> None:
     ids = [_pilot_id(p) for p in _pilots()]
     assert len(ids) == EXPECTED_PILOT_COUNT, ids
     assert len(set(ids)) == EXPECTED_PILOT_COUNT, ids
