@@ -1,0 +1,89 @@
+id: TC-234
+gate: G2
+lane: extraction
+purpose: 'Extract and commit fixtures for the last five platform combos of the real forty-combo FOSS portfolio that have never
+  been touched by any card: the 3d family (python, typescript, net, java - a live repository-listing read on 2026-10-07 confirmed
+  the org aspose-3d-foss publishes exactly these four, none others) and the tex family (python only - aspose-tex-foss publishes
+  exactly one repository, confirmed the same way). Once this card lands, every combo in the real portfolio (TC-232''s own purpose
+  text first corrected the mission plan''s stale 32-combo count to forty) has either a committed, offline-tested extraction fixture
+  or is already wired as a live pilot. This card is extraction-only: it produces a fixture, a product manifest, and an offline test
+  per combo, the exact shape run_extraction.py already produces for every fixture committed so far. It does not wire any of the
+  five as a pilot; that is a separate, later card, once each fixture exists and its packaging-manifest path is surveyed.'
+depends_on:
+- TC-001
+- TC-003
+- TC-031
+write_paths:
+- config/products/3d/python.yaml
+- config/products/3d/typescript.yaml
+- config/products/3d/net.yaml
+- config/products/3d/java.yaml
+- config/products/tex/python.yaml
+- tests/fixtures/3d_python/api_surface.json
+- tests/fixtures/3d_typescript/api_surface.json
+- tests/fixtures/3d_net/api_surface.json
+- tests/fixtures/3d_java/api_surface.json
+- tests/fixtures/tex_python/api_surface.json
+- tests/extraction/test_3d_python_extraction.py
+- tests/extraction/test_3d_typescript_extraction.py
+- tests/extraction/test_3d_net_extraction.py
+- tests/extraction/test_3d_java_extraction.py
+- tests/extraction/test_tex_python_extraction.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read src/foss_mcp/extraction/run_extraction.py in full, and one complete existing triple per platform shape you will reproduce:
+  a Python-platform triple (any existing config/products/*/python.yaml + its tests/fixtures/*_python/api_surface.json + its
+  tests/extraction/test_*_python_extraction.py - python is handled by the independent stdlib-ast reader, not tree-sitter, so match
+  that triple''s shape exactly, not a tree-sitter one), tests/extraction/test_cells_typescript_extraction.py (TypeScript),
+  tests/extraction/test_cells_net_extraction.py (C#/.NET), and tests/extraction/test_pdf_java_extraction.py (Java). Match each
+  one''s exact structure, comment style and test shape for the matching new file; do not invent a different shape.'
+- 'The five repository full_names, verified by a GitHub repository-listing read on 2026-10-07, each public, not a fork, not archived:
+  3d/python -> aspose-3d-foss/Aspose.3D-FOSS-for-Python (default branch master, 382KB); 3d/typescript ->
+  aspose-3d-foss/Aspose.3D-FOSS-for-TypeScript (default branch master, 207KB); 3d/net -> aspose-3d-foss/Aspose.3D-FOSS-for-.NET
+  (default branch main, 486KB); 3d/java -> aspose-3d-foss/Aspose.3D-FOSS-for-Java (default branch main, 444KB); tex/python ->
+  aspose-tex-foss/Aspose.TeX-FOSS-for-Python (default branch main, 2160KB). Copy these verbatim into the five manifests; do not
+  reconstruct a name from a pattern - this org''s naming is irregular across families (see config/products/pdf/net.yaml''s own
+  comment for a documented example). Use platform value "net" for .NET (matching every other pilot''s convention, not "dotnet").
+  storage_topology: embedded for every one, same as every existing manifest. Pick any reasonable cron schedule distinct from the
+  ones already in use; the value is never exercised by this card''s own check.'
+- 'For each of the five, write the manifest, then run: {python} -m foss_mcp.extraction.run_extraction <manifest> <fixture output>
+  --max-types 300. This clones the real repository (network required) and writes the committed fixture. If a clone or extraction
+  genuinely fails for one combo (for example an unreachable repository, a package-root this engine''s detector cannot find, or a
+  platform-to-language mapping gap like the one TC-233 found and fixed for jmap/nodejs), stop for that one, report exactly what
+  failed with the real error text, and continue with the others; do not fabricate a fixture and do not silently skip reporting it.'
+- 'Write one offline test file per combo, following the matching exemplar''s exact test shape (five tests: the fixture parses and
+  has the expected shape; it records a real 40-hex source_commit matching its manifest''s repository; it is non-empty with
+  reduced_type_count == len(types) and type_count >= reduced_type_count; it contains at least two real type/function names you
+  observed in the actual extracted fixture - name them exactly as extracted, never invent a plausible-sounding name you did not
+  see; every entry''s kind is one of the real declaration kinds that platform''s reader produces, same closed set the matching
+  existing exemplar test for that platform uses).'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the engine and the four exemplar triples (python, typescript, net/csharp, java).
+- Write the five manifests, run extraction for each, and write the matching offline test.
+- Run the new tests and report exact counts, and name clearly any combo that genuinely failed and why.
+checks:
+- command: '{python} -m pytest tests/extraction/test_3d_python_extraction.py tests/extraction/test_3d_typescript_extraction.py tests/extraction/test_3d_net_extraction.py tests/extraction/test_3d_java_extraction.py tests/extraction/test_tex_python_extraction.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 25
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib,json;p=pathlib.Path('tests/fixtures/tex_python/api_surface.json');d=json.loads(p.read_text(encoding='utf-8'));d['source_commit']='not-a-real-commit';p.write_text(json.dumps(d),encoding='utf-8')"
+  rationale: 'Corrupts the committed tex/python fixture''s source_commit to a non-hex value, so the test that checks it against the real 40-hex pattern must fail. Targets a file this card itself commits, so the literal exists only after this card lands. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-234/receipt.json
+closeout:
+- Every combo of the real forty-combo portfolio now has a committed, offline-tested extraction fixture or is already a live pilot;
+  no combo remains untouched.
+recovery: Re-run from a clean tree.
