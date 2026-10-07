@@ -579,9 +579,7 @@ def test_a_non_string_query_argument_never_crashes_past_sanitization(tmp_path: P
     query_shape_category."""
     with _client(tmp_path) as client:
         session = _McpSession(client)
-        response = session.request(
-            "tools/call", {"name": "search_symbols", "arguments": {"query": 12345}}
-        )
+        response = session.request("tools/call", {"name": "search_symbols", "arguments": {"query": 12345}})
         assert response.status_code == 200
         body = _sse_json(response.text)
         assert "result" in body, body  # never a bare JSON-RPC protocol error (code 0)

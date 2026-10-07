@@ -662,9 +662,7 @@ def _record_usage_safely(usage_recorder: UsageRecorder, *, tool_name: str, **eve
     try:
         usage_recorder.record(_build_usage_event(tool_name=tool_name, **event_kwargs))
     except Exception as telemetry_exc:  # noqa: BLE001 - deliberately broad: see docstring above.
-        logger.warning(
-            "failed to record usage telemetry for tool '%s': %s", tool_name, telemetry_exc
-        )
+        logger.warning("failed to record usage telemetry for tool '%s': %s", tool_name, telemetry_exc)
 
 
 def _build_tool_registry(
