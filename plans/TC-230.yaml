@@ -34,7 +34,25 @@ inputs:
   label selector naming the release and --ignore-not-found; install_one (subprocess mocked) issues the delete call before the helm
   call, for every pilot, and a delete failure (mocked nonzero rc) still lets the helm call run and still produces an InstallResult with
   rc 0 when helm succeeds; dry-run prints one delete line and one helm line per pilot, in that order, and makes no subprocess call.'
-- 'Write commit messages as UTF-8 without a byte-order mark.'
+- 'Contract restatement, by the supervisor after the attempt-1 block. Attempt 1 correctly stopped: three existing tests in
+  tests/deploy/test_install_pilots.py pin the old guarantee that this tool never deletes anything, which this card deliberately
+  narrows to "never uninstalls a helm release, and the only delete it ever runs is its own scoped Job delete." Restate exactly these
+  three, by name, and no other test:
+  (1) test_dry_run_covers_all_twenty_pilots_and_never_builds_an_uninstall (line ~119): rename to
+  test_dry_run_prints_one_delete_and_one_upgrade_line_per_pilot_and_never_a_release_uninstall. The dry-run now prints 40 lines (two
+  per pilot): assert len(lines) == 40; taking the lines in pairs, the first of each pair has tokens[:3] ==
+  ["kubectl", "delete", "job"] and the second has tokens[:3] == ["helm", "upgrade", "--install"]; neither line contains the word
+  "uninstall"; no line''s tokens start with ["helm", "uninstall"].
+  (2) test_no_command_is_ever_an_uninstall_or_a_delete_even_when_installs_fail (line ~266): rename to
+  test_no_command_is_ever_a_helm_uninstall_and_every_delete_is_this_releases_own_job_delete. For every recorded command: it is never
+  (cmd[0] == "helm" and cmd[1] == "uninstall"); and whenever cmd[0] == "kubectl" and "delete" in cmd, cmd[:3] == ["kubectl", "delete",
+  "job"] and "--ignore-not-found" in cmd (i.e. it is exactly a job_delete_command call, never any other delete).
+  (3) test_the_installer_source_names_no_uninstall_or_delete_command (line ~281): rename to
+  test_the_installer_source_names_no_helm_uninstall_and_delete_appears_only_in_job_delete_command. Keep
+  assert ''"uninstall"'' not in text and assert "helm uninstall" not in text. Replace the removed
+  assert ''"delete"'' not in text with: assert text.count(''"delete"'') == 1, and that the one occurrence sits inside
+  job_delete_command''s own source (for example by checking it falls between that function''s def line and the next top-level def).
+  Do not change any other test in the file. Record this restatement in the commit body.'
 actions:
 - Read the tool and its tests.
 - Add the delete step and the dry-run line, and the four tests.
