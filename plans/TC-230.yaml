@@ -1,0 +1,59 @@
+id: TC-230
+gate: G2
+lane: transport-deployment
+purpose: 'Make install_pilots.py re-roll a release onto a new image tag without manual intervention. The 2026-10-07 re-roll of all
+  twenty local pilots onto one consistent tag failed with "cannot patch ... with kind Job: ... spec.template: Invalid" until the
+  supervisor deleted each release''s ingestion Job by hand first - a Job''s pod template is immutable, and helm upgrade cannot patch it.
+  The operator''s instruction was explicit: shipping on local must have no blockers. This card makes install_pilots.py delete the
+  release''s own ingestion Job (by label, scoped to that one release) immediately before the helm upgrade, every time, so a re-roll
+  never needs a manual kubectl command again. A release with no existing Job (a first install) is unaffected.'
+depends_on:
+- TC-227
+- TC-223
+write_paths:
+- scripts/deploy/install_pilots.py
+- tests/deploy/test_install_pilots.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read scripts/deploy/install_pilots.py in full, especially install_one, helm_install_command, and the --dry-run path in main. Read
+  tests/deploy/test_install_pilots.py in full.'
+- 'Add a function job_delete_command(namespace, release) returning the argv list: kubectl, delete, job, -n, namespace, -l,
+  "app.kubernetes.io/instance=" + release + ",app.kubernetes.io/component=ingestion", --ignore-not-found. --ignore-not-found makes a
+  first install (no existing Job) a no-op, never a failure.'
+- 'In install_one, run that delete command (via the same _run helper) immediately before the helm upgrade command, every time. Its
+  exit code does not gate the helm step: only the helm command''s rc feeds into InstallResult. Record the delete''s own command and rc
+  in a new InstallResult field job_delete_rc (int), so a real delete failure is visible in install-results.json without blocking the
+  install. In --dry-run mode, print the delete command on its own line immediately before each pilot''s helm command, and run neither.'
+- 'Add tests to tests/deploy/test_install_pilots.py, keeping every existing test: job_delete_command builds the exact argv with the
+  label selector naming the release and --ignore-not-found; install_one (subprocess mocked) issues the delete call before the helm
+  call, for every pilot, and a delete failure (mocked nonzero rc) still lets the helm call run and still produces an InstallResult with
+  rc 0 when helm succeeds; dry-run prints one delete line and one helm line per pilot, in that order, and makes no subprocess call.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the tool and its tests.
+- Add the delete step and the dry-run line, and the four tests.
+- Run the card check and report exact counts.
+checks:
+- command: '{python} -m pytest tests/deploy/test_install_pilots.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 21
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/deploy/install_pilots.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('--ignore-not-found','--ignore-not-present'),encoding='utf-8')"
+  rationale: 'Renames the flag that makes a missing Job a no-op, so the test that pins the exact delete command must fail. The text appears once in the file. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-230/receipt.json
+closeout:
+- Re-rolling a pilot onto a new image tag needs no manual kubectl command, on any number of releases.
+recovery: Re-run from a clean tree.
