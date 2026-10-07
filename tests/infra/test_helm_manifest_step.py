@@ -139,6 +139,18 @@ def test_the_rendered_pdf_cpp_fetch_step_passes_its_manifest_path_CMakeLists_txt
     assert _flag_after(fetch, 0, "--manifest-path") == "CMakeLists.txt"
 
 
+def test_the_rendered_email_python_fetch_step_passes_its_manifest_path_pyproject_toml() -> None:
+    # The expected value is a literal, not read from values.yaml. Editing manifestPath in values.yaml
+    # changes the rendered command and the value together, so the per-pilot equality above cannot
+    # catch it; this literal does.
+    pilot = next(
+        p for p in _values()["ingestion"]["pilots"] if p["family"] == "email" and p["platform"] == "python"
+    )
+    docs = _render()
+    fetch = _fetch_tokens(_job_tokens(_job(docs, pilot)))
+    assert _flag_after(fetch, 0, "--manifest-path") == "pyproject.toml"
+
+
 def test_a_pilot_without_a_manifest_path_gets_no_fetch_step(tmp_path: Path) -> None:
     pilots = copy.deepcopy(_values()["ingestion"]["pilots"])
     for pilot in pilots:
