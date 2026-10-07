@@ -268,46 +268,17 @@ def test_api_surface_argument_is_optional_and_defaults_to_none(tmp_path: Path, m
     assert store.read_active(SCOPE) is not None
 
 
-def test_assert_publish_is_safe_raises_on_zero_chunks_regardless_of_active_state() -> None:
-    """TC-129: an empty generation is refused unconditionally - both when nothing is
-    currently active and when a healthy generation is already live."""
-    with pytest.raises(ingest.PublishSafetyError):
-        ingest._assert_publish_is_safe(0, None)
-    with pytest.raises(ingest.PublishSafetyError):
-        ingest._assert_publish_is_safe(0, 10)
-
-
-def test_assert_publish_is_safe_raises_on_more_than_50_percent_regression() -> None:
-    """4 active documents, only 1 new chunk: 1 < 4 * 0.5 (2.0), a genuine >50% regression."""
-    with pytest.raises(ingest.PublishSafetyError):
-        ingest._assert_publish_is_safe(1, 4)
-
-
-def test_assert_publish_is_safe_allows_exactly_half_or_better() -> None:
-    """Exactly half of the active document count is NOT a regression (the guard's own
-    condition is strictly-less-than), and growth over the active count is obviously fine."""
-    ingest._assert_publish_is_safe(2, 4)
-    ingest._assert_publish_is_safe(5, 4)
-
-
-def test_assert_publish_is_safe_allows_any_positive_count_with_no_active_generation() -> None:
-    ingest._assert_publish_is_safe(1, None)
-
-
-def test_main_refuses_to_publish_zero_chunks_and_never_calls_publish_generation(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_main_refuses_to_publish_zero_chunks_and_never_activates(tmp_path: Path, monkeypatch) -> None:
     """The card's core wiring, at the CLI entrypoint: a run that would publish zero
-    chunks must be refused BEFORE ``publish_generation`` is ever called - never silently
-    shipped, and never left to activate an empty generation."""
+    chunks must be refused - never silently shipped, and never left to activate an empty
+    generation. TC-242 moved the enforcement itself from this CLI's own pre-check into
+    ``generation_manifest.publish()``, so ``publish_generation`` (and ``publish()`` inside
+    it) IS reached here now - it is the refusal and the non-activation that matter, not
+    which internal function got there."""
     chunks_path = tmp_path / "chunks.json"
     manifest_store_path = tmp_path / "manifests"
     _write_chunks_fixture(chunks_path, [])
 
-    def _must_not_be_called(*args, **kwargs):
-        raise AssertionError("publish_generation must not be called when the publish is refused")
-
-    monkeypatch.setattr(ingest, "publish_generation", _must_not_be_called)
     monkeypatch.setattr(sys, "argv", ["ingest.py", *_base_argv(chunks_path, manifest_store_path)])
 
     with pytest.raises(ingest.PublishSafetyError):
@@ -321,8 +292,8 @@ def test_main_refuses_a_more_than_50_percent_regression_against_a_real_active_ge
     tmp_path: Path, monkeypatch
 ) -> None:
     """A real, previously-published active generation with 4 documents; a second run
-    that would publish only 1 chunk (a >50% drop) must be refused before
-    ``publish_generation`` runs, and the good generation must remain active, unreplaced."""
+    that would publish only 1 chunk (a >50% drop) must be refused, and the good
+    generation must remain active, unreplaced."""
     chunks_path = tmp_path / "chunks.json"
     regression_chunks_path = tmp_path / "chunks_regression.json"
     manifest_store_path = tmp_path / "manifests"
@@ -344,10 +315,6 @@ def test_main_refuses_a_more_than_50_percent_regression_against_a_real_active_ge
 
     _write_chunks_fixture(regression_chunks_path, [_chunk_entry("OnlyOne", "Only one document now.")])
 
-    def _must_not_be_called(*args, **kwargs):
-        raise AssertionError("publish_generation must not be called when the publish is refused")
-
-    monkeypatch.setattr(ingest, "publish_generation", _must_not_be_called)
     monkeypatch.setattr(sys, "argv", ["ingest.py", *_base_argv(regression_chunks_path, manifest_store_path)])
 
     with pytest.raises(ingest.PublishSafetyError):

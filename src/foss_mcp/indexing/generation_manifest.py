@@ -445,6 +445,49 @@ class GenerationManifestStore:
 # could be hiding.
 
 
+class PublishSafetyError(Exception):
+    """Raised by :func:`assert_publish_is_safe` to refuse a publish that would either
+    ship an empty generation or drastically regress against what is already live. Raised
+    from inside :func:`publish` itself — before ``cas_activate`` ever runs — so it applies
+    to every caller of ``publish``/:class:`GenerationManifestStore`, not only a particular
+    CLI built on top of them. Never caught inside this module: it is left to propagate to
+    whatever called ``publish``, which must not treat a refused publish as having
+    activated anything."""
+
+
+def assert_publish_is_safe(new_document_count: int, active_document_count: int | None) -> None:
+    """Guard called from inside :func:`publish`, before ``cas_activate`` runs.
+
+    Refuses the publish when either is true:
+
+    1. ``new_document_count == 0`` - an empty generation is never a valid publish,
+       regardless of whether anything is currently active. A tree-sitter regression, a
+       broken extraction, or a citation-validation bug that silently drops every chunk
+       must not replace a good, currently-serving generation with nothing.
+    2. There IS a currently active generation (``active_document_count`` is not ``None``
+       and greater than zero) and the new document count is less than half its document
+       count - a drastic regression against what is already live.
+    """
+    if new_document_count == 0:
+        raise PublishSafetyError("refusing to publish an empty generation (0 chunks)")
+    if active_document_count is not None and active_document_count > 0:
+        if new_document_count < active_document_count * 0.5:
+            raise PublishSafetyError(
+                f"refusing to publish {new_document_count} chunk(s): this is more than a 50% "
+                f"regression against the currently active generation's {active_document_count} "
+                "document(s)"
+            )
+
+
+def _document_count(payload: dict[str, Any]) -> int:
+    """How many documents ``payload`` carries in its lexical index - the same count
+    ``infra/ingest.py`` used to derive from the chunk list it was about to publish, read
+    back here from the payload :func:`foss_mcp.indexing.publisher.publish_generation`
+    actually writes (confirmed against ``build_lexical_index``: one document per chunk,
+    keyed by ``doc_id``)."""
+    return len((payload.get("lexical_index") or {}).get("documents") or {})
+
+
 def publish(
     store: GenerationManifestStore,
     scope: str,
@@ -452,7 +495,33 @@ def publish(
     generation: GenerationManifest,
     lease: Lease,
 ):
-    return store.cas_activate(scope, expected_active, store.write_and_validate(generation), lease)
+    """Write-and-validate ``generation``, then activate it via CAS - the one authority
+    path. Enforces :func:`assert_publish_is_safe` itself, after write-and-validate
+    (so a structurally-invalid payload still fails with :class:`ManifestValidationError`,
+    not an attribute error from this guard trying to read a malformed payload) and before
+    ``cas_activate`` (so an unsafe publish never activates, no matter who called this).
+
+    ``active_document_count`` is read from whatever generation is REALLY currently active
+    for ``scope`` right now (not from the caller-supplied ``expected_active``, which may
+    legitimately name a generation that was never written when a caller is deliberately
+    testing a CAS mismatch) - falling back to ``None`` when nothing is active yet, or when
+    that lookup can't resolve to a real generation.
+    """
+    generation_id = store.write_and_validate(generation)
+
+    active_document_count: int | None = None
+    active_generation_id = store.read_active(scope)
+    if active_generation_id is not None:
+        try:
+            active_manifest = store.read_generation(scope, active_generation_id)
+        except UnknownGenerationError:
+            active_manifest = None
+        if active_manifest is not None:
+            active_document_count = _document_count(active_manifest.payload)
+
+    assert_publish_is_safe(_document_count(generation.payload), active_document_count)
+
+    return store.cas_activate(scope, expected_active, generation_id, lease)
 
 
 def rollback(

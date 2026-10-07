@@ -23,6 +23,16 @@ Every one of these routes its assertion through the module-level
 ``publish()`` function (or ``rollback()``, which is documented to travel
 the identical authority path) rather than around it, so that a falsifier
 which guts ``publish``'s body cannot leave these tests accidentally green.
+
+TC-242 moved the empty-generation / >50% regression guard
+(``assert_publish_is_safe``, raising ``PublishSafetyError``) from
+``infra/ingest.py``'s CLI into ``publish()`` itself, so it is enforced for
+every direct caller, not only that CLI. That means every payload published
+below now carries a non-empty ``lexical_index.documents`` (via
+``_lexical_index``) purely to stay a "healthy" publish as far as THIS guard
+is concerned - these tests are otherwise still exercising CAS/fencing
+behaviour, not the safety guard, which gets its own dedicated tests near the
+bottom of this file.
 """
 
 from __future__ import annotations
@@ -38,8 +48,10 @@ from foss_mcp.indexing.generation_manifest import (
     GenerationManifestStore,
     ManifestImmutableError,
     ManifestValidationError,
+    PublishSafetyError,
     StaleFencingTokenError,
     UnknownGenerationError,
+    assert_publish_is_safe,
     build_manifest,
     publish,
     rollback,
@@ -48,6 +60,26 @@ from foss_mcp.indexing.generation_manifest import (
 
 def _store(tmp_path: Path) -> GenerationManifestStore:
     return GenerationManifestStore(tmp_path / "manifests")
+
+
+def _lexical_index(count: int) -> dict:
+    """A minimal, valid ``lexical_index`` payload fragment carrying exactly ``count``
+    documents - enough for ``assert_publish_is_safe`` (enforced inside ``publish()``
+    itself as of TC-242) to see a real, non-empty document count. Matches
+    ``lexical_index_writer.build_lexical_index``'s own shape closely enough for this
+    guard's own read (``payload["lexical_index"]["documents"]``), not a stand-in for
+    every field a real lexical index carries.
+    """
+    return {
+        "documents": {f"doc-{i}": {"chunk_id": f"chunk-{i}", "tokens": [], "text": ""} for i in range(count)}
+    }
+
+
+def _manifest_with_documents(
+    family: str, platform: str, source_kind: str, version: str, count: int, **extra_payload
+) -> GenerationManifest:
+    payload = {**extra_payload, "lexical_index": _lexical_index(count)}
+    return build_manifest(family, platform, source_kind, version, payload=payload)
 
 
 # ---------------------------------------------------------------------
@@ -87,7 +119,7 @@ def test_generation_key_rejects_empty_or_separator_bearing_component():
 
 def test_build_publish_and_read_active_round_trip(tmp_path):
     store = _store(tmp_path)
-    gen = build_manifest("pdf", "net", "api-reference", "1", payload={"pages": 10})
+    gen = _manifest_with_documents("pdf", "net", "api-reference", "1", 1, pages=10)
     lease = store.acquire_lease(gen.scope, "worker-1", gen.generation_id)
 
     result = publish(store, gen.scope, None, gen, lease)
@@ -95,7 +127,7 @@ def test_build_publish_and_read_active_round_trip(tmp_path):
     assert result == gen.generation_id
     assert store.read_active(gen.scope) == gen.generation_id
     round_tripped = store.read_generation(gen.scope, gen.generation_id)
-    assert round_tripped.payload == {"pages": 10}
+    assert round_tripped.payload == gen.payload
 
 
 def test_publish_requires_the_current_expected_active_value(tmp_path):
@@ -104,8 +136,8 @@ def test_publish_requires_the_current_expected_active_value(tmp_path):
     fencing -- callers must be able to tell "someone else already moved
     this pointer" apart from "my lease is stale."""
     store = _store(tmp_path)
-    gen1 = build_manifest("pdf", "net", "api-reference", "1")
-    gen2 = build_manifest("pdf", "net", "api-reference", "2")
+    gen1 = _manifest_with_documents("pdf", "net", "api-reference", "1", 2)
+    gen2 = _manifest_with_documents("pdf", "net", "api-reference", "2", 2)
     lease = store.acquire_lease(gen1.scope, "worker-1", gen1.generation_id)
     publish(store, gen1.scope, None, gen1, lease)
 
@@ -126,7 +158,7 @@ def test_stale_fencing_token_write_is_rejected(tmp_path):
     leave the active pointer completely untouched."""
     store = _store(tmp_path)
     gen1 = build_manifest("pdf", "net", "api-reference", "1")
-    gen2 = build_manifest("pdf", "net", "api-reference", "2")
+    gen2 = _manifest_with_documents("pdf", "net", "api-reference", "2", 1)
 
     stale_lease = store.acquire_lease(gen1.scope, "worker-1", gen1.generation_id)
     # Renewal: the SAME holder re-acquires, which still mints a strictly
@@ -149,7 +181,7 @@ def test_second_acquirer_fences_out_first(tmp_path):
     whoever held it before, regardless of identity -- the write that
     matters is the token, not who is holding it."""
     store = _store(tmp_path)
-    gen = build_manifest("pdf", "net", "api-reference", "1")
+    gen = _manifest_with_documents("pdf", "net", "api-reference", "1", 1)
 
     first = store.acquire_lease(gen.scope, "worker-A", gen.generation_id)
     second = store.acquire_lease(gen.scope, "worker-B", gen.generation_id)
@@ -175,8 +207,8 @@ def test_late_publish_after_rollback_is_rejected(tmp_path):
     stale worker's late publish must be fenced out whether the most
     recently accepted action ahead of it was a promotion OR a rollback."""
     store = _store(tmp_path)
-    gen_a = build_manifest("pdf", "net", "api-reference", "1")
-    gen_b = build_manifest("pdf", "net", "api-reference", "2")
+    gen_a = _manifest_with_documents("pdf", "net", "api-reference", "1", 2)
+    gen_b = _manifest_with_documents("pdf", "net", "api-reference", "2", 2)
     scope = gen_a.scope
 
     slow_worker_lease = store.acquire_lease(scope, "worker-slow", gen_a.generation_id)
@@ -202,7 +234,7 @@ def test_late_publish_after_rollback_is_rejected(tmp_path):
 
 def test_rollback_to_unknown_generation_is_rejected(tmp_path):
     store = _store(tmp_path)
-    gen = build_manifest("pdf", "net", "api-reference", "1")
+    gen = _manifest_with_documents("pdf", "net", "api-reference", "1", 1)
     lease = store.acquire_lease(gen.scope, "worker-1", gen.generation_id)
     publish(store, gen.scope, None, gen, lease)
 
@@ -219,19 +251,19 @@ def test_rollback_to_unknown_generation_is_rejected(tmp_path):
 
 def test_published_manifest_cannot_be_mutated(tmp_path):
     store = _store(tmp_path)
-    gen_v1 = build_manifest("pdf", "net", "api-reference", "1", payload={"checksum": "aaa"})
+    gen_v1 = _manifest_with_documents("pdf", "net", "api-reference", "1", 1, checksum="aaa")
     lease = store.acquire_lease(gen_v1.scope, "worker-1", gen_v1.generation_id)
     publish(store, gen_v1.scope, None, gen_v1, lease)
 
     # Same identity (same generation_id), DIFFERENT content.
-    mutated = build_manifest("pdf", "net", "api-reference", "1", payload={"checksum": "bbb"})
+    mutated = _manifest_with_documents("pdf", "net", "api-reference", "1", 1, checksum="bbb")
     lease2 = store.acquire_lease(gen_v1.scope, "worker-1", gen_v1.generation_id)
     with pytest.raises(ManifestImmutableError):
         publish(store, mutated.scope, gen_v1.generation_id, mutated, lease2)
 
     # The originally published content is untouched.
     on_disk = store.read_generation(gen_v1.scope, gen_v1.generation_id)
-    assert on_disk.payload == {"checksum": "aaa"}
+    assert on_disk.payload == gen_v1.payload
     assert store.read_active(gen_v1.scope) == gen_v1.generation_id
 
 
@@ -239,11 +271,11 @@ def test_republishing_identical_content_is_idempotent_not_an_error(tmp_path):
     """Rollback relies on this: re-publishing byte-identical content under
     the same generation_id is a harmless no-op, not a mutation."""
     store = _store(tmp_path)
-    gen = build_manifest("pdf", "net", "api-reference", "1", payload={"x": 1})
+    gen = _manifest_with_documents("pdf", "net", "api-reference", "1", 1, x=1)
     lease1 = store.acquire_lease(gen.scope, "worker-1", gen.generation_id)
     publish(store, gen.scope, None, gen, lease1)
 
-    same_content_again = build_manifest("pdf", "net", "api-reference", "1", payload={"x": 1})
+    same_content_again = _manifest_with_documents("pdf", "net", "api-reference", "1", 1, x=1)
     lease2 = store.acquire_lease(gen.scope, "worker-1", gen.generation_id)
     # expected_active is already gen.generation_id, so this is a genuine
     # CAS no-op re-publish of identical content -- must not raise.
@@ -274,7 +306,7 @@ def test_active_pointer_does_not_advance_if_validation_fails_partway(tmp_path):
 
     # A subsequent, VALID publish for the same identity must still work
     # cleanly -- the failed attempt left no partial state behind.
-    valid = build_manifest("pdf", "net", "api-reference", "1", payload={"ok": True})
+    valid = _manifest_with_documents("pdf", "net", "api-reference", "1", 1, ok=True)
     lease2 = store.acquire_lease(key.scope, "worker-1", key.generation_id)
     publish(store, key.scope, None, valid, lease2)
     assert store.read_active(key.scope) == key.generation_id
@@ -288,8 +320,8 @@ def test_active_pointer_does_not_advance_if_validation_fails_partway(tmp_path):
 
 def test_publishing_one_source_kind_does_not_deactivate_another(tmp_path):
     store = _store(tmp_path)
-    api = build_manifest("pdf", "net", "api-reference", "24.9", payload={"kind": "api"})
-    cookbook = build_manifest("pdf", "net", "cookbook", "24.9", payload={"kind": "cookbook"})
+    api = _manifest_with_documents("pdf", "net", "api-reference", "24.9", 1, kind="api")
+    cookbook = _manifest_with_documents("pdf", "net", "cookbook", "24.9", 1, kind="cookbook")
     assert api.scope != cookbook.scope  # same family/platform/version, different source_kind
 
     api_lease = store.acquire_lease(api.scope, "worker-api", api.generation_id)
@@ -304,3 +336,95 @@ def test_publishing_one_source_kind_does_not_deactivate_another(tmp_path):
     # scope's active pointer at all.
     assert store.read_active(api.scope) == api.generation_id
     assert store.read_active(cookbook.scope) == cookbook.generation_id
+
+
+# ---------------------------------------------------------------------
+# TC-242: assert_publish_is_safe, and its enforcement from INSIDE publish()
+# itself, so every direct caller is covered - not only infra/ingest.py's CLI.
+# ---------------------------------------------------------------------
+
+
+def test_assert_publish_is_safe_raises_on_zero_chunks_regardless_of_active_state():
+    """An empty generation is refused unconditionally - both when nothing is
+    currently active and when a healthy generation is already live."""
+    with pytest.raises(PublishSafetyError):
+        assert_publish_is_safe(0, None)
+    with pytest.raises(PublishSafetyError):
+        assert_publish_is_safe(0, 10)
+
+
+def test_assert_publish_is_safe_raises_on_more_than_50_percent_regression():
+    """4 active documents, only 1 new chunk: 1 < 4 * 0.5 (2.0), a genuine >50% regression."""
+    with pytest.raises(PublishSafetyError):
+        assert_publish_is_safe(1, 4)
+
+
+def test_assert_publish_is_safe_allows_exactly_half_or_better():
+    """Exactly half of the active document count is NOT a regression (the guard's own
+    condition is strictly-less-than), and growth over the active count is obviously fine."""
+    assert_publish_is_safe(2, 4)
+    assert_publish_is_safe(5, 4)
+
+
+def test_assert_publish_is_safe_allows_any_positive_count_with_no_active_generation():
+    assert_publish_is_safe(1, None)
+
+
+def test_publish_refuses_an_empty_generation_even_when_called_directly(tmp_path):
+    """TC-242's core defect, fixed: before this card, an empty-generation publish was only
+    ever refused by infra/ingest.py's own CLI pre-check. Calling publish() directly -
+    exactly as any OTHER caller of publish()/GenerationManifestStore would, bypassing that
+    CLI entirely - must be refused identically, and must not activate anything."""
+    store = _store(tmp_path)
+    empty = build_manifest("pdf", "net", "api-reference", "1")  # payload={} -> 0 documents
+    lease = store.acquire_lease(empty.scope, "worker-1", empty.generation_id)
+
+    with pytest.raises(PublishSafetyError):
+        publish(store, empty.scope, None, empty, lease)
+
+    assert store.read_active(empty.scope) is None
+
+
+def test_publish_refuses_a_more_than_50_percent_regression_even_when_called_directly(tmp_path):
+    """Same defect, the regression branch: a direct caller publishing far fewer documents
+    than half of what is currently active must be refused, and the good, currently-active
+    generation must remain active, unreplaced."""
+    store = _store(tmp_path)
+    healthy = _manifest_with_documents("pdf", "net", "api-reference", "1", 4)
+    lease = store.acquire_lease(healthy.scope, "worker-1", healthy.generation_id)
+    publish(store, healthy.scope, None, healthy, lease)
+    assert store.read_active(healthy.scope) == healthy.generation_id
+
+    regressive = _manifest_with_documents("pdf", "net", "api-reference", "2", 1)
+    lease2 = store.acquire_lease(regressive.scope, "worker-1", regressive.generation_id)
+
+    with pytest.raises(PublishSafetyError):
+        publish(store, regressive.scope, healthy.generation_id, regressive, lease2)
+
+    assert store.read_active(healthy.scope) == healthy.generation_id
+
+
+def test_publish_allows_a_safe_generation_with_no_active_generation_yet(tmp_path):
+    """A normal first publish - any positive document count, nothing active yet - succeeds
+    exactly as it did before this card."""
+    store = _store(tmp_path)
+    safe = _manifest_with_documents("pdf", "net", "api-reference", "1", 1)
+    lease = store.acquire_lease(safe.scope, "worker-1", safe.generation_id)
+
+    assert publish(store, safe.scope, None, safe, lease) == safe.generation_id
+    assert store.read_active(safe.scope) == safe.generation_id
+
+
+def test_publish_allows_a_comfortable_update_against_an_active_generation(tmp_path):
+    """A healthy update - comfortably more than half of the currently-active document
+    count - succeeds exactly as it did before this card."""
+    store = _store(tmp_path)
+    first = _manifest_with_documents("pdf", "net", "api-reference", "1", 4)
+    lease = store.acquire_lease(first.scope, "worker-1", first.generation_id)
+    publish(store, first.scope, None, first, lease)
+
+    second = _manifest_with_documents("pdf", "net", "api-reference", "2", 4)
+    lease2 = store.acquire_lease(second.scope, "worker-1", second.generation_id)
+
+    assert publish(store, second.scope, first.generation_id, second, lease2) == second.generation_id
+    assert store.read_active(second.scope) == second.generation_id
