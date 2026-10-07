@@ -121,18 +121,36 @@ REAL_DOC_QUERY = "known issues"
 REAL_DOC_CONTENT_TYPE = "troubleshooting"
 REAL_DOC_FRAGMENT = "troubleshooting-relevant scope boundaries"
 
-# REQ-G2-047 (TC-115): the real, API-naive task question CONFIRMED live, by hand, on
-# 2026-09-29, to make lookup's own doc-fallback path (_compose_from_docs) surface the SAME real
-# "troubleshooting"-classified chunk above as doc_matches - never [] as every prior
-# comprehensive live verification pass found for every pilot, for every query, before TC-109
-# through TC-112 (and TC-113/TC-114/this card) closed the gap. This query's own words
-# ("functionality", "unsupported") have zero lexical overlap with any real
-# getting_started/developer_guide chunk in this fixture (confirmed live: both of those
-# categories are honest Misses for this exact query), so _compose_from_docs's own
-# CONTENT_TYPES-ordered fallback reaches "troubleshooting" and surfaces exactly the one real
-# chunk above, with example=None (this query matches no real verified example either) - a
-# real, live instance of a TaskAnswer composed from a doc match alone.
-REAL_DOC_TASK_QUERY = "what functionality is unsupported"
+# REQ-G2-047 (TC-115, restated by TC-248): the real, API-naive task question that makes
+# lookup's own doc-fallback path (_compose_from_docs) surface the SAME real
+# "troubleshooting"-classified chunk above as doc_matches.
+#
+# TC-115's original query here was "what functionality is unsupported" - confirmed live, by
+# hand, on 2026-09-29, to have zero lexical overlap with any real getting_started/
+# developer_guide chunk published at the time. TC-238 (2026-10-08) raised pdf/java's live
+# symbol-index cap (build_chunks_from_api_surface's max_types) from 20 to 300, making ALL 150
+# real types in this fixture reachable for the first time - including the real
+# org.aspose.pdf.GenericAction type ("Represents a PDF action of an unknown or unsupported
+# type"), which classify_content_type buckets "developer_guide" (its own default) and which
+# genuinely contains the word "unsupported". That is a GENUINE IMPROVEMENT (more real content
+# is now findable, exactly what TC-238 set out to fix) - but it means the OLD query now stops
+# at "developer_guide" before ever reaching "troubleshooting", breaking this test's own
+# long-standing assumption. TC-248 replaced the query below with one proven, by a deterministic
+# OFFLINE replica of this exact decision process against these same real, committed fixtures
+# (tests/indexing/test_lookup_doc_fallback_query_safety.py's OFFLINE_SAFE_QUERY and its own
+# tests), to share BM25 tokens with exactly one chunk in the whole generation: the real
+# troubleshooting-classified "Scope and Limitations" paragraph carrying REAL_DOC_FRAGMENT
+# below - never with any getting_started/developer_guide chunk (type or doc), and never with
+# any real symbol FQN or candidate example either.
+#
+# This was verified OFFLINE, not live: OWNER-10 (ops/owner_items.yaml) records that this
+# environment denies the docker compose lifecycle actions a live confirmation would need. The
+# classification (classify_content_type) and ranking (query_lexical_index) functions this
+# query's safety depends on are pure functions over already-committed chunk text - real
+# container plumbing and a real javac compile are the only things live adds, and neither
+# changes what those functions return over the same text - so this offline evidence is sound,
+# but it is NOT a live confirmation, and this comment makes no claim that it is.
+REAL_DOC_TASK_QUERY = "what documentation issues were reviewed"
 
 VALID_HEADERS = {
     "Accept": "application/json, text/event-stream",
@@ -424,13 +442,17 @@ def test_lookup_returns_real_doc_matches_for_an_api_naive_query(session: _McpSes
     ``()`` for every pilot, for every query, confirmed by this project's own earlier
     comprehensive live verification pass (see ``lookup.py``'s own module docstring, REQ-G2-049).
 
-    This real query's own words have zero lexical overlap with any real getting_started or
-    developer_guide chunk in this fixture (confirmed live: both of those content_type searches
-    are honest Misses for this exact query, run by hand against the real running container), so
-    ``_compose_from_docs``'s own ``CONTENT_TYPES``-ordered fallback genuinely reaches
-    "troubleshooting" and surfaces the same real chunk the test above proves, with ``example``
-    genuinely ``None`` (this query matches no real verified example either) - a real, live
-    instance of a ``TaskAnswer`` composed from a doc match alone, never fabricated.
+    REAL_DOC_TASK_QUERY was restated by TC-248 (see its own comment above for why the original
+    TC-115 query went stale once TC-238 made pdf/java's real GenericAction type reachable).
+    This replacement query's safety - zero lexical overlap with any real getting_started or
+    developer_guide chunk (type or doc) in this fixture, so ``_compose_from_docs``'s own
+    ``CONTENT_TYPES``-ordered fallback genuinely reaches "troubleshooting" and surfaces the
+    same real chunk the test above proves - was confirmed OFFLINE, via a deterministic replica
+    of this exact decision process over these same real, committed fixtures
+    (tests/indexing/test_lookup_doc_fallback_query_safety.py), NOT via a live run of this file
+    (OWNER-10: this environment denies the docker compose lifecycle actions a live run needs).
+    When live verification becomes available again, this assertion is the one that would
+    confirm the offline evidence transfers to the real running container.
     """
     body = session.call_tool("lookup", {"query": REAL_DOC_TASK_QUERY})
     result = body["result"]["structuredContent"]["result"]
