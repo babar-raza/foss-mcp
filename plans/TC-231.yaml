@@ -45,6 +45,15 @@ inputs:
   barcode/python python, note/python python, html/python python, page/python python, imaging/net dotnet.'
 - 'Add one ingest service and one serving service per new pilot to docker-compose.yml, and one COPY line per new pilot to
   Dockerfile.ingestion, matching the exact pattern TC-209 and TC-227 used for every other self-extracted pilot.'
+- 'Contract restatement, by the supervisor after attempt 1''s review. Attempt 1''s own work was correct and is kept; this adds exactly
+  one new test. In tests/infra/test_helm_manifest_step.py, add test_the_rendered_email_python_fetch_step_passes_its_manifest_path_pyproject_toml,
+  mirroring test_the_rendered_pdf_cpp_fetch_step_passes_its_manifest_path_CMakeLists_txt''s exact shape and its own comment''s
+  reasoning (a literal expected value, never read back from values.yaml, since the generic per-pilot check is self-referential and
+  cannot catch a wrong value): look up the email/python pilot specifically (family == "email" and platform == "python"), render the
+  chart, and assert its fetch step''s --manifest-path flag equals the literal string "pyproject.toml". Do not change
+  test_every_pilot_with_a_manifest_path_gets_the_fetch_step_on_the_read_write_claim or the existing CMakeLists.txt test. This is the
+  negative control''s real target now (see the revised negative_control.mutate below, which edits email/python''s manifestPath
+  specifically rather than the file''s first occurrence, which turned out to be a pre-existing pilot no test pins).'
 - 'Restate every fixed pilot count from twenty to twenty-eight across the nine test files in write_paths, keeping each test''s name
   and what it checks, and renaming any test or constant whose own name says "twenty" (for example a PINNED_RELEASES list and any
   test named for the exact count) to say "twenty-eight". Record every restatement in the commit body. Do not weaken any assertion.'
@@ -65,8 +74,8 @@ min_tests: 145
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/values.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('manifestPath: pyproject.toml','manifestPath: pyproject_off.toml',1),encoding='utf-8')"
-  rationale: 'Renames the first pyproject.toml manifest path among this card''s new pilots, so the rendered-path test for that pilot must fail. Several existing pilots already use this exact value, so the replace is limited to the first match; the failing assertion names whichever pilot that is. Built with plain text.'
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/values.yaml');s=p.read_text(encoding='utf-8');old='manifestPath: pyproject.toml';new='manifestPath: pyproject_off.toml';i=s.index('family: email');j=s.index(old,i);s=s[:j]+new+s[j+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: 'Renames email/python''s manifestPath specifically (found by first locating "family: email" in the file, then the next manifestPath after it), so a literal-pinned test for this card''s own new pilot must fail. Supervisor restatement (2026-10-07, after attempt 1''s review): the original version replaced the FIRST "manifestPath: pyproject.toml" match in the whole file, which turned out to be slides/python, a pre-existing pilot from an earlier card - and nothing in the suite pins any Python pilot''s manifestPath as a literal except test_the_rendered_pdf_cpp_fetch_step_passes_its_manifest_path_CMakeLists_txt''s own CMakeLists.txt case (see that test''s own comment: the generic per-pilot check at test_every_pilot_with_a_manifest_path_gets_the_fetch_step_on_the_read_write_claim is deliberately self-referential - it reads its own expected value back out of the same values.yaml the mutation edits - and by that comment''s own admission cannot catch a wrong value). Attempt 1''s suite genuinely passed under the original mutation: VACUOUS CHECKS, correctly caught by gatectl review, not a worker defect. Built with plain text.'
 evidence:
 - evidence/build/G2/TC-231/receipt.json
 closeout:
