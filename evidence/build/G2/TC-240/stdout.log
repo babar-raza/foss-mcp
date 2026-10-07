@@ -1,0 +1,47 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_manifest_step.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ucpug_xc\.junit-0.xml"
+--- stdout ---
+................                                                         [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_manifest_step.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ucpug_xc\.junit-0.xml"
+--- stdout ---
+................                                                         [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/templates/ingestion-job.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_manifest_step.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ucpug_xc\.junit-0.xml"
+--- stdout ---
+...........F....                                                         [100%]
+================================== FAILURES ===================================
+__________ test_the_fetch_step_failure_is_swallowed_but_still_logged __________
+
+    def test_the_fetch_step_failure_is_swallowed_but_still_logged() -> None:
+        # pdf/cpp has a manifestPath and is used as a stable example by other tests in this file.
+        pilot = next(
+            p for p in _values()["ingestion"]["pilots"] if p["family"] == "pdf" and p["platform"] == "cpp"
+        )
+        docs = _render()
+        tokens = _job_tokens(_job(docs, pilot))
+        fetch_index = tokens.index(FETCH_COMMAND)
+        # The fetch step is wrapped in POSIX sh brace-grouping ending in "|| true": its own failure
+        # (e.g. a transient GitHub rate limit) can never fail the Job, because the brace group's exit
+        # status is always 0. Search forward from FETCH_COMMAND for "||" then "true" in order - there
+        # may be intervening flag tokens before "||".
+>       or_index = tokens.index("||", fetch_index)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: '||' is not in list
+
+tests\infra\test_helm_manifest_step.py:273: ValueError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_manifest_step.py::test_the_fetch_step_failure_is_swallowed_but_still_logged
+
+--- stderr ---
+
