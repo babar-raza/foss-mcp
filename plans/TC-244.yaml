@@ -14,12 +14,14 @@ purpose: 'Fix a real defect found by an independent product-readiness audit (202
 depends_on:
 - TC-240
 - TC-243
+- TC-238
 write_paths:
 - infra/fetch_recent_releases.py
 - infra/helm/foss-mcp/templates/ingestion-job.yaml
 - infra/serve_http.py
 - Dockerfile.serving
 - Dockerfile.ingestion
+- docker-compose.yml
 - tests/infra/test_fetch_recent_releases.py
 - tests/infra/test_helm_manifest_step.py
 - tests/infra/test_serve_manifest_sidecar.py
@@ -90,6 +92,29 @@ inputs:
   test_dockerfile_ingestion_copies_the_fetch_module_the_job_step_runs tests for fetch_product_reference.py actually
   live - read them first and mirror their exact shape and location), proving both Dockerfiles copy
   infra/fetch_recent_releases.py too.'
+- 'Second contract restatement, by the supervisor after attempt 2''s review. Attempts 1 and 2 are correct and kept.
+  The coverage gate found a second real gap: tests/infra/test_helm_chart.py''s own
+  test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose asserts, for a small synthetic PILOTS fixture
+  (defined at the top of that file - none of its four entries sets manifestPath), that the Helm-rendered Job''s args
+  equal docker-compose.yml''s matching ingest-<family>-<platform> service''s command byte-for-byte. Because
+  attempt 1''s new fetch_recent_releases step is UNCONDITIONAL (added for every pilot, not gated on manifestPath,
+  per this card''s own original instruction), it now appears in the chart''s rendered output for these four
+  manifestPath-less synthetic pilots too - but docker-compose.yml was never given the matching step, so the two
+  sides diverge. In docker-compose.yml, add the identical new step to EVERY ingest-<family>-<platform> service''s
+  command (all of them, not only ones with a furnished page or library block - matching the chart''s own
+  unconditional addition exactly): append
+  "&& { python /app/infra/fetch_recent_releases.py --repository <that service''s own library repository, read from
+  its existing --library-repository flag if present, or from the pilot''s own known real repository string
+  otherwise> --output /data/manifests/recent_releases_<family>_<platform>.json || true; }" after each service''s
+  existing command. Every pilot has a real, known upstream repository (confirmed: every self_extracted pilot''s
+  values.yaml entry carries a library.repository) - use that exact string for each service, never a placeholder.
+  This is a large, mechanical, 40-times-repeated edit; verify it precisely by re-running
+  tests/infra/test_helm_chart.py::test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose (not part of
+  this card''s own check command, but read by the coverage gate - run it yourself to confirm green before reporting
+  done) in addition to this card''s own declared checks. Do NOT add the older, separate fetch_product_reference.py
+  step to docker-compose.yml anywhere - that is a pre-existing, already-accepted gap between the chart and compose
+  from an earlier card, genuinely out of this card''s scope; only add the new fetch_recent_releases step this card
+  itself introduces.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
 - Read fetch_product_reference.py, github_release_reader.py, and serve_http.py in full.
@@ -97,9 +122,10 @@ actions:
 - Add the new ingestion-job.yaml step for every pilot.
 - Wire _serving_recent_releases into serve_http.py's build_app.
 - Add the matching COPY line to both Dockerfiles, with its own test.
-- Add the four new/updated tests and run the card check.
+- Add the matching new step to every docker-compose.yml ingest service.
+- Add the four new/updated tests and run the card check, plus the cross-check test named above.
 checks:
-- command: '{python} -m pytest tests/infra/test_fetch_recent_releases.py tests/infra/test_helm_manifest_step.py tests/infra/test_serve_manifest_sidecar.py -q -rfE'
+- command: '{python} -m pytest tests/infra/test_fetch_recent_releases.py tests/infra/test_helm_manifest_step.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_helm_chart.py -q -rfE'
   expect: exit 0
   timeout_seconds: 300
   junitxml: true
