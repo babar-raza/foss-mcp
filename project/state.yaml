@@ -1,7 +1,7 @@
 schema_version: 1
 project: foss-mcp
 generated_by: gatectl
-generated_at: '2026-10-07T15:31:05Z'
+generated_at: '2026-10-07T17:03:12Z'
 current_gate:
   id: G3
   status: EXIT_PENDING
@@ -1804,8 +1804,20 @@ owner_items:
   consumed_by:
   - NONE
   recorded_at: '2026-10-05T13:58:56Z'
-  note: Owner-only credential. Blocks no card and no gate.
-  last_checked_at: '2026-10-05T13:58:56Z'
+  note: 'Owner-only credential. Blocks no card and no gate. RE-CONFIRMED still open
+    2026-10-07 during the independent product-readiness audit before K8s shipping:
+    ingestion.githubToken.existingSecret is still "" in infra/helm/foss-mcp/values.yaml,
+    and this session independently reproduced the fleet-wide consequence (12 of 40
+    pilots'' ingestion Jobs in Error/Failed state today from real HTTP 403 rate-limit
+    responses, confirmed by reading pod logs directly). Also found, separately from
+    this item: infra/fetch_product_reference.py never passes a stored etag to fetch_manifest_file
+    even though the etag/If-None-Match plumbing already exists in manifest_reader.py
+    and github_release_reader.py - so every ingestion cycle re-fetches unconditionally
+    regardless of token state. That code-side half does not need a credential and
+    is fixed via TC-244, which reduces exposure but does not remove the need for this
+    token - a token still raises the quota from 60/hr to 5000/hr, which remains the
+    real fix for fleet-wide ingestion at this scale.'
+  last_checked_at: '2026-10-07T20:50:00Z'
 - id: OWNER-09
   status: OPEN
   summary: The git credential for https://github.com/babar-raza/foss-mcp.git has expired.
