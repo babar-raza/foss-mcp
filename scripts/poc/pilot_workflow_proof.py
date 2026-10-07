@@ -50,7 +50,7 @@ TOOL_NAMES = (
 CONTENT_TYPES = ("getting_started", "developer_guide", "troubleshooting", "faq")
 # build_chunks_from_api_surface's default max_types: the leading slice of a fixture a generation
 # publishes. A probe symbol must come from this slice, or the live index cannot contain it.
-INDEXED_TYPE_LIMIT = 20
+INDEXED_TYPE_LIMIT = 300
 # A name no fixture declares. Searching for it must produce an honest miss.
 ABSENT_SYMBOL = "Tc197AbsentSymbolProbe"
 # Title words that name the vendor or the shape of the title, not the product.

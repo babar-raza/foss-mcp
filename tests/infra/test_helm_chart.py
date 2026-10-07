@@ -32,7 +32,7 @@ PILOTS: list[dict[str, Any]] = [
         "heldBy": "ingestion-pdf-net",
         "apiSurface": "/app/fixtures/pdf_net/api_surface.json",
         "title": "pdf/net API surface",
-        "maxTypes": 20,
+        "maxTypes": 300,
         "furnishedPage": "/app/fixtures/furnished/pdf_net/pages/_index.md",
         "library": {
             "repository": "aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET",
@@ -48,7 +48,7 @@ PILOTS: list[dict[str, Any]] = [
         "heldBy": "ingestion-pdf-typescript",
         "apiSurface": "/app/fixtures/pdf_typescript/api_surface.json",
         "title": "pdf/typescript API surface",
-        "maxTypes": 20,
+        "maxTypes": 300,
         "furnishedPage": "/app/fixtures/furnished/pdf_typescript/pages/_index.md",
         "library": {
             "repository": "aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript",
@@ -64,7 +64,7 @@ PILOTS: list[dict[str, Any]] = [
         "heldBy": "ingestion-pdf-cpp",
         "apiSurface": "/app/fixtures/pdf_cpp/api_surface.json",
         "title": "pdf/cpp API surface",
-        "maxTypes": 20,
+        "maxTypes": 300,
     },
     {
         "family": "cells",
@@ -73,7 +73,7 @@ PILOTS: list[dict[str, Any]] = [
         "heldBy": "ingestion-cells-rust",
         "apiSurface": "/app/fixtures/cells_rust/api_surface.json",
         "title": "cells/rust API surface",
-        "maxTypes": 20,
+        "maxTypes": 300,
         "furnishedPage": "/app/fixtures/furnished/cells_rust/pages/_index.md",
         "library": {
             "repository": "aspose-cells-foss/Aspose.Cells-FOSS-for-Rust",

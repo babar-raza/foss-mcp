@@ -381,6 +381,31 @@ def test_real_free_functions_get_real_signatures_across_the_three_affected_pilot
     assert "OID.aes128Wrap" in pdf_typescript_text
 
 
+def test_default_max_types_includes_a_type_sorting_after_position_20() -> None:
+    """G2/TC-238 regression pin. The 2026-10-07 independent audit found every one of 40 live
+    pilots' queryable symbol index capped at the first 20 types of its fixture, while extraction
+    emits types ALPHABETICALLY - so an entry-point class sorting late (e.g. "Document",
+    "Workbook") was structurally unreachable (confirmed live: search_symbols("Document") on
+    pdf/net was an honest miss, "Document" sitting at index 246 of a 300-type fixture). This
+    fixture has 26 types - "Type00".."Type24" (25 types, indices 0-24) plus "ZLastType"
+    appended last (index 25, well past the old cap of 20) - and calls
+    build_chunks_from_api_surface with NO explicit max_types, exercising the new 300 default.
+    The late-position type must appear in the resulting chunks; under the old default of 20 it
+    would have been silently dropped.
+    """
+    fixture = {
+        "source_repository": "example-org/Example-FOSS-for-Widgets",
+        "source_commit": "deadbeefcafef00d1234567890abcdef1234567",
+        "types": [{"name": f"Type{index:02d}", "kind": "class", "methods": []} for index in range(25)]
+        + [{"name": "ZLastType", "kind": "class", "methods": []}],
+    }
+
+    chunks = build_chunks_from_api_surface(fixture, title="widgets/example API surface")
+    all_titles = {chunk.section_title for chunk in chunks}
+
+    assert "ZLastType" in all_titles
+
+
 def test_real_pdf_net_property_writability_bool_shape_is_unaffected() -> None:
     """pdf/net's own real fixture uses a bool "writable" field and has no free functions at all
     (kind is exclusively class/interface/struct/enum declarations). This must remain completely

@@ -383,7 +383,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
     parser.add_argument("--title", required=True)
-    parser.add_argument("--max-types", type=int, default=20)
+    parser.add_argument("--max-types", type=int, default=300)
     parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
     parser.add_argument(
         "--furnished-page",

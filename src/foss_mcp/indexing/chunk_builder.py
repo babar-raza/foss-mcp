@@ -125,7 +125,7 @@ def _format_type_text(entry: Mapping[str, object]) -> str:
 
 
 def build_chunks_from_api_surface(
-    fixture: Mapping[str, object], *, title: str, max_types: int = 20
+    fixture: Mapping[str, object], *, title: str, max_types: int = 300
 ) -> list[Chunk]:
     """A real, bounded slice of an ``api_surface.json`` extraction, normalized and chunked
     through TC-014's own pipeline - the first real content a generation publishes for a pilot.
