@@ -1,0 +1,87 @@
+id: TC-246
+gate: G2
+lane: control-plane
+purpose: 'Fix a real, confirmed behavioral gap found by an independent product-readiness audit (2026-10-07, see
+  docs/DECISION_LOG.md''s entry of the same date): src/foss_mcp/mcp/revision_negotiation.py''s nearest-supported-or-
+  min negotiation is called once, inside src/foss_mcp/mcp/transport_security.py''s reject_request, but only to
+  detect two exception types (missing/unparseable) - a well-formed MCP-Protocol-Version header that negotiate_revision
+  would have to FALL BACK on (because it is not one of this project''s own three declared SUPPORTED_PROTOCOL_REVISIONS)
+  currently passes reject_request untouched, reaching the installed MCP SDK''s own internal initialize handler, which
+  has a DIFFERENT, broader accepted-version list (confirmed live: the installed SDK''s HANDSHAKE_PROTOCOL_VERSIONS is
+  (2024-11-05, 2025-03-26, 2025-06-18, 2025-11-25) - one MORE revision than this project''s own three) and answers
+  with that newer revision directly, as if this project had verified support for it, which it never has. There is no
+  supported SDK extension point to override its own internal initialize handler (_negotiate_initialize/_handle_
+  initialize live on a private, internal class in mcp.server.runner, confirmed by reading the installed package) -
+  so the correct, real fix is at the ONE place this project''s own code runs BEFORE the SDK''s handler ever does:
+  reject_request itself. Tightening it to also reject a well-formed-but-unsupported revision makes
+  negotiate_revision''s result genuinely load-bearing for the first time, at the one control point this project
+  actually has, rather than leaving a documentation gap pretending the algorithm matters elsewhere when it cannot.'
+depends_on:
+- TC-016
+- TC-019a
+- TC-124
+write_paths:
+- src/foss_mcp/mcp/transport_security.py
+- src/foss_mcp/mcp/revision_negotiation.py
+- tests/mcp/test_transport_security.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read src/foss_mcp/mcp/transport_security.py''s reject_request in full and src/foss_mcp/mcp/revision_negotiation.py
+  in full, especially RevisionNegotiationResult''s fallback_applied/fallback_reason fields and negotiate_revision''s
+  three return shapes (exact match: fallback_applied=False; below-minimum and unknown-revision fallbacks: both
+  fallback_applied=True).'
+- 'Change reject_request''s protocol-version branch: instead of only catching MissingProtocolVersionError and
+  InvalidRevisionFormatError, call negotiate_revision in a way that also inspects its RETURN VALUE when no exception
+  is raised - if the result''s fallback_applied is True (meaning the header named a well-formed revision this
+  project does not itself declare support for, whatever the SDK might independently accept), reject with a clear
+  reason string naming the requested revision and that it is not supported (do not reuse the exact wording of the
+  existing two rejection reasons - this is a third, distinct case). Keep the existing exact-match-passes-through
+  behavior (fallback_applied is False) completely unchanged, and keep both existing exception-based rejections
+  unchanged.'
+- 'Update revision_negotiation.py''s own module docstring: it currently describes this as "the negotiation
+  ALGORITHM... ported... from the reference system" without saying where its result is actually consulted. Add one
+  paragraph stating precisely, and only, what is true after this card: its result is consulted by
+  transport_security.reject_request to decide accept/reject at the transport boundary (an exact match passes, any
+  fallback is rejected) - this is a deliberately stricter, allow-list policy, not an attempt to replicate the SDK''s
+  own broader internal negotiation, which this project cannot see or override (SDK internals confirmed private,
+  cite mcp.server.runner). Do not leave the prior, now-inaccurate impression that this module''s fallback revision is
+  ever actually served back to a client.'
+- 'Add tests to tests/mcp/test_transport_security.py: a well-formed MCP-Protocol-Version header for a revision NOT in
+  SUPPORTED_PROTOCOL_REVISIONS (use a real, clearly-newer-but-valid-format example such as "2025-11-25" - the exact
+  revision this card''s purpose text found the installed SDK itself accepts, so the test is grounded in a real
+  observed divergence, not a hypothetical) is rejected, with a reason string that is distinct from both existing
+  rejection-reason strings; each of the three currently-declared SUPPORTED_PROTOCOL_REVISIONS values still passes
+  (exact-match case, unaffected by this change); the existing missing-header-is-allowed and
+  malformed-format-is-rejected tests are unaffected (do not weaken or remove them - confirm by running the full
+  existing test file, not just your new tests).'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read reject_request and revision_negotiation.py in full.
+- Tighten reject_request to also reject on fallback_applied=True; correct the module docstring.
+- Add the new tests; run the full existing test file to confirm nothing else broke.
+- Run the card check and report exact counts.
+checks:
+- command: '{python} -m pytest tests/mcp/test_transport_security.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 3
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/transport_security.py');s=p.read_text(encoding='utf-8');old='fallback_applied';new='fallback_applied_off';s=s.replace(old,new,1);p.write_text(s,encoding='utf-8')"
+  rationale: 'Renames the first occurrence of fallback_applied in transport_security.py (this card''s own fix is the only place that reads it there), so the new test that rejects a well-formed-but-unsupported revision must fail - the check this card adds never fires. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-246/receipt.json
+closeout:
+- A client requesting a well-formed MCP protocol revision this project has never declared support for is rejected
+  at the transport boundary, instead of silently being answered by the SDK's own broader, unverified negotiation.
+recovery: Re-run from a clean tree.
