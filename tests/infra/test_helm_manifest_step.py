@@ -373,3 +373,15 @@ def test_dockerfile_ingestion_copies_the_fetch_module_the_job_step_runs() -> Non
     lines = DOCKERFILE_INGESTION.read_text(encoding="utf-8").splitlines()
     copies = [line for line in lines if line.startswith("COPY ") and "fetch_product_reference.py" in line]
     assert copies == ["COPY infra/fetch_product_reference.py ./infra/fetch_product_reference.py"], copies
+
+
+def test_dockerfile_serving_copies_the_recent_releases_module_that_serve_http_imports() -> None:
+    lines = DOCKERFILE_SERVING.read_text(encoding="utf-8").splitlines()
+    copies = [line for line in lines if line.startswith("COPY ") and "fetch_recent_releases.py" in line]
+    assert copies == ["COPY infra/fetch_recent_releases.py ./infra/fetch_recent_releases.py"], copies
+
+
+def test_dockerfile_ingestion_copies_the_recent_releases_module_the_job_step_runs() -> None:
+    lines = DOCKERFILE_INGESTION.read_text(encoding="utf-8").splitlines()
+    copies = [line for line in lines if line.startswith("COPY ") and "fetch_recent_releases.py" in line]
+    assert copies == ["COPY infra/fetch_recent_releases.py ./infra/fetch_recent_releases.py"], copies
