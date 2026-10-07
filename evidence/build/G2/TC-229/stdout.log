@@ -1,0 +1,49 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_manifest_reader_ecosystems.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dd1zsh9o\.junit-0.xml"
+--- stdout ---
+......................                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_manifest_reader_ecosystems.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dd1zsh9o\.junit-0.xml"
+--- stdout ---
+......................                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/manifest_reader.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_manifest_reader_ecosystems.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dd1zsh9o\.junit-0.xml"
+--- stdout ---
+...............FF.....                                                   [100%]
+================================== FAILURES ===================================
+____ test_cpp_manifest_reads_standard_from_target_compile_features_public _____
+
+    def test_cpp_manifest_reads_standard_from_target_compile_features_public() -> None:
+        text = "target_compile_features(SomeTarget PUBLIC cxx_std_20)"
+>       assert read_cpp_manifest(text).cpp_standard == "20"
+E       AssertionError: assert '' == '20'
+E         
+E         - 20
+
+tests\extraction\test_manifest_reader_ecosystems.py:204: AssertionError
+____ test_cpp_manifest_reads_standard_from_target_compile_features_private ____
+
+    def test_cpp_manifest_reads_standard_from_target_compile_features_private() -> None:
+        text = "target_compile_features(SomeTarget PRIVATE cxx_std_17)"
+>       assert read_cpp_manifest(text).cpp_standard == "17"
+E       AssertionError: assert '' == '17'
+E         
+E         - 17
+
+tests\extraction\test_manifest_reader_ecosystems.py:209: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_manifest_reader_ecosystems.py::test_cpp_manifest_reads_standard_from_target_compile_features_public
+FAILED tests/extraction/test_manifest_reader_ecosystems.py::test_cpp_manifest_reads_standard_from_target_compile_features_private
+
+--- stderr ---
+
