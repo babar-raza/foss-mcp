@@ -15,6 +15,7 @@ depends_on:
 - TC-237
 write_paths:
 - infra/helm/foss-mcp/values.yaml
+- docker-compose.yml
 - tests/infra/test_helm_chart.py
 - src/foss_mcp/indexing/chunk_builder.py
 - infra/build_chunks.py
@@ -53,12 +54,20 @@ inputs:
   new 300 default) and assert the resulting chunks include one built from that late-position type. This is the
   regression pin for the exact defect this card fixes: a real entry-point-shaped class that happens to sort late must
   not be silently dropped by the default cap.'
+- 'Contract restatement, by the supervisor after attempt 1''s review. Attempt 1 correctly stopped: docker-compose.yml
+  (repo root) ALSO hardcodes --max-types 20 in all 40 ingest-<family>-<platform> services, and
+  tests/infra/test_helm_chart.py''s own test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose asserts
+  the Helm-rendered Job''s args equal docker-compose''s service command byte-for-byte - so restating only
+  values.yaml''s side of that equality (as attempt 1 correctly did, per its original instruction) broke that
+  cross-check test, and attempt 1 correctly refused to weaken it. In docker-compose.yml, change every one of the 40
+  occurrences of "--max-types 20" to "--max-types 300" - a plain find-and-replace, since every occurrence is
+  currently the identical text. Do not change anything else in the file.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
-- Read chunk_builder.py, values.yaml, test_helm_chart.py, and pilot_workflow_proof.py.
-- Change the one default/cap value in each of the four files as described.
+- Read chunk_builder.py, values.yaml, docker-compose.yml, test_helm_chart.py, and pilot_workflow_proof.py.
+- Change the one default/cap value in each of the five files as described.
 - Add the one new regression test.
-- Run the card check and report exact counts.
+- Run the card check and report exact counts, confirming the docker-compose cross-check test now passes too.
 checks:
 - command: '{python} -m pytest tests/infra/test_helm_chart.py tests/indexing/test_chunk_builder.py -q -rfE'
   expect: exit 0

@@ -1,0 +1,108 @@
+id: TC-241
+gate: G2
+lane: extraction
+purpose: 'Fix a real, fixture-confirmed defect found by an independent product-readiness audit (2026-10-07, see
+  docs/DECISION_LOG.md''s entry of the same date): a nested/inner class (one declared inside another class, interface,
+  struct, or enum) loses its enclosing type from the recorded FQN in Java, C++, and C#, producing a non-importable
+  name. Confirmed in a committed fixture: tests/fixtures/jmap_java/api_surface.json''s real JmapClientOptions.Builder
+  (JmapClientOptions declared starting line 8 of the real source, Builder nested inside it starting line 53) is
+  recorded with class_import = "com.aspose.jmap.Builder" - dropping JmapClientOptions entirely. Root cause, in
+  src/foss_mcp/extraction/tree_sitter_engine/api_surface.py: _cpp_canonical_namespace (line 1688) and
+  _csharp_canonical_namespace (line 1731) each walk cnode.parent collecting only namespace node types
+  (namespace_definition / namespace_declaration) - an enclosing class/struct/interface ancestor is invisible to the
+  walk, silently skipped. Java has no ancestor walk at all for this (lines 3749-3768): class_import is built as a bare
+  f"{java_file_package}.{cname}", never consulting the AST''s own nesting at all.'
+depends_on:
+- TC-010
+- TC-010b
+- TC-232
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- tests/extraction/test_nested_class_fqn.py
+- tests/fixtures/jmap_java/api_surface.json
+- tests/extraction/test_jmap_java_extraction.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read src/foss_mcp/extraction/tree_sitter_engine/api_surface.py''s class-record-building section in full (around
+  lines 3741-3775, where canonical_namespace/class_import are computed per language), and
+  src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py''s _CLASS_TYPES dict (line 69) - the SAME per-language set
+  of node type strings the rest of this engine already uses to detect "is this AST node a class-ish declaration"
+  (java: class_declaration/interface_declaration/enum_declaration/annotation_type_declaration/record_declaration;
+  csharp: class_declaration/interface_declaration/enum_declaration/struct_declaration/record_declaration; cpp:
+  class_specifier/struct_specifier/enum_specifier). Reuse this existing dict; do not invent a new or parallel list of
+  node type names.'
+- 'Fix _cpp_canonical_namespace and _csharp_canonical_namespace: extend each walk so that, for every ancestor node, it
+  also appends the ancestor''s own name when the ancestor''s type is a member of _CLASS_TYPES["cpp"] (for the C++
+  function) or _CLASS_TYPES["csharp"] (for the C# function) - not only when it is a namespace node type as today. Both
+  namespace and class ancestors must be collected in ONE single bottom-up walk, in actual nesting order (innermost
+  first, then reversed before joining), since a namespace can contain a class that contains a nested class, and the
+  real FQN must reflect that exact order regardless of which kind of ancestor each level is. Use the same "::"
+  (C++) / "." (C#) join and the same child_by_field(parent, "name") extraction already used for namespace nodes - a
+  class/struct/interface declaration node carries its own name the identical way. Do not change the return type, the
+  function signature, or how any caller uses the result (class_import stays `f"{canonical_ns}::{cname}"` for C++ and
+  whatever the equivalent C# line currently does - read it and preserve its exact shape, changing only what
+  canonical_ns/_csharp_canonical_namespace itself now includes).'
+- 'Fix Java: add the identical kind of bottom-up AST walk for Java, collecting every ancestor whose type is a member
+  of _CLASS_TYPES["java"], joined with "." in nesting order (innermost first, then reversed) - mirroring the C#/C++
+  fix''s exact shape and reusing the same join/extraction pattern. Change class_import''s construction so it is
+  f"{java_file_package}.{enclosing_chain}.{cname}" when an enclosing chain exists (at least one class-type ancestor),
+  and f"{java_file_package}.{cname}" exactly as today when there is none - do not change behavior for a non-nested
+  class at all. canonical_namespace''s own existing assignment (currently just java_file_package) may need the same
+  enclosing-chain information folded in if that is what keeps it consistent with the C++/C# shape above; read how
+  canonical_namespace is actually consumed downstream (batch_reference.py''s same-name collision disambiguation,
+  named in a comment right above this code) before deciding, and preserve that consumer''s existing behavior for every
+  non-nested class.'
+- 'Add tests/extraction/test_nested_class_fqn.py with two kinds of test. (a) Synthetic, offline: parse three small,
+  hand-written snippets directly with get_parser (one per language: Java, C++, C#), each declaring an outer
+  class/namespace containing one nested class, run extract_api_surface (or call the fixed functions directly against
+  the real parsed nodes) and assert the nested class''s own class_import/canonical_namespace now includes the
+  enclosing class name in the correct position and separator for that language. Also assert a NON-nested class in the
+  same snippet is completely unaffected (identical class_import to before this fix) - this card must not change
+  behavior for the overwhelmingly common non-nested case. (b) Real-data, offline: also in this file, read the
+  REGENERATED tests/fixtures/jmap_java/api_surface.json directly (no network - this is after the re-extraction step
+  below has already run and committed it), find the entry whose name is "Builder", and assert its class_import
+  contains the literal substring "JmapClientOptions" - the real enclosing class this exact bug dropped. This is the
+  test that makes the negative control below non-vacuous: it pins the real fixture''s own corrected value, not just a
+  synthetic snippet.'
+- 'Re-extract jmap/java for real with the fix in place: {python} -m foss_mcp.extraction.run_extraction
+  config/products/jmap/java.yaml tests/fixtures/jmap_java/api_surface.json --max-types 300 (network required, clones
+  the real pinned repository). Confirm in the regenerated fixture that JmapClientOptions.Builder (or whatever the real
+  extracted name turns out to be) now carries the enclosing class in its class_import - do not hand-edit the fixture
+  file; it must come from a real extraction run. Update tests/extraction/test_jmap_java_extraction.py only if the
+  regenerated fixture''s own real type/name set changed in a way an existing assertion now fails against (read the
+  actual diff before touching anything; most of its assertions should be unaffected since this fix only changes
+  class_import, not which types exist or their kind/methods/properties).'
+- 'This card does not re-extract any OTHER fixture. A nested class in some other pilot''s Java/C++/C# fixture may
+  still carry a stale class_import until that fixture''s own next natural re-extraction cycle - note this explicitly
+  in the commit body as a known, accepted scope boundary, not a gap to silently leave unmentioned.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the class-record-building section and tree_helpers._CLASS_TYPES.
+- Fix the three namespace/FQN-building functions to include enclosing class ancestors.
+- Add the three-language regression test and re-extract jmap/java for real.
+- Run the card check and report exact counts, including the real before/after class_import for JmapClientOptions.Builder.
+checks:
+- command: '{python} -m pytest tests/extraction/test_nested_class_fqn.py tests/extraction/test_jmap_java_extraction.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 4
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib,json;p=pathlib.Path('tests/fixtures/jmap_java/api_surface.json');d=json.loads(p.read_text(encoding='utf-8'));[t.update(class_import='com.aspose.jmap.NotTheRealEnclosingClass.Builder') for t in d['types'] if t.get('name')=='Builder'];p.write_text(json.dumps(d),encoding='utf-8')"
+  rationale: 'Overwrites the regenerated fixture''s own Builder entry with a fake enclosing-class name instead of the real one this card''s fix produces, so the regression test''s assertion on the exact real enclosing-class name must fail. Targets a file this card itself commits, so the literal exists only after this card lands. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-241/receipt.json
+closeout:
+- A nested class's FQN in Java, C++, and C# includes its real enclosing class, confirmed on a real, re-extracted
+  fixture; a non-nested class's FQN is unaffected.
+recovery: Re-run from a clean tree.
