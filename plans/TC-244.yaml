@@ -18,6 +18,8 @@ write_paths:
 - infra/fetch_recent_releases.py
 - infra/helm/foss-mcp/templates/ingestion-job.yaml
 - infra/serve_http.py
+- Dockerfile.serving
+- Dockerfile.ingestion
 - tests/infra/test_fetch_recent_releases.py
 - tests/infra/test_helm_manifest_step.py
 - tests/infra/test_serve_manifest_sidecar.py
@@ -75,12 +77,26 @@ inputs:
   older than the threshold (write the file, then back-date its mtime) does fetch again; a malformed existing
   --output is treated as absent and fetches live without raising; load_recent_releases_sidecar round-trips what
   main() wrote.'
+- 'Contract restatement, by the supervisor after attempt 1''s review. Attempt 1''s own four-area change was correct
+  and is kept; attempt 1 itself correctly flagged, without being asked, a real gap: infra/serve_http.py now imports
+  from fetch_recent_releases at module load time, and the ingestion Job now runs it as a script, but neither
+  Dockerfile.serving nor Dockerfile.ingestion copies that new file into the image - every real serving container
+  would crash-loop at start (ImportError), and every real ingestion Job''s new step would silently no-op forever
+  (file not found, swallowed by its own "|| true") - the exact defect this card exists to fix would stay unfixed in
+  practice. Add one COPY line to each Dockerfile, in the identical place and shape as the existing
+  "COPY infra/fetch_product_reference.py ./infra/fetch_product_reference.py" line each already has - just the new
+  file name instead. Add two new tests to tests/infra/test_helm_manifest_step.py (or wherever the existing
+  test_dockerfile_serving_copies_the_fetch_module_that_serve_http_imports /
+  test_dockerfile_ingestion_copies_the_fetch_module_the_job_step_runs tests for fetch_product_reference.py actually
+  live - read them first and mirror their exact shape and location), proving both Dockerfiles copy
+  infra/fetch_recent_releases.py too.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
 - Read fetch_product_reference.py, github_release_reader.py, and serve_http.py in full.
 - Create infra/fetch_recent_releases.py with its CLI, sidecar writer, and loader.
 - Add the new ingestion-job.yaml step for every pilot.
 - Wire _serving_recent_releases into serve_http.py's build_app.
+- Add the matching COPY line to both Dockerfiles, with its own test.
 - Add the four new/updated tests and run the card check.
 checks:
 - command: '{python} -m pytest tests/infra/test_fetch_recent_releases.py tests/infra/test_helm_manifest_step.py tests/infra/test_serve_manifest_sidecar.py -q -rfE'
