@@ -18,6 +18,7 @@ depends_on:
 - TC-238
 write_paths:
 - tests/e2e/test_pdf_java_live_content.py
+- tests/indexing/test_lookup_doc_fallback_query_safety.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -30,42 +31,68 @@ inputs:
   definitions in full, and the real furnished page tests/fixtures/furnished/pdf_java/pages/_index.md''s troubleshooting-
   shaped content (the "Scope and Limitations" block the current fragment comes from) to understand what real content
   this test exists to prove reachable.'
-- 'Bring up the real stack with today''s code exactly as the test''s own real_generation fixture does (docker compose
-  -p foss-mcp-e2e-tc099 down -v --remove-orphans, then up --build --exit-code-from ingest-pdf-java ingest-pdf-java,
-  then up -d --build serving-pdf-java, wait for /readyz) and, through a real MCP session against it, by hand: try
-  candidate natural-language queries related to the SAME real troubleshooting content (the "Scope and Limitations"
-  section) until you find one where search_symbols AND find_examples both return an honest miss (confirming no real
-  symbol or example competes for it), AND lookup composes the doc-fallback TaskAnswer whose doc_matches contains the
-  real troubleshooting fragment. Tear the stack down (docker compose -p foss-mcp-e2e-tc099 down -v --remove-orphans)
-  when done, whether you succeed or not.'
+- 'ENVIRONMENT CONSTRAINT, recorded as OWNER-10 in ops/owner_items.yaml: this environment''s own permission classifier
+  denies `docker compose ... down -v`/`up` lifecycle actions against this repository''s e2e-test compose projects -
+  confirmed independently by a worker attempt AND the supervisor running the identical command directly. You almost
+  certainly cannot bring up the real ingest-pdf-java/serving-pdf-java stack either. Do not spend an attempt
+  re-discovering this; if you hit the identical denial, stop that approach immediately and use the offline path
+  below instead - this is the expected, already-diagnosed path, not a fallback of last resort.'
+- 'Build a deterministic OFFLINE replica of the real production doc-fallback pipeline in the new file
+  tests/indexing/test_lookup_doc_fallback_query_safety.py: import and call the REAL functions this project ships -
+  foss_mcp.indexing.chunk_builder.build_chunks_from_api_surface, foss_mcp.indexing.doc_candidates.extract_doc_sections,
+  foss_mcp.mcp.tools.search_docs.classify_content_type, foss_mcp.indexing.lexical_index_writer.build_lexical_index
+  and query_lexical_index - against the REAL committed fixtures (tests/fixtures/pdf_java/api_surface.json,
+  tests/fixtures/furnished/pdf_java/pages/_index.md), with max_types=300 (matching production since TC-238).
+  Classification and lexical ranking are pure functions over committed text with no live-only variable (container
+  plumbing and a real javac compile are the only things live adds, and neither affects what these functions return
+  over the same text) - so this is methodologically sound stand-in evidence for THIS class of change, not a weaker
+  substitute, and this card''s own closeout and commit message must say exactly that, honestly, rather than claim a
+  live confirmation that did not happen.'
+- 'Using that offline replica, find a candidate query (related to the same real "Scope and Limitations" furnished
+  content the current REAL_DOC_FRAGMENT comes from) for which: CONTENT_TYPES'' own fixed-order loop
+  ("getting_started", "developer_guide", "troubleshooting", "faq") reaches "troubleshooting" WITHOUT being
+  intercepted earlier by a nonzero-scoring "developer_guide" chunk (the exact mechanism that broke the old query -
+  read lookup.py''s _compose_from_docs to confirm this is really the decision point, not simply "which chunk wins a
+  global search"), AND no real FQN in the fixture is an exact or near match for it (search_symbols''s own match
+  rule), AND no verified example exists for it. Add offline tests asserting all of this precisely and directly
+  (not by re-deriving lookup''s own internals from scratch - call the real functions and assert on their real
+  return values).'
 - 'Update REAL_DOC_TASK_QUERY (and REAL_DOC_FRAGMENT only if the new query happens to surface a different, equally
   real sentence from the same section - prefer keeping REAL_DOC_FRAGMENT unchanged if the existing fragment still
-  matches under the new query) to the new, confirmed-safe values. Update the test''s own docstring to describe the
-  new query and to record, honestly, why the old one stopped working (TC-238 made a real competing symbol reachable)
-  - do not leave the old, now-inaccurate docstring claim in place. Do not change this test''s assertions'' shape or
-  weaken what it checks.'
+  matches under the new query) in tests/e2e/test_pdf_java_live_content.py to the new, offline-confirmed values, so
+  the live test is correctly pointed at a safe query whenever live verification becomes available again. Update
+  that test''s own docstring to describe the new query, record honestly why the old one stopped working (TC-238
+  made a real competing symbol/doc-bucket collision reachable), AND record that this specific query choice was
+  verified via the offline replica in tests/indexing/test_lookup_doc_fallback_query_safety.py, not live, because of
+  OWNER-10 - do not write or imply a live confirmation that did not happen. Do not change this test''s assertions''
+  shape or weaken what it checks, and do not attempt to run it (it needs docker compose, which this environment
+  denies) - take on faith that your offline replica''s evidence transfers, exactly as this restatement describes.'
+- 'Name the chosen query constant OFFLINE_SAFE_QUERY at module level in
+  tests/indexing/test_lookup_doc_fallback_query_safety.py (exactly that name) - this is the one piece of this
+  card''s own naming the supervisor''s negative control depends on finding literally.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
-- Read the test and the furnished page's troubleshooting content.
-- Bring up the real stack and find a new query by hand, live, that still isolates the doc-fallback path.
-- Update the query/fragment constants and docstring; tear the stack down.
-- Run the full live test file once more to confirm green, and report the exact query chosen and why it is safe.
+- Read the live test, the furnished troubleshooting content, and lookup.py's _compose_from_docs decision order.
+- Build the offline replica test file using the real functions against the real fixtures; find a safe query.
+- Update the live test's query/fragment/docstring to match, honestly describing how it was verified.
+- Run the new offline test file (only - do not attempt the live one) and report exact counts and the chosen query.
 checks:
-- command: '{python} -m pytest tests/e2e/test_pdf_java_live_content.py -q -rfE'
+- command: '{python} -m pytest tests/indexing/test_lookup_doc_fallback_query_safety.py -q -rfE'
   expect: exit 0
-  timeout_seconds: 1200
+  timeout_seconds: 180
   junitxml: true
   proves:
   - REQ-G2-043
-min_tests: 9
-network: true
+min_tests: 3
+network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/e2e/test_pdf_java_live_content.py');s=p.read_text(encoding='utf-8');old='REAL_DOC_TASK_QUERY';new='REAL_DOC_TASK_QUERY_OFF';i=s.index(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
-  rationale: 'Renames the first occurrence of REAL_DOC_TASK_QUERY (its own definition), breaking every reference to the new, confirmed-safe query constant this card introduces, so the fixed test must fail again (a NameError, or falling back to an undefined/stale value depending on exactly how the fix reads it). Built with plain text.'
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/indexing/test_lookup_doc_fallback_query_safety.py');s=p.read_text(encoding='utf-8');q=chr(34);old='OFFLINE_SAFE_QUERY = ';new='OFFLINE_SAFE_QUERY = '+q+'what functionality is unsupported'+q+' # ';i=s.index(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: 'Overwrites the chosen safe query with the literal query string already proven UNSAFE today (it is the one that broke the original test, confirmed to collide with a real developer_guide chunk before troubleshooting is ever reached), commenting out whatever real value followed on that line, so the new offline test''s own classification/ranking assertions must fail. Built with chr(34) for the embedded double quotes, since the literal cannot be written with a backslash escape (AGENTS.md falsifier rule).'
 evidence:
 - evidence/build/G2/TC-248/receipt.json
 closeout:
-- test_lookup_returns_real_doc_matches_for_an_api_naive_query again genuinely isolates and proves lookup's
-  doc-composition fallback path, using a query TC-238's fix has not since made answerable by a real symbol.
+- A new, deterministic offline test proves a specific replacement query safely isolates lookup's doc-composition
+  fallback path against the real pdf/java fixtures as they exist after TC-238; the live e2e test is updated to use
+  that same query so it is correctly pointed once live verification is available again (OWNER-10).
 recovery: Re-run from a clean tree.
