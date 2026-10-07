@@ -1,0 +1,78 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases.py tests/infra/test_helm_manifest_step.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i7u3uqhp\.junit-0.xml"
+--- stdout ---
+.........................................................                [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases.py tests/infra/test_helm_manifest_step.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i7u3uqhp\.junit-0.xml"
+--- stdout ---
+.........................................................                [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/serve_http.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases.py tests/infra/test_helm_manifest_step.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i7u3uqhp\.junit-0.xml"
+--- stdout ---
+...............................F.F.......................                [100%]
+================================== FAILURES ===================================
+_ test_serving_with_a_recent_releases_sidecar_reaches_list_recent_changes_with_real_content _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3748/test_serving_with_a_recent_rel0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001AC68EE27B0>
+
+    def test_serving_with_a_recent_releases_sidecar_reaches_list_recent_changes_with_real_content(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The live-content smoke test AGENTS.md's "Integration and liveness" section requires: real,
+        # non-empty content actually reaching the tool, not merely a well-formed empty response.
+        releases = (
+            Release(tag_name="v2.1.0", body="Fixed a real bug in the parser", richness="detailed"),
+            Release(tag_name="v2.0.0", body="", richness="none"),
+        )
+        manifests = _write_recent_releases_sidecar(tmp_path, monkeypatch, platform="net", releases=releases)
+    
+        registry = _serve(tmp_path, NET_CONFIG, manifests)
+        answer = registry["list_recent_changes"]()
+    
+>       assert len(answer) == 2
+E       assert 0 == 2
+E        +  where 0 = len([])
+
+tests\infra\test_serve_manifest_sidecar.py:129: AssertionError
+---------------------------- Captured stdout call -----------------------------
+wrote 2 recent release(s) for aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET -> C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-3748\test_serving_with_a_recent_rel0\recent_releases_pdf_net.json
+_ test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_recent_releases_sidecar _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3748/test_serving_with_the_pdf_java1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001AC68EE2C60>
+
+    def test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_recent_releases_sidecar(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        net_releases = (Release(tag_name="v9.0.0", body="net-only release", richness="none"),)
+        _write_recent_releases_sidecar(tmp_path, monkeypatch, platform="net", releases=net_releases)
+    
+        java = DeploymentConfig(family="pdf", platform="java")
+        assert serve_http._serving_recent_releases(tmp_path, java) == ()
+        net = DeploymentConfig(family="pdf", platform="net")
+>       assert serve_http._serving_recent_releases(tmp_path, net) == net_releases
+E       AssertionError: assert () == (Release(tag_...ness='none'),)
+E         
+E         Right contains one more item: Release(tag_name='v9.0.0', body='net-only release', richness='none')
+E         Use -v to get more diff
+
+tests\infra\test_serve_manifest_sidecar.py:155: AssertionError
+---------------------------- Captured stdout call -----------------------------
+wrote 1 recent release(s) for aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET -> C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-3748\test_serving_with_the_pdf_java1\recent_releases_pdf_net.json
+=========================== short test summary info ===========================
+FAILED tests/infra/test_serve_manifest_sidecar.py::test_serving_with_a_recent_releases_sidecar_reaches_list_recent_changes_with_real_content
+FAILED tests/infra/test_serve_manifest_sidecar.py::test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_recent_releases_sidecar
+
+--- stderr ---
+

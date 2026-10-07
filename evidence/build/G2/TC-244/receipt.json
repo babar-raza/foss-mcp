@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "card": "TC-244",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-07T18:38:53Z",
+  "base_rev": "58ce87881a445331e3626e5f0a6b4c916f55affa",
+  "head_rev": "3d2c3683dc841b6a8e8baf408d7b9acc73420d57",
+  "card_sha256": "6fc72ea2af4a75e50de459a9e5d1d3c74958ec12d61a9cba20328973524152ec",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "Dockerfile.ingestion",
+      "Dockerfile.serving",
+      "docker-compose.yml",
+      "infra/fetch_recent_releases.py",
+      "infra/helm/foss-mcp/templates/ingestion-job.yaml",
+      "infra/serve_http.py",
+      "tests/infra/test_fetch_recent_releases.py",
+      "tests/infra/test_helm_manifest_step.py",
+      "tests/infra/test_serve_manifest_sidecar.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_fetch_recent_releases.py tests/infra/test_helm_manifest_step.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_helm_chart.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 8.763,
+          "stdout_sha256": "5603b3bdbd979d86e8c62be43291039331c1f18d392c470cba56f4eba489b84d",
+          "tests": 57,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_fetch_recent_releases.py tests/infra/test_helm_manifest_step.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_helm_chart.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 8.74,
+          "stdout_sha256": "5603b3bdbd979d86e8c62be43291039331c1f18d392c470cba56f4eba489b84d",
+          "tests": 57,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/serve_http.py');s=p.read_text(encoding='utf-8');marker='def _serving_recent_releases(';i=s.index(marker);j=s.index(chr(10),i)+1;s=s[:j]+'    return ()'+chr(10)+s[j:];p.write_text(s,encoding='utf-8')\"\n",
+    "patch_sha256": "ff9d1ff73df8dff540a487076d840c45b6b148e69418bee3ad61ff74a0d4f97f",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/serve_http.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
