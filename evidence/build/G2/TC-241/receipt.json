@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-241",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-07T17:43:37Z",
+  "base_rev": "e915e6995828e21e54839dfbaa2415fd98804866",
+  "head_rev": "e139271fcff9f5249c033df36735174421138e3c",
+  "card_sha256": "37e7df8050ee477917dab47e4b04f5c88ca62a855ed5e98a0096ce115ab20967",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/extraction/tree_sitter_engine/api_surface.py",
+      "tests/extraction/test_nested_class_fqn.py",
+      "tests/fixtures/jmap_java/api_surface.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_nested_class_fqn.py tests/extraction/test_jmap_java_extraction.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.12,
+          "stdout_sha256": "eb27a136c18598aedc0e4f11e6893b614a04335a9faf3ec03433325d777e2663",
+          "tests": 12,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_nested_class_fqn.py tests/extraction/test_jmap_java_extraction.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.602,
+          "stdout_sha256": "eb27a136c18598aedc0e4f11e6893b614a04335a9faf3ec03433325d777e2663",
+          "tests": 12,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib,json;p=pathlib.Path('tests/fixtures/jmap_java/api_surface.json');d=json.loads(p.read_text(encoding='utf-8'));[t.update(class_import='com.aspose.jmap.NotTheRealEnclosingClass.Builder') for t in d['types'] if t.get('name')=='Builder'];p.write_text(json.dumps(d),encoding='utf-8')\"\n",
+    "patch_sha256": "ef841aa3092e53b2f6869641ff920dd2b3cda4adccd0306044ba7a24f17e7f10",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/fixtures/jmap_java/api_surface.json",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

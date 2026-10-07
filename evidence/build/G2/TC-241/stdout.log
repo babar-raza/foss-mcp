@@ -1,0 +1,37 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_nested_class_fqn.py tests/extraction/test_jmap_java_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-teg667wn\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_nested_class_fqn.py tests/extraction/test_jmap_java_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-teg667wn\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/jmap_java/api_surface.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_nested_class_fqn.py tests/extraction/test_jmap_java_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-teg667wn\.junit-0.xml"
+--- stdout ---
+......F.....                                                             [100%]
+================================== FAILURES ===================================
+___ test_the_real_jmap_java_builder_fixture_now_carries_its_enclosing_class ___
+
+    def test_the_real_jmap_java_builder_fixture_now_carries_its_enclosing_class() -> None:
+        data = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        builder = next(t for t in data["types"] if t["name"] == "Builder")
+>       assert "JmapClientOptions" in builder["class_import"]
+E       AssertionError: assert 'JmapClientOptions' in 'com.aspose.jmap.NotTheRealEnclosingClass.Builder'
+
+tests\extraction\test_nested_class_fqn.py:210: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_nested_class_fqn.py::test_the_real_jmap_java_builder_fixture_now_carries_its_enclosing_class
+
+--- stderr ---
+
