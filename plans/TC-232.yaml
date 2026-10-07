@@ -1,34 +1,39 @@
 id: TC-232
 gate: G2
 lane: extraction
-purpose: 'Extract and commit fixtures for the seven platform combos that genuinely need fresh extraction toward the complete FOSS
-  portfolio (operator, 2026-10-07): cells/java, and the six other JMAP platforms this project has never ingested (JMAP already has
-  two pilots, python and rust; aspose-email-foss also publishes it for Node.js, TypeScript, Go, .NET, C++ and Java - a repository
-  listing read on 2026-10-07 confirmed all seven real, public repository names below). This card extraction-only: it produces a
-  fixture, a product manifest, and an offline test per combo, the exact shape run_extraction.py already produces for the twenty-eight
-  fixtures committed so far. It does not wire any of the seven as a pilot; that is a separate, later card, once each fixture exists
-  and its packaging-manifest path is surveyed.'
+purpose: 'Extract and commit fixtures for six of the seven platform combos that genuinely need fresh extraction toward the complete
+  FOSS portfolio (operator, 2026-10-07): cells/java, and five of the six other JMAP platforms this project has never ingested (JMAP
+  already has two pilots, python and rust; aspose-email-foss also publishes it for Node.js, TypeScript, Go, .NET, C++ and Java - a
+  repository listing read on 2026-10-07 confirmed all seven real, public repository names below). This card extraction-only: it
+  produces a fixture, a product manifest, and an offline test per combo, the exact shape run_extraction.py already produces for the
+  twenty-eight fixtures committed so far. It does not wire any of the six as a pilot; that is a separate, later card, once each
+  fixture exists and its packaging-manifest path is surveyed.
+
+  Supervisor restatement (2026-10-07, after attempt 1''s report): the seventh combo, jmap/nodejs, is deliberately NOT in this card''s
+  scope. Attempt 1 correctly found and reported that run_extraction.py''s own _LANGUAGE_BY_PLATFORM mapped "nodejs" to "typescript",
+  so extraction against the real, plain-JavaScript repository produced 0/0 types, and attempt 1 correctly refused to fabricate or
+  commit an empty fixture for it. That mapping bug, and the real jmap/nodejs fixture extracted once it is fixed, are TC-233''s
+  responsibility and TC-233 already delivers both for real on its own branch. This card''s original contract named seven combos
+  because the mapping bug was not yet known when this card was authored; the correct, narrower scope is the six combos attempt 1
+  actually and correctly delivered.'
 depends_on:
 - TC-001
 - TC-003
 - TC-031
 write_paths:
 - config/products/cells/java.yaml
-- config/products/jmap/nodejs.yaml
 - config/products/jmap/typescript.yaml
 - config/products/jmap/go.yaml
 - config/products/jmap/net.yaml
 - config/products/jmap/cpp.yaml
 - config/products/jmap/java.yaml
 - tests/fixtures/cells_java/api_surface.json
-- tests/fixtures/jmap_nodejs/api_surface.json
 - tests/fixtures/jmap_typescript/api_surface.json
 - tests/fixtures/jmap_go/api_surface.json
 - tests/fixtures/jmap_net/api_surface.json
 - tests/fixtures/jmap_cpp/api_surface.json
 - tests/fixtures/jmap_java/api_surface.json
 - tests/extraction/test_cells_java_extraction.py
-- tests/extraction/test_jmap_nodejs_extraction.py
 - tests/extraction/test_jmap_typescript_extraction.py
 - tests/extraction/test_jmap_go_extraction.py
 - tests/extraction/test_jmap_net_extraction.py
@@ -74,7 +79,7 @@ actions:
 - Write the seven manifests, run extraction for each, and write the matching offline test.
 - Run the new tests and report exact counts, and name clearly any combo that genuinely failed and why.
 checks:
-- command: '{python} -m pytest tests/extraction/test_cells_java_extraction.py tests/extraction/test_jmap_nodejs_extraction.py tests/extraction/test_jmap_typescript_extraction.py tests/extraction/test_jmap_go_extraction.py tests/extraction/test_jmap_net_extraction.py tests/extraction/test_jmap_cpp_extraction.py tests/extraction/test_jmap_java_extraction.py -q -rfE'
+- command: '{python} -m pytest tests/extraction/test_cells_java_extraction.py tests/extraction/test_jmap_typescript_extraction.py tests/extraction/test_jmap_go_extraction.py tests/extraction/test_jmap_net_extraction.py tests/extraction/test_jmap_cpp_extraction.py tests/extraction/test_jmap_java_extraction.py -q -rfE'
   expect: exit 0
   timeout_seconds: 1200
   junitxml: true
@@ -89,5 +94,6 @@ negative_control:
 evidence:
 - evidence/build/G2/TC-232/receipt.json
 closeout:
-- Seven more real, pinned fixtures exist and are offline-tested, ready for a later card to wire as pilots.
+- Six more real, pinned fixtures exist and are offline-tested, ready for a later card to wire as pilots. The seventh, jmap/nodejs,
+  is TC-233's deliverable.
 recovery: Re-run from a clean tree.
