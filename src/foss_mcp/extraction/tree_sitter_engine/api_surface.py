@@ -1686,16 +1686,25 @@ def _is_cpp_stub(mnode) -> bool:
 
 
 def _cpp_canonical_namespace(cnode) -> str:
-    """Walk up the AST from a C++ class node to collect all enclosing namespace names.
+    """Walk up the AST from a C++ class node to collect all enclosing namespace
+    AND class/struct-type ancestor names (TC-241: a nested class must carry
+    its enclosing class in its FQN, not just its enclosing namespace).
 
-    Returns namespace names joined with '::' in outermost-to-innermost order.
+    Both namespace and class ancestors are collected in one single bottom-up
+    walk, in actual nesting order (innermost first, then reversed before
+    joining) -- a namespace can contain a class that contains a nested
+    class, and the real FQN must reflect that exact order regardless of
+    which kind of ancestor each level is.
+
+    Returns names joined with '::' in outermost-to-innermost order.
     Example: class inside 'namespace Aspose { namespace Slides { ... } }' returns
-    'Aspose::Slides'.
+    'Aspose::Slides'. A class 'Builder' nested inside class 'Outer' returns
+    'Outer' for Builder's own canonical_namespace.
     """
     parts: list[str] = []
     parent = cnode.parent
     while parent is not None:
-        if parent.type == "namespace_definition":
+        if parent.type == "namespace_definition" or parent.type in _CLASS_TYPES["cpp"]:
             name_node = child_by_field(parent, "name")
             if name_node:
                 parts.append(node_text(name_node))
@@ -1729,25 +1738,44 @@ def _ts_namespace_chain(cnode) -> str:
 
 
 def _csharp_canonical_namespace(cnode) -> str:
-    """Walk up from a C# class node to find the enclosing namespace.
+    """Walk up from a C# class node to find the enclosing namespace AND any
+    enclosing class/struct/interface/record ancestor (TC-241: a nested class
+    must carry its enclosing class in its FQN, not just its enclosing
+    namespace).
 
     Handles block-scoped (``namespace X { class Y {} }``) and file-scoped
-    (``namespace X; class Y {}``) forms.
+    (``namespace X; class Y {}``) forms. Namespace and class-type ancestors
+    are collected in one single bottom-up walk, in actual nesting order
+    (innermost first, then reversed before joining) -- a namespace can
+    contain a class that contains a nested class, and the real FQN must
+    reflect that exact order regardless of which kind of ancestor each
+    level is.
     """
-    # Block-scoped: walk up through namespace_declaration ancestors
+    # Block-scoped: walk up through namespace_declaration AND class-type
+    # ancestors in one pass.
     parts: list[str] = []
+    saw_block_namespace = False
     parent = cnode.parent
     while parent is not None:
         if parent.type == "namespace_declaration":
+            saw_block_namespace = True
             for ch in parent.children:
                 if ch.type in ("qualified_name", "identifier"):
                     parts.append(node_text(ch))
                     break
+        elif parent.type in _CLASS_TYPES["csharp"]:
+            name_node = child_by_field(parent, "name")
+            if name_node:
+                parts.append(node_text(name_node))
         parent = parent.parent
-    if parts:
+    if saw_block_namespace:
         parts.reverse()
         return ".".join(parts)
-    # File-scoped: find sibling file_scoped_namespace_declaration at root
+    # File-scoped: find sibling file_scoped_namespace_declaration at root,
+    # then prepend it to any class-type ancestor chain collected above (the
+    # walk above still ran and may have collected enclosing class names even
+    # though no namespace_declaration ancestor was found).
+    parts.reverse()
     cu = cnode
     while cu.parent is not None:
         cu = cu.parent
@@ -1755,8 +1783,37 @@ def _csharp_canonical_namespace(cnode) -> str:
         if ch.type == "file_scoped_namespace_declaration":
             for sub in ch.children:
                 if sub.type in ("qualified_name", "identifier"):
-                    return node_text(sub)
-    return ""
+                    parts.insert(0, node_text(sub))
+                    break
+            break
+    return ".".join(parts)
+
+
+def _java_enclosing_class_chain(cnode) -> str:
+    """Walk up from a Java class/interface/enum/record/annotation-type node
+    collecting every enclosing class-type ancestor's own name (TC-241: a
+    nested class must carry its enclosing class in its FQN; Java previously
+    had no ancestor walk for this at all).
+
+    Mirrors the C++/C# ancestor-walk shape above: a single bottom-up walk
+    over ``cnode.parent``, collecting the name of every ancestor whose type
+    is a member of ``_CLASS_TYPES["java"]``, in actual nesting order
+    (innermost first, then reversed before joining with '.').
+
+    Returns "" when *cnode* has no class-type ancestor (the common,
+    non-nested case) -- callers must leave class_import/canonical_namespace
+    exactly as before this fix in that case.
+    """
+    parts: list[str] = []
+    parent = cnode.parent
+    while parent is not None:
+        if parent.type in _CLASS_TYPES["java"]:
+            name_node = child_by_field(parent, "name")
+            if name_node:
+                parts.append(node_text(name_node))
+        parent = parent.parent
+    parts.reverse()
+    return ".".join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -3748,9 +3805,24 @@ def extract_api_surface(
                     cls_record["class_import"] = cname
             elif language == "java":
                 # java_file_package is captured at file level above the class loop
+                #
+                # TC-241: a nested class (declared inside another
+                # class/interface/enum/record/annotation-type) must carry its
+                # enclosing type in class_import/canonical_namespace -- Java
+                # previously had no ancestor walk at all here, so e.g.
+                # jmap/java's real JmapClientOptions.Builder recorded
+                # class_import="com.aspose.jmap.Builder", silently dropping
+                # "JmapClientOptions" and producing a non-importable name.
+                # _java_enclosing_class_chain() mirrors the C++/C#
+                # ancestor-walk fix above and returns "" for the overwhelming
+                # non-nested case, so behavior there is completely unchanged.
+                enclosing_chain = _java_enclosing_class_chain(cnode)
                 if java_file_package:
                     cls_record["class_package"] = java_file_package
-                    cls_record["class_import"] = f"{java_file_package}.{cname}"
+                    if enclosing_chain:
+                        cls_record["class_import"] = f"{java_file_package}.{enclosing_chain}.{cname}"
+                    else:
+                        cls_record["class_import"] = f"{java_file_package}.{cname}"
                     # TC-DUPIDX-06 (2026-08-12, ST-059): also mirror into
                     # canonical_namespace -- the field _assign_namespace_slug_
                     # suffixes() in batch_reference.py reads for same-name
@@ -3765,8 +3837,21 @@ def extract_api_surface(
                     # 1027). This completes, for Java, the same rollout already done
                     # for C++ (day one), C# (2026-06-13), Rust (day one), and Python
                     # (2026-07-29, MT013, fde65ade26) for this exact purpose.
-                    cls_record["canonical_namespace"] = java_file_package
+                    #
+                    # TC-241: fold the enclosing-class chain in here too, the
+                    # same way C++/C#'s canonical_namespace already does via
+                    # their own ancestor walk, so a nested class's
+                    # same-name-collision disambiguation key is the real
+                    # enclosing scope, not just the file's package.
+                    if enclosing_chain:
+                        cls_record["canonical_namespace"] = f"{java_file_package}.{enclosing_chain}"
+                    else:
+                        cls_record["canonical_namespace"] = java_file_package
                 else:
+                    # No java_file_package captured for this file (default
+                    # package) -- out of this card's contract (which keys
+                    # exclusively off java_file_package), so left exactly as
+                    # before this fix.
                     cls_record["class_import"] = cname
             elif language == "csharp":
                 canonical_ns = _csharp_canonical_namespace(cnode)
