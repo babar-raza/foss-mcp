@@ -1,0 +1,59 @@
+id: TC-229
+gate: G2
+lane: extraction
+purpose: 'Make the C++ manifest reader recognize the C++ standard declared through target_compile_features, not only CMAKE_CXX_STANDARD.
+  The 2026-10-07 live verification of the slides/cpp pilot found get_product_reference answering "manifest does not state a C++
+  standard" for its compatibility section, even though its real CMakeLists.txt (aspose-slides-foss/Aspose.Slides-FOSS-for-Cpp, pinned
+  commit c41f8dddc499fb0058fc9557cb364d70fbd3cef1) genuinely states one: target_compile_features(AsposeSlidesFoss PUBLIC cxx_std_20),
+  the modern CMake idiom that travels with the exported target instead of a global cache variable. read_cpp_manifest''s regex only
+  matches set_property(... CXX_STANDARD N) and CMAKE_CXX_STANDARD N. This is a real parser gap, not a server defect: the server is
+  honestly reporting what it cannot find, and the fix widens what it can find.'
+depends_on:
+- TC-213
+- TC-220
+- TC-214
+write_paths:
+- src/foss_mcp/extraction/manifest_reader.py
+- tests/extraction/test_manifest_reader_ecosystems.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read read_cpp_manifest in src/foss_mcp/extraction/manifest_reader.py in full, and every existing cpp test in
+  tests/extraction/test_manifest_reader_ecosystems.py.'
+- 'Add a third alternative to the cpp_standard regex: target_compile_features(...) naming cxx_std_NN (for example cxx_std_20,
+  cxx_std_17), case-insensitive, with the target name and any other arguments in between ignored (do not require PUBLIC/PRIVATE/
+  INTERFACE literally; match whichever keyword is there). When set_property or CMAKE_CXX_STANDARD is present, it still wins, matching
+  today''s order; target_compile_features is checked only when neither of those matched. Change nothing else in the function.'
+- 'Add tests to tests/extraction/test_manifest_reader_ecosystems.py, keeping every existing test: a CMakeLists.txt with
+  target_compile_features(SomeTarget PUBLIC cxx_std_20) alone gives cpp_standard "20"; one with cxx_std_17 under PRIVATE gives "17";
+  one with both CMAKE_CXX_STANDARD 14 and a target_compile_features cxx_std_20 call gives "14" (the existing form still wins); one with
+  neither gives an empty cpp_standard, unchanged from today.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the reader and its tests.
+- Add the one regex alternative and the four tests.
+- Run the card check and report exact counts.
+checks:
+- command: '{python} -m pytest tests/extraction/test_manifest_reader_ecosystems.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 22
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/manifest_reader.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('cxx_std_','cxx_std_off_'),encoding='utf-8')"
+  rationale: 'Renames the literal the new branch looks for, so a CMakeLists.txt that only uses target_compile_features can no longer be read, and the new test
+    for that form must fail. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-229/receipt.json
+closeout:
+- A C++ pilot whose CMakeLists.txt states its standard through target_compile_features reports a real compatibility answer.
+recovery: Re-run from a clean tree.
