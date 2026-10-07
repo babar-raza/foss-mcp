@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "card": "TC-231",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-07T13:55:26Z",
+  "base_rev": "55a950b376e0565af8dc9e03b37aea64096932f0",
+  "head_rev": "a11e32fefb8e09f3e81c231ad371581ca5233578",
+  "card_sha256": "45a3a1109486ad0c11a424e794683d2bc0afffbc41e89ea8026bbbde9cd991c6",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "Dockerfile.ingestion",
+      "docker-compose.yml",
+      "infra/helm/foss-mcp/values.yaml",
+      "scripts/deploy/pilots.py",
+      "tests/deploy/test_install_pilots.py",
+      "tests/deploy/test_pilots.py",
+      "tests/deploy/test_prove_pilots.py",
+      "tests/infra/test_docker_compose_multi_instance.py",
+      "tests/infra/test_helm_chart.py",
+      "tests/infra/test_helm_manifest_step.py",
+      "tests/infra/test_helm_pilots_match_compose.py",
+      "tests/infra/test_ingestion_image_fixtures.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_chart.py tests/infra/test_docker_compose_multi_instance.py tests/infra/test_ingestion_image_fixtures.py tests/infra/test_helm_manifest_step.py tests/infra/test_container_pins.py tests/deploy -q -rfE",
+          "exit_code": 0,
+          "duration_s": 22.476,
+          "stdout_sha256": "867e78f2d7392f5f4855c3960137b3f7f129d32c028a4612210025ccb338eb1b",
+          "tests": 160,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_chart.py tests/infra/test_docker_compose_multi_instance.py tests/infra/test_ingestion_image_fixtures.py tests/infra/test_helm_manifest_step.py tests/infra/test_container_pins.py tests/deploy -q -rfE",
+          "exit_code": 0,
+          "duration_s": 19.919,
+          "stdout_sha256": "867e78f2d7392f5f4855c3960137b3f7f129d32c028a4612210025ccb338eb1b",
+          "tests": 160,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/helm/foss-mcp/values.yaml');s=p.read_text(encoding='utf-8');old='manifestPath: pyproject.toml';new='manifestPath: pyproject_off.toml';i=s.index('family: email');j=s.index(old,i);s=s[:j]+new+s[j+len(old):];p.write_text(s,encoding='utf-8')\"\n",
+    "patch_sha256": "ebc1d7fdc7a5b83fd141a0f9b0bf4ceede1e8655e21771ca1478c1211142c7c2",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/helm/foss-mcp/values.yaml",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
