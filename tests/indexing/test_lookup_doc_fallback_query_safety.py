@@ -142,7 +142,9 @@ def _doc_chunks_from_furnished_page(page: Mapping[str, object]) -> list[Chunk]:
                 commit="db2d3f0622f035825419c6d46727022064f39f15",
                 path=str(FURNISHED_PAGE_FIXTURE),
             ),
-            evidence_refs=("aspose-pdf-foss/Aspose.PDF-FOSS-for-Java@db2d3f0622f035825419c6d46727022064f39f15",),
+            evidence_refs=(
+                "aspose-pdf-foss/Aspose.PDF-FOSS-for-Java@db2d3f0622f035825419c6d46727022064f39f15",
+            ),
             title=candidate.title,
             body=candidate.body,
         )
@@ -168,7 +170,9 @@ def offline_replica() -> _OfflineReplica:
     fixture = _load_api_surface_fixture()
     page = _load_furnished_page()
 
-    type_chunks = build_chunks_from_api_surface(fixture, title="Aspose.PDF FOSS for Java", max_types=MAX_TYPES)
+    type_chunks = build_chunks_from_api_surface(
+        fixture, title="Aspose.PDF FOSS for Java", max_types=MAX_TYPES
+    )
     doc_chunks = _doc_chunks_from_furnished_page(page)
     all_chunks = type_chunks + doc_chunks
     chunk_ids = [f"chunk-{index}" for index in range(len(all_chunks))]
@@ -196,7 +200,9 @@ def offline_replica() -> _OfflineReplica:
     )
 
 
-def _search_docs_like(replica: _OfflineReplica, query: str, content_type: str, *, top_k: int = 10) -> list[str]:
+def _search_docs_like(
+    replica: _OfflineReplica, query: str, content_type: str, *, top_k: int = 10
+) -> list[str]:
     """Replays ``search_docs``'s own real filtering rule exactly (TC-115's module docstring,
     ``foss_mcp.mcp.tools.search_docs.search_docs``): rank the WHOLE corpus first via the real
     ``query_lexical_index``, then keep only the doc_ids this replica's real
@@ -265,7 +271,9 @@ def test_offline_safe_query_reads_as_a_task_question(offline_replica: _OfflineRe
     assert _looks_like_a_task_question(OFFLINE_SAFE_QUERY) is True
 
 
-def test_offline_safe_query_reaches_troubleshooting_without_intercept(offline_replica: _OfflineReplica) -> None:
+def test_offline_safe_query_reaches_troubleshooting_without_intercept(
+    offline_replica: _OfflineReplica,
+) -> None:
     """The concrete replacement for the live e2e test's own assertion: getting_started and
     developer_guide are both genuine, honest misses for OFFLINE_SAFE_QUERY (never intercepted,
     unlike the stale query above), so ``_compose_from_docs``'s own ``CONTENT_TYPES``-ordered
