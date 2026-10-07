@@ -317,6 +317,17 @@ def read_cpp_manifest(text: str) -> CppManifest:
     )
     if match:
         cpp_standard = match.group(1) or match.group(2) or ""
+    else:
+        # target_compile_features is the modern CMake idiom: the standard travels with
+        # the exported target (target_compile_features(Target PUBLIC cxx_std_20)) instead
+        # of a global cache variable. Only checked when neither form above already matched.
+        match = re.search(
+            r"target_compile_features\s*\([^)]*cxx_std_(\d+)",
+            text,
+            re.IGNORECASE,
+        )
+        if match:
+            cpp_standard = match.group(1)
 
     return CppManifest(
         name=name,

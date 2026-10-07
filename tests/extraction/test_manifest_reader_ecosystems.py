@@ -199,6 +199,29 @@ def test_cpp_manifest_degrades_to_empty_fields_on_empty_text() -> None:
     assert read_cpp_manifest("") == CppManifest()
 
 
+def test_cpp_manifest_reads_standard_from_target_compile_features_public() -> None:
+    text = "target_compile_features(SomeTarget PUBLIC cxx_std_20)"
+    assert read_cpp_manifest(text).cpp_standard == "20"
+
+
+def test_cpp_manifest_reads_standard_from_target_compile_features_private() -> None:
+    text = "target_compile_features(SomeTarget PRIVATE cxx_std_17)"
+    assert read_cpp_manifest(text).cpp_standard == "17"
+
+
+def test_cpp_manifest_cmake_cxx_standard_still_wins_over_target_compile_features() -> None:
+    text = """
+    set(CMAKE_CXX_STANDARD 14)
+    target_compile_features(SomeTarget PUBLIC cxx_std_20)
+    """
+    assert read_cpp_manifest(text).cpp_standard == "14"
+
+
+def test_cpp_manifest_cpp_standard_empty_when_neither_form_present() -> None:
+    text = "project(SomeProject)\nadd_library(SomeTarget SHARED src/lib.cpp)\n"
+    assert read_cpp_manifest(text).cpp_standard == ""
+
+
 def test_dotnet_manifest_without_package_id_reports_assembly_name() -> None:
     csproj = (
         '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup>'
