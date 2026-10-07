@@ -1,0 +1,79 @@
+id: TC-245
+gate: G2
+lane: transport-deployment
+purpose: 'Fix two real defects in infra/serve_stdio.py found while investigating an independent product-readiness
+  audit finding (2026-10-07, see docs/DECISION_LOG.md''s entry of the same date). (1) serve_stdio.py never calls
+  configure_logging() (defined in infra/serve_http.py, called from its own main() before anything else) - the root
+  logger has no handler and defaults to WARNING, so _log_tool_call''s logger.info(...) lines (the correlation-ID
+  tracing server.py''s own docstrings document) are silently dropped over stdio, never emitted anywhere. Confirmed
+  this is not exercised by the live poc14c cluster or docker-compose.yml today (both override the container command to
+  serve_http.py), but Dockerfile.serving''s own default CMD is ["python", "/app/infra/serve_stdio.py"] - a real,
+  one-command-override-away exposure if this image is ever run bare. (2) Found while fixing (1), a second, more
+  severe defect in the SAME file: FOSS_MCP_FAMILY/FOSS_MCP_PLATFORM default to "pdf"/"net" when unset
+  (os.environ.get(..., "pdf")) instead of failing loudly - directly violating this project''s own stated rule, stated
+  in infra/serve_http.py''s own comment on its FAMILY_ENV/PLATFORM_ENV constants: "There are deliberately no
+  defaults: an unset identity must never fall back to another product." A misconfigured stdio deployment with no
+  identity set today silently serves AS IF it were pdf/net, rather than refusing to start.'
+depends_on:
+- TC-016
+- TC-019a
+write_paths:
+- infra/serve_stdio.py
+- tests/infra/test_serve_stdio.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/serve_stdio.py and infra/serve_http.py in full, especially configure_logging() and _required_env() in
+  serve_http.py, and serve_stdio.py''s main()/DeploymentConfig construction.'
+- 'Fix 1: import configure_logging from serve_http (infra/ is not a package - add
+  sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent)) before the import exactly the way
+  tests/infra/test_helm_manifest_step.py already does to import serve_http, since serve_stdio.py is also run directly
+  as a script whose own directory is not guaranteed to already be on sys.path when imported rather than executed).
+  Call configure_logging() as the first line of main(), before DeploymentConfig is even constructed - matching
+  serve_http.py''s own main()''s ordering exactly.'
+- 'Fix 2: replace FOSS_MCP_FAMILY/FOSS_MCP_PLATFORM''s silent os.environ.get(..., "pdf"/"net") defaults with the same
+  required-and-loud pattern serve_http.py''s _required_env already implements (read it first; reuse it directly via
+  the same sys.path import as above rather than re-implementing it, if its own signature/behavior is reusable
+  as-is - a bare RuntimeError naming the missing variable, exactly as serve_http.py''s own already does, is the
+  correct behavior here too). FOSS_MCP_SOURCE_KIND keeps its existing default ("self_extracted") - only FAMILY and
+  PLATFORM lose their silent defaults, matching exactly what serve_http.py already requires for the same two
+  variables.'
+- 'Add tests/infra/test_serve_stdio.py (no prior test file exists for this module at all): (1) calling main() (or
+  refactor main() into a small testable config-building helper plus the anyio-run wrapper if that is cleaner - your
+  call, as long as the import story stays simple) with both FOSS_MCP_FAMILY and FOSS_MCP_PLATFORM unset raises
+  RuntimeError naming the missing variable, never silently defaulting to pdf/net; (2) the same with only one of the
+  two unset also raises, naming that one; (3) with both set, the resulting DeploymentConfig carries exactly those
+  values, not a default; (4) configure_logging is actually invoked before run_stdio/DeploymentConfig construction -
+  assert this via the same technique serve_http.py''s own existing logging tests use (read
+  tests/infra/test_serve_http.py or wherever serve_http''s configure_logging is already tested, and mirror its
+  approach exactly rather than inventing a new one).'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read serve_stdio.py and serve_http.py in full, and find serve_http's own existing logging test for the pattern to mirror.
+- Add the sys.path import, call configure_logging(), and replace the two silent defaults with the required-env pattern.
+- Add the four tests described above.
+- Run the card check and report exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_serve_stdio.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 4
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/serve_stdio.py');s=p.read_text(encoding='utf-8');old='FOSS_MCP_FAMILY';new='FOSS_MCP_FAMILY_OFF';i=s.index(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: 'Renames the first occurrence of the FAMILY env var name this card''s fix reads, so the required-env check looks for a variable that is never actually set, and the "with both set" test (which sets the real FOSS_MCP_FAMILY and expects it to be read, not a RuntimeError) must fail. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-245/receipt.json
+closeout:
+- A stdio deployment with a missing or misconfigured identity refuses to start rather than silently serving as a
+  different product, and its tool-call log lines are actually emitted somewhere, matching serve_http's own bar.
+recovery: Re-run from a clean tree.
