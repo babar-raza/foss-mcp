@@ -1,0 +1,90 @@
+id: TC-242
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix a real defect found by an independent product-readiness audit (2026-10-07, see docs/DECISION_LOG.md''s
+  entry of the same date): the guard that refuses to publish an empty generation or a drastic (>50%) regression
+  against what is currently active (_assert_publish_is_safe) exists ONLY in infra/ingest.py''s CLI, never inside
+  src/foss_mcp/indexing/generation_manifest.py''s own publish() or src/foss_mcp/indexing/publisher.py - the single
+  authority path this module''s own docstring describes as "a genuine single point of failure for the whole
+  CAS/fencing contract: there is nowhere else the check could be hiding." That claim is currently false for THIS
+  check: any other caller of publish()/GenerationManifestStore directly - bypassing infra/ingest.py''s CLI entirely -
+  can publish an empty or arbitrarily regressive generation with no guard at all. This card moves the real guard logic
+  into publish() itself, so every caller gets it for free, and ingest.py keeps working identically by delegating to
+  the same shared check rather than carrying its own separate copy.'
+depends_on:
+- TC-005
+- TC-015
+- TC-144
+- TC-129
+- TC-134
+write_paths:
+- src/foss_mcp/indexing/generation_manifest.py
+- infra/ingest.py
+- tests/indexing/test_generation_manifest.py
+- tests/infra/test_ingest.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read src/foss_mcp/indexing/generation_manifest.py''s publish() function (around line 448) and infra/ingest.py''s
+  _assert_publish_is_safe (around line 43) and its call site in main() (around line 137) in full - including exactly
+  how active_document_count is currently derived (store.read_generation(scope, expected_active).payload''s
+  lexical_index.documents count) and how new_chunk_count is currently derived (len(chunks) BEFORE they are turned
+  into a GenerationManifest).'
+- 'Move _assert_publish_is_safe''s logic (unchanged: refuse 0 new chunks; refuse when an active generation exists AND
+  the new count is less than half its document count) into generation_manifest.py as a real function - name it
+  assert_publish_is_safe, taking (new_document_count: int, active_document_count: int | None), raising the same
+  PublishSafetyError (move this exception class into generation_manifest.py too, since it now belongs to the module
+  that enforces it - re-export it from infra/ingest.py if ingest.py''s own tests or callers import it by that path
+  today, so nothing outside this card''s write_paths breaks).'
+- 'Call assert_publish_is_safe from inside publish(), before store.cas_activate runs - derive new_document_count from
+  generation.payload the same way ingest.py currently derives it from the chunks it is about to publish (read
+  generation.payload["lexical_index"]["documents"] - confirm this is really where write_and_validate leaves it by
+  reading write_and_validate''s own code first; do not guess the shape), and derive active_document_count by reading
+  store.read_generation(scope, expected_active).payload the identical way when expected_active is not None, else
+  None. publish()''s own signature does not need to change - it already has every argument this needs.'
+- 'Change infra/ingest.py so it no longer computes or calls its own copy of this check - delete
+  _assert_publish_is_safe and its call site in main(), since publish() now enforces it. main() must still print the
+  same kind of error and exit non-zero when the guard refuses: let PublishSafetyError propagate out of publish()
+  exactly as it does today (main() has no try/except around the publish() call today per the existing code - confirm
+  this, and if so, no change needed there beyond removing the now-redundant pre-check; if main() DOES catch/handle it
+  specially today, preserve that exact behavior).'
+- 'Do NOT add this guard to rollback() - rolling back to a smaller prior generation is a legitimate, intentional
+  operation, never a "regression" in the sense this guard exists to catch.'
+- 'Add tests to tests/indexing/test_generation_manifest.py: calling publish() directly (bypassing infra/ingest.py
+  entirely) with a generation whose payload has zero documents raises PublishSafetyError and does NOT activate (the
+  active pointer is unchanged); calling publish() directly with a new generation carrying fewer than half the
+  currently-active generation''s document count raises PublishSafetyError and does NOT activate; calling publish()
+  with a safe generation (comfortably more than half, or no active generation yet) succeeds exactly as before this
+  card. Update tests/infra/test_ingest.py only if removing _assert_publish_is_safe''s own direct-unit tests (if any
+  exist there) requires moving them to test_generation_manifest.py instead - do not leave duplicate or now-pointless
+  tests behind, and do not reduce total coverage of this guard''s behavior.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read publish(), _assert_publish_is_safe, write_and_validate, and both existing test files in full.
+- Move the guard into generation_manifest.py's publish(); delete the duplicate from infra/ingest.py.
+- Add/move the direct-publish() regression tests.
+- Run the card check and report exact counts.
+checks:
+- command: '{python} -m pytest tests/indexing/test_generation_manifest.py tests/infra/test_ingest.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 180
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 1
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/generation_manifest.py');lines=p.read_text(encoding='utf-8').splitlines(keepends=True);out=[l for l in lines if not ('assert_publish_is_safe(' in l and 'def ' not in l)];p.write_text(''.join(out),encoding='utf-8')"
+  rationale: 'Drops every line that CALLS assert_publish_is_safe(...) (its own def line is excluded by checking for "def " on the same line), regardless of exactly where the fix places that call inside publish() - removing the enforcement call while leaving the function itself defined, so the new direct-publish() regression tests must fail. Built with plain text; no backslash involved.'
+evidence:
+- evidence/build/G2/TC-242/receipt.json
+closeout:
+- Any direct caller of publish()/GenerationManifestStore, not only infra/ingest.py's CLI, is refused an empty or
+  drastically regressive publish.
+recovery: Re-run from a clean tree.
