@@ -52,7 +52,19 @@ inputs:
   assert ''"uninstall"'' not in text and assert "helm uninstall" not in text. Replace the removed
   assert ''"delete"'' not in text with: assert text.count(''"delete"'') == 1, and that the one occurrence sits inside
   job_delete_command''s own source (for example by checking it falls between that function''s def line and the next top-level def).
-  Do not change any other test in the file. Record this restatement in the commit body.'
+  (4) test_dry_run_prints_the_helm_command_for_one_pilot_and_runs_nothing (line ~96): rename to
+  test_dry_run_prints_the_delete_and_helm_commands_for_one_pilot_and_runs_nothing. Change len(out) == 1 to len(out) == 2; keep
+  "--set image.tag=t1" in out[1] and not values_dir.exists(); add out[0].split()[:3] == ["kubectl", "delete", "job"]; change
+  out[0].startswith(...) to out[1].startswith("helm upgrade --install foss-mcp-pdf-net ").
+  (5) test_missing_namespace_is_created_before_any_install (line ~152): rename to
+  test_missing_namespace_is_created_before_any_install_and_before_the_job_delete. Change the kube equality to: kube ==
+  [["kubectl", "get", "namespace", "fresh"], ["kubectl", "create", "namespace", "fresh"],
+  ["kubectl", "delete", "job", "-n", "fresh", "-l",
+  "app.kubernetes.io/instance=foss-mcp-pdf-net,app.kubernetes.io/component=ingestion", "--ignore-not-found"]]. Keep the existing
+  ordering assertion (the create-namespace call still precedes the first helm call) unchanged.
+  This is now five named tests in total, (1) through (5). Do not change any other test in the file. Record this restatement in the
+  commit body, and say explicitly that attempt 2 found two more pre-existing tests the first restatement missed, exactly as its own
+  report described - that is this card''s own process working as intended, not a defect to hide.'
 actions:
 - Read the tool and its tests.
 - Add the delete step and the dry-run line, and the four tests.
