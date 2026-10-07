@@ -258,6 +258,35 @@ def test_the_rendered_job_command_invokes_the_fetch_script_with_the_sidecar_name
         assert _flag_after(fetch, 0, "--output") == f"{values['manifests']['mountPath']}/{sidecar}", identity
 
 
+def test_the_fetch_step_failure_is_swallowed_but_still_logged() -> None:
+    # pdf/cpp has a manifestPath and is used as a stable example by other tests in this file.
+    pilot = next(
+        p for p in _values()["ingestion"]["pilots"] if p["family"] == "pdf" and p["platform"] == "cpp"
+    )
+    docs = _render()
+    tokens = _job_tokens(_job(docs, pilot))
+    fetch_index = tokens.index(FETCH_COMMAND)
+    # The fetch step is wrapped in POSIX sh brace-grouping ending in "|| true": its own failure
+    # (e.g. a transient GitHub rate limit) can never fail the Job, because the brace group's exit
+    # status is always 0. Search forward from FETCH_COMMAND for "||" then "true" in order - there
+    # may be intervening flag tokens before "||".
+    or_index = tokens.index("||", fetch_index)
+    true_index = or_index + 1
+    assert tokens[true_index].rstrip(";") == "true", tokens[fetch_index:]
+    # "true" is the last relevant token the fetch step's chain ends on - only the brace-grouping's
+    # own closing "}" follows it.
+    assert tokens[true_index + 1 :] == ["}"], tokens[fetch_index:]
+    # build_chunks.py and ingest.py are NOT wrapped: a real content-publish failure in either one
+    # must still propagate and fail the Job exactly as before, so each is still immediately
+    # followed by a bare "&&" token, never a "|| true" grouping of its own.
+    ingest_index = tokens.index("/app/infra/ingest.py")
+    assert tokens[ingest_index - 1] == "python" and tokens[ingest_index - 2] == "&&", (
+        "build_chunks.py must still be followed by a bare &&"
+    )
+    assert tokens[fetch_index - 1] == "python" and tokens[fetch_index - 2] == "{", tokens[: fetch_index + 1]
+    assert tokens[fetch_index - 3] == "&&", "ingest.py must still be followed by a bare &&"
+
+
 def test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_sidecar(tmp_path: Path) -> None:
     net_sidecar = {
         "manifest_text": '<Project Sdk="Microsoft.NET.Sdk"/>',

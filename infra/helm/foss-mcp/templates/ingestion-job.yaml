@@ -78,12 +78,13 @@ spec:
               --held-by {{ $p.heldBy }}
               {{- with $p.manifestPath }}
               &&
-              python /app/infra/fetch_product_reference.py
+              { python /app/infra/fetch_product_reference.py
               --repository {{ $lib.repository }}
               --platform {{ $p.platform }}
               --manifest-path {{ . }}
               --ref {{ $lib.commit | quote }}
               --output {{ $.Values.manifests.mountPath }}/{{ printf "product_reference_%s_%s.json" $p.family $p.platform }}
+              || true; }
               {{- end }}
           # The root filesystem is read-only. The library steps write under /tmp (tempfile), and
           # their toolchain caches write under HOME. cargo's registry lives in CARGO_HOME, which the
