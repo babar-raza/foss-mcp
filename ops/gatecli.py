@@ -765,24 +765,37 @@ def _review_format(changed_paths: list[str], head: str) -> tuple[bool, str]:
         G.run(["git", "worktree", "remove", "--force", str(tmp)])
 
 
-def receipt_rejected_by_format(receipt: dict, format_output: str) -> dict:
-    """The receipt a card keeps when the repository formatter rejects it. Pure, so it is testable.
+def receipt_rejected_by_review_gate(receipt: dict, prefix: str, output: str) -> dict:
+    """The receipt a card keeps when a post-verify review gate (coverage, format, ...) rejects it.
 
-    Keeps every other field, so the evidence still shows what ran, and records the rejection as the reason.
+    Pure, so it is testable. Keeps every other field, so the evidence still shows what ran, and
+    records the rejection as the reason, prefixed with which gate caught it.
     """
     out = dict(receipt)
     out["accepted"] = False
-    first = (format_output or "").strip().splitlines()[:1]
-    out["reason"] = "ruff format --check failed: " + (first[0][:200] if first else "unformatted files")
+    first = (output or "").strip().splitlines()[:1]
+    out["reason"] = f"{prefix}: " + (first[0][:200] if first else "no detail")
     return out
 
 
-def _reject_receipt(card: str, verified: dict, format_output: str) -> None:
-    """Write the rejected receipt over the accepted one that verification just wrote."""
+def receipt_rejected_by_format(receipt: dict, format_output: str) -> dict:
+    """Back-compat alias: the format gate's own rejection, with its historical reason prefix."""
+    return receipt_rejected_by_review_gate(receipt, "ruff format --check failed", format_output)
+
+
+def _reject_receipt(card: str, verified: dict, prefix: str, output: str) -> None:
+    """Write the rejected receipt over the accepted one that verification just wrote.
+
+    Without this, a review gate that runs after do_verify (coverage, format, ...) can print REWORK
+    REQUIRED while the receipt on disk still says accepted: true, because do_verify already wrote it
+    before the gate ran. The derived state reads only the receipt, so it would read ACCEPTED anyway
+    (found on the format gate 2026-10-05/TC-217, found again on the coverage gate 2026-10-07/TC-227 -
+    the same gate predates this fix and had the same bug the whole time).
+    """
     gate = G.all_cards()[card]["gate"]
     path = V.receipt_dir(gate, card) / "receipt.json"
     path.write_text(
-        json.dumps(receipt_rejected_by_format(verified, format_output), indent=2) + "\n",
+        json.dumps(receipt_rejected_by_review_gate(verified, prefix, output), indent=2) + "\n",
         encoding="utf-8",
     )
 
@@ -830,15 +843,16 @@ def cmd_review(args) -> int:
     # this card touches must also pass at the head. A card's own checks are not the whole contract.
     related_ok, related_out = _review_related_tests(args.card, args.head, issue)
     if not related_ok:
+        _reject_receipt(
+            args.card, r, "offline tests of files this card touches fail at the head", related_out
+        )
         print("REWORK REQUIRED — offline tests of files this card touches fail at the head:")
         print(related_out)
         return G.EXIT_FAIL
     print(f"coverage     : ok ({related_out.splitlines()[-1] if related_out else 'no related tests'})")
     format_ok, format_out = _review_format(r["scope"]["changed_paths"], args.head)
     if not format_ok:
-        # The verify step already wrote an accepted receipt, and the derived state reads receipts. Reject
-        # it here, or a card that fails the format gate is ACCEPTED anyway (found 2026-10-05 on TC-217).
-        _reject_receipt(args.card, r, format_out)
+        _reject_receipt(args.card, r, "ruff format --check failed", format_out)
         print("REWORK REQUIRED — ruff format --check fails for files this card changed:")
         print(format_out)
         return G.EXIT_FAIL

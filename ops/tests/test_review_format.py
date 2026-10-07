@@ -36,6 +36,29 @@ def test_a_format_rejection_turns_the_accepted_receipt_into_a_rejected_one():
     assert accepted["accepted"] is True, "the input is not mutated"
 
 
+def test_a_coverage_rejection_also_turns_the_accepted_receipt_into_a_rejected_one():
+    # The coverage gate (added 2026-10-04) ran after do_verify had already written an accepted receipt,
+    # same as the format gate, and had the identical bug the whole time: found on TC-227, 2026-10-07.
+    accepted = {"accepted": True, "reason": "all gates passed", "card": "TC-227", "runs": [{"run": 1}]}
+    rejected = C.receipt_rejected_by_review_gate(
+        accepted, "offline tests of files this card touches fail at the head", "assert 20 == 14"
+    )
+    assert rejected["accepted"] is False
+    assert rejected["reason"].startswith(
+        "offline tests of files this card touches fail at the head: assert 20"
+    )
+
+
+def test_review_rejects_the_receipt_when_the_coverage_step_fails():
+    import inspect as _i
+
+    src = _i.getsource(C.cmd_review)
+    assert "_reject_receipt(\n            args.card, r, " in src or "_reject_receipt(args.card, r, " in src
+    assert "offline tests of files this card touches fail at the head" in src
+    assert src.index("_review_related_tests(") < src.index("offline tests of files this card touches fail")
+    assert src.index("offline tests of files this card touches fail") < src.index("cmd_accept(")
+
+
 def test_review_rejects_the_receipt_when_the_format_step_fails():
     import inspect as _i
 
