@@ -1,0 +1,87 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_lookup_doc_fallback_query_safety.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pkkj1rff\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_lookup_doc_fallback_query_safety.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pkkj1rff\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/indexing/test_lookup_doc_fallback_query_safety.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_lookup_doc_fallback_query_safety.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pkkj1rff\.junit-0.xml"
+--- stdout ---
+..FF..                                                                   [100%]
+================================== FAILURES ===================================
+______ test_offline_safe_query_reaches_troubleshooting_without_intercept ______
+
+offline_replica = _OfflineReplica(payload={'generation_id': 'tc248-offline-replica', 'documents': {'tc248-offline-replica::doc::chunk-0'...ss', 'getmediabox', 'document', 'doc', 'border', 'new', 'dimensions', 'option', 'rectangle', 'create', '70', 'group'}))
+
+    def test_offline_safe_query_reaches_troubleshooting_without_intercept(
+        offline_replica: _OfflineReplica,
+    ) -> None:
+        """The concrete replacement for the live e2e test's own assertion: getting_started and
+        developer_guide are both genuine, honest misses for OFFLINE_SAFE_QUERY (never intercepted,
+        unlike the stale query above), so ``_compose_from_docs``'s own ``CONTENT_TYPES``-ordered
+        loop genuinely reaches "troubleshooting" and surfaces the real chunk carrying
+        REAL_DOC_FRAGMENT - the same real content the live test's REAL_DOC_FRAGMENT already names.
+        """
+        assert _search_docs_like(offline_replica, OFFLINE_SAFE_QUERY, "getting_started") == []
+>       assert _search_docs_like(offline_replica, OFFLINE_SAFE_QUERY, "developer_guide") == []
+E       AssertionError: assert ['tc248-offli...c::chunk-158'] == []
+E         
+E         Left contains 3 more items, first extra item: 'tc248-offline-replica::doc::chunk-53'
+E         Use -v to get more diff
+
+tests\indexing\test_lookup_doc_fallback_query_safety.py:284: AssertionError
+_ test_every_offline_safe_query_token_is_unique_to_the_troubleshooting_chunk __
+
+offline_replica = _OfflineReplica(payload={'generation_id': 'tc248-offline-replica', 'documents': {'tc248-offline-replica::doc::chunk-0'...ss', 'getmediabox', 'document', 'doc', 'border', 'new', 'dimensions', 'option', 'rectangle', 'create', '70', 'group'}))
+
+    def test_every_offline_safe_query_token_is_unique_to_the_troubleshooting_chunk(
+        offline_replica: _OfflineReplica,
+    ) -> None:
+        """The precise reason OFFLINE_SAFE_QUERY is safe, asserted directly rather than inferred
+        from the composed result alone: every one of its own real BM25 tokens (via the real
+        ``tokenize``) has a document frequency of exactly 1 across this ENTIRE real generation
+        (150 real type chunks plus every real doc chunk) - and that one document is the real
+        troubleshooting-classified "Scope and Limitations" paragraph. No other chunk in this
+        fixture, of any content_type, can ever score a nonzero BM25 match for this query.
+        """
+        documents = offline_replica.payload["documents"]
+        doc_freq = offline_replica.payload["doc_freq"]
+    
+        query_tokens = tokenize(OFFLINE_SAFE_QUERY)
+        assert query_tokens, "OFFLINE_SAFE_QUERY must carry at least one real, non-stopword token"
+    
+        troubleshooting_doc_ids = {
+            did for did, ct in offline_replica.doc_id_to_content_type.items() if ct == "troubleshooting"
+        }
+        assert len(troubleshooting_doc_ids) == 1, (
+            f"expected exactly one real troubleshooting-classified chunk in this fixture, got {len(troubleshooting_doc_ids)}"
+        )
+        (troubleshooting_doc_id,) = troubleshooting_doc_ids
+        assert REAL_DOC_FRAGMENT in documents[troubleshooting_doc_id]["text"]
+    
+        for token in query_tokens:
+>           assert doc_freq.get(token, 0) == 1, f"query token {token!r} must appear in exactly one real chunk"
+E           AssertionError: query token 'unsupported' must appear in exactly one real chunk
+E           assert 4 == 1
+E            +  where 4 = <built-in method get of dict object at 0x0000029B57394500>('unsupported', 0)
+E            +    where <built-in method get of dict object at 0x0000029B57394500> = {'anti': 2, 'mode': 14, 'processing': 10, 'code': 21, ...}.get
+
+tests\indexing\test_lookup_doc_fallback_query_safety.py:324: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_lookup_doc_fallback_query_safety.py::test_offline_safe_query_reaches_troubleshooting_without_intercept
+FAILED tests/indexing/test_lookup_doc_fallback_query_safety.py::test_every_offline_safe_query_token_is_unique_to_the_troubleshooting_chunk
+
+--- stderr ---
+
