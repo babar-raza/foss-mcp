@@ -1,83 +1,55 @@
 id: TC-226
-gate: G2
-lane: transport-deployment
-purpose: 'Grow the POC from fourteen pilots to twenty by adding the six remaining self-extracted fixtures the operator asked for on
-  2026-10-07: cells/net, cells/python, jmap/python, pdf/python, slides/cpp, slides/net. Each already has a fixture with its api surface in
-  tests/fixtures, and a survey of its repository at the pinned commit (2026-10-07) found its real packaging manifest: cells/net
-  src/Aspose.Cells_FOSS/Aspose.Cells_FOSS.csproj; cells/python, jmap/python and pdf/python pyproject.toml; slides/cpp CMakeLists.txt at the
-  repository root; slides/net src/Aspose.Slides.Foss/Aspose.Slides.Foss.csproj. Each is self-extracted: no furnished page, no compile step,
-  configuration only. The work mirrors TC-205 (chart and compose entries), TC-207/208 (manifest paths and library blocks) and TC-209
-  (ingestion image fixtures) combined for these six.'
+gate: G3
+lane: verification
+purpose: 'Make tests/test_githooks.py honest about the way git actually runs a hook, and make it work under GitHub Desktop''s bundled git.
+  Every existing test ran `<bash> <hook>`, which skips the shebang, so `#!/usr/bin/env bash` shipped and failed for the owner on every
+  GitHub Desktop commit and push (WSL Relay execvpe(/bin/bash) failed: Desktop''s MinGit has sh.exe and no bash.exe, so `bash` on PATH
+  was the WSL launcher in System32). The supervisor has already changed both hooks to `#!/bin/sh`; this card adds the tests that keep
+  them that way, and teaches the bash resolver to find usr/bin/sh.exe next to git, because without that the pre-push CI step fails
+  inside Desktop.'
 depends_on:
-- TC-221
-- TC-205
-- TC-222
-- TC-208
-- TC-214
+- TC-006
+- TC-173
+- TC-180
 write_paths:
-- infra/helm/foss-mcp/values.yaml
-- docker-compose.yml
-- Dockerfile.ingestion
-- tests/infra/test_helm_pilots_match_compose.py
-- tests/infra/test_helm_chart.py
-- tests/infra/test_docker_compose_multi_instance.py
-- tests/infra/test_ingestion_image_fixtures.py
-- tests/infra/test_helm_manifest_step.py
+- tests/test_githooks.py
 satisfies:
-- REQ-G2-043
+- REQ-G0-009
 source_refs:
 - file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
-  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
-    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
-  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+  anchor: '### 19.4 Governance adoption map'
+  sha256: 633416b630ef7fe8d06e737dab888cabea30abc6e5e42f20ee33d08773d78d39
 inputs:
-- 'Read infra/helm/foss-mcp/values.yaml under ingestion.pilots in full (fourteen entries today), docker-compose.yml''s ingest and serving
-  services for an existing self-extracted pilot such as cells/go or cells/typescript, and Dockerfile.ingestion''s pilot COPY lines (around
-  line 160 onward). Read each of the six fixtures: tests/fixtures/cells_net/api_surface.json, cells_python/api_surface.json,
-  jmap_python/api_surface.json, pdf_python/api_surface.json, slides_cpp/api_surface.json, slides_net/api_surface.json, for
-  source_repository and source_commit. Copy those values exactly; do not invent one.'
-- 'Add six pilot entries to ingestion.pilots in values.yaml, one per family/platform below, each with family, platform, sourceKind
-  self_extracted, heldBy ingestion-<family>-<platform>, apiSurface /app/fixtures/<family>_<platform>/api_surface.json, title
-  "<family>/<platform> API surface", maxTypes 20, manifestPath, and a library block with repository, commit and platform (no furnishedPage,
-  matching the pattern of the existing self-extracted pilots). The platform values and manifest paths are: cells/net platform dotnet,
-  manifestPath src/Aspose.Cells_FOSS/Aspose.Cells_FOSS.csproj; cells/python platform python, manifestPath pyproject.toml; jmap/python
-  platform python, manifestPath pyproject.toml; pdf/python platform python, manifestPath pyproject.toml; slides/cpp platform cpp,
-  manifestPath CMakeLists.txt; slides/net platform dotnet, manifestPath src/Aspose.Slides.Foss/Aspose.Slides.Foss.csproj.'
-- 'Add one ingest service and one serving service per new pilot to docker-compose.yml, copied from the pattern of an existing
-  self-extracted pilot''s services (no --library-* build flags, no --furnished-page flag, matching the comment already there from TC-205).'
-- 'Add six COPY lines to Dockerfile.ingestion, one per new pilot, in the same form as the existing self-extracted pilot lines added by
-  TC-209: COPY tests/fixtures/<family>_<platform>/api_surface.json ./fixtures/<family>_<platform>/api_surface.json. Change nothing else in
-  the file.'
-- 'Restate every fixed pilot count from fourteen to twenty, keeping each test''s name and what it checks, and rename any constant or test
-  whose own name says "fourteen" to say "twenty" (for example FOURTEEN_PILOTS and test_chart_has_fourteen_pilots): (1)
-  tests/infra/test_helm_chart.py, the assertion len(jobs) == len(pilots) == 14 and any job-name list near it; (2)
-  tests/infra/test_helm_pilots_match_compose.py, the pilot dictionary and its length assertions; (3)
-  tests/infra/test_docker_compose_multi_instance.py, the service-count and host-port assertions; (4)
-  tests/infra/test_ingestion_image_fixtures.py, the pilot-count test; (5) tests/infra/test_helm_manifest_step.py, the pilot-with-a-manifest-
-  path count around line 174. Record every restatement in the commit body. Do not weaken any assertion.'
-- 'Write commit messages as UTF-8 without a byte-order mark.'
+- 'The finished file is prepared by the supervisor at C:\Users\babar\AppData\Local\Temp\test_githooks.new.py. Copy it over tests/test_githooks.py byte for byte
+  (UTF-8, LF, no byte-order mark), then run python -m ruff format on that one file. Do not edit .githooks/*: they are off limits and already changed.'
+- 'The change has two parts. (1) _git_bash() additionally tries usr/bin/bash.exe and usr/bin/sh.exe under each directory it already tried. (2) Four new
+  tests: for each of the two hooks, a decoy `bash` first on PATH must never run (the hook is executed through its shebang with `<bash> -c ./hook`), and
+  the hook must start with #!/bin/sh and be mode 100755 in the index.'
 actions:
-- Read the values file, the compose services, the Dockerfile, each new fixture, and the five test files in full.
-- Add the six pilot entries, compose services and Dockerfile COPY lines, and restate the five fixed counts.
-- Run the chart, compose and manifest tests, and helm lint and template, and report exact counts.
+- Copy the prepared file over tests/test_githooks.py and format it.
+- Run both card checks and report exact counts.
 checks:
-- command: '{python} -m pytest tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_chart.py tests/infra/test_docker_compose_multi_instance.py tests/infra/test_ingestion_image_fixtures.py tests/infra/test_helm_manifest_step.py tests/infra/test_container_pins.py -q -rfE'
+- command: '{python} -m pytest tests/test_githooks.py -q'
   expect: exit 0
-  timeout_seconds: 600
+  timeout_seconds: 300
   junitxml: true
   proves:
-  - REQ-G2-043
-min_tests: 60
+  - REQ-G0-009
+- command: '{python} -m ruff format --check tests/test_githooks.py'
+  expect: exit 0
+  timeout_seconds: 120
+  proves:
+  - REQ-G0-009
+min_tests: 10
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/values.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('manifestPath: CMakeLists.txt','manifestPath: CMakeLists_off.txt',1),encoding='utf-8')"
-  rationale: 'Renames the slides/cpp manifest path. Only one pilot entry in values.yaml uses the bare manifestPath CMakeLists.txt once this card lands
-    (pdf/cpp uses the same value too, so the replace is limited to the first match, which is whichever entry appears first in the file; either
-    one breaks the manifest-step rendered-path test, which compares every pilot''s manifestPath against the rendered fetch step). Built with
-    plain text, since it has no quote or backslash.'
+    python -X utf8 -c "import pathlib;p=pathlib.Path('.githooks/pre-push');p.write_bytes(p.read_bytes().replace(b'#!/bin/sh',b'#!/usr/bin/env bash',1))"
+  rationale: 'Puts the old PATH-searching shebang back on the pre-push hook. The decoy-bash test and the shebang test must then fail, which is the exact
+    regression that broke GitHub Desktop and that no earlier test could see. Raw bytes, no backslashes.'
 evidence:
-- evidence/build/G2/TC-226/receipt.json
+- evidence/build/G3/TC-226/receipt.json
 closeout:
-- The chart and compose carry twenty pilots, each matching its fixture, and each ingests its own packaging manifest.
-recovery: Re-run from a clean tree.
+- A hook whose shebang searches PATH for bash fails the suite.
+- The suite resolves a bash under GitHub Desktop's bundled git.
+recovery: Test-only; re-run from a clean tree.
