@@ -18,7 +18,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CHART_VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 RELEASE_PREFIX = "foss-mcp-"
-PILOT_COUNT = 35
+PILOT_COUNT = 40
 
 
 def load_pilots(values_path: Path = CHART_VALUES) -> list[dict[str, Any]]:

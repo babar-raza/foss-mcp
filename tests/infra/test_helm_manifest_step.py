@@ -164,6 +164,22 @@ def test_the_rendered_jmap_java_fetch_step_passes_its_manifest_path_pom_xml() ->
     assert _flag_after(fetch, 0, "--manifest-path") == "pom.xml"
 
 
+def test_the_rendered_3d_net_fetch_step_passes_its_manifest_path_literally() -> None:
+    # The expected value is a literal, not read from values.yaml. Editing manifestPath in values.yaml
+    # changes the rendered command and the value together, so the per-pilot equality above cannot
+    # catch it; this literal does. Found via a real shallow clone of aspose-3d-foss/Aspose.3D-FOSS-
+    # for-.NET: the packaged library's csproj lives under src/main/Aspose.ThreeD/, not the repo root
+    # (the root also has a converter CLI project and a test project, neither the packaged library) -
+    # unlike every other .NET pilot's manifestPath, so this is deliberately not assumed from another
+    # .NET pilot's path.
+    pilot = next(
+        p for p in _values()["ingestion"]["pilots"] if p["family"] == "3d" and p["platform"] == "net"
+    )
+    docs = _render()
+    fetch = _fetch_tokens(_job_tokens(_job(docs, pilot)))
+    assert _flag_after(fetch, 0, "--manifest-path") == "src/main/Aspose.ThreeD/Aspose.ThreeD.csproj"
+
+
 def test_a_pilot_without_a_manifest_path_gets_no_fetch_step(tmp_path: Path) -> None:
     pilots = copy.deepcopy(_values()["ingestion"]["pilots"])
     for pilot in pilots:
@@ -196,7 +212,7 @@ def test_each_pilot_sidecar_name_is_distinct_and_is_the_name_its_own_pilot_write
     names = []
     for pilot in _pilots_with_a_manifest_path():
         names.append(fetch_product_reference.sidecar_name(pilot["family"], pilot["platform"]))
-    assert len(names) == len(set(names)) == len(_pilots_with_a_manifest_path()) == 35, names
+    assert len(names) == len(set(names)) == len(_pilots_with_a_manifest_path()) == 40, names
     assert "product_reference_pdf_net.json" in names
     assert "product_reference_pdf_java.json" in names
 

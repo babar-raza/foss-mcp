@@ -97,6 +97,12 @@ volumes:
   manifests-jmap-cpp:
   manifests-jmap-java:
   manifests-jmap-nodejs:
+  # G2/TC-236: one manifests volume per pilot added in TC-236, same shape as the volumes above.
+  manifests-3d-python:
+  manifests-3d-typescript:
+  manifests-3d-net:
+  manifests-3d-java:
+  manifests-tex-python:
 
 services:
   # G2/TC-064: the real, live first publish for pdf/net - a one-shot init job, not a
@@ -1575,4 +1581,207 @@ services:
     environment:
       FOSS_MCP_FAMILY: jmap
       FOSS_MCP_PLATFORM: nodejs
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-236: 3d/python, self-extracted, from tests/fixtures/3d_python/api_surface.json.
+  # source_repository aspose-3d-foss/Aspose.3D-FOSS-for-Python, source_commit
+  # 65b1f577c0f16d0d9112bb6c1153d3024543ac02. No furnished page and no --library-* flag.
+  ingest-3d-python:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-3d-python:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/3d_python/api_surface.json
+        --title "3d/python API surface"
+        --max-types 20
+        --out /tmp/3d_python_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family 3d
+        --platform python
+        --source-kind self_extracted
+        --chunks /tmp/3d_python_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/3d_python/api_surface.json
+        --held-by ingestion-3d-python
+
+  serving-3d-python:
+    <<: *serving-base
+    ports:
+      - "8115:8080"
+    volumes:
+      - manifests-3d-python:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: 3d
+      FOSS_MCP_PLATFORM: python
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-236: 3d/typescript, self-extracted, from tests/fixtures/3d_typescript/api_surface.json.
+  # source_repository aspose-3d-foss/Aspose.3D-FOSS-for-TypeScript, source_commit
+  # 66cb26df3b031f0bf6976d4e88dc89721983afa4. No furnished page and no --library-* flag.
+  ingest-3d-typescript:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-3d-typescript:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/3d_typescript/api_surface.json
+        --title "3d/typescript API surface"
+        --max-types 20
+        --out /tmp/3d_typescript_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family 3d
+        --platform typescript
+        --source-kind self_extracted
+        --chunks /tmp/3d_typescript_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/3d_typescript/api_surface.json
+        --held-by ingestion-3d-typescript
+
+  serving-3d-typescript:
+    <<: *serving-base
+    ports:
+      - "8116:8080"
+    volumes:
+      - manifests-3d-typescript:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: 3d
+      FOSS_MCP_PLATFORM: typescript
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-236: 3d/net, self-extracted, from tests/fixtures/3d_net/api_surface.json.
+  # source_repository aspose-3d-foss/Aspose.3D-FOSS-for-.NET, source_commit
+  # 52b0f00ebf28a0b4173921725ff170685ec2c502. No furnished page and no --library-* flag.
+  ingest-3d-net:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-3d-net:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/3d_net/api_surface.json
+        --title "3d/net API surface"
+        --max-types 20
+        --out /tmp/3d_net_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family 3d
+        --platform net
+        --source-kind self_extracted
+        --chunks /tmp/3d_net_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/3d_net/api_surface.json
+        --held-by ingestion-3d-net
+
+  serving-3d-net:
+    <<: *serving-base
+    ports:
+      - "8117:8080"
+    volumes:
+      - manifests-3d-net:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: 3d
+      FOSS_MCP_PLATFORM: net
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-236: 3d/java, self-extracted, from tests/fixtures/3d_java/api_surface.json.
+  # source_repository aspose-3d-foss/Aspose.3D-FOSS-for-Java, source_commit
+  # 3d2ed6be91f5abdd1c52ecbcfa192719883cb1b3. No furnished page and no --library-* flag.
+  ingest-3d-java:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-3d-java:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/3d_java/api_surface.json
+        --title "3d/java API surface"
+        --max-types 20
+        --out /tmp/3d_java_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family 3d
+        --platform java
+        --source-kind self_extracted
+        --chunks /tmp/3d_java_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/3d_java/api_surface.json
+        --held-by ingestion-3d-java
+
+  serving-3d-java:
+    <<: *serving-base
+    ports:
+      - "8118:8080"
+    volumes:
+      - manifests-3d-java:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: 3d
+      FOSS_MCP_PLATFORM: java
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-236: tex/python, self-extracted, from tests/fixtures/tex_python/api_surface.json.
+  # source_repository aspose-tex-foss/Aspose.TeX-FOSS-for-Python, source_commit
+  # 181015d2eee3e19f8af3d84e4a932ac84ad47c7c. No furnished page and no --library-* flag.
+  # tex/python's own fixture is genuinely almost entirely unresolved (a real upstream Python
+  # syntax error at the pinned commit - see docs/DECISION_LOG.md's 2026-10-07 TC-234 entry);
+  # wired honestly with whatever real content it has.
+  ingest-tex-python:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-tex-python:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/tex_python/api_surface.json
+        --title "tex/python API surface"
+        --max-types 20
+        --out /tmp/tex_python_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family tex
+        --platform python
+        --source-kind self_extracted
+        --chunks /tmp/tex_python_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/tex_python/api_surface.json
+        --held-by ingestion-tex-python
+
+  serving-tex-python:
+    <<: *serving-base
+    ports:
+      - "8119:8080"
+    volumes:
+      - manifests-tex-python:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: tex
+      FOSS_MCP_PLATFORM: python
       FOSS_MCP_SOURCE_KIND: self_extracted

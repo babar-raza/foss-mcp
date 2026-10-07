@@ -58,6 +58,11 @@ PINNED_RELEASES = [
     "foss-mcp-jmap-cpp",
     "foss-mcp-jmap-java",
     "foss-mcp-jmap-nodejs",
+    "foss-mcp-3d-python",
+    "foss-mcp-3d-typescript",
+    "foss-mcp-3d-net",
+    "foss-mcp-3d-java",
+    "foss-mcp-tex-python",
 ]
 
 
@@ -66,18 +71,18 @@ def chart_pilots() -> list[dict]:
     return pilots.load_pilots(pilots.CHART_VALUES)
 
 
-def test_chart_declares_exactly_thirty_five_pilots(chart_pilots):
-    assert len(chart_pilots) == 35
-    assert pilots.PILOT_COUNT == 35
+def test_chart_declares_exactly_forty_pilots(chart_pilots):
+    assert len(chart_pilots) == 40
+    assert pilots.PILOT_COUNT == 40
 
 
-def test_release_names_are_the_pinned_thirty_five(chart_pilots):
+def test_release_names_are_the_pinned_forty(chart_pilots):
     assert [pilots.release_name(p) for p in chart_pilots] == PINNED_RELEASES
 
 
 def test_release_names_are_unique_and_carry_the_prefix(chart_pilots):
     names = [pilots.release_name(p) for p in chart_pilots]
-    assert len(set(names)) == len(names) == 35
+    assert len(set(names)) == len(names) == 40
     assert all(name.startswith(pilots.RELEASE_PREFIX) for name in names)
     assert all(name.startswith("foss-mcp-") for name in names)
 
@@ -89,7 +94,7 @@ def test_release_name_is_prefix_family_and_platform(chart_pilots):
 
 def test_pilot_key_is_family_underscore_platform(chart_pilots):
     keys = [pilots.pilot_key(p) for p in chart_pilots]
-    assert len(set(keys)) == 35
+    assert len(set(keys)) == 40
     assert "cells_rust" in keys and "jmap_rust" in keys
 
 
@@ -107,14 +112,14 @@ def test_pilot_values_hold_one_pilot_and_the_deployment_identity(chart_pilots):
 
 def test_write_values_writes_one_file_per_pilot_that_round_trips(tmp_path, chart_pilots):
     paths = pilots.write_values(chart_pilots, tmp_path / "values")
-    assert len(paths) == 35
-    assert len({p.name for p in paths}) == 35
+    assert len(paths) == 40
+    assert len({p.name for p in paths}) == 40
     for pilot, path in zip(chart_pilots, paths, strict=True):
         assert path.parent == tmp_path / "values"
         assert yaml.safe_load(path.read_text(encoding="utf-8")) == pilots.pilot_values(pilot)
 
 
-def test_select_pilots_without_only_returns_all_thirty_five(chart_pilots):
+def test_select_pilots_without_only_returns_all_forty(chart_pilots):
     assert pilots.select_pilots(chart_pilots, []) == chart_pilots
 
 

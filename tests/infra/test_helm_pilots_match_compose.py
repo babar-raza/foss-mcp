@@ -23,7 +23,9 @@ COMPOSE = REPO_ROOT / "docker-compose.yml"
 # TC-226: six more self-extracted pilots, growing the set from fourteen to twenty.
 # TC-231: eight more self-extracted pilots, growing the set from twenty to twenty-eight.
 # TC-235: seven more self-extracted pilots, growing the set from twenty-eight to thirty-five.
-THIRTY_FIVE_PILOTS = {
+# TC-236: the last five self-extracted pilots, growing the set from thirty-five to forty - every
+# combo of the real forty-combo portfolio is now a live pilot.
+FORTY_PILOTS = {
     ("pdf", "net"),
     ("slides", "python"),
     ("pdf", "typescript"),
@@ -59,6 +61,11 @@ THIRTY_FIVE_PILOTS = {
     ("jmap", "cpp"),
     ("jmap", "java"),
     ("jmap", "nodejs"),
+    ("3d", "python"),
+    ("3d", "typescript"),
+    ("3d", "net"),
+    ("3d", "java"),
+    ("tex", "python"),
 }
 
 # build_chunks.py flag for each library field the chart template can pass, and the key it has in
@@ -105,6 +112,11 @@ FIXTURE_CHECKED_PILOTS = {
     ("jmap", "cpp"),
     ("jmap", "java"),
     ("jmap", "nodejs"),
+    ("3d", "python"),
+    ("3d", "typescript"),
+    ("3d", "net"),
+    ("3d", "java"),
+    ("tex", "python"),
 }
 
 
@@ -324,6 +336,26 @@ def test_jmap_nodejs_pilot_matches_compose() -> None:
     _assert_pilot_matches_compose("jmap", "nodejs")
 
 
+def test_3d_python_pilot_matches_compose() -> None:
+    _assert_pilot_matches_compose("3d", "python")
+
+
+def test_3d_typescript_pilot_matches_compose() -> None:
+    _assert_pilot_matches_compose("3d", "typescript")
+
+
+def test_3d_net_pilot_matches_compose() -> None:
+    _assert_pilot_matches_compose("3d", "net")
+
+
+def test_3d_java_pilot_matches_compose() -> None:
+    _assert_pilot_matches_compose("3d", "java")
+
+
+def test_tex_python_pilot_matches_compose() -> None:
+    _assert_pilot_matches_compose("tex", "python")
+
+
 def _serving_name(family: str, platform: str) -> str:
     # The pdf/net serving service predates the naming pattern and is called plain "serving".
     return "serving" if (family, platform) == ("pdf", "net") else f"serving-{family}-{platform}"
@@ -331,20 +363,20 @@ def _serving_name(family: str, platform: str) -> str:
 
 def test_every_pilot_has_a_serving_service_with_its_identity() -> None:
     services = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))["services"]
-    for family, platform in sorted(THIRTY_FIVE_PILOTS):
+    for family, platform in sorted(FORTY_PILOTS):
         serving = services[_serving_name(family, platform)]
         assert serving["environment"]["FOSS_MCP_FAMILY"] == family, (family, platform)
         assert serving["environment"]["FOSS_MCP_PLATFORM"] == platform, (family, platform)
         assert serving["environment"]["FOSS_MCP_SOURCE_KIND"] == _pilot(family, platform)["sourceKind"]
     host_ports = [
         services[_serving_name(family, platform)]["ports"][0].split(":")[0]
-        for family, platform in sorted(THIRTY_FIVE_PILOTS)
+        for family, platform in sorted(FORTY_PILOTS)
     ]
     assert len(set(host_ports)) == len(host_ports), host_ports
 
 
 def test_chart_has_exactly_six_pilots_one_per_platform() -> None:
     keys = [(p["family"], p["platform"]) for p in _pilots()]
-    assert len(keys) == 35, keys
+    assert len(keys) == 40, keys
     assert len(set(keys)) == len(keys), f"duplicate pilot platform: {keys}"
-    assert set(keys) == THIRTY_FIVE_PILOTS, keys
+    assert set(keys) == FORTY_PILOTS, keys
