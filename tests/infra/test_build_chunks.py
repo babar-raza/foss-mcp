@@ -107,7 +107,7 @@ def test_api_surface_only_path_is_byte_identical_to_before_the_furnished_flags(
     from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
 
     fixture = json.loads(API_SURFACE.read_text(encoding="utf-8"))
-    expected_chunks = build_chunks_from_api_surface(fixture, title="Aspose.PDF FOSS for .NET", max_types=20)
+    expected_chunks = build_chunks_from_api_surface(fixture, title="Aspose.PDF FOSS for .NET", max_types=300)
     expected_chunks = [
         dataclasses.replace(c, text=f"{c.text}\nSource-Commit: {c.provenance.commit}")
         for c in expected_chunks
