@@ -4,14 +4,19 @@
 Usage:
     python scripts/deploy/install_pilots.py --namespace foss-mcp --image-tag rev-1234567
 
-For each selected pilot it writes a minimal values file (see pilots.py), then runs
+For each selected pilot it first removes that release's own ingestion Job (job_delete_command, scoped
+by label, --ignore-not-found so a first install with no existing Job is unaffected -- a Job's pod
+template is immutable and helm cannot patch it), writes a minimal values file (see pilots.py), then runs
     helm upgrade --install <release> <chart> -n <namespace> --set image.tag=<tag> -f <values> --wait --timeout <t>
-with at most --parallel installs running at once. It creates the namespace if it is absent, prints a
-result table, writes install-results.json into --values-dir, and exits non-zero if any install failed.
-A failed install prints the pod states and the last 20 lines of that release's ingestion Job log.
+with at most --parallel installs running at once. The Job removal's exit code never gates the helm step;
+a real failure there is recorded in job_delete_rc and never blocks the install. It creates the namespace
+if it is absent, prints a result table, writes install-results.json into --values-dir, and exits non-zero
+if any install failed. A failed install prints the pod states and the last 20 lines of that release's
+ingestion Job log.
 
-This tool never removes anything: it runs no helm release removal and no resource deletion.
---dry-run prints each helm command and runs nothing, and writes nothing.
+This tool never removes a helm release: the only resource it ever removes is that release's own scoped
+ingestion Job, immediately before each upgrade.
+--dry-run prints each pilot's Job removal command and helm command and runs neither, and writes nothing.
 """
 
 from __future__ import annotations
@@ -47,6 +52,7 @@ class InstallResult:
     values_file: str
     command: list[str]
     rc: int
+    job_delete_rc: int
     duration_seconds: float
     error: str = ""
 
@@ -72,6 +78,16 @@ def helm_install_command(
     ]
 
 
+def job_delete_command(namespace: str, release: str) -> list[str]:
+    """Remove this release's own ingestion Job, scoped by label, before every helm upgrade.
+
+    A Job's pod template is immutable, so helm upgrade cannot patch one left over from a prior
+    install; --ignore-not-found makes a first install (no existing Job) a no-op, never a failure.
+    """
+    selector = f"{INSTANCE_LABEL}={release},{COMPONENT_LABEL}=ingestion"
+    return ["kubectl", "delete", "job", "-n", namespace, "-l", selector, "--ignore-not-found"]
+
+
 def _run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False
@@ -92,6 +108,10 @@ def install_one(
 ) -> InstallResult:
     release = pilots.release_name(pilot)
     values_file = values_dir / f"{pilots.pilot_key(pilot)}.yaml"
+    try:
+        job_delete_rc = _run(job_delete_command(namespace, release)).returncode
+    except OSError:  # kubectl is not installed or not on PATH; never gates the helm step
+        job_delete_rc = 127
     cmd = helm_install_command(release, chart, namespace, tag, values_file, timeout)
     started = time.monotonic()
     try:
@@ -105,6 +125,7 @@ def install_one(
         values_file=str(values_file),
         command=cmd,
         rc=rc,
+        job_delete_rc=job_delete_rc,
         duration_seconds=round(time.monotonic() - started, 1),
         error=error,
     )
@@ -188,15 +209,18 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.dry_run:
         for pilot in selected:
+            release = pilots.release_name(pilot)
             values_file = args.values_dir / f"{pilots.pilot_key(pilot)}.yaml"
+            delete_cmd = job_delete_command(args.namespace, release)
             cmd = helm_install_command(
-                pilots.release_name(pilot),
+                release,
                 args.chart,
                 args.namespace,
                 args.image_tag,
                 values_file,
                 args.timeout,
             )
+            print(" ".join(delete_cmd))
             print(" ".join(cmd))
         return 0
 

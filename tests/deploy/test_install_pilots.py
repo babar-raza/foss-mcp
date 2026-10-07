@@ -85,6 +85,20 @@ def test_helm_command_is_the_exact_upgrade_install():
     ]
 
 
+def test_job_delete_command_builds_the_exact_scoped_delete_with_ignore_not_found():
+    cmd = install.job_delete_command("ns1", "foss-mcp-pdf-net")
+    assert cmd == [
+        "kubectl",
+        "delete",
+        "job",
+        "-n",
+        "ns1",
+        "-l",
+        "app.kubernetes.io/instance=foss-mcp-pdf-net,app.kubernetes.io/component=ingestion",
+        "--ignore-not-found",
+    ]
+
+
 def test_defaults_are_parallel_two_and_timeout_thirty_minutes():
     args = install.parse_args(["--namespace", "ns", "--image-tag", "t"])
     assert args.parallel == 2
@@ -93,7 +107,9 @@ def test_defaults_are_parallel_two_and_timeout_thirty_minutes():
     assert args.dry_run is False
 
 
-def test_dry_run_prints_the_helm_command_for_one_pilot_and_runs_nothing(tmp_path, capsys, no_subprocess):
+def test_dry_run_prints_the_delete_and_helm_commands_for_one_pilot_and_runs_nothing(
+    tmp_path, capsys, no_subprocess
+):
     values_dir = tmp_path / "values"
     rc = install.main(
         [
@@ -110,22 +126,51 @@ def test_dry_run_prints_the_helm_command_for_one_pilot_and_runs_nothing(tmp_path
     )
     out = capsys.readouterr().out.strip().splitlines()
     assert rc == 0
-    assert len(out) == 1
-    assert out[0].startswith("helm upgrade --install foss-mcp-pdf-net ")
-    assert "--set image.tag=t1" in out[0]
+    assert len(out) == 2
+    assert out[0].split()[:3] == ["kubectl", "delete", "job"]
+    assert out[1].startswith("helm upgrade --install foss-mcp-pdf-net ")
+    assert "--set image.tag=t1" in out[1]
     assert not values_dir.exists()
 
 
-def test_dry_run_covers_all_twenty_pilots_and_never_builds_an_uninstall(tmp_path, capsys, no_subprocess):
+def test_dry_run_prints_the_delete_line_immediately_before_the_helm_line_for_one_pilot(
+    tmp_path, capsys, no_subprocess
+):
+    rc = install.main(
+        [
+            "--namespace",
+            "ns",
+            "--image-tag",
+            "t1",
+            "--only",
+            "pdf_net",
+            "--dry-run",
+            "--values-dir",
+            str(tmp_path / "values"),
+        ]
+    )
+    out = capsys.readouterr().out.strip().splitlines()
+    assert rc == 0
+    assert len(out) == 2
+    assert out[0].split()[:3] == ["kubectl", "delete", "job"]
+    assert out[1].split()[:3] == ["helm", "upgrade", "--install"]
+    assert "foss-mcp-pdf-net" in out[0]
+    assert "foss-mcp-pdf-net" in out[1]
+
+
+def test_dry_run_prints_one_delete_and_one_upgrade_line_per_pilot_and_never_a_release_uninstall(
+    tmp_path, capsys, no_subprocess
+):
     rc = install.main(["--namespace", "ns", "--image-tag", "t", "--dry-run", "--values-dir", str(tmp_path)])
     lines = capsys.readouterr().out.strip().splitlines()
     assert rc == 0
-    assert len(lines) == 20
+    assert len(lines) == 40
+    for delete_line, helm_line in zip(lines[0::2], lines[1::2], strict=True):
+        assert delete_line.split()[:3] == ["kubectl", "delete", "job"]
+        assert helm_line.split()[:3] == ["helm", "upgrade", "--install"]
     for line in lines:
-        tokens = line.split()
-        assert tokens[:3] == ["helm", "upgrade", "--install"]
-        assert "uninstall" not in tokens
-        assert "delete" not in tokens
+        assert "uninstall" not in line
+        assert line.split()[:2] != ["helm", "uninstall"]
 
 
 def test_install_runs_one_helm_upgrade_per_pilot_and_writes_results(tmp_path, monkeypatch, capsys):
@@ -141,6 +186,38 @@ def test_install_runs_one_helm_upgrade_per_pilot_and_writes_results(tmp_path, mo
     assert "20 of 20 installed" in capsys.readouterr().out
 
 
+def test_install_one_deletes_the_job_before_every_helm_upgrade_and_records_job_delete_rc(
+    tmp_path, monkeypatch
+):
+    fake = _fake(monkeypatch)
+    rc = install.main(["--namespace", "ns", "--image-tag", "t", "--values-dir", str(tmp_path)])
+    assert rc == 0
+    results = json.loads((tmp_path / install.RESULTS_FILE).read_text(encoding="utf-8"))
+    assert len(results) == 20
+    assert all(r["job_delete_rc"] == 0 for r in results)
+    for result in results:
+        delete_cmd = install.job_delete_command("ns", result["release"])
+        helm_cmd = result["command"]
+        assert fake.calls.index(delete_cmd) < fake.calls.index(helm_cmd)
+
+
+def test_a_failed_job_delete_does_not_block_the_helm_upgrade_or_the_install_result(tmp_path, monkeypatch):
+    def handler(cmd):
+        if cmd[:3] == ["kubectl", "delete", "job"]:
+            return _done(cmd, rc=1, stderr="job delete failed")
+        return _done(cmd)
+
+    fake = _fake(monkeypatch, handler)
+    rc = install.main(
+        ["--namespace", "ns", "--image-tag", "t", "--only", "pdf_net", "--values-dir", str(tmp_path)]
+    )
+    assert rc == 0
+    assert len(fake.helm_calls()) == 1
+    results = json.loads((tmp_path / install.RESULTS_FILE).read_text(encoding="utf-8"))
+    assert results[0]["rc"] == 0
+    assert results[0]["job_delete_rc"] == 1
+
+
 def test_install_writes_one_values_file_per_selected_pilot(tmp_path, monkeypatch):
     _fake(monkeypatch)
     install.main(
@@ -149,7 +226,7 @@ def test_install_writes_one_values_file_per_selected_pilot(tmp_path, monkeypatch
     assert [p.name for p in tmp_path.glob("*.yaml")] == ["cells_go.yaml"]
 
 
-def test_missing_namespace_is_created_before_any_install(tmp_path, monkeypatch):
+def test_missing_namespace_is_created_before_any_install_and_before_the_job_delete(tmp_path, monkeypatch):
     def handler(cmd):
         if cmd[:3] == ["kubectl", "get", "namespace"]:
             return _done(cmd, rc=1, stderr="not found")
@@ -161,7 +238,20 @@ def test_missing_namespace_is_created_before_any_install(tmp_path, monkeypatch):
     )
     assert rc == 0
     kube = [c for c in fake.calls if c[0] == "kubectl"]
-    assert kube == [["kubectl", "get", "namespace", "fresh"], ["kubectl", "create", "namespace", "fresh"]]
+    assert kube == [
+        ["kubectl", "get", "namespace", "fresh"],
+        ["kubectl", "create", "namespace", "fresh"],
+        [
+            "kubectl",
+            "delete",
+            "job",
+            "-n",
+            "fresh",
+            "-l",
+            "app.kubernetes.io/instance=foss-mcp-pdf-net,app.kubernetes.io/component=ingestion",
+            "--ignore-not-found",
+        ],
+    ]
     assert fake.calls.index(["kubectl", "create", "namespace", "fresh"]) < fake.calls.index(
         fake.helm_calls()[0]
     )
@@ -263,7 +353,9 @@ def test_a_missing_helm_binary_is_reported_as_a_failed_install(tmp_path, monkeyp
     assert "FileNotFoundError" in capsys.readouterr().out
 
 
-def test_no_command_is_ever_an_uninstall_or_a_delete_even_when_installs_fail(tmp_path, monkeypatch):
+def test_no_command_is_ever_a_helm_uninstall_and_every_delete_is_this_releases_own_job_delete(
+    tmp_path, monkeypatch
+):
     def handler(cmd):
         if cmd[0] == "helm":
             return _done(cmd, rc=1, stderr="failed")
@@ -273,16 +365,22 @@ def test_no_command_is_ever_an_uninstall_or_a_delete_even_when_installs_fail(tmp
     install.main(["--namespace", "ns", "--image-tag", "t", "--values-dir", str(tmp_path)])
     assert fake.calls
     for cmd in fake.calls:
-        assert "uninstall" not in cmd
-        assert "delete" not in cmd
-        assert not (cmd[0] == "helm" and cmd[1] not in ("upgrade",))
+        assert not (cmd[0] == "helm" and cmd[1] == "uninstall")
+        if cmd[0] == "kubectl" and "delete" in cmd:
+            assert cmd[:3] == ["kubectl", "delete", "job"]
+            assert "--ignore-not-found" in cmd
 
 
-def test_the_installer_source_names_no_uninstall_or_delete_command():
+def test_the_installer_source_names_no_helm_uninstall_and_delete_appears_only_in_job_delete_command():
     text = INSTALL_SOURCE.read_text(encoding="utf-8")
     assert '"uninstall"' not in text
-    assert '"delete"' not in text
     assert "helm uninstall" not in text
+    assert text.count('"delete"') == 1
+    lines = text.splitlines()
+    start = next(i for i, line in enumerate(lines) if line.startswith("def job_delete_command("))
+    end = next(i for i, line in enumerate(lines[start + 1 :], start + 1) if line.startswith("def "))
+    delete_line = next(i for i, line in enumerate(lines) if '"delete"' in line)
+    assert start < delete_line < end
 
 
 def test_unknown_only_name_exits_two_without_running_anything(tmp_path, monkeypatch, capsys):
