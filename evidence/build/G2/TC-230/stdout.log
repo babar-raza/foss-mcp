@@ -1,0 +1,260 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/deploy/test_install_pilots.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lffnrrt4\.junit-0.xml"
+--- stdout ---
+.....................                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/deploy/test_install_pilots.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lffnrrt4\.junit-0.xml"
+--- stdout ---
+.....................                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/deploy/install_pilots.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/deploy/test_install_pilots.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lffnrrt4\.junit-0.xml"
+--- stdout ---
+.F........F......F...                                                    [100%]
+================================== FAILURES ===================================
+_ test_job_delete_command_builds_the_exact_scoped_delete_with_ignore_not_found _
+
+    def test_job_delete_command_builds_the_exact_scoped_delete_with_ignore_not_found():
+        cmd = install.job_delete_command("ns1", "foss-mcp-pdf-net")
+>       assert cmd == [
+            "kubectl",
+            "delete",
+            "job",
+            "-n",
+            "ns1",
+            "-l",
+            "app.kubernetes.io/instance=foss-mcp-pdf-net,app.kubernetes.io/component=ingestion",
+            "--ignore-not-found",
+        ]
+E       AssertionError: assert ['kubectl', '...1', '-l', ...] == ['kubectl', '...1', '-l', ...]
+E         
+E         At index 7 diff: '--ignore-not-present' != '--ignore-not-found'
+E         Use -v to get more diff
+
+tests\deploy\test_install_pilots.py:90: AssertionError
+_ test_missing_namespace_is_created_before_any_install_and_before_the_job_delete _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3444/test_missing_namespace_is_crea0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FBE049F6B0>
+
+    def test_missing_namespace_is_created_before_any_install_and_before_the_job_delete(tmp_path, monkeypatch):
+        def handler(cmd):
+            if cmd[:3] == ["kubectl", "get", "namespace"]:
+                return _done(cmd, rc=1, stderr="not found")
+            return _done(cmd)
+    
+        fake = _fake(monkeypatch, handler)
+        rc = install.main(
+            ["--namespace", "fresh", "--image-tag", "t", "--only", "pdf_net", "--values-dir", str(tmp_path)]
+        )
+        assert rc == 0
+        kube = [c for c in fake.calls if c[0] == "kubectl"]
+>       assert kube == [
+            ["kubectl", "get", "namespace", "fresh"],
+            ["kubectl", "create", "namespace", "fresh"],
+            [
+                "kubectl",
+                "delete",
+                "job",
+                "-n",
+                "fresh",
+                "-l",
+                "app.kubernetes.io/instance=foss-mcp-pdf-net,app.kubernetes.io/component=ingestion",
+                "--ignore-not-found",
+            ],
+        ]
+E       AssertionError: assert [['kubectl', ...', '-l', ...]] == [['kubectl', ...', '-l', ...]]
+E         
+E         At index 2 diff: ['kubectl', 'delete', 'job', '-n', 'fresh', '-l', 'app.kubernetes.io/instance=foss-mcp-pdf-net,app.kubernetes.io/component=ingestion', '--ignore-not-present'] != ['kubectl', 'delete', 'job', '-n', 'fresh', '-l', 'app.kubernetes.io/instance=foss-mcp-pdf-net,app.kubernetes.io/component=ingestion', '--ignore-not-found']
+E         Use -v to get more diff
+
+tests\deploy\test_install_pilots.py:241: AssertionError
+---------------------------- Captured stdout call -----------------------------
+release           rc   seconds  status
+foss-mcp-pdf-net  0        0.0  installed
+
+1 of 1 installed; results: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-3444\test_missing_namespace_is_crea0\install-results.json
+_ test_no_command_is_ever_a_helm_uninstall_and_every_delete_is_this_releases_own_job_delete _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3444/test_no_command_is_ever_a_helm0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FBE0696750>
+
+    def test_no_command_is_ever_a_helm_uninstall_and_every_delete_is_this_releases_own_job_delete(
+        tmp_path, monkeypatch
+    ):
+        def handler(cmd):
+            if cmd[0] == "helm":
+                return _done(cmd, rc=1, stderr="failed")
+            return _done(cmd)
+    
+        fake = _fake(monkeypatch, handler)
+        install.main(["--namespace", "ns", "--image-tag", "t", "--values-dir", str(tmp_path)])
+        assert fake.calls
+        for cmd in fake.calls:
+            assert not (cmd[0] == "helm" and cmd[1] == "uninstall")
+            if cmd[0] == "kubectl" and "delete" in cmd:
+                assert cmd[:3] == ["kubectl", "delete", "job"]
+>               assert "--ignore-not-found" in cmd
+E               AssertionError: assert '--ignore-not-found' in ['kubectl', 'delete', 'job', '-n', 'ns', '-l', ...]
+
+tests\deploy\test_install_pilots.py:371: AssertionError
+---------------------------- Captured stdout call -----------------------------
+release                    rc   seconds  status
+foss-mcp-pdf-net           1        0.0  FAILED
+foss-mcp-slides-python     1        0.0  FAILED
+foss-mcp-pdf-typescript    1        0.0  FAILED
+foss-mcp-pdf-go            1        0.0  FAILED
+foss-mcp-pdf-java          1        0.0  FAILED
+foss-mcp-cells-rust        1        0.0  FAILED
+foss-mcp-pdf-cpp           1        0.0  FAILED
+foss-mcp-words-python      1        0.0  FAILED
+foss-mcp-words-net         1        0.0  FAILED
+foss-mcp-slides-java       1        0.0  FAILED
+foss-mcp-cells-go          1        0.0  FAILED
+foss-mcp-cells-typescript  1        0.0  FAILED
+foss-mcp-jmap-rust         1        0.0  FAILED
+foss-mcp-cells-cpp         1        0.0  FAILED
+foss-mcp-cells-net         1        0.0  FAILED
+foss-mcp-cells-python      1        0.0  FAILED
+foss-mcp-jmap-python       1        0.0  FAILED
+foss-mcp-pdf-python        1        0.0  FAILED
+foss-mcp-slides-cpp        1        0.0  FAILED
+foss-mcp-slides-net        1        0.0  FAILED
+
+foss-mcp-pdf-net failed with rc 1: failed
+--- foss-mcp-pdf-net: pod states
+(no pods)
+--- foss-mcp-pdf-net: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-slides-python failed with rc 1: failed
+--- foss-mcp-slides-python: pod states
+(no pods)
+--- foss-mcp-slides-python: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-pdf-typescript failed with rc 1: failed
+--- foss-mcp-pdf-typescript: pod states
+(no pods)
+--- foss-mcp-pdf-typescript: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-pdf-go failed with rc 1: failed
+--- foss-mcp-pdf-go: pod states
+(no pods)
+--- foss-mcp-pdf-go: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-pdf-java failed with rc 1: failed
+--- foss-mcp-pdf-java: pod states
+(no pods)
+--- foss-mcp-pdf-java: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-cells-rust failed with rc 1: failed
+--- foss-mcp-cells-rust: pod states
+(no pods)
+--- foss-mcp-cells-rust: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-pdf-cpp failed with rc 1: failed
+--- foss-mcp-pdf-cpp: pod states
+(no pods)
+--- foss-mcp-pdf-cpp: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-words-python failed with rc 1: failed
+--- foss-mcp-words-python: pod states
+(no pods)
+--- foss-mcp-words-python: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-words-net failed with rc 1: failed
+--- foss-mcp-words-net: pod states
+(no pods)
+--- foss-mcp-words-net: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-slides-java failed with rc 1: failed
+--- foss-mcp-slides-java: pod states
+(no pods)
+--- foss-mcp-slides-java: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-cells-go failed with rc 1: failed
+--- foss-mcp-cells-go: pod states
+(no pods)
+--- foss-mcp-cells-go: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-cells-typescript failed with rc 1: failed
+--- foss-mcp-cells-typescript: pod states
+(no pods)
+--- foss-mcp-cells-typescript: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-jmap-rust failed with rc 1: failed
+--- foss-mcp-jmap-rust: pod states
+(no pods)
+--- foss-mcp-jmap-rust: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-cells-cpp failed with rc 1: failed
+--- foss-mcp-cells-cpp: pod states
+(no pods)
+--- foss-mcp-cells-cpp: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-cells-net failed with rc 1: failed
+--- foss-mcp-cells-net: pod states
+(no pods)
+--- foss-mcp-cells-net: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-cells-python failed with rc 1: failed
+--- foss-mcp-cells-python: pod states
+(no pods)
+--- foss-mcp-cells-python: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-jmap-python failed with rc 1: failed
+--- foss-mcp-jmap-python: pod states
+(no pods)
+--- foss-mcp-jmap-python: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-pdf-python failed with rc 1: failed
+--- foss-mcp-pdf-python: pod states
+(no pods)
+--- foss-mcp-pdf-python: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-slides-cpp failed with rc 1: failed
+--- foss-mcp-slides-cpp: pod states
+(no pods)
+--- foss-mcp-slides-cpp: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+foss-mcp-slides-net failed with rc 1: failed
+--- foss-mcp-slides-net: pod states
+(no pods)
+--- foss-mcp-slides-net: last 20 lines of the ingestion Job log
+(no ingestion pod log)
+
+0 of 20 installed; results: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-3444\test_no_command_is_ever_a_helm0\install-results.json
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_install_pilots.py::test_job_delete_command_builds_the_exact_scoped_delete_with_ignore_not_found
+FAILED tests/deploy/test_install_pilots.py::test_missing_namespace_is_created_before_any_install_and_before_the_job_delete
+FAILED tests/deploy/test_install_pilots.py::test_no_command_is_ever_a_helm_uninstall_and_every_delete_is_this_releases_own_job_delete
+
+--- stderr ---
+
