@@ -1,0 +1,138 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py tests/infra/test_ingest.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vwwam0ai\.junit-0.xml"
+--- stdout ---
+..............................                                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py tests/infra/test_ingest.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vwwam0ai\.junit-0.xml"
+--- stdout ---
+..............................                                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/generation_manifest.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py tests/infra/test_ingest.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vwwam0ai\.junit-0.xml"
+--- stdout ---
+................FF........FF..                                           [100%]
+================================== FAILURES ===================================
+_____ test_publish_refuses_an_empty_generation_even_when_called_directly ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3710/test_publish_refuses_an_empty_0')
+
+    def test_publish_refuses_an_empty_generation_even_when_called_directly(tmp_path):
+        """TC-242's core defect, fixed: before this card, an empty-generation publish was only
+        ever refused by infra/ingest.py's own CLI pre-check. Calling publish() directly -
+        exactly as any OTHER caller of publish()/GenerationManifestStore would, bypassing that
+        CLI entirely - must be refused identically, and must not activate anything."""
+        store = _store(tmp_path)
+        empty = build_manifest("pdf", "net", "api-reference", "1")  # payload={} -> 0 documents
+        lease = store.acquire_lease(empty.scope, "worker-1", empty.generation_id)
+    
+>       with pytest.raises(PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\indexing\test_generation_manifest.py:382: Failed
+_ test_publish_refuses_a_more_than_50_percent_regression_even_when_called_directly _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3710/test_publish_refuses_a_more_th0')
+
+    def test_publish_refuses_a_more_than_50_percent_regression_even_when_called_directly(tmp_path):
+        """Same defect, the regression branch: a direct caller publishing far fewer documents
+        than half of what is currently active must be refused, and the good, currently-active
+        generation must remain active, unreplaced."""
+        store = _store(tmp_path)
+        healthy = _manifest_with_documents("pdf", "net", "api-reference", "1", 4)
+        lease = store.acquire_lease(healthy.scope, "worker-1", healthy.generation_id)
+        publish(store, healthy.scope, None, healthy, lease)
+        assert store.read_active(healthy.scope) == healthy.generation_id
+    
+        regressive = _manifest_with_documents("pdf", "net", "api-reference", "2", 1)
+        lease2 = store.acquire_lease(regressive.scope, "worker-1", regressive.generation_id)
+    
+>       with pytest.raises(PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\indexing\test_generation_manifest.py:401: Failed
+________ test_main_refuses_to_publish_zero_chunks_and_never_activates _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3710/test_main_refuses_to_publish_z0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000015895F40C50>
+
+    def test_main_refuses_to_publish_zero_chunks_and_never_activates(tmp_path: Path, monkeypatch) -> None:
+        """The card's core wiring, at the CLI entrypoint: a run that would publish zero
+        chunks must be refused - never silently shipped, and never left to activate an empty
+        generation. TC-242 moved the enforcement itself from this CLI's own pre-check into
+        ``generation_manifest.publish()``, so ``publish_generation`` (and ``publish()`` inside
+        it) IS reached here now - it is the refusal and the non-activation that matter, not
+        which internal function got there."""
+        chunks_path = tmp_path / "chunks.json"
+        manifest_store_path = tmp_path / "manifests"
+        _write_chunks_fixture(chunks_path, [])
+    
+        monkeypatch.setattr(sys, "argv", ["ingest.py", *_base_argv(chunks_path, manifest_store_path)])
+    
+>       with pytest.raises(ingest.PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\infra\test_ingest.py:284: Failed
+---------------------------- Captured stdout call -----------------------------
+published pdf::net::self_extracted::20261007T180857617408Z-b6faa5a7
+_ test_main_refuses_a_more_than_50_percent_regression_against_a_real_active_generation _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3710/test_main_refuses_a_more_than_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000015895F40750>
+
+    def test_main_refuses_a_more_than_50_percent_regression_against_a_real_active_generation(
+        tmp_path: Path, monkeypatch
+    ) -> None:
+        """A real, previously-published active generation with 4 documents; a second run
+        that would publish only 1 chunk (a >50% drop) must be refused, and the good
+        generation must remain active, unreplaced."""
+        chunks_path = tmp_path / "chunks.json"
+        regression_chunks_path = tmp_path / "chunks_regression.json"
+        manifest_store_path = tmp_path / "manifests"
+        _write_chunks_fixture(
+            chunks_path,
+            [
+                _chunk_entry("One", "First document."),
+                _chunk_entry("Two", "Second document."),
+                _chunk_entry("Three", "Third document."),
+                _chunk_entry("Four", "Fourth document."),
+            ],
+        )
+        monkeypatch.setattr(sys, "argv", ["ingest.py", *_base_argv(chunks_path, manifest_store_path)])
+        ingest.main()
+    
+        store = GenerationManifestStore(manifest_store_path)
+        first_generation_id = store.read_active(SCOPE)
+        assert first_generation_id is not None
+    
+        _write_chunks_fixture(regression_chunks_path, [_chunk_entry("OnlyOne", "Only one document now.")])
+    
+        monkeypatch.setattr(sys, "argv", ["ingest.py", *_base_argv(regression_chunks_path, manifest_store_path)])
+    
+>       with pytest.raises(ingest.PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\infra\test_ingest.py:320: Failed
+---------------------------- Captured stdout call -----------------------------
+published pdf::net::self_extracted::20261007T180857629756Z-e8b098b6
+published pdf::net::self_extracted::20261007T180857636829Z-14e9c6cb
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_generation_manifest.py::test_publish_refuses_an_empty_generation_even_when_called_directly
+FAILED tests/indexing/test_generation_manifest.py::test_publish_refuses_a_more_than_50_percent_regression_even_when_called_directly
+FAILED tests/infra/test_ingest.py::test_main_refuses_to_publish_zero_chunks_and_never_activates
+FAILED tests/infra/test_ingest.py::test_main_refuses_a_more_than_50_percent_regression_against_a_real_active_generation
+
+--- stderr ---
+

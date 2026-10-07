@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "card": "TC-242",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-07T18:08:58Z",
+  "base_rev": "bedd2028c012cadae59cb4d488755dc07eef5ed9",
+  "head_rev": "51b4112c9d3c5d2986cdd2a511e77095cb5b0b94",
+  "card_sha256": "a97823fd82f301be446ce647223fdf7e6cc3c08b8f25723ab266f8900b834ffe",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/ingest.py",
+      "src/foss_mcp/indexing/generation_manifest.py",
+      "tests/indexing/test_generation_manifest.py",
+      "tests/infra/test_ingest.py",
+      "tests/infra/test_serve_http.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_generation_manifest.py tests/infra/test_ingest.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.858,
+          "stdout_sha256": "a2a3c4b68aa70416fb312e4aaae8e14c352c367fc692b27c4622eb9644d825cf",
+          "tests": 30,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_generation_manifest.py tests/infra/test_ingest.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.811,
+          "stdout_sha256": "a2a3c4b68aa70416fb312e4aaae8e14c352c367fc692b27c4622eb9644d825cf",
+          "tests": 30,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/indexing/generation_manifest.py');lines=p.read_text(encoding='utf-8').splitlines(keepends=True);out=[l for l in lines if not ('assert_publish_is_safe(' in l and 'def ' not in l)];p.write_text(''.join(out),encoding='utf-8')\"\n",
+    "patch_sha256": "73cfd6c7755d3f098565aac7005489d557fb0629328839a9bbb002c87adb0fdf",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/indexing/generation_manifest.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
