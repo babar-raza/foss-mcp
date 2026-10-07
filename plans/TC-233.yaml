@@ -1,0 +1,69 @@
+id: TC-233
+gate: G2
+lane: extraction
+purpose: 'Fix run_extraction.py''s own platform-to-language mapping for Node.js, and finish extracting jmap/nodejs. TC-232''s worker
+  found, by reading the real source, that run_extraction.py''s _LANGUAGE_BY_PLATFORM maps "nodejs" to the literal "typescript" for both
+  get_parser() and extract_api_surface()''s language argument, so _collect_source_files only looks for .ts files - every real .js file
+  in aspose-email-foss/Aspose.JMAP-FOSS-for-Node.js (a plain-JavaScript repository, confirmed: every file under src/ ends in .js, zero
+  .ts files anywhere) is silently filtered out, and extraction produced 0/0 types. The tree-sitter engine itself already has the
+  right answer: tree_helpers.py''s own _LANGUAGE_NAME_BY_PLATFORM already maps "nodejs" to "javascript" (a separate, complete bucket:
+  its own file extension .js, its own class/function/doc-style sets). run_extraction.py just never used it. The fix is one line.'
+depends_on:
+- TC-021
+- TC-011
+- TC-001
+- TC-232
+write_paths:
+- src/foss_mcp/extraction/run_extraction.py
+- tests/extraction/test_run_extraction_language_mapping.py
+- tests/fixtures/jmap_nodejs/api_surface.json
+- tests/extraction/test_jmap_nodejs_extraction.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read run_extraction.py''s _LANGUAGE_BY_PLATFORM dict in full, and tree_helpers.py''s own language-name mapping and its "javascript"
+  bucket (file extension, class/function kinds, doc style). Read config/products/jmap/nodejs.yaml, already committed by TC-232 with
+  the verified repository name.'
+- 'Change exactly one value: _LANGUAGE_BY_PLATFORM["nodejs"] from "typescript" to "javascript". Change nothing else in the dict or the
+  function. Also update extract_pinned_repository''s language-recording line (around "language = ''python'' if platform == ''python''
+  else _LANGUAGE_BY_PLATFORM[platform]") only if it needs no change - confirm by reading it, it should already pick up the new value
+  automatically since it reads the same dict.'
+- 'Add tests/extraction/test_run_extraction_language_mapping.py, offline, no network: _LANGUAGE_BY_PLATFORM["nodejs"] == "javascript";
+  it is not "typescript"; and _LANGUAGE_BY_PLATFORM["typescript"] is still "typescript" (the real TypeScript platform is unaffected).'
+- 'Re-run extraction for jmap/nodejs with the fix in place: {python} -m foss_mcp.extraction.run_extraction config/products/jmap/nodejs.yaml
+  tests/fixtures/jmap_nodejs/api_surface.json --max-types 300. This clones the real repository (network required) and must now
+  produce a non-empty fixture of real JavaScript type and function entries. If it is still empty or fails, stop and report the exact
+  error; do not commit an empty or fabricated fixture.'
+- 'Write tests/extraction/test_jmap_nodejs_extraction.py matching test_cells_net_extraction.py''s exact five-test shape (fixture
+  parses; records a real 40-hex source_commit matching the manifest''s repository; is non-empty with reduced_type_count ==
+  len(types) and type_count >= reduced_type_count; contains at least two real names you actually observed in the extracted fixture -
+  never invent one; every entry''s kind is one of the real declaration kinds this fixture''s own types show).'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the mapping and the javascript bucket.
+- Change the one dict value and add the mapping test.
+- Re-run extraction for jmap/nodejs and write its fixture and test.
+- Run both new test files and report exact counts.
+checks:
+- command: '{python} -m pytest tests/extraction/test_run_extraction_language_mapping.py tests/extraction/test_jmap_nodejs_extraction.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 8
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/run_extraction.py');q=chr(34);s=p.read_text(encoding='utf-8');s=s.replace(q+'nodejs'+q+': '+q+'javascript'+q,q+'nodejs'+q+': '+q+'typescript'+q,1);p.write_text(s,encoding='utf-8')"
+  rationale: 'Puts the wrong mapping back, so the new mapping test must fail. Built with chr(34) for the embedded double quotes, since the literal cannot be written with a backslash escape (AGENTS.md falsifier rule).'
+evidence:
+- evidence/build/G2/TC-233/receipt.json
+closeout:
+- jmap/nodejs extracts real, non-empty JavaScript types, and the mapping that caused the gap is tested against regressing.
+recovery: Re-run from a clean tree.
