@@ -33,10 +33,12 @@ import json
 import logging
 import os
 import sys
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
 from fetch_product_reference import load_manifest_sidecar, sidecar_name
+from fetch_recent_releases import load_recent_releases_sidecar, recent_releases_sidecar_name
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
@@ -44,6 +46,7 @@ from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Send
 from starlette.types import Scope as ASGIScope
 
+from foss_mcp.extraction.github_release_reader import Release
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.health import DeploymentGenerationStore, is_alive, round_trip_check
 from foss_mcp.mcp.routing import DeploymentConfig, resolve_scope
@@ -261,6 +264,26 @@ def _serving_product_reference_inputs(
     return sidecar
 
 
+def _serving_recent_releases(manifests_dir: Path, deployment_config: DeploymentConfig) -> Sequence[Release]:
+    """The product's own recent GitHub releases, from the sidecar for this deployment's identity
+    in *manifests_dir*, or an empty tuple when that sidecar does not exist yet (create_server then
+    answers list_recent_changes with its own honest empty list for every deployment whose
+    ingestion has not run yet, or whose releases step failed - never a raise that would block
+    serving starting).
+
+    Mirrors ``_serving_product_reference_inputs``'s exact shape: the identity is the deployment's
+    family and platform, which ``main`` reads from the required ``FOSS_MCP_FAMILY`` and
+    ``FOSS_MCP_PLATFORM``. Only the file ``recent_releases_sidecar_name`` gives for that identity is
+    read; there is no fallback to another file.
+    """
+    family = deployment_config.family
+    platform = deployment_config.platform
+    releases = load_recent_releases_sidecar(manifests_dir / recent_releases_sidecar_name(family, platform))
+    if releases is None:
+        return ()
+    return releases
+
+
 def build_app(
     deployment_config: DeploymentConfig,
     manifest_store: GenerationManifestStore | None = None,
@@ -279,7 +302,10 @@ def build_app(
     ``FOSS_MCP_ALLOWED_ORIGINS`` env var, and a fresh real ``UsageRecorder()`` respectively; all
     three are overridable so tests never touch any of them. ``manifests_dir`` defaults to
     ``FOSS_MCP_MANIFESTS_DIR`` or ``/data/manifests``; the product reference sidecar in it, when
-    present, is passed to ``create_server`` as ``product_reference_inputs``. ``manifest_store`` and
+    present, is passed to ``create_server`` as ``product_reference_inputs``, and the recent-releases
+    sidecar in it, when present, is passed as ``recent_releases`` (G2/TC-244) - the one line that
+    was previously missing, which left every deployment's ``list_recent_changes`` answering ``[]``
+    regardless of real tagged upstream releases. ``manifest_store`` and
     ``usage_recorder`` are each resolved ONCE, here, and handed to both ``create_server`` and
     their own route (``/readyz``, ``/metrics``) - never two separate instances for one running
     deployment, so ``/metrics`` always reports the exact counters ``_call_tool`` is live
@@ -296,6 +322,7 @@ def build_app(
         deployment_config,
         resolved_store,
         product_reference_inputs=_serving_product_reference_inputs(resolved_manifests_dir, deployment_config),
+        recent_releases=_serving_recent_releases(resolved_manifests_dir, deployment_config),
         usage_recorder=resolved_usage_recorder,
     )
     allowed_origins = allowed_origins_from_env() if allowed_origins is None else allowed_origins

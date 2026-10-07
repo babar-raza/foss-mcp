@@ -9,6 +9,16 @@ product_reference_<family>_<platform>.json, the name sidecar_name(family, platfo
 infra/fetch_product_reference.py, which the serving pod for the same identity reads. Each pilot
 has its own file, so the pilots never overwrite one another. A pilot without manifestPath gets
 no such step.
+
+G2/TC-244: every pilot ALSO gets a step - unconditional, unlike the one above, because every
+self_extracted pilot already has a library.repository field regardless of manifestPath -
+appended after the existing chain: infra/fetch_recent_releases.py, which writes that pilot's
+GitHub-releases sidecar to the manifests claim. The file name is
+recent_releases_<family>_<platform>.json, the name recent_releases_sidecar_name(family, platform)
+returns in infra/fetch_recent_releases.py, which the serving pod for the same identity reads. Each
+pilot has its own file. Brace-grouped with "|| true", the identical shape the
+fetch_product_reference.py step above uses, for the identical reason: a transient failure here
+(e.g. a GitHub rate limit) must never fail the whole ingestion Job.
 */ -}}
 {{- range $p := .Values.ingestion.pilots }}
 {{- $lib := $p.library | default (dict) }}
@@ -86,6 +96,11 @@ spec:
               --output {{ $.Values.manifests.mountPath }}/{{ printf "product_reference_%s_%s.json" $p.family $p.platform }}
               || true; }
               {{- end }}
+              &&
+              { python /app/infra/fetch_recent_releases.py
+              --repository {{ $lib.repository }}
+              --output {{ $.Values.manifests.mountPath }}/{{ printf "recent_releases_%s_%s.json" $p.family $p.platform }}
+              || true; }
           # The root filesystem is read-only. The library steps write under /tmp (tempfile), and
           # their toolchain caches write under HOME. cargo's registry lives in CARGO_HOME, which the
           # image sets inside the read-only root, so it is redirected to the home emptyDir. The

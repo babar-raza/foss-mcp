@@ -17,6 +17,8 @@ from pathlib import Path
 import pytest
 
 import infra.fetch_product_reference as fetch_product_reference
+import infra.fetch_recent_releases as fetch_recent_releases
+from foss_mcp.extraction.github_release_reader import Release
 from foss_mcp.extraction.repo_native_reader import DocumentNotPresent
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import DeploymentConfig, resolve_scope
@@ -71,12 +73,86 @@ def _write_sidecar(
 
 def _serve(tmp_path: Path, config: DeploymentConfig, manifests_dir: Path) -> dict:
     """The tool registry for the serving-side inputs read from *manifests_dir*. create_server is
-    built with the same inputs first, so the registry is the one a real server would expose."""
+    built with the same inputs first, so the registry is the one a real server would expose.
+
+    G2/TC-244: also reads the real recent-releases sidecar through
+    ``serve_http._serving_recent_releases`` and passes it to ``create_server`` the same way
+    ``build_app`` now does - the one line that was previously missing in production.
+    """
     inputs = serve_http._serving_product_reference_inputs(manifests_dir, config)
+    releases = serve_http._serving_recent_releases(manifests_dir, config)
     store = GenerationManifestStore(tmp_path / "store")
-    assert create_server(config, store, product_reference_inputs=inputs) is not None
+    assert create_server(config, store, product_reference_inputs=inputs, recent_releases=releases) is not None
     scope = resolve_scope(config, request=None)
-    return _build_tool_registry(store, scope, inputs or ProductReferenceInputs(), ())
+    return _build_tool_registry(store, scope, inputs or ProductReferenceInputs(), releases)
+
+
+def _write_recent_releases_sidecar(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    platform: str,
+    releases: tuple[Release, ...],
+    family: str = "pdf",
+) -> Path:
+    """Build the sidecar through the real ``fetch_recent_releases.main()``, with only
+    ``fetch_releases`` faked, and write it to the file name serving reads - mirroring
+    ``_write_sidecar`` above exactly, for the recent-releases sidecar instead."""
+    monkeypatch.setattr(fetch_recent_releases, "fetch_releases", lambda repository, **kwargs: list(releases))
+    output_path = tmp_path / fetch_recent_releases.recent_releases_sidecar_name(family, platform)
+    argv = [
+        "fetch_recent_releases.py",
+        "--repository",
+        "aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET",
+        "--output",
+        str(output_path),
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    fetch_recent_releases.main()
+    return tmp_path
+
+
+def test_serving_with_a_recent_releases_sidecar_reaches_list_recent_changes_with_real_content(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The live-content smoke test AGENTS.md's "Integration and liveness" section requires: real,
+    # non-empty content actually reaching the tool, not merely a well-formed empty response.
+    releases = (
+        Release(tag_name="v2.1.0", body="Fixed a real bug in the parser", richness="detailed"),
+        Release(tag_name="v2.0.0", body="", richness="none"),
+    )
+    manifests = _write_recent_releases_sidecar(tmp_path, monkeypatch, platform="net", releases=releases)
+
+    registry = _serve(tmp_path, NET_CONFIG, manifests)
+    answer = registry["list_recent_changes"]()
+
+    assert len(answer) == 2
+    assert answer[0].tag_name == "v2.1.0"
+    assert answer[0].richness == "detailed"
+
+
+def test_serving_with_no_recent_releases_sidecar_answers_an_empty_tuple_and_does_not_raise(
+    tmp_path: Path,
+) -> None:
+    empty_manifests = tmp_path / "no-sidecar"
+    empty_manifests.mkdir()
+
+    registry = _serve(tmp_path, NET_CONFIG, empty_manifests)
+    answer = registry["list_recent_changes"]()
+
+    assert answer == []
+
+
+def test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_recent_releases_sidecar(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    net_releases = (Release(tag_name="v9.0.0", body="net-only release", richness="none"),)
+    _write_recent_releases_sidecar(tmp_path, monkeypatch, platform="net", releases=net_releases)
+
+    java = DeploymentConfig(family="pdf", platform="java")
+    assert serve_http._serving_recent_releases(tmp_path, java) == ()
+    net = DeploymentConfig(family="pdf", platform="net")
+    assert serve_http._serving_recent_releases(tmp_path, net) == net_releases
 
 
 def test_serving_with_a_sidecar_answers_the_exact_target_framework(

@@ -20,6 +20,7 @@ import pytest
 import yaml
 
 import infra.fetch_product_reference as fetch_product_reference
+import infra.fetch_recent_releases as fetch_recent_releases
 from foss_mcp.mcp.routing import DeploymentConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -29,6 +30,10 @@ DOCKERFILE_SERVING = REPO_ROOT / "Dockerfile.serving"
 DOCKERFILE_INGESTION = REPO_ROOT / "Dockerfile.ingestion"
 TAG = "tc201-test-tag"
 FETCH_COMMAND = "/app/infra/fetch_product_reference.py"
+# G2/TC-244: the recent-releases fetch step, appended after the chain above for EVERY pilot
+# (never conditional on manifestPath - every self_extracted pilot already has a
+# library.repository field).
+RECENT_RELEASES_COMMAND = "/app/infra/fetch_recent_releases.py"
 
 # infra/ is not a package; serve_http is imported from its path, as in tests/infra/test_serve_manifest_sidecar.py.
 sys.path.insert(0, str(REPO_ROOT / "infra"))
@@ -273,9 +278,13 @@ def test_the_fetch_step_failure_is_swallowed_but_still_logged() -> None:
     or_index = tokens.index("||", fetch_index)
     true_index = or_index + 1
     assert tokens[true_index].rstrip(";") == "true", tokens[fetch_index:]
-    # "true" is the last relevant token the fetch step's chain ends on - only the brace-grouping's
-    # own closing "}" follows it.
-    assert tokens[true_index + 1 :] == ["}"], tokens[fetch_index:]
+    # "true" is the last relevant token the fetch step's OWN brace group ends on: the group's own
+    # closing "}" follows it, and then (G2/TC-244) the unconditional recent-releases step's own
+    # "&& { python ..." chain continues - this fetch step is no longer the last one in the Job's
+    # overall chain, but its own grouping is still exactly self-contained.
+    assert tokens[true_index + 1] == "}", tokens[fetch_index:]
+    assert tokens[true_index + 2 : true_index + 5] == ["&&", "{", "python"], tokens[fetch_index:]
+    assert tokens[true_index + 5] == RECENT_RELEASES_COMMAND, tokens[fetch_index:]
     # build_chunks.py and ingest.py are NOT wrapped: a real content-publish failure in either one
     # must still propagate and fail the Job exactly as before, so each is still immediately
     # followed by a bare "&&" token, never a "|| true" grouping of its own.
@@ -285,6 +294,50 @@ def test_the_fetch_step_failure_is_swallowed_but_still_logged() -> None:
     )
     assert tokens[fetch_index - 1] == "python" and tokens[fetch_index - 2] == "{", tokens[: fetch_index + 1]
     assert tokens[fetch_index - 3] == "&&", "ingest.py must still be followed by a bare &&"
+
+
+def test_every_pilot_gets_the_recent_releases_step_brace_grouped_with_or_true() -> None:
+    # G2/TC-244: unlike the product-reference fetch step above, this one is unconditional - EVERY
+    # pilot in values.yaml gets it, not only the ones with a manifestPath - because every
+    # self_extracted pilot already has a library.repository field. Mirrors
+    # test_the_fetch_step_failure_is_swallowed_but_still_logged's own shape: the step must be
+    # brace-grouped with "|| true" so a transient failure here (e.g. a GitHub rate limit) can
+    # never fail the whole ingestion Job, and it must still write to the exact sidecar name
+    # recent_releases_sidecar_name returns for its pilot.
+    values = _values()
+    docs = _render()
+    pilots = values["ingestion"]["pilots"]
+    assert pilots, "expected at least one pilot in values.yaml"
+    for pilot in pilots:
+        identity = pilot["family"] + "/" + pilot["platform"]
+        tokens = _job_tokens(_job(docs, pilot))
+        assert RECENT_RELEASES_COMMAND in tokens, identity
+        fetch_index = tokens.index(RECENT_RELEASES_COMMAND)
+        assert tokens[fetch_index - 1] == "python" and tokens[fetch_index - 2] == "{", (
+            identity,
+            tokens[: fetch_index + 1],
+        )
+        and_index = fetch_index - 3
+        assert tokens[and_index] == "&&", (identity, tokens[: fetch_index + 1])
+        or_index = tokens.index("||", fetch_index)
+        true_index = or_index + 1
+        assert tokens[true_index].rstrip(";") == "true", (identity, tokens[fetch_index:])
+        # This step is the LAST one in the chain: only the brace-group's own closing "}" follows.
+        assert tokens[true_index + 1 :] == ["}"], (identity, tokens[fetch_index:])
+        assert _flag_after(tokens, fetch_index, "--repository") == pilot["library"]["repository"], identity
+        expected_sidecar = fetch_recent_releases.recent_releases_sidecar_name(
+            pilot["family"], pilot["platform"]
+        )
+        expected_output = f"{values['manifests']['mountPath']}/{expected_sidecar}"
+        assert _flag_after(tokens, fetch_index, "--output") == expected_output, identity
+
+
+def test_each_pilot_recent_releases_sidecar_name_is_distinct() -> None:
+    values = _values()
+    pilots = values["ingestion"]["pilots"]
+    names = [fetch_recent_releases.recent_releases_sidecar_name(p["family"], p["platform"]) for p in pilots]
+    assert len(names) == len(set(names)) == len(pilots)
+    assert "recent_releases_pdf_net.json" in names
 
 
 def test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_sidecar(tmp_path: Path) -> None:
