@@ -1,0 +1,85 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_build_chunks.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-y42x_ilv\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_build_chunks.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-y42x_ilv\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/infra/test_build_chunks.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_build_chunks.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-y42x_ilv\.junit-0.xml"
+--- stdout ---
+F......                                                                  [100%]
+================================== FAILURES ===================================
+_ test_api_surface_only_path_is_byte_identical_to_before_the_furnished_flags __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3734/test_api_surface_only_path_is_0')
+
+    def test_api_surface_only_path_is_byte_identical_to_before_the_furnished_flags(
+        tmp_path: Path,
+    ) -> None:
+        """The pre-existing --api-surface-only path (TC-064's own real production ingestion)
+        must be completely unaffected by this card's change: running main() with only the
+        original flags must produce exactly the output build_chunks_from_api_surface plus
+        the Source-Commit line convention already produced, with no furnished/example
+        content anywhere in it.
+        """
+        out_path = tmp_path / "chunks.json"
+    
+        _run_main(
+            [
+                "--api-surface",
+                str(API_SURFACE),
+                "--title",
+                "Aspose.PDF FOSS for .NET",
+                "--out",
+                str(out_path),
+            ]
+        )
+    
+        produced = json.loads(out_path.read_text(encoding="utf-8"))
+    
+        # Independently reproduce the pre-existing (TC-064) behavior directly from the
+        # underlying building blocks build_chunks.py already used before this card, and
+        # assert byte-for-byte equality of the serialized JSON.
+        import dataclasses
+    
+        from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
+    
+        fixture = json.loads(API_SURFACE.read_text(encoding="utf-8"))
+        expected_chunks = build_chunks_from_api_surface(fixture, title="Aspose.PDF FOSS for .NET", max_types=20)
+        expected_chunks = [
+            dataclasses.replace(c, text=f"{c.text}\nSource-Commit: {c.provenance.commit}")
+            for c in expected_chunks
+        ]
+        # Round-trip through JSON exactly like the real --out file does (dataclasses.asdict
+        # keeps tuples as tuples; json.dumps/json.loads turns them into lists) so this is a
+        # genuine byte-for-byte comparison of what actually got written, not an artifact of
+        # comparing an in-memory tuple against a JSON-decoded list.
+        expected = json.loads(json.dumps({"chunks": [dataclasses.asdict(c) for c in expected_chunks]}))
+    
+>       assert produced == expected
+E       AssertionError: assert {'chunks': [{...', ...}, ...]} == {'chunks': [{...', ...}, ...]}
+E         
+E         Differing items:
+E         {'chunks': [{'section_title': 'Aspose.Pdf.AFRelationship', 'text': 'FQN: Aspose.Pdf.AFRelationship\nKind: enum_declara... b7172877651413cff57a8bfe41fb8a8befb2406b', 'source_kind': 'self_extracted', 'content_type': 'api_surface', ...}, ...]} != {'chunks': [{'section_title': 'Aspose.Pdf.AFRelationship', 'text': 'FQN: Aspose.Pdf.AFRelationship\nKind: enum_declara... b7172877651413cff57a8bfe41fb8a8befb2406b', 'source_kind': 'self_extracted', 'content_type': 'api_surface', ...}, ...]}
+E         Use -v to get more diff
+
+tests\infra\test_build_chunks.py:121: AssertionError
+---------------------------- Captured stdout call -----------------------------
+wrote 300 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-3734\test_api_surface_only_path_is_0\chunks.json
+=========================== short test summary info ===========================
+FAILED tests/infra/test_build_chunks.py::test_api_surface_only_path_is_byte_identical_to_before_the_furnished_flags
+
+--- stderr ---
+
