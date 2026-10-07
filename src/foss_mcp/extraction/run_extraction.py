@@ -35,7 +35,7 @@ _LANGUAGE_BY_PLATFORM = {
     "rust": "rust",
     "typescript": "typescript",
     "javascript": "typescript",
-    "nodejs": "typescript",
+    "nodejs": "javascript",
 }
 
 
