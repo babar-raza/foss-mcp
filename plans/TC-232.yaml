@@ -1,0 +1,93 @@
+id: TC-232
+gate: G2
+lane: extraction
+purpose: 'Extract and commit fixtures for the seven platform combos that genuinely need fresh extraction toward the complete FOSS
+  portfolio (operator, 2026-10-07): cells/java, and the six other JMAP platforms this project has never ingested (JMAP already has
+  two pilots, python and rust; aspose-email-foss also publishes it for Node.js, TypeScript, Go, .NET, C++ and Java - a repository
+  listing read on 2026-10-07 confirmed all seven real, public repository names below). This card extraction-only: it produces a
+  fixture, a product manifest, and an offline test per combo, the exact shape run_extraction.py already produces for the twenty-eight
+  fixtures committed so far. It does not wire any of the seven as a pilot; that is a separate, later card, once each fixture exists
+  and its packaging-manifest path is surveyed.'
+depends_on:
+- TC-001
+- TC-003
+- TC-031
+write_paths:
+- config/products/cells/java.yaml
+- config/products/jmap/nodejs.yaml
+- config/products/jmap/typescript.yaml
+- config/products/jmap/go.yaml
+- config/products/jmap/net.yaml
+- config/products/jmap/cpp.yaml
+- config/products/jmap/java.yaml
+- tests/fixtures/cells_java/api_surface.json
+- tests/fixtures/jmap_nodejs/api_surface.json
+- tests/fixtures/jmap_typescript/api_surface.json
+- tests/fixtures/jmap_go/api_surface.json
+- tests/fixtures/jmap_net/api_surface.json
+- tests/fixtures/jmap_cpp/api_surface.json
+- tests/fixtures/jmap_java/api_surface.json
+- tests/extraction/test_cells_java_extraction.py
+- tests/extraction/test_jmap_nodejs_extraction.py
+- tests/extraction/test_jmap_typescript_extraction.py
+- tests/extraction/test_jmap_go_extraction.py
+- tests/extraction/test_jmap_net_extraction.py
+- tests/extraction/test_jmap_cpp_extraction.py
+- tests/extraction/test_jmap_java_extraction.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read src/foss_mcp/extraction/run_extraction.py in full, and one complete existing triple (manifest, fixture, test) for each pattern:
+  config/products/cells/net.yaml + tests/fixtures/cells_net/api_surface.json + tests/extraction/test_cells_net_extraction.py (a
+  tree-sitter platform), and config/products/jmap/rust.yaml + tests/fixtures/jmap_rust/api_surface.json +
+  tests/extraction/test_jmap_rust_extraction.py (the same family, a different platform). Match their exact structure, comment style
+  and test shape for every new file; do not invent a different shape.'
+- 'The seven repository full_names, verified by a GitHub repository-listing read on 2026-10-07, each public, not a fork, not archived:
+  cells/java -> aspose-cells-foss/Aspose.Cells-FOSS-for-Java; jmap/nodejs -> aspose-email-foss/Aspose.JMAP-FOSS-for-Node.js;
+  jmap/typescript -> aspose-email-foss/Aspose.JMAP-FOSS-for-TypeScript; jmap/go -> aspose-email-foss/Aspose.JMAP-FOSS-for-Go;
+  jmap/net -> aspose-email-foss/Aspose.JMAP-FOSS-for-.NET; jmap/cpp -> aspose-email-foss/Aspose.JMAP-FOSS-for-Cpp; jmap/java ->
+  aspose-email-foss/Aspose.JMAP-FOSS-for-Java. Copy these verbatim into the seven manifests; do not reconstruct a name from a pattern.
+  Use the platform value "nodejs" for the Node.js one (package_root.detect_package_root already accepts it); "net" for .NET, matching
+  every other pilot''s convention. storage_topology: embedded for every one, same as every existing manifest. Pick any reasonable cron
+  schedule distinct from the ones already in use; the value is never exercised by this card''s own check.'
+- 'For each of the seven, write the manifest, then run: {python} -m foss_mcp.extraction.run_extraction <manifest> <fixture output>
+  --max-types 300. This clones the real repository (network required) and writes the committed fixture. If a clone or extraction
+  genuinely fails for one combo (for example an unreachable repository, or a package-root this engine''s detector cannot find), stop
+  for that one, report exactly what failed with the real error text, and continue with the others; do not fabricate a fixture and do
+  not silently skip reporting it.'
+- 'Write one offline test file per combo, following test_cells_net_extraction.py''s exact five-test shape: the fixture parses and has
+  the expected shape; it records a real 40-hex source_commit matching its manifest''s repository; it is non-empty with
+  reduced_type_count == len(types) and type_count >= reduced_type_count; it contains at least two real type names you observed in the
+  actual extracted fixture (name them exactly as extracted - never invent a plausible-sounding name you did not see); every entry''s
+  kind is one of the real declaration kinds that platform''s grammar produces (same closed set the matching existing test for that
+  platform uses, for example C# class/struct/interface/enum declarations, Java class/interface/enum declarations). For jmap/nodejs
+  specifically, note in the test file''s docstring whether the real repository is plain JavaScript or TypeScript source, since the
+  typescript grammar parses both and the fixture''s own kind set will show which.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the engine and one example triple per platform family it mirrors.
+- Write the seven manifests, run extraction for each, and write the matching offline test.
+- Run the new tests and report exact counts, and name clearly any combo that genuinely failed and why.
+checks:
+- command: '{python} -m pytest tests/extraction/test_cells_java_extraction.py tests/extraction/test_jmap_nodejs_extraction.py tests/extraction/test_jmap_typescript_extraction.py tests/extraction/test_jmap_go_extraction.py tests/extraction/test_jmap_net_extraction.py tests/extraction/test_jmap_cpp_extraction.py tests/extraction/test_jmap_java_extraction.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 30
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib,json;p=pathlib.Path('tests/fixtures/jmap_net/api_surface.json');d=json.loads(p.read_text(encoding='utf-8'));d['source_commit']='not-a-real-commit';p.write_text(json.dumps(d),encoding='utf-8')"
+  rationale: 'Corrupts the committed jmap/net fixture''s source_commit to a non-hex value, so the test that checks it against the real 40-hex pattern must fail. Targets a file this card itself commits, so the literal exists only after this card lands. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-232/receipt.json
+closeout:
+- Seven more real, pinned fixtures exist and are offline-tested, ready for a later card to wire as pilots.
+recovery: Re-run from a clean tree.
