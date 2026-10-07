@@ -64,11 +64,18 @@ def reject_request(
       even read.
     - a PRESENT-but-unparseable ``MCP-Protocol-Version`` header is still rejected: once a client
       sends the header at all, it must be a value this server can actually reason about.
+    - a PRESENT, well-formed ``MCP-Protocol-Version`` header naming a revision this server does
+      NOT itself declare support for is ALSO rejected: ``negotiate_revision`` had to fall back
+      to its nearest-supported-or-min policy rather than match one of ``supported_revisions``
+      exactly. This server's own supported-revision list is a deliberate allow-list, not a lower
+      bound - letting a well-formed-but-undeclared revision through here would let it reach the
+      installed MCP SDK's own internal initialize handler, which has its own, broader,
+      independently-maintained accepted-version list and would answer as if this project had
+      verified support for a revision it never has.
 
-    Returns ``None`` only when both checks pass. Whether the version is one this server has
-    actually negotiated support for is a SEPARATE, later concern
-    (``foss_mcp.mcp.revision_negotiation.negotiate_revision``'s nearest-supported-or-min
-    fallback) - this function only rejects what is malformed or from a disallowed origin.
+    Returns ``None`` only when the Origin check passes AND the protocol-version header is either
+    absent or an EXACT match against ``supported_revisions`` - any negotiation fallback, below-
+    minimum or nearest-unknown alike, is a rejection here, never a pass-through.
     """
     origin = _header(headers, ORIGIN_HEADER)
     allowed = set(allowed_origins)
@@ -80,10 +87,18 @@ def reject_request(
         return None
 
     try:
-        negotiate_revision(requested_revision=protocol_version, supported_revisions=supported_revisions)
+        result = negotiate_revision(
+            requested_revision=protocol_version, supported_revisions=supported_revisions
+        )
     except MissingProtocolVersionError:
         return "missing MCP-Protocol-Version header"
     except InvalidRevisionFormatError:
         return f"invalid MCP-Protocol-Version header: {protocol_version!r}"
+
+    if result.fallback_applied:
+        return (
+            f"unsupported MCP-Protocol-Version header: {protocol_version!r} is well-formed but "
+            "not a revision this server declares support for"
+        )
 
     return None

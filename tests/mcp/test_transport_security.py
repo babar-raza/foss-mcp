@@ -36,7 +36,7 @@ from starlette.types import ASGIApp
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import DeploymentConfig
-from foss_mcp.mcp.transport_security import reject_request
+from foss_mcp.mcp.transport_security import SUPPORTED_PROTOCOL_REVISIONS, reject_request
 
 # infra/ is not a package (no __init__.py, matching scripts/ convention) - import its module
 # directly from the path, the same way tests/mcp/test_server_wiring.py and
@@ -93,6 +93,44 @@ def test_a_present_valid_protocol_version_is_not_rejected() -> None:
         allowed_origins=ALLOWED_ORIGINS,
     )
     assert reason is None
+
+
+def test_each_declared_supported_revision_passes_through_unchanged() -> None:
+    """Exact-match case, unaffected by the fallback_applied fix: every revision this project
+    currently declares in ``SUPPORTED_PROTOCOL_REVISIONS`` must still be allowed through."""
+    for revision in SUPPORTED_PROTOCOL_REVISIONS:
+        reason = reject_request(
+            {"Origin": "https://example.com", "MCP-Protocol-Version": revision},
+            allowed_origins=ALLOWED_ORIGINS,
+        )
+        assert reason is None, f"{revision!r} is a declared supported revision and must pass"
+
+
+def test_a_wellformed_but_unsupported_protocol_version_is_rejected() -> None:
+    """The TC-246 fix: a well-formed MCP-Protocol-Version header naming a revision this project
+    does NOT itself declare support for must be rejected at the transport boundary, instead of
+    passing through to the installed MCP SDK's own broader internal negotiation. "2025-11-25" is
+    the exact revision this card's own audit confirmed the installed SDK accepts natively - one
+    more than this project's own three declared revisions - so this is a real observed
+    divergence, not a hypothetical one."""
+    unsupported_revision = "2025-11-25"
+    assert unsupported_revision not in SUPPORTED_PROTOCOL_REVISIONS
+
+    reason = reject_request(
+        {"Origin": "https://example.com", "MCP-Protocol-Version": unsupported_revision},
+        allowed_origins=ALLOWED_ORIGINS,
+    )
+    assert reason is not None
+    assert unsupported_revision in reason
+    assert "not" in reason.lower() and "support" in reason.lower()
+
+    # Distinct from both existing rejection-reason strings - a third, separate case.
+    missing_header_reason = reject_request(
+        {"Origin": "https://example.com", "MCP-Protocol-Version": "not-a-real-version"},
+        allowed_origins=ALLOWED_ORIGINS,
+    )
+    assert reason != missing_header_reason
+    assert "invalid" not in reason.lower()
 
 
 # --- Real-SDK-client integration proof ---------------------------------------------------

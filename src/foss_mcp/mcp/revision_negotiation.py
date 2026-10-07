@@ -15,6 +15,19 @@ request, not a permissive default case, so this module raises ``MissingProtocolV
 instead of silently substituting a default. An unparseable (not ``YYYY-MM-DD``) revision string
 is treated the same way, for the same reason: it is not a value this server can reason about
 at all, so it is rejected rather than smoothed over.
+
+WHERE THIS RESULT IS ACTUALLY CONSULTED. ``negotiate_revision``'s result is read in exactly one
+place: ``foss_mcp.mcp.transport_security.reject_request``, at the transport boundary, to decide
+accept/reject on the ``MCP-Protocol-Version`` HEADER. That call site treats this module's
+fallback as a reject signal, not a serve signal - an exact match (``fallback_applied`` is
+``False``) passes the request through, and ANY fallback (``fallback_applied`` is ``True``,
+whether ``BELOW_MIN_SUPPORTED`` or ``UNKNOWN_REVISION``) is rejected outright. This is a
+deliberately stricter, allow-list policy over this project's own three declared
+``SUPPORTED_PROTOCOL_REVISIONS`` - it is not, and does not attempt to be, a replica of the
+installed MCP SDK's own broader internal negotiation, which lives on a private class inside
+``mcp.server.runner`` that this project cannot see or override. In particular, the NEAREST or
+MINIMUM revision this function computes as a fallback is never served back to a client as a
+negotiated revision; it exists only so the caller can detect that a fallback occurred.
 """
 
 from __future__ import annotations
