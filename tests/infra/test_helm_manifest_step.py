@@ -180,6 +180,21 @@ def test_the_rendered_3d_net_fetch_step_passes_its_manifest_path_literally() -> 
     assert _flag_after(fetch, 0, "--manifest-path") == "src/main/Aspose.ThreeD/Aspose.ThreeD.csproj"
 
 
+def test_the_rendered_3d_python_fetch_step_passes_its_manifest_path_literally() -> None:
+    # The expected value is a literal, not read from values.yaml. Editing manifestPath in values.yaml
+    # changes the rendered command and the value together, so the per-pilot equality above cannot
+    # catch it; this literal does. Found via a live GitHub contents read of aspose-3d-foss/Aspose.3D-
+    # FOSS-for-Python on 2026-10-07: the repo root holds setup.py, MANIFEST.in, and an aspose/ package
+    # directory, with no pyproject.toml anywhere - unlike most other python pilots, so this is
+    # deliberately not assumed from another python pilot's manifestPath.
+    pilot = next(
+        p for p in _values()["ingestion"]["pilots"] if p["family"] == "3d" and p["platform"] == "python"
+    )
+    docs = _render()
+    fetch = _fetch_tokens(_job_tokens(_job(docs, pilot)))
+    assert _flag_after(fetch, 0, "--manifest-path") == "setup.py"
+
+
 def test_a_pilot_without_a_manifest_path_gets_no_fetch_step(tmp_path: Path) -> None:
     pilots = copy.deepcopy(_values()["ingestion"]["pilots"])
     for pilot in pilots:
