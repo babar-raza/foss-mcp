@@ -1,0 +1,54 @@
+id: TC-247
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix a real regression on main, found by directly re-running tests/infra/test_build_chunks.py after TC-238
+  landed (not caught by TC-238''s own review: gatectl''s coverage gate excludes this whole file from the "related
+  offline tests" it runs for a card touching chunk_builder.py/build_chunks.py, because the FILE''s own text contains
+  a network-hint string - for OTHER, genuinely network-needing tests in the same file - even though the one broken
+  test is explicitly documented, in its own docstring, as "Real, offline (no network/dotnet needed)". This is a
+  real file-level-vs-test-level granularity gap in the coverage gate, worth recording in docs/DECISION_LOG.md, but
+  fixing gatectl itself is out of this card''s scope - this card fixes only the real, concrete test failure on main
+  today: test_api_surface_only_path_is_byte_identical_to_before_the_furnished_flags hardcodes
+  build_chunks_from_api_surface(..., max_types=20) when computing its own "expected" value, while the actual CLI
+  invocation it compares against no longer passes --max-types at all and now uses the new default of 300 (TC-238),
+  so the test has compared 20 expected chunks against 300 real ones ever since TC-238 integrated.'
+depends_on:
+- TC-238
+write_paths:
+- tests/infra/test_build_chunks.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'In tests/infra/test_build_chunks.py''s test_api_surface_only_path_is_byte_identical_to_before_the_furnished_flags,
+  change the one literal max_types=20 in its call to build_chunks_from_api_surface(...) to max_types=300 - matching
+  the real, current default this test''s own comparison must track. Change nothing else in this test or any other
+  test in the file. Run the full file (not just this one test) afterward to confirm nothing else in it depends on
+  the old 20-type assumption.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the failing test and confirm the real cause (a stale max_types=20 literal) by running it first.
+- Change the one literal to 300.
+- Run the full file and report exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_build_chunks.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 1
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/infra/test_build_chunks.py');s=p.read_text(encoding='utf-8');old='max_types=300';new='max_types=20';i=s.index(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: 'Restores the stale pre-fix literal (the first occurrence of max_types=300, which this card''s fix introduces), so the byte-identical comparison must fail again exactly as it does on main today. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-247/receipt.json
+closeout:
+- tests/infra/test_build_chunks.py is green again, tracking the real 300-type default TC-238 established.
+recovery: Re-run from a clean tree.
