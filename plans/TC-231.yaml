@@ -1,0 +1,74 @@
+id: TC-231
+gate: G2
+lane: transport-deployment
+purpose: 'Wire the eight self-extracted fixtures that already exist but were never deployed as pilots: email/python, email/cpp,
+  email/net, barcode/python, note/python, html/python, page/python, imaging/net. An earlier card already ran real extraction for
+  each (config/products/<family>/<platform>.yaml and tests/fixtures/<family>_<platform>/api_surface.json both exist and are
+  committed); this card only adds the chart, compose and deploy-tooling configuration, exactly the pattern TC-227 proved for the
+  previous six, growing the POC from twenty pilots to twenty-eight. No extraction and no new network access are needed for the
+  work this card does; only each repository''s packaging-manifest path needs a quick, read-only survey.'
+depends_on:
+- TC-230
+- TC-227
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- docker-compose.yml
+- Dockerfile.ingestion
+- tests/infra/test_helm_pilots_match_compose.py
+- tests/infra/test_helm_chart.py
+- tests/infra/test_docker_compose_multi_instance.py
+- tests/infra/test_ingestion_image_fixtures.py
+- tests/infra/test_helm_manifest_step.py
+- scripts/deploy/pilots.py
+- tests/deploy/test_pilots.py
+- tests/deploy/test_install_pilots.py
+- tests/deploy/test_prove_pilots.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/helm/foss-mcp/values.yaml under ingestion.pilots in full (twenty entries today), the eight config/products/*.yaml
+  manifests for these combos, and each of the eight fixtures'' source_repository and source_commit. Copy repository and commit
+  verbatim from the fixture; never invent one.'
+- 'For each repository''s packaging-manifest path, do a quick, read-only check with no GitHub API call: a shallow git clone
+  (git clone --depth 1 <url> <tmp dir>, matching run_extraction.py''s own clone_shallow) into a throwaway directory, then look at
+  its root and, for the two .NET ones (email/net, imaging/net), its src/ directory - the same place cells/net, slides/net and
+  words/net''s own project files turned out to live. Delete the throwaway clone when done. For the six self-extracted pilots that
+  are Python, the manifest path is pyproject.toml, matching every Python pilot added so far, unless the actual clone shows
+  otherwise. For email/cpp, check whether CMakeLists.txt sits at the repository root, matching pdf/cpp and slides/cpp.'
+- 'Add eight pilot entries to ingestion.pilots in values.yaml, each self_extracted, no furnishedPage, with the manifestPath found
+  above and a library block (repository, commit, platform). Platforms: email/python python, email/cpp cpp, email/net dotnet,
+  barcode/python python, note/python python, html/python python, page/python python, imaging/net dotnet.'
+- 'Add one ingest service and one serving service per new pilot to docker-compose.yml, and one COPY line per new pilot to
+  Dockerfile.ingestion, matching the exact pattern TC-209 and TC-227 used for every other self-extracted pilot.'
+- 'Restate every fixed pilot count from twenty to twenty-eight across the nine test files in write_paths, keeping each test''s name
+  and what it checks, and renaming any test or constant whose own name says "twenty" (for example a PINNED_RELEASES list and any
+  test named for the exact count) to say "twenty-eight". Record every restatement in the commit body. Do not weaken any assertion.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the values file, the eight manifests and fixtures, and all nine test files.
+- Shallow-clone each of the two .NET repos and the C++ repo to confirm its real manifest path; discard the clones.
+- Add the eight pilot entries, compose services, Dockerfile lines, and restate every fixed count.
+- Run the chart, compose, manifest and deploy tests, and helm lint and template, and report exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_chart.py tests/infra/test_docker_compose_multi_instance.py tests/infra/test_ingestion_image_fixtures.py tests/infra/test_helm_manifest_step.py tests/infra/test_container_pins.py tests/deploy -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 145
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/values.yaml');s=p.read_text(encoding='utf-8');p.write_text(s.replace('manifestPath: pyproject.toml','manifestPath: pyproject_off.toml',1),encoding='utf-8')"
+  rationale: 'Renames the first pyproject.toml manifest path among this card''s new pilots, so the rendered-path test for that pilot must fail. Several existing pilots already use this exact value, so the replace is limited to the first match; the failing assertion names whichever pilot that is. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-231/receipt.json
+closeout:
+- The chart and compose carry twenty-eight pilots, each matching its already-extracted fixture.
+recovery: Re-run from a clean tree.
