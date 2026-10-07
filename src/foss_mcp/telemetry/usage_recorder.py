@@ -79,7 +79,7 @@ def classify_query_shape(query: str | None) -> QueryShapeCategory:
     Four buckets, never more: an empty caller query, a dotted-or-capitalized exact-FQN-shaped
     query, a multi-word phrase, or a single bare keyword.
     """
-    if query is None or not query.strip():
+    if not isinstance(query, str) or not query.strip():
         return "empty"
     stripped = query.strip()
     if " " in stripped:

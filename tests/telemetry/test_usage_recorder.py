@@ -64,6 +64,14 @@ def test_classify_query_shape_never_returns_the_raw_text() -> None:
         assert category != query
 
 
+def test_classify_query_shape_is_defensive_against_a_non_string_input() -> None:
+    """G2/TC-239: a raw, unvalidated client argument (e.g. {"query": 12345}) must never crash
+    telemetry - classify_query_shape must treat any non-str value the same as None, never
+    assume str | None and call .strip() unconditionally."""
+    assert classify_query_shape(12345) == classify_query_shape(None)
+    assert classify_query_shape(["a", "b"]) == classify_query_shape(None)
+
+
 def test_a_dropped_event_increments_the_drop_counter_and_the_queue_never_exceeds_capacity() -> None:
     recorder = UsageRecorder(max_queued=3)
     accepted = [recorder.record(_event(tool_name=f"tool-{i}")) for i in range(5)]

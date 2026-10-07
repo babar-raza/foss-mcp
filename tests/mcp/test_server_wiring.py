@@ -569,6 +569,46 @@ def test_a_normal_tool_domain_miss_still_reports_cleanly_without_an_error_code(
         assert "code" not in body["result"]["structuredContent"]
 
 
+def test_a_non_string_query_argument_never_crashes_past_sanitization(tmp_path: Path) -> None:
+    """G2/TC-239, defect 1: a non-string query argument (live-reproduced:
+    {"query": 12345}) previously crashed with a raw, unsanitized AttributeError
+    ("'int' object has no attribute 'strip'") that bypassed the entire error-sanitization
+    design - no correlation_id, no ToolErrorCode, nothing sanitized. pydantic correctly
+    rejects the malformed argument (a ValidationError, INVALID_ARGUMENT), and that rejection
+    must now survive telemetry recording the raw, unvalidated argument for
+    query_shape_category."""
+    with _client(tmp_path) as client:
+        session = _McpSession(client)
+        response = session.request(
+            "tools/call", {"name": "search_symbols", "arguments": {"query": 12345}}
+        )
+        assert response.status_code == 200
+        body = _sse_json(response.text)
+        assert "result" in body, body  # never a bare JSON-RPC protocol error (code 0)
+        assert body["result"]["isError"] is True
+        assert body["result"]["structuredContent"]["code"] == "invalid_argument"
+        assert body["result"]["structuredContent"]["correlation_id"]
+
+
+def test_search_docs_invalid_content_type_carries_invalid_argument_not_internal(
+    tmp_path: Path,
+) -> None:
+    """G2/TC-239, defect 2: search_docs raises a plain ValueError (not a pydantic
+    ValidationError) when content_type is not one of the four real categories -
+    live-confirmed misclassified as INTERNAL. A plain ValueError raised by a tool handler is,
+    by this codebase's own convention, always a caller-correctable bad-argument error."""
+    with _client(tmp_path) as client:
+        session = _McpSession(client)
+        response = session.request(
+            "tools/call",
+            {"name": "search_docs", "arguments": {"query": "install", "content_type": "nonsense"}},
+        )
+        assert response.status_code == 200
+        body = _sse_json(response.text)
+        assert body["result"]["isError"] is True
+        assert body["result"]["structuredContent"]["code"] == "invalid_argument"
+
+
 # ---------------------------------------------------------------------
 # Tool-call logging and correlation ids (G2/TC-132): every tool call emits exactly one
 # structured log record (tool name, correlation id, outcome, latency), and any error result's

@@ -645,6 +645,28 @@ def _build_usage_event(
     )
 
 
+def _record_usage_safely(usage_recorder: UsageRecorder, *, tool_name: str, **event_kwargs: Any) -> None:
+    """Build and record one usage event, the same way at all four ``_call_tool`` exit paths -
+    never letting a secondary failure in building or recording it prevent the already-prepared,
+    correctly-sanitized ``CallToolResult`` from being returned.
+
+    This closes a real, live-reproduced gap: ``_build_usage_event`` reads the RAW, unvalidated
+    client argument for telemetry (``arguments.get("query")``), so a non-string argument that
+    pydantic correctly rejected could still crash telemetry itself - escaping past every one of
+    ``_call_tool``'s own sanitized branches as a bare, unsanitized exception. The real, durable
+    fix is ``classify_query_shape`` no longer assuming its input is ``str | None`` at all; this
+    is deliberately broad defense in depth on top of that fix, not a substitute for it -
+    telemetry must never be able to turn a clean response into an unsanitized crash, for any
+    reason, today's trigger or a future one.
+    """
+    try:
+        usage_recorder.record(_build_usage_event(tool_name=tool_name, **event_kwargs))
+    except Exception as telemetry_exc:  # noqa: BLE001 - deliberately broad: see docstring above.
+        logger.warning(
+            "failed to record usage telemetry for tool '%s': %s", tool_name, telemetry_exc
+        )
+
+
 def _build_tool_registry(
     store: GenerationManifestStore,
     scope: Scope,
@@ -722,16 +744,15 @@ def create_server(
                 outcome="error",
                 latency_ms=latency_ms,
             )
-            usage_recorder.record(
-                _build_usage_event(
-                    correlation_id=correlation_id,
-                    deployment_id=deployment_id,
-                    tool_name=params.name,
-                    outcome="error",
-                    latency_ms=latency_ms,
-                    result=None,
-                    arguments=params.arguments or {},
-                )
+            _record_usage_safely(
+                usage_recorder,
+                correlation_id=correlation_id,
+                deployment_id=deployment_id,
+                tool_name=params.name,
+                outcome="error",
+                latency_ms=latency_ms,
+                result=None,
+                arguments=params.arguments or {},
             )
             return CallToolResult(
                 content=[TextContent(type="text", text=f"unknown tool: {params.name}")],
@@ -763,16 +784,49 @@ def create_server(
                 outcome="error",
                 latency_ms=latency_ms,
             )
-            usage_recorder.record(
-                _build_usage_event(
-                    correlation_id=correlation_id,
-                    deployment_id=deployment_id,
-                    tool_name=params.name,
-                    outcome="error",
-                    latency_ms=latency_ms,
-                    result=None,
-                    arguments=params.arguments or {},
-                )
+            _record_usage_safely(
+                usage_recorder,
+                correlation_id=correlation_id,
+                deployment_id=deployment_id,
+                tool_name=params.name,
+                outcome="error",
+                latency_ms=latency_ms,
+                result=None,
+                arguments=params.arguments or {},
+            )
+            return CallToolResult(
+                content=[TextContent(type="text", text=text)],
+                structured_content={
+                    "code": ToolErrorCode.INVALID_ARGUMENT.value,
+                    "message": text,
+                    "correlation_id": correlation_id,
+                },
+                is_error=True,
+            )
+        except ValueError as exc:
+            # A plain ValueError raised by a tool handler (e.g. search_docs's own content_type
+            # check) is, by this codebase's convention, always a caller-correctable bad-argument
+            # error, never a server fault - live-confirmed misclassified as INTERNAL before this
+            # fix. Built the same shape as the ValidationError branch above, reusing the
+            # existing sanitizer rather than inventing a new one.
+            text = public_error_message(exc, fallback=_GENERIC_ERROR_FALLBACK, correlation_id=correlation_id)
+            latency_ms = (time.monotonic() - started_at) * 1000
+            _log_tool_call(
+                logger,
+                tool_name=params.name,
+                correlation_id=correlation_id,
+                outcome="error",
+                latency_ms=latency_ms,
+            )
+            _record_usage_safely(
+                usage_recorder,
+                correlation_id=correlation_id,
+                deployment_id=deployment_id,
+                tool_name=params.name,
+                outcome="error",
+                latency_ms=latency_ms,
+                result=None,
+                arguments=params.arguments or {},
             )
             return CallToolResult(
                 content=[TextContent(type="text", text=text)],
@@ -804,16 +858,15 @@ def create_server(
                 outcome="error",
                 latency_ms=latency_ms,
             )
-            usage_recorder.record(
-                _build_usage_event(
-                    correlation_id=correlation_id,
-                    deployment_id=deployment_id,
-                    tool_name=params.name,
-                    outcome="error",
-                    latency_ms=latency_ms,
-                    result=None,
-                    arguments=params.arguments or {},
-                )
+            _record_usage_safely(
+                usage_recorder,
+                correlation_id=correlation_id,
+                deployment_id=deployment_id,
+                tool_name=params.name,
+                outcome="error",
+                latency_ms=latency_ms,
+                result=None,
+                arguments=params.arguments or {},
             )
             return CallToolResult(
                 content=[TextContent(type="text", text=text)],
@@ -832,16 +885,15 @@ def create_server(
             outcome="success",
             latency_ms=success_latency_ms,
         )
-        usage_recorder.record(
-            _build_usage_event(
-                correlation_id=correlation_id,
-                deployment_id=deployment_id,
-                tool_name=params.name,
-                outcome="success",
-                latency_ms=success_latency_ms,
-                result=result,
-                arguments=validated_arguments.model_dump(),
-            )
+        _record_usage_safely(
+            usage_recorder,
+            correlation_id=correlation_id,
+            deployment_id=deployment_id,
+            tool_name=params.name,
+            outcome="success",
+            latency_ms=success_latency_ms,
+            result=result,
+            arguments=validated_arguments.model_dump(),
         )
         return CallToolResult(
             content=[TextContent(type="text", text=render_result_text(result))],
