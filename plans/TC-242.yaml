@@ -17,11 +17,14 @@ depends_on:
 - TC-144
 - TC-129
 - TC-134
+- TC-141
+- TC-142
 write_paths:
 - src/foss_mcp/indexing/generation_manifest.py
 - infra/ingest.py
 - tests/indexing/test_generation_manifest.py
 - tests/infra/test_ingest.py
+- tests/infra/test_serve_http.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -63,11 +66,27 @@ inputs:
   card. Update tests/infra/test_ingest.py only if removing _assert_publish_is_safe''s own direct-unit tests (if any
   exist there) requires moving them to test_generation_manifest.py instead - do not leave duplicate or now-pointless
   tests behind, and do not reduce total coverage of this guard''s behavior.'
+- 'Contract restatement, by the supervisor after attempt 1''s review. Attempt 1''s own four-file change was correct
+  and is kept; the coverage gate (offline tests of files this card touches) found a real, pre-existing test this
+  restatement must fix: tests/infra/test_serve_http.py::test_readyz_returns_503_for_a_generation_with_no_queryable_content
+  deliberately publishes a real, ACTIVE generation with zero chunks, to prove round_trip_check/readyz correctly
+  report 503 for an active-but-contentless generation (a state the OLD, pre-publish-guard code could reach by going
+  through publish_generation with an empty chunk list). Your new guard now correctly refuses that exact publish, so
+  this one test can no longer reach the state it needs through the normal path - it is testing a genuinely different
+  layer (readyz''s own behavior) than this card''s guard, and that edge case (an active generation that happens to
+  carry no documents - legacy data, or a future schema change) must still be handled gracefully by readyz regardless
+  of whether today''s publish() prevents NEW instances of it. Fix ONLY this one test: change it to construct the
+  empty-active-generation state directly via the store''s own lower-level primitives (store.write_and_validate +
+  store.cas_activate - the exact two calls publish() itself wraps, read publish()''s own body for the precise
+  call shape) instead of going through publish_generation/publish, deliberately bypassing the new guard for this one
+  white-box test''s own narrow, legitimate purpose. Do not change the test''s assertions or its docstring''s claim
+  (still 503), and do not change any other test in this file.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
 - Read publish(), _assert_publish_is_safe, write_and_validate, and both existing test files in full.
 - Move the guard into generation_manifest.py's publish(); delete the duplicate from infra/ingest.py.
 - Add/move the direct-publish() regression tests.
+- Fix the one coverage-gate test to construct its edge case via lower-level store primitives.
 - Run the card check and report exact counts.
 checks:
 - command: '{python} -m pytest tests/indexing/test_generation_manifest.py tests/infra/test_ingest.py -q -rfE'
