@@ -1,0 +1,103 @@
+id: TC-244
+gate: G2
+lane: extraction
+purpose: 'Fix a real defect found by an independent product-readiness audit (2026-10-07, see docs/DECISION_LOG.md''s
+  entry of the same date): list_recent_changes is wired, tested, and never actually delivering in production -
+  src/foss_mcp/mcp/server.py''s create_server accepts a recent_releases parameter, but infra/serve_http.py''s real
+  call site never passes it, so every live deployment answers list_recent_changes with [] regardless of real tagged
+  upstream releases. src/foss_mcp/extraction/github_release_reader.py''s fetch_releases (real, already used by other
+  cards'' offline tests) has simply never had a production caller that writes its result somewhere serving can read
+  it back from - the same "wired but not called" shape as the product-reference sidecar TC-201 already fixed for
+  get_product_reference. This card adds the identical kind of sidecar for releases: a new ingestion step writes a
+  recent_releases_<family>_<platform>.json sidecar next to the existing product_reference one, and serving reads it
+  back at startup.'
+depends_on:
+- TC-240
+- TC-243
+write_paths:
+- infra/fetch_recent_releases.py
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
+- infra/serve_http.py
+- tests/infra/test_fetch_recent_releases.py
+- tests/infra/test_helm_manifest_step.py
+- tests/infra/test_serve_manifest_sidecar.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/fetch_product_reference.py in full as the exact pattern to mirror (CLI shape, sidecar_name-style naming,
+  serialize/deserialize, the skip-on-unchanged-pin check TC-243 just added - port that same skip behavior here too,
+  keyed the same way), src/foss_mcp/extraction/github_release_reader.py''s Release dataclass and fetch_releases in
+  full, and infra/serve_http.py''s _serving_product_reference_inputs/build_app in full as the exact serving-side
+  pattern to mirror.'
+- 'Create infra/fetch_recent_releases.py, a new plain CLI (argparse, matching fetch_product_reference.py''s
+  conventions exactly): --repository (required), --output (required, Path), --limit (default 10, matching
+  list_recent_changes'' own default). Add recent_releases_sidecar_name(family, platform) ->
+  "recent_releases_<family>_<platform>.json" (same lowercase-identity-part validation as fetch_product_reference.py''s
+  sidecar_name - consider moving that validation into a small shared helper both modules import if that is cheap and
+  does not require touching any file outside this card''s write_paths; otherwise duplicate the identical check, do
+  not weaken it). main() calls fetch_releases(args.repository)[:args.limit], serializes each Release
+  (tag_name/body/richness) to a JSON list, and writes it to --output. Before fetching, apply the SAME
+  skip-if-unchanged idea TC-243 just added to fetch_product_reference.py: this is harder here since there is no
+  single pinned "ref" for a whole release list the way there is for a manifest file - instead, skip only when
+  --output already exists, is well-formed, and is less than 24 hours old (read its own mtime) - releases genuinely
+  can change over time (a new tag ships), so this is a time-based cache, not a permanent skip. Use a module-level
+  constant for the 24-hour threshold, named clearly.'
+- 'Add load_recent_releases_sidecar(path) -> tuple[Release, ...] | None to infra/fetch_recent_releases.py - the
+  inverse, returning None when the file is absent (mirroring load_manifest_sidecar''s own documented contract), and
+  raising on a present-but-malformed file (serving should fail loudly at start, never answer from a half-read file -
+  same contract load_manifest_sidecar already documents).'
+- 'In infra/helm/foss-mcp/templates/ingestion-job.yaml, add a new step to EVERY pilot''s Job (not conditional on
+  manifestPath - every self_extracted pilot already has a library.repository field, confirm this by reading the
+  values.yaml pilot list, and use that): after the existing chain (which already ends either at ingest.py or, for a
+  pilot with manifestPath, at the brace-grouped fetch_product_reference.py step TC-240 added), append
+  "&& { python /app/infra/fetch_recent_releases.py --repository <lib.repository> --output
+  <manifests.mountPath>/recent_releases_<family>_<platform>.json || true; }" - the identical brace-grouping/"|| true"
+  shape TC-240 established, for the identical reason: a transient failure here must never fail the whole ingestion
+  Job. Add the one new test this needs to tests/infra/test_helm_manifest_step.py, mirroring
+  test_the_fetch_step_failure_is_swallowed_but_still_logged''s own shape, confirming every pilot (not only ones with a
+  manifestPath) gets this step and that it is brace-grouped with "|| true" the same way.'
+- 'In infra/serve_http.py, add _serving_recent_releases(manifests_dir, deployment_config) -> Sequence[Release],
+  mirroring _serving_product_reference_inputs'' exact shape: load the sidecar for this deployment''s own family/
+  platform, return an empty tuple when it is absent (never raise for a merely-missing sidecar - an ingestion Job that
+  has not run yet, or whose releases step failed, must not block serving starting). Call it from build_app and pass
+  the result to create_server''s recent_releases argument - the one line that was missing. Add the matching test to
+  tests/infra/test_serve_manifest_sidecar.py (read that file first to match its existing test shape for the
+  product-reference sidecar exactly).'
+- 'tests/infra/test_fetch_recent_releases.py must be fully offline: mock fetch_releases itself (not the raw HTTP
+  layer) so no test in this new file ever reaches the real network, matching this card''s network: false. Add tests
+  for: a fresh --output writes the real-shaped JSON list; a second run within the 24-hour window with the same
+  --output skips the fetch entirely (mocked fetch_releases asserted never called); a second run against an --output
+  older than the threshold (write the file, then back-date its mtime) does fetch again; a malformed existing
+  --output is treated as absent and fetches live without raising; load_recent_releases_sidecar round-trips what
+  main() wrote.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read fetch_product_reference.py, github_release_reader.py, and serve_http.py in full.
+- Create infra/fetch_recent_releases.py with its CLI, sidecar writer, and loader.
+- Add the new ingestion-job.yaml step for every pilot.
+- Wire _serving_recent_releases into serve_http.py's build_app.
+- Add the four new/updated tests and run the card check.
+checks:
+- command: '{python} -m pytest tests/infra/test_fetch_recent_releases.py tests/infra/test_helm_manifest_step.py tests/infra/test_serve_manifest_sidecar.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 5
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/serve_http.py');s=p.read_text(encoding='utf-8');marker='def _serving_recent_releases(';i=s.index(marker);j=s.index(chr(10),i)+1;s=s[:j]+'    return ()'+chr(10)+s[j:];p.write_text(s,encoding='utf-8')"
+  rationale: 'Inserts a bogus "return ()" as the very first line of _serving_recent_releases'' body, regardless of how the rest of the function or its call site is written, so it always returns empty - the new serve_http test (which must assert a non-empty, real sidecar''s releases actually reach create_server) must fail. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-244/receipt.json
+closeout:
+- list_recent_changes answers with real, tagged upstream releases in production, not an empty list, for every pilot
+  whose ingestion has run at least once.
+recovery: Re-run from a clean tree.
