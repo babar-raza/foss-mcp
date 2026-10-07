@@ -116,11 +116,11 @@ def test_dry_run_prints_the_helm_command_for_one_pilot_and_runs_nothing(tmp_path
     assert not values_dir.exists()
 
 
-def test_dry_run_covers_all_fourteen_pilots_and_never_builds_an_uninstall(tmp_path, capsys, no_subprocess):
+def test_dry_run_covers_all_twenty_pilots_and_never_builds_an_uninstall(tmp_path, capsys, no_subprocess):
     rc = install.main(["--namespace", "ns", "--image-tag", "t", "--dry-run", "--values-dir", str(tmp_path)])
     lines = capsys.readouterr().out.strip().splitlines()
     assert rc == 0
-    assert len(lines) == 14
+    assert len(lines) == 20
     for line in lines:
         tokens = line.split()
         assert tokens[:3] == ["helm", "upgrade", "--install"]
@@ -132,13 +132,13 @@ def test_install_runs_one_helm_upgrade_per_pilot_and_writes_results(tmp_path, mo
     fake = _fake(monkeypatch)
     rc = install.main(["--namespace", "ns", "--image-tag", "t", "--values-dir", str(tmp_path)])
     assert rc == 0
-    assert len(fake.helm_calls()) == 14
+    assert len(fake.helm_calls()) == 20
     assert all(c[:3] == ["helm", "upgrade", "--install"] for c in fake.helm_calls())
     results = json.loads((tmp_path / install.RESULTS_FILE).read_text(encoding="utf-8"))
-    assert len(results) == 14
+    assert len(results) == 20
     assert all(r["rc"] == 0 for r in results)
-    assert len({r["release"] for r in results}) == 14
-    assert "14 of 14 installed" in capsys.readouterr().out
+    assert len({r["release"] for r in results}) == 20
+    assert "20 of 20 installed" in capsys.readouterr().out
 
 
 def test_install_writes_one_values_file_per_selected_pilot(tmp_path, monkeypatch):
