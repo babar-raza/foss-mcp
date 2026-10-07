@@ -1,0 +1,80 @@
+id: TC-238
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix a fleet-wide, ship-blocking defect found by an independent product-readiness audit (2026-10-07, see
+  docs/DECISION_LOG.md''s entry of the same date): every one of the 40 pilots'' live, queryable symbol index is capped at
+  the first 20 types of its fixture, and extraction emits types ALPHABETICALLY - so every pilot''s index silently excludes
+  almost its entire real API surface, including whichever entry-point class happens to fall after roughly the letter "C"
+  (confirmed live: search_symbols("Document") on pdf/net is an honest miss - "Document" sits at index 246 of a 300-type
+  fixture). Root cause: src/foss_mcp/indexing/chunk_builder.py''s build_chunks_from_api_surface does a bare
+  fixture["types"][:max_types] with no prioritization, and infra/helm/foss-mcp/values.yaml hardcodes maxTypes: 20 for
+  every single pilot - a value never discussed or decided anywhere in this project''s history. This card raises it to
+  300, matching run_extraction.py''s own --max-types default (the size every fixture was already reduced to at
+  extraction time), so the live index stops double-truncating what was already captured.'
+depends_on:
+- TC-237
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- tests/infra/test_helm_chart.py
+- src/foss_mcp/indexing/chunk_builder.py
+- infra/build_chunks.py
+- tests/indexing/test_chunk_builder.py
+- scripts/poc/pilot_workflow_proof.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read src/foss_mcp/indexing/chunk_builder.py''s build_chunks_from_api_surface in full (the max_types parameter, its
+  default value, and the fixture["types"][:max_types] slice). Change ONLY the default parameter value from 20 to 300.
+  Do not change the slicing logic itself, the function''s behavior otherwise, or add any prioritization/sorting - this
+  card fixes the CAP, not the selection strategy (a smarter selection is a separate, future question, not this card''s
+  scope). For consistency, also change infra/build_chunks.py''s own --max-types argparse default from 20 to 300 (it is
+  always overridden by the chart''s explicit --max-types flag in production, but a stale, inconsistent default would
+  mislead the next reader).'
+- 'In infra/helm/foss-mcp/values.yaml, change every one of the 40 pilots'' maxTypes: 20 to maxTypes: 300 - a plain
+  find-and-replace across the whole ingestion.pilots list, since every single entry currently uses the identical value.
+  Do not change manifestPath, library, or any other field on any pilot entry.'
+- 'In tests/infra/test_helm_chart.py, restate every assertion that currently expects "maxTypes": 20 (four occurrences,
+  at approximately lines 35, 51, 67, 76) to expect 300 instead. Do not change what each test otherwise checks.'
+- 'In scripts/poc/pilot_workflow_proof.py, change INDEXED_TYPE_LIMIT from 20 to 300 (module-level constant, used by
+  choose_probe and other_pilot_symbol) so the live proof suite''s own probe-selection window matches the real, fixed
+  production cap - this closes the exact blind spot that let the original defect go undetected: the proof suite''s
+  probe was drawn from the same first-20 window the bug restricted the live index to, so it could only ever test
+  content the bug already let through. Update the two comments above INDEXED_TYPE_LIMIT and the ValueError message in
+  choose_probe that currently say "20" to say "300" instead. Do not change any other constant or logic in this file.'
+- 'Add one new offline test to tests/indexing/test_chunk_builder.py: build a small synthetic fixture (a plain dict, no
+  file I/O) with at least 25 types, named so that at least one type''s name sorts alphabetically AFTER position 20 in
+  the list (for example, by naming entries "Type00".."Type24" or similar, with a distinctively-named type such as
+  "ZLastType" appended after them) - call build_chunks_from_api_surface with no explicit max_types (so it exercises the
+  new 300 default) and assert the resulting chunks include one built from that late-position type. This is the
+  regression pin for the exact defect this card fixes: a real entry-point-shaped class that happens to sort late must
+  not be silently dropped by the default cap.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read chunk_builder.py, values.yaml, test_helm_chart.py, and pilot_workflow_proof.py.
+- Change the one default/cap value in each of the four files as described.
+- Add the one new regression test.
+- Run the card check and report exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_chart.py tests/indexing/test_chunk_builder.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 1
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/chunk_builder.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('max_types: int = 300','max_types: int = 20',1),encoding='utf-8')"
+  rationale: 'Puts the old 20-type cap back on build_chunks_from_api_surface''s default, so the new regression test (which needs more than 20 types indexed to find its late-position type) must fail. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-238/receipt.json
+closeout:
+- Every pilot's live symbol index reflects up to 300 types (matching what extraction already captured), not 20 -
+  an entry-point class that sorts late alphabetically is no longer silently unreachable.
+recovery: Re-run from a clean tree.

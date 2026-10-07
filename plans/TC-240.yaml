@@ -1,0 +1,82 @@
+id: TC-240
+gate: G2
+lane: transport-deployment
+purpose: 'Fix a ship-blocking Job-status/content-correctness inversion found by an independent product-readiness audit
+  (2026-10-07, see docs/DECISION_LOG.md''s entry of the same date). infra/helm/foss-mcp/templates/ingestion-job.yaml
+  chains three steps with real shell "&&" in one container command: build_chunks.py, then ingest.py (the real content
+  publish - this is the step that matters), then, only for a pilot with a manifestPath, fetch_product_reference.py (a
+  supplementary packaging-manifest sidecar fetch that only supports the get_product_reference tool). Because "&&"
+  propagates ANY step''s failure to the whole Job, a transient fetch_product_reference.py failure (confirmed live
+  today: a real GitHub rate-limit 403) marks the Job Failed even when ingest.py''s real content publish already
+  succeeded - live-verified: pdf-net and cells-cpp both published real content successfully today, while their Jobs
+  show Failed and their product_reference sidecar files are dated two real days stale with no self-healing path,
+  because the Job never retries a step that already partially succeeded; Kubernetes just marks the whole attempt
+  failed and, once backoffLimit is exhausted, stops trying at all. This card decouples the sidecar fetch''s exit status
+  from the Job''s own success signal, so a real content publish is never reported as a failed ingestion again.'
+depends_on:
+- TC-237
+write_paths:
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
+- tests/infra/test_helm_manifest_step.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/helm/foss-mcp/templates/ingestion-job.yaml in full, especially the args block (currently: build_chunks.py
+  && ingest.py {{- with $p.manifestPath }} && fetch_product_reference.py ... {{- end }}) and
+  tests/infra/test_helm_manifest_step.py in full, especially _job_tokens, _fetch_tokens, and every test that reads
+  FETCH_COMMAND''s position in the token list.'
+- 'Change ONLY the fetch_product_reference.py step (inside the existing {{- with $p.manifestPath }} block): wrap its
+  invocation in POSIX sh brace-grouping with a trailing "|| true", so its own failure can never fail the Job while
+  build_chunks.py and ingest.py failing still correctly fails it exactly as today. Concretely, change
+  "&& python /app/infra/fetch_product_reference.py <its existing flags>" to
+  "&& { python /app/infra/fetch_product_reference.py <its existing flags> || true; }" - note the required leading
+  space after "{" and the required "; " before the closing "}" (both mandatory POSIX sh brace-grouping syntax, not
+  stylistic). Do not wrap build_chunks.py or ingest.py - a real content-publish failure must still fail the Job exactly
+  as it does today. Do not add any new echo/log line: fetch_product_reference.py already prints a full traceback to
+  stderr on failure, which remains visible via kubectl logs exactly as before - "|| true" only changes the Job''s own
+  final exit code, never what gets logged.'
+- 'Confirm with a real "helm template" render (the existing tests already do this) that: (a) a pilot WITH a
+  manifestPath still runs all three steps in order, but the Job''s overall shell command now succeeds even when a
+  mocked/real fetch_product_reference.py invocation would fail; (b) a pilot WITHOUT a manifestPath is completely
+  unaffected (no brace-grouping appears at all, since the whole block is already conditional on manifestPath); (c)
+  every existing test in tests/infra/test_helm_manifest_step.py still passes unmodified - the literal-pin tests only
+  search forward from FETCH_COMMAND''s own position for "--manifest-path", which this change does not move or
+  remove, and the ordering/presence tests do not depend on the exact token immediately before FETCH_COMMAND.'
+- 'Add one new test to tests/infra/test_helm_manifest_step.py: test_the_fetch_step_failure_is_swallowed_but_still_logged.
+  Render the chart for a pilot with a manifestPath (any one works; pdf/net is used by other tests in this file as a
+  stable example), get that pilot''s Job args string, and assert BOTH: (1) the fetch_product_reference.py invocation
+  is followed by "||" and "true" tokens before the chain ends (shlex-split the args string and search forward from
+  FETCH_COMMAND''s index for these two tokens in order, not necessarily adjacent given intervening flag tokens -
+  "true" must be the LAST relevant token the fetch step chain ends on); (2) build_chunks.py and ingest.py are each
+  still immediately followed by a bare "&&" token (not wrapped in any "|| true" grouping) - a real content-publish
+  failure must still propagate. Do not weaken or remove any existing test in this file.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the template and the test file in full.
+- Wrap only the fetch_product_reference.py step in brace-grouping with "|| true".
+- Add the one new test; confirm every existing test in the file still passes unmodified.
+- Run the card check and report exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_manifest_step.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 180
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 15
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/ingestion-job.yaml');s=p.read_text(encoding='utf-8');old=chr(124)+chr(124)+' true; '+chr(125);new='; '+chr(125);s=s.replace(old,new,1);p.write_text(s,encoding='utf-8')"
+  rationale: 'Removes the "|| true" guard (keeping the brace-grouping and trailing semicolon intact, built with chr(124) for the literal pipe characters and chr(125) for the closing brace, since this card''s own falsifier rule forbids a backslash escape for them), so the new regression test''s search for "||" and "true" tokens after FETCH_COMMAND must fail. Built otherwise with plain text.'
+evidence:
+- evidence/build/G2/TC-240/receipt.json
+closeout:
+- A transient product-reference sidecar fetch failure never marks an ingestion Job Failed when the real content
+  publish already succeeded; a real content-publish failure still correctly fails the Job.
+recovery: Re-run from a clean tree.

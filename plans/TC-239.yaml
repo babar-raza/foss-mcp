@@ -1,0 +1,102 @@
+id: TC-239
+gate: G2
+lane: control-plane
+purpose: 'Fix two real, live-reproduced defects in src/foss_mcp/mcp/server.py''s _call_tool exception handling, both
+  found by an independent product-readiness audit (2026-10-07, see docs/DECISION_LOG.md''s entry of the same date).
+
+  Defect 1 (ship-blocking security/robustness gap): a non-string query argument (for example {"query": 12345} on
+  lookup or search_symbols) crashes with a raw, unsanitized Python exception that bypasses the server''s entire error
+  vocabulary and sanitizer. Live-reproduced on two tools: the JSON-RPC response is
+  {"error":{"code":0,"message":"''int'' object has no attribute ''strip''"}} - no correlation_id, no ToolErrorCode, no
+  public_error_message sanitization at all. Root cause: pydantic correctly rejects the malformed argument and
+  _call_tool''s except ValidationError branch runs - but that branch then calls usage_recorder.record(_build_usage_event(
+  ..., arguments=params.arguments or {})), and _build_usage_event reads the RAW, UNVALIDATED client argument
+  (arguments.get("query")) for telemetry. src/foss_mcp/telemetry/usage_recorder.py''s classify_query_shape assumes its
+  argument is always str | None and calls query.strip() unconditionally - which raises AttributeError on a non-string
+  query, with no surrounding try/except, escaping the except ValidationError block entirely and propagating past
+  _call_tool''s own sanitized CallToolResult construction to whatever the MCP SDK does with an unhandled exception
+  (a bare JSON-RPC protocol error, code 0, with the real exception text verbatim).
+
+  Defect 2 (misclassification): search_docs raises a plain ValueError (not a pydantic.ValidationError) when content_type
+  is not one of the four real categories - live-confirmed: content_type="nonsense" returns
+  structuredContent.code="internal", not "invalid_argument". _call_tool''s except clauses only map
+  pydantic.ValidationError to INVALID_ARGUMENT; everything else, including this entirely client-correctable input
+  error, falls through to the generic except Exception branch and reports INTERNAL - misleading a caller into thinking
+  this is a server-side fault rather than its own bad argument.'
+depends_on:
+- TC-131
+- TC-136
+- TC-142
+- TC-148
+write_paths:
+- src/foss_mcp/telemetry/usage_recorder.py
+- src/foss_mcp/mcp/server.py
+- tests/telemetry/test_usage_recorder.py
+- tests/mcp/test_server_wiring.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Fix 1, in src/foss_mcp/telemetry/usage_recorder.py: make classify_query_shape defensive against a non-string input
+  instead of assuming str | None. Change its guard line, currently exactly
+  "if query is None or not query.strip():", to exactly "if not isinstance(query, str) or not query.strip():" - this
+  single change covers None (not isinstance(None, str) is True), any other non-str value (same reason), and the
+  existing empty/whitespace-only string case (unchanged, short-circuits to the same .strip() check as before) with no
+  change to behavior for any real string input. Change nothing else in the function. This makes the function itself
+  safe to call with whatever a raw, unvalidated client argument happens to be - the real, durable fix, since
+  _build_usage_event''s own documented contract is to read raw arguments for telemetry and should not need to know in
+  advance which tools happen to have a string-typed query field.'
+- 'Fix 1, defense in depth, in src/foss_mcp/mcp/server.py: in _call_tool, wrap each of the three
+  usage_recorder.record(_build_usage_event(...)) calls (the NOT_FOUND branch, the except ValidationError branch, and
+  the except Exception branch) so that if building or recording the usage event itself ever raises for any reason,
+  that secondary failure is caught, logged server-side via the existing logger (a single logger.warning line naming
+  the tool and the secondary exception), and does NOT prevent the already-prepared, correctly-sanitized CallToolResult
+  from being returned. The success path''s own usage_recorder.record call should get the identical treatment for
+  consistency. Telemetry must never be able to turn a clean, sanitized error response into an unsanitized crash, for
+  any reason - that is the structural property this fixes, not just today''s one trigger.'
+- 'Fix 2, in src/foss_mcp/mcp/server.py: change _call_tool''s except clause ordering/handling so a plain ValueError
+  raised by a tool handler (for example search_docs''s content_type validation) is classified INVALID_ARGUMENT, not
+  INTERNAL - a ValueError is, by this codebase''s own convention (see e.g. search_docs.py''s own raise ValueError
+  docstring), always a caller-correctable bad-argument error, never a server fault. Add a new except ValueError clause
+  before the existing except Exception clause, built the same shape as the existing except ValidationError branch
+  (log the call, record usage, return a CallToolResult with code=ToolErrorCode.INVALID_ARGUMENT.value and a message
+  built from public_error_message(exc, fallback=_GENERIC_ERROR_FALLBACK, correlation_id=correlation_id) - reuse the
+  existing sanitizer, do not invent a new one). Do not change what exceptions any tool itself raises - this fixes only
+  how _call_tool classifies a ValueError once raised.'
+- 'Add regression tests to tests/telemetry/test_usage_recorder.py: classify_query_shape(12345) and
+  classify_query_shape(["a","b"]) each return the same category classify_query_shape(None) returns, without raising.'
+- 'Add regression tests to tests/mcp/test_server_wiring.py: (1) calling search_symbols (or lookup) through the real
+  _call_tool dispatch with arguments={"query": 12345} returns a CallToolResult with is_error=True and
+  structured_content["code"] in {"invalid_argument"} or at minimum does NOT raise and does NOT return a response
+  lacking a correlation_id - read the test file''s existing style for how it invokes _call_tool and match it exactly;
+  (2) calling search_docs through the same dispatch with content_type="nonsense" returns
+  structured_content["code"] == "invalid_argument", not "internal".'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read usage_recorder.py and server.py's _call_tool in full.
+- Fix classify_query_shape's type guard, wrap the three usage_recorder.record calls, and add the except ValueError branch.
+- Add the four regression tests described above.
+- Run the card check and report exact counts.
+checks:
+- command: '{python} -m pytest tests/telemetry/test_usage_recorder.py tests/mcp/test_server_wiring.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 180
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 1
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/telemetry/usage_recorder.py');s=p.read_text(encoding='utf-8');old='if not isinstance(query, str) or not query.strip():';new='if query is None or not query.strip():';i=s.index(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: 'Restores the exact pre-fix guard line (the literal this card''s own fix replaces, verbatim), so a non-None, non-str query again reaches the unconditional query.strip() call and the new non-string regression test must fail with the same AttributeError this card fixes. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-239/receipt.json
+closeout:
+- A non-string query argument on any tool never crashes past the server's sanitization layer, and an invalid
+  content_type on search_docs is reported as the caller's own bad argument, not a server fault.
+recovery: Re-run from a clean tree.
