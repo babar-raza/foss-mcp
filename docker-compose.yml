@@ -80,6 +80,15 @@ volumes:
   manifests-pdf-python:
   manifests-slides-cpp:
   manifests-slides-net:
+  # G2/TC-231: one manifests volume per pilot added in TC-231, same shape as the volumes above.
+  manifests-email-python:
+  manifests-email-cpp:
+  manifests-email-net:
+  manifests-barcode-python:
+  manifests-note-python:
+  manifests-html-python:
+  manifests-page-python:
+  manifests-imaging-net:
 
 services:
   # G2/TC-064: the real, live first publish for pdf/net - a one-shot init job, not a
@@ -957,5 +966,325 @@ services:
       - manifests-slides-net:/data/manifests
     environment:
       FOSS_MCP_FAMILY: slides
+      FOSS_MCP_PLATFORM: net
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-231: email/python, self-extracted, from tests/fixtures/email_python/api_surface.json.
+  # source_repository aspose-email-foss/Aspose.Email-FOSS-for-Python, source_commit
+  # 10a906b48c0c11005c4d93b524e4431901c9717c. No furnished page and no --library-* flag.
+  ingest-email-python:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-email-python:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/email_python/api_surface.json
+        --title "email/python API surface"
+        --max-types 20
+        --out /tmp/email_python_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family email
+        --platform python
+        --source-kind self_extracted
+        --chunks /tmp/email_python_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/email_python/api_surface.json
+        --held-by ingestion-email-python
+
+  serving-email-python:
+    <<: *serving-base
+    ports:
+      - "8100:8080"
+    volumes:
+      - manifests-email-python:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: email
+      FOSS_MCP_PLATFORM: python
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-231: email/cpp, self-extracted, from tests/fixtures/email_cpp/api_surface.json.
+  # source_repository aspose-email-foss/Aspose.Email-FOSS-for-Cpp, source_commit
+  # c844a467cf7f2503819b655f4d6ceaef91056c40. No furnished page and no --library-* flag.
+  ingest-email-cpp:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-email-cpp:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/email_cpp/api_surface.json
+        --title "email/cpp API surface"
+        --max-types 20
+        --out /tmp/email_cpp_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family email
+        --platform cpp
+        --source-kind self_extracted
+        --chunks /tmp/email_cpp_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/email_cpp/api_surface.json
+        --held-by ingestion-email-cpp
+
+  serving-email-cpp:
+    <<: *serving-base
+    ports:
+      - "8101:8080"
+    volumes:
+      - manifests-email-cpp:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: email
+      FOSS_MCP_PLATFORM: cpp
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-231: email/net, self-extracted, from tests/fixtures/email_net/api_surface.json.
+  # source_repository aspose-email-foss/Aspose.Email-FOSS-for-.Net, source_commit
+  # 59125b4732df0eedbc4d4c2ab978698ed4348eb7. No furnished page and no --library-* flag.
+  ingest-email-net:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-email-net:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/email_net/api_surface.json
+        --title "email/net API surface"
+        --max-types 20
+        --out /tmp/email_net_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family email
+        --platform net
+        --source-kind self_extracted
+        --chunks /tmp/email_net_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/email_net/api_surface.json
+        --held-by ingestion-email-net
+
+  serving-email-net:
+    <<: *serving-base
+    ports:
+      - "8102:8080"
+    volumes:
+      - manifests-email-net:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: email
+      FOSS_MCP_PLATFORM: net
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-231: barcode/python, self-extracted, from tests/fixtures/barcode_python/api_surface.json.
+  # source_repository aspose-barcode-foss/Aspose.BarCode-FOSS-for-Python, source_commit
+  # 06eca5c01e13ed6d59a640f1cf330c1c5a57d151. No furnished page and no --library-* flag.
+  ingest-barcode-python:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-barcode-python:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/barcode_python/api_surface.json
+        --title "barcode/python API surface"
+        --max-types 20
+        --out /tmp/barcode_python_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family barcode
+        --platform python
+        --source-kind self_extracted
+        --chunks /tmp/barcode_python_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/barcode_python/api_surface.json
+        --held-by ingestion-barcode-python
+
+  serving-barcode-python:
+    <<: *serving-base
+    ports:
+      - "8103:8080"
+    volumes:
+      - manifests-barcode-python:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: barcode
+      FOSS_MCP_PLATFORM: python
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-231: note/python, self-extracted, from tests/fixtures/note_python/api_surface.json.
+  # source_repository aspose-note-foss/Aspose.Note-FOSS-for-Python, source_commit
+  # e459eb50d750f70181cfb23b28a9ab73cb464a8d. No furnished page and no --library-* flag.
+  ingest-note-python:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-note-python:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/note_python/api_surface.json
+        --title "note/python API surface"
+        --max-types 20
+        --out /tmp/note_python_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family note
+        --platform python
+        --source-kind self_extracted
+        --chunks /tmp/note_python_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/note_python/api_surface.json
+        --held-by ingestion-note-python
+
+  serving-note-python:
+    <<: *serving-base
+    ports:
+      - "8104:8080"
+    volumes:
+      - manifests-note-python:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: note
+      FOSS_MCP_PLATFORM: python
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-231: html/python, self-extracted, from tests/fixtures/html_python/api_surface.json.
+  # source_repository aspose-html-foss/Aspose.HTML-FOSS-for-Python, source_commit
+  # bf0f1e7a6d29ca9e14de576fe3ff1aa49ddbaf11. No furnished page and no --library-* flag.
+  ingest-html-python:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-html-python:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/html_python/api_surface.json
+        --title "html/python API surface"
+        --max-types 20
+        --out /tmp/html_python_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family html
+        --platform python
+        --source-kind self_extracted
+        --chunks /tmp/html_python_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/html_python/api_surface.json
+        --held-by ingestion-html-python
+
+  serving-html-python:
+    <<: *serving-base
+    ports:
+      - "8105:8080"
+    volumes:
+      - manifests-html-python:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: html
+      FOSS_MCP_PLATFORM: python
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-231: page/python, self-extracted, from tests/fixtures/page_python/api_surface.json.
+  # source_repository aspose-page-foss/Aspose.Page-FOSS-for-Python, source_commit
+  # 43cef367cd0b2cf00cc03064ca9d29d1ff507967. No furnished page and no --library-* flag.
+  ingest-page-python:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-page-python:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/page_python/api_surface.json
+        --title "page/python API surface"
+        --max-types 20
+        --out /tmp/page_python_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family page
+        --platform python
+        --source-kind self_extracted
+        --chunks /tmp/page_python_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/page_python/api_surface.json
+        --held-by ingestion-page-python
+
+  serving-page-python:
+    <<: *serving-base
+    ports:
+      - "8106:8080"
+    volumes:
+      - manifests-page-python:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: page
+      FOSS_MCP_PLATFORM: python
+      FOSS_MCP_SOURCE_KIND: self_extracted
+
+  # G2/TC-231: imaging/net, self-extracted, from tests/fixtures/imaging_net/api_surface.json.
+  # source_repository aspose-imaging-foss/Aspose.Imaging-FOSS-for-.NET, source_commit
+  # c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa. No furnished page and no --library-* flag.
+  ingest-imaging-net:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    image: foss-mcp-ingestion:local
+    volumes:
+      - manifests-imaging-net:/data/manifests
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        python /app/infra/build_chunks.py
+        --api-surface /app/fixtures/imaging_net/api_surface.json
+        --title "imaging/net API surface"
+        --max-types 20
+        --out /tmp/imaging_net_chunks.json
+        &&
+        python /app/infra/ingest.py
+        --family imaging
+        --platform net
+        --source-kind self_extracted
+        --chunks /tmp/imaging_net_chunks.json
+        --manifest-store /data/manifests
+        --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+        --api-surface /app/fixtures/imaging_net/api_surface.json
+        --held-by ingestion-imaging-net
+
+  serving-imaging-net:
+    <<: *serving-base
+    ports:
+      - "8107:8080"
+    volumes:
+      - manifests-imaging-net:/data/manifests
+    environment:
+      FOSS_MCP_FAMILY: imaging
       FOSS_MCP_PLATFORM: net
       FOSS_MCP_SOURCE_KIND: self_extracted
