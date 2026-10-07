@@ -1,0 +1,57 @@
+id: TC-228
+gate: G2
+lane: transport-deployment
+purpose: 'Restate the deployment tooling''s pinned pilot count from fourteen to twenty, now that TC-227 grows the chart to twenty
+  pilots. TC-227''s own coverage check found this: scripts/deploy/pilots.py declares PILOT_COUNT = 14 as a module constant, and
+  tests/deploy/test_pilots.py, test_install_pilots.py and test_prove_pilots.py each assert len(...) == 14 or a pinned list of fourteen
+  release names, derived from the chart at TC-223''s authoring time. These files are outside TC-227''s write_paths, so TC-227 cannot fix
+  them; this card is the one that does.'
+depends_on:
+- TC-227
+- TC-223
+write_paths:
+- scripts/deploy/pilots.py
+- tests/deploy/test_pilots.py
+- tests/deploy/test_install_pilots.py
+- tests/deploy/test_prove_pilots.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read scripts/deploy/pilots.py in full (PILOT_COUNT and every function) and the three test files in full. Read the chart''s current
+  ingestion.pilots in infra/helm/foss-mcp/values.yaml to get the real, current list and order of twenty pilots.'
+- 'Change PILOT_COUNT from 14 to 20 in scripts/deploy/pilots.py. Change nothing else in that file.'
+- 'In tests/deploy/test_pilots.py: change test_chart_declares_exactly_fourteen_pilots (rename it to say twenty) to assert 20 and
+  PILOT_COUNT == 20; extend PINNED_RELEASES with the six new release names in the chart''s own current order, read from the chart rather
+  than guessed; change test_release_names_are_the_pinned_fourteen (rename to say twenty) and every other literal 14 in the file to 20.
+  Keep every assertion''s meaning.'
+- 'In tests/deploy/test_install_pilots.py and tests/deploy/test_prove_pilots.py, change every literal 14 this card''s own survey found to
+  20, renaming a test whose own name says "fourteen" to say "twenty" (for example test_dry_run_covers_all_fourteen_pilots_and_never_builds_an_uninstall).
+  Do not weaken or remove any assertion.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the four files and the current chart pilot list.
+- Restate every fixed count and rename every test or constant whose own name says fourteen.
+- Run the card check and report exact counts.
+checks:
+- command: '{python} -m pytest tests/deploy -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 47
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/deploy/pilots.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('PILOT_COUNT = 20','PILOT_COUNT = 14',1),encoding='utf-8')"
+  rationale: 'Puts the stale pilot count back, so the test that asserts PILOT_COUNT equals the real chart count must fail. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-228/receipt.json
+closeout:
+- The deployment tooling and its tests agree with the chart's real pilot count of twenty.
+recovery: Re-run from a clean tree.
