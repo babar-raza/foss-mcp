@@ -1,0 +1,161 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_serve_stdio.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i_e1ravh\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_serve_stdio.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i_e1ravh\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/serve_stdio.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_serve_stdio.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i_e1ravh\.junit-0.xml"
+--- stdout ---
+.FFF.                                                                    [100%]
+================================== FAILURES ===================================
+_________________ test_main_raises_naming_the_one_missing_var _________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000178797CEB10>
+restore_root_logging = None
+
+    def test_main_raises_naming_the_one_missing_var(monkeypatch, restore_root_logging):
+        monkeypatch.setenv(FAMILY_VAR, "pdf")
+        monkeypatch.delenv(PLATFORM_VAR, raising=False)
+    
+>       with pytest.raises(RuntimeError, match=PLATFORM_VAR):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'FOSS_MCP_PLATFORM'
+E         Actual message: "FOSS_MCP_FAMILY_OFF must be set: serving reads only its own identity's sidecar"
+
+tests\infra\test_serve_stdio.py:73: AssertionError
+__ test_main_builds_deployment_config_from_the_real_env_values_not_a_default __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000178797A60F0>
+restore_root_logging = None
+
+    def test_main_builds_deployment_config_from_the_real_env_values_not_a_default(
+        monkeypatch, restore_root_logging
+    ):
+        monkeypatch.setenv(FAMILY_VAR, "slides")
+        monkeypatch.setenv(PLATFORM_VAR, "java")
+        monkeypatch.delenv("FOSS_MCP_SOURCE_KIND", raising=False)
+        seen: dict = {}
+    
+        @contextlib.asynccontextmanager
+        async def fake_run_stdio(config):
+            seen["config"] = config
+    
+            async def _noop() -> None:
+                return None
+    
+            yield _noop()
+    
+        monkeypatch.setattr(serve_stdio, "run_stdio", fake_run_stdio)
+    
+>       anyio.run(serve_stdio.main)
+
+tests\infra\test_serve_stdio.py:96: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\_core\_eventloop.py:83: in run
+    ???
+H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\_backends\_asyncio.py:2548: in run
+    ???
+C:\dev-tools\foss-mcp\python313\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\asyncio\base_events.py:725: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\_backends\_asyncio.py:2531: in wrapper
+    ???
+infra\serve_stdio.py:35: in main
+    family=_required_env("FOSS_MCP_FAMILY_OFF"),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+name = 'FOSS_MCP_FAMILY_OFF'
+
+    def _required_env(name: str) -> str:
+        value = os.environ.get(name, "").strip()
+        if not value:
+>           raise RuntimeError(f"{name} must be set: serving reads only its own identity's sidecar")
+E           RuntimeError: FOSS_MCP_FAMILY_OFF must be set: serving reads only its own identity's sidecar
+
+infra\serve_http.py:236: RuntimeError
+__________ test_main_configures_logging_before_run_stdio_is_entered ___________
+
+capsys = <_pytest.capture.CaptureFixture object at 0x000001787978CC20>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000178797D28B0>
+restore_root_logging = None
+
+    def test_main_configures_logging_before_run_stdio_is_entered(capsys, monkeypatch, restore_root_logging):
+        """main() must call configure_logging() before DeploymentConfig construction/run_stdio -
+        proven the same way test_serve_logging.py proves it for serve_http.main(): a real log record
+        emitted from inside the replaced downstream call must already reach stdout as one JSON line,
+        which only happens if configure_logging() already installed its handler by then."""
+        monkeypatch.delenv(LOG_LEVEL_VAR, raising=False)
+        monkeypatch.setenv(FAMILY_VAR, "pdf")
+        monkeypatch.setenv(PLATFORM_VAR, "net")
+    
+        @contextlib.asynccontextmanager
+        async def fake_run_stdio(config):
+            logging.getLogger(TOOL_CALL_LOGGER).info(
+                "tool call: %s (%s)",
+                "search",
+                "ok",
+                extra={"tool": "search", "outcome": "ok"},
+            )
+    
+            async def _noop() -> None:
+                return None
+    
+            yield _noop()
+    
+        monkeypatch.setattr(serve_stdio, "run_stdio", fake_run_stdio)
+    
+>       anyio.run(serve_stdio.main)
+
+tests\infra\test_serve_stdio.py:129: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\_core\_eventloop.py:83: in run
+    ???
+H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\_backends\_asyncio.py:2548: in run
+    ???
+C:\dev-tools\foss-mcp\python313\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\asyncio\base_events.py:725: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+H:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\anyio\_backends\_asyncio.py:2531: in wrapper
+    ???
+infra\serve_stdio.py:35: in main
+    family=_required_env("FOSS_MCP_FAMILY_OFF"),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+name = 'FOSS_MCP_FAMILY_OFF'
+
+    def _required_env(name: str) -> str:
+        value = os.environ.get(name, "").strip()
+        if not value:
+>           raise RuntimeError(f"{name} must be set: serving reads only its own identity's sidecar")
+E           RuntimeError: FOSS_MCP_FAMILY_OFF must be set: serving reads only its own identity's sidecar
+
+infra\serve_http.py:236: RuntimeError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_serve_stdio.py::test_main_raises_naming_the_one_missing_var
+FAILED tests/infra/test_serve_stdio.py::test_main_builds_deployment_config_from_the_real_env_values_not_a_default
+FAILED tests/infra/test_serve_stdio.py::test_main_configures_logging_before_run_stdio_is_entered
+
+--- stderr ---
+
