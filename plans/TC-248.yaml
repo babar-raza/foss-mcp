@@ -1,0 +1,71 @@
+id: TC-248
+gate: G2
+lane: verification
+purpose: 'Fix a real, live-confirmed test staleness, found while re-running the full offline+live suite after TC-238
+  (the symbol-index truncation fix) landed. tests/e2e/test_pdf_java_live_content.py''s
+  test_lookup_returns_real_doc_matches_for_an_api_naive_query picks the query "what functionality is unsupported"
+  specifically because, at the time it was written, this query matched no real symbol or example for pdf/java (so
+  lookup''s doc-composition fallback was the only path that could answer it) - confirmed, by hand, against a live
+  rebuild of the real ingest-pdf-java/serving-pdf-java docker-compose stack with today''s code: this is no longer
+  true. TC-238 raised the live symbol index from 20 to 300 types, and pdf/java''s own real GenericAction class
+  ("Represents a PDF action of an unknown or unsupported type") is now genuinely reachable and genuinely contains the
+  word "unsupported" - lookup now correctly surfaces that real symbol-adjacent doc match first, a GENUINE
+  IMPROVEMENT (more real content is now findable, exactly what TC-238 set out to fix), not a regression. The test''s
+  own hardcoded query/fragment pair is simply stale against the fixed system. This card picks a new query that still
+  has no real competing match today, confirmed the same way the original test''s own docstring says it was
+  confirmed: by hand, against the real running container.'
+depends_on:
+- TC-238
+write_paths:
+- tests/e2e/test_pdf_java_live_content.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read test_lookup_returns_real_doc_matches_for_an_api_naive_query and REAL_DOC_TASK_QUERY/REAL_DOC_FRAGMENT''s
+  definitions in full, and the real furnished page tests/fixtures/furnished/pdf_java/pages/_index.md''s troubleshooting-
+  shaped content (the "Scope and Limitations" block the current fragment comes from) to understand what real content
+  this test exists to prove reachable.'
+- 'Bring up the real stack with today''s code exactly as the test''s own real_generation fixture does (docker compose
+  -p foss-mcp-e2e-tc099 down -v --remove-orphans, then up --build --exit-code-from ingest-pdf-java ingest-pdf-java,
+  then up -d --build serving-pdf-java, wait for /readyz) and, through a real MCP session against it, by hand: try
+  candidate natural-language queries related to the SAME real troubleshooting content (the "Scope and Limitations"
+  section) until you find one where search_symbols AND find_examples both return an honest miss (confirming no real
+  symbol or example competes for it), AND lookup composes the doc-fallback TaskAnswer whose doc_matches contains the
+  real troubleshooting fragment. Tear the stack down (docker compose -p foss-mcp-e2e-tc099 down -v --remove-orphans)
+  when done, whether you succeed or not.'
+- 'Update REAL_DOC_TASK_QUERY (and REAL_DOC_FRAGMENT only if the new query happens to surface a different, equally
+  real sentence from the same section - prefer keeping REAL_DOC_FRAGMENT unchanged if the existing fragment still
+  matches under the new query) to the new, confirmed-safe values. Update the test''s own docstring to describe the
+  new query and to record, honestly, why the old one stopped working (TC-238 made a real competing symbol reachable)
+  - do not leave the old, now-inaccurate docstring claim in place. Do not change this test''s assertions'' shape or
+  weaken what it checks.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the test and the furnished page's troubleshooting content.
+- Bring up the real stack and find a new query by hand, live, that still isolates the doc-fallback path.
+- Update the query/fragment constants and docstring; tear the stack down.
+- Run the full live test file once more to confirm green, and report the exact query chosen and why it is safe.
+checks:
+- command: '{python} -m pytest tests/e2e/test_pdf_java_live_content.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 9
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/e2e/test_pdf_java_live_content.py');s=p.read_text(encoding='utf-8');old='REAL_DOC_TASK_QUERY';new='REAL_DOC_TASK_QUERY_OFF';i=s.index(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: 'Renames the first occurrence of REAL_DOC_TASK_QUERY (its own definition), breaking every reference to the new, confirmed-safe query constant this card introduces, so the fixed test must fail again (a NameError, or falling back to an undefined/stale value depending on exactly how the fix reads it). Built with plain text.'
+evidence:
+- evidence/build/G2/TC-248/receipt.json
+closeout:
+- test_lookup_returns_real_doc_matches_for_an_api_naive_query again genuinely isolates and proves lookup's
+  doc-composition fallback path, using a query TC-238's fix has not since made answerable by a real symbol.
+recovery: Re-run from a clean tree.
