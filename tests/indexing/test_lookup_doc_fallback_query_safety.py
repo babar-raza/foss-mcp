@@ -66,9 +66,8 @@ import yaml
 from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
 from foss_mcp.indexing.doc_candidates import extract_doc_sections
 from foss_mcp.indexing.example_candidates import extract_candidate_examples
-from foss_mcp.indexing.lexical_index_writer import build_lexical_index
+from foss_mcp.indexing.lexical_index_writer import build_lexical_index, query_lexical_index, tokenize
 from foss_mcp.indexing.lexical_index_writer import doc_id as lexical_doc_id
-from foss_mcp.indexing.lexical_index_writer import query_lexical_index, tokenize
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
 from foss_mcp.mcp.tools.lookup import _looks_like_a_task_question
 from foss_mcp.mcp.tools.search_docs import CONTENT_TYPES, classify_content_type
