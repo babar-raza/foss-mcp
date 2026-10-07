@@ -23,8 +23,10 @@ from pathlib import Path
 
 from starlette.testclient import TestClient
 
-from foss_mcp.indexing.generation_manifest import GenerationManifestStore
-from foss_mcp.indexing.publisher import publish_generation
+from foss_mcp.indexing.generation_manifest import GenerationManifestStore, build_manifest
+from foss_mcp.indexing.lexical_index_writer import build_lexical_index
+from foss_mcp.indexing.publisher import content_chunk_id, new_version, publish_generation
+from foss_mcp.indexing.vector_index_writer import build_vector_index
 from foss_mcp.mcp.routing import DeploymentConfig
 from foss_mcp.normalization.chunker import Chunk
 from foss_mcp.normalization.document_schema import NOT_CHECKED, Provenance
@@ -81,6 +83,34 @@ def _publish(
     )
 
 
+def _publish_bypassing_safety_guard(
+    store: GenerationManifestStore, scope: str, family: str, platform: str, chunks: list[Chunk]
+) -> str:
+    """Construct and activate a generation via the store's own lower-level primitives -
+    ``write_and_validate`` then ``cas_activate``, the exact two calls
+    ``generation_manifest.publish`` itself wraps - deliberately bypassing publish()'s
+    ``assert_publish_is_safe`` guard (TC-242). Used ONLY by the empty-active-generation test
+    below: that test needs to reach a real, ACTIVE generation with zero chunks to prove
+    round_trip_check/readyz's own behavior at that layer, a state the guarded
+    ``publish_generation``/``publish`` path now correctly refuses to create. Every other test
+    in this file still goes through the real ``publish_generation`` path and must keep doing
+    so."""
+    source_kind = "self_extracted"
+    version = new_version()
+    probe_generation_id = build_manifest(family, platform, source_kind, version).generation_id
+    chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+    payload = {
+        "vector_index": build_vector_index(
+            chunks, chunk_ids, DeterministicEmbeddingProvider(), probe_generation_id
+        ),
+        "lexical_index": build_lexical_index(chunks, chunk_ids, probe_generation_id),
+    }
+    manifest = build_manifest(family, platform, source_kind, version, payload)
+    lease = store.acquire_lease(scope, held_by="test-worker", generation_id="pending")
+    generation_id = store.write_and_validate(manifest)
+    return store.cas_activate(scope, None, generation_id, lease)
+
+
 def test_healthz_returns_200_with_no_active_generation(tmp_path: Path) -> None:
     """``/healthz`` is unconditional liveness (``is_alive``'s own documented contract) - it
     must report 200 even when NO generation has ever been published for this deployment's
@@ -118,7 +148,7 @@ def test_readyz_returns_503_for_a_generation_with_no_queryable_content(tmp_path:
     brings over the old is_ready check: is_ready would see the active-generation pointer and
     wrongly report ready, because it never looks past the pointer to the content it names."""
     store = _store(tmp_path)
-    _publish(store, "pdf::net::self_extracted", "pdf", "net", [])
+    _publish_bypassing_safety_guard(store, "pdf::net::self_extracted", "pdf", "net", [])
     with _client(store) as client:
         response = client.get("/readyz")
         assert response.status_code == 503
