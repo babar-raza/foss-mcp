@@ -1,0 +1,80 @@
+id: TC-243
+gate: G2
+lane: extraction
+purpose: 'Reduce the GitHub rate-limit exposure an independent audit found (2026-10-07, see docs/DECISION_LOG.md''s
+  entry of the same date, and OWNER-08): every ingestion cycle''s product-reference sidecar fetch
+  (infra/fetch_product_reference.py) re-fetches a repository''s manifest, CONTRIBUTING.md, and AGENTS.md live from
+  GitHub unconditionally, even though --ref is always a PINNED, immutable commit SHA (confirmed: the chart passes
+  --ref {{ $lib.commit | quote }}, never a branch) - so the exact same bytes are re-fetched, at real API cost, every
+  single re-roll of a pilot whose pin has not changed, which is the overwhelming majority of ingestion runs. This is
+  the real, effective fix for the 12-of-40 ingestion-Job rate-limit failures this audit reproduced live: skip the
+  live fetch entirely when the existing sidecar already reflects the IDENTICAL (repository, ref) pair - since that
+  pair is immutable by construction, there is nothing to re-verify. (A prior note in OWNER-08 speculated that wiring
+  this project''s already-built etag/If-None-Match plumbing - real and correct, just never called with a stored
+  etag - would reduce exposure; on reflection this is only partially true: a GitHub REST API conditional request that
+  returns 304 still consumes a request against the unauthenticated rate limit, so it does not actually reduce QUOTA
+  pressure the way skipping the call entirely does. This card implements the skip, which is the fix that actually
+  works; it does not implement etag-based caching, since re-checking confirmed it would not fix the problem it was
+  proposed for.)'
+depends_on:
+- TC-220
+- TC-221
+write_paths:
+- infra/fetch_product_reference.py
+- tests/infra/test_fetch_product_reference.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/fetch_product_reference.py in full: build_sidecar, _serialize_document/_deserialize_document,
+  load_manifest_sidecar, and main(). Note that the sidecar JSON currently has no field recording which (repository,
+  ref) pair produced it.'
+- 'Add two new fields to the sidecar''s own serialized shape (alongside manifest_text/platform/contributing/
+  agent_guidance): source_repository and source_ref, recorded verbatim from build_sidecar''s own repository/ref
+  arguments at the time it is built. Update load_manifest_sidecar''s own ProductReferenceInputs reconstruction if it
+  needs these fields too (read ProductReferenceInputs'' own definition first - add the fields there only if doing so
+  does not change behavior for any existing caller that does not supply them; if that risks breaking
+  get_product_reference.py''s own contract, keep these two fields sidecar-file-only, read directly from the raw JSON
+  in main() rather than through ProductReferenceInputs, and say so explicitly in the commit body).'
+- 'In main(), before calling build_sidecar: if args.output already exists, read and parse it as JSON, and if its
+  recorded source_repository == args.repository AND source_ref == args.ref (both non-None and matching exactly),
+  print a message saying the fetch was skipped because the pin is unchanged, and return without calling build_sidecar
+  or writing the file again - no network call happens at all in this case. A malformed or unparseable existing file
+  is treated as absent (fetch proceeds normally, overwriting it) - never an error that blocks ingestion. Any other
+  difference (repository changed, ref changed, or the file does not exist yet) fetches live exactly as today.'
+- 'Add tests to tests/infra/test_fetch_product_reference.py: (1) running main() (or build_sidecar plus the new
+  skip-check logic, whichever the real code structure makes testable - mock the network-calling functions
+  fetch_manifest_file/read_repo_document so a test failure here reports a real assertion failure, never a real
+  network error) a second time with an existing output file recording the IDENTICAL repository and ref never calls
+  the mocked network functions at all; (2) running it again with a DIFFERENT ref (simulating a real re-pin to a new
+  commit) does call them; (3) a malformed/corrupt existing output file does not raise and still produces a correct,
+  freshly-fetched sidecar.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read fetch_product_reference.py in full.
+- Add source_repository/source_ref to the sidecar shape and the skip-check in main().
+- Add the three regression tests.
+- Run the card check and report exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_fetch_product_reference.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 3
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/fetch_product_reference.py');s=p.read_text(encoding='utf-8');old='source_ref';new='source_ref_off';s=s.replace(old,new);p.write_text(s,encoding='utf-8')"
+  rationale: 'Renames the field the skip-check compares, everywhere it appears, so the stored and freshly-supplied ref can never match and the unchanged-pin skip test must fail (it never skips, so the mocked network functions get called when the test asserts they must not be). Built with plain text.'
+evidence:
+- evidence/build/G2/TC-243/receipt.json
+closeout:
+- Re-running ingestion for a pilot whose pinned commit has not changed makes zero GitHub API calls, instead of
+  re-fetching identical, immutable content every cycle.
+recovery: Re-run from a clean tree.
