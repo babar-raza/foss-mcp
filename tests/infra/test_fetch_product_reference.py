@@ -242,3 +242,208 @@ def test_main_prints_a_one_line_confirmation(tmp_path: Path, monkeypatch, capsys
 
     out = capsys.readouterr().out
     assert out.strip() == f"wrote product reference inputs for {REPOSITORY} (net) -> {output_path}"
+
+
+_OLD_REF = "a" * 40
+_NEW_REF = "b" * 40
+
+
+def _must_not_be_called(*args, **kwargs):
+    raise AssertionError(
+        "fetch_manifest_file/read_repo_document must not be called when the pin is unchanged"
+    )
+
+
+def test_main_skips_the_live_fetch_when_the_existing_sidecar_records_the_identical_pin(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    """TC-243: a re-run whose --repository/--ref exactly match what the existing sidecar already
+    records makes zero network calls - fetch_manifest_file and read_repo_document are mocked to
+    raise if called at all, never merely to return a mocked value."""
+    import sys
+
+    output_path = tmp_path / "product_reference.json"
+    existing = {
+        "manifest_text": None,
+        "platform": "net",
+        "contributing": {
+            "status": "present",
+            "path": "CONTRIBUTING.md",
+            "sha": "c" * 40,
+            "size": 15,
+            "content": "# Contributing\n",
+        },
+        "agent_guidance": {
+            "status": "present",
+            "path": "AGENTS.md",
+            "sha": "a" * 40,
+            "size": 9,
+            "content": "# Agents\n",
+        },
+        "source_repository": REPOSITORY,
+        "source_ref": _OLD_REF,
+    }
+    output_path.write_text(json.dumps(existing), encoding="utf-8")
+
+    monkeypatch.setattr(fetch_product_reference, "fetch_manifest_file", _must_not_be_called)
+    monkeypatch.setattr(fetch_product_reference, "read_repo_document", _must_not_be_called)
+
+    argv = [
+        "fetch_product_reference.py",
+        "--repository",
+        REPOSITORY,
+        "--platform",
+        "net",
+        "--ref",
+        _OLD_REF,
+        "--output",
+        str(output_path),
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+
+    fetch_product_reference.main()
+
+    out = capsys.readouterr().out
+    assert "skip" in out.lower()
+    assert REPOSITORY in out
+    assert _OLD_REF in out
+    # The file on disk is untouched - the skip returns before any write.
+    assert json.loads(output_path.read_text(encoding="utf-8")) == existing
+
+
+def test_main_fetches_live_when_the_existing_sidecars_ref_differs_from_a_new_pin(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    """TC-243: a real re-pin to a new commit (repository unchanged, ref different) must not be
+    mistaken for an unchanged pin - the live fetch runs exactly as it always did."""
+    import sys
+
+    calls: list[tuple[str, ...]] = []
+
+    def _fake_fetch_manifest_file(repository, path, *, ref=None):
+        calls.append(("fetch_manifest_file", repository, path, ref))
+        return "<Project><TargetFramework>net8.0</TargetFramework></Project>"
+
+    def _fake_read_repo_document(repository, path, *, ref=None):
+        calls.append(("read_repo_document", repository, path, ref))
+        return repo_native_reader.DocumentPresent(path=path, sha="f" * 40, size=1, content="fresh")
+
+    output_path = tmp_path / "product_reference.json"
+    output_path.write_text(
+        json.dumps(
+            {
+                "manifest_text": "<Project><TargetFramework>net7.0</TargetFramework></Project>",
+                "platform": "net",
+                "contributing": {
+                    "status": "present",
+                    "path": "CONTRIBUTING.md",
+                    "sha": "c" * 40,
+                    "size": 15,
+                    "content": "# Contributing\n",
+                },
+                "agent_guidance": {
+                    "status": "present",
+                    "path": "AGENTS.md",
+                    "sha": "a" * 40,
+                    "size": 9,
+                    "content": "# Agents\n",
+                },
+                "source_repository": REPOSITORY,
+                "source_ref": _OLD_REF,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(fetch_product_reference, "fetch_manifest_file", _fake_fetch_manifest_file)
+    monkeypatch.setattr(fetch_product_reference, "read_repo_document", _fake_read_repo_document)
+
+    argv = [
+        "fetch_product_reference.py",
+        "--repository",
+        REPOSITORY,
+        "--platform",
+        "net",
+        "--manifest-path",
+        "Aspose.PDF.FOSS.csproj",
+        "--ref",
+        _NEW_REF,
+        "--output",
+        str(output_path),
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+
+    fetch_product_reference.main()
+
+    assert [call[0] for call in calls] == [
+        "fetch_manifest_file",
+        "read_repo_document",
+        "read_repo_document",
+    ]
+    assert all(call[3] == _NEW_REF for call in calls)
+
+    written = json.loads(output_path.read_text(encoding="utf-8"))
+    assert written["source_repository"] == REPOSITORY
+    assert written["source_ref"] == _NEW_REF
+    assert written["manifest_text"] == "<Project><TargetFramework>net8.0</TargetFramework></Project>"
+    assert written["contributing"]["content"] == "fresh"
+    assert written["agent_guidance"]["content"] == "fresh"
+
+
+def test_main_treats_a_malformed_existing_sidecar_as_absent_and_fetches_live(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    """TC-243: a corrupt/unparseable existing --output file must never raise and must never
+    block ingestion - it is treated exactly like an absent file, and main() fetches live and
+    overwrites it with a correct, freshly-fetched sidecar."""
+    import sys
+
+    calls: list[tuple[str, ...]] = []
+
+    def _fake_read_repo_document(repository, path, *, ref=None):
+        calls.append(("read_repo_document", repository, path, ref))
+        if path == "CONTRIBUTING.md":
+            return repo_native_reader.DocumentPresent(
+                path=path, sha="c" * 40, size=15, content="# Contributing\n"
+            )
+        return repo_native_reader.DocumentPresent(path=path, sha="a" * 40, size=9, content="# Agents\n")
+
+    output_path = tmp_path / "product_reference.json"
+    output_path.write_text("{this is not valid json at all", encoding="utf-8")
+
+    monkeypatch.setattr(fetch_product_reference, "fetch_manifest_file", _must_not_be_called)
+    monkeypatch.setattr(fetch_product_reference, "read_repo_document", _fake_read_repo_document)
+
+    argv = [
+        "fetch_product_reference.py",
+        "--repository",
+        REPOSITORY,
+        "--platform",
+        "net",
+        "--ref",
+        _NEW_REF,
+        "--output",
+        str(output_path),
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+
+    fetch_product_reference.main()
+
+    assert len(calls) == 2
+    written = json.loads(output_path.read_text(encoding="utf-8"))
+    assert written["contributing"] == {
+        "status": "present",
+        "path": "CONTRIBUTING.md",
+        "sha": "c" * 40,
+        "size": 15,
+        "content": "# Contributing\n",
+    }
+    assert written["agent_guidance"] == {
+        "status": "present",
+        "path": "AGENTS.md",
+        "sha": "a" * 40,
+        "size": 9,
+        "content": "# Agents\n",
+    }
+    assert written["source_repository"] == REPOSITORY
+    assert written["source_ref"] == _NEW_REF

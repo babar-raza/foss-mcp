@@ -17,6 +17,16 @@ present/not_present shape; absence is never smoothed into a fabricated value.
 ``load_manifest_sidecar`` is the inverse: ``infra/serve_http.py`` reads the sidecar back at
 server start and passes the rebuilt ``ProductReferenceInputs`` to ``create_server``. This module
 keeps ``infra/ingest.py``'s own plain-print, argparse-based CLI convention.
+
+``--ref`` is always a pinned, immutable commit SHA in production (never a branch), so a re-run
+whose ``--repository``/``--ref`` exactly match what the existing ``--output`` sidecar already
+records has nothing to re-verify: the sidecar also carries ``source_repository``/``source_ref``
+(recorded verbatim from the arguments that produced it), and ``main`` skips the live fetch
+entirely - zero network calls - when a re-run's pin is unchanged. ``source_repository``/
+``source_ref`` are sidecar-file-only fields: ``ProductReferenceInputs`` (in
+``get_product_reference.py``, outside this module's write scope) is not extended with them, and
+``load_manifest_sidecar`` does not read them back; only ``main``'s own skip-check reads them,
+directly off the raw JSON.
 """
 
 from __future__ import annotations
@@ -121,7 +131,28 @@ def build_sidecar(
         "platform": platform,
         "contributing": _serialize_document(contributing),
         "agent_guidance": _serialize_document(agent_guidance),
+        "source_repository": repository,
+        "source_ref": ref,
     }
+
+
+def _existing_sidecar_source(output: Path) -> tuple[str, str] | None:
+    """The ``(source_repository, source_ref)`` pair recorded in *output*'s existing sidecar
+    JSON, or ``None`` when the file is absent, unparseable, not a JSON object, or missing either
+    field as a non-None value - every one of those is treated as absent, never as an error that
+    blocks ingestion, so the caller always falls back to fetching live.
+    """
+    try:
+        data = json.loads(output.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    source_repository = data.get("source_repository")
+    source_ref = data.get("source_ref")
+    if source_repository is None or source_ref is None:
+        return None
+    return (source_repository, source_ref)
 
 
 def main() -> None:
@@ -138,6 +169,13 @@ def main() -> None:
     parser.add_argument("--ref", default=None)
     parser.add_argument("--output", type=Path, required=True, help="path to write the JSON sidecar")
     args = parser.parse_args()
+
+    if _existing_sidecar_source(args.output) == (args.repository, args.ref):
+        print(
+            f"skipped fetch for {args.repository} ({args.platform}) -> {args.output}: "
+            f"pin unchanged (repository={args.repository}, ref={args.ref})"
+        )
+        return
 
     sidecar = build_sidecar(
         repository=args.repository,
