@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "card": "TC-238",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-07T17:31:29Z",
+  "base_rev": "e915e6995828e21e54839dfbaa2415fd98804866",
+  "head_rev": "155d9717693895bb849f28f0d3dadcf7cd9745de",
+  "card_sha256": "6626bd21032115164d179443e717afdec3d99400073631e398c762655ef92582",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "docker-compose.yml",
+      "infra/build_chunks.py",
+      "infra/helm/foss-mcp/values.yaml",
+      "scripts/poc/pilot_workflow_proof.py",
+      "src/foss_mcp/indexing/chunk_builder.py",
+      "tests/indexing/test_chunk_builder.py",
+      "tests/infra/test_helm_chart.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_chart.py tests/indexing/test_chunk_builder.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 4.419,
+          "stdout_sha256": "1b8f208de3636df279448e40805982570c4351601ce5723301928feea7d343cf",
+          "tests": 31,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_chart.py tests/indexing/test_chunk_builder.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 4.147,
+          "stdout_sha256": "1b8f208de3636df279448e40805982570c4351601ce5723301928feea7d343cf",
+          "tests": 31,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/indexing/chunk_builder.py');s=p.read_text(encoding='utf-8');p.write_text(s.replace('max_types: int = 300','max_types: int = 20',1),encoding='utf-8')\"\n",
+    "patch_sha256": "47b08d1fc57195840c3d6c03eccc65d7a13477bd2f6892b481ed3a65ed59ae53",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/indexing/chunk_builder.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

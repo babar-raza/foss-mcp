@@ -1,0 +1,56 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py tests/indexing/test_chunk_builder.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ecad7iz8\.junit-0.xml"
+--- stdout ---
+...............................                                          [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py tests/indexing/test_chunk_builder.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ecad7iz8\.junit-0.xml"
+--- stdout ---
+...............................                                          [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/chunk_builder.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py tests/indexing/test_chunk_builder.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ecad7iz8\.junit-0.xml"
+--- stdout ---
+.............................F.                                          [100%]
+================================== FAILURES ===================================
+______ test_default_max_types_includes_a_type_sorting_after_position_20 _______
+
+    def test_default_max_types_includes_a_type_sorting_after_position_20() -> None:
+        """G2/TC-238 regression pin. The 2026-10-07 independent audit found every one of 40 live
+        pilots' queryable symbol index capped at the first 20 types of its fixture, while extraction
+        emits types ALPHABETICALLY - so an entry-point class sorting late (e.g. "Document",
+        "Workbook") was structurally unreachable (confirmed live: search_symbols("Document") on
+        pdf/net was an honest miss, "Document" sitting at index 246 of a 300-type fixture). This
+        fixture has 26 types - "Type00".."Type24" (25 types, indices 0-24) plus "ZLastType"
+        appended last (index 25, well past the old cap of 20) - and calls
+        build_chunks_from_api_surface with NO explicit max_types, exercising the new 300 default.
+        The late-position type must appear in the resulting chunks; under the old default of 20 it
+        would have been silently dropped.
+        """
+        fixture = {
+            "source_repository": "example-org/Example-FOSS-for-Widgets",
+            "source_commit": "deadbeefcafef00d1234567890abcdef1234567",
+            "types": [{"name": f"Type{index:02d}", "kind": "class", "methods": []} for index in range(25)]
+            + [{"name": "ZLastType", "kind": "class", "methods": []}],
+        }
+    
+        chunks = build_chunks_from_api_surface(fixture, title="widgets/example API surface")
+        all_titles = {chunk.section_title for chunk in chunks}
+    
+>       assert "ZLastType" in all_titles
+E       AssertionError: assert 'ZLastType' in {'Type00', 'Type01', 'Type02', 'Type03', 'Type04', 'Type05', ...}
+
+tests\indexing\test_chunk_builder.py:406: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_chunk_builder.py::test_default_max_types_includes_a_type_sorting_after_position_20
+
+--- stderr ---
+
