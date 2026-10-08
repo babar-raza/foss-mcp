@@ -7,10 +7,17 @@
 
 ``java`` is an ordinary tree-sitter platform routed through
 ``tree_sitter_engine.api_surface`` via the ``"java"`` grammar name, the same path as
-pdf/java. The real repository has 241 public types - over the CLI's default
-``--max-types 300`` cap is not reached, but the ~2MB fixture budget is, so this fixture was
-generated with an explicit ``--max-types 150``, landing at 1,317,879 bytes.
-``truncated`` is ``True`` and ``reduced_type_count`` is 150, not the full 241.
+pdf/java. The real repository has 241 public types - under the CLI's real default
+``--max-types 300`` cap, so this fixture was regenerated at the project's actual intended
+cap (TC-257, after TC-252's centrality-ranked ``reduce_fixture()`` landed on main) and keeps
+every one of them: ``reduced_type_count`` equals ``type_count`` (241) and ``truncated`` is
+``False``. The fixture is 2,107,179 bytes.
+
+This fixture's original onboarding (TC-167) used the pre-TC-252 alphabetical cut at an
+explicit ``--max-types 150``, which kept only the "IPresentation" interface and silently
+dropped the "Presentation" class itself - the single most central type in a presentation
+library, and the exact defect this regeneration exists to prove fixed. ``Presentation`` is
+now present (see ``test_the_fixture_keeps_the_presentation_class_itself`` below).
 
 Unlike pdf/java's reduced subset, this surface does exercise Java's ``record`` form: two
 ``record_declaration`` entries (``CommentsPartEntry``, ``FontData``). Their presence depends
@@ -59,11 +66,11 @@ def test_the_fixture_is_non_empty_and_records_real_truncation() -> None:
     data = _load_fixture()
     assert len(data["types"]) > 0
     assert data["reduced_type_count"] == len(data["types"])
-    # The real repository has 241 public types; this fixture was generated with an explicit
-    # --max-types 150 to stay under the ~2MB budget.
+    # The real repository has 241 public types, under the real default --max-types 300 cap,
+    # so this regeneration (TC-257) keeps every one of them: no truncation.
     assert data["type_count"] == 241
-    assert data["reduced_type_count"] == 150
-    assert data["truncated"] is True
+    assert data["reduced_type_count"] == 241
+    assert data["truncated"] is False
 
 
 def test_the_fixture_contains_real_java_type_names() -> None:
@@ -73,6 +80,27 @@ def test_the_fixture_contains_real_java_type_names() -> None:
     # empty or synthetic fixture.
     assert {"ISlide", "AutoShape", "BevelPresetType", "FontData", "CommentsPartEntry"} <= names
     assert all(entry["file"].endswith(".java") for entry in data["types"])
+
+
+def test_the_fixture_keeps_the_presentation_class_itself() -> None:
+    # TC-257's headline assertion: the pre-TC-252 alphabetical cut at --max-types 150 kept
+    # only the "IPresentation" interface and silently dropped the "Presentation" class - the
+    # single most central type in a presentation library. Both are real, distinct types, and
+    # after the centrality-ranked reduce_fixture() regeneration and the 241/241 cap, both now
+    # survive.
+    data = _load_fixture()
+    by_name = {entry["name"]: entry for entry in data["types"]}
+    assert "Presentation" in by_name
+    assert "IPresentation" in by_name
+
+    presentation = by_name["Presentation"]
+    assert presentation["kind"] == "class_declaration"
+    assert presentation["bases"] == ["IPresentation"]
+    assert presentation["file"] == "src/main/java/org/aspose/slides/foss/Presentation.java"
+
+    interface = by_name["IPresentation"]
+    assert interface["kind"] == "interface_declaration"
+    assert interface["bases"] == ["IPresentationComponent", "AutoCloseable"]
 
 
 def test_every_entry_is_a_real_java_surface_kind() -> None:
