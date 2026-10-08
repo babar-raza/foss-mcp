@@ -15,18 +15,26 @@ Every value below is this pilot's OWN real, distinctive data - never copied from
 pdf/typescript's:
 
 - ``REAL_SYMBOL``/``REAL_SOURCE_COMMIT`` come from the real, committed
-  ``tests/fixtures/pdf_java/api_surface.json`` fixture. Its real ``source_commit`` is
-  ``db2d3f0622f035825419c6d46727022064f39f15``, and its 4th type entry (index 3, well within
-  ``build_chunks_from_api_surface``'s default ``max_types=20``) is the real enum
-  ``ArtifactSubtype`` (``kind: "enum_declaration"``, ``class_import:
-  "org.aspose.pdf.ArtifactSubtype"``) - a real, distinctive, well within-reach entry, this
-  pilot's own equivalent of pdf/net's ``AFRelationship``.
+  ``tests/fixtures/pdf_java/api_surface.json`` fixture. TC-256 regenerated this fixture with
+  ``run_extraction.reduce_fixture()``'s centrality-ranked selection (TC-252) at the project's
+  real default cap of 300 (the live repository has grown to 1239 public types since this
+  fixture's original TC-044 snapshot of 1158). Its real ``source_commit`` is now
+  ``736cedaa2922e4952f429364bdb9a4bbb1d97863``. The real enum ``ArtifactSubtype`` (``kind:
+  "enum_declaration"``) is still present - at index 248 of the 300 kept types - but it is a
+  nested enum, so its real ``class_import`` is ``org.aspose.pdf.Artifact.ArtifactSubtype``, not
+  the flat ``org.aspose.pdf.ArtifactSubtype`` this file used before TC-256: confirmed directly
+  against the regenerated fixture's own entry, and independently by the real ``suggestions``
+  list ``get_symbol`` returned for the old fqn during TC-256's own live run. Every one of this
+  pilot's ``ingest-*`` compose services passes ``--max-types 300`` to
+  ``build_chunks_from_api_surface``, i.e. every one of the 300 kept types is indexed - not a
+  ``max_types=20`` subset, which was true only of an older, now-superseded default.
 - ``REAL_ENUM_FQN``/``REAL_ENUM_MEMBER``: the same ``ArtifactSubtype`` entry's real
-  ``class_import`` and one of its 5 real ``enum_members`` (``Header``, ``Footer``,
-  ``Watermark``, ``Background``, ``None``) - real, distinctive values a stub or an empty index
-  could never produce. Unlike pdf/typescript's reduced fixture, pdf/java's real fixture DOES
-  carry an enum-shaped entry within ``max_types=20``, so this file keeps pdf/net's own
-  enum-``get_symbol`` shape rather than adapting it to a constant.
+  ``class_import`` (``org.aspose.pdf.Artifact.ArtifactSubtype``) and one of its 5 real
+  ``enum_members`` (``Header``, ``Footer``, ``Watermark``, ``Background``, ``None``) - real,
+  distinctive values a stub or an empty index could never produce, re-verified directly against
+  TC-256's regenerated fixture (the member set itself is unchanged - only the fqn needed under
+  which to find it changed). This file keeps pdf/net's own enum-``get_symbol`` shape rather than
+  adapting it to a constant.
 - ``REAL_EXAMPLE_SYMBOL``/``REAL_TASK_QUERY`` come from the real, committed
   ``tests/fixtures/furnished/pdf_java/pages/_index.md`` furnished content. A real, hands-on
   ``docker compose up --build`` run of ``ingest-pdf-java`` today reported "verified 1/3
@@ -71,19 +79,25 @@ POLL_INTERVAL_SECONDS = 2
 
 PROTOCOL_VERSION = "2025-06-18"
 
-# TC-099's own real, committed pdf/java fixture (tests/fixtures/pdf_java/api_surface.json): its
-# real ``source_commit`` is "db2d3f0622f035825419c6d46727022064f39f15", and its 4th type entry
-# (index 3, well within build_chunks_from_api_surface's default max_types=20) is the real enum
-# ArtifactSubtype (class_import "org.aspose.pdf.ArtifactSubtype"). A real query response
-# containing this exact string is genuine, falsifiable proof of real content, never a guess.
+# TC-256's regenerated pdf/java fixture (tests/fixtures/pdf_java/api_surface.json): its real
+# source_commit is "736cedaa2922e4952f429364bdb9a4bbb1d97863" (the live
+# aspose-pdf-foss/Aspose.PDF-FOSS-for-Java repository has grown to 1239 public types; this
+# fixture keeps the real default cap of 300, selected by centrality, not alphabetically). The
+# real enum ArtifactSubtype (class_import "org.aspose.pdf.Artifact.ArtifactSubtype", a nested
+# type) is still among the kept 300, at index 248. A real query response containing this exact
+# string is genuine, falsifiable proof of real content, never a guess.
 REAL_SYMBOL = "ArtifactSubtype"
-REAL_SOURCE_COMMIT = "db2d3f0622f035825419c6d46727022064f39f15"
+REAL_SOURCE_COMMIT = "736cedaa2922e4952f429364bdb9a4bbb1d97863"
 
 # REQ-G2-047 (pdf/net's TC-080 pattern): the real enum FQN (``class_import``, not the bare
-# ``name``) this pilot's own real fixture carries for org.aspose.pdf.ArtifactSubtype, and one of
-# its 5 real enum_members - real, distinctive values a stub or an empty index could never
-# produce.
-REAL_ENUM_FQN = "org.aspose.pdf.ArtifactSubtype"
+# ``name``) this pilot's own real, TC-256-regenerated fixture carries for its nested
+# ArtifactSubtype enum, and one of its 5 real enum_members - real, distinctive values a stub or
+# an empty index could never produce. Re-verified directly against the regenerated fixture's own
+# entry (index 248): ArtifactSubtype is nested inside Artifact, so its real fqn is
+# "org.aspose.pdf.Artifact.ArtifactSubtype", not the flat "org.aspose.pdf.ArtifactSubtype" this
+# file used before TC-256 - confirmed both from the fixture's own class_import field and from the
+# real ``suggestions`` list get_symbol returned for the old, now-wrong fqn.
+REAL_ENUM_FQN = "org.aspose.pdf.Artifact.ArtifactSubtype"
 REAL_ENUM_MEMBER = "Watermark"
 
 # REQ-G2-048 (TC-091/TC-097 pattern): the real, compile-verified example this card's real
@@ -389,9 +403,11 @@ def test_lookup_composes_the_real_task_answer(
 
 def test_get_symbol_returns_the_real_enum_members_for_artifact_subtype(session: _McpSession) -> None:
     """REQ-G2-047's own live proof, now proven for pdf/java too: the real running pdf/java
-    container's ``get_symbol`` for the real ``org.aspose.pdf.ArtifactSubtype`` enum (this real
-    fixture's 4th entry, well within ``build_chunks_from_api_surface``'s default
-    ``max_types=20``) returns its real 5 enum members - not a stub, not an empty index.
+    container's ``get_symbol`` for the real, nested ``org.aspose.pdf.Artifact.ArtifactSubtype``
+    enum (this real, TC-256-regenerated fixture's index-248 entry among its 300 kept types, all
+    of which ``build_chunks_from_api_surface`` indexes - every ``ingest-pdf-java``-style compose
+    service passes ``--max-types 300``) returns its real 5 enum members - not a stub, not an
+    empty index.
     """
     body = session.call_tool("get_symbol", {"fqn": REAL_ENUM_FQN})
     result = body["result"]["structuredContent"]["result"]
