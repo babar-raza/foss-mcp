@@ -106,30 +106,45 @@ def test_each_declared_supported_revision_passes_through_unchanged() -> None:
         assert reason is None, f"{revision!r} is a declared supported revision and must pass"
 
 
-def test_a_wellformed_but_unsupported_protocol_version_is_rejected() -> None:
-    """The TC-246 fix: a well-formed MCP-Protocol-Version header naming a revision this project
-    does NOT itself declare support for must be rejected at the transport boundary, instead of
-    passing through to the installed MCP SDK's own broader internal negotiation. "2025-11-25" is
-    the exact revision this card's own audit confirmed the installed SDK accepts natively - one
-    more than this project's own three declared revisions - so this is a real observed
-    divergence, not a hypothetical one."""
-    unsupported_revision = "2025-11-25"
-    assert unsupported_revision not in SUPPORTED_PROTOCOL_REVISIONS
+def test_every_sdk_handshake_revision_passes_through_unchanged() -> None:
+    """The TC-250 fix: SUPPORTED_PROTOCOL_REVISIONS now tracks the installed MCP SDK's own
+    ``mcp_types.version.HANDSHAKE_PROTOCOL_VERSIONS`` directly - the exact set its private,
+    unoverridable ``initialize`` handler can negotiate and already answer to a client - so EVERY
+    member of that set, "2025-11-25" included (the exact revision TC-246's own now-removed test
+    wrongly hard-coded as something to reject), must pass ``reject_request`` cleanly. This is the
+    inverse of TC-246's premise, proven wrong by the live pod lockout this card fixes."""
+    assert "2025-11-25" in SUPPORTED_PROTOCOL_REVISIONS
+
+    for revision in SUPPORTED_PROTOCOL_REVISIONS:
+        reason = reject_request(
+            {"Origin": "https://example.com", "MCP-Protocol-Version": revision},
+            allowed_origins=ALLOWED_ORIGINS,
+        )
+        assert reason is None, f"{revision!r} is now a declared supported revision and must pass"
+
+
+def test_a_revision_genuinely_outside_the_sdk_handshake_set_is_still_rejected() -> None:
+    """The fallback-rejection mechanism itself stays proven: a well-formed revision no SDK has
+    ever released is still rejected, naming it unsupported - only the accepted-set bug (which
+    revisions count as "supported" in the first place) is fixed by this card, not the rejection
+    mechanism for a revision that is genuinely outside that set."""
+    never_released_revision = "2099-01-01"
+    assert never_released_revision not in SUPPORTED_PROTOCOL_REVISIONS
 
     reason = reject_request(
-        {"Origin": "https://example.com", "MCP-Protocol-Version": unsupported_revision},
+        {"Origin": "https://example.com", "MCP-Protocol-Version": never_released_revision},
         allowed_origins=ALLOWED_ORIGINS,
     )
     assert reason is not None
-    assert unsupported_revision in reason
+    assert never_released_revision in reason
     assert "not" in reason.lower() and "support" in reason.lower()
 
-    # Distinct from both existing rejection-reason strings - a third, separate case.
-    missing_header_reason = reject_request(
+    # Distinct from the invalid-format rejection reason - a separate, unrelated case.
+    invalid_format_reason = reject_request(
         {"Origin": "https://example.com", "MCP-Protocol-Version": "not-a-real-version"},
         allowed_origins=ALLOWED_ORIGINS,
     )
-    assert reason != missing_header_reason
+    assert reason != invalid_format_reason
     assert "invalid" not in reason.lower()
 
 
@@ -209,3 +224,53 @@ async def test_a_real_mcp_sdk_client_initializes_with_no_protocol_version_header
                 result = await session.initialize()
                 assert result.protocol_version
                 assert result.server_info.name == "foss-mcp"
+
+
+@pytest.mark.anyio
+async def test_a_real_mcp_sdk_client_completes_a_second_call_on_the_same_session(
+    tmp_path: Path, anyio_backend: str
+) -> None:
+    """THE decisive regression test TC-250 exists to add: ``initialize()`` alone, proven by the
+    test above, was never the gap - the TC-246 lockout only ever showed up on the request AFTER
+    it, because the real SDK client transport caches the server's own negotiated
+    ``protocolVersion`` from the ``initialize`` result and echoes it back in the
+    ``MCP-Protocol-Version`` header on every subsequent request (confirmed directly in the
+    installed ``mcp.client.streamable_http`` transport's own ``_protocol_version_header``
+    handling). A real client that only ever calls ``initialize()`` can never exercise that
+    header at all, which is exactly how TC-246's own regression shipped unnoticed.
+
+    This test drives a genuine ``session.initialize()`` followed by a genuine
+    ``session.call_tool(...)`` - a real SECOND request on the SAME session, using the installed
+    SDK client's own normal behavior, never a hand-rolled header or a fake client. Against the
+    pre-TC-250 code (``SUPPORTED_PROTOCOL_REVISIONS`` missing "2025-11-25", which is what the
+    installed SDK's own handshake negotiates for a client requesting the latest handshake
+    version), this test fails on the ``call_tool`` step with the real SDK client's own
+    ``McpError: Server returned an error response`` - confirmed directly while authoring this
+    test, by temporarily reverting the ``transport_security.py`` fix and re-running it. After the
+    fix, both calls succeed on the same session.
+    """
+    del anyio_backend
+    store = GenerationManifestStore(tmp_path / "manifests")
+    deployment_config = DeploymentConfig(family="pdf", platform="net")
+    app = serve_http.build_app(deployment_config, manifest_store=store, allowed_origins=[])
+
+    transport = httpx2.ASGITransport(app=app)
+    http_client = httpx2.AsyncClient(transport=transport, base_url="http://testserver")
+
+    async with _running_lifespan(app):
+        async with streamable_http_client("http://testserver/mcp", http_client=http_client) as (
+            read_stream,
+            write_stream,
+        ):
+            async with ClientSession(read_stream, write_stream) as session:
+                init_result = await session.initialize()
+                assert init_result.protocol_version
+
+                # The real second request: the SDK client transport now echoes the exact
+                # negotiated protocol version from `init_result` in the MCP-Protocol-Version
+                # header on its own, with no test-side header manipulation whatsoever - this is
+                # the genuine, unmodified behavior of every spec-compliant client, including the
+                # official SDK client, and it is the request TC-246's own fix rejected.
+                call_result = await session.call_tool("report_index_freshness", {})
+                assert not call_result.is_error
+                assert call_result.content

@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 
+from mcp_types.version import HANDSHAKE_PROTOCOL_VERSIONS
+
 from foss_mcp.mcp.revision_negotiation import (
     InvalidRevisionFormatError,
     MissingProtocolVersionError,
@@ -24,10 +26,16 @@ from foss_mcp.mcp.revision_negotiation import (
 ORIGIN_HEADER = "origin"
 MCP_PROTOCOL_VERSION_HEADER = "mcp-protocol-version"
 
-# The MCP revisions this server accepts a client's request to be shaped as. Kept here (not
-# imported from the SDK) so this project's own accepted-revision list is explicit and never
-# silently widened by an SDK upgrade.
-SUPPORTED_PROTOCOL_REVISIONS: tuple[str, ...] = ("2024-11-05", "2025-03-26", "2025-06-18")
+# The MCP revisions this server accepts a client's request to be shaped as. This header check's
+# only legitimate job is to confirm consistency with what the installed SDK's own `initialize`
+# handler already negotiated and already answered to the client - that handler is private, in
+# `mcp.server.runner`, with no override hook, so this project does not itself decide which
+# revisions a handshake can produce. SUPPORTED_PROTOCOL_REVISIONS must therefore always match
+# what that handler can actually negotiate (`HANDSHAKE_PROTOCOL_VERSIONS`, not the broader
+# `KNOWN_PROTOCOL_VERSIONS`, which also includes "2026-07-28", a non-handshake stateless-envelope
+# revision never reachable via initialize) - never an independently narrower, hand-maintained
+# allow-list that can drift behind the SDK's own handshake set, as it did before this fix.
+SUPPORTED_PROTOCOL_REVISIONS: tuple[str, ...] = HANDSHAKE_PROTOCOL_VERSIONS
 
 
 def _header(headers: Mapping[str, str], name: str) -> str | None:
@@ -64,14 +72,14 @@ def reject_request(
       even read.
     - a PRESENT-but-unparseable ``MCP-Protocol-Version`` header is still rejected: once a client
       sends the header at all, it must be a value this server can actually reason about.
-    - a PRESENT, well-formed ``MCP-Protocol-Version`` header naming a revision this server does
-      NOT itself declare support for is ALSO rejected: ``negotiate_revision`` had to fall back
-      to its nearest-supported-or-min policy rather than match one of ``supported_revisions``
-      exactly. This server's own supported-revision list is a deliberate allow-list, not a lower
-      bound - letting a well-formed-but-undeclared revision through here would let it reach the
-      installed MCP SDK's own internal initialize handler, which has its own, broader,
-      independently-maintained accepted-version list and would answer as if this project had
-      verified support for a revision it never has.
+    - a PRESENT, well-formed ``MCP-Protocol-Version`` header naming a revision outside
+      ``supported_revisions`` is ALSO rejected: ``negotiate_revision`` had to fall back to its
+      nearest-supported-or-min policy rather than match one of ``supported_revisions`` exactly.
+      ``supported_revisions`` (``SUPPORTED_PROTOCOL_REVISIONS`` by default) tracks the installed
+      MCP SDK's own ``mcp_types.version.HANDSHAKE_PROTOCOL_VERSIONS`` - the exact set its private,
+      unoverridable ``initialize`` handler can negotiate and already answered to the client - so
+      this check's only legitimate job is confirming the header is CONSISTENT with that prior
+      answer, never an independent, narrower claim about what this project itself supports.
 
     Returns ``None`` only when the Origin check passes AND the protocol-version header is either
     absent or an EXACT match against ``supported_revisions`` - any negotiation fallback, below-

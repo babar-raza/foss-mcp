@@ -21,13 +21,17 @@ place: ``foss_mcp.mcp.transport_security.reject_request``, at the transport boun
 accept/reject on the ``MCP-Protocol-Version`` HEADER. That call site treats this module's
 fallback as a reject signal, not a serve signal - an exact match (``fallback_applied`` is
 ``False``) passes the request through, and ANY fallback (``fallback_applied`` is ``True``,
-whether ``BELOW_MIN_SUPPORTED`` or ``UNKNOWN_REVISION``) is rejected outright. This is a
-deliberately stricter, allow-list policy over this project's own three declared
-``SUPPORTED_PROTOCOL_REVISIONS`` - it is not, and does not attempt to be, a replica of the
-installed MCP SDK's own broader internal negotiation, which lives on a private class inside
-``mcp.server.runner`` that this project cannot see or override. In particular, the NEAREST or
-MINIMUM revision this function computes as a fallback is never served back to a client as a
-negotiated revision; it exists only so the caller can detect that a fallback occurred.
+whether ``BELOW_MIN_SUPPORTED`` or ``UNKNOWN_REVISION``) is rejected outright.
+``supported_revisions`` at that call site is ``SUPPORTED_PROTOCOL_REVISIONS``, which now tracks
+the installed MCP SDK's own ``mcp_types.version.HANDSHAKE_PROTOCOL_VERSIONS`` directly, so the
+two are now the SAME set, by design: this project no longer maintains an independently narrower
+allow-list, because the header check's only legitimate job is confirming consistency with what
+the SDK's own unoverridable ``initialize`` handler already negotiated and already answered to the
+client - a value this project does not itself decide and must never drift behind. That handler
+still lives on a private class inside ``mcp.server.runner`` that this project cannot see or
+override, and this module's own computed fallback revision (the NEAREST or MINIMUM supported
+revision) is still never served back to a client as a negotiated revision; it exists only so the
+caller can detect that a fallback occurred.
 """
 
 from __future__ import annotations
