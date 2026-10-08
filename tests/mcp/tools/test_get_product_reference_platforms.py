@@ -288,7 +288,9 @@ def test_js_support_returns_homepage_over_repository() -> None:
 def test_js_support_handles_string_repository_shape() -> None:
     """package.json's "repository" field may be a bare string instead of an
     {"url": ...} object - both shapes must be handled."""
-    inputs = ProductReferenceInputs(manifest_text=PACKAGE_JSON_WITH_STRING_REPOSITORY_TEXT, platform="typescript")
+    inputs = ProductReferenceInputs(
+        manifest_text=PACKAGE_JSON_WITH_STRING_REPOSITORY_TEXT, platform="typescript"
+    )
     result = get_product_reference(inputs, "support")
     assert isinstance(result, ReferenceContent)
     assert result.text == "https://github.com/aspose/pdf-foss-for-js.git"
