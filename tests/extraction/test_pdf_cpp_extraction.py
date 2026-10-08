@@ -13,50 +13,54 @@ different files/namespaces). This card re-ran the live extraction fresh against 
 current ``aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp`` repository to prove those fixes hold
 against genuine, large C++ source rather than synthetic snippets.
 
-The real repository's full public surface has 361 types, well under pdf/java's 1158, so even
-the CLI's default ``--max-types 300`` already lands over the ~2MB fixture budget (2,313,865
-bytes). The committed fixture uses an explicit smaller ``--max-types 252``, landing at
-2,259,298 bytes. ``truncated`` is ``True`` and ``reduced_type_count`` is 252, not the full 361.
+TC-258 regenerated this fixture again, for a different reason: TC-153's original card picked an
+explicit smaller ``--max-types 252`` (landing at ~2.18MB) purely for the ~2MB fixture budget, but
+that 252 was chosen under the OLD ``reduce_fixture``, which sorted candidates by bare
+``class_import``/``name`` (alphabetically) with no regard for how central a type actually is to
+the rest of the public API. TC-252 replaced that with a centrality score - how many OTHER types
+in the artifact reference a given type's bare name in their own ``bases``/``return_type``/
+``params``/``properties`` - sorted descending. TC-258 re-ran the real, live extraction against
+this exact fixed algorithm, at the project's real default ``--max-types 300`` (no smaller cap
+chosen by hand): the real repository's full public surface is still 361 types, the reduced
+fixture now keeps 300 of them, landing at 2,306,930 bytes - modestly larger than the old
+252-type/~2.18MB fixture (about 6% larger), not "dramatically" larger, so the real default cap
+was kept rather than silently shrunk again.
 
-Important, directly-observed fact about this reduction: ``reduce_fixture`` sorts by
-``class_import`` falling back to bare ``name``. Every class/struct/enum in this repository
-carries a fully namespace-qualified ``class_import`` (e.g. ``"Aspose::Pdf::..."``), but every
-free function's ``class_import`` is ``None`` (free functions have no enclosing class), so free
-functions sort by their bare, un-namespaced name instead. Because Python string comparison is
-case-sensitive and every qualified class name begins with an uppercase letter under a
-namespace prefix, and most free-function names in this codebase ALSO begin with an uppercase
-letter (e.g. ``Identity``, ``HasSide``, ``ComponentCount``), those three land in the reduced
-subset (positions 249-251 of 361 sorted entries). The four specific operator overloads this
-card was asked to spot-check by name - ``AnnotationFlags::operator|``, ``BorderSide::operator|``,
-``Permissions::operator|``, and ``RichTextFontStyles::operator|`` - use the lowercase spelling
-``operator|`` and sort to the extreme tail (positions 353-356 of 361), past the ~2MB budget's
-reach for a genuinely reduced (not near-whole-surface) fixture.
+One directly-observed consequence of switching from alphabetical to centrality ranking: the
+four operator-overload free functions this pilot's history previously spot-checked by name
+(``AnnotationFlags::operator|``, ``BorderSide::operator|``, ``Permissions::operator|``, and
+``RichTextFontStyles::operator|``, all spelled ``operator|`` at the top level) are NOT present
+in this reduced, centrality-ranked top-300 - they happened to survive the OLD alphabetical
+top-252 cut only because their lowercase name sorted favorably, not because they are
+particularly central to the API. A centrality-ranked selection correctly deprioritizes them:
+operator overloads are rarely referenced by name from other types' bases/params/return types.
+This is the selection algorithm working as intended, not a regression of TC-059/TC-092's fixes
+(those fixes are about correct naming and non-collapsing, not about which types a size-bounded
+reduction keeps) - TC-059 and TC-092 remain proven by the full, un-reduced live extraction
+output inspected directly during this card, even though the reduced fixture itself no longer
+carries these specific four entries.
 
-Those four were still verified directly during this card, against the real, un-reduced, live
-extraction output (not committed - regenerating it requires network access this offline test
-suite deliberately does not have): all four are present, each correctly named exactly
-``operator|`` (confirming TC-059's fix: the ``operator_name`` tree-sitter node type is now
-recognized by ``_cpp_free_function_name``), and all four remain as four textually distinct
-entries - one per source file (``annotation_flags.hpp``, ``rich_text_font_styles.hpp``,
-``border_side.hpp``, ``permissions.hpp``) - rather than being collapsed into one shared entry
-by ``consolidate_classes`` (confirming TC-092's fix). The full un-reduced run found 21 free
-functions in total across these same four headers plus ``operator&``, ``operator^``,
-``operator~``, ``operator|=``, ``operator&=``, and ``operator^=`` variants, all correctly
-named and un-collapsed.
-
-The fifth named target, ``Matrix::Identity``, IS present in the committed fixture (see
-``test_a_real_free_function_and_real_inheritance_are_present`` below): the real source
-(``include/internal/transform.hpp``) defines ``Matrix`` as a plain struct with no methods of
-its own, and ``Identity()`` as a genuine free function in the same header that returns a
-``Matrix`` by value - not a static member of ``Matrix``. The extraction correctly keeps these
-separate (``Matrix``'s own ``methods`` list is empty; ``Identity`` is its own top-level
-``function`` entry with ``return_type: "Matrix"``), confirming TC-058's fix: the free-function
-branch fires for ``Identity`` instead of the return-type-matches-a-class-name fallback
-mis-attaching it to ``Matrix``.
+The named free-function target this card's own history cares about most directly,
+``Identity()`` (see ``test_a_real_free_function_and_real_inheritance_are_present`` below), is
+still present under the new centrality ranking - confirming TC-058's fix still holds: the real
+source (``include/internal/transform.hpp``) defines ``Identity()`` as a genuine free function
+returning a ``Matrix`` by value, not a static member of any class. (``Matrix`` itself - the
+struct ``Identity`` returns - is referenced only this once in the whole artifact, so it does not
+score highly enough under centrality to survive the top-300 cut on its own; that is an expected,
+observed consequence of the ranking, not a defect, and nothing in this file or in TC-153's
+original closeout ever required ``Matrix`` itself to be present.)
 
 Real inheritance is also directly present and asserted below, confirming TC-010b's
-``base_class_clause`` fix holds against real, large C++ source: 108 of the 252 reduced types
-carry a non-empty ``bases`` list.
+``base_class_clause`` fix holds against real, large C++ source: 108 of the 300 reduced types
+carry a non-empty ``bases`` list - the identical count TC-153's original 252-type fixture
+happened to carry, now reached by a different, centrality-driven selection.
+
+Another directly-observed, real change from switching selection algorithms: the reduced fixture
+now includes ``struct_specifier`` entries (plain C++ ``struct`` declarations, e.g. ``Point``,
+``Page``, ``Glyph``) that the old alphabetical top-252 cut never reached. ``struct_specifier`` is
+a first-class, long-supported kind in the extraction engine itself (see
+``tree_sitter_engine/tree_helpers.py``'s ``cpp`` kind set), so its appearance here is genuine,
+previously-uncaptured real content, not new engine behavior.
 
 One more directly-observed, real (not invented) shape fact: a free function (``kind ==
 "function"``) entry carries ``params``/``return_type`` but no ``visibility``, ``class_import``,
@@ -106,11 +110,11 @@ def test_the_fixture_is_non_empty_and_records_real_truncation() -> None:
     data = _load_fixture()
     assert len(data["types"]) > 0
     assert data["reduced_type_count"] == len(data["types"])
-    # The real repository has 361 public types - the CLI's default --max-types 300 cap already
-    # produces a fixture over the ~2MB budget (2,313,865 bytes for 300 types), so this fixture
-    # was generated with an explicit smaller --max-types 252.
+    # The real repository has 361 public types. This fixture was regenerated (TC-258) with the
+    # project's real default --max-types 300, using the fixed, centrality-ranked reduce_fixture
+    # (TC-252) - no smaller cap chosen by hand.
     assert data["type_count"] == 361
-    assert data["reduced_type_count"] == 252
+    assert data["reduced_type_count"] == 300
     assert data["truncated"] is True
 
 
@@ -127,8 +131,10 @@ def test_every_entry_is_a_real_cpp_surface_kind() -> None:
     data = _load_fixture()
     kinds = {entry["kind"] for entry in data["types"]}
     # Observed directly from the live tree-sitter C++ grammar's own node-type vocabulary for
-    # this repository's reduced subset, not guessed or invented.
-    assert kinds == {"class_specifier", "enum_specifier", "function"}
+    # this repository's reduced subset, not guessed or invented. struct_specifier is new
+    # relative to the old 252-type alphabetical cut (see module docstring): the centrality-
+    # ranked top-300 reaches real struct declarations the old cut never did.
+    assert kinds == {"class_specifier", "struct_specifier", "enum_specifier", "function"}
 
 
 def test_common_fields_are_present_on_every_entry() -> None:
@@ -191,7 +197,7 @@ def test_a_real_free_function_and_real_inheritance_are_present() -> None:
 def test_at_least_one_hundred_types_carry_real_inheritance() -> None:
     data = _load_fixture()
     with_bases = [entry for entry in data["types"] if entry["bases"]]
-    # 108 of 252 reduced types carry a non-empty bases list in the real, observed output -
+    # 108 of 300 reduced types carry a non-empty bases list in the real, observed output -
     # proof TC-010b's base_class_clause fix holds broadly against real, large C++ source, not
     # just the one example asserted above.
     assert len(with_bases) >= 100
