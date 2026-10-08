@@ -428,3 +428,42 @@ def test_publish_allows_a_comfortable_update_against_an_active_generation(tmp_pa
 
     assert publish(store, second.scope, first.generation_id, second, lease2) == second.generation_id
     assert store.read_active(second.scope) == second.generation_id
+
+
+# ---------------------------------------------------------------------
+# TC-253: a publish refused by assert_publish_is_safe must never be durably
+# written, so a later rollback() can never be pointed at it (B10 of the
+# 2026-10-08 second independent audit - the rollback safety bypass).
+# ---------------------------------------------------------------------
+
+
+def test_a_refused_publish_is_never_durably_written_so_rollback_cannot_bypass_it(tmp_path):
+    """Before this card's ordering fix, publish() called store.write_and_validate(generation)
+    - a durable write - BEFORE assert_publish_is_safe. An empty-generation publish was still
+    correctly refused with PublishSafetyError and never activated, but the refused
+    generation's bytes were already on disk: store.generation_exists() returned True for it,
+    and rollback() - whose only check is generation_exists(), by design, since a normal
+    rollback target is an old, already-vetted generation - would happily activate the exact
+    generation this guard had just refused. Proves the bypass is actually closed, not just
+    that the write didn't happen: asserts generation_exists() is False for the refused id,
+    AND that rollback() to that id raises UnknownGenerationError."""
+    store = _store(tmp_path)
+    healthy = _manifest_with_documents("pdf", "net", "api-reference", "1", 4)
+    lease = store.acquire_lease(healthy.scope, "worker-1", healthy.generation_id)
+    publish(store, healthy.scope, None, healthy, lease)
+    assert store.read_active(healthy.scope) == healthy.generation_id
+
+    empty = build_manifest("pdf", "net", "api-reference", "2")  # payload={} -> 0 documents, distinct generation_id
+    lease2 = store.acquire_lease(empty.scope, "worker-1", empty.generation_id)
+
+    with pytest.raises(PublishSafetyError):
+        publish(store, empty.scope, healthy.generation_id, empty, lease2)
+
+    # The refused publish changed nothing about the active pointer...
+    assert store.read_active(healthy.scope) == healthy.generation_id
+    # ...and, the actual point of this card, left nothing durably written for a later
+    # rollback() to find.
+    assert store.generation_exists(empty.scope, empty.generation_id) is False
+
+    with pytest.raises(UnknownGenerationError):
+        rollback(store, empty.scope, healthy.generation_id, empty.generation_id, lease2)

@@ -495,11 +495,16 @@ def publish(
     generation: GenerationManifest,
     lease: Lease,
 ):
-    """Write-and-validate ``generation``, then activate it via CAS - the one authority
-    path. Enforces :func:`assert_publish_is_safe` itself, after write-and-validate
-    (so a structurally-invalid payload still fails with :class:`ManifestValidationError`,
-    not an attribute error from this guard trying to read a malformed payload) and before
-    ``cas_activate`` (so an unsafe publish never activates, no matter who called this).
+    """Validate, safety-check, then write-and-activate ``generation`` - the one authority
+    path. Enforces :func:`validate_manifest` first (so a structurally-invalid payload
+    still fails with :class:`ManifestValidationError`, not an attribute error from
+    :func:`assert_publish_is_safe` trying to read a malformed payload), then
+    :func:`assert_publish_is_safe` itself, and only once BOTH have passed does this durably
+    write ``generation`` via :meth:`GenerationManifestStore.write_and_validate` and activate
+    it via ``cas_activate``. This order is load-bearing: a publish refused by either check
+    must never be durably written under any ``generation_id`` at all, so no later
+    :func:`rollback` - whose only check is :meth:`GenerationManifestStore.generation_exists`
+    - can ever be pointed at a generation this guard has refused.
 
     ``active_document_count`` is read from whatever generation is REALLY currently active
     for ``scope`` right now (not from the caller-supplied ``expected_active``, which may
@@ -507,7 +512,7 @@ def publish(
     testing a CAS mismatch) - falling back to ``None`` when nothing is active yet, or when
     that lookup can't resolve to a real generation.
     """
-    generation_id = store.write_and_validate(generation)
+    validate_manifest(generation)
 
     active_document_count: int | None = None
     active_generation_id = store.read_active(scope)
@@ -520,6 +525,8 @@ def publish(
             active_document_count = _document_count(active_manifest.payload)
 
     assert_publish_is_safe(_document_count(generation.payload), active_document_count)
+
+    generation_id = store.write_and_validate(generation)
 
     return store.cas_activate(scope, expected_active, generation_id, lease)
 
