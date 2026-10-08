@@ -1,0 +1,84 @@
+id: TC-253
+gate: G2
+lane: control-plane
+purpose: 'Fix a real, empirically-confirmed safety bypass (B10 of the second independent audit, 2026-10-08):
+  src/foss_mcp/indexing/generation_manifest.py''s publish() calls store.write_and_validate(generation) - which
+  durably WRITES the generation to disk - BEFORE calling assert_publish_is_safe(). When assert_publish_is_safe then
+  refuses the publish (0 documents, or a >50% regression against the active generation), the generation it just
+  refused to ACTIVATE has already been durably WRITTEN and is now indistinguishable from any legitimately-published
+  one: store.generation_exists() returns True for it, and rollback() - whose only check is generation_exists(), by
+  design, since a rollback target is normally an old, already-vetted generation - will happily activate it. This was
+  reproduced directly against the real production functions (publish, rollback, GenerationManifestStore, no mocks):
+  a publish of an empty generation is correctly refused with PublishSafetyError and the active pointer stays
+  unchanged, but store.generation_exists(scope, that_same_refused_generation_id) is True immediately afterward, and
+  a subsequent rollback(store, scope, active, that_same_refused_generation_id, lease) SUCCEEDS, activating the exact
+  generation the safety guard just refused - full bypass. rollback() itself is not the defect (travelling a lighter
+  authority path than publish() is its own deliberate, correct, already-documented design: a real rollback target is
+  an old generation that was already vetted when it first activated, so re-running the ">50% regression against
+  itself" check would be nonsensical). The defect is entirely in publish()''s own ordering: the safety check must run
+  BEFORE the generation is durably written, not only before it is activated.'
+depends_on:
+- TC-242
+write_paths:
+- src/foss_mcp/indexing/generation_manifest.py
+- tests/indexing/test_generation_manifest.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read src/foss_mcp/indexing/generation_manifest.py''s publish() in full (currently ~line 491-524), and its own
+  docstring''s stated reason for the CURRENT order (structural validation errors should read as
+  ManifestValidationError, not an attribute error from assert_publish_is_safe trying to read a malformed payload).
+  That reasoning is still valid and must be preserved - the fix is NOT to run the safety check before any structural
+  check, only to run it before the DURABLE WRITE.'
+- 'Reorder publish()''s body: call validate_manifest(generation) directly first (this is already a standalone
+  function in this same module, used internally by write_generation - calling it directly here gives the same clean
+  structural-error-first guarantee without writing anything to disk yet). THEN compute active_document_count exactly
+  as today (read the REAL currently-active generation, unchanged) and call assert_publish_is_safe(...) exactly as
+  today. ONLY IF that does not raise, call store.write_and_validate(generation) (which will validate again - harmless,
+  since nothing changed - then write for real) and then store.cas_activate(...), exactly as today. Net effect: a
+  refused publish must never cause anything to be durably written to the store at all, under any circumstance.'
+- 'Do not change write_and_validate, write_generation, validate_manifest, cas_activate, rollback, or
+  assert_publish_is_safe themselves - this card is an ordering fix inside publish() only, nothing else in this file
+  or in infra/rollback.py, infra/ingest.py, or publisher.py changes.'
+- 'Add a regression test to tests/indexing/test_generation_manifest.py, in the same section as the existing TC-242
+  tests (search for "assert_publish_is_safe, and its enforcement") and following this file''s own existing helpers
+  (_store, _manifest_with_documents, build_manifest) exactly: publish a healthy generation, then attempt to publish
+  an EMPTY generation under a distinct generation_id and confirm it is refused (PublishSafetyError, exactly as the
+  existing test_publish_refuses_an_empty_generation_even_when_called_directly already does) - then assert
+  store.generation_exists(scope, <the refused generation''s id>) is False (this is the new assertion this card
+  exists to make true; before this fix it was True), and finally assert that calling rollback() with that same
+  refused generation_id raises UnknownGenerationError (import it from the same module), proving the bypass this card
+  closes is actually closed, not just that the write didn''t happen.'
+- 'Run the full existing test file (not only your new test) to confirm every pre-existing test in it, including
+  every TC-242 test already there, still passes unchanged.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read publish() and its docstring in full before changing anything.
+- Reorder publish() so validate_manifest + assert_publish_is_safe run before any durable write.
+- Add the new regression test; run the full file to confirm nothing else broke.
+checks:
+- command: '{python} -m pytest tests/indexing/test_generation_manifest.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 1
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;nl=chr(10);p=pathlib.Path('src/foss_mcp/indexing/generation_manifest.py');s=p.read_text(encoding='utf-8');old='    generation_id = store.write_and_validate(generation)'+nl+nl+'    active_document_count';new='    active_document_count';i=s.index(old);s=s[:i]+new+s[i+len(old):];s=s.replace('return store.cas_activate(scope, expected_active, generation_id, lease)','generation_id = store.write_and_validate(generation)'+nl+'    return store.cas_activate(scope, expected_active, generation_id, lease)',1);p.write_text(s,encoding='utf-8')"
+  rationale: 'Moves the durable write back to AFTER the safety check (the exact pre-fix ordering this card exists
+    to reverse), so the new test''s generation_exists()==False assertion, and the rollback UnknownGenerationError
+    assertion, must both fail again. Built with chr(), no backslash.'
+evidence:
+- evidence/build/G2/TC-253/receipt.json
+closeout:
+- A publish refused by assert_publish_is_safe is never durably written to the store under any generation_id, so
+  no later rollback can ever activate a generation the safety guard has refused.
+recovery: Re-run from a clean tree.
