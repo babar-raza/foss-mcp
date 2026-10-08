@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "card": "TC-253",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-08T08:01:48Z",
+  "base_rev": "110311a76b9176863234058180e6b44841340641",
+  "head_rev": "b4e458c314498454f66af47f14eb4e4291df011d",
+  "card_sha256": "ad90c372bc3bec480c0e3a25ba036fc16f48e483e69ea1ce816cd0ce7d9366c5",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": false,
+    "changed_paths": [
+      "src/foss_mcp/indexing/generation_manifest.py",
+      "tests/indexing/test_generation_manifest.py"
+    ],
+    "violations": [
+      "b4e458c31449 does not descend from base 110311a76b91 (history was rewritten)"
+    ],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_generation_manifest.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.746,
+          "stdout_sha256": "32faef56d0289369b1ac111e68ee0bb7b2ed1bcf92d3f33b75313bd0556c3e6f",
+          "tests": 21,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_generation_manifest.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.91,
+          "stdout_sha256": "32faef56d0289369b1ac111e68ee0bb7b2ed1bcf92d3f33b75313bd0556c3e6f",
+          "tests": 21,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;nl=chr(10);p=pathlib.Path('src/foss_mcp/indexing/generation_manifest.py');s=p.read_text(encoding='utf-8');old='    generation_id = store.write_and_validate(generation)'+nl+nl+'    active_document_count';new='    active_document_count';i=s.index(old);s=s[:i]+new+s[i+len(old):];s=s.replace('return store.cas_activate(scope, expected_active, generation_id, lease)','generation_id = store.write_and_validate(generation)'+nl+'    return store.cas_activate(scope, expected_active, generation_id, lease)',1);p.write_text(s,encoding='utf-8')\"\n",
+    "patch_sha256": "fb167ac157b490d48a0fc30becaa45bd5bd16235cbc01c3fa67df4be79584658",
+    "applied": false,
+    "patch_applied_failed": false,
+    "exit_codes": []
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": false,
+  "reason": "scope violation: b4e458c31449 does not descend from base 110311a76b91 (history was rewritten); negative-control patch did not apply"
+}
