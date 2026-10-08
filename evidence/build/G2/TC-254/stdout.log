@@ -1,0 +1,217 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_platforms.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yedhuzsv\.junit-0.xml"
+--- stdout ---
+...........................                                              [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_platforms.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yedhuzsv\.junit-0.xml"
+--- stdout ---
+...........................                                              [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/get_product_reference.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_platforms.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yedhuzsv\.junit-0.xml"
+--- stdout ---
+............FFFFFFFFFFFFFFF                                              [100%]
+================================== FAILURES ===================================
+__________ test_dotnet_support_returns_package_project_url_verbatim ___________
+
+    def test_dotnet_support_returns_package_project_url_verbatim() -> None:
+        """Characterization test for the EXISTING .NET behaviour: there was no test for
+        this at all before TC-254, despite the .NET branch being the one platform that
+        already worked. Pins today's real behaviour so a future change cannot silently
+        break it unnoticed."""
+        inputs = ProductReferenceInputs(manifest_text=CSPROJ_WITH_PROJECT_URL_TEXT)
+        result = get_product_reference(inputs, "support")
+>       assert isinstance(result, ReferenceContent)
+E       AssertionError: assert False
+E        +  where False = isinstance(NotAvailable(section='support', reason='disabled by negative control'), ReferenceContent)
+
+tests\mcp\tools\test_get_product_reference_platforms.py:241: AssertionError
+__ test_dotnet_support_is_not_available_when_manifest_states_no_project_url ___
+
+    def test_dotnet_support_is_not_available_when_manifest_states_no_project_url() -> None:
+        csproj_text = (
+            "<Project><PropertyGroup>"
+            "<TargetFramework>net8.0</TargetFramework>"
+            "<PackageId>Aspose.PDF-FOSS</PackageId>"
+            "</PropertyGroup></Project>"
+        )
+        inputs = ProductReferenceInputs(manifest_text=csproj_text)
+        result = get_product_reference(inputs, "support")
+        assert isinstance(result, NotAvailable)
+>       assert "project url" in result.reason
+E       AssertionError: assert 'project url' in 'disabled by negative control'
+E        +  where 'disabled by negative control' = NotAvailable(section='support', reason='disabled by negative control').reason
+
+tests\mcp\tools\test_get_product_reference_platforms.py:255: AssertionError
+___________ test_python_support_returns_homepage_from_project_urls ____________
+
+    def test_python_support_returns_homepage_from_project_urls() -> None:
+        inputs = ProductReferenceInputs(manifest_text=PYPROJECT_WITH_HOMEPAGE_TEXT, platform="python")
+        result = get_product_reference(inputs, "support")
+>       assert isinstance(result, ReferenceContent)
+E       AssertionError: assert False
+E        +  where False = isinstance(NotAvailable(section='support', reason='disabled by negative control'), ReferenceContent)
+
+tests\mcp\tools\test_get_product_reference_platforms.py:261: AssertionError
+______________ test_python_support_falls_back_to_poetry_homepage ______________
+
+    def test_python_support_falls_back_to_poetry_homepage() -> None:
+        """No [project.urls] table at all - the legacy [tool.poetry] homepage must still
+        be read, in priority order after project.urls.Homepage/Repository."""
+        inputs = ProductReferenceInputs(manifest_text=PYPROJECT_WITH_POETRY_HOMEPAGE_TEXT, platform="python")
+        result = get_product_reference(inputs, "support")
+>       assert isinstance(result, ReferenceContent)
+E       AssertionError: assert False
+E        +  where False = isinstance(NotAvailable(section='support', reason='disabled by negative control'), ReferenceContent)
+
+tests\mcp\tools\test_get_product_reference_platforms.py:270: AssertionError
+__ test_python_support_is_not_available_when_manifest_states_no_project_url ___
+
+    def test_python_support_is_not_available_when_manifest_states_no_project_url() -> None:
+        inputs = ProductReferenceInputs(manifest_text=PYPROJECT_TEXT, platform="python")
+        result = get_product_reference(inputs, "support")
+        assert isinstance(result, NotAvailable)
+>       assert "project url" in result.reason
+E       AssertionError: assert 'project url' in 'disabled by negative control'
+E        +  where 'disabled by negative control' = NotAvailable(section='support', reason='disabled by negative control').reason
+
+tests\mcp\tools\test_get_product_reference_platforms.py:278: AssertionError
+______________ test_js_support_returns_homepage_over_repository _______________
+
+    def test_js_support_returns_homepage_over_repository() -> None:
+        inputs = ProductReferenceInputs(manifest_text=PACKAGE_JSON_WITH_HOMEPAGE_TEXT, platform="javascript")
+        result = get_product_reference(inputs, "support")
+>       assert isinstance(result, ReferenceContent)
+E       AssertionError: assert False
+E        +  where False = isinstance(NotAvailable(section='support', reason='disabled by negative control'), ReferenceContent)
+
+tests\mcp\tools\test_get_product_reference_platforms.py:284: AssertionError
+_______________ test_js_support_handles_string_repository_shape _______________
+
+    def test_js_support_handles_string_repository_shape() -> None:
+        """package.json's "repository" field may be a bare string instead of an
+        {"url": ...} object - both shapes must be handled."""
+        inputs = ProductReferenceInputs(manifest_text=PACKAGE_JSON_WITH_STRING_REPOSITORY_TEXT, platform="typescript")
+        result = get_product_reference(inputs, "support")
+>       assert isinstance(result, ReferenceContent)
+E       AssertionError: assert False
+E        +  where False = isinstance(NotAvailable(section='support', reason='disabled by negative control'), ReferenceContent)
+
+tests\mcp\tools\test_get_product_reference_platforms.py:293: AssertionError
+____ test_js_support_is_not_available_when_manifest_states_no_project_url _____
+
+    def test_js_support_is_not_available_when_manifest_states_no_project_url() -> None:
+        inputs = ProductReferenceInputs(manifest_text=PACKAGE_JSON_TEXT, platform="js")
+        result = get_product_reference(inputs, "support")
+        assert isinstance(result, NotAvailable)
+>       assert "project url" in result.reason
+E       AssertionError: assert 'project url' in 'disabled by negative control'
+E        +  where 'disabled by negative control' = NotAvailable(section='support', reason='disabled by negative control').reason
+
+tests\mcp\tools\test_get_product_reference_platforms.py:301: AssertionError
+______________ test_java_support_returns_first_url_tag_verbatim _______________
+
+    def test_java_support_returns_first_url_tag_verbatim() -> None:
+        inputs = ProductReferenceInputs(manifest_text=POM_XML_WITH_URL_TEXT, platform="java")
+        result = get_product_reference(inputs, "support")
+>       assert isinstance(result, ReferenceContent)
+E       AssertionError: assert False
+E        +  where False = isinstance(NotAvailable(section='support', reason='disabled by negative control'), ReferenceContent)
+
+tests\mcp\tools\test_get_product_reference_platforms.py:307: AssertionError
+_______ test_java_support_is_not_available_when_manifest_states_no_url ________
+
+    def test_java_support_is_not_available_when_manifest_states_no_url() -> None:
+        inputs = ProductReferenceInputs(manifest_text=POM_XML_TEXT, platform="java")
+        result = get_product_reference(inputs, "support")
+        assert isinstance(result, NotAvailable)
+>       assert "project url" in result.reason
+E       AssertionError: assert 'project url' in 'disabled by negative control'
+E        +  where 'disabled by negative control' = NotAvailable(section='support', reason='disabled by negative control').reason
+
+tests\mcp\tools\test_get_product_reference_platforms.py:315: AssertionError
+_____________ test_rust_support_returns_homepage_over_repository ______________
+
+    def test_rust_support_returns_homepage_over_repository() -> None:
+        inputs = ProductReferenceInputs(manifest_text=CARGO_TOML_WITH_HOMEPAGE_TEXT, platform="rust")
+        result = get_product_reference(inputs, "support")
+>       assert isinstance(result, ReferenceContent)
+E       AssertionError: assert False
+E        +  where False = isinstance(NotAvailable(section='support', reason='disabled by negative control'), ReferenceContent)
+
+tests\mcp\tools\test_get_product_reference_platforms.py:321: AssertionError
+___ test_rust_support_is_not_available_when_manifest_states_no_project_url ____
+
+    def test_rust_support_is_not_available_when_manifest_states_no_project_url() -> None:
+        inputs = ProductReferenceInputs(manifest_text=CARGO_TOML_NO_RUST_VERSION_TEXT, platform="rust")
+        result = get_product_reference(inputs, "support")
+        assert isinstance(result, NotAvailable)
+>       assert "project url" in result.reason
+E       AssertionError: assert 'project url' in 'disabled by negative control'
+E        +  where 'disabled by negative control' = NotAvailable(section='support', reason='disabled by negative control').reason
+
+tests\mcp\tools\test_get_product_reference_platforms.py:329: AssertionError
+_________ test_cpp_support_returns_homepage_url_from_project_command __________
+
+    def test_cpp_support_returns_homepage_url_from_project_command() -> None:
+        """CMake's project() command has accepted HOMEPAGE_URL since CMake 3.12 - a real,
+        standard field, unlike go.mod, which has no equivalent."""
+        inputs = ProductReferenceInputs(manifest_text=CMAKE_LISTS_WITH_HOMEPAGE_URL_TEXT, platform="cpp")
+        result = get_product_reference(inputs, "support")
+>       assert isinstance(result, ReferenceContent)
+E       AssertionError: assert False
+E        +  where False = isinstance(NotAvailable(section='support', reason='disabled by negative control'), ReferenceContent)
+
+tests\mcp\tools\test_get_product_reference_platforms.py:337: AssertionError
+___ test_cpp_support_is_not_available_when_manifest_states_no_homepage_url ____
+
+    def test_cpp_support_is_not_available_when_manifest_states_no_homepage_url() -> None:
+        inputs = ProductReferenceInputs(manifest_text=CMAKE_LISTS_TEXT, platform="cpp")
+        result = get_product_reference(inputs, "support")
+        assert isinstance(result, NotAvailable)
+>       assert "project url" in result.reason
+E       AssertionError: assert 'project url' in 'disabled by negative control'
+E        +  where 'disabled by negative control' = NotAvailable(section='support', reason='disabled by negative control').reason
+
+tests\mcp\tools\test_get_product_reference_platforms.py:345: AssertionError
+_______ test_go_support_is_not_available_go_mod_has_no_equivalent_field _______
+
+    def test_go_support_is_not_available_go_mod_has_no_equivalent_field() -> None:
+        """go.mod has no standard homepage/repository field - its module path is already
+        surfaced by the "install" section, so support stays an honest NotAvailable."""
+        inputs = ProductReferenceInputs(manifest_text=GO_MOD_TEXT, platform="go")
+        result = get_product_reference(inputs, "support")
+        assert isinstance(result, NotAvailable)
+>       assert "project url" in result.reason
+E       AssertionError: assert 'project url' in 'disabled by negative control'
+E        +  where 'disabled by negative control' = NotAvailable(section='support', reason='disabled by negative control').reason
+
+tests\mcp\tools\test_get_product_reference_platforms.py:354: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_dotnet_support_returns_package_project_url_verbatim
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_dotnet_support_is_not_available_when_manifest_states_no_project_url
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_python_support_returns_homepage_from_project_urls
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_python_support_falls_back_to_poetry_homepage
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_python_support_is_not_available_when_manifest_states_no_project_url
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_js_support_returns_homepage_over_repository
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_js_support_handles_string_repository_shape
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_js_support_is_not_available_when_manifest_states_no_project_url
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_java_support_returns_first_url_tag_verbatim
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_java_support_is_not_available_when_manifest_states_no_url
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_rust_support_returns_homepage_over_repository
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_rust_support_is_not_available_when_manifest_states_no_project_url
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_cpp_support_returns_homepage_url_from_project_command
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_cpp_support_is_not_available_when_manifest_states_no_homepage_url
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_go_support_is_not_available_go_mod_has_no_equivalent_field
+
+--- stderr ---
+
