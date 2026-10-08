@@ -1,6 +1,6 @@
 
 ===== CLEAN RUN 1 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-s3mhely2\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ue7l16qb\.junit-0.xml"
 --- stdout ---
 .....................                                                    [100%]
 
@@ -8,7 +8,7 @@ $ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e
 
 
 ===== CLEAN RUN 2 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-s3mhely2\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ue7l16qb\.junit-0.xml"
 --- stdout ---
 .....................                                                    [100%]
 
@@ -17,13 +17,13 @@ $ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e
 
 ===== NEGATIVE CONTROL (checks MUST now fail) =====
 mutated: M src/foss_mcp/indexing/generation_manifest.py, ?? .junit-0.xml
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-s3mhely2\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ue7l16qb\.junit-0.xml"
 --- stdout ---
 ................FF..F                                                    [100%]
 ================================== FAILURES ===================================
 _____ test_publish_refuses_an_empty_generation_even_when_called_directly ______
 
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3880/test_publish_refuses_an_empty_0')
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3896/test_publish_refuses_an_empty_0')
 
     def test_publish_refuses_an_empty_generation_even_when_called_directly(tmp_path):
         """TC-242's core defect, fixed: before this card, an empty-generation publish was only
@@ -41,7 +41,7 @@ E       Failed: DID NOT RAISE PublishSafetyError
 tests\indexing\test_generation_manifest.py:382: Failed
 _ test_publish_refuses_a_more_than_50_percent_regression_even_when_called_directly _
 
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3880/test_publish_refuses_a_more_th0')
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3896/test_publish_refuses_a_more_th0')
 
     def test_publish_refuses_a_more_than_50_percent_regression_even_when_called_directly(tmp_path):
         """Same defect, the regression branch: a direct caller publishing far fewer documents
@@ -63,7 +63,7 @@ E       Failed: DID NOT RAISE PublishSafetyError
 tests\indexing\test_generation_manifest.py:401: Failed
 _ test_a_refused_publish_is_never_durably_written_so_rollback_cannot_bypass_it _
 
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3880/test_a_refused_publish_is_neve0')
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3896/test_a_refused_publish_is_neve0')
 
     def test_a_refused_publish_is_never_durably_written_so_rollback_cannot_bypass_it(tmp_path):
         """Before this card's ordering fix, publish() called store.write_and_validate(generation)
@@ -81,14 +81,16 @@ tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest
         publish(store, healthy.scope, None, healthy, lease)
         assert store.read_active(healthy.scope) == healthy.generation_id
     
-        empty = build_manifest("pdf", "net", "api-reference", "2")  # payload={} -> 0 documents, distinct generation_id
+        empty = build_manifest(
+            "pdf", "net", "api-reference", "2"
+        )  # payload={} -> 0 documents, distinct generation_id
         lease2 = store.acquire_lease(empty.scope, "worker-1", empty.generation_id)
     
 >       with pytest.raises(PublishSafetyError):
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 E       Failed: DID NOT RAISE PublishSafetyError
 
-tests\indexing\test_generation_manifest.py:459: Failed
+tests\indexing\test_generation_manifest.py:461: Failed
 =========================== short test summary info ===========================
 FAILED tests/indexing/test_generation_manifest.py::test_publish_refuses_an_empty_generation_even_when_called_directly
 FAILED tests/indexing/test_generation_manifest.py::test_publish_refuses_a_more_than_50_percent_regression_even_when_called_directly
