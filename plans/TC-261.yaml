@@ -1,0 +1,111 @@
+id: TC-261
+gate: G2
+lane: extraction
+purpose: 'Fix a real, confirmed provenance gap (C3 of the third independent audit, 2026-10-08):
+  src/foss_mcp/extraction/tree_sitter_engine/api_surface.py''s _flatten_inheritance() is a deliberate,
+  language-agnostic function that copies every ancestor class''s methods/properties into every descendant''s own
+  methods/properties list (walking the full transitive bases chain, not just direct parents), with zero marker
+  distinguishing a copied (inherited) entry from a genuinely locally-declared one. Confirmed against pdf/cpp''s real
+  PopupAnnotation -> Annotation -> BaseParagraph chain (fetched the real popup_annotation.hpp from GitHub at the
+  pinned commit): PopupAnnotation''s real header declares exactly 5 members, but the extracted fixture''s
+  PopupAnnotation entry also carries every one of Annotation''s ~30 methods and every one of BaseParagraph''s ~15
+  methods - including BaseParagraph''s own constructor and destructor, which PopupAnnotation obviously never
+  declares. Each copied method''s own file/line metadata is individually accurate (correctly pointing at the real
+  ancestor''s file, never claiming to be declared in popup_annotation.hpp), but src/foss_mcp/indexing/chunk_builder.py''s
+  _format_type_text/_method_line/_property_line render every entry in a flat "Methods:"/"Properties:" list with no
+  file/line/provenance shown at all - so a caller (or an agent reading get_symbol/list_members/search_docs output)
+  cannot tell a genuinely own-declared member from an inherited one. This is not fabrication like the audit''s C1
+  (the capability is real: a PopupAnnotation genuinely can call the inherited GetRectangle) but a silent ownership
+  misrepresentation that violates the audit''s own stated invariant: "every served member must either belong to the
+  requested type, or be explicitly identified as inherited."'
+depends_on:
+- TC-241
+- TC-238
+- TC-092
+- TC-255
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- src/foss_mcp/indexing/chunk_builder.py
+- tests/extraction/tree_sitter_engine/test_flatten_inheritance_provenance.py
+- tests/indexing/test_chunk_builder.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read src/foss_mcp/extraction/tree_sitter_engine/api_surface.py''s _flatten_inheritance() (currently ~line
+  2425-2502) in full, including its own existing docstring and the ST-013/Node.ToString comments explaining why it
+  deep-copies each inherited member and dedupes by (name, param-type-signature). Read
+  src/foss_mcp/indexing/chunk_builder.py''s _method_line/_property_line/_format_type_text (currently ~line 30-125)
+  in full to see the exact rendering convention already established for an optional suffix (see
+  _property_writability/_property_line''s existing "(readwrite)"/"(readonly)" suffix pattern - mirror that exact
+  style, do not invent a different one).'
+- 'In _flatten_inheritance(), when copying a method or property from a parent into a child (the
+  `cls.setdefault("methods", []).append(copy.deepcopy(m))` and the equivalent properties line), add one new key to
+  the COPIED dict only - `"inherited_from": parent.get("class_import") or parent.get("name", "")` - set on the copy
+  after copy.deepcopy, never on the original parent entry, and never on a genuinely locally-declared entry (which
+  must never gain this key at all, including for entries already present before this card''s own class is reached -
+  do not touch the entries this function leaves alone). This must work correctly for a multi-level chain exactly
+  like the real PopupAnnotation -> Annotation -> BaseParagraph case: a grandparent''s member copied into a
+  grandchild must record its ORIGINAL declaring class (BaseParagraph), not the intermediate parent (Annotation) it
+  was copied through on the way - verify this specific multi-level case yourself, do not assume one level is
+  sufficient.'
+- 'In chunk_builder.py''s _method_line and _property_line, when the entry carries a non-empty "inherited_from", add
+  "  (inherited from {inherited_from})" immediately after the existing rendered line (not replacing anything that
+  is already there - the suffix pattern already in use for property writability is the model to follow exactly).
+  An entry with no "inherited_from" key (every genuinely own-declared member, and every existing fixture''s content
+  before this card lands) renders completely unchanged - do not alter the rendering for that case at all.'
+- 'Add tests/extraction/tree_sitter_engine/test_flatten_inheritance_provenance.py: construct a small synthetic
+  three-level chain (grandparent/parent/child dicts, mirroring the real PopupAnnotation/Annotation/BaseParagraph
+  shape closely enough to be a faithful regression) and assert: a method the child declares itself never carries
+  "inherited_from"; a method copied from the direct parent carries "inherited_from" set to the parent''s identity; a
+  method that only exists on the grandparent and is copied transitively into the child carries "inherited_from" set
+  to the GRANDPARENT''s identity, not the parent''s; properties behave the same way. Mirror this project''s existing
+  test conventions for this function''s own test file if one already exists for _flatten_inheritance, otherwise
+  follow the style of other tests in the same directory.'
+- 'Add tests to tests/indexing/test_chunk_builder.py: a method/property entry carrying "inherited_from" renders
+  with the new suffix; one without it renders completely unchanged (a direct regression against the exact existing
+  rendered-text assertions already in this file, to prove this card never alters output for the common case). Run
+  the full existing file to confirm no pre-existing test broke.'
+- 'Do NOT regenerate any committed fixture as part of this card - every fixture with a non-empty "bases" list will
+  need the new field once ingestion re-runs, and that is explicitly deferred to a follow-up wave once this schema/
+  render change itself is reviewed and accepted, mirroring every prior fixture-regeneration wave this session
+  (TC-252 then TC-255-258; TC-259 then its own pending regeneration wave). If your own full-suite run shows an
+  existing test asserting on flattened-inheritance output that this card''s new field changes (unlikely, since the
+  new key is additive and the rendering change is suffix-only, but confirm directly rather than assuming), STOP and
+  report it rather than patching it yourself.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read _flatten_inheritance and the chunk_builder rendering functions in full before changing anything.
+- Add the inherited_from provenance key on copy only; add the rendering suffix for it only.
+- Add both test files; run them, then run the full suite once and report honestly.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_flatten_inheritance_provenance.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/indexing/test_chunk_builder.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 4
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;q=chr(34);p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='inherited_from';new='inherited_from_DISABLED';i=s.index(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: 'Renames the first occurrence of the new "inherited_from" key (this card''s own fix is the only place
+    that string appears in this file), so every new test asserting the key''s presence/value on a copied member
+    must fail. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-261/receipt.json
+closeout:
+- A method or property copied into a descendant by inheritance flattening carries an explicit, correctly-rooted
+  provenance marker back to the real class that declares it, and get_symbol/list_members' rendered output shows it.
+recovery: Re-run from a clean tree.
