@@ -381,7 +381,9 @@ def test_real_free_functions_get_real_signatures_across_the_three_affected_pilot
     # confirmed directly against the committed, TC-255-regenerated fixture. ("AES_WRAP_OID", the
     # constant this assertion previously used, no longer survives TC-252's centrality-ranked
     # selection.)
-    assert "Value: string = 'http://schemas.openxmlformats.org/officeDocument/2006/math'" in pdf_typescript_text
+    assert (
+        "Value: string = 'http://schemas.openxmlformats.org/officeDocument/2006/math'" in pdf_typescript_text
+    )
     assert "openxmlformats.org/officeDocument/2006/math" in pdf_typescript_text
 
 
