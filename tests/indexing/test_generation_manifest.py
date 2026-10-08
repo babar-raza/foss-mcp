@@ -453,7 +453,9 @@ def test_a_refused_publish_is_never_durably_written_so_rollback_cannot_bypass_it
     publish(store, healthy.scope, None, healthy, lease)
     assert store.read_active(healthy.scope) == healthy.generation_id
 
-    empty = build_manifest("pdf", "net", "api-reference", "2")  # payload={} -> 0 documents, distinct generation_id
+    empty = build_manifest(
+        "pdf", "net", "api-reference", "2"
+    )  # payload={} -> 0 documents, distinct generation_id
     lease2 = store.acquire_lease(empty.scope, "worker-1", empty.generation_id)
 
     with pytest.raises(PublishSafetyError):
