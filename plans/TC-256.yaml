@@ -1,0 +1,80 @@
+id: TC-256
+gate: G2
+lane: extraction
+purpose: 'Regenerate tests/fixtures/pdf_java/api_surface.json with TC-252''s fixed, centrality-ranked
+  reduce_fixture() instead of the stale, pre-TC-238 alphabetical cut it has carried since its original onboarding
+  (TC-044): 1158 real types, only 150 ever kept (87% missing), because the fixture was never regenerated after the
+  project''s intended cap moved from 150 to 300, and the selection algorithm itself was alphabetical with no regard
+  for centrality until TC-252 fixed it. This card is run-and-pin only, following TC-153''s own established pattern
+  for exactly this kind of live, real-repository re-extraction: run it for real, inspect the actual output
+  carefully, and if the live run reveals a genuine defect outside this card''s write_paths, STOP and report it
+  rather than patching around it or committing a broken fixture - this is the correct, expected outcome if it
+  happens, not a failure. This pilot is the one most directly named by the audit''s own B03 claim and this
+  session''s own live confirmation: the current fixture keeps only the "IPresentation" interface, never the central
+  "Presentation" class itself, for the sibling pilot slides/java (see TC-257) - the identical risk applies here.'
+depends_on:
+- TC-044
+- TC-252
+write_paths:
+- tests/fixtures/pdf_java/api_surface.json
+- tests/extraction/test_pdf_java_extraction.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Confirm TC-252 is actually integrated into main (its own fixed, centrality-ranked reduce_fixture) before doing
+  anything else - this card is meaningless against the unfixed algorithm. Read src/foss_mcp/extraction/run_extraction.py''s
+  current reduce_fixture() yourself to confirm it is the centrality-ranked version, not the old pure-alphabetical
+  one, before proceeding.'
+- 'Run `python -m foss_mcp.extraction.run_extraction config/products/pdf/java.yaml
+  tests/fixtures/pdf_java/api_surface.json` for real (network access is available to you for this one-time
+  generation step; do not pass --max-types, let it use the real default of 300). The manifest pins
+  repository: aspose-pdf-foss/Aspose.PDF-FOSS-for-Java.'
+- 'Inspect the real output carefully before committing anything: confirm reduced_type_count is now 300 (or
+  type_count itself if the real live repository currently has fewer than 300 types), confirm truncated reflects the
+  real relationship between those two numbers, and confirm the kept types look genuinely more representative than
+  before.'
+- 'CRITICAL for this pilot specifically: tests/e2e/test_pdf_java_live_content.py and tests/indexing/test_lookup_doc_fallback_query_safety.py
+  (both TC-238/TC-248/TC-249''s own prior work) are already KNOWN to be sensitive to exactly which types this
+  fixture keeps - TC-238''s own 20->300 cap change previously shifted which content lookup._compose_from_docs
+  reaches first for a real query, breaking a live test in a way that took two follow-up cards (TC-248, TC-249) to
+  fix properly. This regeneration will almost certainly shift kept-type content again. Do NOT attempt to fix either
+  of those two files yourself (they are outside this card''s write_paths) - if your own full-suite check at the end
+  shows either one now fails, STOP and report exactly which test and why, so a properly scoped rework restatement
+  can be issued, exactly as TC-248 was for TC-238''s own change.'
+- 'Update tests/extraction/test_pdf_java_extraction.py to match the new real fixture content exactly - do not guess
+  or invent names; assert only on type/symbol names and counts you actually observed in your own run. Mirror this
+  file''s own existing structure and assertions (read it in full first).'
+- 'IF the live run reveals a genuine extraction-engine defect outside this card''s two write_paths - STOP, do not
+  commit a broken/incomplete fixture, and report the exact defect with your diagnosis instead of patching a file
+  outside your write_paths.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Confirm TC-252 is integrated and its fix is really what main's reduce_fixture does now.
+- Run the real extraction for pdf/java; inspect the real output carefully before committing anything.
+- Update the fixture's own test file to match the real new content; run it; run the full suite once and report honestly.
+checks:
+- command: '{python} -m pytest tests/extraction/test_pdf_java_extraction.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 3
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/pdf_java/api_surface.json');p.write_text('{}',encoding='utf-8')"
+  rationale: Emptying the pinned fixture must break the suite - a test that passes against an empty artifact is
+    asserting the file exists, not that a real extraction ran. Same shape as every prior extraction card's
+    falsifier (TC-153, TC-044's own original, TC-050's successor).
+evidence:
+- evidence/build/G2/TC-256/receipt.json
+closeout:
+- tests/fixtures/pdf_java/api_surface.json reflects a real, current extraction at the project's actual intended
+  cap (300), selected by centrality rather than alphabetical luck, not a stale snapshot from before either fix
+  existed.
+recovery: Re-run from a clean tree.
