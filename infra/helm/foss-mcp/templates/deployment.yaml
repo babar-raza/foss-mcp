@@ -19,18 +19,28 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
-      # serve_http.py reads its packaging-manifest sidecar once, at process start. The serving
-      # container therefore starts only after the ingestion Job has written this identity's sidecar
-      # (product_reference_<family>_<platform>.json, the name sidecar_name returns in
-      # infra/fetch_product_reference.py). The gate is a loop over one test; it runs no other command.
+      # serve_http.py reads both its packaging-manifest sidecar AND its recent-releases sidecar
+      # exactly once, at process start, with no refresh. The ingestion Job's own shell chain
+      # (infra/helm/foss-mcp/templates/ingestion-job.yaml) runs fetch_product_reference.py
+      # STRICTLY BEFORE fetch_recent_releases.py, so waiting on the product-reference file alone
+      # lets the serving container start in the window before the second file exists - it would
+      # then answer list_recent_changes with a permanently-wrong empty list for its entire
+      # lifetime (G2/TC-251). The serving container therefore starts only after the ingestion Job
+      # has written BOTH this identity's sidecars (product_reference_<family>_<platform>.json and
+      # recent_releases_<family>_<platform>.json, the names sidecar_name and
+      # recent_releases_sidecar_name return in infra/fetch_product_reference.py and
+      # infra/fetch_recent_releases.py respectively). This unconditional wait is safe against a
+      # persistent live-fetch failure because fetch_recent_releases.py's main() now always writes
+      # an empty-list sidecar on failure rather than leaving no file at all. The gate is a loop
+      # over two tests; it runs no other command.
       initContainers:
-        - name: wait-for-product-reference
+        - name: wait-for-product-reference-and-recent-releases
           image: "{{ .Values.image.repository }}:{{ required "image.tag must be set to a pinned version or digest" .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
             - "sh"
             - "-c"
-            - {{ printf "until [ -f %s/product_reference_%s_%s.json ]; do sleep 2; done" .Values.manifests.mountPath .Values.deployment.family .Values.deployment.platform | quote }}
+            - {{ printf "until [ -f %s/product_reference_%s_%s.json ] && [ -f %s/recent_releases_%s_%s.json ]; do sleep 2; done" .Values.manifests.mountPath .Values.deployment.family .Values.deployment.platform .Values.manifests.mountPath .Values.deployment.family .Values.deployment.platform | quote }}
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           volumeMounts:

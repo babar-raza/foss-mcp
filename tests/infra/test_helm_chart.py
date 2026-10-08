@@ -216,6 +216,20 @@ def test_service_routes_port_80_to_the_http_port_for_serving_only() -> None:
     assert spec["selector"]["app.kubernetes.io/component"] == "serving"
 
 
+def test_serving_init_container_waits_for_both_the_product_reference_and_recent_releases_sidecars() -> None:
+    # G2/TC-251: the ingestion Job's own chain runs fetch_product_reference.py strictly before
+    # fetch_recent_releases.py, so the initContainer must gate on BOTH sidecar files - gating on
+    # the first alone lets the serving container start before the second file exists, and
+    # serve_http.py reads it exactly once at boot with no refresh. The default values.yaml
+    # deployment identity is pdf/net.
+    _, spec, _ = _serving(_render())
+    init_containers = spec["initContainers"]
+    assert len(init_containers) == 1, "expected exactly one initContainer"
+    command = " ".join(init_containers[0]["command"])
+    assert "product_reference_pdf_net.json" in command
+    assert "recent_releases_pdf_net.json" in command
+
+
 def test_manifests_claim_exists_and_serving_mounts_it_read_only_at_data_manifests() -> None:
     docs = _render()
     claims = _by_kind(docs, "PersistentVolumeClaim")

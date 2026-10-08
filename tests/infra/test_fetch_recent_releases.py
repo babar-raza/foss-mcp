@@ -131,6 +131,25 @@ def test_main_treats_a_malformed_existing_output_as_absent_and_fetches_live_with
     assert written[0]["tag_name"] == "v2.1.0"
 
 
+def test_main_writes_an_empty_sidecar_and_does_not_raise_when_fetch_releases_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def _fetch_that_fails(repository: str, **kwargs: object) -> list[Release]:
+        raise RuntimeError("boom: simulated GitHub failure")
+
+    monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _fetch_that_fails)
+    output_path = tmp_path / "recent_releases.json"
+    _set_argv(monkeypatch, output_path)
+
+    fetch_recent_releases.main()  # must not raise
+
+    assert json.loads(output_path.read_text(encoding="utf-8")) == []
+    out = capsys.readouterr().out
+    assert REPOSITORY in out
+    assert "failed" in out.lower()
+    assert "boom: simulated GitHub failure" in out
+
+
 def test_load_recent_releases_sidecar_round_trips_what_main_wrote(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

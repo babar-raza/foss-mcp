@@ -121,7 +121,20 @@ def main() -> None:
         )
         return
 
-    releases = fetch_releases(args.repository)[: args.limit]
+    try:
+        releases = fetch_releases(args.repository)[: args.limit]
+    except Exception as exc:  # noqa: BLE001 - deliberately broad: any failure degrades to empty.
+        # A sidecar must always eventually exist once this step runs at all (see module docstring
+        # and infra/helm/foss-mcp/templates/deployment.yaml's initContainer, which now waits on
+        # this file too) - so a live-fetch failure writes an honest empty list instead of leaving
+        # no file behind, matching _serving_recent_releases' already-documented contract.
+        args.output.write_text(json.dumps([]), encoding="utf-8")
+        print(
+            f"failed to fetch releases for {args.repository}: {exc} -- wrote an empty sidecar "
+            f"to {args.output} instead"
+        )
+        return
+
     args.output.write_text(
         json.dumps([_serialize_release(release) for release in releases]), encoding="utf-8"
     )
