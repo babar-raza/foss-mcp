@@ -1,0 +1,80 @@
+id: TC-255
+gate: G2
+lane: extraction
+purpose: 'Regenerate tests/fixtures/pdf_typescript/api_surface.json with TC-252''s fixed, centrality-ranked
+  reduce_fixture() instead of the stale, pre-TC-238 alphabetical cut it has carried since its original onboarding
+  (TC-050) - the single most severe case found this session: 4211 real types, only 150 ever kept (96% missing),
+  because the fixture was never regenerated after the project''s intended cap moved from 150 to 300, and the
+  selection algorithm itself was alphabetical with no regard for centrality until TC-252 fixed it. This card is
+  run-and-pin only, following TC-153''s own established pattern for exactly this kind of live, real-repository
+  re-extraction: run it for real, inspect the actual output carefully, and if the live run reveals a genuine defect
+  outside this card''s write_paths, STOP and report it rather than patching around it or committing a broken
+  fixture - this is the correct, expected outcome if it happens, not a failure.'
+depends_on:
+- TC-050
+- TC-252
+write_paths:
+- tests/fixtures/pdf_typescript/api_surface.json
+- tests/extraction/test_pdf_typescript_extraction.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Confirm TC-252 is actually integrated into main (its own fixed, centrality-ranked reduce_fixture) before doing
+  anything else - this card is meaningless against the unfixed algorithm. Read src/foss_mcp/extraction/run_extraction.py''s
+  current reduce_fixture() yourself to confirm it is the centrality-ranked version, not the old pure-alphabetical
+  one, before proceeding.'
+- 'Run `python -m foss_mcp.extraction.run_extraction config/products/pdf/typescript.yaml
+  tests/fixtures/pdf_typescript/api_surface.json` for real (network access is available to you for this one-time
+  generation step; do not pass --max-types, let it use the real default of 300). The manifest pins
+  repository: aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript.'
+- 'Inspect the real output carefully before committing anything: confirm reduced_type_count is now 300 (or
+  type_count itself if the real live repository currently has fewer than 300 types - check which), confirm
+  truncated reflects the real relationship between those two numbers, and confirm the kept types look genuinely
+  more representative than before - spot check that a type named exactly "Page" (the specific symbol a live
+  investigation this session confirmed missing even from pdf/go''s correctly-sized-but-unranked 300-type fixture) is
+  present if the real repository has one, since that is the exact kind of central symbol this algorithm fix exists
+  to stop losing.'
+- 'Update tests/extraction/test_pdf_typescript_extraction.py to match the new real fixture content exactly - do not
+  guess or invent names; assert only on type/symbol names and counts you actually observed in your own run. Mirror
+  this file''s own existing structure and assertions (read it in full first) - change only the specific assertions
+  that depended on the OLD fixture''s specific content (exact kept-type names/counts), not its overall shape or the
+  structural checks (source_commit format, repository match, non-emptiness) that remain true regardless of which
+  types got kept.'
+- 'IF the live run reveals a genuine extraction-engine defect (crash, empty result, a TypeScript-specific symbol
+  class incorrectly dropped) outside this card''s two write_paths - STOP, do not commit a broken/incomplete fixture,
+  and report the exact defect with your diagnosis instead of patching a file outside your write_paths.'
+- 'IF the live run, or your own full-suite check afterward, reveals that OTHER existing tests outside your write_paths
+  now fail because they depended on the OLD fixture''s specific truncated content (the same class of breakage TC-238''s
+  own symbol-cap change caused for tests/e2e/test_pdf_java_live_content.py) - STOP, do not guess-fix a file outside
+  your write_paths, and report exactly which test(s) and why, so a properly scoped rework restatement can be issued.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Confirm TC-252 is integrated and its fix is really what main's reduce_fixture does now.
+- Run the real extraction for pdf/typescript; inspect the real output carefully before committing anything.
+- Update the fixture's own test file to match the real new content; run it; run the full suite once and report honestly.
+checks:
+- command: '{python} -m pytest tests/extraction/test_pdf_typescript_extraction.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 3
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/pdf_typescript/api_surface.json');p.write_text('{}',encoding='utf-8')"
+  rationale: Emptying the pinned fixture must break the suite - a test that passes against an empty artifact is
+    asserting the file exists, not that a real extraction ran. Same shape as every prior extraction card's
+    falsifier (TC-153, TC-044, TC-050's own successors).
+evidence:
+- evidence/build/G2/TC-255/receipt.json
+closeout:
+- tests/fixtures/pdf_typescript/api_surface.json reflects a real, current extraction at the project's actual
+  intended cap (300), selected by centrality rather than alphabetical luck, not a stale snapshot from before
+  either fix existed.
+recovery: Re-run from a clean tree.
