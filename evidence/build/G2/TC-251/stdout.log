@@ -1,0 +1,63 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ko799jdv\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ko799jdv\.junit-1.xml"
+--- stdout ---
+...................                                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ko799jdv\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ko799jdv\.junit-1.xml"
+--- stdout ---
+...................                                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/templates/deployment.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ko799jdv\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ko799jdv\.junit-1.xml"
+--- stdout ---
+........F..........                                                      [100%]
+================================== FAILURES ===================================
+_ test_serving_init_container_waits_for_both_the_product_reference_and_recent_releases_sidecars _
+
+    def test_serving_init_container_waits_for_both_the_product_reference_and_recent_releases_sidecars() -> None:
+        # G2/TC-251: the ingestion Job's own chain runs fetch_product_reference.py strictly before
+        # fetch_recent_releases.py, so the initContainer must gate on BOTH sidecar files - gating on
+        # the first alone lets the serving container start before the second file exists, and
+        # serve_http.py reads it exactly once at boot with no refresh. The default values.yaml
+        # deployment identity is pdf/net.
+        _, spec, _ = _serving(_render())
+        init_containers = spec["initContainers"]
+        assert len(init_containers) == 1, "expected exactly one initContainer"
+        command = " ".join(init_containers[0]["command"])
+        assert "product_reference_pdf_net.json" in command
+>       assert "recent_releases_pdf_net.json" in command
+E       AssertionError: assert 'recent_releases_pdf_net.json' in 'sh -c until [ -f /data/manifests/product_reference_pdf_net.json ] && [ -f /data/manifests/recent_releases_DISABLED_pdf_net.json ]; do sleep 2; done'
+
+tests\infra\test_helm_chart.py:230: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_chart.py::test_serving_init_container_waits_for_both_the_product_reference_and_recent_releases_sidecars
+
+--- stderr ---
+

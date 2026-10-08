@@ -1,0 +1,100 @@
+id: TC-252
+gate: G2
+lane: extraction
+purpose: 'Fix a real, confirmed algorithmic defect in src/foss_mcp/extraction/run_extraction.py''s
+  reduce_fixture(): when a real library has more public types than --max-types, the function selects
+  which ones to KEEP by pure alphabetical sort on class_import (or name) and a positional slice -
+  "types = sorted(artifact[''types''], key=...); reduced = types[:max_types]" - with zero consideration
+  of how central or important a type actually is to the library''s own public API. This is not
+  hypothetical: live-confirmed against tests/fixtures/pdf_go/api_surface.json (2192 real types, reduced
+  to the current, correctly-applied 300-type cap) - the fixture contains ZERO entries named exactly
+  "Page" (confirmed by direct inspection: only substring matches like ExamplePage_AddImage,
+  NewPageNumberStamp survive; the actual Page type itself does not), even though "Page" is one of the
+  single most central types in a PDF manipulation library. The same mechanism is confirmed again, more
+  severely, in 4 pilots whose checked-in fixtures are additionally stuck at a cap smaller than the
+  current intended 300 (pdf_java: 1008 of 1158 real types missing; pdf_typescript: 4061 of 4211
+  missing; pdf_cpp: 109 of 361 missing; slides_java: 91 of 241 missing, including its own central
+  "Presentation" class) - but that staleness is a SEPARATE problem (the fixtures were never
+  regenerated after the cap changed) from THIS card''s target, which is the selection algorithm
+  itself, proven wrong even at the current, correctly-applied cap. Regenerating any fixture with the
+  unfixed algorithm would reproduce the identical defect with a different arbitrary subset. This card
+  fixes the algorithm only; regenerating the affected fixtures is explicitly left to follow-up cards
+  once this one is reviewed and accepted.'
+depends_on:
+- TC-011
+- TC-238
+write_paths:
+- src/foss_mcp/extraction/run_extraction.py
+- tests/extraction/test_run_extraction_python.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read src/foss_mcp/extraction/run_extraction.py''s reduce_fixture() in full (currently ~line 209),
+  and read one real committed fixture entry''s shape directly (e.g. tests/fixtures/pdf_net/api_surface.json,
+  any entry under "types") to see the real fields available: "name" (bare simple identifier), "bases"
+  (list of bare base-class names), "methods" (each with "return_type" and "params"[]."type", all bare
+  type-reference strings as written in source - may include generic/array/nullable decoration such as
+  "List<Page>", "Page[]", "bool?"), and "properties" (each with "type", same shape as a method param).
+  These are the only per-type fields that reference OTHER types by name; there is no existing
+  "importance" or "centrality" field anywhere in the artifact.'
+- 'Replace the alphabetical-only sort key with a composite one: primary key is a CENTRALITY SCORE -
+  for each type T in the FULL (pre-truncation) artifact[''types''] list, count how many OTHER types''
+  "bases" entries, "methods"[].return_type, "methods"[].params[].type, or "properties"[].type values
+  contain T''s own "name" as a whole-word match (use a word-boundary regex, e.g. re.compile(rf"\b{re.escape(name)}\b"),
+  so "List<Page>" counts as a reference to "Page" but "ExamplePage" or "PageSet" do not - name collisions
+  across languages are already handled upstream, this card only needs a textual word-boundary match
+  within one artifact''s own types). Sort DESCENDING by this score, with the EXISTING alphabetical key
+  (class_import or name) as the deterministic tiebreaker for equal scores - do not make the result any
+  less deterministic than it is today; the same artifact must always reduce to the same fixture.'
+- 'Keep reduce_fixture''s existing signature, its "reduced_type_count"/"truncated" output fields, and
+  every other function in this module completely unchanged. This card touches only the sort key inside
+  reduce_fixture - it does not change extract_pinned_repository, extract_from_clone, or any CLI
+  argument.'
+- 'Add tests to tests/extraction/test_run_extraction_python.py (read this file first and follow its
+  existing style/fixture-construction conventions exactly): construct a small synthetic artifact
+  (plain dicts, not a real clone) with more types than a small --max-types, where one type (e.g.
+  "Central") is referenced by several other types'' bases/params/return_type/properties, and several
+  other types (alphabetically earlier than "Central") are never referenced by anything - assert that
+  reduce_fixture keeps "Central" even though it would have been dropped by a pure alphabetical cut, and
+  that the alphabetically-earlier, unreferenced types are the ones dropped instead. Add a second test
+  proving two types with an EQUAL centrality score (e.g. both referenced zero times, or both referenced
+  the same number of times) still break ties alphabetically, so the function''s output stays fully
+  deterministic. Do not weaken or remove any existing test in this file - run the whole file to confirm.'
+- 'After your own test file passes, run the full existing test suite once (not just your own file) and
+  report the result honestly. If any OTHER existing test outside your write_paths fails because it
+  depended on the old pure-alphabetical order or a specific previously-truncated symbol set, STOP - do
+  not guess-fix a file outside your write_paths - and report exactly which test(s) and why, so a
+  properly scoped rework restatement can be issued, the same way several earlier cards in this
+  project''s own history (TC-238, TC-242, TC-244) handled this identical situation.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read reduce_fixture and one real fixture entry's shape in full before changing anything.
+- Replace the sort key with centrality-first, alphabetical-tiebreak; keep everything else unchanged.
+- Add the two new tests; run the full file; then run the full suite and report honestly.
+checks:
+- command: '{python} -m pytest tests/extraction/test_run_extraction_python.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 2
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/run_extraction.py');s=p.read_text(encoding='utf-8');old='def reduce_fixture(artifact: dict[str, Any], *, max_types: int = 300) -> dict[str, Any]:';new=old+chr(10)+'    max_types = 10**9  # negative control: disable the cap entirely';i=s.index(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: 'Forces reduce_fixture to never truncate, so the new test asserting a centrally-referenced
+    type survives truncation ahead of unreferenced alphabetically-earlier types - which depends on an
+    actual cut happening - can no longer distinguish the fix from doing nothing, and must fail. Built
+    with plain text.'
+evidence:
+- evidence/build/G2/TC-252/receipt.json
+closeout:
+- reduce_fixture keeps the types other parts of the same library's public API reference most, not
+  whichever types happen to sort alphabetically first, when a cap forces a choice.
+recovery: Re-run from a clean tree.
