@@ -376,9 +376,13 @@ def test_real_free_functions_get_real_signatures_across_the_three_affected_pilot
         "  - A(a: Float32Array, w: number, h: number, x: number, y: number) -> number" in pdf_typescript_text
     )
 
-    # pdf_typescript's real AES_WRAP_OID constant must also carry its real value now.
-    assert "Value: Record<number, string> = {" in pdf_typescript_text
-    assert "OID.aes128Wrap" in pdf_typescript_text
+    # pdf_typescript's real "M" constant (src/wmlns.ts) must also carry its real value now -
+    # {kind: "constant", type: "string", value: "'http://schemas.openxmlformats.org/officeDocument/2006/math'"} -
+    # confirmed directly against the committed, TC-255-regenerated fixture. ("AES_WRAP_OID", the
+    # constant this assertion previously used, no longer survives TC-252's centrality-ranked
+    # selection.)
+    assert "Value: string = 'http://schemas.openxmlformats.org/officeDocument/2006/math'" in pdf_typescript_text
+    assert "openxmlformats.org/officeDocument/2006/math" in pdf_typescript_text
 
 
 def test_default_max_types_includes_a_type_sorting_after_position_20() -> None:
