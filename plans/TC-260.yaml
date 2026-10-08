@@ -1,0 +1,110 @@
+id: TC-260
+gate: G2
+lane: extraction
+purpose: 'Build the registry-verification sidecar fetcher for C2 (fabricated installation coordinates, third
+  independent audit, 2026-10-08): get_product_reference(section="install") currently presents whatever name a
+  product''s own packaging manifest states as if it were a verified, installable public package, with no
+  distinction between "the manifest says this" and "this actually resolves on the real registry". Live-confirmed
+  against all 40 deployed pilots plus each claimed coordinate''s real registry (PyPI JSON API, npm registry API,
+  the Go module proxy, index.crates.io''s sparse index, and repo1.maven.org''s raw layout - NOT crates.io''s or
+  search.maven.org''s own API hosts, both confirmed unreachable from this environment, a repeat of an earlier
+  transient connectivity gap this session already hit for crates.io): 15 of 33 install-claiming pilots serve a
+  coordinate that does not exist on its stated registry (jmap/python, jmap/java, jmap/net, jmap/typescript,
+  jmap/nodejs, jmap/rust, cells/rust, cells/typescript, pdf/typescript, pdf/python, barcode/python, html/python,
+  imaging/net, 3d/typescript, tex/python). Confirmed, by fetching the real upstream pyproject.toml directly for two
+  of these (jmap/python, pdf/python), that this is NOT an extraction bug - the manifest genuinely states exactly
+  the name served; the gap is architectural. This card builds the ingestion-time verification step only (a new CLI
+  + sidecar, mirroring infra/fetch_recent_releases.py''s already-proven shape exactly); wiring it into the
+  ingestion Job chain, Helm/compose, and get_product_reference''s own response shape is explicitly deferred to a
+  follow-up card once this one is reviewed and accepted - do not attempt that wiring in this card.'
+depends_on:
+- TC-243
+- TC-244
+write_paths:
+- infra/verify_package_registry.py
+- tests/infra/test_verify_package_registry.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read infra/fetch_recent_releases.py in full first - this new module must mirror its exact shape: a plain
+  argparse CLI, a sidecar-name function, a sidecar writer inside main(), and a sidecar loader function, the same
+  time-based freshness-cache convention (a sidecar newer than some freshness window skips the live check), and the
+  same "never raise, always write SOMETHING honest" discipline main() already follows there for a live-fetch
+  failure.'
+- 'Write infra/verify_package_registry.py with this shape: `verify_package_registry_sidecar_name(family: str,
+  platform: str) -> str` returning f"package_registry_{family}_{platform}.json" (identity-validated the same way
+  recent_releases_sidecar_name already is - reuse that exact validation logic, do not invent a different one).
+  `load_package_registry_sidecar(path: Path) -> dict | None` reading back {"ecosystem": str, "coordinate": str,
+  "verified": bool, "checked_at": str (ISO-8601 UTC)} or None if absent, raising ValueError on a structurally
+  invalid present file (missing a required key) - same absence-vs-malformed contract load_recent_releases_sidecar
+  already documents.'
+- 'Implement one checker function per ecosystem, each taking the coordinate string and returning True (confirmed
+  exists), False (confirmed does not exist), or raising on a genuine network/transport failure (never silently
+  treated as either True or False - main() must let a checker''s exception propagate rather than guessing, since a
+  transient failure here must never get recorded as a false "verified: false"). Use exactly these validated,
+  authoritative, unauthenticated endpoints - do not substitute a different one without re-verifying it yourself
+  first, these were each confirmed working live during this session''s investigation:
+    - pypi: GET https://pypi.org/pypi/{coordinate}/json - 200 means exists, 404 means does not.
+    - npm: GET https://registry.npmjs.org/{coordinate-with-/-as-%2f} - 200/404 the same way.
+    - cargo: GET https://index.crates.io/{sparse-index-path}/{coordinate} where the sparse-index-path follows
+      crates.io''s own documented sharding (1 char: index.crates.io/1/<name>; 2 chars: index.crates.io/2/<name>;
+      3 chars: index.crates.io/3/<first-char>/<name>; 4+ chars: index.crates.io/<first-two>/<next-two>/<name>,
+      all lowercased) - 200 means exists, 404 means does not. Do NOT use crates.io''s own API host (crates.io/api/...)
+      or search.maven.org for maven below - both were confirmed unreachable from this environment during this
+      session''s own investigation; a checker hitting either of those hosts must be treated as a real defect in
+      this card, not an acceptable implementation choice.
+    - maven: coordinate is "groupId:artifactId". GET https://repo1.maven.org/maven2/{groupId with . replaced by
+      /}/{artifactId}/ - 200 means exists (optionally also fetch maven-metadata.xml from the same directory for a
+      real version, but existence is decided by the directory GET alone), 404 means does not.
+    - nuget: GET https://api.nuget.org/v3-flatcontainer/{coordinate lowercased}/index.json - 200/404 the same way.
+    - go: coordinate is a module path (e.g. "github.com/owner/repo"). GET
+      https://proxy.golang.org/{coordinate lowercased}/@latest - 200 with a non-empty body means the module
+      resolves (even via a pseudo-version with no tagged release - that still counts as verified: true, since
+      `go get` without a version constraint genuinely works); anything else means it does not.'
+- 'main()''s CLI: --family, --platform, --ecosystem (one of pypi/npm/cargo/maven/nuget/go), --coordinate, --output
+  (sidecar path), mirroring fetch_recent_releases.py''s argument style. Apply the same time-based freshness-skip
+  fetch_recent_releases.py already uses (an existing sidecar newer than some reasonable window, e.g. 24 hours,
+  skips the live check) - reuse that exact constant/logic rather than inventing a different window. On any
+  transport/network exception from the ecosystem checker, do NOT write a sidecar claiming verified: false - let
+  the exception propagate (matching the "never silently misclassify a transient failure as a real negative"
+  principle this whole card exists to uphold) so the caller (a future ingestion step, not built in this card) can
+  decide how to handle a failed check, exactly the same "|| true" tolerance fetch_recent_releases.py''s own caller
+  already uses for its own live-fetch failures.'
+- 'Add tests to tests/infra/test_verify_package_registry.py: for each ecosystem checker, mock urllib (never make a
+  real network call in a test - this card''s own network: false) to prove both the exists (200) and does-not-exist
+  (404) cases are classified correctly, and that a transport exception propagates rather than being swallowed.
+  Test the sidecar name function''s identity validation (reuse recent_releases_sidecar_name''s own test style).
+  Test the full main() CLI end to end against a mocked checker: writes a sidecar with the real shape on success;
+  the freshness-skip behavior; a present-but-malformed existing sidecar is treated as fetch-again, never raises.
+  Follow tests/infra/test_fetch_recent_releases.py''s own structure and conventions closely - it is the closest
+  sibling to what this card builds.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read fetch_recent_releases.py in full before writing anything.
+- Write verify_package_registry.py with the six ecosystem checkers using exactly the validated endpoints listed.
+- Add the full test suite, all network-mocked; run it and report exact counts.
+checks:
+- command: '{python} -m pytest tests/infra/test_verify_package_registry.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 8
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/verify_package_registry.py');s=p.read_text(encoding='utf-8');old='def verify_package_registry_sidecar_name';new='def _disabled_verify_package_registry_sidecar_name';i=s.index(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: 'Renames the sidecar-name function so every test importing/calling it by its real name fails with an
+    AttributeError/ImportError. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-260/receipt.json
+closeout:
+- infra/verify_package_registry.py can check a package coordinate against its real registry for all six supported
+  ecosystems and write/read an honest verification sidecar, entirely offline-testable with mocked HTTP.
+recovery: Re-run from a clean tree.
