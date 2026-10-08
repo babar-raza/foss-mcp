@@ -1,0 +1,118 @@
+id: TC-259
+gate: G2
+lane: extraction
+purpose: 'Fix a real, confirmed, fleet-wide fabrication defect (C1 of the third independent audit, 2026-10-08):
+  src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py''s _node_name() claims, in its own existing comment
+  (written by TC-058), that a C++ class-member function_definition is "deliberately left returning '''''' here...
+  because api_surface.py''s dedicated C++ field_declaration_list member loop already names and extracts those
+  independently" - but the code does not actually do this. It only special-cases genuine free functions (gated by
+  _cpp_is_free_function) and otherwise falls through to a generic "first identifier-or-type_identifier direct-child"
+  fallback - the exact fallback TC-058''s own comment identifies as unsafe for a bare-identifier return type, just
+  never actually guarded for the member case. For any member whose return type is a reference or pointer to a class
+  type (e.g. "const Border& GetLeft() const noexcept"), tree-sitter-cpp places a bare type_identifier node (the
+  return type) as a direct child of function_definition, one level above the reference_declarator/function_declarator
+  holding the real name - so the fallback matches the return type first and returns it as the "name". This feeds a
+  separate, generic, language-agnostic method-collection pass (which also visits class members despite the
+  comment''s claim) that appends a phantom method named after the return type, with that same type as its own
+  return_type; _synthesize_cpp_properties then turns that same phantom method into a phantom property too, since it
+  satisfies every one of that function''s own synthesis criteria. Confirmed live against the real cells/cpp pod''s
+  get_symbol("Aspose::Cells_FOSS::Borders") - the response contains five fabricated "Border() -> Border" methods and
+  a fabricated "Border: Border" property, none of which exist anywhere in the real upstream header (confirmed by
+  fetching the real source at the pinned commit directly from GitHub). Confirmed, by scanning every committed C++
+  fixture for the exact "a method''s name equals its own zero-parameter return type" signature, that this is NOT an
+  isolated one-class bug: it appears 665 times across all 5 C++ pilots (slides_cpp 459, cells_cpp 112, pdf_cpp 81,
+  jmap_cpp 11, email_cpp 2). Confirmed, by monkeypatching the proposed fix into a minimal reproduction of the real
+  source shape, that an explicit early return "" for this exact case (matching the comment''s own already-stated
+  intent) eliminates both phantoms completely while leaving every real method untouched.'
+depends_on:
+- TC-058
+- TC-059
+- TC-010b
+- TC-168
+- TC-233
+- TC-241
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py
+- tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py''s _node_name() (currently ~line 287-320) in full,
+  including its own existing comment block describing the (currently unimplemented) intent for C++ class members.
+  Read _cpp_is_free_function() and _cpp_free_function_name() immediately below it (same file) to understand exactly
+  how the free-function case is already correctly handled, so the member-case fix follows the same established
+  pattern rather than inventing a new one.'
+- 'Restructure the existing `if language == "cpp" and node.type == "function_definition" and _cpp_is_free_function(node):`
+  block into exactly this shape (an outer language/node-type check, with the existing free-function body moved into
+  an `if`, and a new `else` branch added for the member case):
+
+      if language == "cpp" and node.type == "function_definition":
+          if _cpp_is_free_function(node):
+              cpp_name = _cpp_free_function_name(node)
+              if cpp_name:
+                  return cpp_name
+          else:
+              return ""  # TC-259: member case
+
+  Use exactly this structure, INCLUDING the literal trailing comment `# TC-259: member case` on the `return ""`
+  line verbatim (the supervisor''s negative control matches that exact comment text, regardless of indentation, to
+  reliably disable only this new branch without touching the free-function path next to it) - do not invent a
+  differently-shaped equivalent and do not drop or reword that comment. Do not change _cpp_is_free_function,
+  _cpp_free_function_name, or anything
+  about the free-function body itself, which is already correct and already tested. Update the existing comment
+  block so it accurately describes what the code now actually does (it currently describes the empty-string-return
+  behavior as already implemented for members when it is not - correct that gap, do not just add more text on top
+  of the inaccurate claim).'
+- 'Add tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py: construct a minimal, real
+  tree-sitter-cpp parse of a class containing a reference-returning const accessor shaped exactly like the real
+  bug (e.g. "const Border& GetLeft() const noexcept { return _left; }" alongside a normal value-returning accessor
+  such as "bool GetDiagonalUp() const noexcept { return _diagonalUp; }", a setter, and a constructor - mirror the
+  real Borders.h shape closely enough to be a faithful regression, but you do not need to reproduce the whole real
+  file). Call the real extract_api_surface() (see tests/extraction/tree_sitter_engine/test_lang_python_parity.py
+  or tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py for the calling convention
+  already used elsewhere in this test suite) and assert: no method or property is ever named exactly after its own
+  zero-parameter return type ("Border" must never appear as a method or property name here); the real
+  reference-returning getter is still correctly extracted under its real name with its real return type; the real
+  setter, constructor, and the real value-returning getter/setter pair are all still correctly extracted unchanged.
+  Also add a second test proving the free-function path is completely unaffected: a genuine namespace-scope free
+  function with a reference-returning signature (e.g. "const Matrix& Identity();" at namespace scope, mirroring
+  TC-058''s own original real-world case) still resolves to its real name, not its return type.'
+- 'Run the new test file, then run the full existing test suite once (not just your own file) to check for
+  downstream breakage - every committed C++ fixture currently contains this exact fabricated data, so some existing
+  test somewhere may assert on a phantom entry''s presence as if it were real content, or on a type/method count
+  that included phantoms. If anything outside your two write_paths fails, STOP, do not patch it, and report exactly
+  which test and why - this is expected and will be handled by a dedicated fixture-regeneration follow-up card for
+  each of the 5 affected C++ pilots, exactly as TC-252''s algorithm fix was followed by TC-255-258''s regeneration
+  wave earlier this session. Do not attempt to regenerate any fixture yourself as part of this card.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read _node_name/_cpp_is_free_function/_cpp_free_function_name in full before changing anything.
+- Add the explicit early return for the C++ member case; correct the now-inaccurate comment.
+- Add the two new regression tests; run the full suite once and report honestly.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 2
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;q=chr(34);p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py');s=p.read_text(encoding='utf-8');old='return '+q+q+'  # TC-259: member case';new='pass  # TC-259 negative control: member case disabled';i=s.index(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: 'Finds this card''s own new member-case return statement by its mandated, unique trailing comment
+    (independent of indentation) and replaces it with a no-op, leaving the pre-existing free-function case
+    completely untouched, so the new test asserting no method/property is ever named after its own return type
+    must fail again. Built with chr(), no backslash.'
+evidence:
+- evidence/build/G2/TC-259/receipt.json
+closeout:
+- A C++ class member whose return type is a reference or pointer to a class type is never misnamed after that
+  return type; no phantom method or property is fabricated for it.
+recovery: Re-run from a clean tree.
