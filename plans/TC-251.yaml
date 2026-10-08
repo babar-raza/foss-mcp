@@ -31,6 +31,7 @@ write_paths:
 - infra/helm/foss-mcp/templates/deployment.yaml
 - tests/infra/test_fetch_recent_releases.py
 - tests/infra/test_helm_chart.py
+- tests/infra/test_helm_sidecar_gate.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -74,6 +75,15 @@ inputs:
   (this file needs the real helm binary on PATH - activate scripts/toolchain/activate.ps1 in the same shell command
   as the test run, per AGENTS.md''s Toolchain section).'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
+- 'REWORK (attempt 2): the coverage gate found a real regression outside this card''s original write_paths -
+  tests/infra/test_helm_sidecar_gate.py (TC-204''s own test) hardcodes INIT_NAME = "wait-for-product-reference"
+  and asserts the rendered script contains ONLY the product-reference file check. Renaming the initContainer and
+  adding the second file check breaks it. Fix: update INIT_NAME to the new initContainer name you chose, and update
+  test_init_container_waits_for_exactly_the_sidecar_path (and any other assertion in that file that assumes only
+  one file is checked) to assert BOTH the product-reference and recent-releases file checks are present in the
+  rendered script. Do not weaken any assertion in that file - the gate must still prove the initContainer is a
+  single sh loop with no other command. Run tests/infra/test_helm_sidecar_gate.py itself, plus your original two
+  check files, to confirm all three pass together.'
 actions:
 - Read all four referenced files in full before changing anything.
 - Fix fetch_recent_releases.py's main() to write an empty sidecar on fetch failure instead of raising.
@@ -92,7 +102,13 @@ checks:
   junitxml: true
   proves:
   - REQ-G2-043
-min_tests: 2
+- command: '{python} -m pytest tests/infra/test_helm_sidecar_gate.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 180
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 3
 network: false
 negative_control:
   mutate: |
