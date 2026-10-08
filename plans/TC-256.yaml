@@ -15,9 +15,11 @@ purpose: 'Regenerate tests/fixtures/pdf_java/api_surface.json with TC-252''s fix
 depends_on:
 - TC-044
 - TC-252
+- TC-248
 write_paths:
 - tests/fixtures/pdf_java/api_surface.json
 - tests/extraction/test_pdf_java_extraction.py
+- tests/e2e/test_pdf_java_live_content.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -53,6 +55,19 @@ inputs:
   commit a broken/incomplete fixture, and report the exact defect with your diagnosis instead of patching a file
   outside your write_paths.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
+- 'REWORK (attempt 2): your attempt 1 correctly stopped rather than guess-fix a file outside its original
+  write_paths, now added to it. Numbered defect list, both confirmed in your own attempt-1 run: (1)
+  tests/e2e/test_pdf_java_live_content.py''s test_report_index_freshness_reports_the_real_fresh_generation fails
+  because the file hardcodes REAL_SOURCE_COMMIT = "db2d3f0622f035825419c6d46727022064f39f15" (the old fixture''s
+  commit) - update it to your new real source_commit. (2) test_get_symbol_returns_the_real_enum_members_for_artifact_subtype
+  fails because org.aspose.pdf.ArtifactSubtype is no longer resolvable at that top-level fqn in the re-ranked
+  fixture - your own attempt-1 run already found it is now nested as org.aspose.pdf.Artifact.ArtifactSubtype
+  (confirmed by the real suggestions list your own failure printed); update the test to use the real, now-correct
+  fqn, and re-verify its real enum members directly against your own regenerated fixture rather than assuming they
+  are unchanged. Re-run tests/e2e/test_pdf_java_live_content.py and your original two write_paths together afterward
+  to confirm all three pass. Do not investigate or touch ops/tests/test_parallel_dispatch.py (a known, unrelated
+  worktree-path artifact, already independently confirmed elsewhere this session) or tests/e2e/test_cells_rust_live_content.py
+  (a different pilot entirely) - both are out of scope for this card regardless of what the full suite shows.'
 actions:
 - Confirm TC-252 is integrated and its fix is really what main's reduce_fixture does now.
 - Run the real extraction for pdf/java; inspect the real output carefully before committing anything.
@@ -61,6 +76,12 @@ checks:
 - command: '{python} -m pytest tests/extraction/test_pdf_java_extraction.py -q -rfE'
   expect: exit 0
   timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/e2e/test_pdf_java_live_content.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
   junitxml: true
   proves:
   - REQ-G2-043

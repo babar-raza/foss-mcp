@@ -16,6 +16,8 @@ depends_on:
 write_paths:
 - tests/fixtures/pdf_typescript/api_surface.json
 - tests/extraction/test_pdf_typescript_extraction.py
+- tests/e2e/test_pdf_typescript_live_content.py
+- tests/indexing/test_chunk_builder.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -53,6 +55,23 @@ inputs:
   own symbol-cap change caused for tests/e2e/test_pdf_java_live_content.py) - STOP, do not guess-fix a file outside
   your write_paths, and report exactly which test(s) and why, so a properly scoped rework restatement can be issued.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
+- 'REWORK (attempt 2): your attempt 1 correctly stopped rather than guess-fix two files outside its original
+  write_paths, now added to it. Numbered defect list: (1) tests/e2e/test_pdf_typescript_live_content.py hardcodes
+  REAL_SYMBOL = "BORDER_STYLES" and REAL_SOURCE_COMMIT = "155bfc7a..." (the old fixture''s values) - pick any real
+  symbol actually present in your regenerated fixture (your own attempt-1 report already found "Page" is now the
+  5th-highest-centrality real class there - a strong candidate, though it is a class not a constant, so
+  test_get_symbol_returns_the_real_value_for_border_styles''s kind=="constant"/Value: assertions will need adapting
+  to whatever real symbol and kind you pick - read the whole file first and keep its structure, just point every
+  constant at real, currently-present data), and update REAL_SOURCE_COMMIT to your new real source_commit. (2)
+  tests/indexing/test_chunk_builder.py''s test_real_free_functions_get_real_signatures_across_the_three_affected_pilots
+  reads the REAL committed pdf_typescript fixture directly and asserts a specific free function ("A") and a
+  specific constant ("AES_WRAP_OID", in the comment above the pdf_go/cells_rust assertions a few lines down) are
+  present with specific rendered text - find real replacements in your regenerated fixture for whichever of these
+  no longer survive centrality ranking (your own attempt-1 report already found candidates: a real free function
+  "image" in src/flow.ts, a real constant "M" in src/wmlns.ts - verify these yourself against your own fixture
+  rather than trusting this list blindly, and use whatever you actually confirm). Do not touch the pdf_go or
+  cells_rust sections of that same test - only the pdf_typescript one. Re-run the full suite once more afterward to
+  confirm both files pass and nothing else broke.'
 actions:
 - Confirm TC-252 is integrated and its fix is really what main's reduce_fixture does now.
 - Run the real extraction for pdf/typescript; inspect the real output carefully before committing anything.
@@ -61,6 +80,18 @@ checks:
 - command: '{python} -m pytest tests/extraction/test_pdf_typescript_extraction.py -q -rfE'
   expect: exit 0
   timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/indexing/test_chunk_builder.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 180
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/e2e/test_pdf_typescript_live_content.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
   junitxml: true
   proves:
   - REQ-G2-043
