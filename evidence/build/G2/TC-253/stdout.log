@@ -1,6 +1,6 @@
 
 ===== CLEAN RUN 1 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rhxrikw9\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-s3mhely2\.junit-0.xml"
 --- stdout ---
 .....................                                                    [100%]
 
@@ -8,16 +8,91 @@ $ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e
 
 
 ===== CLEAN RUN 2 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rhxrikw9\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-s3mhely2\.junit-0.xml"
 --- stdout ---
 .....................                                                    [100%]
 
 --- stderr ---
 
 
-!! falsifier did not apply (mutate): Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import pathlib;nl=chr(10);p=pathlib.Path('src/foss_mcp/indexing/generation_manifest.py');s=p.read_text(encoding='utf-8');old='    generation_id = store.write_and_validate(generation)'+nl+nl+'    active_document_count';new='    active_document_count';i=s.index(old);s=s[:i]+new+s[i+len(old):];s=s.replace('return store.cas_activate(scope, expected_active, generation_id, lease)','generation_id = store.write_and_validate(generation)'+nl+'    return store.cas_activate(scope, expected_active, generation_id, lease)',1);p.write_text(s,encoding='utf-8')
-                                                                                                                                                                                                                                                                ~~~~~~~^^^^^
-ValueError: substring not found
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/generation_manifest.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_generation_manifest.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-s3mhely2\.junit-0.xml"
+--- stdout ---
+................FF..F                                                    [100%]
+================================== FAILURES ===================================
+_____ test_publish_refuses_an_empty_generation_even_when_called_directly ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3880/test_publish_refuses_an_empty_0')
+
+    def test_publish_refuses_an_empty_generation_even_when_called_directly(tmp_path):
+        """TC-242's core defect, fixed: before this card, an empty-generation publish was only
+        ever refused by infra/ingest.py's own CLI pre-check. Calling publish() directly -
+        exactly as any OTHER caller of publish()/GenerationManifestStore would, bypassing that
+        CLI entirely - must be refused identically, and must not activate anything."""
+        store = _store(tmp_path)
+        empty = build_manifest("pdf", "net", "api-reference", "1")  # payload={} -> 0 documents
+        lease = store.acquire_lease(empty.scope, "worker-1", empty.generation_id)
+    
+>       with pytest.raises(PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\indexing\test_generation_manifest.py:382: Failed
+_ test_publish_refuses_a_more_than_50_percent_regression_even_when_called_directly _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3880/test_publish_refuses_a_more_th0')
+
+    def test_publish_refuses_a_more_than_50_percent_regression_even_when_called_directly(tmp_path):
+        """Same defect, the regression branch: a direct caller publishing far fewer documents
+        than half of what is currently active must be refused, and the good, currently-active
+        generation must remain active, unreplaced."""
+        store = _store(tmp_path)
+        healthy = _manifest_with_documents("pdf", "net", "api-reference", "1", 4)
+        lease = store.acquire_lease(healthy.scope, "worker-1", healthy.generation_id)
+        publish(store, healthy.scope, None, healthy, lease)
+        assert store.read_active(healthy.scope) == healthy.generation_id
+    
+        regressive = _manifest_with_documents("pdf", "net", "api-reference", "2", 1)
+        lease2 = store.acquire_lease(regressive.scope, "worker-1", regressive.generation_id)
+    
+>       with pytest.raises(PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\indexing\test_generation_manifest.py:401: Failed
+_ test_a_refused_publish_is_never_durably_written_so_rollback_cannot_bypass_it _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3880/test_a_refused_publish_is_neve0')
+
+    def test_a_refused_publish_is_never_durably_written_so_rollback_cannot_bypass_it(tmp_path):
+        """Before this card's ordering fix, publish() called store.write_and_validate(generation)
+        - a durable write - BEFORE assert_publish_is_safe. An empty-generation publish was still
+        correctly refused with PublishSafetyError and never activated, but the refused
+        generation's bytes were already on disk: store.generation_exists() returned True for it,
+        and rollback() - whose only check is generation_exists(), by design, since a normal
+        rollback target is an old, already-vetted generation - would happily activate the exact
+        generation this guard had just refused. Proves the bypass is actually closed, not just
+        that the write didn't happen: asserts generation_exists() is False for the refused id,
+        AND that rollback() to that id raises UnknownGenerationError."""
+        store = _store(tmp_path)
+        healthy = _manifest_with_documents("pdf", "net", "api-reference", "1", 4)
+        lease = store.acquire_lease(healthy.scope, "worker-1", healthy.generation_id)
+        publish(store, healthy.scope, None, healthy, lease)
+        assert store.read_active(healthy.scope) == healthy.generation_id
+    
+        empty = build_manifest("pdf", "net", "api-reference", "2")  # payload={} -> 0 documents, distinct generation_id
+        lease2 = store.acquire_lease(empty.scope, "worker-1", empty.generation_id)
+    
+>       with pytest.raises(PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\indexing\test_generation_manifest.py:459: Failed
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_generation_manifest.py::test_publish_refuses_an_empty_generation_even_when_called_directly
+FAILED tests/indexing/test_generation_manifest.py::test_publish_refuses_a_more_than_50_percent_regression_even_when_called_directly
+FAILED tests/indexing/test_generation_manifest.py::test_a_refused_publish_is_never_durably_written_so_rollback_cannot_bypass_it
+
+--- stderr ---
 
