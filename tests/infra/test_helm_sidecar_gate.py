@@ -1,9 +1,13 @@
 """TC-204: a serving pod waits for its own product-reference sidecar before it starts.
 
-serve_http.py reads the packaging-manifest sidecar once, at process start. The serving Deployment
-therefore carries an init container, wait-for-product-reference, that loops until the sidecar for
-the Deployment's identity exists on the read-only manifests claim. Every check renders the chart
-offline with the real helm binary. A missing helm binary FAILS these tests; it never skips them.
+serve_http.py reads the packaging-manifest sidecar AND the recent-releases sidecar once, at
+process start, with no refresh. The serving Deployment therefore carries an init container,
+wait-for-product-reference-and-recent-releases, that loops until BOTH sidecars for the
+Deployment's identity exist on the read-only manifests claim (G2/TC-251: the ingestion Job's own
+chain runs fetch_product_reference.py strictly before fetch_recent_releases.py, so gating on the
+first file alone let the serving container start before the second ever existed). Every check
+renders the chart offline with the real helm binary. A missing helm binary FAILS these tests; it
+never skips them.
 """
 
 from __future__ import annotations
@@ -20,17 +24,30 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CHART = REPO_ROOT / "infra" / "helm" / "foss-mcp"
 FETCH_SCRIPT = REPO_ROOT / "infra" / "fetch_product_reference.py"
+FETCH_RECENT_RELEASES_SCRIPT = REPO_ROOT / "infra" / "fetch_recent_releases.py"
 TAG = "tc204-test-tag"
-INIT_NAME = "wait-for-product-reference"
+INIT_NAME = "wait-for-product-reference-and-recent-releases"
+
+
+def _load_module(path: Path, name: str):
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _sidecar_name(family: str, platform: str) -> str:
     """Load sidecar_name from infra/fetch_product_reference.py, the single source of the name."""
-    spec = importlib.util.spec_from_file_location("fetch_product_reference", FETCH_SCRIPT)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.sidecar_name(family, platform)
+    return _load_module(FETCH_SCRIPT, "fetch_product_reference").sidecar_name(family, platform)
+
+
+def _recent_releases_sidecar_name(family: str, platform: str) -> str:
+    """Load recent_releases_sidecar_name from infra/fetch_recent_releases.py, the single source of
+    this name (G2/TC-251)."""
+    return _load_module(FETCH_RECENT_RELEASES_SCRIPT, "fetch_recent_releases").recent_releases_sidecar_name(
+        family, platform
+    )
 
 
 def _helm_bin() -> str:
@@ -74,17 +91,19 @@ def test_serving_deployment_has_wait_for_product_reference_init_container() -> N
     assert init["image"] == f"foss-mcp-serving:{TAG}", "init container must use the serving image"
 
 
-def test_init_container_waits_for_exactly_the_sidecar_path() -> None:
+def test_init_container_waits_for_both_the_product_reference_and_recent_releases_sidecar_paths() -> None:
     deployment = _render_deployment("deployment.family=pdf", "deployment.platform=net")
     init = _init_container(deployment)
     serving_mounts = {m["name"]: m for m in _serving_container(deployment)["volumeMounts"]}
     mount = serving_mounts["manifests"]["mountPath"]
-    expected_file = f"{mount}/{_sidecar_name('pdf', 'net')}"
+    expected_product_reference_file = f"{mount}/{_sidecar_name('pdf', 'net')}"
+    expected_recent_releases_file = f"{mount}/{_recent_releases_sidecar_name('pdf', 'net')}"
     assert init["command"][:2] == ["sh", "-c"], "the gate must be a single sh loop"
     script = init["command"][2]
-    assert f"[ -f {expected_file} ]" in script, script
+    assert f"[ -f {expected_product_reference_file} ]" in script, script
+    assert f"[ -f {expected_recent_releases_file} ]" in script, script
     assert "sleep" in script and "until" in script, script
-    # The gate runs no other command: only the loop, the existence test and the sleep.
+    # The gate runs no other command: only the loop, the two existence tests and the sleep.
     assert "python" not in script and "serve_http" not in script, script
     assert len(init["command"]) == 3, init["command"]
 
