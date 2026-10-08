@@ -18,11 +18,13 @@ happens to be missing.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from typing import Literal
 
 from foss_mcp.extraction.manifest_reader import (
+    _load_toml,
     read_cpp_manifest,
     read_dotnet_manifest,
     read_go_manifest,
@@ -36,6 +38,13 @@ from foss_mcp.extraction.repo_native_reader import DocumentNotPresent, DocumentR
 _DOTNET_PLATFORMS = ("net", "dotnet")
 _JS_PLATFORMS = ("typescript", "javascript", "js", "nodejs")
 _KNOWN_PLATFORMS = _DOTNET_PLATFORMS + ("python", "java") + _JS_PLATFORMS + ("go", "rust", "cpp")
+
+# CMake's project() command has accepted a HOMEPAGE_URL argument since CMake 3.12
+# (https://cmake.org/cmake/help/latest/command/project.html) - a real, standard,
+# commonly-populated field, unlike go.mod, which has no equivalent (its module path,
+# already surfaced by read_go_manifest().name for the "install" section, is the
+# closest thing it has, and is not a separate homepage/repository field).
+_CPP_HOMEPAGE_URL_RE = re.compile(r'HOMEPAGE_URL\s+"([^"]*)"', re.IGNORECASE)
 
 Section = Literal[
     "install",
@@ -216,6 +225,62 @@ def get_product_reference(
         if not project_url:
             return NotAvailable(section, "manifest does not state a project url")
         return ReferenceContent(section, project_url)
+    if platform == "python":
+        data = _load_toml(inputs.manifest_text)
+        project = data.get("project", {}) if isinstance(data.get("project"), dict) else {}
+        urls = project.get("urls", {}) if isinstance(project.get("urls"), dict) else {}
+        tool = data.get("tool", {}) if isinstance(data.get("tool"), dict) else {}
+        poetry = tool.get("poetry", {}) if isinstance(tool.get("poetry"), dict) else {}
+        project_url = (
+            urls.get("Homepage")
+            or urls.get("Repository")
+            or poetry.get("homepage")
+            or poetry.get("repository")
+        )
+        if not project_url or not isinstance(project_url, str):
+            return NotAvailable(section, "manifest does not state a project url")
+        return ReferenceContent(section, project_url)
+    if platform in _JS_PLATFORMS:
+        try:
+            data = json.loads(inputs.manifest_text)
+        except (json.JSONDecodeError, TypeError):
+            data = None
+        project_url = None
+        if isinstance(data, dict):
+            homepage = data.get("homepage")
+            if isinstance(homepage, str) and homepage:
+                project_url = homepage
+            else:
+                repository = data.get("repository")
+                if isinstance(repository, str) and repository:
+                    project_url = repository
+                elif isinstance(repository, dict):
+                    repo_url = repository.get("url")
+                    if isinstance(repo_url, str) and repo_url:
+                        project_url = repo_url
+        if not project_url:
+            return NotAvailable(section, "manifest does not state a project url")
+        return ReferenceContent(section, project_url)
+    if platform == "java":
+        project_url = _xml_field(inputs.manifest_text, "url")
+        if not project_url:
+            return NotAvailable(section, "manifest does not state a project url")
+        return ReferenceContent(section, project_url)
+    if platform == "rust":
+        data = _load_toml(inputs.manifest_text)
+        package = data.get("package", {}) if isinstance(data.get("package"), dict) else {}
+        project_url = package.get("homepage") or package.get("repository")
+        if not project_url or not isinstance(project_url, str):
+            return NotAvailable(section, "manifest does not state a project url")
+        return ReferenceContent(section, project_url)
+    if platform == "cpp":
+        match = _CPP_HOMEPAGE_URL_RE.search(inputs.manifest_text)
+        project_url = match.group(1).strip() if match else ""
+        if not project_url:
+            return NotAvailable(section, "manifest does not state a project url")
+        return ReferenceContent(section, project_url)
     if platform not in _KNOWN_PLATFORMS:
         return NotAvailable(section, f"platform {platform!r} is not supported")
+    # go has no equivalent standard field in go.mod - see _CPP_HOMEPAGE_URL_RE's
+    # module comment for why cpp is handled above but go is not.
     return NotAvailable(section, "manifest does not state a project url")
