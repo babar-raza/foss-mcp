@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -206,15 +207,61 @@ def extract_pinned_repository(manifest_path: Path) -> dict[str, Any]:
         shutil.rmtree(workdir, ignore_errors=True)
 
 
+def _reference_strings(entry: dict[str, Any]) -> list[str]:
+    """Every bare type-reference string *entry* itself makes to some OTHER type: its own
+    ``bases`` entries, each method's ``return_type``/``params[].type``, and each property's
+    ``type`` - the only per-type fields that name other types (may carry generic/array/nullable
+    decoration, e.g. "List<Page>", "Page[]", "bool?")."""
+    refs: list[str] = list(entry.get("bases") or [])
+    for method in entry.get("methods") or []:
+        refs.append(method.get("return_type") or "")
+        for param in method.get("params") or []:
+            refs.append(param.get("type") or "")
+    for prop in entry.get("properties") or []:
+        refs.append(prop.get("type") or "")
+    return refs
+
+
+def _centrality_scores(types: list[dict[str, Any]]) -> list[int]:
+    """For each type in *types*, how many OTHER types in the same list reference its bare
+    ``name`` as a whole word (``re.compile(rf"\\b{re.escape(name)}\\b")``) somewhere in their
+    own bases/return_type/params/properties - so "List<Page>" counts as a reference to "Page"
+    but "ExamplePage" or "PageSet" do not. Computed once, up front, over the FULL (pre-
+    truncation) list, so the score reflects real centrality in the whole artifact.
+    """
+    haystacks = ["\n".join(_reference_strings(entry)) for entry in types]
+    scores = [0] * len(types)
+    for index, entry in enumerate(types):
+        name = entry.get("name") or ""
+        if not name:
+            continue
+        pattern = re.compile(rf"\b{re.escape(name)}\b")
+        scores[index] = sum(
+            1
+            for other_index, haystack in enumerate(haystacks)
+            if other_index != index and pattern.search(haystack)
+        )
+    return scores
+
+
 def reduce_fixture(artifact: dict[str, Any], *, max_types: int = 300) -> dict[str, Any]:
     """A representative, deterministic subset of *artifact*, under the fixture size budget.
 
-    The point of the fixture is a reproducible offline test, not a data dump: sorted by
-    qualified name so the same source commit always reduces to the same fixture, and the
-    truncation is recorded rather than hidden.
+    The point of the fixture is a reproducible offline test, not a data dump: kept types are
+    chosen by a CENTRALITY SCORE - how many other types in the artifact reference this type's
+    bare name - sorted descending, so a type everything else in the library's public API
+    depends on survives a cut that a pure alphabetical slice would have dropped. The existing
+    qualified-name key is kept as a deterministic tiebreaker for equal scores, so the same
+    source commit still always reduces to the same fixture, and the truncation is recorded
+    rather than hidden.
     """
-    types = sorted(artifact["types"], key=lambda entry: entry.get("class_import") or entry.get("name") or "")
-    reduced = types[:max_types]
+    types = artifact["types"]
+    scores = _centrality_scores(types)
+    ordered = sorted(
+        range(len(types)),
+        key=lambda index: (-scores[index], types[index].get("class_import") or types[index].get("name") or ""),
+    )
+    reduced = [types[index] for index in ordered[:max_types]]
     return {
         **{key: value for key, value in artifact.items() if key != "types"},
         "reduced_type_count": len(reduced),

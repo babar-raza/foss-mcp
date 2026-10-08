@@ -196,3 +196,93 @@ def test_extract_pinned_repository_records_language_python_with_no_network(
     assert artifact["type_count"] == len(artifact["types"])
     assert any(entry["class_import"] == "widgets.core.Gadget" for entry in artifact["types"])
     assert "unresolved" in artifact and artifact["unresolved"]
+
+
+def _synthetic_type(
+    name: str,
+    *,
+    bases: list[str] | None = None,
+    return_type: str = "",
+    param_type: str = "",
+    property_type: str = "",
+) -> dict[str, Any]:
+    """A minimal plain-dict type entry carrying only the fields reduce_fixture's centrality
+    score reads (bases, methods[].return_type, methods[].params[].type, properties[].type) -
+    not a real clone, matching the taskcard's own synthetic-artifact instruction.
+    """
+    return {
+        "name": name,
+        "class_import": name,
+        "bases": list(bases or []),
+        "methods": [
+            {
+                "name": "m",
+                "return_type": return_type,
+                "params": [{"name": "p", "type": param_type}] if param_type else [],
+            }
+        ]
+        if return_type or param_type
+        else [],
+        "properties": [{"name": "prop", "type": property_type}] if property_type else [],
+    }
+
+
+def test_reduce_fixture_keeps_a_centrally_referenced_type_over_alphabetically_earlier_ones() -> None:
+    """The bug this card fixes: a pure alphabetical cut keeps "Aardvark"/"Bumble"/"Charlie" (all
+    alphabetically earlier than "Zentral") and drops "Zentral" - even though "Zentral" is the
+    type two other types in this artifact actually reference (via "bases" and "return_type"),
+    the way "Page" is referenced throughout a real PDF library but still sorted out of
+    tests/fixtures/pdf_go/api_surface.json today.
+    """
+    central = _synthetic_type("Zentral")
+    referencer_one = _synthetic_type("Referrer1", bases=["Zentral"])
+    referencer_two = _synthetic_type("Referrer2", return_type="Zentral")
+    unreferenced_a = _synthetic_type("Aardvark")
+    unreferenced_b = _synthetic_type("Bumble")
+    unreferenced_c = _synthetic_type("Charlie")
+
+    artifact = {
+        "types": [
+            unreferenced_a,
+            unreferenced_b,
+            unreferenced_c,
+            referencer_one,
+            referencer_two,
+            central,
+        ]
+    }
+
+    # Sanity check on the premise: a pure alphabetical cut (the pre-fix behavior) keeps the
+    # first 3 of these 6 names and drops "Zentral" entirely.
+    alphabetical_order = sorted(artifact["types"], key=lambda entry: entry["name"])
+    assert {entry["name"] for entry in alphabetical_order[:3]} == {"Aardvark", "Bumble", "Charlie"}
+
+    fixture = run_extraction.reduce_fixture(artifact, max_types=3)
+
+    names = {entry["name"] for entry in fixture["types"]}
+    assert "Zentral" in names, names  # referenced twice; must survive the cut now
+    # Only 3 of 6 types fit. "Charlie" sorted ahead of the cutoff under the old, pure
+    # alphabetical algorithm - it is never referenced by anything, so it is the one dropped now
+    # in favor of the type other types actually reference.
+    assert "Charlie" not in names, names
+    assert names == {"Zentral", "Aardvark", "Bumble"}
+    assert fixture["reduced_type_count"] == 3
+    assert fixture["truncated"] is True
+
+
+def test_reduce_fixture_breaks_equal_centrality_scores_alphabetically() -> None:
+    """Two types with an EQUAL centrality score (both referenced zero times here) must still
+    come out in alphabetical order, so the same artifact always reduces to the same fixture.
+    """
+    artifact = {
+        "types": [
+            _synthetic_type("Zulu"),
+            _synthetic_type("Alpha"),
+            _synthetic_type("Mike"),
+        ]
+    }
+    fixture = run_extraction.reduce_fixture(artifact, max_types=3)
+
+    names = [entry["name"] for entry in fixture["types"]]
+    assert names == ["Alpha", "Mike", "Zulu"]
+    assert fixture["truncated"] is False
