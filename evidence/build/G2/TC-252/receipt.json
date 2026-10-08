@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-252",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-08T08:09:24Z",
+  "base_rev": "d540c40cf0191246a353a75dd574e478484034a1",
+  "head_rev": "bca89f687ff6097a4e6139ddb207547c821af210",
+  "card_sha256": "169638ca95e79c00ae4b52227a44b60d05d9b9fcd75d57d6151c39898e4fa8bf",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/extraction/run_extraction.py",
+      "tests/extraction/test_run_extraction_python.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_run_extraction_python.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.276,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_run_extraction_python.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.948,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/extraction/run_extraction.py');s=p.read_text(encoding='utf-8');old='def reduce_fixture(artifact: dict[str, Any], *, max_types: int = 300) -> dict[str, Any]:';new=old+chr(10)+'    max_types = 10**9  # negative control: disable the cap entirely';i=s.index(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')\"\n",
+    "patch_sha256": "e2d28c7ad6aac7f0959a2058ffd169bd2d3beab02174b03f8761984ae5a9011a",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/run_extraction.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": false,
+  "reason": "ruff format --check failed: unformatted: File would be reformatted"
+}

@@ -1,0 +1,72 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_run_extraction_python.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ulu0ky_1\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_run_extraction_python.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ulu0ky_1\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/run_extraction.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_run_extraction_python.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ulu0ky_1\.junit-0.xml"
+--- stdout ---
+........F.                                                               [100%]
+================================== FAILURES ===================================
+_ test_reduce_fixture_keeps_a_centrally_referenced_type_over_alphabetically_earlier_ones _
+
+    def test_reduce_fixture_keeps_a_centrally_referenced_type_over_alphabetically_earlier_ones() -> None:
+        """The bug this card fixes: a pure alphabetical cut keeps "Aardvark"/"Bumble"/"Charlie" (all
+        alphabetically earlier than "Zentral") and drops "Zentral" - even though "Zentral" is the
+        type two other types in this artifact actually reference (via "bases" and "return_type"),
+        the way "Page" is referenced throughout a real PDF library but still sorted out of
+        tests/fixtures/pdf_go/api_surface.json today.
+        """
+        central = _synthetic_type("Zentral")
+        referencer_one = _synthetic_type("Referrer1", bases=["Zentral"])
+        referencer_two = _synthetic_type("Referrer2", return_type="Zentral")
+        unreferenced_a = _synthetic_type("Aardvark")
+        unreferenced_b = _synthetic_type("Bumble")
+        unreferenced_c = _synthetic_type("Charlie")
+    
+        artifact = {
+            "types": [
+                unreferenced_a,
+                unreferenced_b,
+                unreferenced_c,
+                referencer_one,
+                referencer_two,
+                central,
+            ]
+        }
+    
+        # Sanity check on the premise: a pure alphabetical cut (the pre-fix behavior) keeps the
+        # first 3 of these 6 names and drops "Zentral" entirely.
+        alphabetical_order = sorted(artifact["types"], key=lambda entry: entry["name"])
+        assert {entry["name"] for entry in alphabetical_order[:3]} == {"Aardvark", "Bumble", "Charlie"}
+    
+        fixture = run_extraction.reduce_fixture(artifact, max_types=3)
+    
+        names = {entry["name"] for entry in fixture["types"]}
+        assert "Zentral" in names, names  # referenced twice; must survive the cut now
+        # Only 3 of 6 types fit. "Charlie" sorted ahead of the cutoff under the old, pure
+        # alphabetical algorithm - it is never referenced by anything, so it is the one dropped now
+        # in favor of the type other types actually reference.
+>       assert "Charlie" not in names, names
+E       AssertionError: {'Aardvark', 'Bumble', 'Charlie', 'Referrer1', 'Referrer2', 'Zentral'}
+E       assert 'Charlie' not in {'Aardvark', 'Bumble', 'Charlie', 'Referrer1', 'Referrer2', 'Zentral'}
+
+tests\extraction\test_run_extraction_python.py:267: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_run_extraction_python.py::test_reduce_fixture_keeps_a_centrally_referenced_type_over_alphabetically_earlier_ones
+
+--- stderr ---
+
