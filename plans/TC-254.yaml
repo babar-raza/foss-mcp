@@ -1,0 +1,87 @@
+id: TC-254
+gate: G2
+lane: extraction
+purpose: 'Fix a real, confirmed gap in get_product_reference(section="support") (B09 of the second independent
+  audit, 2026-10-08): src/foss_mcp/mcp/tools/get_product_reference.py''s "support" branch (currently ~line 213-221)
+  only ever extracts a real value for .NET platforms (reading PackageProjectUrl directly from the .csproj text). For
+  every other platform this project supports (python, java, the three JS aliases, go, rust, cpp) - even though all
+  of them are listed in _KNOWN_PLATFORMS and therefore pass the "platform not supported" check - the function falls
+  straight through to the final `return NotAvailable(section, "manifest does not state a project url")` WITHOUT EVER
+  READING THE REAL MANIFEST TEXT for that platform at all. This is a real gap, not an honest absence: standard
+  manifest formats for several of these platforms DO have a real, commonly-populated homepage/repository field -
+  pyproject.toml''s [project.urls] (Homepage/Repository keys) or legacy [tool.poetry] homepage/repository; package.json''s
+  top-level "homepage" or "repository" (string or {"url": ...}); pom.xml''s project-level <url> element; Cargo.toml''s
+  [package] homepage/repository keys - none of which this function ever attempts to read. Confirmed by direct
+  inspection that zero tests anywhere in this repository exercise section="support" for ANY platform, including the
+  one existing .NET implementation - this section has no test coverage at all today.'
+depends_on:
+- TC-012
+- TC-017c
+- TC-022
+write_paths:
+- src/foss_mcp/mcp/tools/get_product_reference.py
+- tests/mcp/tools/test_get_product_reference_platforms.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read src/foss_mcp/mcp/tools/get_product_reference.py in full, especially the existing "install", "license", and
+  "compatibility" branches (each already dispatches correctly per-platform - "support" is the one section that
+  never grew past its original .NET-only implementation) and the "support" branch itself at the end of the
+  function. Read src/foss_mcp/extraction/manifest_reader.py''s _load_toml helper (already used, best-effort TOML
+  parse returning {} on failure) and read_js_manifest (shows the json.loads-with-fallback convention) to reuse the
+  SAME parsing conventions, not a new approach.'
+- 'Extend the "support" branch to actually read each platform''s real manifest TEXT for a real homepage/repository
+  field, following the EXACT style the .NET branch already uses (parse inputs.manifest_text directly inline in this
+  function, do not add new fields to the per-platform dataclasses in manifest_reader.py - this card does not touch
+  that file): python (parse via _load_toml - check project.urls.Homepage, then project.urls.Repository, then the
+  legacy tool.poetry.homepage, then tool.poetry.repository, in that priority order); the three JS platform aliases
+  (json.loads the manifest text - check top-level "homepage" first, then "repository" which may be either a bare
+  string or an object with a "url" key - handle both shapes); java (regex for the FIRST <url>...</url> tag in the
+  pom.xml text, the same best-effort single-regex style read_java_manifest already uses for groupId/artifactId);
+  rust (parse via _load_toml - check package.homepage, then package.repository). For each, if nothing is found,
+  return the existing NotAvailable(section, "manifest does not state a project url") - do not invent a fallback
+  value. For go and cpp specifically, their standard manifest formats (go.mod, CMakeLists.txt) have no equivalent
+  standard field - leave them returning NotAvailable exactly as today (this matches the "install" branch''s own
+  existing, deliberate cpp precedent: "cpp has no package-manager install command") UNLESS you find, by directly
+  reading go.mod''s or CMakeLists.txt''s real format documentation or an existing real committed fixture in this
+  repo, that a standard field genuinely exists - if you find one, implement it the same way; if not, leave them as
+  NotAvailable and say so plainly in your report.'
+- 'Add tests to tests/mcp/tools/test_get_product_reference_platforms.py for section="support", following this
+  file''s own existing per-platform test style and fixture-construction conventions exactly (read the file in full
+  first - it already has a pattern for building ProductReferenceInputs per platform for the install/license/
+  compatibility sections you can mirror): at least one real-content case per platform you implement (python, js,
+  java, rust) proving a real homepage/repository value round-trips correctly from realistic manifest text, one
+  NotAvailable case per implemented platform when the field is genuinely absent from the manifest, and one
+  characterization test for the EXISTING .NET behavior (there is currently no test for it at all - add one proving
+  today''s real behavior, so a future change cannot silently break it unnoticed). Do not weaken or remove any
+  existing test in this file - run the whole file to confirm.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read get_product_reference.py's existing per-platform branches and manifest_reader.py's parsing helpers in full.
+- Extend the "support" branch for python/js/java/rust using the same inline-parsing style the .NET branch uses.
+- Add tests for every platform's support section, including a new .NET characterization test; run the full file.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_get_product_reference_platforms.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 6
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;q=chr(34);nl=chr(10);p=pathlib.Path('src/foss_mcp/mcp/tools/get_product_reference.py');s=p.read_text(encoding='utf-8');old='    # section == '+q+'support'+q;new='    return NotAvailable(section, '+q+'disabled by negative control'+q+')'+nl+old;i=s.index(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: 'Forces every "support" lookup to return NotAvailable regardless of platform, so every new real-content
+    test this card adds for support must fail. Built with chr(), no backslash.'
+evidence:
+- evidence/build/G2/TC-254/receipt.json
+closeout:
+- get_product_reference(section="support") returns a real homepage/repository value for python, js, java and rust
+  when their manifest actually states one, instead of unconditionally NotAvailable for every non-.NET platform.
+recovery: Re-run from a clean tree.
