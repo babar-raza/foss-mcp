@@ -259,7 +259,10 @@ def reduce_fixture(artifact: dict[str, Any], *, max_types: int = 300) -> dict[st
     scores = _centrality_scores(types)
     ordered = sorted(
         range(len(types)),
-        key=lambda index: (-scores[index], types[index].get("class_import") or types[index].get("name") or ""),
+        key=lambda index: (
+            -scores[index],
+            types[index].get("class_import") or types[index].get("name") or "",
+        ),
     )
     reduced = [types[index] for index in ordered[:max_types]]
     return {
