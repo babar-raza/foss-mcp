@@ -16,10 +16,14 @@ depends_on:
 - TC-044
 - TC-252
 - TC-248
+- TC-244
+- TC-238
 write_paths:
 - tests/fixtures/pdf_java/api_surface.json
 - tests/extraction/test_pdf_java_extraction.py
 - tests/e2e/test_pdf_java_live_content.py
+- docker-compose.yml
+- infra/helm/foss-mcp/values.yaml
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -68,6 +72,21 @@ inputs:
   to confirm all three pass. Do not investigate or touch ops/tests/test_parallel_dispatch.py (a known, unrelated
   worktree-path artifact, already independently confirmed elsewhere this session) or tests/e2e/test_cells_rust_live_content.py
   (a different pilot entirely) - both are out of scope for this card regardless of what the full suite shows.'
+- 'REWORK (attempt 3): attempt 2 fixed both original defects for real (live-confirmed), but fixing them exposed a
+  third, genuine, newly-surfaced defect: test_lookup_composes_the_real_task_answer now fails, because
+  infra/build_chunks.py''s verified-example chunks carry their OWN separately-pinned --library-commit (used to
+  clone-and-compile the real example), not the fixture''s own source_commit - and docker-compose.yml''s
+  ingest-pdf-java service AND infra/helm/foss-mcp/values.yaml''s pdf/java library.commit both still hardcode the
+  OLD commit (db2d3f0622f035825419c6d46727022064f39f15). Before this card, both values coincided by accident (the
+  fixture had never been regenerated since onboarding); now they genuinely diverge. Fix: update BOTH
+  docker-compose.yml''s ingest-pdf-java --library-commit AND infra/helm/foss-mcp/values.yaml''s pdf/java
+  library.commit to your regenerated fixture''s real source_commit (736cedaa2922e4952f429364bdb9a4bbb1d97863, or
+  whatever your own committed fixture actually records - verify it yourself, do not hardcode this value blindly).
+  Do not touch any OTHER pilot''s entry in either file. Re-run tests/e2e/test_pdf_java_live_content.py''s FULL file
+  again afterward (a real docker rebuild/recompile against the new pinned commit is required - be patient, this
+  takes several minutes) to confirm ALL of its tests pass now, not just the two from attempt 2. Also re-run
+  tests/infra/test_helm_chart.py (pdf/java is not in that file''s own hardcoded PILOTS cross-check fixture, so this
+  should be unaffected, but confirm it directly rather than assuming).'
 actions:
 - Confirm TC-252 is integrated and its fix is really what main's reduce_fixture does now.
 - Run the real extraction for pdf/java; inspect the real output carefully before committing anything.
@@ -81,7 +100,13 @@ checks:
   - REQ-G2-043
 - command: '{python} -m pytest tests/e2e/test_pdf_java_live_content.py -q -rfE'
   expect: exit 0
-  timeout_seconds: 900
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/infra/test_helm_chart.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 180
   junitxml: true
   proves:
   - REQ-G2-043
