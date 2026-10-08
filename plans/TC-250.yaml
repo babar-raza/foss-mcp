@@ -1,0 +1,103 @@
+id: TC-250
+gate: G2
+lane: control-plane
+purpose: 'Fix a self-inflicted, live-confirmed P0 regression from TC-246 (shipped and pushed earlier today,
+  rev-5cd9c34, already running in the pdf-net pod). TC-246 made transport_security.reject_request reject any
+  MCP-Protocol-Version header for which negotiate_revision falls back - i.e. any well-formed revision not in
+  this project''s own hand-maintained SUPPORTED_PROTOCOL_REVISIONS = ("2024-11-05", "2025-03-26", "2025-06-18").
+  Live-confirmed against the running pod with a raw HTTP sequence matching exactly what the pinned official MCP
+  SDK client always does (mcp.client.session always requests LATEST_HANDSHAKE_VERSION in initialize): the server''s
+  own installed SDK negotiates and returns protocolVersion "2025-11-25" in the initialize result (its own
+  HANDSHAKE_PROTOCOL_VERSIONS includes it, and that internal handler is private, in mcp.server.runner, with no
+  override hook), and the very next tools/call - echoing that exact value in the MCP-Protocol-Version header, as
+  every spec-compliant client including the unmodified official SDK client does - is rejected with HTTP 400
+  ("unsupported MCP-Protocol-Version header: ''2025-11-25'' is well-formed but not a revision this server declares
+  support for"). Every compliant client that completes a normal handshake has 100% of its subsequent calls rejected.
+  Root cause: the header check''s only legitimate job is to confirm consistency with what the SDK''s own unoverridable
+  handshake already negotiated and already answered - it is not an independent claim to vet - so the accepted set
+  must track the SDK''s real mcp_types.version.HANDSHAKE_PROTOCOL_VERSIONS (a real, pinned, declared dependency of
+  the installed mcp package, imported directly already by mcp.server.runner itself for this exact purpose), not a
+  separate, hand-maintained, driftable copy that excludes a revision the SDK itself already speaks.'
+depends_on:
+- TC-246
+write_paths:
+- src/foss_mcp/mcp/transport_security.py
+- src/foss_mcp/mcp/revision_negotiation.py
+- tests/mcp/test_transport_security.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read src/foss_mcp/mcp/transport_security.py and src/foss_mcp/mcp/revision_negotiation.py in full, and
+  .venv/Lib/site-packages/mcp_types/version.py (a real, installed, pinned dependency of the installed mcp package -
+  confirmed via `pip show mcp-types` that it is Required-by: mcp, and that mcp/server/runner.py itself imports
+  `from mcp_types.version import (...)` for its own internal handshake). Note HANDSHAKE_PROTOCOL_VERSIONS there is
+  the handshake-reachable subset; do NOT use the broader KNOWN_PROTOCOL_VERSIONS or SUPPORTED_PROTOCOL_VERSIONS,
+  which also include "2026-07-28", a non-handshake stateless-envelope revision never reachable via initialize.'
+- 'In transport_security.py, change SUPPORTED_PROTOCOL_REVISIONS from the hand-maintained three-item tuple to be
+  derived from mcp_types.version.HANDSHAKE_PROTOCOL_VERSIONS (import it directly; either assign it straight to
+  SUPPORTED_PROTOCOL_REVISIONS or build it as that tuple - do not silently drop any of the project''s original
+  three revisions, and do not hand-copy the values as a literal, since the entire point of this fix is that this
+  project''s list must never again drift narrower than what the SDK''s own unoverridable handshake can actually
+  negotiate and return). Rewrite the module docstring''s rationale: it currently says this list is "kept here, not
+  imported from the SDK, so it is never silently widened by an SDK upgrade" - that is precisely the design mistake
+  that caused today''s regression, for a value this project does not itself decide. State plainly instead that the
+  header''s only job is to confirm consistency with what the SDK''s own initialize handler already negotiated and
+  already answered to the client, so it must always match what that handler can actually produce, not an
+  independently narrower allow-list.'
+- 'Update revision_negotiation.py''s own module docstring wherever it currently describes reject_request''s policy
+  as "a deliberately stricter, allow-list policy over this project''s own three declared SUPPORTED_PROTOCOL_REVISIONS" -
+  that sentence becomes inaccurate once SUPPORTED_PROTOCOL_REVISIONS tracks the SDK''s own HANDSHAKE_PROTOCOL_VERSIONS;
+  correct it to say the two are now the same set, for the reason above, while keeping the parts that are still true
+  (the SDK''s own internal negotiation is still private/unoverridable; this module''s own computed fallback revision
+  is still never served back to a client; InvalidRevisionFormatError/MissingProtocolVersionError are still real
+  rejection cases unrelated to this fix).'
+- 'In tests/mcp/test_transport_security.py, replace test_a_wellformed_but_unsupported_protocol_version_is_rejected
+  (TC-246''s own test, which hard-codes "2025-11-25" as a revision that MUST be rejected - the exact premise this
+  card proves wrong) with a test proving every single value in SUPPORTED_PROTOCOL_REVISIONS (now equal to
+  HANDSHAKE_PROTOCOL_VERSIONS, "2025-11-25" included) passes reject_request cleanly, AND a separate test proving a
+  revision genuinely outside that set (pick a well-formed but clearly-not-real date no SDK has ever released, e.g.
+  "2099-01-01") is still rejected with a reason naming it unsupported - so the fallback-rejection mechanism itself
+  stays proven, only the accepted-set bug is fixed. Do not remove or weaken
+  test_each_declared_supported_revision_passes_through_unchanged, test_a_missing_protocol_version_header_is_now_
+  allowed_through, or test_a_present_but_invalid_protocol_version_is_still_rejected - run the full existing file to
+  confirm.'
+- 'Add one new integration test alongside the existing test_a_real_mcp_sdk_client_initializes_with_no_protocol_
+  version_header: using the same real mcp.ClientSession / streamable_http_client / httpx2.ASGITransport machinery,
+  after session.initialize() completes, make a real session.call_tool(...) (or equivalent real SDK client call) on
+  the SAME session - a genuine second request, so the client''s own normal post-initialize behavior (echoing the
+  negotiated protocol version) is exercised for real, not asserted about. This closes the exact gap that let
+  today''s regression ship unnoticed: the existing integration test proves initialize() alone works, never a
+  second call on the same session. Confirm this new test fails against the current HEAD (reproducing the live
+  bug) before your fix, and passes after - record both observations in your report.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read both modules and mcp_types/version.py in full.
+- Change SUPPORTED_PROTOCOL_REVISIONS to derive from HANDSHAKE_PROTOCOL_VERSIONS; correct both docstrings.
+- Replace TC-246's inverted test; add the true-unsupported-revision test; add the second-call integration test.
+- Run the full existing test file plus the new tests; report exact before/after counts for the new integration test.
+checks:
+- command: '{python} -m pytest tests/mcp/test_transport_security.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 4
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/transport_security.py');s=p.read_text(encoding='utf-8');old='HANDSHAKE_PROTOCOL_VERSIONS';new='HANDSHAKE_PROTOCOL_VERSIONS_OFF';s=s.replace(old,new,1);p.write_text(s,encoding='utf-8')"
+  rationale: 'Renames the first occurrence of HANDSHAKE_PROTOCOL_VERSIONS in transport_security.py (this card''s
+    own fix is the only place that imports/uses it there), so the module fails to import and every test in the
+    file errors. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-250/receipt.json
+closeout:
+- A real official-SDK-client session completes initialize() AND a subsequent real tool call on the same session
+  without being rejected at the transport boundary; a revision the SDK itself has never released is still rejected.
+recovery: Re-run from a clean tree.

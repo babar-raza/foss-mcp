@@ -1,0 +1,109 @@
+id: TC-251
+gate: G2
+lane: control-plane
+purpose: 'Fix a real, confirmed architectural race (B02 of the second independent audit, 2026-10-08): the
+  serving Deployment''s initContainer (wait-for-product-reference, added by TC-204) blocks the serving container
+  from starting only until product_reference_<family>_<platform>.json exists on the shared manifests claim. The
+  ingestion Job''s own shell chain (infra/helm/foss-mcp/templates/ingestion-job.yaml) runs fetch_product_reference.py
+  STRICTLY BEFORE fetch_recent_releases.py (added later by TC-244) - so the initContainer''s gate can legitimately
+  open before the recent-releases sidecar even starts being written. infra/serve_http.py''s _serving_recent_releases
+  reads that second sidecar exactly ONCE, at build_app time, with no refresh - confirmed by direct code reading - so
+  a serving pod that starts in this window answers list_recent_changes with an honest-looking but permanently wrong
+  empty list for its entire lifetime, with no way to detect or recover short of a pod restart. Live-confirmed on the
+  pdf-net pod: recent_releases_pdf_net.json does not exist on the manifests claim at all (this pilot''s ingestion ran
+  before fetch_recent_releases.py existed), while the real upstream repository (aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET)
+  genuinely has tagged GitHub releases (confirmed via a direct, unauthenticated GitHub API call) - so a correct
+  deployment should answer list_recent_changes with real, non-empty content, and currently does not. The fix has two
+  parts, both required: (1) infra/fetch_recent_releases.py''s main() currently lets any exception from fetch_releases
+  propagate, so the ingestion Job''s "|| true" wrapper swallows the failure at the SHELL level but no sidecar file is
+  ever written - this already silently contradicts infra/serve_http.py''s own _serving_recent_releases docstring,
+  which claims a failed releases step still yields an honest empty list, never a raise that blocks serving; fixing
+  main() to catch the failure and write an empty-list sidecar itself (instead of relying on a shell-level swallow
+  that leaves no file at all) makes the implementation match that already-stated contract, and is a precondition for
+  (2) being safe: (2) extend the initContainer to also wait for recent_releases_<family>_<platform>.json before
+  starting the serving container, closing the actual race - safe only because (1) guarantees that file always
+  eventually exists once the ingestion Job''s own GitHub-fetching step runs at all, even on a live fetch failure.'
+depends_on:
+- TC-204
+- TC-244
+write_paths:
+- infra/fetch_recent_releases.py
+- infra/helm/foss-mcp/templates/deployment.yaml
+- tests/infra/test_fetch_recent_releases.py
+- tests/infra/test_helm_chart.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 7.1 Snapshot/generation model — an immutable release manifest with
+    one CAS pointer, not a bare alias flip (fixes §1.1-1.3, hardened per Round 5 review)'
+  sha256: 9d1e374c401d9d882328b6ff6cf57028f9d0a3ce410ae68a6d04d9d9db3175b9
+inputs:
+- 'Read infra/fetch_recent_releases.py in full (especially main()), infra/serve_http.py''s _serving_recent_releases
+  and its docstring, infra/helm/foss-mcp/templates/deployment.yaml in full, and infra/helm/foss-mcp/templates/
+  ingestion-job.yaml''s comment block describing the TC-244 step, before changing anything.'
+- 'In infra/fetch_recent_releases.py''s main(): wrap the `releases = fetch_releases(args.repository)[: args.limit]`
+  call in a try/except around Exception. On success, behavior is completely unchanged. On any exception, write an
+  EMPTY JSON list (the same shape _serialize_release/json.dumps already produce for zero releases - do not invent a
+  different sidecar shape) to args.output, and print a message to stdout that clearly states the fetch failed and an
+  empty sidecar was written instead (include the repository and the exception''s str() in the message, so a real
+  failure is diagnosable from Job logs - never swallow it silently). Do not change the existing freshness-skip
+  behavior, the --limit handling, or any other function in this module.'
+- 'In infra/helm/foss-mcp/templates/deployment.yaml: change the wait-for-product-reference initContainer''s shell
+  command so it ALSO waits for recent_releases_<family>_<platform>.json (the exact name
+  infra/fetch_recent_releases.recent_releases_sidecar_name(family, platform) returns) to exist, in addition to the
+  existing product_reference_<family>_<platform>.json check - both files must exist before the loop exits. Update
+  the initContainer''s name and the comment above it to describe both files it now waits for, and why (cite this
+  card''s own root-cause: fetch_recent_releases.py runs strictly after fetch_product_reference.py in the ingestion
+  Job''s chain, so waiting on the first file alone does not guarantee the second one exists yet). This unconditional
+  wait on BOTH files is safe for every currently configured pilot in values.yaml (every one declares both
+  manifestPath and a real library.repository, confirmed by reading values.yaml directly - do not assume this without
+  checking it yourself) and is made safe against a persistent live-fetch failure specifically by this card''s first
+  change, which guarantees fetch_recent_releases.py always eventually writes a file (even an empty one) rather than
+  leaving a gap that would hang this initContainer forever.'
+- 'Add a test to tests/infra/test_fetch_recent_releases.py: when the (monkeypatched) fetch_releases raises an
+  exception, main() does NOT propagate it, writes an empty JSON list to --output, and the printed message mentions
+  both the repository and that the fetch failed - follow this file''s own existing style exactly (monkeypatch
+  fetch_recent_releases.fetch_releases itself, never real network, per this file''s own module docstring; use
+  capsys to check the printed message the same way test_main_skips_the_fetch_when_the_existing_output_is_within_the_
+  freshness_window already does).'
+- 'Add a test to tests/infra/test_helm_chart.py: render the chart (reuse the existing _render()/_serving() helpers
+  exactly as the file''s other tests do) and assert the serving Deployment''s initContainer command references BOTH
+  product_reference_pdf_net.json AND recent_releases_pdf_net.json (the default values.yaml deployment identity is
+  pdf/net) - do not weaken or remove any existing test in this file; run the full file to confirm nothing else broke
+  (this file needs the real helm binary on PATH - activate scripts/toolchain/activate.ps1 in the same shell command
+  as the test run, per AGENTS.md''s Toolchain section).'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read all four referenced files in full before changing anything.
+- Fix fetch_recent_releases.py's main() to write an empty sidecar on fetch failure instead of raising.
+- Extend the initContainer in deployment.yaml to wait for both sidecar files; update its name and comment.
+- Add the two new tests; run both full test files to confirm nothing else broke.
+checks:
+- command: '{python} -m pytest tests/infra/test_fetch_recent_releases.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/infra/test_helm_chart.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 180
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 2
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/deployment.yaml');s=p.read_text(encoding='utf-8');old='recent_releases_%s_%s.json';new='recent_releases_DISABLED_%s_%s.json';i=s.index(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: 'Changes the initContainer''s wait condition to name a file that will never exist (this card''s own
+    fix is the only place that filename pattern appears there), so the new test asserting the initContainer waits
+    for the real recent_releases filename must fail. Built with plain text.'
+evidence:
+- evidence/build/G2/TC-251/receipt.json
+closeout:
+- A serving pod never starts before both the product-reference and recent-releases sidecars it reads once at
+  boot actually exist; a persistent live GitHub-fetch failure degrades to an honest empty sidecar file instead of
+  leaving no file and hanging that wait forever.
+recovery: Re-run from a clean tree.
