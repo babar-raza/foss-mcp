@@ -295,13 +295,7 @@ def _node_name(node, language: str) -> str:
     # wrapped in a reference_declarator/pointer_declarator for a
     # reference/pointer return type, e.g. `T& Foo()`/`T* Foo()`), verified
     # via a live parse probe. Scoped to genuine free functions only (see
-    # _cpp_is_free_function) -- a class member's function_definition is
-    # deliberately left returning "" here, exactly as before this fix,
-    # because api_surface.py's dedicated C++ field_declaration_list member
-    # loop already names and extracts those independently; resolving a name
-    # here too would make the generic method-collection loop (which also
-    # calls this function) start emitting a SECOND, duplicate entry for the
-    # same inline-bodied method.
+    # _cpp_is_free_function).
     #
     # TC-058: this cpp free-function lookup MUST run before the generic
     # identifier-child fallback below, not after. A C++ function_definition's
@@ -309,10 +303,27 @@ def _node_name(node, language: str) -> str:
     # 'type_identifier' for `Matrix Identity()`) -- the generic loop below
     # would otherwise match that return-type node first and misreport it as
     # the function's name, before ever reaching this correct lookup.
-    if language == "cpp" and node.type == "function_definition" and _cpp_is_free_function(node):
-        cpp_name = _cpp_free_function_name(node)
-        if cpp_name:
-            return cpp_name
+    #
+    # TC-259: a class/struct member's function_definition is deliberately
+    # made to return "" here -- this is now an explicit early return, not
+    # merely a comment's claim -- because api_surface.py's dedicated C++
+    # field_declaration_list member loop already names and extracts those
+    # independently; resolving a name here too would let the generic,
+    # language-agnostic method-collection loop (which also calls this
+    # function and also visits class members) fabricate a SECOND, phantom
+    # entry for the same inline-bodied method. Before this fix, the member
+    # case fell through to the generic identifier-child fallback below
+    # instead, which -- for a member whose return type is itself a bare
+    # reference/pointer to a class type (e.g. `const Border& GetLeft() const
+    # noexcept`) -- matched that return-type node first and misreported the
+    # return type as the member's name (see the C1 finding, 2026-10-08).
+    if language == "cpp" and node.type == "function_definition":
+        if _cpp_is_free_function(node):
+            cpp_name = _cpp_free_function_name(node)
+            if cpp_name:
+                return cpp_name
+        else:
+            return ""  # TC-259: member case
     # fallback: first identifier child
     for ch in node.children:
         if ch.type == "identifier" or ch.type == "type_identifier":
