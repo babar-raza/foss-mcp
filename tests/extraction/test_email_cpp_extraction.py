@@ -147,7 +147,11 @@ def test_inherited_members_carry_the_correct_inherited_from_tag() -> None:
 
     for child_name in ("cfb_storage", "cfb_stream"):
         child = by_name[child_name]
-        copied = {m["name"]: m["inherited_from"] for m in child["methods"] + child["properties"] if "inherited_from" in m}
+        copied = {
+            m["name"]: m["inherited_from"]
+            for m in child["methods"] + child["properties"]
+            if "inherited_from" in m
+        }
         # Real cfb_node members observed copied into this real subclass, each correctly
         # rooted to cfb_node's own fully-qualified class_import - the real declaring
         # ancestor, not merely "some non-empty string".
@@ -157,7 +161,10 @@ def test_inherited_members_carry_the_correct_inherited_from_tag() -> None:
         assert node["class_import"] == "aspose::email::foss::cfb::cfb_node"
 
         # The child's own, locally-declared members must never carry the tag.
-        own_methods = {"cfb_storage": {"cfb_storage", "add_storage", "add_stream"}, "cfb_stream": {"cfb_stream"}}
+        own_methods = {
+            "cfb_storage": {"cfb_storage", "add_storage", "add_stream"},
+            "cfb_stream": {"cfb_stream"},
+        }
         for member in child["methods"] + child["properties"]:
             if member["name"] in own_methods[child_name]:
                 assert "inherited_from" not in member, (child_name, member["name"])
