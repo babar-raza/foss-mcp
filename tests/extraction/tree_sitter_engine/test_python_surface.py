@@ -282,3 +282,83 @@ def test_a_package_that_reexports_a_submodule_of_its_own_name_stays_a_module(
     assert by_name["pkg.cfb"].reexported_from == "pkg.cfb"
     assert by_name["pkg.cfb"].kind == "module"
     assert not [note for note in surface.unresolved if "unresolved-reexport" in note]
+
+
+def test_a_reexport_of_an_underscore_module_origin_carries_real_structured_data(
+    tmp_path: Path,
+) -> None:
+    """The common Python packaging convention: a real class lives in a leading-underscore impl
+    module and is re-exported publicly via the package's ``__init__.py``. ``_module_symbols()``
+    never scans the underscore module directly (TC-265's own bases/return_type/param_types fix
+    is a no-op for it), so the re-export's structured data must be recovered from the same AST
+    node ``_origin_kind()`` already reads to recover the SymbolKind - not left at the ()/None
+    fallback this card closes."""
+    _write(tmp_path, "pkg/__init__.py", "from ._document import Document\n")
+    _write(
+        tmp_path,
+        "pkg/_document.py",
+        "class Node:\n    pass\n\n\nclass Document(Node):\n"
+        "    '''A live document.'''\n\n"
+        "    def query(self, selector: str) -> Node:\n        return self\n",
+    )
+    surface = inspect_public_surface(tmp_path, ["pkg"])
+    by_name = {symbol.qualified_name: symbol for symbol in surface.symbols}
+    document = by_name["pkg.Document"]
+    assert document.kind == "class"
+    assert document.bases == ("Node",)
+    assert document.docstring == "A live document."
+    assert document.signature == "class Document(Node)"
+    assert document.return_type is None
+    assert document.param_types == ()
+    assert not surface.unresolved
+
+
+def test_a_multi_hop_reexport_ending_at_an_underscore_module_carries_real_structured_data(
+    tmp_path: Path,
+) -> None:
+    """A public re-export of a re-export - the forwarding chain ``_origin_kind()`` already walks
+    correctly for SymbolKind - must recover structured data at the same final, underscore-module
+    hop it lands on, never a different, independently-resolved node."""
+    _write(tmp_path, "pkg/__init__.py", "from .mid import Shape\n")
+    _write(tmp_path, "pkg/mid/__init__.py", "from ._impl import Shape\n")
+    _write(
+        tmp_path,
+        "pkg/mid/_impl.py",
+        "class Base:\n    pass\n\n\nclass Shape(Base):\n"
+        "    def area(self, scale: float) -> float:\n        return scale\n",
+    )
+    surface = inspect_public_surface(tmp_path, ["pkg"])
+    by_name = {symbol.qualified_name: symbol for symbol in surface.symbols}
+    shape = by_name["pkg.Shape"]
+    assert shape.kind == "class"
+    assert shape.bases == ("Base",)
+    assert shape.signature == "class Shape(Base)"
+    mid_shape = by_name["pkg.mid.Shape"]
+    assert mid_shape.kind == "class"
+    assert mid_shape.bases == ("Base",)
+    assert not surface.unresolved
+
+
+def test_a_scanned_origins_structured_data_reaches_its_reexport_unchanged(tmp_path: Path) -> None:
+    """Regression: when a re-export's origin module WAS scanned by ``_module_symbols`` (the
+    already-correct path, untouched by this card), the origin symbol's own bases/docstring/
+    signature reach the re-export exactly as before - this card only closes the gap for the
+    unscanned, underscore-module-origin case."""
+    _write(tmp_path, "pkg/__init__.py", "from .shapes import Shape\n")
+    _write(
+        tmp_path,
+        "pkg/shapes.py",
+        "class Base:\n    pass\n\n\nclass Shape(Base):\n"
+        "    '''A shape.'''\n\n"
+        "    def scale(self, factor: float) -> Base:\n        return self\n",
+    )
+    surface = inspect_public_surface(tmp_path, ["pkg"])
+    by_name = {symbol.qualified_name: symbol for symbol in surface.symbols}
+    shape = by_name["pkg.Shape"]
+    scanned = by_name["pkg.shapes.Shape"]
+    assert shape.kind == scanned.kind == "class"
+    assert shape.bases == scanned.bases == ("Base",)
+    assert shape.docstring == scanned.docstring == "A shape."
+    assert shape.signature == scanned.signature == "class Shape(Base)"
+    assert shape.return_type is None
+    assert shape.param_types == ()

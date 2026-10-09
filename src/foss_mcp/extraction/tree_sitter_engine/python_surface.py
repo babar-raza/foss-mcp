@@ -263,8 +263,32 @@ def _methods(node: ast.ClassDef, module: str, relative: str, public_by: PublicBy
     return found
 
 
-def _origin_kind(origin: str, source_root: Path, seen: frozenset[str] = frozenset()) -> SymbolKind | None:
-    """The kind of one re-exported definition, read from its own file; ``None`` if absent.
+@dataclass(frozen=True)
+class _OriginDefinition:
+    """The full evidence read directly off disk for one re-exported definition.
+
+    ``_reexport_kind`` already has this evidence for free whenever the origin module was
+    scanned by ``_module_symbols`` (it is sitting right there on the ``PublicSymbol``). This
+    is the same evidence recovered the hard way, by re-reading the origin file's own AST node,
+    for the one case ``_module_symbols`` refuses to scan: an origin module with a leading-
+    underscore path component (``dom/_document.py``, re-exported via ``dom/__init__.py`` - the
+    "real impl module, public package re-export" convention, measured 2026-10-09 on
+    Aspose.HTML for Python as 101 of 104 real modules).
+    """
+
+    kind: SymbolKind
+    docstring: str | None
+    signature: str | None
+    bases: tuple[str, ...]
+    return_type: str | None
+    param_types: tuple[tuple[str, str], ...]
+
+
+def _origin_definition(
+    origin: str, source_root: Path, seen: frozenset[str] = frozenset()
+) -> _OriginDefinition | None:
+    """The full evidence of one re-exported definition, read from its own file; ``None`` if
+    absent.
 
     A module that only forwards a name is followed to the module that defines it. The public
     path is what a reader imports, and it stays public however many private modules stand
@@ -275,7 +299,7 @@ def _origin_kind(origin: str, source_root: Path, seen: frozenset[str] = frozense
     """
     origin_path = source_root / Path(*origin.split("."))
     if origin_path.is_dir() or origin_path.with_suffix(".py").is_file():
-        return "module"
+        return _OriginDefinition("module", None, None, (), None, ())
     module, name = origin.rsplit(".", 1)
     package_path = source_root / Path(*module.split("."))
     for candidate in (package_path.with_suffix(".py"), package_path / "__init__.py"):
@@ -285,18 +309,36 @@ def _origin_kind(origin: str, source_root: Path, seen: frozenset[str] = frozense
             tree = ast.parse(candidate.read_text(encoding="utf-8-sig", errors="replace"))
         except SyntaxError:
             return None
+        found: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef | None = None
         forwarded: str | None = None
         for item in tree.body:
-            if isinstance(item, ast.ClassDef) and item.name == name:
-                return _class_kind(item)
-            if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef) and item.name == name:
-                return "function"
+            if isinstance(item, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef) and item.name == name:
+                found = item
+                break
             if isinstance(item, ast.ImportFrom) and forwarded is None:
                 forwarded = _forwarded_origin(item, module, candidate.name == "__init__.py", name)
+        if found is not None:
+            kind: SymbolKind = _class_kind(found) if isinstance(found, ast.ClassDef) else "function"
+            bases, return_type, param_types = _structured_fields(found)
+            return _OriginDefinition(
+                kind, _first_docstring_line(found), _signature(found), bases, return_type, param_types
+            )
         if forwarded is None or forwarded in seen or forwarded == origin:
             return None
-        return _origin_kind(forwarded, source_root, seen | {origin})
+        return _origin_definition(forwarded, source_root, seen | {origin})
     return None
+
+
+def _origin_kind(origin: str, source_root: Path, seen: frozenset[str] = frozenset()) -> SymbolKind | None:
+    """The kind of one re-exported definition, read from its own file; ``None`` if absent.
+
+    A single-value convenience over ``_origin_definition`` for a caller that wants only the
+    ``SymbolKind`` - kept so widening ``_origin_definition``'s return shape, for the structured
+    bases/return_type/param_types/docstring/signature a re-export's origin also carries, never
+    changes this function's existing one-value contract.
+    """
+    definition = _origin_definition(origin, source_root, seen)
+    return definition.kind if definition is not None else None
 
 
 def _forwarded_origin(node: ast.ImportFrom, module: str, is_package: bool, name: str) -> str | None:
@@ -311,7 +353,7 @@ def _forwarded_origin(node: ast.ImportFrom, module: str, is_package: bool, name:
 
 def _reexport_kind(
     symbol: PublicSymbol, symbols: dict[str, PublicSymbol], source_root: Path
-) -> tuple[PublicSymbol | None, SymbolKind | None]:
+) -> tuple[PublicSymbol | None, SymbolKind | None, _OriginDefinition | None]:
     """The definition a re-export ends at and its kind, following every hop of the chain.
 
     One lookup is one hop too few whenever a package re-exports what another package already
@@ -324,23 +366,26 @@ def _reexport_kind(
 
     Each hop is followed until one carries a kind; a hop whose module was never scanned - a
     private module, or a plain module with no ``__all__`` - is read from its own file, and
-    ``seen`` makes a cycle terminate rather than recurse.
+    ``seen`` makes a cycle terminate rather than recurse. The third element is the structured
+    evidence read off disk for that unscanned-module case; it is ``None`` whenever the first
+    element (``origin``) is not ``None``, since that symbol's own fields already carry it.
     """
     seen: set[str] = set()
     current = symbol
     while True:
         target = current.reexported_from
         if target is None or target in seen:
-            return None, None
+            return None, None, None
         seen.add(target)
         origin = symbols.get(target)
         # A package that re-exports a submodule of its own name forwards to itself; the file
         # system answers what the symbol table cannot (``email_foss.cfb`` re-exporting from
         # ``email_foss.cfb``), and reading the chain instead would end the walk at that symbol.
         if origin is None or origin.qualified_name == current.qualified_name:
-            return None, _origin_kind(target, source_root, frozenset(seen))
+            definition = _origin_definition(target, source_root, frozenset(seen))
+            return None, (definition.kind if definition is not None else None), definition
         if origin.kind != "unknown":
-            return origin, origin.kind
+            return origin, origin.kind, None
         current = origin
 
 
@@ -380,22 +425,28 @@ def inspect_public_surface(repository_root: Path, package_dirs: Sequence[str]) -
         for name, symbol in list(symbols.items()):
             if symbol.reexported_from is None or symbol.kind != "unknown":
                 continue
-            origin, kind = _reexport_kind(symbol, symbols, source_root)
+            origin, kind, definition = _reexport_kind(symbol, symbols, source_root)
             if kind is None:
                 unresolved.append(
                     f"{symbol.module}:{symbol.line}:unresolved-reexport:{symbol.reexported_from}"
                 )
             else:
                 # A re-export carries its origin's own docstring, signature, and structured
-                # base-class/return-type/param-annotation data as evidence.
+                # base-class/return-type/param-annotation data as evidence - from the origin
+                # symbol itself when its module was scanned, otherwise from the same AST node
+                # read directly off disk (``definition``, for an underscore-module origin).
                 symbols[name] = replace(
                     symbol,
                     kind=kind,
-                    docstring=origin.docstring if origin is not None else None,
-                    signature=origin.signature if origin is not None else None,
-                    bases=origin.bases if origin is not None else (),
-                    return_type=origin.return_type if origin is not None else None,
-                    param_types=origin.param_types if origin is not None else (),
+                    docstring=origin.docstring if origin is not None else (definition.docstring if definition else None),
+                    signature=origin.signature if origin is not None else (definition.signature if definition else None),
+                    bases=origin.bases if origin is not None else (definition.bases if definition else ()),
+                    return_type=origin.return_type
+                    if origin is not None
+                    else (definition.return_type if definition else None),
+                    param_types=origin.param_types
+                    if origin is not None
+                    else (definition.param_types if definition else ()),
                 )
     return PublicSurface(
         symbols=tuple(symbols[name] for name in sorted(symbols)),
