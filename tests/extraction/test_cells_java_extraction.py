@@ -149,7 +149,9 @@ def test_a_real_inherited_member_carries_the_correct_inherited_from_tag() -> Non
 
     formula_exception = by_name["FormulaException"][0]
     assert formula_exception["bases"] == ["CellsException"]
-    formula_methods = [m for m in formula_exception["methods"] if m["name"] in {"FormulaException", "CellsException"}]
+    formula_methods = [
+        m for m in formula_exception["methods"] if m["name"] in {"FormulaException", "CellsException"}
+    ]
     own = [m for m in formula_methods if m["name"] == "FormulaException"]
     inherited = [m for m in formula_methods if m["name"] == "CellsException"]
     assert len(own) == 1
