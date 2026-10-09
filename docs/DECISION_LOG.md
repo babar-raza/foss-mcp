@@ -1892,3 +1892,45 @@ verification pin) that coincided before TC-263 and diverged after - split into `
 All three cards (TC-278, TC-279, TC-280) are integrated. C7 is closed. Remaining from the third audit: C6 (per-
 language extraction fidelity, full-chain verification), C8 (narrative documentation gap, P2), and OWNER-11 (B08,
 owner-only).
+
+## 2026-10-09 — C6 fully closed (TC-281 through TC-287): the deep architectural gap, and six pilots stale
+relative to their own recorded fix
+A dedicated investigation (per-language extraction fidelity, mirroring the real source-to-fixture comparison
+this session already used for C1/C3/C4) found two distinct, concrete defects - not busywork - while confirming
+C#, TypeScript, and Go are structurally immune to the C1 fabrication mechanism (verified empirically: both
+grammars expose an explicit `name` field on method nodes, so `_node_name()`'s tree-sitter-provided name always
+satisfies before any fallback) and that the compile/runtime verification infrastructure
+(`src/foss_mcp/indexing/example_verifier.py`) is real and unmocked for all 7 platforms, just production-live for
+only 6 of 40 pilots (a known, pre-existing content-authoring gap, not a new code defect).
+
+**Finding #1 (TC-282 through TC-287):** six pilots - pdf_cpp (TC-258), pdf_go (TC-262), pdf_net (TC-263),
+pdf_typescript (TC-255), pdf_java (TC-256), slides_java (TC-257) - were each regenerated moments BEFORE TC-261
+(C3's inherited_from provenance fix) landed the same morning, so despite being recorded "CLOSED" in the C4
+closure entry above, every one of them still served zero inheritance provenance on real inherited members. Each
+was fixed by a pure re-pin (same pattern as the original regeneration): re-run the same extraction now that both
+TC-252 and TC-261 are genuinely on main. Every one of the six confirmed a real, correctly-rooted multi-level (or,
+where the centrality cut truncated the grandparent out of existence - pdf_go's real case - a correctly-verified
+2-level) inheritance chain, live, against real upstream source. Two of the six (pdf_net TC-284, pdf_typescript
+TC-285) independently re-confirmed the "manifest pins a repository, not a commit" behavior already known from
+TC-255/262/268/272/280: a plain re-run can advance `source_commit` again on its own, and pdf_typescript's own
+rework again found and fixed the live-e2e `REAL_SOURCE_COMMIT` staleness this causes (mirroring TC-280 exactly) -
+this specific failure mode has now recurred often enough this session that a dedicated structural fix (deriving
+`REAL_SOURCE_COMMIT` from the fixture at test-collection time instead of hardcoding it) is worth a future card if
+it keeps recurring.
+
+**Finding #2 (TC-281), the deeper one:** inheritance flattening (`_flatten_inheritance()`, the very function
+TC-261 made provenance-aware) architecturally never executes for ANY of the 12 Python-sourced pilots, because
+`run_extraction.py` routes Python entirely through `python_surface.py`, never through the tree-sitter engine's
+own `extract_api_surface()` pipeline where `_flatten_inheritance()` is the only call site. For Python this is not
+mislabeling - it is complete absence: a subclass's own methods/properties list never contained its base class's
+real inherited members at all, with or without a tag. Fixed with a single new call,
+`api_surface._flatten_inheritance(types)` inside `_extract_python_surface()`, reusing the function completely
+unmodified (it was already fully generic, keyed on plain dict fields, with zero language-specific logic in its
+own body) - verified live against 2 real Python pilots (words/python, pdf/python) before committing, and a
+regeneration wave for the 12 affected Python-sourced fixtures is the natural next follow-up, mirroring how TC-265
+and TC-274 were each followed by their own regeneration waves rather than regenerating fixtures as part of the
+root-cause fix itself.
+
+All seven cards (TC-281-287) are integrated. C6 is closed. Remaining from the third audit: C8 (narrative
+documentation gap, P2) and OWNER-11 (B08, owner-only). A follow-up wave to apply TC-281's fix to the 12 real
+Python-sourced fixtures has not yet been authored as of this entry.
