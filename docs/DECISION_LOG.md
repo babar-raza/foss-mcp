@@ -2024,3 +2024,26 @@ to run. Recorded here as a known, currently-dormant risk - not a defect to fix n
 covers it structurally (the same `_prefers_structured_data()` preference applies regardless of source language);
 re-check if any future pilot regeneration surfaces a live collision that actually resolves a real `bases` entry
 to an empty shell.
+
+## 2026-10-09 — TC-294 closed: all three stacked Python inheritance-flattening root causes are now on main
+TC-294 is integrated. `python_surface.py`'s underscore-impl-module re-export recovery (`_origin_definition()`)
+now also recovers a resolved class's own real methods via a new `_reexported_methods()` helper, which calls the
+existing `_methods()` against the resolved `ast.ClassDef` and rehomes each result under the public re-exported
+qualified name (keeping the public symbol's own `source_path`/`line`, mirroring the precedent the class-level
+`replace()` call already set). Live-verified on html_python (HTMLElement: 0 → 146 real methods; 221/300 reduced
+types now carry at least one method, versus 2/323 before; 156 real subclasses now carry correct `inherited_from`
+tags) and pdf_python (NamespaceProvider/XmpNamespaceProvider chain flattened correctly end to end).
+
+The worker also confirmed, directly rather than by assumption, that this fix and TC-293's short-name-collision
+fix are genuinely orthogonal and do not interact: TC-293's collision can only arise when a *scanned* (non-
+underscore) module produces a real-definition entry alongside a re-export shell sharing the same bare name;
+`_module_symbols()` never scans an underscore-prefixed module at all, so there is structurally only ever one
+`types` entry for an underscore-origin class - the collision this card's fix resolves cannot arise for TC-294's
+own injected method symbols.
+
+With TC-281 (flattening wired in for Python), TC-293 (short-name collision), and TC-294 (missing methods on
+underscore-origin re-exports) all on main, all three independently-discovered root causes behind Python
+inheritance flattening being a near-total no-op are now closed. The remaining open item in this wave is the
+5-pilot fixture re-pin follow-up (TC-288/290/291/292) - TC-290 is integrated; TC-288 and TC-291 both independently
+hit TC-293's own collision shape before it landed and are being re-verified now that it has; TC-292's status is
+pending its own final report.
