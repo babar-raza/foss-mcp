@@ -123,7 +123,7 @@ PROTOCOL_VERSION = "2025-06-18"
 # BarcodeField (bases: ["TextBoxField"]). A real query response containing this exact string is
 # genuine, falsifiable proof of real content, never a guess.
 REAL_SYMBOL = "BarcodeField"
-REAL_SOURCE_COMMIT = "286484d235196d65c9a458c5eff3d3d6539216dc"
+REAL_SOURCE_COMMIT = "cdf43df10c8c565ecaa978428b1fe66ad6685f8d"
 
 # No enum-shaped entry exists anywhere within this fixture's own max_types=20 slice (confirmed by
 # inspecting every entry's own "kind" - only "type_spec" and "function" appear, and no "type_spec"

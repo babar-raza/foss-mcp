@@ -48,10 +48,13 @@ def test_the_fixture_parses_and_has_the_expected_shape() -> None:
 def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
     data = _load_fixture()
     assert _COMMIT_SHA.match(data["source_commit"]), data["source_commit"]
-    # Recorded from the real live clone that produced this fixture - re-verify by hand with
+    # Recorded from the real live clone that produced this fixture (regenerated under
+    # TC-262 with TC-252's centrality-ranked reduce_fixture() - the repository had advanced
+    # past the old, pre-TC-252 pin, so this is a fresh commit, not the stale one) -
+    # re-verify by hand with
     # `git ls-remote https://github.com/aspose-pdf-foss/Aspose-PDF-FOSS-for-Go` if this ever
     # needs re-pinning; do not change it to make a test pass.
-    assert data["source_commit"] == "286484d235196d65c9a458c5eff3d3d6539216dc"
+    assert data["source_commit"] == "cdf43df10c8c565ecaa978428b1fe66ad6685f8d"
     manifest = yaml.safe_load(MANIFEST.read_text(encoding="utf-8"))
     assert data["source_repository"] == manifest["repository"]
 
@@ -60,9 +63,12 @@ def test_the_fixture_is_non_empty_and_records_real_truncation() -> None:
     data = _load_fixture()
     assert len(data["types"]) > 0
     assert data["reduced_type_count"] == len(data["types"])
-    # The real repository has 2192 public types - far over the CLI's default --max-types 300
-    # cap - so this fixture is a genuinely reduced subset, unlike cells/rust's untruncated one.
-    assert data["type_count"] == 2192
+    # The real repository has 2313 public types (re-measured under TC-262's live
+    # re-extraction; the repository moved forward since the old, pre-TC-252 pin) - far over
+    # the CLI's default --max-types 300 cap - so this fixture is a genuinely reduced subset,
+    # unlike cells/rust's untruncated one. Selection is centrality-ranked (TC-252), not
+    # alphabetical.
+    assert data["type_count"] == 2313
     assert data["reduced_type_count"] == 300
     assert data["truncated"] is True
 
@@ -74,6 +80,25 @@ def test_the_fixture_contains_real_go_type_names() -> None:
     # empty or synthetic fixture.
     assert {"Document", "Annotation", "AnnotationCollection", "AFRelationship"} <= names
     assert all(entry["file"].endswith(".go") for entry in data["types"])
+
+
+def test_the_centrality_ranked_selection_keeps_page() -> None:
+    # Headline regression for TC-262: under the OLD, pre-TC-252 alphabetical selection, the
+    # 300-type cut dropped "Page" - one of the most central types in a PDF library ("P" falls
+    # well past an alphabetical cut of 300 out of 2313 names) - and a third independent audit
+    # (2026-10-08, C4) named it explicitly as still missing from this exact fixture. TC-252's
+    # centrality-ranked reduce_fixture() (ranking by how many other types reference a type's
+    # bare name, not alphabetical order) now keeps it. Confirmed directly in this card's own
+    # live re-extraction: "Page" is present among the 300 kept types.
+    data = _load_fixture()
+    names = {entry["name"] for entry in data["types"]}
+    assert "Page" in names
+    page = next(entry for entry in data["types"] if entry["name"] == "Page")
+    assert page["kind"] == "type_spec"
+    assert page["file"] == "page.go"
+    method_names = {m["name"] for m in page["methods"]}
+    # Observed directly in the live run: Page has real methods with real doc comments.
+    assert "RenderBMP" in method_names
 
 
 def test_every_entry_is_a_real_go_surface_kind() -> None:
