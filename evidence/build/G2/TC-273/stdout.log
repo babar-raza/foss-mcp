@@ -1,0 +1,619 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mtl8cfap\.junit-0.xml"
+--- stdout ---
+.............                                                            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mtl8cfap\.junit-1.xml"
+--- stdout ---
+.........................                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_slides_python_live_content.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mtl8cfap\.junit-2.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mtl8cfap\.junit-0.xml"
+--- stdout ---
+.............                                                            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mtl8cfap\.junit-1.xml"
+--- stdout ---
+.........................                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_slides_python_live_content.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mtl8cfap\.junit-2.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/find_examples.py, ?? .junit-0.xml, ?? .junit-1.xml, ?? .junit-2.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mtl8cfap\.junit-0.xml"
+--- stdout ---
+.............                                                            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mtl8cfap\.junit-1.xml"
+--- stdout ---
+................FFF...F..                                                [100%]
+================================== FAILURES ===================================
+_ test_lookup_symbol_first_dispatch_surfaces_furnished_doc_not_the_excluded_pseudo_symbol _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4119/test_lookup_symbol_first_dispa1')
+
+    def test_lookup_symbol_first_dispatch_surfaces_furnished_doc_not_the_excluded_pseudo_symbol(
+        tmp_path: Path,
+    ) -> None:
+        """This test used to be named "...composes_doc_guidance_with_a_real_example_when_no_real_
+        symbol_matches" (REQ-G2-049 scenario 3) and relied on the furnished watermarking guide living
+        under a "furnished" scope key search_symbols never read - so search_symbols only ever saw the
+        real (unrelated) symbol and the excluded pseudo-symbol, genuinely missed, and lookup fell
+        through to ``_compose_from_docs``.
+    
+        TC-109 (G2/REQ-G2-047) fixes search_docs's own routing bug so it reads the exact SAME
+        generation search_symbols and find_examples already did - the one every real pilot actually
+        publishes. Reproduced, real consequence: search_symbols.py excludes ONLY TC-068's
+        ``Example: <title>`` pseudo-symbol chunks (see its own module docstring); it has no OTHER
+        content-shape filter, so the furnished watermarking-guide chunk below (no ``Example:``
+        prefix) is not excluded, and a bare query matching it is reported as a genuine symbol match.
+        lookup()'s bare-query dispatch order - try ``search_symbols`` first, unchanged - faithfully
+        returns that, never reaching ``_compose_from_docs``.
+    
+        This still proves TC-068's own exclusion works correctly (the pseudo-symbol chunk never
+        appears in the result, below), which is the one thing search_symbols.py already promises.
+        Closing the REMAINING gap - a furnished doc chunk also needs to be excluded from
+        search_symbols's own matching, the same way the pseudo-symbol already is - is a follow-up
+        card's job: search_symbols.py is not in TC-109's write_paths.
+    
+        TC-202 (G2/REQ-G2-047) closes that gap: the query is an honest Miss in search_symbols, and the
+        furnished guide chunk reaches the answer as a doc match (restated at line 654).
+        """
+        store = _store(tmp_path)
+        real_symbol_body = """## PdfDocument
+    
+    FQN: PdfDocument
+    Kind: Class
+    Represents a PDF document that can be loaded, edited, and saved.
+    """
+        pseudo_symbol_body = (
+            "# Example: Add a Watermark Annotation\n\n"
+            "FQN: Example: Add a Watermark Annotation\n"
+            "Kind: verified_example\n"
+            "Adds a watermark annotation to a document using a real, verified snippet.\n\n"
+            'Example:\ndocument.AddWatermarkAnnotation("Confidential")'
+        )
+        real_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="api_surface",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="pdf/net API surface",
+            body=real_symbol_body,
+        )
+        pseudo_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="example",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="Add a Watermark Annotation",
+            body=pseudo_symbol_body,
+        )
+        watermark_guide_doc = make_document(
+            source_kind=SourceKind.FURNISHED,
+            content_type="product_page",
+            provenance=Provenance(repository="Aspose/aspose.org", commit="x", path="content/pdf/net"),
+            evidence_refs=(),
+            title="pdf/net watermarking guide",
+            body="""## Adding a Watermark
+    
+    Use PdfDocument.AddWatermarkAnnotation to overlay a watermark on every page. This approach
+    works well for stamping confidential markings onto exported PDF documents.
+    """,
+        )
+        # One combined publish, matching every real pilot's actual shape: symbol, pseudo-symbol,
+        # and doc chunks all live in the SAME self_extracted generation (TC-109, G2/REQ-G2-047) -
+        # there is no separate "furnished" scope key for search_docs to read anymore.
+        chunks = chunk_document(real_doc) + chunk_document(pseudo_doc) + chunk_document(watermark_guide_doc)
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+    
+>       result = lookup(store, PDF_NET_SCOPE, "watermark")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:657: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\lookup.py:160: in lookup
+    task_answer = _compose_from_docs()
+                  ^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\lookup.py:143: in _compose_from_docs
+    example_result = find_examples(store, scope, query, top_k=1)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000027DAF3A6150>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'watermark', top_k = 1
+
+    def find_examples(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 5
+    ) -> list[ExampleMatch] | NoExampleFound:
+        """A verified snippet for *query*: an exact FQN match first (``get_symbol`` under the
+        hood), a semantic (lexical) search over every OTHER example-bearing chunk otherwise.
+    
+        Never executes a snippet, and never returns one when nothing - exact or semantic - has
+        one to offer.
+        """
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return NoExampleFound(scope, query)
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        documents = (lexical_payload or {}).get("documents") or {}
+        if not documents:
+            return NoExampleFound(scope, query)
+    
+        exact = get_symbol(store, scope, query)
+        if not isinstance(exact, NotFound):
+            example = _extract_example(exact.raw_text)
+            if example is not None:
+                return [ExampleMatch(scope, active_generation_id, exact.fqn, example, coverage=1.0)]
+    
+        example_doc_ids = {
+            doc_id for doc_id, document in documents.items() if _EXAMPLE_MARKER in document["text"]
+        }
+        if not example_doc_ids:
+            return NoExampleFound(scope, query)
+    
+        query_tokens = frozenset(tokenize(query))
+        ranked = query_lexical_index_scored(lexical_payload, query, top_k=len(documents))
+        hits: list[tuple[str, float]] = []
+        for doc_id, _score in ranked:
+            if doc_id not in example_doc_ids:
+                continue
+            coverage = _coverage(query_tokens, documents[doc_id]["tokens"])
+            if coverage < _COVERAGE_THRESHOLD:
+                continue
+            hits.append((doc_id, coverage))
+            if len(hits) >= top_k:
+                break
+        if not hits:
+            return NoExampleFound(scope, query)
+    
+        matches = []
+        for doc_id, coverage in hits:
+            text = documents[doc_id]["text"]
+            matches.append(
+                ExampleMatch(
+                    scope=scope,
+                    generation_id=active_generation_id,
+                    fqn=extract_fqn(text) or "",
+                    snippet=_extract_example(text) or "",
+>                   coverage=coverage_DISABLED,
+                             ^^^^^^^^^^^^^^^^^
+                )
+            )
+E           NameError: name 'coverage_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\find_examples.py:144: NameError
+_ test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4119/test_lookup_composes_example_o0')
+
+    def test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere(
+        tmp_path: Path,
+    ) -> None:
+        """TC-075: the real, final gap the day's investigation converged on. No furnished
+        getting_started/developer_guide/troubleshooting/faq content has ever been built or
+        published for any pilot - this matches every real pilot's actual current state, not a
+        contrived one. ``find_examples`` alone still returns a real, complete, self-descriptive
+        answer (a verified code example with its own description, per TC-068's design). Before
+        this card, ``_compose_from_docs`` only tried ``find_examples`` AFTER finding a non-empty
+        doc match, so this real, useful answer was thrown away and lookup fell through to
+        ``search_symbols`` instead. It must not, now.
+    
+        TC-109 (G2/REQ-G2-047) UPDATE: search_docs now correctly reads the SAME generation
+        search_symbols and find_examples already did (its routing bug is what this card fixes),
+        rather than a "furnished" scope key nothing ever actually published to. One real
+        consequence, reproduced here rather than hidden: search_docs.py's own ``classify_content_type``
+        has no exclusion for TC-068's ``Example: <title>`` pseudo-symbol chunks (unlike
+        search_symbols.py, which excludes them by design - see its module docstring), so this
+        pseudo-symbol chunk - lacking any of the getting_started/troubleshooting/faq keyword hints -
+        falls into search_docs's default "developer_guide" bucket and IS now found there too. The
+        example-only promise this test is named for still holds (``result.example`` is populated
+        correctly, verbatim, never fabricated); what no longer holds is the total ABSENCE of a doc
+        match, since search_docs cannot yet tell a pseudo-symbol chunk apart from real documentation
+        prose. Extending that exclusion belongs to a future card - it is not part of search_docs.py's
+        one-constant fix TC-109 makes, and touching classify_content_type is explicitly out of this
+        card's scope.
+        """
+        store = _store(tmp_path)
+        pseudo_symbol_body = (
+            "# Example: Add a Watermark Annotation\n\n"
+            "FQN: Example: Add a Watermark Annotation\n"
+            "Kind: verified_example\n"
+            "Adds a watermark annotation to a document using a real, verified snippet.\n\n"
+            'Example:\ndocument.AddWatermarkAnnotation("Confidential")'
+        )
+        pseudo_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="example",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="Add a Watermark Annotation",
+            body=pseudo_symbol_body,
+        )
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(pseudo_doc))
+    
+        # No REAL documentation content is published for this scope - only the pseudo-symbol
+        # chunk above - matching every real pilot's actual current state today.
+    
+>       result = lookup(store, PDF_NET_SCOPE, "how do I add a watermark to a PDF")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:719: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\lookup.py:151: in lookup
+    task_answer = _compose_from_docs()
+                  ^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\lookup.py:143: in _compose_from_docs
+    example_result = find_examples(store, scope, query, top_k=1)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000027DAF27A570>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'how do I add a watermark to a PDF', top_k = 1
+
+    def find_examples(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 5
+    ) -> list[ExampleMatch] | NoExampleFound:
+        """A verified snippet for *query*: an exact FQN match first (``get_symbol`` under the
+        hood), a semantic (lexical) search over every OTHER example-bearing chunk otherwise.
+    
+        Never executes a snippet, and never returns one when nothing - exact or semantic - has
+        one to offer.
+        """
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return NoExampleFound(scope, query)
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        documents = (lexical_payload or {}).get("documents") or {}
+        if not documents:
+            return NoExampleFound(scope, query)
+    
+        exact = get_symbol(store, scope, query)
+        if not isinstance(exact, NotFound):
+            example = _extract_example(exact.raw_text)
+            if example is not None:
+                return [ExampleMatch(scope, active_generation_id, exact.fqn, example, coverage=1.0)]
+    
+        example_doc_ids = {
+            doc_id for doc_id, document in documents.items() if _EXAMPLE_MARKER in document["text"]
+        }
+        if not example_doc_ids:
+            return NoExampleFound(scope, query)
+    
+        query_tokens = frozenset(tokenize(query))
+        ranked = query_lexical_index_scored(lexical_payload, query, top_k=len(documents))
+        hits: list[tuple[str, float]] = []
+        for doc_id, _score in ranked:
+            if doc_id not in example_doc_ids:
+                continue
+            coverage = _coverage(query_tokens, documents[doc_id]["tokens"])
+            if coverage < _COVERAGE_THRESHOLD:
+                continue
+            hits.append((doc_id, coverage))
+            if len(hits) >= top_k:
+                break
+        if not hits:
+            return NoExampleFound(scope, query)
+    
+        matches = []
+        for doc_id, coverage in hits:
+            text = documents[doc_id]["text"]
+            matches.append(
+                ExampleMatch(
+                    scope=scope,
+                    generation_id=active_generation_id,
+                    fqn=extract_fqn(text) or "",
+                    snippet=_extract_example(text) or "",
+>                   coverage=coverage_DISABLED,
+                             ^^^^^^^^^^^^^^^^^
+                )
+            )
+E           NameError: name 'coverage_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\find_examples.py:144: NameError
+_________ test_an_example_answer_survives_zero_documentation_matches __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4119/test_an_example_answer_survive0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000027DAF30C640>
+
+    def test_an_example_answer_survives_zero_documentation_matches(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """TC-218: forces ``lookup``'s example-only branch (``if not doc_matches and example is
+        None``) to be reached. TC-109 made ``search_docs`` classify the Example pseudo-symbol chunk
+        as developer_guide, so the TC-075 test above no longer sees zero doc matches and cannot
+        catch a regression that narrows the condition. Here ``search_docs`` is forced to miss for
+        every content type, so the verified example must still answer on its own.
+        """
+        store = _store(tmp_path)
+        pseudo_symbol_body = (
+            "# Example: Add a Watermark Annotation\n\n"
+            "FQN: Example: Add a Watermark Annotation\n"
+            "Kind: verified_example\n"
+            "Adds a watermark annotation to a document using a real, verified snippet.\n\n"
+            'Example:\ndocument.AddWatermarkAnnotation("Confidential")'
+        )
+        pseudo_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="example",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="Add a Watermark Annotation",
+            body=pseudo_symbol_body,
+        )
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(pseudo_doc))
+    
+        def _forced_miss(
+            store_arg: GenerationManifestStore,
+            scope: Scope,
+            query: str,
+            content_type: str,
+            *args: object,
+            **kwargs: object,
+        ) -> DocsMiss:
+            return DocsMiss(scope=scope, query=query, content_type=content_type, reason="forced miss")
+    
+        monkeypatch.setattr("foss_mcp.mcp.tools.lookup.search_docs", _forced_miss)
+    
+>       result = lookup(store, PDF_NET_SCOPE, "how do I add a watermark to a PDF")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:772: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\lookup.py:151: in lookup
+    task_answer = _compose_from_docs()
+                  ^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\lookup.py:143: in _compose_from_docs
+    example_result = find_examples(store, scope, query, top_k=1)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000027DAF27A990>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'how do I add a watermark to a PDF', top_k = 1
+
+    def find_examples(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 5
+    ) -> list[ExampleMatch] | NoExampleFound:
+        """A verified snippet for *query*: an exact FQN match first (``get_symbol`` under the
+        hood), a semantic (lexical) search over every OTHER example-bearing chunk otherwise.
+    
+        Never executes a snippet, and never returns one when nothing - exact or semantic - has
+        one to offer.
+        """
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return NoExampleFound(scope, query)
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        documents = (lexical_payload or {}).get("documents") or {}
+        if not documents:
+            return NoExampleFound(scope, query)
+    
+        exact = get_symbol(store, scope, query)
+        if not isinstance(exact, NotFound):
+            example = _extract_example(exact.raw_text)
+            if example is not None:
+                return [ExampleMatch(scope, active_generation_id, exact.fqn, example, coverage=1.0)]
+    
+        example_doc_ids = {
+            doc_id for doc_id, document in documents.items() if _EXAMPLE_MARKER in document["text"]
+        }
+        if not example_doc_ids:
+            return NoExampleFound(scope, query)
+    
+        query_tokens = frozenset(tokenize(query))
+        ranked = query_lexical_index_scored(lexical_payload, query, top_k=len(documents))
+        hits: list[tuple[str, float]] = []
+        for doc_id, _score in ranked:
+            if doc_id not in example_doc_ids:
+                continue
+            coverage = _coverage(query_tokens, documents[doc_id]["tokens"])
+            if coverage < _COVERAGE_THRESHOLD:
+                continue
+            hits.append((doc_id, coverage))
+            if len(hits) >= top_k:
+                break
+        if not hits:
+            return NoExampleFound(scope, query)
+    
+        matches = []
+        for doc_id, coverage in hits:
+            text = documents[doc_id]["text"]
+            matches.append(
+                ExampleMatch(
+                    scope=scope,
+                    generation_id=active_generation_id,
+                    fqn=extract_fqn(text) or "",
+                    snippet=_extract_example(text) or "",
+>                   coverage=coverage_DISABLED,
+                             ^^^^^^^^^^^^^^^^^
+                )
+            )
+E           NameError: name 'coverage_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\find_examples.py:144: NameError
+_________ test_find_examples_still_finds_a_genuinely_relevant_example _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4119/test_find_examples_still_finds0')
+
+    def test_find_examples_still_finds_a_genuinely_relevant_example(tmp_path: Path) -> None:
+        """TC-273 property (1): a genuinely relevant example, when one exists, is still found once
+        the semantic fallback requires coverage - the query and the right chunk share enough of the
+        query's own distinct terms ("add", "watermark", "annotation" - all three are real tokens of
+        the watermark example chunk below, confirmed directly against ``tokenize`` before writing
+        this test) to clear ``_COVERAGE_THRESHOLD`` (0.6) with coverage to spare (1.0 here).
+        """
+        store = _store(tmp_path)
+        _publish_two_example_chunks(store)
+    
+>       result = find_examples(store, PDF_NET_SCOPE, "add a watermark annotation")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:951: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000027DAF25B920>
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+query = 'add a watermark annotation', top_k = 5
+
+    def find_examples(
+        store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 5
+    ) -> list[ExampleMatch] | NoExampleFound:
+        """A verified snippet for *query*: an exact FQN match first (``get_symbol`` under the
+        hood), a semantic (lexical) search over every OTHER example-bearing chunk otherwise.
+    
+        Never executes a snippet, and never returns one when nothing - exact or semantic - has
+        one to offer.
+        """
+        key = scope_key(scope, SOURCE_KIND)
+        active_generation_id = store.read_active(key)
+        if active_generation_id is None:
+            return NoExampleFound(scope, query)
+    
+        manifest = store.read_generation(key, active_generation_id)
+        lexical_payload = manifest.payload.get("lexical_index")
+        documents = (lexical_payload or {}).get("documents") or {}
+        if not documents:
+            return NoExampleFound(scope, query)
+    
+        exact = get_symbol(store, scope, query)
+        if not isinstance(exact, NotFound):
+            example = _extract_example(exact.raw_text)
+            if example is not None:
+                return [ExampleMatch(scope, active_generation_id, exact.fqn, example, coverage=1.0)]
+    
+        example_doc_ids = {
+            doc_id for doc_id, document in documents.items() if _EXAMPLE_MARKER in document["text"]
+        }
+        if not example_doc_ids:
+            return NoExampleFound(scope, query)
+    
+        query_tokens = frozenset(tokenize(query))
+        ranked = query_lexical_index_scored(lexical_payload, query, top_k=len(documents))
+        hits: list[tuple[str, float]] = []
+        for doc_id, _score in ranked:
+            if doc_id not in example_doc_ids:
+                continue
+            coverage = _coverage(query_tokens, documents[doc_id]["tokens"])
+            if coverage < _COVERAGE_THRESHOLD:
+                continue
+            hits.append((doc_id, coverage))
+            if len(hits) >= top_k:
+                break
+        if not hits:
+            return NoExampleFound(scope, query)
+    
+        matches = []
+        for doc_id, coverage in hits:
+            text = documents[doc_id]["text"]
+            matches.append(
+                ExampleMatch(
+                    scope=scope,
+                    generation_id=active_generation_id,
+                    fqn=extract_fqn(text) or "",
+                    snippet=_extract_example(text) or "",
+>                   coverage=coverage_DISABLED,
+                             ^^^^^^^^^^^^^^^^^
+                )
+            )
+E           NameError: name 'coverage_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\find_examples.py:144: NameError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_lookup_symbol_first_dispatch_surfaces_furnished_doc_not_the_excluded_pseudo_symbol
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_an_example_answer_survives_zero_documentation_matches
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_find_examples_still_finds_a_genuinely_relevant_example
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/e2e/test_slides_python_live_content.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mtl8cfap\.junit-2.xml"
+--- stdout ---
+....FF....                                                               [100%]
+================================== FAILURES ===================================
+_____ test_find_examples_returns_the_real_compile_verified_shape_example ______
+
+session = <tests.e2e.test_slides_python_live_content._McpSession object at 0x000002366E021940>
+
+    def test_find_examples_returns_the_real_compile_verified_shape_example(
+        session: _McpSession,
+    ) -> None:
+        """REQ-G2-048, now closed for real for this pilot: G2/TC-105 fixed the citation-validation
+        gap TC-101 found (a compile-verified example chunk's own bare-method-name claims, e.g.
+        `add_auto_shape()`, used to sink the WHOLE chunk's verdict even though the example genuinely
+        ran end to end - see the module docstring), so the real running ``serving-slides-python``
+        container's ``find_examples`` now returns the one real, compile-verified "Create a
+        Presentation and Add a Shape" example for this real, on-topic query - proven through the FULL
+        containerized production path (a real ``docker compose up --build ingest-slides-python``
+        below, not merely TC-105's own host-level replay), not a stub, and not a silently-empty list.
+        """
+        body = session.call_tool("find_examples", {"query": "create a presentation and add a shape"})
+>       result = body["result"]["structuredContent"]["result"]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'result'
+
+tests\e2e\test_slides_python_live_content.py:456: KeyError
+____ test_lookup_composes_the_real_task_answer_for_the_rectangle_question _____
+
+session = <tests.e2e.test_slides_python_live_content._McpSession object at 0x000002366E021BA0>
+
+    def test_lookup_composes_the_real_task_answer_for_the_rectangle_question(
+        session: _McpSession,
+    ) -> None:
+        """REQ-G2-050 (TC-080/TC-089/TC-098/TC-099/TC-100 pattern), now met for real for
+        slides/python too: now that TC-105's fix lets this pilot's one real, compile-verified example
+        survive publish (see module docstring), the real running container's ``lookup`` composes a
+        real ``TaskAnswer`` for this real, API-naive task question - ``doc_matches`` empty (no
+        getting_started/developer_guide/troubleshooting/faq content has ever been published for this
+        pilot), ``example`` carrying the same real, compile-verified "Create a Presentation and Add a
+        Shape" example ``find_examples`` itself proves above, its snippet carrying both the real
+        symbol and the real source commit ``infra/build_chunks.py`` appends to every real chunk's
+        text - never a fabricated ``TaskAnswer``, and never the honest-but-incomplete ``Miss`` this
+        exact query used to fall back to before TC-105's fix.
+        """
+        body = session.call_tool("lookup", {"query": REAL_TASK_QUERY})
+>       result = body["result"]["structuredContent"]["result"]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'result'
+
+tests\e2e\test_slides_python_live_content.py:477: KeyError
+=========================== short test summary info ===========================
+FAILED tests/e2e/test_slides_python_live_content.py::test_find_examples_returns_the_real_compile_verified_shape_example
+FAILED tests/e2e/test_slides_python_live_content.py::test_lookup_composes_the_real_task_answer_for_the_rectangle_question
+
+--- stderr ---
+
