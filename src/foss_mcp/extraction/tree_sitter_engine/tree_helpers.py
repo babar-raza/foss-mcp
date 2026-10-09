@@ -830,7 +830,7 @@ def _extract_bases(node, language: str) -> list[str]:
         # `class Widget : public Base1, private Base2` returned ['Widget'],
         # not ['Base1', 'Base2'] and not []). Returning early here avoids
         # the generic loop entirely for C++, fixing both problems at once.
-        base_clause = find_child_by_type(node, 'base_class_clause')
+        base_clause = find_child_by_type(node, "base_class_clause")
         if base_clause is not None:
             for ch in base_clause.children:
                 if ch.type in ("type_identifier", "qualified_identifier"):
