@@ -3993,6 +3993,62 @@ def extract_api_surface(
                         cls_record["class_import"] = f"{module_path}.{cname}"
                 except ValueError:
                     pass
+            elif language == "javascript":
+                # TC-315: javascript had NO namespace-equivalent field at all
+                # before this branch -- not canonical_namespace, not
+                # class_import, nothing -- exactly the same gap TC-DUPIDX-06
+                # already closed for typescript above, but javascript is the
+                # language this project's own "nodejs" pilots actually
+                # extract under (confirmed live: a fresh jmap/nodejs
+                # extraction reports `"language": "javascript"`), not
+                # typescript, so the gap was never actually closed for any
+                # real nodejs pilot. Without a namespace signal, two
+                # same-bare-name classes from different files collide into
+                # one consolidate_classes() dedup group as if they were the
+                # same type -- live-confirmed on the real, pinned jmap/nodejs
+                # repository (aspose-email-foss/Aspose.JMAP-FOSS-for-Node.js):
+                # src/client-core.js declares the real, full `JmapClient`
+                # (bases=[]), and src/index.js separately declares a
+                # near-empty wrapper also named `JmapClient`
+                # (`class JmapClient extends CoreClient {}` via
+                # `import { JmapClient as CoreClient } from "./client-core.js"`,
+                # an alias that defeats consolidate_classes' own Category 3
+                # shim-detection, which only matches a base literally named
+                # after the dropped duplicate). Both landed in the same ns=""
+                # group and hit Category 2 ("stub vs full": a class with
+                # `bases` is assumed more complete than one without) --
+                # backwards here, so the real, full implementation was
+                # discarded in favor of the near-empty wrapper.
+                #
+                # Derive module_path from file location relative to pkg_root,
+                # mirroring the typescript branch above exactly -- EXCEPT for
+                # its _ts_namespace_chain() call, which reads a TypeScript-
+                # only `namespace { }` construct with no JavaScript
+                # equivalent (the corresponding tree-sitter node type does
+                # not exist in a JS parse tree at all, so that call is
+                # deliberately omitted here).
+                #
+                # Extension handling: live-checked against this project's one
+                # real nodejs pilot (jmap/nodejs, pinned to
+                # aspose-email-foss/Aspose.JMAP-FOSS-for-Node.js) -- its
+                # entire src/ tree uses only `.js`, never `.mjs`/`.cjs`/
+                # `.jsx`. Only `.js` is stripped here rather than guessing the
+                # full set blindly; revisit if a future nodejs pilot is
+                # pinned to a repository that actually uses one of the
+                # others.
+                try:
+                    js_rel = fpath.relative_to(pkg_root)
+                    parts = list(js_rel.parts)
+                    if parts and parts[-1].endswith(".js"):
+                        parts[-1] = parts[-1][:-3]
+                    if parts and parts[-1] == "index":
+                        parts = parts[:-1]
+                    if parts:
+                        module_path = ".".join(parts)
+                        cls_record["canonical_namespace"] = module_path
+                        cls_record["class_import"] = f"{module_path}.{cname}"
+                except ValueError:
+                    pass
             elif language == "rust":
                 # Module path derived from file location relative to pkg_root
                 # (src/): src/worksheet.rs â†’ "worksheet", src/foo/mod.rs â†’
