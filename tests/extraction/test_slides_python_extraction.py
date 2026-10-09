@@ -121,7 +121,9 @@ def test_shapes_own_real_method_is_untouched_by_flattening() -> None:
     (one of Shape's own six real bases) also declares a ``presentation`` method.
     """
     data = _load_fixture()
-    shape = next(entry for entry in data["types"] if entry["class_import"] == "aspose.slides_foss.Shape.Shape")
+    shape = next(
+        entry for entry in data["types"] if entry["class_import"] == "aspose.slides_foss.Shape.Shape"
+    )
     assert shape["bases"] == [
         "StrictAttributes",
         "IShape",
@@ -159,4 +161,6 @@ def test_a_real_multi_level_inherited_member_carries_the_correct_inherited_from_
     )
     assert ichart["bases"] == ["IGraphicalObject", "IFormattedTextContainer", "IChartComponent", "ABC"]
     presentation = next(m for m in ichart["methods"] if m["name"] == "presentation")
-    assert presentation["inherited_from"] == "aspose.slides_foss.IPresentationComponent.IPresentationComponent"
+    assert (
+        presentation["inherited_from"] == "aspose.slides_foss.IPresentationComponent.IPresentationComponent"
+    )
