@@ -102,7 +102,9 @@ def _ts_package(root: Path, source: str) -> Path:
 
 
 def _extract_ts(package: Path, root: Path) -> list[dict]:
-    types, *_ = api_surface.extract_api_surface(get_parser("typescript"), "typescript", package, root, "widget")
+    types, *_ = api_surface.extract_api_surface(
+        get_parser("typescript"), "typescript", package, root, "widget"
+    )
     return types
 
 
