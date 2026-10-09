@@ -15,6 +15,7 @@ depends_on:
 write_paths:
 - tests/fixtures/slides_python/api_surface.json
 - tests/extraction/test_slides_python_extraction.py
+- tests/e2e/test_slides_python_live_content.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -56,6 +57,24 @@ inputs:
   same real extraction now that TC-265 is on main; confirm Presentation''s centrality score is non-zero and it is
   now kept, and update the fixture/test file accordingly. If Presentation is STILL absent for a genuinely different
   reason, report that explicitly rather than assuming TC-265 alone was insufficient.'
+- 'REWORK (attempt 3, after attempt 2 was lost to a separate supervisor-side TC-265-integration gap, since fixed)
+  and REWORK (attempt 4, this one): attempt 3 confirmed TC-265''s fix is real and genuinely non-degenerate for this
+  pilot (max centrality score 115, 227 types tied at the cutoff) - but "Presentation" itself still does not survive
+  the cut, for a legitimate, different reason: this library types almost everything against its own interfaces
+  (IPresentation, IPresentationComponent, ISlideComponent, etc.) rather than the concrete Presentation class, so
+  nothing else''s recorded bases/return_type/params textually references the bare word "Presentation" - a real
+  corpus property, not an extraction defect. Accept this: the card''s own closeout already says "if the real
+  repository defines it reachably" - it does not, for a real reason, and that is now confirmed, not assumed.
+  The regenerated fixture/test-file update from attempt 3 is correct and ready to commit as-is - proceed with it.
+  Separately, the full-suite run surfaced a REAL, now-in-scope regression: tests/e2e/test_slides_python_live_content.py
+  (now in your write_paths) hardcodes REAL_SYMBOL = "AutoShape" / REAL_SYMBOL_FQN =
+  "aspose.slides_foss.AutoShape.AutoShape" as its live get_symbol anchor; AutoShape does not survive the
+  centrality-ranked cut either (same interface-typing reason), so the live container now returns a not-found
+  response instead of real symbol text. Pick a REAL symbol that DOES survive into your regenerated fixture''s kept
+  300 and has real, inspectable content suitable as a get_symbol anchor (verify directly against your own
+  regenerated fixture, do not guess), update REAL_SYMBOL/REAL_SYMBOL_FQN (and any other now-stale assertions in
+  that file referencing the old anchor) to it, and re-run tests/e2e/test_slides_python_live_content.py''s FULL file
+  (a real docker rebuild - be patient) to confirm every test in it passes now.'
 actions:
 - Confirm TC-252 is integrated and its fix is really what main's reduce_fixture does now.
 - Run the real extraction for slides/python; inspect the real output carefully, specifically for "Presentation".
@@ -64,6 +83,12 @@ checks:
 - command: '{python} -m pytest tests/extraction/test_slides_python_extraction.py -q -rfE'
   expect: exit 0
   timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/e2e/test_slides_python_live_content.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
   junitxml: true
   proves:
   - REQ-G2-043
