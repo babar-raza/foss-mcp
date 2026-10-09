@@ -13,10 +13,14 @@ purpose: 'Regenerate tests/fixtures/pdf_go/api_surface.json with TC-252''s fixed
 depends_on:
 - TC-252
 - TC-123
+- TC-244
+- TC-256
 write_paths:
 - tests/fixtures/pdf_go/api_surface.json
 - tests/extraction/test_pdf_go_extraction.py
 - tests/e2e/test_pdf_go_live_content.py
+- docker-compose.yml
+- infra/helm/foss-mcp/values.yaml
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -56,6 +60,19 @@ inputs:
   patient) to confirm every test in it passes now. Do not touch ops/tests/test_parallel_dispatch.py (a known,
   unrelated worktree-path artifact already confirmed elsewhere this session) - it stays out of scope regardless of
   what the full suite shows.'
+- 'REWORK (attempt 3): attempt 2 fixed the originally-targeted defect for real (test_report_index_freshness now
+  passes live), but running the full file surfaced a third, genuinely different, real defect outside that attempt''s
+  write_paths - the exact same "commit-pin divergence" pattern this session already found and fixed for pdf/java
+  (TC-256): docker-compose.yml''s ingest-pdf-go service hardcodes --library-commit 286484d235196d65c9a458c5eff3d3d6539216dc
+  for build_chunks.py''s example-compilation path (verified_example chunks get their Source-Commit footer from that
+  flag, NOT from the api_surface.json fixture''s own source_commit - two independently-pinned values that only
+  coincidentally matched before this regeneration). infra/helm/foss-mcp/values.yaml''s pdf/go library.commit carries
+  the identical stale value for consistency with the same precedent. Update BOTH docker-compose.yml''s
+  ingest-pdf-go --library-commit AND infra/helm/foss-mcp/values.yaml''s pdf/go library.commit to your regenerated
+  fixture''s real source_commit (verify it directly from your own committed fixture, do not hardcode it blindly).
+  Do not touch any OTHER pilot''s entry in either file. Re-run tests/e2e/test_pdf_go_live_content.py''s FULL file
+  again (a real docker rebuild/recompile - be patient) and confirm EVERY test in it passes now, including
+  test_lookup_composes_the_real_task_answer_for_the_split_and_merge_question.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
 - Confirm TC-252 is integrated and its fix is really what main's reduce_fixture does now.
