@@ -1,0 +1,135 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_cells_java_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xjgru17s\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_cells_java_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xjgru17s\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/cells_java/api_surface.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_cells_java_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xjgru17s\.junit-0.xml"
+--- stdout ---
+FFFFFFFF                                                                 [100%]
+================================== FAILURES ===================================
+_____________ test_the_fixture_parses_and_has_the_expected_shape ______________
+
+    def test_the_fixture_parses_and_has_the_expected_shape() -> None:
+        data = _load_fixture()
+        assert isinstance(data, dict)
+>       assert isinstance(data["types"], list)
+                          ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_java_extraction.py:56: KeyError
+_______ test_the_fixture_records_the_exact_source_commit_and_repository _______
+
+    def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
+        data = _load_fixture()
+>       assert _COMMIT_SHA.match(data["source_commit"]), data["source_commit"]
+                                 ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'source_commit'
+
+tests\extraction\test_cells_java_extraction.py:61: KeyError
+________________________ test_the_fixture_is_non_empty ________________________
+
+    def test_the_fixture_is_non_empty() -> None:
+        data = _load_fixture()
+>       assert len(data["types"]) > 0
+                   ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_java_extraction.py:72: KeyError
+_______________ test_the_fixture_contains_real_java_type_names ________________
+
+    def test_the_fixture_contains_real_java_type_names() -> None:
+        data = _load_fixture()
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_java_extraction.py:82: KeyError
+______________ test_every_entry_is_a_real_java_declaration_kind _______________
+
+    def test_every_entry_is_a_real_java_declaration_kind() -> None:
+        data = _load_fixture()
+>       kinds = {entry["kind"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_java_extraction.py:94: KeyError
+_________ test_real_inheritance_now_carries_inherited_from_provenance _________
+
+    def test_real_inheritance_now_carries_inherited_from_provenance() -> None:
+        # TC-304's headline assertion: this fixture's real inheritance predates TC-261's
+        # inherited_from provenance fix, so before this regeneration every copied member was
+        # untagged (confirmed: the prior committed fixture had 19 types with non-empty bases
+        # and zero inherited_from tags anywhere). After this live re-run, 14 real copied
+        # constructor methods carry the tag; zero properties do, because none of the classes
+        # that participate in real inheritance here (Java exception types) declare any
+        # properties - only constructors.
+        data = _load_fixture()
+        inherited_methods = [
+            (entry["name"], m["name"], m["inherited_from"])
+>           for entry in data["types"]
+                         ^^^^^^^^^^^^^
+            for m in entry.get("methods", [])
+            if m.get("inherited_from")
+        ]
+E       KeyError: 'types'
+
+tests\extraction\test_cells_java_extraction.py:116: KeyError
+_____ test_a_real_inherited_member_carries_the_correct_inherited_from_tag _____
+
+    def test_a_real_inherited_member_carries_the_correct_inherited_from_tag() -> None:
+        # Hand-verified against the real pinned upstream source at commit
+        # c65329e7257b1311abb9686d7e4957a8cc002955:
+        #   org/aspose/cells_foss/CellsException.java declares two constructors directly and
+        #   extends java.lang.RuntimeException (not a type in this repository, so there is no
+        #   further, deeper level to this chain).
+        #   org/aspose/cells_foss/FormulaException.java extends CellsException and declares
+        #   only its own one-argument constructor - the two CellsException constructors it
+        #   inherits must be tagged back to CellsException itself.
+        data = _load_fixture()
+        by_name: dict[str, list[dict]] = {}
+>       for entry in data["types"]:
+                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_java_extraction.py:141: KeyError
+________ test_a_second_inheritance_family_also_carries_the_correct_tag ________
+
+    def test_a_second_inheritance_family_also_carries_the_correct_tag() -> None:
+        # Hand-verified against the real pinned upstream source: org/aspose/cells_foss/
+        # packaging/PackageStructureException.java extends java.lang.RuntimeException directly
+        # (again, not a type in this repository) and declares one constructor;
+        # MissingPartException extends it and declares no constructor of its own, so its one
+        # inherited constructor must be tagged back to PackageStructureException.
+        data = _load_fixture()
+        by_name: dict[str, list[dict]] = {}
+>       for entry in data["types"]:
+                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_java_extraction.py:172: KeyError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_cells_java_extraction.py::test_the_fixture_parses_and_has_the_expected_shape
+FAILED tests/extraction/test_cells_java_extraction.py::test_the_fixture_records_the_exact_source_commit_and_repository
+FAILED tests/extraction/test_cells_java_extraction.py::test_the_fixture_is_non_empty
+FAILED tests/extraction/test_cells_java_extraction.py::test_the_fixture_contains_real_java_type_names
+FAILED tests/extraction/test_cells_java_extraction.py::test_every_entry_is_a_real_java_declaration_kind
+FAILED tests/extraction/test_cells_java_extraction.py::test_real_inheritance_now_carries_inherited_from_provenance
+FAILED tests/extraction/test_cells_java_extraction.py::test_a_real_inherited_member_carries_the_correct_inherited_from_tag
+FAILED tests/extraction/test_cells_java_extraction.py::test_a_second_inheritance_family_also_carries_the_correct_tag
+
+--- stderr ---
+
