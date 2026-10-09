@@ -20,7 +20,13 @@ import yaml
 
 from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
 from foss_mcp.indexing.example_candidates import extract_candidate_examples
-from foss_mcp.indexing.lexical_index_writer import build_lexical_index, doc_id, query_lexical_index, tokenize
+from foss_mcp.indexing.lexical_index_writer import (
+    build_lexical_index,
+    doc_id,
+    query_lexical_index,
+    query_lexical_index_scored,
+    tokenize,
+)
 from foss_mcp.indexing.vector_index_writer import build_vector_index, point_id, query_vector_index
 from foss_mcp.normalization.chunker import Chunk, chunk_document
 from foss_mcp.normalization.document_schema import NOT_CHECKED, Provenance, SourceKind, make_document
@@ -387,3 +393,34 @@ def test_bm25_exact_rare_term_query_still_returns_the_correct_chunk() -> None:
 
     payload = build_lexical_index([af_chunk, unrelated_chunk], ["af_c", "page_c"], "gen-1")
     assert query_lexical_index(payload, "DigestHashAlgorithm", top_k=5) == [doc_id("gen-1", "af_c")]
+
+
+# --- TC-273: query_lexical_index_scored(), the additive sibling find_examples.py alone uses ---
+
+
+def test_query_lexical_index_scored_matches_query_lexical_index_order_and_caps_by_top_k() -> None:
+    """query_lexical_index_scored() must share query_lexical_index()'s own BM25 core (TC-273's
+    ``_bm25_scores()``): same real pdf/net fixture chunks (the enum chunk containing "page" once,
+    the longer real example chunk mentioning "page" three times) must come back from BOTH
+    functions in the identical rank order, pairing each document id with a real, strictly-
+    positive BM25 score rather than discarding it - and ``top_k`` must cap the scored list
+    exactly the way it already caps the plain id list.
+    """
+    enum_chunk = _real_enum_chunk_containing_page()
+    example_chunk = _real_example_chunk_mentioning_page_repeatedly()
+    payload = build_lexical_index([enum_chunk, example_chunk], ["enum_c", "example_c"], "gen-1")
+
+    ids = query_lexical_index(payload, "page", top_k=5)
+    scored = query_lexical_index_scored(payload, "page", top_k=5)
+
+    assert [identifier for identifier, _ in scored] == ids
+    assert len(scored) == 2
+    assert all(isinstance(score, float) and score > 0.0 for _, score in scored)
+    # Same order BM25 ranks them in: the longer, genuinely relevant example chunk first.
+    assert scored[0][0] == doc_id("gen-1", "example_c")
+
+    capped_ids = query_lexical_index(payload, "page", top_k=1)
+    capped_scored = query_lexical_index_scored(payload, "page", top_k=1)
+    assert len(capped_scored) == 1
+    assert [identifier for identifier, _ in capped_scored] == capped_ids
+    assert capped_scored == scored[:1]

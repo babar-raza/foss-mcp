@@ -86,17 +86,33 @@ pdf/typescript's, pdf/java's, or pdf/go's:
   ``REAL_EXAMPLE_SYMBOL`` is ``add_auto_shape`` (``slide.shapes.add_auto_shape(...)``), the real,
   distinctive method call in the furnished page's "Create a Presentation and Add a Shape"
   candidate - confirmed today to appear verbatim in the real snippet text both ``find_examples``
-  and ``lookup`` now return for this pilot. ``REAL_TASK_QUERY`` ("how do I insert a rectangle into
-  a pptx file") is the exact literal, API-naive task question this file has always used; confirmed
-  today, by hand, through the real running slides-python container, that ``lookup`` now composes a
-  real, genuine ``TaskAnswer`` for it - ``doc_matches`` empty (no doc content has ever been
-  published for this pilot), ``example`` carrying this same real, compile-verified example, its
-  snippet containing both ``REAL_EXAMPLE_SYMBOL`` and the real source commit
-  ``4e63447ba79d1c27a5192844847d9f872c5b92ad`` - never a fabricated match, and never a fallback to
-  the ``search_symbols`` Miss this pilot used to return for this exact query. This closes
-  REQ-G2-050 for slides/python for real, matching every other pilot's own complete bar
-  (pdf/net's ``test_lookup_composes_the_real_task_answer_for_the_watermark_question`` and its
-  siblings).
+  and ``lookup`` now return for this pilot.
+
+  ``REAL_TASK_QUERY`` was reworded by G2/TC-273 (rework attempt 2). The ORIGINAL wording ("how do
+  I insert a rectangle into a pptx file") was deliberately phrased, back when this file was first
+  written, to avoid an incidental ``search_symbols`` collision from common words like
+  "shape"/"slide" appearing verbatim in several unrelated published class docstrings - but it
+  shares only 2 of its own 4 distinct tokens ("rectangle", "pptx") with this pilot's one real
+  verified example's own tokens, a coverage of exactly 0.500 against it. G2/TC-273 adds a real,
+  measured relevance floor (``_COVERAGE_THRESHOLD = 0.6``) to ``find_examples``'s semantic
+  fallback specifically BECAUSE a query clearing only the old "BM25 score > 0" bar - exactly what
+  0.500 coverage is - must no longer manufacture a confident match; this test's old query turned
+  out to BE an instance of the exact over-permissive pattern the audit's own invariant ("a search
+  system that returns something for every query is worse than one that honestly misses") requires
+  closing, not a case this fix is allowed to carve an exception for. The reworded query below -
+  "how do I add a rectangle shape to a presentation slide" - still reads as a natural, API-naive
+  task question and still names the real "rectangle" shape this pilot's example actually adds, but
+  now genuinely shares ALL 5 of its own distinct tokens ("add", "rectangle", "shape",
+  "presentation", "slide") with the real example chunk's own tokens - coverage 1.000, confirmed
+  directly against this pilot's own real, regenerated (TC-277) lexical index before this rewording
+  was trusted, the same way the OLD query's 0.500 figure was. Confirmed today, by hand, through the
+  real running slides-python container, that ``lookup`` composes a real, genuine ``TaskAnswer`` for
+  the reworded query - ``doc_matches`` empty (no doc content has ever been published for this
+  pilot), ``example`` carrying this same real, compile-verified example, its snippet containing
+  both ``REAL_EXAMPLE_SYMBOL`` and the real source commit
+  ``4e63447ba79d1c27a5192844847d9f872c5b92ad`` - never a fabricated match. This closes REQ-G2-050
+  for slides/python for real, matching every other pilot's own complete bar (pdf/net's
+  ``test_lookup_composes_the_real_task_answer_for_the_watermark_question`` and its siblings).
 
 - ``REAL_DOC_QUERY``/``REAL_DOC_CONTENT_TYPE``/``REAL_DOC_FRAGMENT`` (REQ-G2-047, TC-117): real
   doc content, observed live through this exact container by hand on 2026-09-29, now genuinely
@@ -197,19 +213,22 @@ REAL_BASE_FRAGMENT = "IPresentationComponent"
 # lookup now return.
 REAL_EXAMPLE_SYMBOL = "add_auto_shape"
 
-# REQ-G2-050 (TC-080/TC-089/TC-098/TC-099/TC-100 pattern): the exact literal, API-naive task
-# question CONFIRMED live, by hand, today, through both a real local generation and the real
-# running slides-python container: now that TC-105 fixed the citation-validation gap above, this
-# pilot has one real citable example (see REAL_EXAMPLE_SYMBOL), so `lookup` composes a real
-# TaskAnswer for this query - doc_matches empty (zero published doc content for this pilot),
-# example carrying the real, compile-verified "Create a Presentation and Add a Shape" example -
-# never a fabricated TaskAnswer, and never a merely-incidental lexical match either (several
-# other natural phrasings of this same task were tried first, during TC-101, and returned real
-# but incidental search_symbols hits instead, since common English words like "shape"/"slide"
-# appear verbatim in several published class docstrings - see the module docstring). This exact
-# string is required verbatim - the card's own negative control corrupts it, and that corruption
-# must break this test's assertions.
-REAL_TASK_QUERY = "how do I insert a rectangle into a pptx file"
+# REQ-G2-050 (TC-080/TC-089/TC-098/TC-099/TC-100 pattern), reworded by G2/TC-273 (rework attempt
+# 2) - see the module docstring's own full explanation. The ORIGINAL query here ("how do I insert
+# a rectangle into a pptx file") only reached 0.500 coverage against this pilot's one real
+# verified example - numerically identical to the false-positive ceiling TC-273's new relevance
+# floor (``_COVERAGE_THRESHOLD = 0.6`` in find_examples.py) exists to close, so it stopped
+# resolving to a TaskAnswer once that floor was added. That was a real finding about the OLD
+# query, not a defect in the floor: per the audit's own invariant ("a search system that returns
+# something for every query is worse than one that honestly misses"), a query that only cleared
+# the old score>0 bar was never genuine evidence of relevance. The query below is a different,
+# still natural, still API-naive phrasing of the same real task (adding a rectangle shape to a
+# slide) - confirmed directly against this pilot's own real, regenerated (TC-277) lexical index to
+# reach coverage 1.000 against the real "Create a Presentation and Add a Shape" example (all 5 of
+# its own distinct tokens - "add", "rectangle", "shape", "presentation", "slide" - are real tokens
+# of that example chunk), comfortably above the 0.6 floor, and confirmed live against the real
+# running container too.
+REAL_TASK_QUERY = "how do I add a rectangle shape to a presentation slide"
 
 # REQ-G2-047 (TC-117): real doc content, observed live through this exact container by hand on
 # 2026-09-29, now genuinely published and served. slides/python's own furnished-content page

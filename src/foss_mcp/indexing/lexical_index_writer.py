@@ -244,8 +244,10 @@ def build_lexical_index(chunks: Sequence[Chunk], chunk_ids: Sequence[str], gener
     }
 
 
-def query_lexical_index(payload: dict, query_text: str, top_k: int = 5) -> list[str]:
-    """The ``top_k`` document ids most relevant to ``query_text`` under standard Okapi BM25.
+def _bm25_scores(payload: dict, query_text: str) -> list[tuple[float, str]]:
+    """Every document's standard Okapi BM25 score against ``query_text``, filtered to
+    strictly-positive scores and sorted highest-first (ties broken by identifier, for a
+    deterministic order).
 
     BM25 replaces this module's earlier raw-TF-IDF-ish score (count / doc length) *
     idf, which had no saturation and so divided a real code example's matching-term
@@ -253,6 +255,11 @@ def query_lexical_index(payload: dict, query_text: str, top_k: int = 5) -> list[
     more tangentially related chunk. BM25's saturating term-frequency component and
     length normalization relative to the corpus average (``avgdl``) fix that while
     still ranking an exact, rare term highly.
+
+    This is the shared scoring core both ``query_lexical_index()`` and
+    ``query_lexical_index_scored()`` (TC-273) build on, so neither can silently drift
+    from the other's ranking - they differ only in whether the caller gets the score
+    back or not.
     """
     query_tokens = tokenize(query_text)
     documents: dict[str, dict] = payload["documents"]
@@ -281,4 +288,28 @@ def query_lexical_index(payload: dict, query_text: str, top_k: int = 5) -> list[
         if score > 0.0:
             scored.append((score, identifier))
     scored.sort(key=lambda pair: (-pair[0], pair[1]))
-    return [identifier for _, identifier in scored[:top_k]]
+    return scored
+
+
+def query_lexical_index(payload: dict, query_text: str, top_k: int = 5) -> list[str]:
+    """The ``top_k`` document ids most relevant to ``query_text`` under standard Okapi BM25.
+
+    Byte-for-byte the same contract and behavior as before TC-273 (which only added
+    ``query_lexical_index_scored()`` below as an additive sibling): this function's two
+    other callers (``search_docs.py``, ``search_symbols.py``) get exactly the same ranked
+    id list as always, built on the now-shared ``_bm25_scores()`` core.
+    """
+    return [identifier for _, identifier in _bm25_scores(payload, query_text)[:top_k]]
+
+
+def query_lexical_index_scored(payload: dict, query_text: str, top_k: int = 5) -> list[tuple[str, float]]:
+    """Like ``query_lexical_index()``, but pairs each returned document id with its own BM25
+    score instead of discarding it - in the same rank order ``query_lexical_index()`` would
+    return for the same input, and capped by ``top_k`` identically.
+
+    Added by TC-273 for ``find_examples.py``'s semantic fallback alone: that fallback needs
+    the real score to compute a coverage signal and enforce a relevance floor, which
+    ``query_lexical_index()``'s plain id list cannot carry. ``query_lexical_index()``'s own
+    signature and the two other modules that call it are untouched by this addition.
+    """
+    return [(identifier, score) for score, identifier in _bm25_scores(payload, query_text)[:top_k]]

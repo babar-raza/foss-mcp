@@ -20,15 +20,17 @@ from pathlib import Path
 import pytest
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
+from foss_mcp.indexing.lexical_index_writer import query_lexical_index
 from foss_mcp.indexing.publisher import publish_generation
 from foss_mcp.mcp.routing import Scope
-from foss_mcp.mcp.tools.find_examples import ExampleMatch
+from foss_mcp.mcp.tools.find_examples import ExampleMatch, NoExampleFound, find_examples
 from foss_mcp.mcp.tools.get_symbol import NotFound, SymbolSignature, get_symbol
 from foss_mcp.mcp.tools.lookup import TaskAnswer, _looks_like_a_task_question, lookup
 from foss_mcp.mcp.tools.search_docs import DocMatch, search_docs
 from foss_mcp.mcp.tools.search_docs import Miss as DocsMiss
+from foss_mcp.mcp.tools.search_symbols import SOURCE_KIND as SYMBOLS_SOURCE_KIND
 from foss_mcp.mcp.tools.search_symbols import Miss as SymbolsMiss
-from foss_mcp.mcp.tools.search_symbols import SymbolMatch, search_symbols
+from foss_mcp.mcp.tools.search_symbols import SymbolMatch, scope_key, search_symbols
 from foss_mcp.normalization.chunker import chunk_document
 from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
 from tests.indexing.test_index_writers import DeterministicEmbeddingProvider
@@ -885,3 +887,129 @@ def test_every_result_carries_the_scope_that_was_passed_in_never_another(tmp_pat
     assert isinstance(cells_result, list) and cells_result
     assert all(match.scope == CELLS_PYTHON_SCOPE for match in cells_result)
     assert all(match.generation_id == cells_generation_id for match in cells_result)
+
+
+# --- TC-273: find_examples' semantic fallback gets a real, measured relevance floor ---------
+#
+# The audit's own invariant: "a search system that returns something for every query is worse
+# than one that honestly misses." Before this card, the semantic (BM25) fallback treated ANY
+# chunk with a strictly-positive score as a confident match - a single shared common word
+# between the query and an otherwise-unrelated chunk was enough. The three tests below prove
+# the three properties the audit requires tested separately, using this file's own existing
+# per-test synthetic-manifest-construction convention (make_document + chunk_document, one
+# combined publish) rather than a different fixture style.
+
+_WATERMARK_EXAMPLE_BODY = (
+    "# Example: Add a Watermark Annotation\n\n"
+    "FQN: Example: Add a Watermark Annotation\n"
+    "Kind: verified_example\n"
+    "Adds a watermark annotation to a document using a real, verified snippet.\n\n"
+    'Example:\ndocument.AddWatermarkAnnotation("Confidential")'
+)
+
+_EXTRACT_TEXT_EXAMPLE_BODY = (
+    "# Example: Extract Text Fragments from a Page\n\n"
+    "FQN: Example: Extract Text Fragments from a Page\n"
+    "Kind: verified_example\n"
+    "Extracts every text fragment from the first page of a document using a real, verified\n"
+    "snippet.\n\n"
+    "Example:\nvar absorber = new TextFragmentAbsorber();\ndoc.Pages[1].Accept(absorber);"
+)
+
+
+def _publish_two_example_chunks(store: GenerationManifestStore) -> str:
+    watermark_doc = make_document(
+        source_kind=SourceKind.SELF_EXTRACTED,
+        content_type="example",
+        provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+        evidence_refs=(),
+        title="Add a Watermark Annotation",
+        body=_WATERMARK_EXAMPLE_BODY,
+    )
+    extract_doc = make_document(
+        source_kind=SourceKind.SELF_EXTRACTED,
+        content_type="example",
+        provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+        evidence_refs=(),
+        title="Extract Text Fragments from a Page",
+        body=_EXTRACT_TEXT_EXAMPLE_BODY,
+    )
+    chunks = chunk_document(watermark_doc) + chunk_document(extract_doc)
+    return _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+
+
+def test_find_examples_still_finds_a_genuinely_relevant_example(tmp_path: Path) -> None:
+    """TC-273 property (1): a genuinely relevant example, when one exists, is still found once
+    the semantic fallback requires coverage - the query and the right chunk share enough of the
+    query's own distinct terms ("add", "watermark", "annotation" - all three are real tokens of
+    the watermark example chunk below, confirmed directly against ``tokenize`` before writing
+    this test) to clear ``_COVERAGE_THRESHOLD`` (0.6) with coverage to spare (1.0 here).
+    """
+    store = _store(tmp_path)
+    _publish_two_example_chunks(store)
+
+    result = find_examples(store, PDF_NET_SCOPE, "add a watermark annotation")
+
+    assert isinstance(result, list) and result
+    assert all(isinstance(match, ExampleMatch) for match in result)
+    assert any('document.AddWatermarkAnnotation("Confidential")' in match.snippet for match in result)
+    assert all(match.coverage >= 0.6 for match in result)
+
+
+def test_find_examples_rejects_a_common_word_only_overlap_the_old_score_above_zero_bar_missed(
+    tmp_path: Path,
+) -> None:
+    """TC-273 property (2): the real regression this card closes, proven as a direct
+    before/after comparison rather than asserted in prose.
+
+    The query "page rotation" shares exactly one real token ("page") with the "Extract Text
+    Fragments from a Page" example chunk below and nothing else - that chunk never discusses
+    rotation at all. Confirmed directly: the OLD bar (``query_lexical_index``'s own plain
+    strictly-positive-BM25-score ranking, unchanged by this card) still returns this chunk, so
+    before TC-273 this query would have manufactured a full-confidence, wrong ``ExampleMatch``.
+    The chunk's coverage against this query is exactly 0.5 (one of the query's two distinct
+    tokens, "page", appears in it; "rotation" does not) - below ``_COVERAGE_THRESHOLD`` (0.6) -
+    so ``find_examples`` now honestly misses instead.
+    """
+    store = _store(tmp_path)
+    generation_id = _publish_two_example_chunks(store)
+
+    key = scope_key(PDF_NET_SCOPE, SYMBOLS_SOURCE_KIND)
+    manifest = store.read_generation(key, generation_id)
+    lexical_payload = manifest.payload["lexical_index"]
+    old_bar_ranked = query_lexical_index(lexical_payload, "page rotation", top_k=5)
+    assert old_bar_ranked, (
+        "the OLD plain-ranking bar must still return at least one doc for this query - "
+        "otherwise this is not a reproduction of the real regression at all"
+    )
+
+    result = find_examples(store, PDF_NET_SCOPE, "page rotation")
+
+    assert isinstance(result, NoExampleFound)
+    assert result.scope == PDF_NET_SCOPE
+
+
+def test_find_examples_honestly_misses_a_deliberately_unrelated_nonsense_query(
+    tmp_path: Path,
+) -> None:
+    """TC-273 property (3): a query naming a concept this corpus has nothing to do with gets an
+    honest ``NoExampleFound``, both before and after this card's change - this is NOT what this
+    card fixes, and this test confirms it was already correct and stays correct. Shares zero
+    tokens with anything indexed (confirmed directly against ``tokenize``), so even the OLD
+    plain-ranking bar already returns nothing for it.
+    """
+    store = _store(tmp_path)
+    generation_id = _publish_two_example_chunks(store)
+
+    key = scope_key(PDF_NET_SCOPE, SYMBOLS_SOURCE_KIND)
+    manifest = store.read_generation(key, generation_id)
+    lexical_payload = manifest.payload["lexical_index"]
+    old_bar_ranked = query_lexical_index(
+        lexical_payload, "quantum teleportation breakfast recipe", top_k=5
+    )
+    assert old_bar_ranked == [], "a genuinely unrelated query must already score 0.0 everywhere"
+
+    result = find_examples(store, PDF_NET_SCOPE, "quantum teleportation breakfast recipe")
+
+    assert isinstance(result, NoExampleFound)
+    assert result.scope == PDF_NET_SCOPE
