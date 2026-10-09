@@ -2183,3 +2183,24 @@ either entry was independently re-verified present and correctly tagged.
   sibling cells_java/cells_net/cells_rust and other *_python pilots all show real bases; these two show none).
 - cells_go and imaging_net show zero bases with no sibling-based suspicion of staleness - may be genuinely flat
   APIs rather than stale; not yet investigated either way.
+
+## 2026-10-09 — First wave of stale tree-sitter pilots closed (TC-298-303); not every stale pilot has real inheritance to surface
+All six are integrated: 3d_java (3065 inherited_from tags, a real 3-level Node->SceneObject->A3DObject chain
+correctly rooted), 3d_net (2327 tags, the identical Node->SceneObject->A3DObject lineage in C#), 3d_typescript
+(a real 4-level Mesh->Geometry->Entity->SceneObject->A3DObject chain, correctly rooted to the true root even
+through two non-declaring intermediates), email_cpp (cfb_storage/cfb_stream correctly inheriting from cfb_node,
+single-level ceiling genuinely correct since cfb_node itself has no bases) all found and correctly tagged real
+inheritance. cells_rust and jmap_go both independently found and proved, by hand-verifying the real pinned
+upstream source (not by assumption), that their respective repositories have ZERO real non-trivial inheritance
+to surface - cells_rust declares exactly one trait with zero implementers; jmap_go's only embedded-struct
+relationship is two error types embedding an empty, zero-method marker struct. Both correctly added tests
+locking in this verified absence rather than fabricating an inherited-member assertion.
+
+**Calibration finding for the remaining 11 tree-sitter pilots and the 7 zero-bases Python pilots**: the full-
+fleet reconciliation's working assumption - "stale means re-running will surface real inherited_from tags" -
+does NOT hold universally. 2 of this wave's 6 pilots (33%) turned out to be genuinely flat rather than stale.
+Every remaining pilot in both follow-up waves must be independently, live-verified exactly the same way,
+never assumed to be "just like TC-282-303's fixed cases."
+
+**Remaining tree-sitter wave (11 pilots, not yet authored):** cells_java, cells_net, cells_typescript,
+email_net, jmap_cpp, jmap_java, jmap_net, jmap_nodejs, jmap_rust, jmap_typescript, slides_net.
