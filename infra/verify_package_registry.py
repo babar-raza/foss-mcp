@@ -31,6 +31,17 @@ never silently guessed at as either classification: ``main`` lets that exception
 than writing a sidecar claiming ``verified: false``, exactly mirroring the "|| true" tolerance
 ``fetch_recent_releases.py``'s own caller already applies for its own live-fetch failures - the
 decision of how to handle a failed check belongs to that future caller, not to this module.
+
+``go_latest_version``, ``resolve_tag_commit``, and the composing ``go_published_commit`` (G2/
+TC-296) are a second, separate capability added later: not "does this coordinate exist" but "what
+is the real commit SHA a fresh install would fetch right now". A round-4 independent audit
+(2026-10-09) found this had never existed for any ecosystem anywhere in this codebase, and that
+the gap was actively masking a real divergence - pdf/go's indexed source commit ran 66 commits
+ahead of the only version ``go get`` actually fetches, silently hiding a merged security fix the
+installable package still lacks. This card proves the resolution for ONE ecosystem (Go, matching
+the audit's own worked example). Generalizing to every other ecosystem, and wiring the result into
+the live ``report_index_freshness`` MCP tool so an agent is actually warned, are both explicitly
+deferred to follow-up cards; nothing in this module calls or is called by that tool yet.
 """
 
 from __future__ import annotations
@@ -44,6 +55,8 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
+
+from foss_mcp.extraction.github_http import urlopen_with_backoff, with_auth
 
 _IDENTITY_PART = re.compile(r"[a-z0-9]+")
 
@@ -185,6 +198,77 @@ def check_go(coordinate: str) -> bool:
             return False
         raise
     return len(body) > 0
+
+
+_GITHUB_API_ROOT = "https://api.github.com"
+_GITHUB_HEADERS = {"Accept": "application/vnd.github+json", "User-Agent": "foss-mcp-infra"}
+
+
+def go_latest_version(coordinate: str) -> str | None:
+    """The Go module proxy's '@latest' resolved to its real published version string (e.g.
+    'v0.9.0', or a pseudo-version like 'v0.0.0-20260101000000-abcdef123456' when there is no
+    tagged release) - the same endpoint ``check_go`` already calls, but parsing the JSON body's
+    own ``"Version"`` field instead of merely checking its length.
+
+    Returns None on a 404 (the module has never been published to the proxy). Any other failure -
+    a different HTTP status, a transport failure, or a 200 whose body is not the expected JSON
+    shape - propagates rather than being guessed at, the same discipline every checker in this
+    module already follows.
+    """
+    url = f"https://proxy.golang.org/{coordinate.lower()}/@latest"
+    request = urllib.request.Request(url, method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=_REQUEST_TIMEOUT_SECONDS) as response:
+            body = response.read()
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+    return json.loads(body)["Version"]
+
+
+def resolve_tag_commit(repository: str, ref: str) -> str | None:
+    """Resolve a GitHub tag OR branch name *ref* on *repository* ("owner/name") to the real commit
+    SHA it currently points at, via ``GET /repos/{repository}/commits/{ref}`` - this single
+    endpoint resolves a lightweight tag, an annotated tag, or a branch name directly to a commit,
+    unlike the lower-level ``git/refs/tags`` endpoint, which needs an extra indirection step for an
+    annotated tag.
+
+    Reuses ``foss_mcp.extraction.github_http``'s existing GitHub-calling plumbing
+    (``with_auth`` for an optional token, ``urlopen_with_backoff`` for bounded rate-limit
+    tolerance) rather than reimplementing GitHub-API calling here.
+
+    Returns None on a 404 (*ref* does not exist on *repository*). Any other failure propagates.
+    """
+    url = f"{_GITHUB_API_ROOT}/repos/{repository}/commits/{ref}"
+    request = urllib.request.Request(url, headers=with_auth(_GITHUB_HEADERS), method="GET")
+    try:
+        with urlopen_with_backoff(request, timeout=_REQUEST_TIMEOUT_SECONDS) as response:
+            body = response.read()
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+    return json.loads(body)["sha"]
+
+
+def go_published_commit(coordinate: str, repository: str) -> str | None:
+    """The real commit SHA a fresh, unconstrained ``go get`` of *coordinate* would fetch RIGHT NOW
+    - composing ``go_latest_version`` (what version the module proxy actually serves) with
+    ``resolve_tag_commit`` (what commit that version's own git tag actually points at on
+    *repository*). Go module version strings and their corresponding git tags are the same string
+    in the overwhelming common case, so the resolved version is passed to ``resolve_tag_commit``
+    as *ref* unchanged - no transform is applied.
+
+    Returns None when *coordinate* has never been published (``go_latest_version`` returns None),
+    or when the resolved version string is not actually a ref that exists on *repository*
+    (``resolve_tag_commit`` returns None - e.g. the version/tag convention does not hold for this
+    particular repository). Any transport failure from either step propagates unchanged.
+    """
+    version = go_latest_version(coordinate)
+    if version is None:
+        return None
+    return resolve_tag_commit(repository, version)
 
 
 _CHECKERS: dict[str, Callable[[str], bool]] = {

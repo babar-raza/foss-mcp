@@ -13,12 +13,26 @@ reaches the real network. A genuine transport failure (any non-404 HTTPError, or
 propagate rather than being swallowed - the exact discipline this card exists to uphold - so
 several tests assert that propagation explicitly, both at the single-checker level and through
 ``main()``.
+
+The "real published commit" coverage below (G2/TC-296) follows the same offline-mocked
+convention for its deterministic cases: ``go_latest_version`` and ``resolve_tag_commit`` each
+mock ``urllib.request.urlopen`` directly (``resolve_tag_commit`` goes through
+``foss_mcp.extraction.github_http.urlopen_with_backoff``, which looks up
+``urllib.request.urlopen`` at call time from the SAME shared module object, so patching it here
+intercepts that call too - confirmed by the capturing tests below, which assert the exact URL
+requested). One additional test is marked ``live`` (the same opt-in marker
+``tests/conftest.py`` already defines and ``test_api_surface_java_live.py`` already uses): it
+hits the real Go module proxy and the real GitHub API for the actual pdf/go pilot, so it asserts
+only the SHAPE of a real answer (a 40-hex-character commit SHA) rather than a specific SHA value,
+since the upstream repository can tag a new release at any time and a hardcoded SHA would then be
+a flaky assertion, not a regression guard.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -231,6 +245,177 @@ def test_check_go_propagates_a_non_404_http_error_instead_of_guessing(
     monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(500)))
     with pytest.raises(urllib.error.HTTPError):
         verify_package_registry.check_go("github.com/example/thing")
+
+
+# --- go_latest_version: the real published VERSION string, not just existence -------------------
+
+
+def test_go_latest_version_returns_the_real_version_string(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def _fake_urlopen(request: object, timeout: float | None = None) -> _FakeResponse:
+        calls.append(request.full_url)
+        return _FakeResponse(b'{"Version":"v0.9.0","Time":"2026-01-01T00:00:00Z"}')
+
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _fake_urlopen)
+    assert (
+        verify_package_registry.go_latest_version("github.com/aspose-pdf-foss/aspose-pdf-foss-for-go")
+        == "v0.9.0"
+    )
+    assert calls == ["https://proxy.golang.org/github.com/aspose-pdf-foss/aspose-pdf-foss-for-go/@latest"]
+
+
+def test_go_latest_version_returns_none_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404)))
+    assert verify_package_registry.go_latest_version("github.com/example/missing") is None
+
+
+def test_go_latest_version_propagates_a_non_404_http_error_instead_of_guessing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(500)))
+    with pytest.raises(urllib.error.HTTPError):
+        verify_package_registry.go_latest_version("github.com/example/thing")
+
+
+def test_go_latest_version_propagates_a_url_error_instead_of_guessing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        verify_package_registry.urllib.request,
+        "urlopen",
+        _urlopen_raising(urllib.error.URLError("boom: simulated connection failure")),
+    )
+    with pytest.raises(urllib.error.URLError):
+        verify_package_registry.go_latest_version("github.com/example/thing")
+
+
+# --- resolve_tag_commit: a GitHub tag/branch ref resolved to its real commit SHA ----------------
+
+
+def test_resolve_tag_commit_returns_the_sha_on_200(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def _fake_urlopen(request: object, timeout: float | None = None) -> _FakeResponse:
+        calls.append(request.full_url)
+        return _FakeResponse(b'{"sha":"6784921e711f00a26fb30a0be279965502d3ff34"}')
+
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _fake_urlopen)
+    sha = verify_package_registry.resolve_tag_commit(
+        "aspose-pdf-foss/Aspose-PDF-FOSS-for-Go", "v0.9.0"
+    )
+    assert sha == "6784921e711f00a26fb30a0be279965502d3ff34"
+    assert calls == [
+        "https://api.github.com/repos/aspose-pdf-foss/Aspose-PDF-FOSS-for-Go/commits/v0.9.0"
+    ]
+
+
+def test_resolve_tag_commit_returns_none_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404)))
+    assert verify_package_registry.resolve_tag_commit("owner/repo", "v9.9.9-does-not-exist") is None
+
+
+def test_resolve_tag_commit_propagates_a_non_404_http_error_instead_of_guessing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(500)))
+    with pytest.raises(urllib.error.HTTPError):
+        verify_package_registry.resolve_tag_commit("owner/repo", "v1.0.0")
+
+
+def test_resolve_tag_commit_propagates_a_url_error_instead_of_guessing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        verify_package_registry.urllib.request,
+        "urlopen",
+        _urlopen_raising(urllib.error.URLError("boom: simulated connection failure")),
+    )
+    with pytest.raises(urllib.error.URLError):
+        verify_package_registry.resolve_tag_commit("owner/repo", "v1.0.0")
+
+
+# --- go_published_commit: the composing function --------------------------------------------
+
+
+def test_go_published_commit_composes_latest_version_with_tag_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, str]] = []
+
+    def _fake_latest_version(coordinate: str) -> str | None:
+        calls.append(("go_latest_version", coordinate))
+        return "v0.9.0"
+
+    def _fake_resolve_tag_commit(repository: str, ref: str) -> str | None:
+        calls.append(("resolve_tag_commit", f"{repository}@{ref}"))
+        return "6784921e711f00a26fb30a0be279965502d3ff34"
+
+    monkeypatch.setattr(verify_package_registry, "go_latest_version", _fake_latest_version)
+    monkeypatch.setattr(verify_package_registry, "resolve_tag_commit", _fake_resolve_tag_commit)
+
+    result = verify_package_registry.go_published_commit(
+        "github.com/aspose-pdf-foss/aspose-pdf-foss-for-go",
+        "aspose-pdf-foss/Aspose-PDF-FOSS-for-Go",
+    )
+
+    assert result == "6784921e711f00a26fb30a0be279965502d3ff34"
+    assert calls == [
+        ("go_latest_version", "github.com/aspose-pdf-foss/aspose-pdf-foss-for-go"),
+        ("resolve_tag_commit", "aspose-pdf-foss/Aspose-PDF-FOSS-for-Go@v0.9.0"),
+    ]
+
+
+def test_go_published_commit_returns_none_when_the_module_was_never_published(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _must_not_be_called(repository: str, ref: str) -> str | None:
+        raise AssertionError("resolve_tag_commit must not be called when there is no version")
+
+    monkeypatch.setattr(verify_package_registry, "go_latest_version", lambda coordinate: None)
+    monkeypatch.setattr(verify_package_registry, "resolve_tag_commit", _must_not_be_called)
+
+    assert verify_package_registry.go_published_commit("github.com/example/missing", "owner/repo") is None
+
+
+def test_go_published_commit_returns_none_when_the_resolved_version_is_not_a_real_tag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(verify_package_registry, "go_latest_version", lambda coordinate: "v1.2.3")
+    monkeypatch.setattr(verify_package_registry, "resolve_tag_commit", lambda repository, ref: None)
+
+    assert verify_package_registry.go_published_commit("github.com/example/thing", "owner/repo") is None
+
+
+def test_go_published_commit_propagates_a_transport_failure_from_either_step(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _fails(coordinate: str) -> str | None:
+        raise urllib.error.URLError("boom: simulated proxy outage")
+
+    monkeypatch.setattr(verify_package_registry, "go_latest_version", _fails)
+    with pytest.raises(urllib.error.URLError):
+        verify_package_registry.go_published_commit("github.com/example/thing", "owner/repo")
+
+
+@pytest.mark.live
+def test_go_published_commit_live_regression_against_the_real_pdf_go_pilot() -> None:
+    """Live, network-opt-in regression against the actual pilot the round-4 audit named: resolves
+    a real commit SHA for pdf/go right now. Asserts only the shape of the answer (40 hex
+    characters) rather than a specific value - the upstream repository can tag a new release at
+    any time, which would make a hardcoded SHA a flaky assertion rather than a real regression
+    guard. This mirrors the exact live result this card's own authoring session observed: on
+    2026-10-09, ``go_latest_version`` resolved to ``v0.9.0`` and ``resolve_tag_commit`` resolved
+    that tag to commit ``6784921e711f00a26fb30a0be279965502d3ff34`` - which DIFFERS from the
+    ``source_commit`` pinned for pdf/go in ``infra/helm/foss-mcp/values.yaml``
+    (``cdf43df10c8c565ecaa978428b1fe66ad6685f8d``), confirming the round-4 audit's divergence
+    finding is still live as of this card.
+    """
+    coordinate = "github.com/aspose-pdf-foss/aspose-pdf-foss-for-go"
+    repository = "aspose-pdf-foss/Aspose-PDF-FOSS-for-Go"
+    commit = verify_package_registry.go_published_commit(coordinate, repository)
+    assert commit is not None
+    assert re.fullmatch(r"[0-9a-f]{40}", commit), f"expected a 40-hex-char commit SHA, got {commit!r}"
 
 
 def test_check_pypi_propagates_a_url_error_instead_of_guessing(
