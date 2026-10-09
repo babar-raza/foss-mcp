@@ -1,0 +1,112 @@
+id: TC-296
+gate: G2
+lane: verification
+purpose: 'A round-4 independent audit (2026-10-09) found the single most severe content-trust defect
+  across all four audit rounds: the indexed source for a pilot can run far ahead of the only version an
+  agent can actually install, in a way that silently hides a real, upstream-fixed problem. Confirmed worked
+  examples: pdf/go''s indexed commit is 66 commits ahead of its only published version (v0.9.0, the one
+  `go get` actually fetches) - search_symbols/get_symbol confidently serve BarcodeField/FlattenTransparency
+  with a "verified" example that will not compile against what an agent following the MCP''s own install
+  instruction receives, AND the indexed-but-unpublished code contains a merged password-bypass security fix
+  that is absent from the installable package, so the MCP never warns an agent the real, installable version
+  still has that hole. slides/java shows the identical shape (45 commits ahead, masking a documented
+  SaveFormat-mislabeling bug the published code still has). The supervisor investigated directly before
+  authoring this card and confirmed: NOTHING in this codebase, anywhere, currently resolves "the commit a
+  fresh install would actually correspond to right now" for any ecosystem - infra/verify_package_registry.py''s
+  check_go() only returns a boolean existence check (discards the Go proxy''s JSON body after checking its
+  length), and report_index_freshness''s current_source_commit is purely caller-supplied with no automatic
+  resolution from any registry or VCS tag for any ecosystem. This card builds that resolution capability for
+  ONE ecosystem (Go, matching the audit''s own worked example) as the first proof, establishing the pattern
+  this fleet-wide problem needs - generalizing to every other ecosystem (pypi/npm/cargo/maven/nuget) and wiring
+  the result into the live report_index_freshness MCP tool are both explicitly DEFERRED to follow-up cards,
+  mirroring this project''s own established per-pilot/per-root-cause incremental pattern (e.g. TC-265 built
+  structured-data extraction before TC-281 wired it in, as two separate cards).'
+depends_on:
+- TC-001
+- TC-018
+- TC-260
+write_paths:
+- infra/verify_package_registry.py
+- tests/infra/test_verify_package_registry.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read infra/verify_package_registry.py''s check_go() (~line 170-187) and src/foss_mcp/extraction/
+  github_release_reader.py''s _get_json()/fetch_releases() (~line 110-150, reusable pattern for an
+  authenticated/conditional GitHub API GET - do not duplicate its HTTP-calling logic, import and reuse it, or
+  mirror its exact approach if importing across the infra/src boundary is awkward - your judgment call, but do
+  not reinvent GitHub-API-calling from scratch if a working helper already exists) before writing anything.'
+- 'Add a function resolving the Go module proxy''s actual LATEST PUBLISHED VERSION STRING (not just a boolean) -
+  e.g. `go_latest_version(coordinate: str) -> str | None`, calling the same
+  `https://proxy.golang.org/{coordinate.lower()}/@latest` endpoint check_go() already calls, but parsing the
+  JSON body for its `"Version"` field instead of discarding it. Return None on a 404 (module never published),
+  propagate any other transport failure, same discipline check_go() already follows.'
+- 'Add a function resolving a GitHub tag/ref name to its real commit SHA - e.g.
+  `resolve_tag_commit(repository: str, ref: str) -> str | None`, using GitHub''s own
+  `GET https://api.github.com/repos/{repository}/commits/{ref}` endpoint (this resolves a tag OR a branch name
+  directly to a commit SHA in one call, handling both lightweight and annotated tags transparently - do not use
+  the lower-level git/refs/tags endpoint, which requires an extra indirection step for annotated tags). Return
+  None on a 404 (ref does not exist), propagate other failures.'
+- 'Add a composing function for the Go ecosystem specifically - e.g.
+  `go_published_commit(coordinate: str, repository: str) -> str | None` - that calls `go_latest_version()` then
+  `resolve_tag_commit()` with that version string as the ref (Go module version strings and their corresponding
+  git tags are the same string in the overwhelming common case - verify this is true for the real pdf/go repo
+  specifically as part of your live verification below; if it is NOT true for some real case you find, report
+  that explicitly rather than silently guessing a transform).'
+- 'Verify live, against the real pdf/go pilot (network access available; repository is
+  aspose-pdf-foss/Aspose-PDF-FOSS-for-Go per config/products/pdf/go.yaml, go module coordinate is whatever that
+  repository''s own go.mod declares - find it, do not guess it): confirm `go_published_commit()` resolves to a
+  REAL, specific commit SHA, and confirm it DIFFERS from the pinned `source_commit` currently committed in
+  infra/helm/foss-mcp/values.yaml for pdf/go (`cdf43df10c8c565ecaa978428b1fe66ad6685f8d` as of this card''s
+  authoring - the real upstream repository may have moved since; if the two values now happen to match, that
+  is still useful signal and should be reported honestly, not treated as a verification failure - the audit''s
+  divergence was real at ITS check time, not necessarily frozen forever).'
+- 'Add tests to tests/infra/test_verify_package_registry.py (read its existing test conventions first) covering
+  the new functions: a successful resolution against a real or realistically-mocked GitHub API response, a
+  404/not-found case for each new function, and a transport-failure propagation case, mirroring however the
+  existing check_go()/check_pypi() tests are themselves tested (network-mocked vs live - follow the file''s own
+  existing convention, do not introduce a new testing style).'
+- 'Do NOT touch report_index_freshness.py, server.py, or any MCP tool wiring - wiring this resolution capability
+  into the live, agent-facing tool is explicitly deferred to a follow-up card once this capability itself is
+  proven. Do NOT attempt any other ecosystem (pypi/npm/cargo/maven/nuget) in this card.'
+- 'Run the full existing test suite once and report honestly. If anything outside your two write_paths breaks,
+  STOP and report rather than patching around it.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read check_go() and github_release_reader.py's existing GitHub-API-calling pattern before writing anything.
+- Add go_latest_version(), resolve_tag_commit(), and go_published_commit() to infra/verify_package_registry.py.
+- Verify live against the real pdf/go pilot that this correctly resolves a real commit SHA and report whether
+  it still diverges from the pinned source_commit as the audit found.
+- Add tests for the new functions' success/404/failure paths; run the full existing suite once.
+checks:
+- command: '{python} -m pytest tests/infra/test_verify_package_registry.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 6
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/verify_package_registry.py');s=p.read_text(encoding='utf-8');old='go_published_commit';new='go_published_commit_DISABLED';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Renames the LAST occurrence of "go_published_commit" in the file - the function's own call site in
+    whatever test exercises the end-to-end composition, not its def line if tests call it by that exact name -
+    so calling it raises a NameError/AttributeError and the composing-function test fails. Built with plain
+    text, no backslash, using rindex per this session's established vacuous-falsifier safeguard. If the worker
+    names this function differently, this falsifier must be updated to match - report explicitly rather than
+    silently renaming to fit a pre-written falsifier.
+evidence:
+- evidence/build/G2/TC-296/receipt.json
+closeout:
+- infra/verify_package_registry.py can now resolve the real commit SHA a fresh `go get` would actually fetch
+  for a Go-ecosystem pilot right now, proven live against pdf/go - the first concrete piece of the capability
+  needed to close the round-4 audit's most severe finding (package-version/source-commit divergence masking a
+  real, upstream-fixed security vulnerability). Generalizing to other ecosystems and wiring this into the live
+  report_index_freshness tool are explicitly deferred to follow-up cards.
+recovery: Re-run from a clean tree.
