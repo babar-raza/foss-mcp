@@ -97,17 +97,13 @@ def test_sidecar_name_rejects_a_hyphenated_identity_part() -> None:
 
 def test_check_pypi_true_on_200(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[str] = []
-    monkeypatch.setattr(
-        verify_package_registry.urllib.request, "urlopen", _urlopen_capturing(calls)
-    )
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_capturing(calls))
     assert verify_package_registry.check_pypi("aspose-pdf-foss-for-python") is True
     assert calls == ["https://pypi.org/pypi/aspose-pdf-foss-for-python/json"]
 
 
 def test_check_pypi_false_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404))
-    )
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404)))
     assert verify_package_registry.check_pypi("does-not-exist") is False
 
 
@@ -115,17 +111,13 @@ def test_check_npm_true_on_200_and_encodes_scoped_package_slash(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[str] = []
-    monkeypatch.setattr(
-        verify_package_registry.urllib.request, "urlopen", _urlopen_capturing(calls)
-    )
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_capturing(calls))
     assert verify_package_registry.check_npm("@aspose/3d") is True
     assert calls == ["https://registry.npmjs.org/@aspose%2f3d"]
 
 
 def test_check_npm_false_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404))
-    )
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404)))
     assert verify_package_registry.check_npm("@aspose/3d") is False
 
 
@@ -133,17 +125,13 @@ def test_check_cargo_true_on_200_and_uses_the_sparse_index_sharding(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[str] = []
-    monkeypatch.setattr(
-        verify_package_registry.urllib.request, "urlopen", _urlopen_capturing(calls)
-    )
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_capturing(calls))
     assert verify_package_registry.check_cargo("Aspose-Cells-Foss-Rust") is True
     assert calls == ["https://index.crates.io/as/po/aspose-cells-foss-rust"]
 
 
 def test_check_cargo_false_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404))
-    )
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404)))
     assert verify_package_registry.check_cargo("aspose-cells-foss-rust") is False
 
 
@@ -165,17 +153,13 @@ def test_check_maven_true_on_200_and_replaces_dots_with_slashes_in_the_group_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[str] = []
-    monkeypatch.setattr(
-        verify_package_registry.urllib.request, "urlopen", _urlopen_capturing(calls)
-    )
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_capturing(calls))
     assert verify_package_registry.check_maven("org.aspose:aspose-pdf-foss") is True
     assert calls == ["https://repo1.maven.org/maven2/org/aspose/aspose-pdf-foss/"]
 
 
 def test_check_maven_false_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404))
-    )
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404)))
     assert verify_package_registry.check_maven("com.aspose:aspose-jmap-foss") is False
 
 
@@ -188,17 +172,13 @@ def test_check_nuget_true_on_200_and_lowercases_the_coordinate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[str] = []
-    monkeypatch.setattr(
-        verify_package_registry.urllib.request, "urlopen", _urlopen_capturing(calls)
-    )
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_capturing(calls))
     assert verify_package_registry.check_nuget("Aspose.Imaging.Foss") is True
     assert calls == ["https://api.nuget.org/v3-flatcontainer/aspose.imaging.foss/index.json"]
 
 
 def test_check_nuget_false_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404))
-    )
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404)))
     assert verify_package_registry.check_nuget("Aspose.Imaging.Foss") is False
 
 
@@ -215,16 +195,12 @@ def test_check_go_true_on_200_with_non_empty_body(monkeypatch: pytest.MonkeyPatc
 
 
 def test_check_go_false_on_200_with_empty_body(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        verify_package_registry.urllib.request, "urlopen", _urlopen_returning(b"")
-    )
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_returning(b""))
     assert verify_package_registry.check_go("github.com/example/missing") is False
 
 
 def test_check_go_false_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404))
-    )
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404)))
     assert verify_package_registry.check_go("github.com/example/missing") is False
 
 
@@ -235,9 +211,7 @@ def test_check_go_false_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_checker_propagates_a_non_404_http_error_instead_of_guessing(
     monkeypatch: pytest.MonkeyPatch, checker_name: str
 ) -> None:
-    monkeypatch.setattr(
-        verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(500))
-    )
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(500)))
     checker = getattr(verify_package_registry, checker_name)
     with pytest.raises(urllib.error.HTTPError):
         checker("some-coordinate")
@@ -246,9 +220,7 @@ def test_checker_propagates_a_non_404_http_error_instead_of_guessing(
 def test_check_maven_propagates_a_non_404_http_error_instead_of_guessing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(503))
-    )
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(503)))
     with pytest.raises(urllib.error.HTTPError):
         verify_package_registry.check_maven("org.aspose:aspose-pdf-foss")
 
@@ -256,9 +228,7 @@ def test_check_maven_propagates_a_non_404_http_error_instead_of_guessing(
 def test_check_go_propagates_a_non_404_http_error_instead_of_guessing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(500))
-    )
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(500)))
     with pytest.raises(urllib.error.HTTPError):
         verify_package_registry.check_go("github.com/example/thing")
 
@@ -303,9 +273,7 @@ def _set_argv(
     monkeypatch.setattr(sys, "argv", argv)
 
 
-def test_main_writes_the_real_shaped_json_on_success(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_main_writes_the_real_shaped_json_on_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(verify_package_registry._CHECKERS, "pypi", lambda coordinate: True)
     output_path = tmp_path / "package_registry.json"
     _set_argv(monkeypatch, output_path)
