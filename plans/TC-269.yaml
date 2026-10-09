@@ -1,0 +1,72 @@
+id: TC-269
+gate: G2
+lane: extraction
+purpose: 'Regenerate tests/fixtures/words_net/api_surface.json with TC-252''s fixed, centrality-ranked
+  reduce_fixture() - one of the seven remaining pilots still truncated (618 real types, 300 kept) that was never
+  part of the TC-255-258/TC-262-264 regeneration waves, so it still reflects the OLD, pre-TC-252 alphabetical
+  selection. This pilot is .NET-sourced (the shared tree-sitter engine, which already populates real bases/
+  return_type data independently of the Python-specific TC-265 gap), so TC-252 alone should be sufficient here -
+  confirm that directly rather than assuming. This card is run-and-pin only, following
+  TC-153/TC-255-258/TC-262-264''s own established pattern: run it for real, inspect the actual output carefully,
+  and if the live run reveals a genuine defect outside this card''s write_paths, STOP and report it rather than
+  patching around it or committing a broken fixture.'
+depends_on:
+- TC-252
+- TC-166
+write_paths:
+- tests/fixtures/words_net/api_surface.json
+- tests/extraction/test_words_net_extraction.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Confirm TC-252''s fix is really on main (read src/foss_mcp/extraction/tree_sitter_engine/run_extraction.py''s
+  reduce_fixture() and confirm it sorts by a centrality score, not pure alphabetical order) before doing anything
+  else. Also confirm (by reading a few entries of the CURRENT, not-yet-regenerated words_net fixture) that its
+  class entries already carry non-empty "bases" data for at least some classes, proving this pilot was never
+  affected by the Python-only centrality-no-op bug TC-265 fixed - if that assumption turns out false, STOP and
+  report it rather than proceeding on a wrong premise.'
+- 'Run `python -m foss_mcp.extraction.run_extraction config/products/words/net.yaml
+  tests/fixtures/words_net/api_surface.json` for real (network access is available to you for this one-time
+  generation step; do not pass --max-types, let it use the real default of 300). The manifest pins
+  repository: aspose-words-foss/Aspose.Words-FOSS-for-.NET.'
+- 'Inspect the real output carefully before committing anything: confirm reduced_type_count/type_count/truncated,
+  and compute which type now has the single highest centrality score among the full real type set (not just the
+  kept 300) - this project has no audit-named symbol for this specific pilot, so your own measurement IS the
+  concrete proof this fix worked for this pilot. Confirm that type is actually present among the kept 300.'
+- 'Update tests/extraction/test_words_net_extraction.py to match the new real fixture content exactly - do not
+  guess or invent names; assert only on type/symbol names and counts you actually observed in your own run. Mirror
+  this file''s own existing structure and assertions (read it in full first). Add an assertion specifically proving
+  the real highest-centrality type you identified is among the kept types.'
+- 'IF the live run reveals a genuine extraction-engine defect outside this card''s two write_paths, OR your own
+  full-suite check at the end shows some other existing test now fails because it depended on the OLD fixture''s
+  specific content - STOP, do not guess-fix a file outside your write_paths, and report exactly which test(s) and
+  why, so a properly scoped rework restatement can be issued.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Confirm TC-252 is integrated and its fix is really what main's reduce_fixture does now.
+- Run the real extraction for words/net; inspect the real output carefully, identify the real highest-centrality type.
+- Update the fixture's own test file to match the real new content; run it; run the full suite once and report honestly.
+checks:
+- command: '{python} -m pytest tests/extraction/test_words_net_extraction.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 3
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/words_net/api_surface.json');p.write_text('{}',encoding='utf-8')"
+  rationale: Emptying the pinned fixture must break the suite - a test that passes against an empty artifact is
+    asserting the file exists, not that a real extraction ran. Same shape as every prior extraction card's falsifier.
+evidence:
+- evidence/build/G2/TC-269/receipt.json
+closeout:
+- tests/fixtures/words_net/api_surface.json reflects a real, current extraction at the project's actual intended
+  cap (300), selected by centrality rather than alphabetical luck.
+recovery: Re-run from a clean tree.

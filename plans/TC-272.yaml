@@ -1,0 +1,82 @@
+id: TC-272
+gate: G2
+lane: extraction
+purpose: 'Regenerate tests/fixtures/slides_cpp/api_surface.json with TC-252''s fixed, centrality-ranked
+  reduce_fixture() - one of the seven remaining pilots still truncated (322 real types, 300 kept) that was never
+  part of the TC-255-258/TC-262-264 regeneration waves. This pilot was deliberately deferred until now because it
+  is C++-sourced: regenerating it before TC-259 (the fix for C1, the fabricated-member-name bug where a C++
+  member''s reference/pointer return type was mistakenly extracted as the member''s own name) landed would have
+  re-baked that same fabrication bug into a freshly-regenerated fixture. TC-259 is now integrated, so this pilot
+  can proceed. This card is run-and-pin only, following TC-153/TC-255-258/TC-262-264''s own established pattern:
+  run it for real, inspect the actual output carefully, and if the live run reveals a genuine defect outside this
+  card''s write_paths, STOP and report it rather than patching around it or committing a broken fixture.'
+depends_on:
+- TC-252
+- TC-259
+- TC-165
+write_paths:
+- tests/fixtures/slides_cpp/api_surface.json
+- tests/extraction/test_slides_cpp_extraction.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Confirm both TC-252 and TC-259 are really on main before doing anything else: read
+  src/foss_mcp/extraction/tree_sitter_engine/run_extraction.py''s reduce_fixture() (sorts by centrality score, not
+  alphabetical) AND src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py''s _node_name() (the cpp
+  function_definition branch now explicitly returns "" for the member case instead of falling through to the
+  generic identifier-child fallback that mis-named members after their own reference/pointer return type - look
+  for the "# TC-259: member case" comment to confirm). Do NOT trust a dispatch instruction''s claim that a card is
+  integrated without verifying the actual code yourself (this exact failure mode - an unverified "it''s integrated"
+  claim - already cost a full wasted rework cycle on TC-264 this session).'
+- 'Run `python -m foss_mcp.extraction.run_extraction config/products/slides/cpp.yaml
+  tests/fixtures/slides_cpp/api_surface.json` for real (network access is available to you for this one-time
+  generation step; do not pass --max-types, let it use the real default of 300). The manifest pins
+  repository: aspose-slides-foss/Aspose.Slides-FOSS-for-Cpp.'
+- 'Inspect the real output carefully before committing anything: confirm reduced_type_count/type_count/truncated,
+  and SPECIFICALLY confirm whether a type named exactly "Presentation" is now present - slides/python and
+  slides/java both independently needed this exact fix to recover this exact symbol in this product family. If
+  "Presentation" is STILL absent after regeneration, that is itself a genuinely different, real finding - report
+  it explicitly with your own diagnosis rather than silently accepting a regeneration that did not fix the one
+  thing its siblings needed. SEPARATELY, spot-check at least 3 classes with reference/pointer-returning accessor
+  methods (the exact C1 pattern TC-259 fixed, e.g. a `const Foo& GetBar()`-shaped method) and confirm none of their
+  methods/properties are named after a return type rather than the real accessor name.'
+- 'Update tests/extraction/test_slides_cpp_extraction.py to match the new real fixture content exactly - do not
+  guess or invent names; assert only on type/symbol names and counts you actually observed in your own run. Mirror
+  this file''s own existing structure and assertions (read it in full first). If "Presentation" is present, add an
+  assertion specifically proving it is among the kept types, and (if you found a clean example) an assertion
+  proving a real reference/pointer-returning accessor is named correctly, not after its return type.'
+- 'IF the live run reveals a genuine extraction-engine defect outside this card''s two write_paths, OR your own
+  full-suite check at the end shows some other existing test now fails because it depended on the OLD fixture''s
+  specific content - STOP, do not guess-fix a file outside your write_paths, and report exactly which test(s) and
+  why, so a properly scoped rework restatement can be issued.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Confirm TC-252 and TC-259 are integrated and their fixes are really what main's extraction path does now.
+- Run the real extraction for slides/cpp; inspect the real output carefully, specifically for "Presentation" and
+  for the C1 reference-return-type naming regression.
+- Update the fixture's own test file to match the new real content; run it; run the full suite once and report honestly.
+checks:
+- command: '{python} -m pytest tests/extraction/test_slides_cpp_extraction.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 3
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/slides_cpp/api_surface.json');p.write_text('{}',encoding='utf-8')"
+  rationale: Emptying the pinned fixture must break the suite - a test that passes against an empty artifact is
+    asserting the file exists, not that a real extraction ran. Same shape as every prior extraction card's falsifier.
+evidence:
+- evidence/build/G2/TC-272/receipt.json
+closeout:
+- tests/fixtures/slides_cpp/api_surface.json reflects a real, current extraction at the project's actual intended
+  cap (300), selected by centrality rather than alphabetical luck, specifically keeps "Presentation" if the real
+  repository defines it reachably, and shows no reference/pointer-return-type member naming regression.
+recovery: Re-run from a clean tree.
