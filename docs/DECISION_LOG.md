@@ -1750,3 +1750,53 @@ handling, not silent exclusion.
 TC-271 (cells/cpp) stopped correctly without committing a fixture carrying this now-identified fabrication,
 exactly the discipline TC-267 (html/python, C4-Python-reexport above) and this project's "never weaken a check to
 make it pass" rule already established this session.
+
+## 2026-10-09 — Remediation wave closed: C1, C2, C3, C5 fully closed; C4 nine of eleven pilots regenerated
+(supervisor)
+Status of the third independent audit's (2026-10-08) findings as of this entry:
+
+- **C1 (fabricated API members)**: CLOSED. TC-259 (inline-bodied reference/pointer-returning members) and TC-276
+  (out-of-line qualified ClassName::Method definitions, found by TC-271's own required inspection) both integrated.
+- **C2 (fabricated install coordinates)**: CLOSED. TC-260 (registry-verification sidecar, per-ecosystem checkers)
+  and TC-275 (the full wiring: ingestion Job step, Helm template, both Dockerfiles, serve_http sidecar merge,
+  get_product_reference suppression on a confirmed-false coordinate) both integrated. The architecture decision -
+  verify once per pilot at ingestion time, never a live per-request registry query - is live in the real chart.
+- **C3 (inheritance provenance)**: CLOSED. TC-261 (explicit `inherited_from` provenance marker, rendered in
+  get_symbol/list_members output) integrated.
+- **C4 (incomplete regeneration)**: nine of eleven affected pilots regenerated with the real, now non-degenerate
+  centrality-ranked selection and integrated: pdf/typescript (TC-255), pdf/java (TC-256), slides/java (TC-257),
+  pdf/cpp (TC-258), pdf/go (TC-262), pdf/net (TC-263), slides/python (TC-264->superseded->TC-277), 3d/python
+  (TC-266), words/net (TC-269), pdf/python (TC-268), words/python (TC-270), slides/cpp (TC-272). Two root-cause
+  fixes landed mid-wave because fixture-level symptoms traced back to deeper engine gaps, not just stale pins:
+  TC-265 (Python symbols never carried real bases/return_type/param_types at all) and TC-274 (TC-265's fix was
+  itself a near-total no-op for the common "impl module behind a leading underscore, re-exported via __init__.py"
+  Python convention). Two pilots (cells/cpp TC-271, html/python TC-267) are mid-rework now that their respective
+  blocking root causes (TC-276, TC-274) are integrated.
+- **C5 (find_examples relevance floor)**: CLOSED. TC-273 added an empirically-measured (not guessed) 0.6 query-
+  coverage threshold to the BM25 semantic fallback alone (the exact-match path was already precise), additive to
+  query_lexical_index's existing contract. Found and resolved a genuine conflict in the process: one real e2e
+  test's own query sat exactly at the false-positive coverage ceiling the fix exists to close - per the audit's
+  own stated invariant ("a search system that returns something for every query is worse than one that honestly
+  misses"), the test's query was reworded, not the threshold weakened.
+- **Not yet started**: B08 (unreconciled since the second audit round), C6 (per-language extraction fidelity,
+  full-chain verification), C7 (search ranking - buried-correct-results and confident-wrong-top-1), C8 (narrative
+  documentation gap, P2), and the Section-12 proof-harness-blind-spot fix the original protocol document named.
+
+**Process notes from this wave, for future sessions:**
+- `status-append`'s target file resolves via `Path(__file__).resolve().parent.parent` in `ops/gatectl.py` - a
+  worker invoking it with the relative `ops/gatecli.py` from inside its own worktree writes to that worktree's
+  own local `ops/status.jsonl`, never main's, regardless of the dispatch instruction's own (previously mistaken)
+  claim that it always resolves to the main checkout. Every worktree in this session was swept for this exact
+  stray, uncommitted diff after its worker reported "appended successfully," and any genuinely new content found
+  that way was migrated into main's real `ops/status.jsonl` by hand. The durable fix is for every future dispatch
+  to tell the worker to invoke `status-append` by main's own absolute path, not a worktree-relative one.
+- `gatectl accept`'s "card was the deterministic next card" check and `gatectl integrate` are separate steps; a
+  card can be `ACCEPTED` and sit un-integrated if the supervisor's attention moves to the next card before running
+  `integrate` explicitly. This happened once this wave (TC-265) and was caught by a downstream worker's own
+  verify-before-trust discipline, not by the supervisor. Always confirm `gatectl resume-brief` shows ACCEPTED
+  cards promoted to integrated before relying on "X is integrated" in any later dispatch instruction.
+- `tests/e2e/test_pdf_net_live_content.py` and `tests/e2e/test_container_session.py` hardcode a literal Docker
+  Compose project name and host port directly in committed source, identical across every worktree clone - a
+  likely root cause of much of this session's recurring "docker resource contention" symptom when multiple
+  workers run live e2e suites concurrently. Not yet fixed; worth a dedicated card if live e2e flakiness continues
+  to recur at this frequency.
