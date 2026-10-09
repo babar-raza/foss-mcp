@@ -62,7 +62,13 @@ def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
     # Recorded from the real live clone that produced this fixture - re-verify by hand with
     # `git ls-remote https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-Cpp` if this
     # ever needs re-pinning; do not change it to make a test pass.
-    assert data["source_commit"] == "c41f8dddc499fb0058fc9557cb364d70fbd3cef1"
+    #
+    # TC-272: regenerated against the real repository's current HEAD, now that TC-252
+    # (centrality-ranked reduce_fixture()) and TC-259 (the C1 member-naming fix) are both
+    # integrated - this pilot was deliberately deferred out of the TC-255-258/TC-262-264
+    # waves until TC-259 landed, to avoid re-baking the fabricated-member-name bug into a
+    # freshly-regenerated fixture.
+    assert data["source_commit"] == "469ce77a07b988c49deb930632b8276c89ec6b66"
     manifest = yaml.safe_load(MANIFEST.read_text(encoding="utf-8"))
     assert data["source_repository"] == manifest["repository"]
 
@@ -72,10 +78,10 @@ def test_the_fixture_is_non_empty() -> None:
     assert len(data["types"]) > 0
     assert data["reduced_type_count"] == len(data["types"])
     assert data["type_count"] >= data["reduced_type_count"]
-    # The real repository has 322 raw public types - over the CLI's default
-    # --max-types 300 cap, so this fixture is a genuine, deterministic REDUCED subset,
-    # not the full surface.
-    assert data["type_count"] == 322
+    # The real repository (at this fixture's pinned commit, TC-272) has 323 raw public
+    # types - over the CLI's default --max-types 300 cap, so this fixture is a genuine,
+    # deterministic REDUCED subset, not the full surface.
+    assert data["type_count"] == 323
     assert data["reduced_type_count"] == 300
     assert data["truncated"] is True
 
@@ -91,6 +97,61 @@ def test_the_fixture_contains_real_cpp_type_names() -> None:
     assert all(entry["file"].startswith("include/") for entry in data["types"])
     # This reduced fixture's public surface is header-only - no `.cpp` entries observed.
     assert all(entry["file"].endswith(".h") for entry in data["types"])
+
+
+def test_presentation_survives_the_centrality_truncation() -> None:
+    """TC-272: this pilot was deliberately deferred out of the TC-255-258/TC-262-264
+    regeneration waves until TC-259 (the C1 fabricated-member-name fix) landed. Both
+    slides/python and slides/java independently needed that exact fix to recover this
+    exact symbol - "Presentation" is this product family's own central type, and a
+    truncation that drops it is not a representative fixture.
+    """
+    data = _load_fixture()
+    by_name = {entry["name"]: entry for entry in data["types"]}
+    assert "Presentation" in by_name
+    presentation = by_name["Presentation"]
+    assert presentation["kind"] == "class_specifier"
+    assert presentation["file"] == "include/Aspose/Slides/Foss/presentation.h"
+    assert presentation["bases"] == ["IPresentation"]
+
+
+def test_reference_and_pointer_returning_accessors_are_named_after_themselves_not_their_type() -> None:
+    """TC-259 fixed C1: a C++ member's reference/pointer return type was mistakenly
+    extracted as the member's own name instead of the real accessor name. Spot-checked
+    directly against the real upstream header source at this fixture's pinned commit:
+
+    - ``include/Aspose/Slides/Foss/i_base_portion_format.h``:
+      ``virtual LineFormat& line_format() = 0;`` / ``virtual FillFormat& fill_format() = 0;``
+    - ``include/Aspose/Slides/Foss/i_base_slide.h``:
+      ``virtual IPresentation* presentation() = 0;``
+    - ``include/Aspose/Slides/Foss/shape.h``:
+      ``const ShapeFrame& frame() const override { return frame_; }``
+
+    Each is a genuine reference/pointer-returning accessor whose real name is a snake_case
+    verb/noun, never the bare return type - the exact shape C1 fabricated.
+    """
+    data = _load_fixture()
+    by_name = {entry["name"]: entry for entry in data["types"]}
+
+    def method_names_for(type_name: str, return_type: str) -> set[str]:
+        entry = by_name[type_name]
+        return {m["name"] for m in entry["methods"] if m["return_type"] == return_type}
+
+    assert "line_format" in method_names_for("IPortionFormat", "LineFormat")
+    assert "fill_format" in method_names_for("IPortionFormat", "FillFormat")
+    assert "presentation" in method_names_for("IBaseSlide", "IPresentation")
+    assert {"frame", "raw_frame"} <= method_names_for("Shape", "ShapeFrame")
+
+    # The fabrication bug's own signature: a method literally named after its return
+    # type (e.g. a method called "LineFormat" that returns "LineFormat"). None may exist
+    # anywhere in this fixture.
+    fabricated = [
+        (entry["name"], m["name"])
+        for entry in data["types"]
+        for m in entry.get("methods", [])
+        if m.get("name") and m.get("return_type") and m["name"] == m["return_type"]
+    ]
+    assert fabricated == []
 
 
 def test_every_entry_is_a_real_cpp_surface_kind() -> None:
