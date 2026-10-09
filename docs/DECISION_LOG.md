@@ -2158,3 +2158,28 @@ agent querying the MCP has no independent way to supply a meaningful value, so t
 unreachable-useful for this exact purpose); and actually deciding what should happen operationally once a real
 divergence is detected (block ingestion? annotate every affected response? both?) - a product decision not yet
 made.
+
+## 2026-10-09 — Full-fleet reconciliation of C3/C6 (inherited_from provenance): 14/31 live, 17 tree-sitter pilots and 7 Python pilots still stale
+A read-only audit of all 40 pilot fixtures' own committed JSON (not commit messages) confirms the round-4
+audit's "3/31 live" baseline is now 14/31, after this session's TC-281-297 wave (11 pilots: the 5 Python pilots
+of the TC-288-292 wave, plus the earlier TC-282-287 tree-sitter wave of 6) plus the 3 pre-existing fixes the
+audit's own baseline already counted (slides_cpp/TC-272, words_net/TC-269, cells_cpp/TC-271). Two numeric
+imprecisions were found in this session's own prior DECISION_LOG entries (html_python's claimed "156 subclasses"
+is actually 106 types carrying any inherited_from tag; words_python's claimed interim "240" settled at 67 in
+the final committed fixture) - both are log-precision issues, not fixture defects; every specific chain named in
+either entry was independently re-verified present and correctly tagged.
+
+**Remaining work, now fully scoped (not yet all authored):**
+- 17 tree-sitter-routed pilots are stale relative to TC-261 and were never touched by TC-282-287's own wave:
+  3d_java, 3d_net, 3d_typescript, cells_java, cells_net, cells_rust, cells_typescript, email_cpp, email_net,
+  jmap_cpp, jmap_go, jmap_java, jmap_net, jmap_nodejs, jmap_rust, jmap_typescript, slides_net. TC-298 through
+  TC-303 (authored this entry, covering 3d_java/net/typescript, cells_rust, email_cpp, jmap_go - one
+  representative pilot per tree-sitter language) are the first wave; 11 pilots remain unauthored.
+- 7 Python pilots have ZERO bases anywhere, meaning they predate even TC-265's structured-data extraction
+  entirely, not just TC-261/281/293/294's flattening fixes: barcode_python, cells_python, email_python,
+  jmap_python, note_python, page_python, tex_python. This is the larger, previously-identified "7 never-
+  regenerated Python pilots" decision this session had explicitly deferred as a separate, bigger scope - still
+  not authored as of this entry. cells_python and page_python are flagged as particularly suspicious (their
+  sibling cells_java/cells_net/cells_rust and other *_python pilots all show real bases; these two show none).
+- cells_go and imaging_net show zero bases with no sibling-based suspicion of staleness - may be genuinely flat
+  APIs rather than stale; not yet investigated either way.
