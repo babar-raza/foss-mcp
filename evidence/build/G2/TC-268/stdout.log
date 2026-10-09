@@ -1,0 +1,121 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_pdf_python_extraction.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rs8igrge\.junit-0.xml"
+--- stdout ---
+................................................                         [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_pdf_python_extraction.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rs8igrge\.junit-0.xml"
+--- stdout ---
+................................................                         [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/pdf_python/api_surface.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_pdf_python_extraction.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rs8igrge\.junit-0.xml"
+--- stdout ---
+FFFFFF.................F........................                         [100%]
+================================== FAILURES ===================================
+_____________ test_the_fixture_parses_and_has_the_expected_shape ______________
+
+    def test_the_fixture_parses_and_has_the_expected_shape() -> None:
+        data = _load_fixture()
+        assert isinstance(data, dict)
+>       assert isinstance(data["types"], list)
+                          ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_pdf_python_extraction.py:43: KeyError
+_______ test_the_fixture_records_the_exact_source_commit_and_repository _______
+
+    def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
+        data = _load_fixture()
+>       assert _COMMIT_SHA.match(data["source_commit"]), data["source_commit"]
+                                 ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'source_commit'
+
+tests\extraction\test_pdf_python_extraction.py:49: KeyError
+________________________ test_the_fixture_is_non_empty ________________________
+
+    def test_the_fixture_is_non_empty() -> None:
+        data = _load_fixture()
+>       assert len(data["types"]) > 0
+                   ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_pdf_python_extraction.py:56: KeyError
+______________ test_the_fixture_contains_real_python_type_names _______________
+
+    def test_the_fixture_contains_real_python_type_names() -> None:
+        data = _load_fixture()
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_pdf_python_extraction.py:63: KeyError
+_______________ test_every_entry_is_a_real_python_surface_kind ________________
+
+    def test_every_entry_is_a_real_python_surface_kind() -> None:
+        data = _load_fixture()
+>       kinds = {entry["kind"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_pdf_python_extraction.py:73: KeyError
+____________ test_the_fixture_keeps_page_after_centrality_ranking _____________
+
+    def test_the_fixture_keeps_page_after_centrality_ranking() -> None:
+        data = _load_fixture()
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_pdf_python_extraction.py:83: KeyError
+____________________ test_pdf_python_pilot_matches_compose ____________________
+
+    def test_pdf_python_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("pdf", "python")
+
+tests\infra\test_helm_pilots_match_compose.py:268: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+family = 'pdf', platform = 'python'
+
+    def _assert_pilot_matches_compose(family: str, platform: str) -> None:
+        pilot = _pilot(family, platform)
+        build, ingest = _compose_arguments(family, platform)
+    
+        assert ingest["--family"] == family, family
+        assert ingest["--platform"] == platform, platform
+        assert pilot["family"] == family and pilot["platform"] == platform
+    
+        # A self-extracted pilot has an empty library block and no --library-commit flag: both None.
+        # The FIXTURE_CHECKED_PILOTS pilots have compose services that define no library flags, so their
+        # library is checked against their fixture's source_repository and source_commit instead.
+        if (family, platform) in FIXTURE_CHECKED_PILOTS:
+            fixture = json.loads(
+                (REPO_ROOT / "tests" / "fixtures" / f"{family}_{platform}" / "api_surface.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+>           assert pilot["library"]["repository"] == fixture["source_repository"], "library repository"
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'source_repository'
+
+tests\infra\test_helm_pilots_match_compose.py:179: KeyError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_pdf_python_extraction.py::test_the_fixture_parses_and_has_the_expected_shape
+FAILED tests/extraction/test_pdf_python_extraction.py::test_the_fixture_records_the_exact_source_commit_and_repository
+FAILED tests/extraction/test_pdf_python_extraction.py::test_the_fixture_is_non_empty
+FAILED tests/extraction/test_pdf_python_extraction.py::test_the_fixture_contains_real_python_type_names
+FAILED tests/extraction/test_pdf_python_extraction.py::test_every_entry_is_a_real_python_surface_kind
+FAILED tests/extraction/test_pdf_python_extraction.py::test_the_fixture_keeps_page_after_centrality_ranking
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_pdf_python_pilot_matches_compose
+
+--- stderr ---
+
