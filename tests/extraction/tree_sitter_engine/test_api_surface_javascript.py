@@ -81,7 +81,9 @@ def test_javascript_same_name_classes_in_different_files_derive_distinct_namespa
     tmp_path: Path,
 ) -> None:
     package = _write_jmap_nodejs_fixture(tmp_path)
-    types, *_ = api_surface.extract_api_surface(get_parser("javascript"), "javascript", package, tmp_path, "jmap")
+    types, *_ = api_surface.extract_api_surface(
+        get_parser("javascript"), "javascript", package, tmp_path, "jmap"
+    )
 
     jmap_clients = [t for t in types if t.get("name") == "JmapClient"]
 
@@ -130,7 +132,9 @@ export class Widget {
 """,
         encoding="utf-8",
     )
-    types, *_ = api_surface.extract_api_surface(get_parser("javascript"), "javascript", package, tmp_path, "widget")
+    types, *_ = api_surface.extract_api_surface(
+        get_parser("javascript"), "javascript", package, tmp_path, "widget"
+    )
     by_name = {t["name"]: t for t in types}
 
     # module_path derived from the file's path relative to pkg_root, stripping the .js
@@ -151,7 +155,9 @@ export class Standalone {
 """,
         encoding="utf-8",
     )
-    types, *_ = api_surface.extract_api_surface(get_parser("javascript"), "javascript", package, tmp_path, "widget")
+    types, *_ = api_surface.extract_api_surface(
+        get_parser("javascript"), "javascript", package, tmp_path, "widget"
+    )
     by_name = {t["name"]: t for t in types}
 
     # The lone "index" path segment collapses to an empty module_path (exactly as the
@@ -175,7 +181,9 @@ export class Shape {
 """,
         encoding="utf-8",
     )
-    types, *_ = api_surface.extract_api_surface(get_parser("typescript"), "typescript", package, tmp_path, "widget")
+    types, *_ = api_surface.extract_api_surface(
+        get_parser("typescript"), "typescript", package, tmp_path, "widget"
+    )
     by_name = {t["name"]: t for t in types}
 
     # Unchanged from before this card: the typescript branch (an earlier `elif` in the
