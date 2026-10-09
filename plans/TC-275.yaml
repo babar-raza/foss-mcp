@@ -30,7 +30,8 @@ write_paths:
 - infra/verify_product_reference_install.py
 - infra/serve_http.py
 - infra/helm/foss-mcp/templates/ingestion-job.yaml
-- docker-compose.yml
+- Dockerfile.serving
+- Dockerfile.ingestion
 - tests/mcp/tools/test_get_product_reference_platforms.py
 - tests/infra/test_verify_product_reference_install.py
 - tests/infra/test_serve_http.py
@@ -89,14 +90,27 @@ inputs:
   verified/coordinate/checked_at fields into the returned ProductReferenceInputs via dataclasses.replace. Mirror
   _serving_recent_releases''s exact "sidecar absent -> default, never raise" tolerance; do not make the registry-
   verification sidecar''s presence a hard requirement anywhere.'
-- 'Add the new ingestion step to BOTH infra/helm/foss-mcp/templates/ingestion-job.yaml and docker-compose.yml,
-  immediately after the existing fetch_product_reference.py step, conditioned the SAME way that step already is
-  (only pilots with a manifest path get it - cpp pilots and anything without manifestPath get neither this step
-  nor the one before it), wrapped in the identical "{ ... || true; }" brace-grouped tolerance the
-  fetch_product_reference.py and fetch_recent_releases.py steps already use for the identical reason (a transient
-  registry/network failure must never fail the whole ingestion Job). Update ingestion-job.yaml''s own header
-  comment block to describe this fourth step, mirroring how it already documents the third
-  (fetch_product_reference.py) and the unconditional fetch_recent_releases.py step.'
+- 'Add the new ingestion step to infra/helm/foss-mcp/templates/ingestion-job.yaml ONLY (NOT docker-compose.yml -
+  confirmed by an earlier worker on this card that docker-compose.yml has no fetch_product_reference.py step
+  anywhere to anchor after; none of its ~40 ingest-* services invoke it, not even the furnished pilots that have
+  a manifestPath equivalent in Helm''s values.yaml - it is a legacy/local-dev shape that never got that wiring,
+  and extending it is explicitly out of this card''s scope), immediately after the existing
+  fetch_product_reference.py step, conditioned the SAME way that step already is (only pilots with a manifest
+  path get it - cpp pilots and anything without manifestPath get neither this step nor the one before it),
+  wrapped in the identical "{ ... || true; }" brace-grouped tolerance the fetch_product_reference.py and
+  fetch_recent_releases.py steps already use for the identical reason (a transient registry/network failure must
+  never fail the whole ingestion Job). Update ingestion-job.yaml''s own header comment block to describe this
+  fourth step, mirroring how it already documents the third (fetch_product_reference.py) and the unconditional
+  fetch_recent_releases.py step.'
+- 'Update Dockerfile.serving and Dockerfile.ingestion to COPY infra/verify_package_registry.py into the image
+  (both need it: serve_http.py now imports load_package_registry_sidecar/verify_package_registry_sidecar_name
+  from it at module level, and the new CLI script imports its _CHECKERS/sidecar helpers directly). Dockerfile.ingestion
+  additionally needs infra/verify_product_reference_install.py itself copied in, the same way it already copies
+  fetch_product_reference.py and fetch_recent_releases.py. Confirmed by an earlier worker on this card: skipping
+  this would either crash every serving pod at import time (Dockerfile.serving) or make the new ingestion Job
+  step silently no-op forever behind its own "|| true" (Dockerfile.ingestion) - exactly the gap TC-244 itself hit
+  and had to fast-follow-fix (commits e107e55/0dae519, "copy fetch_recent_releases.py into both Dockerfiles").
+  Mirror TC-244''s own Dockerfile diff shape directly rather than re-deriving it.'
 - 'Add infra/verify_product_reference_install.py to tests/test_unwired_modules.py''s entrypoint list (currently
   seven; this makes eight), exactly as TC-140 added infra/rollback.py as a sixth entrypoint when it gave
   rollback_generation its first real caller - read that file''s own docstring (points 2 and the historical notes)
