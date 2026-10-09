@@ -33,6 +33,27 @@ the entire real surface is ``A3DObject`` (``aspose.threed.A3DObject``, score 35 
 submodule-qualified original (``aspose.threed.A3DObject.A3DObject``) tied at the same score.
 Both are confirmed present among the 300 kept types below and are literally the fixture's own
 first two entries.
+
+TC-288/TC-293 (2026-10-09): this fixture was regenerated a second time, against the exact same
+pinned commit again, once TC-293 landed. TC-281 had already made ``_flatten_inheritance()``
+execute for Python (it did not before), but a deeper, pre-existing defect in that function's
+own short-name index meant it still copied ZERO members anywhere in this entire 697-type
+pilot - confirmed live, three independent ways, by TC-288 before TC-293's fix existed: every
+one of this pilot's real classes following the common "class defined in its own submodule,
+re-exported at the package level" layout (e.g. ``A3DObject`` itself) produces both an empty
+re-export shell (``aspose.threed.A3DObject``) and the real, member-bearing definition
+(``aspose.threed.A3DObject.A3DObject``) sharing one bare name, and every subclass's ``bases``
+entry is written as that bare name (e.g. ``AssetInfo``'s ``bases == ["A3DObject"]``) - which
+used to resolve straight to the empty shell. TC-293 fixed the short-name index itself to prefer
+a structured-data-bearing candidate over an empty shell on collision. This second regeneration
+is the concrete, live proof that the fix reaches this pilot: 0 ``inherited_from`` tags before
+TC-293, 358 after, on this exact same pinned commit. The Node/SceneObject/A3DObject chain
+below is a REAL multi-level case confirmed directly against this fixture (not invented,
+mirroring TC-261's own pdf/cpp PopupAnnotation/Annotation/BaseParagraph proof): ``Node``'s
+``bases`` names only its direct parent ``SceneObject``, but ``find_property`` (and 5 further
+members) are genuinely declared by the grandparent ``A3DObject``, copied into ``SceneObject``
+first and then into ``Node``, and correctly rooted to ``A3DObject`` throughout - never to the
+intermediate ``SceneObject``.
 """
 
 from __future__ import annotations
@@ -116,3 +137,51 @@ def test_the_fixture_keeps_a3dobject_after_the_centrality_ranked_selection_fix()
         assert entry["kind"] == "class"
         assert entry["bases"] == ["INamedObject"]
         assert entry["file"].endswith(".py")
+
+
+def test_a_real_inherited_member_carries_the_correct_inherited_from_tag() -> None:
+    """TC-288/TC-293: the concrete proof this regenerated fixture closes the gap TC-288
+    originally found (TC-281 made ``_flatten_inheritance()`` execute for Python, but its own
+    short-name index still resolved every bare-name ``bases`` entry in this pilot to an empty
+    re-export shell, so it copied zero members anywhere - until TC-293 fixed that index).
+    ``AssetInfo`` genuinely declares ``bases == ["A3DObject"]`` (the bare, unqualified name, the
+    way the real source actually writes it) and now really does inherit ``A3DObject``'s own
+    real members, each tagged "inherited_from" the real, member-bearing definition
+    (``aspose.threed.A3DObject.A3DObject``) - never the empty re-export shell
+    (``aspose.threed.A3DObject``) that used to win this exact resolution before TC-293."""
+    data = _load_fixture()
+    by_class_import = {entry["class_import"]: entry for entry in data["types"]}
+    asset_info = by_class_import["aspose.threed.AssetInfo.AssetInfo"]
+    assert asset_info["bases"] == ["A3DObject"]
+
+    inherited = {m["name"]: m for m in asset_info["methods"] if "inherited_from" in m}
+    assert {"find_property", "get_property", "name", "properties", "remove_property", "set_property"} <= set(
+        inherited
+    )
+    for member in inherited.values():
+        assert member["inherited_from"] == "aspose.threed.A3DObject.A3DObject"
+
+
+def test_a_real_transitively_inherited_member_is_rooted_to_the_real_grandparent() -> None:
+    """A real, live multi-level chain confirmed directly against this fixture (not invented,
+    mirroring TC-261's own pdf/cpp PopupAnnotation/Annotation/BaseParagraph proof): ``Node``
+    declares ``bases == ["SceneObject"]`` (its direct parent only), and ``SceneObject`` itself
+    declares ``bases == ["A3DObject"]``. ``find_property`` is genuinely declared by the
+    grandparent ``A3DObject``, copied into ``SceneObject`` first (parents resolve before
+    children), then copied again into ``Node`` - and must still be rooted to ``A3DObject``,
+    the class that actually declares it, never to ``SceneObject``, the intermediate parent it
+    passed through on the way."""
+    data = _load_fixture()
+    by_class_import = {entry["class_import"]: entry for entry in data["types"]}
+    node = by_class_import["aspose.threed.Node.Node"]
+    scene_object = by_class_import["aspose.threed.SceneObject.SceneObject"]
+    assert node["bases"] == ["SceneObject"]
+    assert scene_object["bases"] == ["A3DObject"]
+
+    find_property = next(m for m in node["methods"] if m["name"] == "find_property")
+    assert find_property["inherited_from"] == "aspose.threed.A3DObject.A3DObject"
+    assert find_property["inherited_from"] != "aspose.threed.SceneObject.SceneObject"
+
+    # Node's own genuinely-declared members must never carry the key.
+    add_child_node = next(m for m in node["methods"] if m["name"] == "add_child_node")
+    assert "inherited_from" not in add_child_node
