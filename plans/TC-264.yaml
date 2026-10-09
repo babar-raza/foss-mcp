@@ -47,6 +47,15 @@ inputs:
   specific content - STOP, do not guess-fix a file outside your write_paths, and report exactly which test(s) and
   why, so a properly scoped rework restatement can be issued.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
+- 'REWORK (attempt 2): your attempt 1 correctly stopped - the regenerated fixture showed Presentation still absent
+  because every Python-sourced type had a centrality score of exactly 0 (confirmed directly: _python_types_from_surface
+  never populated bases/return_type/param_types, so TC-252''s centrality ranking was a complete no-op for every
+  Python pilot). That root cause is now fixed and integrated as TC-265 - PublicSymbol in
+  src/foss_mcp/extraction/tree_sitter_engine/python_surface.py now carries real bases/return_type/param_types fields,
+  and _python_types_from_surface in src/foss_mcp/extraction/run_extraction.py wires them through. Re-run the exact
+  same real extraction now that TC-265 is on main; confirm Presentation''s centrality score is non-zero and it is
+  now kept, and update the fixture/test file accordingly. If Presentation is STILL absent for a genuinely different
+  reason, report that explicitly rather than assuming TC-265 alone was insufficient.'
 actions:
 - Confirm TC-252 is integrated and its fix is really what main's reduce_fixture does now.
 - Run the real extraction for slides/python; inspect the real output carefully, specifically for "Presentation".
