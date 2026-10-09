@@ -1,0 +1,109 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_jmap_python_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b7vjppob\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_jmap_python_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b7vjppob\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/jmap_python/api_surface.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_jmap_python_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b7vjppob\.junit-0.xml"
+--- stdout ---
+FFFFFFF                                                                  [100%]
+================================== FAILURES ===================================
+_____________ test_the_fixture_parses_and_has_the_expected_shape ______________
+
+    def test_the_fixture_parses_and_has_the_expected_shape() -> None:
+        data = _load_fixture()
+        assert isinstance(data, dict)
+>       assert isinstance(data["types"], list)
+                          ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_python_extraction.py:74: KeyError
+_______ test_the_fixture_records_the_exact_source_commit_and_repository _______
+
+    def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
+        data = _load_fixture()
+>       assert _COMMIT_SHA.match(data["source_commit"]), data["source_commit"]
+                                 ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'source_commit'
+
+tests\extraction\test_jmap_python_extraction.py:80: KeyError
+________________________ test_the_fixture_is_non_empty ________________________
+
+    def test_the_fixture_is_non_empty() -> None:
+        data = _load_fixture()
+>       assert len(data["types"]) > 0
+                   ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_python_extraction.py:87: KeyError
+______________ test_the_fixture_contains_real_python_type_names _______________
+
+    def test_the_fixture_contains_real_python_type_names() -> None:
+        data = _load_fixture()
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_python_extraction.py:94: KeyError
+_______________ test_every_entry_is_a_real_python_surface_kind ________________
+
+    def test_every_entry_is_a_real_python_surface_kind() -> None:
+        data = _load_fixture()
+>       kinds = {entry["kind"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_python_extraction.py:104: KeyError
+___________________ test_the_fixture_now_carries_real_bases ___________________
+
+    def test_the_fixture_now_carries_real_bases() -> None:
+        data = _load_fixture()
+        # TC-321: the pre-regeneration fixture had bases: [] on every single type (it predated
+        # TC-265's real bases population entirely). This live re-run recovers 14 real non-empty
+        # bases lists - observed directly, not guessed.
+>       by_class_import = {entry["class_import"]: entry for entry in data["types"]}
+                                                                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_python_extraction.py:115: KeyError
+_____ test_inherited_from_is_a_verified_absence_not_a_stale_or_broken_run _____
+
+    def test_inherited_from_is_a_verified_absence_not_a_stale_or_broken_run() -> None:
+        data = _load_fixture()
+        # Falsifier guard matching the pdf/python (TC-281/TC-290) precedent's own
+        # "test_inherited_from_tags_are_not_vacuous": a fixture that genuinely has zero
+        # inherited_from tags must be distinguished from one where the pipeline silently
+        # failed to run at all. Here that distinction is drawn by confirming the three real
+        # mixin names JmapClient's own bases name are themselves never public anywhere in
+        # this fixture - the exact reason _flatten_inheritance() has no base entry to copy
+        # from, hand-verified against the real pinned source (see module docstring) rather
+        # than assumed.
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_python_extraction.py:138: KeyError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_jmap_python_extraction.py::test_the_fixture_parses_and_has_the_expected_shape
+FAILED tests/extraction/test_jmap_python_extraction.py::test_the_fixture_records_the_exact_source_commit_and_repository
+FAILED tests/extraction/test_jmap_python_extraction.py::test_the_fixture_is_non_empty
+FAILED tests/extraction/test_jmap_python_extraction.py::test_the_fixture_contains_real_python_type_names
+FAILED tests/extraction/test_jmap_python_extraction.py::test_every_entry_is_a_real_python_surface_kind
+FAILED tests/extraction/test_jmap_python_extraction.py::test_the_fixture_now_carries_real_bases
+FAILED tests/extraction/test_jmap_python_extraction.py::test_inherited_from_is_a_verified_absence_not_a_stale_or_broken_run
+
+--- stderr ---
+

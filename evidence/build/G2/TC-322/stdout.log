@@ -1,0 +1,135 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_note_python_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3axm3vr5\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_note_python_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3axm3vr5\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/note_python/api_surface.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_note_python_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3axm3vr5\.junit-0.xml"
+--- stdout ---
+FFFFFFFF                                                                 [100%]
+================================== FAILURES ===================================
+_____________ test_the_fixture_parses_and_has_the_expected_shape ______________
+
+    def test_the_fixture_parses_and_has_the_expected_shape() -> None:
+        data = _load_fixture()
+        assert isinstance(data, dict)
+>       assert isinstance(data["types"], list)
+                          ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_note_python_extraction.py:66: KeyError
+_______ test_the_fixture_records_the_exact_source_commit_and_repository _______
+
+    def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
+        data = _load_fixture()
+>       assert _COMMIT_SHA.match(data["source_commit"]), data["source_commit"]
+                                 ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'source_commit'
+
+tests\extraction\test_note_python_extraction.py:72: KeyError
+________________________ test_the_fixture_is_non_empty ________________________
+
+    def test_the_fixture_is_non_empty() -> None:
+        data = _load_fixture()
+>       assert len(data["types"]) > 0
+                   ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_note_python_extraction.py:79: KeyError
+______________ test_the_fixture_contains_real_python_type_names _______________
+
+    def test_the_fixture_contains_real_python_type_names() -> None:
+        data = _load_fixture()
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_note_python_extraction.py:86: KeyError
+_______________ test_every_entry_is_a_real_python_surface_kind ________________
+
+    def test_every_entry_is_a_real_python_surface_kind() -> None:
+        data = _load_fixture()
+>       kinds = {entry["kind"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_note_python_extraction.py:96: KeyError
+_______________ test_the_real_node_hierarchy_carries_real_bases _______________
+
+    def test_the_real_node_hierarchy_carries_real_bases() -> None:
+        # TC-265's real ``bases`` recovery, confirmed live against this pilot for the first time:
+        # this repository's own real node hierarchy (verified directly against
+        # ``src/aspose/note/model.py`` at the fixture's pinned commit) is genuinely three levels
+        # deep - ``Node`` (no base) <- ``CompositeNode(Node)`` <- ``Document(CompositeNode)`` -
+        # not a flat, inheritance-free shape the original TC-154 fixture implied.
+        data = _load_fixture()
+>       by_import = {entry["class_import"]: entry for entry in data["types"]}
+                                                               ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_note_python_extraction.py:110: KeyError
+___ test_composite_node_inherits_real_node_methods_with_inherited_from_tag ____
+
+    def test_composite_node_inherits_real_node_methods_with_inherited_from_tag() -> None:
+        # CompositeNode's own locally-declared child-management methods must never carry an
+        # ``inherited_from`` tag, while the three methods it never redeclares (``Accept``,
+        # ``Document``, ``ParentNode``) are real members of ``Node`` - copied down by
+        # ``api_surface._flatten_inheritance`` (reached for a Python-sourced pilot at all only
+        # since TC-281) and tagged with their true declaring class.
+        data = _load_fixture()
+        composite_node = next(
+            entry
+>           for entry in data["types"]
+                         ^^^^^^^^^^^^^
+            if entry["name"] == "CompositeNode" and entry["class_import"] == "aspose.note.model.CompositeNode"
+        )
+E       KeyError: 'types'
+
+tests\extraction\test_note_python_extraction.py:125: KeyError
+___ test_document_inherits_real_multi_level_provenance_from_both_ancestors ____
+
+    def test_document_inherits_real_multi_level_provenance_from_both_ancestors() -> None:
+        # The real multi-level-chain proof this card exists to produce: Document's own real
+        # methods (declared directly on Document itself) carry no ``inherited_from`` tag; its 8
+        # methods real-declared on its IMMEDIATE parent CompositeNode are tagged
+        # "aspose.note.model.CompositeNode"; and its 3 methods real-declared on its GRANDPARENT
+        # Node are tagged "aspose.note.model.Node" directly - not mis-rooted to the intermediate
+        # CompositeNode, which never redeclares them either. Confirmed live against the real
+        # upstream source: ``Node.Accept``/``Node.ParentNode`` are declared inside ``class Node``
+        # (model.py lines 134-168) and ``CompositeNode.AppendChildFirst`` is declared inside
+        # ``class CompositeNode`` (model.py line 190) - Document (line 1257) redeclares neither.
+        data = _load_fixture()
+        document = next(
+            entry
+>           for entry in data["types"]
+                         ^^^^^^^^^^^^^
+            if entry["name"] == "Document" and entry["class_import"] == "aspose.note.model.Document"
+        )
+E       KeyError: 'types'
+
+tests\extraction\test_note_python_extraction.py:161: KeyError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_note_python_extraction.py::test_the_fixture_parses_and_has_the_expected_shape
+FAILED tests/extraction/test_note_python_extraction.py::test_the_fixture_records_the_exact_source_commit_and_repository
+FAILED tests/extraction/test_note_python_extraction.py::test_the_fixture_is_non_empty
+FAILED tests/extraction/test_note_python_extraction.py::test_the_fixture_contains_real_python_type_names
+FAILED tests/extraction/test_note_python_extraction.py::test_every_entry_is_a_real_python_surface_kind
+FAILED tests/extraction/test_note_python_extraction.py::test_the_real_node_hierarchy_carries_real_bases
+FAILED tests/extraction/test_note_python_extraction.py::test_composite_node_inherits_real_node_methods_with_inherited_from_tag
+FAILED tests/extraction/test_note_python_extraction.py::test_document_inherits_real_multi_level_provenance_from_both_ancestors
+
+--- stderr ---
+

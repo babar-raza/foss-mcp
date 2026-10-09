@@ -1,0 +1,142 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_page_python_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yad1965w\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_page_python_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yad1965w\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/page_python/api_surface.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_page_python_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yad1965w\.junit-0.xml"
+--- stdout ---
+FFFFFFFFF                                                                [100%]
+================================== FAILURES ===================================
+_____________ test_the_fixture_parses_and_has_the_expected_shape ______________
+
+    def test_the_fixture_parses_and_has_the_expected_shape() -> None:
+        data = _load_fixture()
+        assert isinstance(data, dict)
+>       assert isinstance(data["types"], list)
+                          ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_page_python_extraction.py:61: KeyError
+_______ test_the_fixture_records_the_exact_source_commit_and_repository _______
+
+    def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
+        data = _load_fixture()
+>       assert _COMMIT_SHA.match(data["source_commit"]), data["source_commit"]
+                                 ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'source_commit'
+
+tests\extraction\test_page_python_extraction.py:67: KeyError
+________________________ test_the_fixture_is_non_empty ________________________
+
+    def test_the_fixture_is_non_empty() -> None:
+        data = _load_fixture()
+>       assert len(data["types"]) > 0
+                   ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_page_python_extraction.py:74: KeyError
+______________ test_the_fixture_contains_real_python_type_names _______________
+
+    def test_the_fixture_contains_real_python_type_names() -> None:
+        data = _load_fixture()
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_page_python_extraction.py:81: KeyError
+_______________ test_every_entry_is_a_real_python_surface_kind ________________
+
+    def test_every_entry_is_a_real_python_surface_kind() -> None:
+        data = _load_fixture()
+>       kinds = {entry["kind"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_page_python_extraction.py:92: KeyError
+__________________ test_a_real_top_level_function_is_present __________________
+
+    def test_a_real_top_level_function_is_present() -> None:
+        data = _load_fixture()
+>       functions = {entry["name"] for entry in data["types"] if entry["kind"] == "function"}
+                                                ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_page_python_extraction.py:101: KeyError
+_____________ test_a_real_type_now_carries_a_non_empty_bases_list _____________
+
+    def test_a_real_type_now_carries_a_non_empty_bases_list() -> None:
+        # G2/TC-323's own live re-run: TC-156's original fixture predated the bases/inheritance
+        # pipeline entirely, so every type's "bases" read "[]". This pilot's real upstream source
+        # does have real inheritance - Clipper (src/aspose/page/ps/clipper.py) is a real,
+        # concrete class that extends ClipperBase, observed directly in this run, not guessed.
+        data = _load_fixture()
+        clipper = next(
+>           entry for entry in data["types"] if entry["class_import"] == "aspose.page.ps.clipper.Clipper"
+                               ^^^^^^^^^^^^^
+        )
+E       KeyError: 'types'
+
+tests\extraction\test_page_python_extraction.py:114: KeyError
+_______ test_a_real_subclass_carries_correct_inherited_from_provenance ________
+
+    def test_a_real_subclass_carries_correct_inherited_from_provenance() -> None:
+        # TC-261's inherited_from tagging only matters if a real member actually gets copied
+        # down from a real base - which this fixture's regeneration under the full
+        # bases/inheritance pipeline is what makes possible for this pilot for the first time
+        # (TC-156's original fixture carried zero methods/properties of any kind, inherited or
+        # not). Clipper is a real, concrete class extending ClipperBase; add_path is one of
+        # ClipperBase's own real methods, observed directly in this run.
+        data = _load_fixture()
+        clipper = next(
+>           entry for entry in data["types"] if entry["class_import"] == "aspose.page.ps.clipper.Clipper"
+                               ^^^^^^^^^^^^^
+        )
+E       KeyError: 'types'
+
+tests\extraction\test_page_python_extraction.py:133: KeyError
+_______ test_no_multi_level_inherited_from_chain_exists_in_this_fixture _______
+
+    def test_no_multi_level_inherited_from_chain_exists_in_this_fixture() -> None:
+        # Hand-verified against this run's own live output (not assumed): the one real
+        # multi-level base chain present in this pilot's reduced surface is
+        # PsIOError -> PsError -> Exception. It carries no actual inherited DATA to propagate
+        # transitively, because PsError itself declares zero methods/properties of its own, and
+        # "Exception" is a Python builtin, never a type present in this fixture at all. So every
+        # inherited_from tag observed anywhere in this fixture points at a member's own real,
+        # immediate declaring parent - there is no case here where a member is copied through an
+        # intermediate class and must stay rooted to a grandparent instead (the scenario
+        # TC-261's own multi-level fix targets), because no such chain with real data exists in
+        # this pilot's real upstream source.
+        data = _load_fixture()
+>       by_import = {entry["class_import"]: entry for entry in data["types"]}
+                                                               ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_page_python_extraction.py:163: KeyError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_page_python_extraction.py::test_the_fixture_parses_and_has_the_expected_shape
+FAILED tests/extraction/test_page_python_extraction.py::test_the_fixture_records_the_exact_source_commit_and_repository
+FAILED tests/extraction/test_page_python_extraction.py::test_the_fixture_is_non_empty
+FAILED tests/extraction/test_page_python_extraction.py::test_the_fixture_contains_real_python_type_names
+FAILED tests/extraction/test_page_python_extraction.py::test_every_entry_is_a_real_python_surface_kind
+FAILED tests/extraction/test_page_python_extraction.py::test_a_real_top_level_function_is_present
+FAILED tests/extraction/test_page_python_extraction.py::test_a_real_type_now_carries_a_non_empty_bases_list
+FAILED tests/extraction/test_page_python_extraction.py::test_a_real_subclass_carries_correct_inherited_from_provenance
+FAILED tests/extraction/test_page_python_extraction.py::test_no_multi_level_inherited_from_chain_exists_in_this_fixture
+
+--- stderr ---
+

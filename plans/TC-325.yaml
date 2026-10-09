@@ -1,0 +1,66 @@
+id: TC-325
+gate: G2
+lane: verification
+purpose: 'TC-322''s worker found a real commit-pin divergence while re-pinning note/python''s fixture: the real
+  upstream repository (aspose-note-foss/Aspose.Note-FOSS-for-Python) advanced from
+  e459eb50d750f70181cfb23b28a9ab73cb464a8d to 0014dbeef9511af360b936d95d47947d6b1d8a4f between TC-154''s original
+  pin and TC-322''s live re-run - the same package-version/source-commit divergence pattern already recorded in
+  docs/DECISION_LOG.md''s 2026-10-09 entries and already hit by several sibling pilots this session
+  (TC-256/262/268/272). infra/helm/foss-mcp/values.yaml and docker-compose.yml both still reference the OLD
+  commit and need updating to match TC-322''s own already-integrated fixture, so
+  tests/infra/test_helm_pilots_match_compose.py::test_note_python_pilot_matches_compose stops failing.'
+depends_on:
+- TC-322
+- TC-244
+- TC-256
+- TC-262
+- TC-268
+- TC-272
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- docker-compose.yml
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Confirm TC-322 is integrated and that its own committed fixture (tests/fixtures/note_python/api_surface.json)
+  really carries source_commit "0014dbeef9511af360b936d95d47947d6b1d8a4f" before touching anything.'
+- 'Update infra/helm/foss-mcp/values.yaml''s note/python pilot entry (`commit:` field under the `note`/`python`
+  library block) from "e459eb50d750f70181cfb23b28a9ab73cb464a8d" to "0014dbeef9511af360b936d95d47947d6b1d8a4f".'
+- 'Update docker-compose.yml''s own comment line documenting note/python''s source_commit to match the same new
+  hash - this is documentation only (a comment), the real ingestion container reads the commit from the fixture
+  itself, not from this comment, but it must stay accurate.'
+- 'Run `{python} -m pytest tests/infra/test_helm_pilots_match_compose.py -q -rfE -k note_python` and confirm it
+  now passes. Run the full tests/infra/test_helm_pilots_match_compose.py suite once to confirm no other pilot''s
+  own parity assertion regressed.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Confirm TC-322 is integrated and its real new commit hash.
+- Update infra/helm/foss-mcp/values.yaml and docker-compose.yml's note/python pin to match.
+- Run the helm/compose parity test for note_python and the full file once; report honestly.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_pilots_match_compose.py -q -rfE -k note_python'
+  expect: exit 0
+  timeout_seconds: 60
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 1
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/values.yaml');s=p.read_text(encoding='utf-8');old='0014dbeef9511af360b936d95d47947d6b1d8a4f';new='e459eb50d750f70181cfb23b28a9ab73cb464a8d';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Reverts values.yaml's note/python commit back to the stale hash, so the real fixture's own
+    source_commit no longer matches - failing the helm/compose parity assertion this card exists to fix. Built
+    with plain text, no backslash, using rindex per this session's established vacuous-falsifier safeguard.
+evidence:
+- evidence/build/G2/TC-325/receipt.json
+closeout:
+- infra/helm/foss-mcp/values.yaml and docker-compose.yml's note/python commit pin now matches the real,
+  integrated fixture's own source_commit, closing the cross-file inconsistency TC-322's own live re-run
+  surfaced.
+recovery: Re-run from a clean tree.
