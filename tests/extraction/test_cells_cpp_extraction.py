@@ -28,6 +28,17 @@ successfully and produced real, plausible data despite this - every ``file`` val
 this fixture carries that ``Aspose.Cells.Foss.Cpp/...`` prefix rather than being
 relative to a detected package root. This is a known quirk in ``package_root.py``, which
 is outside this card's ``write_paths`` - not something fixed here.
+
+TC-271 regenerated this fixture with TC-252's centrality-ranked ``reduce_fixture()``,
+after confirming both TC-259 and TC-276 (the two halves of the C1 fabricated-member-name
+fix: inline class-body members and out-of-line qualified ``ClassName::Method(...)``
+definitions, respectively) are integrated. Before TC-276, this same live extraction
+fabricated 109 phantom top-level entries (named after a method's return type instead of
+its real accessor name, e.g. a real ``Workbook& Worksheet::GetWorkbook()`` producing a
+fake top-level ``Workbook`` "function" entry) - raising ``type_count`` from the post-fix
+346 to a false 462. ``test_no_member_is_fabricated_from_its_own_return_type`` below is
+the regression test for that finding, swept across the entire kept 300, not just a
+handful of spot-checked classes.
 """
 
 from __future__ import annotations
@@ -77,10 +88,12 @@ def test_the_fixture_is_non_empty() -> None:
     assert len(data["types"]) > 0
     assert data["reduced_type_count"] == len(data["types"])
     assert data["type_count"] >= data["reduced_type_count"]
-    # The real repository has 462 raw public types - over the CLI's default
+    # The real repository has 346 raw public types (post-TC-276; before TC-276 fixed the
+    # out-of-line qualified-member fabrication, this same live run produced a false 462 --
+    # 116 of them phantom entries, see the module docstring) - over the CLI's default
     # --max-types 300 cap, so this fixture is a genuine, deterministic REDUCED subset,
     # not the full surface (unlike cells/rust's 219-type fixture, which fit uncapped).
-    assert data["type_count"] == 462
+    assert data["type_count"] == 346
     assert data["reduced_type_count"] == 300
     assert data["truncated"] is True
 
@@ -148,3 +161,79 @@ def test_a_real_cross_file_free_function_survives_consolidation() -> None:
     # names also survive as multiple distinct entries across this real fixture.
     multi_file_names = {name for name, fs in functions_by_name.items() if len(fs) > 1}
     assert len(multi_file_names) >= 5, multi_file_names
+
+
+def test_the_highest_centrality_type_survives_truncation() -> None:
+    """TC-252's reduce_fixture() keeps the 300 types with the highest centrality score
+    (how many other types in the FULL 346-type artifact reference this type's bare name),
+    not an alphabetical slice. Measured directly against this fixture's own real data (no
+    audit-named symbol exists for this pilot): ``LoadDiagnostics`` is the single type with
+    the highest centrality score (15 - computed the same way reduce_fixture() does, by
+    counting whole-word references to its name across every other type's bases/
+    return_type/params/properties). This is the concrete proof the fix kept the type that
+    matters most for this pilot, not a coincidental alphabetical survivor.
+    """
+    data = _load_fixture()
+    load_diagnostics = [e for e in data["types"] if e["name"] == "LoadDiagnostics"]
+    assert len(load_diagnostics) == 1, load_diagnostics
+    assert load_diagnostics[0]["kind"] == "class_specifier"
+    assert load_diagnostics[0]["class_import"] == "Aspose::Cells_FOSS::LoadDiagnostics"
+
+
+def test_no_member_is_fabricated_from_its_own_return_type() -> None:
+    """The concrete C1 regression check for this pilot, swept across the ENTIRE kept 300
+    (not just a handful of spot-checked classes): no top-level entry's ``name`` is a bare
+    fabrication of some method's return type rather than the real accessor name.
+
+    TC-259 fixed this for inline class-body members (``const Border& GetLeft() const
+    noexcept { ... }`` inside the class body - verified below via ``Borders.GetLeft`` and
+    ``Border.GetColor``, both genuine reference-returning accessors). TC-276 fixed the
+    SAME fabrication for out-of-line, qualified member definitions
+    (``Workbook& Worksheet::GetWorkbook() { ... }`` in a .cpp file, outside the class body)
+    - verified below directly: before TC-276, this exact real method produced a phantom
+    top-level entry named ``Workbook`` (its return type), not ``GetWorkbook`` (its real
+    name); that phantom must not exist in this fixture, while the real ``GetWorkbook``
+    method must still be present on ``Worksheet``.
+
+    The sweep below is general, not limited to these spot-checks: ANY top-level
+    ``"function"``-kind entry whose name collides with a real class/struct/enum name
+    already present in this same kept set is exactly the fabrication shape TC-259/TC-276
+    fixed (a member - inline or out-of-line - mis-named after its own return type, which
+    is itself some other real type in this artifact), so zero such entries may exist.
+    """
+    data = _load_fixture()
+    by_name: dict[str, list[dict]] = defaultdict(list)
+    for entry in data["types"]:
+        by_name[entry["name"]].append(entry)
+
+    def methods_of(class_name: str) -> dict[str, str]:
+        for entry in by_name.get(class_name, []):
+            if entry["kind"] in ("class_specifier", "struct_specifier"):
+                return {m["name"]: m.get("return_type", "") for m in entry["methods"]}
+        return {}
+
+    # Inline-bodied members (TC-259 shape) - real reference-returning accessors, named
+    # correctly, not after their own return type.
+    borders_methods = methods_of("Borders")
+    assert borders_methods.get("GetLeft") == "Border"
+    assert "Border" not in borders_methods  # would be the fabricated name, not a real method
+
+    border_methods = methods_of("Border")
+    assert border_methods.get("GetColor") == "Color"
+
+    # Out-of-line, qualified member definitions (TC-276 shape) - the exact real-world
+    # reproduction found in TC-271's own first attempt.
+    worksheet_methods = methods_of("Worksheet")
+    assert worksheet_methods.get("GetWorkbook") == "Workbook"
+
+    class_or_enum_names = {
+        entry["name"]
+        for entry in data["types"]
+        if entry["kind"] in ("class_specifier", "struct_specifier", "enum_specifier")
+    }
+    phantom_candidates = [
+        entry
+        for entry in data["types"]
+        if entry["kind"] == "function" and entry["name"] in class_or_enum_names
+    ]
+    assert phantom_candidates == [], phantom_candidates
