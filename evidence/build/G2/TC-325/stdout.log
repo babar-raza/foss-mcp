@@ -1,0 +1,64 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_pilots_match_compose.py -q -rfE -k note_python "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vzsto1a3\.junit-0.xml"
+--- stdout ---
+.                                                                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_pilots_match_compose.py -q -rfE -k note_python "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vzsto1a3\.junit-0.xml"
+--- stdout ---
+.                                                                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/values.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_pilots_match_compose.py -q -rfE -k note_python "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vzsto1a3\.junit-0.xml"
+--- stdout ---
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________________ test_note_python_pilot_matches_compose ____________________
+
+    def test_note_python_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("note", "python")
+
+tests\infra\test_helm_pilots_match_compose.py:296: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+family = 'note', platform = 'python'
+
+    def _assert_pilot_matches_compose(family: str, platform: str) -> None:
+        pilot = _pilot(family, platform)
+        build, ingest = _compose_arguments(family, platform)
+    
+        assert ingest["--family"] == family, family
+        assert ingest["--platform"] == platform, platform
+        assert pilot["family"] == family and pilot["platform"] == platform
+    
+        # A self-extracted pilot has an empty library block and no --library-commit flag: both None.
+        # The FIXTURE_CHECKED_PILOTS pilots have compose services that define no library flags, so their
+        # library is checked against their fixture's source_repository and source_commit instead.
+        if (family, platform) in FIXTURE_CHECKED_PILOTS:
+            fixture = json.loads(
+                (REPO_ROOT / "tests" / "fixtures" / f"{family}_{platform}" / "api_surface.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            assert pilot["library"]["repository"] == fixture["source_repository"], "library repository"
+>           assert pilot["library"]["commit"] == fixture["source_commit"], "library commit"
+E           AssertionError: library commit
+E           assert 'e459eb50d750...9ab73cb464a8d' == '0014dbeef951...7947d6b1d8a4f'
+E             
+E             - 0014dbeef9511af360b936d95d47947d6b1d8a4f
+E             + e459eb50d750f70181cfb23b28a9ab73cb464a8d
+
+tests\infra\test_helm_pilots_match_compose.py:180: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_note_python_pilot_matches_compose
+
+--- stderr ---
+
