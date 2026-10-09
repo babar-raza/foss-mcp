@@ -64,3 +64,49 @@ def test_every_entry_is_a_real_csharp_declaration_kind() -> None:
         "enum_declaration",
     }
     assert kinds
+
+
+def test_a_real_inherited_member_carries_the_correct_inherited_from_tag() -> None:
+    """TC-299: this fixture predated TC-261 (adds ``inherited_from`` provenance tagging to
+    ``_flatten_inheritance()``) entirely - the old fixture had real classes with non-empty
+    ``bases`` but zero ``inherited_from`` tags anywhere. ``Node`` genuinely declares
+    ``bases == ["SceneObject"]`` and really does inherit ``SceneObject``'s direct parent
+    ``A3DObject``'s own real members (``RemoveProperty``/``GetProperty``/``SetProperty``/
+    ``FindProperty``/``Name``/``Properties``), each tagged "inherited_from" the real,
+    member-bearing declaring class "Aspose.ThreeD.A3DObject"."""
+    data = _load_fixture()
+    by_name = {entry["name"]: entry for entry in data["types"]}
+    node = by_name["Node"]
+    assert node["bases"] == ["SceneObject"]
+
+    inherited_methods = {m["name"] for m in node["methods"] if "inherited_from" in m}
+    assert {"RemoveProperty", "GetProperty", "SetProperty", "FindProperty"} <= inherited_methods
+    for member in node["methods"]:
+        if member["name"] in {"RemoveProperty", "GetProperty", "SetProperty", "FindProperty"}:
+            assert member["inherited_from"] == "Aspose.ThreeD.A3DObject"
+
+
+def test_a_real_transitively_inherited_member_is_rooted_to_the_real_grandparent() -> None:
+    """A real, live multi-level chain confirmed directly against this fixture (mirroring
+    TC-261's own pdf/cpp PopupAnnotation/Annotation/BaseParagraph proof, and 3d/python's
+    identical Node/SceneObject/A3DObject lineage in the same product library): ``Node``
+    declares ``bases == ["SceneObject"]`` (its direct parent only), and ``SceneObject`` itself
+    declares ``bases == ["A3DObject"]``. ``FindProperty`` is genuinely declared by the
+    grandparent ``A3DObject``, copied into ``SceneObject`` first (parents resolve before
+    children), then copied again into ``Node`` - and must still be rooted to ``A3DObject``,
+    the class that actually declares it, never to ``SceneObject``, the intermediate parent it
+    passed through on the way."""
+    data = _load_fixture()
+    by_name = {entry["name"]: entry for entry in data["types"]}
+    node = by_name["Node"]
+    scene_object = by_name["SceneObject"]
+    assert node["bases"] == ["SceneObject"]
+    assert scene_object["bases"] == ["A3DObject"]
+
+    find_property = next(m for m in node["methods"] if m["name"] == "FindProperty")
+    assert find_property["inherited_from"] == "Aspose.ThreeD.A3DObject"
+    assert find_property["inherited_from"] != "Aspose.ThreeD.SceneObject"
+
+    # Node's own genuinely-declared members must never carry the key.
+    add_child_node = next(m for m in node["methods"] if m["name"] == "AddChildNode")
+    assert "inherited_from" not in add_child_node
