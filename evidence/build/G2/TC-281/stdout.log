@@ -1,0 +1,415 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_run_extraction_python.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-znbzwhsc\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_run_extraction_python.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-znbzwhsc\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/run_extraction.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_run_extraction_python.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-znbzwhsc\.junit-0.xml"
+--- stdout ---
+FFFFFF.FFF....                                                           [100%]
+================================== FAILURES ===================================
+_______________ test_python_manifest_extracts_without_keyerror ________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4258/test_python_manifest_extracts_0')
+
+    def test_python_manifest_extracts_without_keyerror(tmp_path: Path) -> None:
+        """The bug this card fixes: platform='python' used to raise a bare KeyError."""
+        _write_package(tmp_path)
+>       types, _unresolved = run_extraction.extract_from_clone(tmp_path, _manifest())
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_run_extraction_python.py:81: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\extraction\run_extraction.py:185: in extract_from_clone
+    return _extract_python_surface(clone_root)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+clone_root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4258/test_python_manifest_extracts_0')
+
+    def _extract_python_surface(clone_root: Path) -> tuple[list[dict[str, Any]], list[str]]:
+        """Run the independent pure-``ast`` reader over a python checkout, adapted to
+        ``extract_api_surface``'s dict shape. Returns ``(types, unresolved)`` - the second element
+        is ``python_surface.PublicSurface.unresolved`` verbatim, so an unresolved re-export
+        surfaces to the caller rather than being silently dropped.
+        """
+        package_dirs = _python_package_dirs(clone_root)
+        surface = python_surface.inspect_public_surface(clone_root, package_dirs)
+        types = _python_types_from_surface(surface)
+        # TC-281: api_surface._flatten_inheritance() is fully language-agnostic (it operates
+        # purely on class_import/name/bases/methods/properties dict keys, which the adapter above
+        # already populates) but was never reached for any Python-sourced pilot - extract_from_clone
+        # routes "python" around api_surface.extract_api_surface() entirely (see its own docstring),
+        # the only other call site. Reusing it unmodified here, rather than writing a second
+        # Python-specific flattening implementation, closes that gap for every Python pilot.
+>       api_surface._flatten_inheritance_DISABLED(types)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.extraction.tree_sitter_engine.api_surface' has no attribute '_flatten_inheritance_DISABLED'
+
+src\foss_mcp\extraction\run_extraction.py:171: AttributeError
+__________ test_output_entries_match_extract_api_surface_dict_shape ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4258/test_output_entries_match_extr0')
+
+    def test_output_entries_match_extract_api_surface_dict_shape(tmp_path: Path) -> None:
+        _write_package(tmp_path)
+>       types, _unresolved = run_extraction.extract_from_clone(tmp_path, _manifest())
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_run_extraction_python.py:87: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\extraction\run_extraction.py:185: in extract_from_clone
+    return _extract_python_surface(clone_root)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+clone_root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4258/test_output_entries_match_extr0')
+
+    def _extract_python_surface(clone_root: Path) -> tuple[list[dict[str, Any]], list[str]]:
+        """Run the independent pure-``ast`` reader over a python checkout, adapted to
+        ``extract_api_surface``'s dict shape. Returns ``(types, unresolved)`` - the second element
+        is ``python_surface.PublicSurface.unresolved`` verbatim, so an unresolved re-export
+        surfaces to the caller rather than being silently dropped.
+        """
+        package_dirs = _python_package_dirs(clone_root)
+        surface = python_surface.inspect_public_surface(clone_root, package_dirs)
+        types = _python_types_from_surface(surface)
+        # TC-281: api_surface._flatten_inheritance() is fully language-agnostic (it operates
+        # purely on class_import/name/bases/methods/properties dict keys, which the adapter above
+        # already populates) but was never reached for any Python-sourced pilot - extract_from_clone
+        # routes "python" around api_surface.extract_api_surface() entirely (see its own docstring),
+        # the only other call site. Reusing it unmodified here, rather than writing a second
+        # Python-specific flattening implementation, closes that gap for every Python pilot.
+>       api_surface._flatten_inheritance_DISABLED(types)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.extraction.tree_sitter_engine.api_surface' has no attribute '_flatten_inheritance_DISABLED'
+
+src\foss_mcp\extraction\run_extraction.py:171: AttributeError
+__________________ test_class_kind_doc_and_line_are_correct ___________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4258/test_class_kind_doc_and_line_a0')
+
+    def test_class_kind_doc_and_line_are_correct(tmp_path: Path) -> None:
+        _write_package(tmp_path)
+>       types, _unresolved = run_extraction.extract_from_clone(tmp_path, _manifest())
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_run_extraction_python.py:111: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\extraction\run_extraction.py:185: in extract_from_clone
+    return _extract_python_surface(clone_root)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+clone_root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4258/test_class_kind_doc_and_line_a0')
+
+    def _extract_python_surface(clone_root: Path) -> tuple[list[dict[str, Any]], list[str]]:
+        """Run the independent pure-``ast`` reader over a python checkout, adapted to
+        ``extract_api_surface``'s dict shape. Returns ``(types, unresolved)`` - the second element
+        is ``python_surface.PublicSurface.unresolved`` verbatim, so an unresolved re-export
+        surfaces to the caller rather than being silently dropped.
+        """
+        package_dirs = _python_package_dirs(clone_root)
+        surface = python_surface.inspect_public_surface(clone_root, package_dirs)
+        types = _python_types_from_surface(surface)
+        # TC-281: api_surface._flatten_inheritance() is fully language-agnostic (it operates
+        # purely on class_import/name/bases/methods/properties dict keys, which the adapter above
+        # already populates) but was never reached for any Python-sourced pilot - extract_from_clone
+        # routes "python" around api_surface.extract_api_surface() entirely (see its own docstring),
+        # the only other call site. Reusing it unmodified here, rather than writing a second
+        # Python-specific flattening implementation, closes that gap for every Python pilot.
+>       api_surface._flatten_inheritance_DISABLED(types)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.extraction.tree_sitter_engine.api_surface' has no attribute '_flatten_inheritance_DISABLED'
+
+src\foss_mcp\extraction\run_extraction.py:171: AttributeError
+_______ test_reexport_resolves_to_the_same_class_under_the_package_name _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4258/test_reexport_resolves_to_the_0')
+
+    def test_reexport_resolves_to_the_same_class_under_the_package_name(tmp_path: Path) -> None:
+        _write_package(tmp_path)
+>       types, _unresolved = run_extraction.extract_from_clone(tmp_path, _manifest())
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_run_extraction_python.py:135: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\extraction\run_extraction.py:185: in extract_from_clone
+    return _extract_python_surface(clone_root)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+clone_root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4258/test_reexport_resolves_to_the_0')
+
+    def _extract_python_surface(clone_root: Path) -> tuple[list[dict[str, Any]], list[str]]:
+        """Run the independent pure-``ast`` reader over a python checkout, adapted to
+        ``extract_api_surface``'s dict shape. Returns ``(types, unresolved)`` - the second element
+        is ``python_surface.PublicSurface.unresolved`` verbatim, so an unresolved re-export
+        surfaces to the caller rather than being silently dropped.
+        """
+        package_dirs = _python_package_dirs(clone_root)
+        surface = python_surface.inspect_public_surface(clone_root, package_dirs)
+        types = _python_types_from_surface(surface)
+        # TC-281: api_surface._flatten_inheritance() is fully language-agnostic (it operates
+        # purely on class_import/name/bases/methods/properties dict keys, which the adapter above
+        # already populates) but was never reached for any Python-sourced pilot - extract_from_clone
+        # routes "python" around api_surface.extract_api_surface() entirely (see its own docstring),
+        # the only other call site. Reusing it unmodified here, rather than writing a second
+        # Python-specific flattening implementation, closes that gap for every Python pilot.
+>       api_surface._flatten_inheritance_DISABLED(types)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.extraction.tree_sitter_engine.api_surface' has no attribute '_flatten_inheritance_DISABLED'
+
+src\foss_mcp\extraction\run_extraction.py:171: AttributeError
+_________ test_unresolved_reexport_surfaces_rather_than_being_dropped _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4258/test_unresolved_reexport_surfa0')
+
+    def test_unresolved_reexport_surfaces_rather_than_being_dropped(tmp_path: Path) -> None:
+        _write_package(tmp_path)
+>       types, unresolved = run_extraction.extract_from_clone(tmp_path, _manifest())
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_run_extraction_python.py:148: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\extraction\run_extraction.py:185: in extract_from_clone
+    return _extract_python_surface(clone_root)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+clone_root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4258/test_unresolved_reexport_surfa0')
+
+    def _extract_python_surface(clone_root: Path) -> tuple[list[dict[str, Any]], list[str]]:
+        """Run the independent pure-``ast`` reader over a python checkout, adapted to
+        ``extract_api_surface``'s dict shape. Returns ``(types, unresolved)`` - the second element
+        is ``python_surface.PublicSurface.unresolved`` verbatim, so an unresolved re-export
+        surfaces to the caller rather than being silently dropped.
+        """
+        package_dirs = _python_package_dirs(clone_root)
+        surface = python_surface.inspect_public_surface(clone_root, package_dirs)
+        types = _python_types_from_surface(surface)
+        # TC-281: api_surface._flatten_inheritance() is fully language-agnostic (it operates
+        # purely on class_import/name/bases/methods/properties dict keys, which the adapter above
+        # already populates) but was never reached for any Python-sourced pilot - extract_from_clone
+        # routes "python" around api_surface.extract_api_surface() entirely (see its own docstring),
+        # the only other call site. Reusing it unmodified here, rather than writing a second
+        # Python-specific flattening implementation, closes that gap for every Python pilot.
+>       api_surface._flatten_inheritance_DISABLED(types)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.extraction.tree_sitter_engine.api_surface' has no attribute '_flatten_inheritance_DISABLED'
+
+src\foss_mcp\extraction\run_extraction.py:171: AttributeError
+______________ test_never_calls_get_parser_for_a_python_manifest ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4258/test_never_calls_get_parser_fo0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B72BC41940>
+
+    def test_never_calls_get_parser_for_a_python_manifest(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _write_package(tmp_path)
+    
+        def _boom(*_args: object, **_kwargs: object) -> None:
+            raise AssertionError("get_parser must never be called for a python manifest")
+    
+        monkeypatch.setattr(run_extraction, "get_parser", _boom)
+>       types, _unresolved = run_extraction.extract_from_clone(tmp_path, _manifest())
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_run_extraction_python.py:166: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\extraction\run_extraction.py:185: in extract_from_clone
+    return _extract_python_surface(clone_root)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+clone_root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4258/test_never_calls_get_parser_fo0')
+
+    def _extract_python_surface(clone_root: Path) -> tuple[list[dict[str, Any]], list[str]]:
+        """Run the independent pure-``ast`` reader over a python checkout, adapted to
+        ``extract_api_surface``'s dict shape. Returns ``(types, unresolved)`` - the second element
+        is ``python_surface.PublicSurface.unresolved`` verbatim, so an unresolved re-export
+        surfaces to the caller rather than being silently dropped.
+        """
+        package_dirs = _python_package_dirs(clone_root)
+        surface = python_surface.inspect_public_surface(clone_root, package_dirs)
+        types = _python_types_from_surface(surface)
+        # TC-281: api_surface._flatten_inheritance() is fully language-agnostic (it operates
+        # purely on class_import/name/bases/methods/properties dict keys, which the adapter above
+        # already populates) but was never reached for any Python-sourced pilot - extract_from_clone
+        # routes "python" around api_surface.extract_api_surface() entirely (see its own docstring),
+        # the only other call site. Reusing it unmodified here, rather than writing a second
+        # Python-specific flattening implementation, closes that gap for every Python pilot.
+>       api_surface._flatten_inheritance_DISABLED(types)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.extraction.tree_sitter_engine.api_surface' has no attribute '_flatten_inheritance_DISABLED'
+
+src\foss_mcp\extraction\run_extraction.py:171: AttributeError
+___ test_extract_pinned_repository_records_language_python_with_no_network ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4258/test_extract_pinned_repository0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B72BC41E00>
+
+    def test_extract_pinned_repository_records_language_python_with_no_network(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        package_src = tmp_path / "src_repo"
+        package_src.mkdir()
+        _write_package(package_src)
+        manifest_path = tmp_path / "manifest.yaml"
+        manifest_path.write_text(
+            "platform: python\nfamily: widgets\nrepository: acme/widgets\n", encoding="utf-8"
+        )
+    
+        def _fake_clone(_repository: str, dest: Path) -> str:
+            # extract_pinned_repository's workdir already exists (tempfile.mkdtemp) - copy into it.
+            shutil.copytree(package_src, dest, dirs_exist_ok=True)
+            return "a" * 40
+    
+        monkeypatch.setattr(run_extraction, "clone_shallow", _fake_clone)
+>       artifact = run_extraction.extract_pinned_repository(manifest_path)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_run_extraction_python.py:193: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\extraction\run_extraction.py:204: in extract_pinned_repository
+    types, unresolved = extract_from_clone(workdir, manifest)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\extraction\run_extraction.py:185: in extract_from_clone
+    return _extract_python_surface(clone_root)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+clone_root = WindowsPath('C:/Users/babar/AppData/Local/Temp/foss-mcp-extract-1a371vz9')
+
+    def _extract_python_surface(clone_root: Path) -> tuple[list[dict[str, Any]], list[str]]:
+        """Run the independent pure-``ast`` reader over a python checkout, adapted to
+        ``extract_api_surface``'s dict shape. Returns ``(types, unresolved)`` - the second element
+        is ``python_surface.PublicSurface.unresolved`` verbatim, so an unresolved re-export
+        surfaces to the caller rather than being silently dropped.
+        """
+        package_dirs = _python_package_dirs(clone_root)
+        surface = python_surface.inspect_public_surface(clone_root, package_dirs)
+        types = _python_types_from_surface(surface)
+        # TC-281: api_surface._flatten_inheritance() is fully language-agnostic (it operates
+        # purely on class_import/name/bases/methods/properties dict keys, which the adapter above
+        # already populates) but was never reached for any Python-sourced pilot - extract_from_clone
+        # routes "python" around api_surface.extract_api_surface() entirely (see its own docstring),
+        # the only other call site. Reusing it unmodified here, rather than writing a second
+        # Python-specific flattening implementation, closes that gap for every Python pilot.
+>       api_surface._flatten_inheritance_DISABLED(types)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.extraction.tree_sitter_engine.api_surface' has no attribute '_flatten_inheritance_DISABLED'
+
+src\foss_mcp\extraction\run_extraction.py:171: AttributeError
+_ test_extract_python_surface_flattens_inherited_members_from_a_real_base_class _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4258/test_extract_python_surface_fl0')
+
+    def test_extract_python_surface_flattens_inherited_members_from_a_real_base_class(
+        tmp_path: Path,
+    ) -> None:
+        """TC-281: api_surface._flatten_inheritance() is fully language-agnostic (it operates
+        purely on class_import/name/bases/methods/properties dict keys) but never ran for any
+        Python-sourced pilot before this fix, because run_extraction.py routed Python entirely
+        through python_surface.py, never through api_surface.extract_api_surface() - the only
+        other place _flatten_inheritance() was invoked. After the fix, a subclass's own methods
+        list must genuinely include its real base class's methods, each tagged with the correct
+        inherited_from pointing at the real declaring ancestor's class_import.
+        """
+        _write_inheritance_package(tmp_path)
+>       types, _unresolved = run_extraction._extract_python_surface(tmp_path)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_run_extraction_python.py:256: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+clone_root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4258/test_extract_python_surface_fl0')
+
+    def _extract_python_surface(clone_root: Path) -> tuple[list[dict[str, Any]], list[str]]:
+        """Run the independent pure-``ast`` reader over a python checkout, adapted to
+        ``extract_api_surface``'s dict shape. Returns ``(types, unresolved)`` - the second element
+        is ``python_surface.PublicSurface.unresolved`` verbatim, so an unresolved re-export
+        surfaces to the caller rather than being silently dropped.
+        """
+        package_dirs = _python_package_dirs(clone_root)
+        surface = python_surface.inspect_public_surface(clone_root, package_dirs)
+        types = _python_types_from_surface(surface)
+        # TC-281: api_surface._flatten_inheritance() is fully language-agnostic (it operates
+        # purely on class_import/name/bases/methods/properties dict keys, which the adapter above
+        # already populates) but was never reached for any Python-sourced pilot - extract_from_clone
+        # routes "python" around api_surface.extract_api_surface() entirely (see its own docstring),
+        # the only other call site. Reusing it unmodified here, rather than writing a second
+        # Python-specific flattening implementation, closes that gap for every Python pilot.
+>       api_surface._flatten_inheritance_DISABLED(types)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.extraction.tree_sitter_engine.api_surface' has no attribute '_flatten_inheritance_DISABLED'
+
+src\foss_mcp\extraction\run_extraction.py:171: AttributeError
+___ test_extract_python_surface_never_tags_a_genuinely_own_declared_method ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4258/test_extract_python_surface_ne0')
+
+    def test_extract_python_surface_never_tags_a_genuinely_own_declared_method(
+        tmp_path: Path,
+    ) -> None:
+        """Regression (mirrors TC-261's own do-not-break convention from
+        test_flatten_inheritance_provenance.py, applied here for the Python path for the first
+        time): a method the subclass declares itself - even one that shares a name with a base
+        method it overrides - must never gain an inherited_from key at all.
+        """
+        _write_inheritance_package(tmp_path)
+>       types, _unresolved = run_extraction._extract_python_surface(tmp_path)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\extraction\test_run_extraction_python.py:283: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+clone_root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4258/test_extract_python_surface_ne0')
+
+    def _extract_python_surface(clone_root: Path) -> tuple[list[dict[str, Any]], list[str]]:
+        """Run the independent pure-``ast`` reader over a python checkout, adapted to
+        ``extract_api_surface``'s dict shape. Returns ``(types, unresolved)`` - the second element
+        is ``python_surface.PublicSurface.unresolved`` verbatim, so an unresolved re-export
+        surfaces to the caller rather than being silently dropped.
+        """
+        package_dirs = _python_package_dirs(clone_root)
+        surface = python_surface.inspect_public_surface(clone_root, package_dirs)
+        types = _python_types_from_surface(surface)
+        # TC-281: api_surface._flatten_inheritance() is fully language-agnostic (it operates
+        # purely on class_import/name/bases/methods/properties dict keys, which the adapter above
+        # already populates) but was never reached for any Python-sourced pilot - extract_from_clone
+        # routes "python" around api_surface.extract_api_surface() entirely (see its own docstring),
+        # the only other call site. Reusing it unmodified here, rather than writing a second
+        # Python-specific flattening implementation, closes that gap for every Python pilot.
+>       api_surface._flatten_inheritance_DISABLED(types)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.extraction.tree_sitter_engine.api_surface' has no attribute '_flatten_inheritance_DISABLED'
+
+src\foss_mcp\extraction\run_extraction.py:171: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_run_extraction_python.py::test_python_manifest_extracts_without_keyerror
+FAILED tests/extraction/test_run_extraction_python.py::test_output_entries_match_extract_api_surface_dict_shape
+FAILED tests/extraction/test_run_extraction_python.py::test_class_kind_doc_and_line_are_correct
+FAILED tests/extraction/test_run_extraction_python.py::test_reexport_resolves_to_the_same_class_under_the_package_name
+FAILED tests/extraction/test_run_extraction_python.py::test_unresolved_reexport_surfaces_rather_than_being_dropped
+FAILED tests/extraction/test_run_extraction_python.py::test_never_calls_get_parser_for_a_python_manifest
+FAILED tests/extraction/test_run_extraction_python.py::test_extract_pinned_repository_records_language_python_with_no_network
+FAILED tests/extraction/test_run_extraction_python.py::test_extract_python_surface_flattens_inherited_members_from_a_real_base_class
+FAILED tests/extraction/test_run_extraction_python.py::test_extract_python_surface_never_tags_a_genuinely_own_declared_method
+
+--- stderr ---
+
