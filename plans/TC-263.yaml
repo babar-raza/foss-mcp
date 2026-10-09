@@ -11,9 +11,17 @@ purpose: 'Regenerate tests/fixtures/pdf_net/api_surface.json with TC-252''s fixe
   and report it rather than patching around it or committing a broken fixture.'
 depends_on:
 - TC-252
+- TC-077
+- TC-078
+- TC-079
+- TC-144
+- TC-147
 write_paths:
 - tests/fixtures/pdf_net/api_surface.json
 - tests/extraction/test_pdf_net_extraction.py
+- tests/indexing/test_index_writers.py
+- tests/mcp/tools/test_symbol_tools.py
+- tests/normalization/test_citation.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -47,6 +55,35 @@ inputs:
   full-suite check at the end shows some other existing test now fails because it depended on the OLD fixture''s
   specific content - STOP, do not guess-fix a file outside your write_paths, and report exactly which test(s) and
   why, so a properly scoped rework restatement can be issued.'
+- 'REWORK (attempt 2): your attempt 1 correctly stopped - "Page" is confirmed recovered (now the single highest-
+  centrality type in the whole 971-type artifact), but 13 pre-existing tests outside your original write_paths
+  fail, all for the same reason - they hardcode specific symbols/counts that survived the OLD alphabetical
+  selection but are correctly dropped (or changed) by the real, centrality-ranked one. All three affected files are
+  now in your write_paths. Numbered defect list, each confirmed in your own attempt-1 run:
+  (1) tests/indexing/test_index_writers.py (3 tests) hardcodes "AFRelationship"/"AddWatermarkAnnotation"/
+  "GetOrCreateMetadata" as representative real identifiers for tokenization and BM25 ranking behavior; none survive
+  the new cut. Find real replacement identifiers in YOUR OWN regenerated fixture that exhibit the same property
+  each test actually needs (a real camelCase/PascalCase multi-word identifier for the tokenizer test; a real rare
+  term findable via BM25 for the exact-match test; two real chunks - one a longer verified example, one a shorter
+  enum match - whose real BM25-vs-raw-TF-IDF scores still demonstrate the property
+  test_bm25_ranks_the_longer_real_example_over_the_shorter_real_enum_match exists to prove, recomputing the real
+  scores yourself rather than assuming the old pair still works).
+  (2) tests/mcp/tools/test_symbol_tools.py: WITH_EXAMPLE = "AnnotationCollection" and the shared
+  _publish_pdf_net_symbols helper look up that exact class by name; it no longer survives the cut, so all 7 tests
+  using it KeyError. Replace it with a real class from your regenerated fixture that still has a verified example
+  (an Example:-bearing chunk) and real children suitable for list_members/get_symbol - verify directly against
+  your own fixture, do not guess.
+  (3) tests/normalization/test_citation.py: the hardcoded 899 type count (line ~78-104) must become the real
+  current count your own run observed (971) - this is real upstream repo growth, unrelated to the algorithm, a
+  simple factual update. Separately, three tests (~line 241-308) build citation/anchor-resolution examples around
+  "AnnotationCollection"/"AddWatermarkAnnotation" as "the one real class declaring this method" - verify directly
+  whether that claim is still true in your regenerated fixture (a different class may now be the unique declarer,
+  or the same one may still work if it survived - check before assuming either way) and update the illustrative
+  class/method names used throughout to whatever your own fixture actually supports, preserving each test''s real
+  intent (exact single-match resolution, qualified-anchor-only resolution under ambiguity, etc.) - never weaken the
+  assertion itself to make it pass.
+  Re-run all five write_paths'' own tests together, then the full suite once more, and report exactly what you
+  changed and why for each of the three files.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
 - Confirm TC-252 is integrated and its fix is really what main's reduce_fixture does now.
@@ -54,6 +91,12 @@ actions:
 - Update the fixture's own test file to match the real new content; run it; run the full suite once and report honestly.
 checks:
 - command: '{python} -m pytest tests/extraction/test_pdf_net_extraction.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/indexing/test_index_writers.py tests/mcp/tools/test_symbol_tools.py tests/normalization/test_citation.py -q -rfE'
   expect: exit 0
   timeout_seconds: 300
   junitxml: true
