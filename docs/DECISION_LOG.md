@@ -2116,3 +2116,25 @@ deferred the deeper TC-294 defect (methods missing entirely for underscore-origi
 a fixture that would still show zero inherited_from tags. With TC-294 now also integrated, html_python's own
 fixture regeneration is the one piece of this wave still outstanding and is now unblocked - a follow-up card,
 mirroring TC-288/290-292's own shape exactly, is the natural next step.
+
+## 2026-10-09 — html_python regenerated (TC-297); the entire C6/Python-inheritance-flattening saga is closed
+TC-297 is integrated; TC-289 is now SUPERSEDED. Live-confirmed: HTMLElement (the #1-centrality anchor) now
+carries 27 real own methods (click/focus/blur/title/tab_index/...), 221 of 300 kept types now carry at least one
+method (was 2/323 before TC-294), and 156 kept subclasses correctly carry `inherited_from` tags pointing at
+HTMLElement's real public qualified name (e.g. HTMLMediaElement's copied `click`). This closes all five pilots
+of the TC-288-292 follow-up wave (3d/pdf/slides/words/html, all Python) across all three stacked root causes
+found this session (TC-281 wiring, TC-293 short-name collision, TC-294 missing methods).
+
+Two notes from TC-297's own worker, recorded here rather than actioned as defects:
+- `ops/tests/test_parallel_dispatch.py::test_the_channel_is_read_from_the_main_checkout` has now been
+  independently reconfirmed as a pre-existing, environment-only artifact by at least nine separate workers this
+  session (TC-283/284/288/289/290/291/292/293/295/297). It asserts `_main_checkout()` equals the test file's own
+  hardcoded `parents[2]`, which is structurally only true when pytest runs from the main checkout itself, never
+  from inside any worker's own worktree - this never affects a real `gatectl review` verdict (the formal check
+  gate only ever runs a card's own declared `checks:` command, never the full suite inside a worktree); it only
+  ever appears in a worker's own voluntary "run the full suite once" step. No fix is warranted - re-confirming
+  this yet again in a future session's worker report should not be treated as new signal.
+- html_python's own real upstream re-export structure produces duplicate `class_import` pairs for the same real
+  class (e.g. `aspose_html.dom.HTMLMediaElement` vs `aspose_html.dom.html.HTMLMediaElement`, both surviving
+  centrality truncation) - real structure, not a defect, but worth a look if centrality/dedup logic is ever
+  revisited.
