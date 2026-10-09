@@ -1,0 +1,72 @@
+id: TC-295
+gate: G2
+lane: control-plane
+purpose: 'A round-4 independent audit (2026-10-09) flagged "AGENTS.md''s own claimed budget-enforcement
+  doesn''t exist." Investigated directly by the supervisor before authoring this card: the enforcement
+  genuinely exists and runs unconditionally on every `gatectl validate` call (gatecli.py''s own
+  `_budget_problems()`, checked against AGENTS.md''s real line count every time this session) -
+  `ops/gatectl.py` deliberately delegates its whole command surface to `ops/gatecli.py` (its own docstring:
+  "the command surface lives in gatecli to keep this file focused on primitives"); gatecli.py is not orphaned
+  or unreferenced. The ONLY real defect is that AGENTS.md''s own line 4 describes a `--budgets` CLI flag that
+  has never existed on the `validate` subcommand - the check is unconditional, so the flag was never needed.
+  AGENTS.md states (via TC-225''s own precedent, line 4 of plans/TC-225.yaml''s purpose field) that "AGENTS.md
+  may change only through a taskcard that names it" - this card is that route for this one-line fix. Do NOT
+  add AGENTS.md to GLOBAL_DENY or otherwise restrict which future cards may touch it - TC-225''s own existing
+  write_paths entry already establishes that a dedicated, narrowly-scoped taskcard is the correct, intentional
+  mechanism for an AGENTS.md change, not an exception to be closed.'
+depends_on:
+- TC-225
+write_paths:
+- AGENTS.md
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read AGENTS.md in full, and read ops/gatecli.py''s `_budget_problems()` function and `build_parser()`''s
+  `validate` subparser definition (confirm directly, yourself, that `validate` takes no `--budgets` or any
+  other extra argument, and that `_budget_problems()` is called unconditionally from `cmd_validate`) before
+  changing anything.'
+- 'Change ONLY the one line (AGENTS.md''s line 4 as of this card''s authoring) that currently reads
+  "Budget: 200 lines, enforced by `gatectl validate --budgets`." to accurately describe that the check runs
+  unconditionally, with no flag - e.g. "Budget: 200 lines, enforced unconditionally by `gatectl validate`."
+  (exact wording is your judgment call; the fix is purely descriptive, not a policy change). Do not touch any
+  other line, and the total file must stay at or under the 200-line budget it itself describes.'
+- 'Verify live: confirm `gatectl validate` (plain, no flags) still reports AGENTS.md''s budget as satisfied,
+  and confirm the word "--budgets" (the nonexistent flag) no longer appears anywhere in AGENTS.md.'
+- 'Run the full existing project suite once and report honestly. If anything outside this card''s one
+  write_path breaks, STOP and report rather than patching around it - this change should be inert to every
+  other test.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read AGENTS.md and gatecli.py's real validate/_budget_problems() implementation to confirm the exact gap.
+- Fix the one line in AGENTS.md describing the nonexistent --budgets flag to describe the real, unconditional
+  enforcement instead.
+- Verify gatectl validate still passes and the stale flag reference is gone; run the full suite once.
+checks:
+- command: '{python} -c "import pathlib,sys; t=pathlib.Path(''AGENTS.md'').read_text(encoding=''utf-8''); sys.exit(0 if
+    ''--budgets'' not in t and ''enforced'' in t else 1)"'
+  expect: exit 0
+  timeout_seconds: 30
+  proves:
+  - REQ-G2-043
+min_tests: 1
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('AGENTS.md');s=p.read_text(encoding='utf-8');p.write_text(s.replace('enforced unconditionally by','enforced by --budgets on'),encoding='utf-8')"
+  rationale: Reintroduces a stale-flag-shaped phrase so the check's "--budgets not in t" assertion fails,
+    proving the check actually reads the real file content rather than passing vacuously. Built with plain
+    text, no backslash. If the worker's own fixed wording differs from this exact phrase, this falsifier's
+    mutate script may need adjusting to still trip the check - report explicitly rather than silently
+    reshaping the wording just to dodge the falsifier.
+evidence:
+- evidence/build/G2/TC-295/receipt.json
+closeout:
+- AGENTS.md's own budget-enforcement line accurately describes the real, unconditional gatectl validate check
+  instead of a CLI flag that has never existed, closing a round-4-audit-confirmed documentation defect through
+  the same taskcard mechanism (TC-225's own precedent) that governs every other AGENTS.md change.
+recovery: Re-run from a clean tree.
