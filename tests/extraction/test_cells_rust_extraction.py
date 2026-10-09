@@ -138,12 +138,7 @@ def test_the_provenance_tagging_machinery_is_present_but_finds_nothing_to_tag_he
     """
     data = _load_fixture()
     names = {entry["name"] for entry in data["types"]}
-    trait_bases_in_use = {
-        base
-        for entry in data["types"]
-        for base in entry.get("bases", [])
-        if base in names
-    }
+    trait_bases_in_use = {base for entry in data["types"] for base in entry.get("bases", []) if base in names}
     assert trait_bases_in_use == set()
     for entry in data["types"]:
         for member in entry.get("methods", []) + entry.get("properties", []):
