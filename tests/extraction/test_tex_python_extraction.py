@@ -24,6 +24,24 @@ engine bug and not a package-root detection failure, so it is reported here rath
 worked around. The only module that parsed cleanly is ``src/aspose_tex/exceptions.py``, whose
 four exception classes are exactly what this fixture's ``types`` contains - a real,
 non-empty, non-fabricated extraction result, just a small one.
+
+RECONFIRMED LIVE on 2026-10-10 (TC-324, sibling of TC-318 through TC-323): a real
+``run_extraction.py config/products/tex/python.yaml`` run against a fresh shallow clone of
+``aspose-tex-foss/Aspose.TeX-FOSS-for-Python`` still resolved HEAD to the exact same pinned
+commit ``181015d2eee3e19f8af3d84e4a932ac84ad47c7c``, and a separate manual clone of that same
+commit was read directly (not assumed from a prior session) to confirm
+``src/aspose_tex/presentation/__init__.py`` still has the identical indentation defect at
+lines 107-108 - ``ast.parse`` on the live file reproduces the exact same
+``SyntaxError: expected an indented block after function definition on line 107`` at line
+108 recorded in ``unresolved`` below, and the same 12-entry ``unresolved`` list and the same
+4 resolvable exception-class types came back unchanged. The one real, honest change this
+re-run surfaced: TC-265/TC-274/TC-281/TC-293/TC-294 (the Python ``bases``/inheritance-
+flattening work that landed on main after this fixture was first generated) now populate
+each exception class's real ``bases`` from ``src/aspose_tex/exceptions.py`` - previously
+empty ``[]`` on all four. There are still zero ``inherited_from`` tags, because none of these
+four classes declare any method of their own to inherit one onto (every ``methods`` list is
+and remains empty) - this is the real, honest shape of a four-class exception hierarchy with
+no method bodies, not a flattening gap.
 """
 
 from __future__ import annotations
@@ -75,6 +93,27 @@ def test_the_fixture_contains_real_python_type_names() -> None:
     assert {"AsposeTeXError", "EngineError", "FontError", "InputError"} <= names
     assert all(entry["class_import"].startswith("aspose_tex") for entry in data["types"])
     assert all(entry["file"].endswith(".py") for entry in data["types"])
+
+
+def test_the_real_exception_hierarchy_bases_are_populated_and_methods_are_empty() -> None:
+    data = _load_fixture()
+    by_name = {entry["name"]: entry for entry in data["types"]}
+    # Read directly from src/aspose_tex/exceptions.py at the pinned commit on 2026-10-10 (see
+    # this module's docstring): AsposeTeXError(Exception), and the other three each subclass
+    # AsposeTeXError directly. TC-265/TC-274/TC-281/TC-293/TC-294 are what makes this
+    # fixture's own `bases` non-empty now - before that work landed, every entry here had
+    # `bases == []` even though the real source always declared one.
+    assert by_name["AsposeTeXError"]["bases"] == ["Exception"]
+    assert by_name["EngineError"]["bases"] == ["AsposeTeXError"]
+    assert by_name["FontError"]["bases"] == ["AsposeTeXError"]
+    assert by_name["InputError"]["bases"] == ["AsposeTeXError"]
+    # None of these four classes defines a single method of its own (each body is only a
+    # docstring), so there is nothing for _flatten_inheritance to tag with inherited_from -
+    # zero inherited_from tags here is the honest result of an empty-methods hierarchy, not a
+    # sign the flattening fix is missing, unlike the larger pilots in TC-281/TC-293's own
+    # negative controls.
+    for entry in data["types"]:
+        assert entry["methods"] == []
 
 
 def test_every_entry_is_a_real_python_surface_kind() -> None:
