@@ -99,9 +99,11 @@ min_tests: 4
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib;q=chr(34);p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='inherited_from';new='inherited_from_DISABLED';i=s.index(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
-  rationale: 'Renames the first occurrence of the new "inherited_from" key (this card''s own fix is the only place
-    that string appears in this file), so every new test asserting the key''s presence/value on a copied member
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='inherited_from';new='inherited_from_DISABLED';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: 'Renames the LAST occurrence of "inherited_from" in the file - the real code assignment
+    (copied_prop["inherited_from"] = ...), not the first occurrence, which is this card''s own explanatory
+    docstring text and renaming it is a no-op for behavior. Using rindex instead of index so the falsifier
+    actually disables the fix''s own functional effect, so every new test asserting the key''s presence/value on a copied member
     must fail. Built with plain text.'
 evidence:
 - evidence/build/G2/TC-261/receipt.json
