@@ -2005,3 +2005,22 @@ class's *public* re-exported qualified name — not the private origin module's 
 the correct, public class. Must verify live against html_python (the real reproduction already in hand) and at
 least one other real pilot using the same convention, and must not disturb the existing, already-correct
 non-underscore resolution path.
+
+## 2026-10-09 — TC-293 closed; the short-name-collision shape also exists (dormant) in 3 tree-sitter-routed pilots
+TC-293 is integrated. `_flatten_inheritance()`'s `by_name` short-name index now prefers a structured-data-bearing
+candidate over an empty shell on collision, via a new `_prefers_structured_data()` helper, leaving the full-
+`class_import`-keyed path and genuine two-non-empty-candidate ambiguity untouched. Live-verified on two real
+pilots: 3d/python went from 0 to 358 `inherited_from` tags (confirmed `AssetInfo` now correctly inherits
+`A3DObject.A3DObject`'s real methods, not the empty `A3DObject` shell); words/python went from 0 to 240.
+
+TC-293's own worker also checked (not assumed) whether tree-sitter-routed languages can hit the identical shape.
+They can: `pdf_cpp` (`Encoding`), `pdf_java` (`Result`, `Property`, `Scope`), and `pdf_typescript` (`Rect`,
+`TilingPattern`, `Pt`) each have a same-bare-name, different-`class_import` pair in their committed fixtures,
+traced to `consolidate_classes`'s own Category 4 ("different namespace → KEEP BOTH"). However, none of those
+specific colliding short names are currently referenced as a `bases` entry anywhere in those same (already
+truncated-to-300) committed fixtures, so the shape is real but currently inert for every pilot checked. The
+worker could not rule out the full, untruncated extraction without re-running live extractions it wasn't asked
+to run. Recorded here as a known, currently-dormant risk - not a defect to fix now, since TC-293's own fix already
+covers it structurally (the same `_prefers_structured_data()` preference applies regardless of source language);
+re-check if any future pilot regeneration surfaces a live collision that actually resolves a real `bases` entry
+to an empty shell.
