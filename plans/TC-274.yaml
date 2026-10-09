@@ -1,0 +1,100 @@
+id: TC-274
+gate: G2
+lane: extraction
+purpose: 'Fix C4-Python-reexport (found by the TC-267/html-python worker, recorded in docs/DECISION_LOG.md
+  2026-10-09): TC-265 populated real bases/return_type/param_types for Python symbols
+  src/foss_mcp/extraction/tree_sitter_engine/python_surface.py''s _module_symbols() scans directly, but does
+  nothing for a symbol reached only through a re-export chain whose origin module is leading-underscore-prefixed -
+  _module_symbols() refuses to scan ANY module with an underscore-prefixed path component at all, so that module''s
+  classes never enter the symbol table. _reexport_kind()/inspect_public_surface()''s fallback (origin is None) then
+  calls _origin_kind() to recover just the SymbolKind by reading the origin file''s AST directly, but _origin_kind()
+  only returns a SymbolKind, never the structured bases/return_type/param_types/docstring/signature data the same
+  AST node carries - so inspect_public_surface()''s replace() call falls back to ()/None for all of them. Live-
+  confirmed against html/python: 101 of 104 real .py files use this leading-underscore-impl-module-plus-reexport
+  convention (e.g. dom/_document.py''s real Document class, re-exported via dom/__init__.py); across the full
+  323-type real extraction, the highest centrality score is 1 (tied across 3 types), every other type scores 0,
+  and only 4 methods total are captured across all 323 types. This convention is ordinary, common Python packaging
+  style, not specific to one repository - every other Python-sourced pilot is suspected affected to some degree.'
+depends_on:
+- TC-265
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+- tests/extraction/tree_sitter_engine/test_python_surface.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read src/foss_mcp/extraction/tree_sitter_engine/python_surface.py''s _module_symbols() (~line 164-233),
+  _origin_kind() (~line 266-299), _reexport_kind() (~line 312-344), and inspect_public_surface()''s re-export
+  resolution loop (~line 380-399) in full before changing anything. Understand exactly why _origin_kind() already
+  reads the real origin class/function AST node (to compute SymbolKind) but currently discards the rest of that
+  same node''s data.'
+- 'Extend _origin_kind() (or add a sibling helper that reuses its exact file-location/forwarding-chain logic
+  without duplicating it) so that, when it finds the real class or function definition node, it also extracts and
+  returns that node''s bases/return_type/param_types (via the same _structured_fields() helper _module_symbols()
+  and _methods() already call - do not write a second implementation of this) plus its docstring and signature
+  (via the existing _first_docstring_line()/_signature() helpers). Preserve _origin_kind()''s existing behavior and
+  return value exactly for every caller that only wants the SymbolKind - do not break its existing single-value
+  contract if other callers rely on it; if widening its return shape would do that, add a new function instead and
+  have _origin_kind() delegate to it for its own kind-only callers.'
+- 'In inspect_public_surface()''s origin-is-None fallback branch (~line 389-399, the comment reading "A re-export
+  carries its origin''s own docstring, signature, and structured base-class/return-type/param-annotation data as
+  evidence"), use the newly available structured data instead of unconditionally falling back to ()/None - this
+  comment is already describing the INTENDED behavior; the bug is that the code beneath it does not deliver on it
+  for this one path. The already-working path (origin is not None, i.e. the target module WAS scanned) must stay
+  exactly as it is - this card only closes the gap for the underscore-module-origin case.'
+- 'Handle the same forwarding-chain and cycle cases _origin_kind() already handles correctly for SymbolKind (a
+  module that only forwards to another module, multiple hops, a cycle via `seen`) - the structured-data recovery
+  must follow the SAME resolved node _origin_kind() ultimately lands on for SymbolKind, never a different,
+  independently-resolved one that could disagree with it.'
+- 'Add tests to tests/extraction/tree_sitter_engine/test_python_surface.py: construct a synthetic repository layout
+  (mirroring this file''s own existing construction convention - read it first) with a leading-underscore module
+  defining a real class with real bases, a real method with a real return-type annotation, and a package
+  __init__.py re-exporting that class publicly. Assert the resolved public symbol carries the real bases/
+  return_type/param_types/docstring/signature, not ()/None. Add a second test for the multi-hop forwarding case
+  (a public re-export of a re-export, ending at an underscore module) producing the same correct result. Add a
+  third test proving the ALREADY-correct origin-is-not-None path (a public re-export of a symbol in a scanned,
+  non-underscore module) is completely unchanged by this card - a direct regression test, not just absence of a
+  new failure.'
+- 'Run the full existing test_python_surface.py suite with zero changes to any pre-existing assertion, then your
+  new tests, then the full project suite once, and report honestly.'
+- 'Do NOT regenerate any committed fixture as part of this card - every Python-sourced fixture needs to be
+  independently re-measured and re-pinned in a follow-up wave once this fix is reviewed and accepted, exactly
+  mirroring how TC-265 itself was followed by a separate regeneration wave (TC-264/266-270) rather than
+  regenerating fixtures as part of the root-cause fix itself.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read _module_symbols, _origin_kind, _reexport_kind, and inspect_public_surface's resolution loop in full.
+- Extend the origin-recovery path to also carry structured fields, reusing _structured_fields and the existing
+  docstring/signature helpers, without touching the already-correct origin-is-not-None path.
+- Add tests for the underscore-origin case, the multi-hop case, and a regression test for the unchanged case; run
+  the full existing suite unchanged, then the full project suite once.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 5
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/python_surface.py');s=p.read_text(encoding='utf-8');old='_structured_fields';new='_structured_fields_DISABLED';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Renames the LAST occurrence of "_structured_fields" in the file - the real call this card's fix adds
+    inside the origin-recovery path, not an earlier call already used by _module_symbols/_methods - so the new
+    structured-data recovery for underscore-module origins is disabled and every new test proving it must fail.
+    Built with plain text, no backslash, using rindex to avoid the exact vacuous-falsifier mistake TC-261 made and
+    fixed this session (an earlier occurrence of the same substring being found first).
+evidence:
+- evidence/build/G2/TC-274/receipt.json
+closeout:
+- A public symbol reached only through a re-export chain whose origin module is leading-underscore-prefixed
+  carries its real bases/return_type/param_types/docstring/signature, the same as a symbol _module_symbols()
+  scans directly - closing the measurement gap TC-265 left for the common "impl module plus package re-export"
+  Python packaging convention.
+recovery: Re-run from a clean tree.
