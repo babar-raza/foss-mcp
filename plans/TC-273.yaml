@@ -29,10 +29,12 @@ depends_on:
 - TC-202
 - TC-218
 - TC-263
+- TC-277
 write_paths:
 - src/foss_mcp/indexing/lexical_index_writer.py
 - src/foss_mcp/mcp/tools/find_examples.py
 - tests/indexing/test_index_writers.py
+- tests/e2e/test_slides_python_live_content.py
 - tests/mcp/tools/test_retrieval_tools.py
 satisfies:
 - REQ-G2-043
@@ -97,6 +99,26 @@ inputs:
   live e2e test whose query only clears the old score>0 bar), STOP and report exactly which test and why rather
   than guess-fixing or weakening your own new threshold to make it pass.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
+- 'REWORK (attempt 2): attempt 1''s fix and empirical threshold (0.6, measured against real coverage ceilings of
+  0.500 for false-positive-style queries and 0.667+ for genuinely relevant ones, across 3 real pilots) are correct
+  and well-verified - do not weaken or re-derive the threshold. It surfaced one real, genuine conflict rather than
+  a bug in the fix: tests/e2e/test_slides_python_live_content.py (now in your write_paths; also touched by TC-277,
+  already integrated by the time you read this - confirm your worktree is rebased onto it) has
+  test_lookup_composes_the_real_task_answer_for_the_rectangle_question, whose REAL_TASK_QUERY = "how do I insert a
+  rectangle into a pptx file" only reaches 0.500 coverage against the one real verified example this pilot
+  actually has ("Create a Presentation and Add a Shape", covering add_auto_shape) - numerically identical to the
+  false-positive ceiling this card''s fix exists to close, so no threshold can admit this query without readmitting
+  that exact bug. The test''s old expectation was built on the over-permissive pre-fix behavior, not a true
+  invariant - per the audit''s own explicit priority ("a search system that returns something for every query is
+  worse than one that honestly misses"), the test is what must change, not the fix. Reword REAL_TASK_QUERY to a
+  realistic task question that genuinely shares enough real terms with the one real verified example this pilot
+  has to clear 0.6 coverage honestly (verify the real coverage number yourself against your own real lexical
+  index, do not guess a wording and hope) - e.g. something naming "add" + "shape" + "presentation"-style terms
+  the real example chunk actually contains, while still reading as a natural user question. Update any other
+  assertion in that test depending on the old wording. Re-run that file''s full live suite (a real docker rebuild
+  - be patient) and confirm every test in it passes. If no realistic rewording can reach 0.6 against the one real
+  example this pilot has, report that explicitly rather than inventing one - that would itself be a different,
+  real finding about this pilot''s content coverage.'
 actions:
 - Read query_lexical_index() and find_examples.py in full before changing anything.
 - Add query_lexical_index_scored() as an additive sibling function sharing the existing BM25 math, never changing
@@ -117,8 +139,14 @@ checks:
   junitxml: true
   proves:
   - REQ-G2-043
+- command: '{python} -m pytest tests/e2e/test_slides_python_live_content.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G2-043
 min_tests: 6
-network: false
+network: true
 negative_control:
   mutate: |
     python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/find_examples.py');s=p.read_text(encoding='utf-8');old='coverage';new='coverage_DISABLED';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"

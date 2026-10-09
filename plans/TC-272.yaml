@@ -14,9 +14,15 @@ depends_on:
 - TC-252
 - TC-259
 - TC-165
+- TC-244
+- TC-256
+- TC-262
+- TC-268
 write_paths:
 - tests/fixtures/slides_cpp/api_surface.json
 - tests/extraction/test_slides_cpp_extraction.py
+- infra/helm/foss-mcp/values.yaml
+- docker-compose.yml
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -54,6 +60,20 @@ inputs:
   full-suite check at the end shows some other existing test now fails because it depended on the OLD fixture''s
   specific content - STOP, do not guess-fix a file outside your write_paths, and report exactly which test(s) and
   why, so a properly scoped rework restatement can be issued.'
+- 'REWORK (attempt 2): attempt 1 correctly stopped - "Presentation" is confirmed recovered (class_specifier,
+  include/Aspose/Slides/Foss/presentation.h, bases ["IPresentation"]), and the C1 regression spot-check (3
+  accessors plus a repo-wide fabrication-signature scan across all 300 kept types) found zero fabricated
+  entries. Full suite surfaced one real, directly-attributable downstream failure outside attempt 1''s write_paths
+  - the same "commit-pin divergence" pattern already found and fixed for pdf/java (TC-256), pdf/go (TC-262), and
+  pdf/python (TC-268): tests/infra/test_helm_pilots_match_compose.py::test_slides_cpp_pilot_matches_compose
+  asserts infra/helm/foss-mcp/values.yaml''s slides/cpp pilot entry''s library.commit equals the regenerated
+  fixture''s own source_commit. The current pin (c41f8dddc499fb0058fc9557cb364d70fbd3cef1) is stale; update it to
+  your regenerated fixture''s real source_commit (verify directly from your own committed fixture, do not
+  hardcode it blindly). Separately, docker-compose.yml''s ingest-slides-cpp step has a documentation-only comment
+  (no functional --library-* flag - this pilot has no furnished examples) that also states the old commit and
+  source_repository; update that comment''s commit value too for accuracy, even though no test asserts on it. Do
+  not touch any OTHER pilot''s entry in either file. Re-run tests/infra/test_helm_pilots_match_compose.py::test_slides_cpp_pilot_matches_compose
+  plus your original check command to confirm both pass, then the full suite once more.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
 - Confirm TC-252 and TC-259 are integrated and their fixes are really what main's extraction path does now.
@@ -61,7 +81,7 @@ actions:
   for the C1 reference-return-type naming regression.
 - Update the fixture's own test file to match the new real content; run it; run the full suite once and report honestly.
 checks:
-- command: '{python} -m pytest tests/extraction/test_slides_cpp_extraction.py -q -rfE'
+- command: '{python} -m pytest tests/extraction/test_slides_cpp_extraction.py tests/infra/test_helm_pilots_match_compose.py -q -rfE'
   expect: exit 0
   timeout_seconds: 300
   junitxml: true
