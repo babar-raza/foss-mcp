@@ -2251,3 +2251,16 @@ defect instead of a stale fixture, and both fix cards are now also integrated:
 TC-306 and TC-311 themselves remain open (BLOCKED, no commit) - both should now be resumed to actually re-pin
 their fixtures with the fixes in place. A follow-up card is also needed for pdf/typescript's own re-pin once
 the extends_type_clause fix has been exercised there.
+
+## 2026-10-10 — TC-306 and TC-311 closed: both blocked pilots re-pinned once their engine fixes landed
+Both are integrated. TC-306 (cells/typescript): 20 real ShapeInfo-derived interfaces now correctly tagged, 493
+inherited_from entries, with ChartInfo/StraightConnectorShapeInfo's own overrides correctly left untagged.
+TC-311 (jmap/nodejs): both JmapClient records now survive distinctly (31/31 types, up from 30), the real
+client-core.js implementation's 7 methods intact, JmapNetworkError/JmapProtocolError's inherited_from correctly
+rooted to JmapError's qualified class_import. TC-311's own resumption hit a minor channel-bookkeeping gap (a
+worker's own "blocked"/"committed" status-append closes its dispatch attempt even when the underlying work is
+otherwise correct and ready) - resolved each time with a fresh `gatectl instruct --kind rework` at the next
+attempt number; worth remembering as the standard unblock for this exact shape rather than re-diagnosing it.
+
+This closes the entire TC-306/TC-311/TC-315/TC-316 defect-and-fix cluster. TC-317 (pdf/typescript's own re-pin,
+also needing the extends_type_clause fix) remains the one still-open follow-up from this cluster.
