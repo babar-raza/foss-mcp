@@ -183,9 +183,7 @@ def test_a_real_multilevel_inherited_from_chain_is_correctly_rooted() -> None:
         assert mail_mixin_methods[member]["inherited_from"] == "aspose_jmap::JmapClientCore"
 
     # The same shape holds down the SubmissionClientMixin branch of the chain.
-    submission_mixin_methods = {
-        m["name"]: m for m in by_name["SubmissionClientMixin"]["methods"]
-    }
+    submission_mixin_methods = {m["name"]: m for m in by_name["SubmissionClientMixin"]["methods"]}
     assert "inherited_from" not in submission_mixin_methods["send"]
     assert client_methods["send"]["inherited_from"] == "aspose_jmap::SubmissionClientMixin"
 
