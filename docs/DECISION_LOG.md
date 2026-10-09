@@ -2138,3 +2138,23 @@ Two notes from TC-297's own worker, recorded here rather than actioned as defect
   class (e.g. `aspose_html.dom.HTMLMediaElement` vs `aspose_html.dom.html.HTMLMediaElement`, both surviving
   centrality truncation) - real structure, not a defect, but worth a look if centrality/dedup logic is ever
   revisited.
+
+## 2026-10-09 — TC-296 closed: the Go-ecosystem published-commit resolver is live, and confirms the audit's divergence is still real today
+TC-296 is integrated: `infra/verify_package_registry.py` gained `go_latest_version()`, `resolve_tag_commit()`
+(generic - any GitHub ref/tag/branch to commit SHA, reusing the existing `github_http` auth/backoff helper), and
+the composing `go_published_commit()`. Live-verified against the real pdf/go pilot: real go.mod coordinate is
+`github.com/aspose-pdf-foss/aspose-pdf-foss-for-go`; `go_latest_version()` resolves to `"v0.9.0"`;
+`resolve_tag_commit("aspose-pdf-foss/Aspose-PDF-FOSS-for-Go", "v0.9.0")` resolves to the real commit
+`6784921e711f00a26fb30a0be279965502d3ff34`. Compared against `infra/helm/foss-mcp/values.yaml`'s pinned
+`source_commit` for pdf/go (`cdf43df10c8c565ecaa978428b1fe66ad6685f8d`): **they still diverge, confirmed live
+today** - the round-4 audit's headline finding is not stale or already-resolved by drift; it is a real, present
+defect as of this entry.
+
+Deferred, not yet started: generalizing this resolution capability to the other five ecosystems (pypi/npm/
+cargo/maven/nuget - each needs its own "latest version string" + "version-to-commit" mapping, neither of which
+exists today for any of them); wiring any of this into the live, agent-facing `report_index_freshness` MCP tool
+(today its `current_source_commit` parameter is purely caller-supplied with no automatic resolution at all - an
+agent querying the MCP has no independent way to supply a meaningful value, so the tool is currently
+unreachable-useful for this exact purpose); and actually deciding what should happen operationally once a real
+divergence is detected (block ingestion? annotate every affected response? both?) - a product decision not yet
+made.
