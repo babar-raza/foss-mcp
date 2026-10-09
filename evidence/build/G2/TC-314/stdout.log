@@ -1,0 +1,114 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_slides_net_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yvinqfci\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_slides_net_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yvinqfci\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/slides_net/api_surface.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_slides_net_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yvinqfci\.junit-0.xml"
+--- stdout ---
+FFFFFFF                                                                  [100%]
+================================== FAILURES ===================================
+_____________ test_the_fixture_parses_and_has_the_expected_shape ______________
+
+    def test_the_fixture_parses_and_has_the_expected_shape() -> None:
+        data = _load_fixture()
+        assert isinstance(data, dict)
+>       assert isinstance(data["types"], list)
+                          ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_slides_net_extraction.py:46: KeyError
+_______ test_the_fixture_records_the_exact_source_commit_and_repository _______
+
+    def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
+        data = _load_fixture()
+>       assert _COMMIT_SHA.match(data["source_commit"]), data["source_commit"]
+                                 ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'source_commit'
+
+tests\extraction\test_slides_net_extraction.py:52: KeyError
+________________________ test_the_fixture_is_non_empty ________________________
+
+    def test_the_fixture_is_non_empty() -> None:
+        data = _load_fixture()
+>       assert len(data["types"]) > 0
+                   ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_slides_net_extraction.py:64: KeyError
+______________ test_the_fixture_contains_real_dotnet_type_names _______________
+
+    def test_the_fixture_contains_real_dotnet_type_names() -> None:
+        data = _load_fixture()
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_slides_net_extraction.py:75: KeyError
+_____________ test_every_entry_is_a_real_csharp_declaration_kind ______________
+
+    def test_every_entry_is_a_real_csharp_declaration_kind() -> None:
+        data = _load_fixture()
+>       kinds = {entry["kind"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_slides_net_extraction.py:84: KeyError
+_________ test_real_inheritance_is_present_and_was_actually_flattened _________
+
+    def test_real_inheritance_is_present_and_was_actually_flattened() -> None:
+        # TC-314's starting premise, verified live: plenty of real non-trivial inheritance
+        # (unlike the genuinely-flat TC-301/TC-303 siblings), and _flatten_inheritance() actually
+        # copied members down from bases rather than leaving every subclass's own member list empty.
+        data = _load_fixture()
+>       by_name = {entry["name"]: entry for entry in data["types"]}
+                                                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_slides_net_extraction.py:100: KeyError
+_____ test_a_real_inherited_member_carries_the_correct_inherited_from_tag _____
+
+    def test_a_real_inherited_member_carries_the_correct_inherited_from_tag() -> None:
+        # TC-314's headline assertion: this fixture's real inheritance predates TC-261's
+        # inherited_from provenance fix, so before this regeneration every copied member was
+        # untagged. This test picks one genuine multi-level chain and proves the tag is rooted to
+        # the real ORIGINAL declaring class, not an intermediate one the member was copied
+        # through - the same shape TC-261 itself required proof of.
+        #
+        # Real chain (all four classes genuinely exist in the pinned upstream source):
+        #   Table -> GraphicalObject -> Shape -> PVIObject (-> ISlideComponent)
+        # Shape itself genuinely declares X/Y/Width/Height (own file, own line, no
+        # inherited_from). GraphicalObject's copy is correctly tagged back to Shape. Table
+        # inherits X transitively THROUGH GraphicalObject, but the tag must stay rooted to
+        # Shape - the real original declarer - not the intermediate GraphicalObject it was
+        # copied through.
+        data = _load_fixture()
+>       by_name = {entry["name"]: entry for entry in data["types"]}
+                                                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_slides_net_extraction.py:135: KeyError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_slides_net_extraction.py::test_the_fixture_parses_and_has_the_expected_shape
+FAILED tests/extraction/test_slides_net_extraction.py::test_the_fixture_records_the_exact_source_commit_and_repository
+FAILED tests/extraction/test_slides_net_extraction.py::test_the_fixture_is_non_empty
+FAILED tests/extraction/test_slides_net_extraction.py::test_the_fixture_contains_real_dotnet_type_names
+FAILED tests/extraction/test_slides_net_extraction.py::test_every_entry_is_a_real_csharp_declaration_kind
+FAILED tests/extraction/test_slides_net_extraction.py::test_real_inheritance_is_present_and_was_actually_flattened
+FAILED tests/extraction/test_slides_net_extraction.py::test_a_real_inherited_member_carries_the_correct_inherited_from_tag
+
+--- stderr ---
+
