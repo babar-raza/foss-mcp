@@ -1,0 +1,85 @@
+id: TC-280
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix a real, pre-existing live-e2e staleness bug found as a side effect of TC-278''s C7 investigation
+  (recorded in docs/DECISION_LOG.md 2026-10-09): tests/e2e/test_pdf_net_live_content.py hardcodes
+  REAL_SOURCE_COMMIT = "b7172877651413cff57a8bfe41fb8a8befb2406b" and REAL_SYMBOL/REAL_ENUM_FQN/REAL_ENUM_MEMBER
+  anchored on the enum Aspose.Pdf.AFRelationship ("EncryptedPayload" member) - both stale since TC-263
+  regenerated pdf/net''s fixture with the fixed, centrality-ranked selection days ago (evidence commit 97c8639).
+  Live-confirmed directly against the current committed fixture: the real source_commit is now
+  10a363830fea952c29df20fdb37d35ad3a881433 (971 real types, 300 kept, 899->971 real upstream growth), and
+  "AFRelationship" does not survive the centrality-ranked cut at all (it is absent from the kept 300 entirely -
+  not merely renamed or moved). This is the exact same "stale anchor after a centrality-ranked regeneration"
+  pattern this session already found and fixed for slides/python (TC-264/TC-277''s AutoShape -> Shape) and for
+  the commit-pin-divergence class (TC-256/TC-262/TC-268/TC-272) - just never caught for pdf/net because its own
+  live e2e file was not run as part of TC-263''s own review at the time (the file passed then because this
+  staleness had not yet been introduced - TC-263 landed before this particular regeneration, and nothing re-ran
+  this specific e2e file against the newer content until TC-278''s worker happened to run the full suite).'
+depends_on:
+- TC-263
+write_paths:
+- tests/e2e/test_pdf_net_live_content.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read tests/e2e/test_pdf_net_live_content.py in full before changing anything. Confirm directly from the
+  currently committed tests/fixtures/pdf_net/api_surface.json (do not trust this card''s numbers blindly) the
+  real current source_commit, and confirm "AFRelationship" is genuinely absent from the kept 300 (not just
+  moved/renamed).'
+- 'Update REAL_SOURCE_COMMIT to the real current source_commit (verify directly from the committed fixture).'
+- 'Pick real replacement anchors directly from the current committed fixture for REAL_SYMBOL (used by
+  test_search_symbols_returns_real_content_from_the_real_fixture and test_lookup_returns_real_content_from_the_
+  real_fixture - needs a real, simply-named class/type whose own name is unambiguous and present in
+  match["text"]; "Page" is a reasonable candidate - the #1-centrality type per TC-263''s own report - but verify
+  it directly yourself rather than assuming) and for REAL_ENUM_FQN/REAL_ENUM_MEMBER (used by
+  test_get_symbol_returns_the_real_enum_members_for_afrelationship - needs a real enum with real members still
+  present in the kept 300; many exist, e.g. Aspose.Pdf.HorizontalAlignment - verify your own choice''s real
+  member names directly from the fixture, do not guess one). Rename
+  test_get_symbol_returns_the_real_enum_members_for_afrelationship to match whichever real enum you pick (the
+  test name itself names AFRelationship specifically - this must not go stale again the same way). Update every
+  docstring that names AFRelationship/EncryptedPayload/905-905-ish TC-011-specific prose to describe your real
+  replacement instead - do not leave a stale docstring pointing at a symbol the test no longer checks.'
+- 'REAL_EXAMPLE_SYMBOL ("AddWatermarkAnnotation") and REAL_TASK_QUERY ("how do I add a watermark to a PDF") are
+  about the compile-verified watermark EXAMPLE content, not about which type survived centrality truncation -
+  confirm directly whether these are still correct (the watermark example chunk is a separate, furnished
+  verified-example artifact, not one of the 300 centrality-selected types) before assuming they need no change
+  either way; do not change them without first confirming whether they are actually still stale or already
+  correct.'
+- 'Run this file''s FULL live suite (a real docker rebuild of ingest-pdf-net + serving-pdf-net - be patient) and
+  confirm every test passes. Run the full project suite once afterward and report honestly; if it surfaces
+  anything else outside this card''s single write_path, STOP and report rather than patching around it.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Confirm the real current source_commit and AFRelationship's genuine absence directly from the committed fixture.
+- Update REAL_SOURCE_COMMIT and pick real, verified replacement anchors for REAL_SYMBOL/REAL_ENUM_FQN/
+  REAL_ENUM_MEMBER, renaming the enum test and updating every docstring that names the old symbols.
+- Confirm whether REAL_EXAMPLE_SYMBOL/REAL_TASK_QUERY are still correct before touching them either way.
+- Run this file's full live suite (real docker rebuild), then the full project suite once, and report honestly.
+checks:
+- command: '{python} -m pytest tests/e2e/test_pdf_net_live_content.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 3
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;q=chr(34);p=pathlib.Path('tests/e2e/test_pdf_net_live_content.py');s=p.read_text(encoding='utf-8');old='REAL_SOURCE_COMMIT = ';new='REAL_SOURCE_COMMIT = '+q+'0'+q+' + ';i=s.index(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Corrupts the real source-commit constant with a leading extra character, so it no longer matches
+    the real fixture's own source_commit - report_index_freshness must then report stale=True and the live
+    freshness test must fail. Built with plain text, no backslash.
+evidence:
+- evidence/build/G2/TC-280/receipt.json
+closeout:
+- tests/e2e/test_pdf_net_live_content.py's anchors (source commit, symbol, enum) all point at real content that
+  genuinely survives the current committed fixture's centrality-ranked selection, verified live through the real
+  containerized pdf/net deployment - no test in this file passes by coincidence against stale, no-longer-present
+  content.
+recovery: Re-run from a clean tree.
