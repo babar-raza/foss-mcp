@@ -19,6 +19,7 @@ depends_on:
 write_paths:
 - tests/fixtures/pdf_typescript/api_surface.json
 - tests/extraction/test_pdf_typescript_extraction.py
+- tests/e2e/test_pdf_typescript_live_content.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -47,6 +48,12 @@ inputs:
   specific content, OR tests/e2e/test_pdf_typescript_live_content.py''s own anchors (confirmed by TC-255/TC-285''s
   own prior work) break - STOP, do not guess-fix a file outside your write_paths, and report exactly which
   test(s) and why.'
+- 'tests/e2e/test_pdf_typescript_live_content.py hardcodes REAL_SOURCE_COMMIT (and possibly REAL_SYMBOL/
+  REAL_METHOD_FRAGMENT) against the fixture''s own source_commit/content - if your real re-run lands on a
+  different commit than what that file currently hardcodes (the real upstream repository may have moved since
+  TC-285''s own re-pin), update those constants in lockstep so report_index_freshness''s own live e2e assertion
+  stays correct, mirroring TC-285''s own precedent for this exact file. Do not change anything else in that
+  file, and do not touch it at all if the real re-run happens to land on the same commit it already hardcodes.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
 - Confirm TC-252/TC-261/TC-316 are integrated and real on main.
