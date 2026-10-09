@@ -381,7 +381,34 @@ def _cpp_is_free_function(node) -> bool:
     means *node* is a member function instead, handled by wholly separate
     logic elsewhere. Shared by is_public() and _node_name() so both agree on
     exactly which function_definition nodes count as free functions.
+
+    TC-276: an out-of-line, qualified member definition (`ReturnType
+    ClassName::Method(...) { ... }` in a .cpp file) is textually outside any
+    class body, so the ancestor walk above never passes through a
+    field_declaration_list and would otherwise misreport it as a free
+    function -- even though it is semantically a member (the real member is
+    already captured correctly from the class's own header declaration by
+    api_surface.py's dedicated field_declaration_list member loop). Verified
+    via a live tree-sitter-cpp parse probe that such a definition's
+    function_declarator (optionally wrapped in a reference_declarator/
+    pointer_declarator, exactly as _cpp_free_function_name() already
+    tolerates) has a 'qualified_identifier' child in place of the bare
+    identifier/field_identifier/destructor_name/operator_name a genuine free
+    function's declarator has -- so that node type alone, found as a direct
+    child of the (possibly-unwrapped) function_declarator, reliably
+    distinguishes this shape regardless of where it sits in the file.
     """
+    fdecl = find_child_by_type(node, "function_declarator")
+    if fdecl is None:
+        for wrapper_type in ("reference_declarator", "pointer_declarator"):
+            wrapper = find_child_by_type(node, wrapper_type)
+            if wrapper:
+                fdecl = find_child_by_type(wrapper, "function_declarator")
+                if fdecl:
+                    break
+    if fdecl is not None and find_child_by_type(fdecl, "qualified_identifier") is not None:
+        return False  # TC-276: out-of-line member
+
     ancestor = node.parent
     while ancestor is not None:
         if ancestor.type == "field_declaration_list":

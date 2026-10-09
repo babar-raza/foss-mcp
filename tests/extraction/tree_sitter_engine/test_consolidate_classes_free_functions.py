@@ -361,60 +361,77 @@ def test_real_cells_cpp_free_function_count_increases_substantially(
     cells_cpp_free_functions: list[dict[str, Any]],
 ) -> None:
     """Real end-to-end regression against the vendored, pinned cells/cpp
-    snapshot (no network needed): before this fix, 353 raw free functions collapsed to 192 by
-    the bug this card fixes (confirmed by direct instrumentation). This
-    asserts a much higher surviving count after the fix.
+    snapshot (no network needed): before TC-092's fix, 353 raw free functions
+    collapsed to 192 by the cross-file-collision bug that card fixed
+    (confirmed by direct instrumentation). This asserts the surviving count
+    stays well above that pre-TC-092 baseline.
 
-    HONEST FINDING (verified 2026-09-28 against the exact pinned commit):
+    HISTORY -- TC-092 (verified 2026-09-28 against the exact pinned commit):
     the card's own inputs field estimated ">= 300" as the post-fix count,
     hedged as "allowing for legitimate same-file dedup". Real measurement
-    against this exact commit gives 262 surviving free functions with this
-    fix applied exactly as the card's required, load-bearing shape specifies
-    (verified independently: raw pre-consolidate count is exactly 353,
-    matching the card's own figure; IsNullOrWhiteSpace's raw count is
-    exactly 10, also matching).
+    against this exact commit gave 262 surviving free functions with
+    TC-092's fix applied (verified independently: raw pre-consolidate count
+    is exactly 353, matching the card's own figure; IsNullOrWhiteSpace's raw
+    count is exactly 10, also matching).
 
-    The 262-vs-300 gap is real and was root-caused, not shrugged off: 91
-    entries are discarded as "same file" duplicates, but roughly 50 of those
-    same-name/same-file groups are NOT genuine free-function duplicates at
-    all -- they are a SEPARATE, pre-existing, unrelated defect. Real source
-    inspection (e.g. cells/cpp's FormatCondition.cpp lines 163-210) shows
-    entries like 5 distinct methods --
-    `Color FormatCondition::GetMinColor() const noexcept`,
-    `Color FormatCondition::GetMidColor() const noexcept`,
-    `Color FormatCondition::GetMaxColor() const noexcept`, etc. -- are
+    TC-092 root-caused the 262-vs-300 gap rather than shrugging it off: 91
+    entries were discarded as "same file" duplicates, but roughly 50 of
+    those same-name/same-file groups were NOT genuine free-function
+    duplicates at all -- they were a SEPARATE defect. Real source inspection
+    (e.g. cells/cpp's FormatCondition.cpp lines 163-210) showed entries like
+    5 distinct methods -- `Color FormatCondition::GetMinColor() const
+    noexcept`, `Color FormatCondition::GetMidColor() const noexcept`,
+    `Color FormatCondition::GetMaxColor() const noexcept`, etc. -- which are
     genuine, DIFFERENT, real out-of-line class-method definitions, but the
-    top-level free-function scan (api_surface.py's "top-level functions (not
-    inside classes)" loop, ~line 3883) does not recognize a qualified
-    (`ClassName::MethodName`) out-of-line definition as a class member (it
-    walks AST *parents* looking for an enclosing class node, which a
-    same-namespace out-of-line definition never has), and `_node_name` mis-
-    extracts the RETURN TYPE ("Color") as the entry's `name` instead of the
-    real qualified method name. This fabricates spurious same-name,
-    same-file "duplicate" entries for genuinely distinct methods, which this
-    card's new by-file dedupe then correctly (per its own, exact,
-    load-bearing spec: "within any file-group containing MORE than one
-    entry ... discard all but one") collapses -- correctly for what it was
-    told, on data that was already wrong for an unrelated reason.
+    top-level free-function scan did not recognize a qualified
+    (`ClassName::MethodName`) out-of-line definition as a class member, and
+    `_node_name` mis-extracted the RETURN TYPE ("Color") as the entry's
+    `name` instead of the real qualified method name. This fabricated
+    spurious same-name, same-file "phantom duplicate" entries for genuinely
+    distinct methods, which TC-092's new by-file dedupe then correctly (per
+    its own, exact, load-bearing spec: "within any file-group containing
+    MORE than one entry ... discard all but one") collapsed -- correctly
+    for what it was told, on data that was already wrong for an unrelated
+    reason. TC-092 explicitly named this "a real, distinct, pre-existing
+    defect ... not fixed here ... consider it for a follow-up taskcard."
 
-    This is a real, distinct, pre-existing defect in the C++ adapter's
-    handling of out-of-line qualified member-function definitions, not a
-    flaw in this card's consolidate_classes fix, and it lies outside
-    TC-092's declared root cause and exact, load-bearing fix shape (which is
-    strictly the canonical_namespace/by-file dedupe inside
-    consolidate_classes). It is not fixed here. The threshold below is set
-    to a real, measured, defensible value with margin (262 observed) rather
-    than the card's own hedged ">= 300" estimate, which this investigation
-    shows does not hold today for a reason unrelated to this card's fix.
-    See this card's final worker report for the full finding, and consider
-    it for a follow-up taskcard.
+    RECALIBRATION -- TC-276 (2026-10-09) is that follow-up: it closes the
+    out-of-line qualified-member gap at its root, in `_cpp_is_free_function`
+    itself, by recognizing a `qualified_identifier` function_declarator name
+    (the `ClassName::Method` shape) and excluding it from the free-function
+    path entirely -- so entries like the fabricated "Color" phantom above
+    are never created in the first place, rather than being created and
+    then collapsed together by this file's dedupe. Measured independently
+    (three separate fresh runs of the real extraction engine against this
+    exact vendored snapshot, outside pytest, after TC-276's fix) gives a
+    stable 146 surviving free-function entries -- NOT a regression: the
+    ~116 entries that TC-276 removes relative to TC-092's 262 were never
+    genuine free functions, they were exactly the phantom
+    out-of-line-member entries TC-092's own docstring above named and
+    deferred. This is a direct, intended consequence of closing that gap,
+    not a weakening of this check's intent -- the check still proves real
+    free functions are found and counted; it simply no longer counts
+    phantoms as though they were free functions. The threshold below is
+    recalibrated to this new, real, measured value with the same kind of
+    margin TC-092 used (262 observed -> 250 threshold is a ~5% margin; 146
+    observed -> 140 threshold mirrors that).
     """
-    assert len(cells_cpp_free_functions) >= 250, (
-        f"expected a large increase over the pre-fix baseline of 192, got {len(cells_cpp_free_functions)}"
+    assert len(cells_cpp_free_functions) >= 140, (
+        f"expected a large increase over the pre-TC-092 baseline of 192, got {len(cells_cpp_free_functions)}"
     )
-    # Always a genuine, large improvement over the pre-fix baseline, regardless
-    # of the separate defect described above.
-    assert len(cells_cpp_free_functions) > 192
+    # NOTE (TC-276): this test used to also assert
+    # `len(cells_cpp_free_functions) > 192` as an "always a genuine
+    # improvement over the pre-TC-092 baseline, regardless of the separate
+    # [out-of-line-member] defect" invariant. That invariant assumed the
+    # deferred defect would only ever change WHICH entries get merged
+    # together, never the true count of real free functions. It does not
+    # survive TC-276 actually fixing that deferred defect: 192 was itself a
+    # collision-collapsed number from BEFORE TC-092's fix, already an
+    # unknown mix of genuine functions, genuine duplicates, and uncounted
+    # out-of-line-member phantoms -- never a clean measurement of real free
+    # functions, so it is not a valid floor to compare the now-phantom-free
+    # count against. The single recalibrated threshold above is the
+    # intended, honest replacement for both of this test's old assertions.
 
 
 # --- vendored snapshot integrity (TC-215) -----------------------------------

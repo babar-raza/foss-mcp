@@ -141,3 +141,183 @@ def test_cpp_free_function_with_reference_return_type_is_unaffected(tmp_path: Pa
     assert "Identity" in by_name
     assert by_name["Identity"]["kind"] == "function"
     assert "Matrix" not in by_name or by_name["Matrix"]["kind"] != "function"
+
+
+# TC-276: the identical C1 fabrication shape recurs for an OUT-OF-LINE,
+# qualified member definition (`ReturnType ClassName::Method(...) { ... }`
+# in a .cpp file) -- textually outside any class body, so
+# _cpp_is_free_function()'s ancestor walk never passes through a
+# field_declaration_list and (before this card's fix) misreported it as a
+# genuine free function. _cpp_free_function_name() then couldn't find a name
+# either (the function_declarator's name child is a qualified_identifier,
+# e.g. `Worksheet::GetWorkbook`, a node type it doesn't check for), so
+# _node_name() fell through to the generic return-type fallback and
+# fabricated a phantom top-level entry named after the return type -- live-
+# confirmed against cells/cpp as a phantom top-level "Workbook" entry for
+# `Workbook& Worksheet::GetWorkbook()` (see docs/DECISION_LOG.md, 2026-10-09).
+# Each class below carries its real header-style member *declaration*
+# (no body) so the real member is still correctly captured by
+# api_surface.py's dedicated field_declaration_list member loop, exactly as
+# TC-276 confirmed is already the case for every real out-of-line definition.
+
+CPP_OUT_OF_LINE_REFERENCE_RETURN_MEMBER = """
+class Workbook {
+public:
+    Workbook() {}
+};
+
+class Worksheet {
+public:
+    Worksheet() {}
+    Workbook& GetWorkbook();
+
+private:
+    Workbook* _workbook;
+};
+
+Workbook& Worksheet::GetWorkbook() {
+    return *_workbook;
+}
+"""
+
+CPP_OUT_OF_LINE_VALUE_RETURN_MEMBER = """
+enum class OperatorType { Equal, NotEqual };
+
+class FormatCondition {
+public:
+    FormatCondition() {}
+    OperatorType GetOperator();
+
+private:
+    OperatorType _operator;
+};
+
+OperatorType FormatCondition::GetOperator() {
+    return _operator;
+}
+"""
+
+# A genuine out-of-line CONSTRUCTOR -- its qualified_identifier's final
+# component ("Foo") legitimately equals the class name, and (unlike the
+# reference/value-return cases above) a constructor has no return type to be
+# misnamed after in the first place. This proves the existing constructor
+# path -- already unaffected by the original bug, since there is no bare
+# return-type child for the fallback to seize on -- is also unaffected by
+# this card's fix: still no phantom second "Foo" entry, and the real
+# constructor is still correctly captured from the header declaration.
+CPP_OUT_OF_LINE_CONSTRUCTOR = """
+class Foo {
+public:
+    Foo(int x);
+
+private:
+    int _x;
+};
+
+Foo::Foo(int x) : _x(x) {}
+"""
+
+
+def test_cpp_out_of_line_reference_return_member_never_fabricates_phantom_type(
+    tmp_path: Path,
+) -> None:
+    types = _extract(tmp_path, CPP_OUT_OF_LINE_REFERENCE_RETURN_MEMBER, "workbook_test")
+
+    # The exact TC-276 bug: no phantom top-level FUNCTION entry is ever
+    # fabricated named after the out-of-line member's return type. (The real
+    # class "Workbook" legitimately exists in this source, so the check is
+    # on kind, not bare presence.)
+    assert not any(t["name"] == "Workbook" and t["kind"] == "function" for t in types), types
+
+    by_name = {t["name"]: t for t in types}
+    assert "Worksheet" in by_name
+    worksheet = by_name["Worksheet"]
+    methods_by_name = {m["name"]: m for m in worksheet["methods"]}
+
+    # The real member is still correctly captured -- from the class's own
+    # header-style declaration, exactly as TC-276 confirmed is already the
+    # case -- under its real name, with its real return type.
+    assert "GetWorkbook" in methods_by_name
+    assert "Workbook" in methods_by_name["GetWorkbook"]["return_type"]
+
+
+def test_cpp_out_of_line_value_return_member_never_fabricates_phantom_type(
+    tmp_path: Path,
+) -> None:
+    types = _extract(tmp_path, CPP_OUT_OF_LINE_VALUE_RETURN_MEMBER, "format_condition_test")
+
+    # The exact TC-276 bug for a VALUE return type: no phantom top-level
+    # FUNCTION entry named "OperatorType".
+    assert not any(t["name"] == "OperatorType" and t["kind"] == "function" for t in types), types
+
+    by_name = {t["name"]: t for t in types}
+    assert "FormatCondition" in by_name
+    methods_by_name = {m["name"]: m for m in by_name["FormatCondition"]["methods"]}
+
+    assert "GetOperator" in methods_by_name
+    assert "OperatorType" in methods_by_name["GetOperator"]["return_type"]
+
+
+def test_cpp_out_of_line_constructor_still_handled_correctly(tmp_path: Path) -> None:
+    """A constructor has no return type, so the original C1/TC-276
+    fabrication mechanism (misnaming a member after its bare return-type
+    child) never had anything to seize on for this shape -- confirmed via
+    a live parse probe that `Foo::Foo(int x)`'s function_definition has no
+    bare identifier/type_identifier direct child at all. This was already
+    true before this card's fix (the old, incorrectly-True
+    _cpp_is_free_function() result still led to an empty name here, via a
+    different route) and must remain true after it: exactly one top-level
+    "Foo" entry -- the real class -- never a second, phantom one.
+    """
+    types = _extract(tmp_path, CPP_OUT_OF_LINE_CONSTRUCTOR, "foo_ctor_test")
+
+    foo_entries = [t for t in types if t["name"] == "Foo"]
+    assert len(foo_entries) == 1, types
+    assert foo_entries[0]["kind"] != "function"
+
+
+def test_cpp_out_of_line_member_fix_does_not_disturb_tc259_inline_and_free_function_cases(
+    tmp_path: Path,
+) -> None:
+    """Regression check: combine TC-259's own inline-member and genuine-
+    free-function sources with this card's new out-of-line-member shape in a
+    single parse, and prove every TC-259 assertion still holds unchanged
+    alongside the new fix -- the two code paths (ancestor-walk member check,
+    new qualified_identifier declarator check) must not interact.
+    """
+    combined = (
+        CPP_MEMBER_REFERENCE_RETURN
+        + CPP_FREE_FUNCTION_REFERENCE_RETURN
+        + CPP_OUT_OF_LINE_REFERENCE_RETURN_MEMBER
+    )
+    types = _extract(tmp_path, combined, "combined_test")
+    by_name = {t["name"]: t for t in types}
+
+    # TC-259's inline-member case: still correctly extracted, still never
+    # misnamed after its return type.
+    assert "Borders" in by_name
+    borders = by_name["Borders"]
+    method_names = {m["name"] for m in borders["methods"]}
+    property_names = {p["name"] for p in borders["properties"]}
+    assert "Border" not in method_names, method_names
+    assert "Border" not in property_names, property_names
+    methods_by_name = {m["name"]: m for m in borders["methods"]}
+    assert "GetLeft" in methods_by_name
+    assert "Border" in methods_by_name["GetLeft"]["return_type"]
+    assert "SetLeft" in method_names
+    assert "Borders" in method_names  # constructor
+    assert "GetDiagonalUp" in method_names
+    assert "SetDiagonalUp" in method_names
+
+    # TC-259's genuine-free-function case: still resolves to its real name.
+    assert "Identity" in by_name
+    assert by_name["Identity"]["kind"] == "function"
+    assert "Matrix" not in by_name or by_name["Matrix"]["kind"] != "function"
+
+    # TC-276's new out-of-line-member case: still no phantom, alongside both
+    # of the above.
+    assert not any(t["name"] == "Workbook" and t["kind"] == "function" for t in types), types
+    assert "Worksheet" in by_name
+    worksheet_methods = {m["name"]: m for m in by_name["Worksheet"]["methods"]}
+    assert "GetWorkbook" in worksheet_methods
+    assert "Workbook" in worksheet_methods["GetWorkbook"]["return_type"]
