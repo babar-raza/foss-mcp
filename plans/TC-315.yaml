@@ -1,0 +1,106 @@
+id: TC-315
+gate: G2
+lane: extraction
+purpose: 'A genuine extraction-engine defect found by TC-311''s worker while attempting to re-pin jmap/nodejs''s
+  fixture (recorded in docs/DECISION_LOG.md 2026-10-09): src/foss_mcp/extraction/tree_sitter_engine/api_surface.py''s
+  per-language canonical_namespace/class_import derivation (~line 3867-4027) has explicit branches for cpp,
+  java, csharp, python, typescript, and rust - but NONE for javascript, the language this project''s own
+  "nodejs" pilots actually extract under (confirmed live: jmap/nodejs''s fresh extraction reports
+  `"language": "javascript"`). Without a namespace signal, two files'' worth of same-bare-name classes collide
+  into one `consolidate_classes()` dedup group as if they were the same type. Live-confirmed on the real,
+  pinned jmap/nodejs repository: `src/client-core.js` declares the real, full `JmapClient` (bases=[], the real
+  session/request/echo/uploadBlob/downloadBlob implementation); `src/index.js` separately declares a near-empty
+  wrapper also named `JmapClient` (`class JmapClient extends CoreClient {}`, via
+  `import { JmapClient as CoreClient } from "./client-core.js"`, so the alias defeats
+  consolidate_classes'' own Category 3 shim-detection, which only matches a base literally named after the
+  dropped duplicate). Both entries land in the same `ns=""` group and hit Category 2 ("stub vs full": a class
+  with `bases` is assumed more complete than one without) - which is backwards here, so the real, full
+  implementation is discarded and the near-empty wrapper survives with zero real methods. The committed fixture
+  would silently lose the entire real JmapClient API if regenerated as-is; TC-311''s worker correctly stopped
+  rather than commit over this.'
+depends_on:
+- TC-001
+- TC-010
+- TC-051
+- TC-241
+- TC-261
+- TC-293
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- tests/extraction/tree_sitter_engine/test_api_surface_javascript.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read the existing per-language canonical_namespace/class_import branches (~line 3867-4027), paying closest
+  attention to the `typescript` branch (~line 3961-3995, added by TC-DUPIDX-06 for the identical reason: "no
+  namespace-equivalent field at all"). Also read consolidate_classes'' Category 2/3 logic (~line 2300-2385) so
+  you understand exactly how the missing branch causes the real failure mode described above - reproduce it
+  yourself first (either against a small synthetic two-file fixture mirroring the real jmap/nodejs shape, or
+  directly against the real pinned jmap/nodejs repository over the network) before writing a fix.'
+- 'Add an `elif language == "javascript":` branch mirroring the typescript branch''s file-path-derived
+  module_path logic (NOT its `_ts_namespace_chain()` call - that reads a TypeScript-only `namespace { }`
+  construct that has no JavaScript equivalent and whose tree-sitter node type will not exist in a JS parse
+  tree; skip that part entirely for this branch). Derive module_path from the file''s path relative to
+  pkg_root, stripping the `.js`/`.mjs`/`.cjs`/`.jsx` extension and collapsing an `index` file segment exactly
+  as the typescript branch already does for `.ts`/`.tsx`/`index` - check yourself whether this project''s own
+  JS extraction path actually emits any of `.mjs`/`.cjs`/`.jsx` for a real pilot, or only `.js`, and handle
+  whichever you confirm live rather than guessing the full set blindly.'
+- 'Verify live against the real, pinned jmap/nodejs repository (network access available; do NOT regenerate the
+  committed fixture as part of this card - that is explicitly deferred to a re-dispatch of TC-311 once this
+  lands, mirroring every other root-cause-then-repin split this session has already used) that `client-core.js`
+  and `index.js` now derive DIFFERENT canonical_namespace/class_import values for their respective `JmapClient`
+  entries (e.g. `client-core.JmapClient` vs `index.JmapClient`), so they no longer collide in the same
+  consolidate_classes dedup group at all, and confirm the real, full JmapClient implementation (with its real
+  methods) now survives extraction rather than being discarded.'
+- 'If, after adding the javascript branch, you find the two entries STILL collide for some reason you did not
+  anticipate (e.g. both files genuinely deriving to an identical module_path), THEN also address
+  consolidate_classes'' Category 2 heuristic itself - but treat the namespace branch as the primary, expected
+  fix and the heuristic as a secondary fallback only if genuinely still needed; report explicitly which one(s)
+  you ended up touching and why.'
+- 'Add tests to a new file, tests/extraction/tree_sitter_engine/test_api_surface_javascript.py (check whether an
+  analogous test_api_surface_typescript.py or similar already exists and mirror its own construction convention
+  if so) - at minimum: two same-bare-name classes in different files deriving distinct canonical_namespace/
+  class_import values and NOT being merged by consolidate_classes; a regression test proving the existing
+  typescript/python/rust branches are completely unchanged by this addition.'
+- 'Run the full existing test suite once and report honestly. If anything outside your two write_paths breaks,
+  STOP and report rather than patching around it.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Reproduce the missing-javascript-branch collision yourself before writing a fix.
+- Add a javascript canonical_namespace/class_import branch mirroring typescript's file-path-derived logic
+  (without the TS-only namespace-chain call); verify live against the real jmap/nodejs repository that the two
+  real JmapClient entries no longer collide and the real implementation survives.
+- Only if still necessary, also address consolidate_classes' Category 2 stub/full heuristic.
+- Add tests for the new branch and a regression test for the unaffected languages; run the full suite once.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_api_surface_javascript.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 4
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');q=chr(34);old='language == '+q+'javascript'+q;new='language == '+q+'javascript_DISABLED'+q;i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Renames the javascript branch's own condition so it never matches, reverting to the pre-fix
+    behavior (no namespace signal for javascript at all) - failing every new test proving the two real
+    same-name classes now derive distinct namespaces. Built with plain text, using rindex per this session's
+    established vacuous-falsifier safeguard. If the worker's own branch condition differs from this exact
+    string, this falsifier must be updated to match - report explicitly rather than silently conforming to a
+    pre-written falsifier.
+evidence:
+- evidence/build/G2/TC-315/receipt.json
+closeout:
+- api_surface.py now derives a real canonical_namespace/class_import for javascript-language classes, closing
+  the gap that let two genuinely distinct same-bare-name classes from different files collide in
+  consolidate_classes' dedup logic and silently discard a real implementation in favor of a near-empty wrapper -
+  live-verified against the real jmap/nodejs repository's own JmapClient collision. TC-311 (or a respin of it)
+  should be re-dispatched once this lands to actually re-pin the fixture.
+recovery: Re-run from a clean tree.

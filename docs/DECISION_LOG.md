@@ -2204,3 +2204,31 @@ never assumed to be "just like TC-282-303's fixed cases."
 
 **Remaining tree-sitter wave (11 pilots, not yet authored):** cells_java, cells_net, cells_typescript,
 email_net, jmap_cpp, jmap_java, jmap_net, jmap_nodejs, jmap_rust, jmap_typescript, slides_net.
+
+## 2026-10-09 — Two more genuine extraction-engine defects found while running the second tree-sitter wave
+Both workers correctly stopped without committing a fixture that would bake in known-wrong results.
+
+**TC-311 (jmap/nodejs)**: `api_surface.py`'s per-language canonical_namespace/class_import derivation has no
+branch for `javascript` (only cpp/java/csharp/python/typescript/rust). Live-confirmed on the real pinned
+repository: `src/client-core.js` declares the real, full `JmapClient` (bases=[]); `src/index.js` separately
+declares a near-empty wrapper also named `JmapClient` (`class JmapClient extends CoreClient {}`, via an import
+alias that defeats `consolidate_classes()`'s own Category 3 shim-detection). With no namespace signal, both
+collide into one dedup group and hit Category 2's "has bases = more complete" heuristic - backwards here - so
+the real implementation is silently discarded in favor of the empty wrapper. Fix authored as TC-315: add a
+`javascript` branch mirroring the existing `typescript` one (file-path-derived module_path, without
+TypeScript's namespace-chain call, which has no JS equivalent).
+
+**TC-306 (cells/typescript)**: `tree_helpers.py`'s `_extract_bases()` generic child-type loop recognizes
+TypeScript's class-level `class_heritage`/`extends_clause`/`implements_clause` but not `extends_type_clause` -
+confirmed via a live parse probe to be the real node type for an INTERFACE extending another interface. Live-
+confirmed on the real pinned repository: `aspose_cells/types.ts` has 19 real `interface X extends ShapeInfo`
+declarations, with `ShapeInfo` itself declaring 15+ real members none of the children redeclare - a real,
+substantial relationship currently extracting as `bases: []` with zero trace. The worker also found this is
+cross-cutting: pdf/typescript (an already-closed sibling) shows no interface-extends-interface `bases` entries
+either, consistent with the identical gap being silently present there too, previously undetected only because
+that pilot's own real inheritance happened to be entirely class-level. Fix authored as TC-316: add
+`extends_type_clause` to the recognized-child-types tuple, reusing the existing strip/comma-split logic every
+other recognized type already shares.
+
+Both TC-311 and TC-306 remain blocked/open; both fix cards should be re-dispatched (or the originals resumed)
+once TC-315/TC-316 land.

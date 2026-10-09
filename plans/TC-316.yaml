@@ -1,0 +1,104 @@
+id: TC-316
+gate: G2
+lane: extraction
+purpose: 'A second, independent genuine extraction-engine defect found by TC-306''s worker while attempting to
+  re-pin cells/typescript''s fixture (recorded in docs/DECISION_LOG.md 2026-10-09): tree_sitter_engine/
+  tree_helpers.py''s `_extract_bases()` generic child-type loop (~line 893-902) recognizes TypeScript''s class-
+  level `class_heritage`/`extends_clause`/`implements_clause` nodes, but NOT `extends_type_clause` - the real
+  tree-sitter-typescript node type for an INTERFACE extending another interface (confirmed via a live parse
+  probe: `export interface ChartInfo extends ShapeInfo {}` parses as
+  `interface_declaration -> type_identifier, extends_type_clause[extends, type_identifier], interface_body`).
+  Live-confirmed on the real, pinned cells/typescript repository: `aspose_cells/types.ts` has 19 real
+  `interface X extends ShapeInfo { ... }` declarations, and `ShapeInfo` itself declares 15+ real members
+  (name/fromCol/fill/lineColor/x/y/cx/cy/xfrmX/xfrmY/picCx/picCy/...) that the child interfaces do not
+  redeclare - a real, substantial inheritance relationship that currently extracts as `bases: []` for every one
+  of the 19 children, with no trace anywhere in the fixture. The worker also found this is cross-cutting, not
+  pilot-specific: pdf/typescript (an already-closed sibling pilot) has no interface-extends-interface `bases`
+  entries tagged either, consistent with the identical gap being silently present there too, undetected until
+  now because that pilot''s own real inheritance happened to be entirely class-level (`class_heritage`, already
+  handled).'
+depends_on:
+- TC-001
+- TC-010
+- TC-051
+- TC-241
+- TC-261
+- TC-293
+- TC-168
+- TC-259
+- TC-276
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py
+- tests/extraction/tree_sitter_engine/test_tree_helpers.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read `_extract_bases()`''s full generic child-type loop (~line 867-924) before changing anything, including
+  the class_heritage sub-clause handling above it and the comma-split/preprocessor-stripping logic below the
+  tuple membership check. Reproduce the gap yourself first: run a live parse probe (tree-sitter-typescript,
+  already a project dependency) on a small synthetic `export interface Child extends Parent {}` snippet and
+  confirm directly, in your own session, that the real node type is `extends_type_clause` and that it is
+  currently NOT in the recognized-child-types tuple at ~line 893-902.'
+- 'Add `"extends_type_clause"` to that tuple. The existing generic-path logic immediately after the tuple
+  membership check already strips a leading `extends`/`implements`/`:` keyword and comma-splits for multiple
+  bases (`interface Foo extends A, B {}`) - this should be the ONLY change needed, reusing that logic exactly
+  as every other recognized node type in the tuple already does. Do not duplicate or special-case the
+  stripping/splitting logic for this new node type unless your own live verification shows a real structural
+  difference that requires it - report explicitly if you find one.'
+- 'Verify live against the real, pinned cells/typescript repository (network access available; do NOT
+  regenerate any committed fixture as part of this card - that is explicitly deferred to a re-dispatch of
+  TC-306 once this lands, mirroring every other root-cause-then-repin split this session has already used) that
+  at least one of the 19 real `interface X extends ShapeInfo` relationships now correctly extracts `bases:
+  ["ShapeInfo"]`, and that ShapeInfo''s own real members are available for `_flatten_inheritance()` to copy
+  once TC-306 re-runs (you do not need to run the flattening step yourself - just confirm bases now populates
+  correctly, which is this card''s own scope).'
+- 'Also check (do not assume) whether pdf/typescript''s own real pinned source has any genuine interface-
+  extends-interface relationship that was silently missed the same way, per the worker''s own finding that this
+  gap is cross-cutting. If you find one, report it explicitly; do not regenerate that fixture either (also
+  deferred to its own follow-up card) - this card''s job is the engine fix and its own verification only.'
+- 'Add tests to tests/extraction/tree_sitter_engine/test_tree_helpers.py (read this file''s own existing
+  class_heritage/extends_clause test conventions first and mirror them): a synthetic interface-extends-interface
+  case correctly extracting bases, a multi-interface-extends case (`interface Foo extends A, B {}`) correctly
+  splitting into two bases, and a regression test proving every other recognized node type in the tuple
+  (class_heritage, extends_clause, implements_clause, superclass, base_list, etc.) is completely unchanged by
+  this addition.'
+- 'Run the full existing test suite once and report honestly. If anything outside your two write_paths breaks,
+  STOP and report rather than patching around it.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Reproduce the extends_type_clause gap yourself with a live parse probe before writing a fix.
+- Add "extends_type_clause" to _extract_bases()'s recognized-child-types tuple; verify live against the real
+  cells/typescript repository that a real interface-extends-interface relationship now correctly populates bases.
+- Check whether pdf/typescript has the same gap and report honestly either way, without regenerating its fixture.
+- Add tests for the new node type and a regression test for every existing recognized type; run the full suite once.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_tree_helpers.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 4
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py');s=p.read_text(encoding='utf-8');q=chr(34);old=q+'extends_type_clause'+q;new=q+'extends_type_clause_DISABLED'+q;i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Renames the last occurrence of "extends_type_clause" - the tuple entry this card adds - so it no
+    longer matches the real node type, reverting to pre-fix behavior (interface-extends-interface silently
+    produces empty bases). Built with chr() for the embedded quote character per this session's falsifier rule,
+    using rindex per this session's established vacuous-falsifier safeguard. If the worker's own string differs,
+    this falsifier must be updated to match - report explicitly rather than silently conforming to a
+    pre-written falsifier.
+evidence:
+- evidence/build/G2/TC-316/receipt.json
+closeout:
+- tree_helpers.py's _extract_bases() now recognizes TypeScript's extends_type_clause (interface-extends-
+  interface), closing a cross-cutting gap that silently dropped every such relationship to an empty bases list
+  regardless of pilot - live-verified against the real cells/typescript repository's 19 real ShapeInfo-derived
+  interfaces. TC-306 (or a respin of it) should be re-dispatched once this lands to actually re-pin the fixture.
+recovery: Re-run from a clean tree.
