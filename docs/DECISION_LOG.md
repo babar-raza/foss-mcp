@@ -1854,3 +1854,41 @@ false negative, not a ranking/threshold problem) requiring its own measurement a
 audit's own C7 description does not obviously cover it - folding it into TC-278 risked exactly the "fixed it as
 a side effect" scope creep this project's governance exists to prevent. Tracked as its own finding here;
 **status: not yet authored as a taskcard** as of this entry - the next supervisor action on this track.
+
+## 2026-10-09 — C7 fully closed (TC-278, TC-279); a third, incidental bug fixed in the same track (TC-280)
+TC-278 landed both fixes: tier-ordered ranking (full-FQN > final-segment > bag-of-words, BM25 only as the
+within-tier tiebreak - a pure reordering, verified to add/remove no result) and a measured precision floor on
+the bag-of-words tier specifically. The floor''s signal was independently re-derived, not assumed: a symmetric
+overlap-ratio candidate was measured and REJECTED (the real false positive scored 0.333, higher than a required
+true positive''s 0.250 - the identical diagnostic shape that disqualified reusing TC-273''s own threshold for
+this different signal); a contiguous-run/order-constraint candidate correctly separated every real false
+positive from every required true positive across 3 real pilots and was adopted. One real consequence of Fix A
+surfaced and was resolved cleanly: `is_exact_symbol_hit` lost its last production caller once `search_symbols()`
+switched to calling `_match_tier` directly for the tier value - rather than padding `_KNOWN_UNWIRED` (the
+project''s own test_unwired_modules.py documents that list as one that should shrink, not grow), the function
+was deleted and its one remaining test caller updated to call `_match_tier` directly, with identical boolean
+meaning.
+
+TC-279 then closed the separate, deliberately-deferred granularity gap (chunk-level-only FQN matching making
+method/property queries impossible) by adding a fourth tier that recognizes a query naming a real member inside
+a chunk''s own already-rendered Methods:/Properties: blocks (reusing get_symbol.py''s existing `_extract_block`
+parser, never reimplemented), placed between the final-segment and bag-of-words tiers. The real multi-
+declaration ambiguity case (the same method name on several distinct types) was verified against real data
+(`"Dispose"`, genuinely declared on 9 distinct real pdf/net types) rather than assumed, and resolved by admitting
+all of them - exactly how the pre-existing tiers already behave for multiple same-tier class matches.
+
+A third, incidental defect was found and fixed as its own card (TC-280), not folded into either: running the
+full suite for TC-278 surfaced that `tests/e2e/test_pdf_net_live_content.py` had been silently stale since
+TC-263 regenerated pdf/net''s fixture days earlier (`AFRelationship`, its hardcoded anchor enum, no longer
+survives the centrality-ranked cut at all) - the exact same "nothing re-ran this file against the newer content
+until something else happened to touch it" gap AGENTS.md''s own Integration-and-liveness section warns about.
+Re-anchored on real, verified-present content (`Page`, `HorizontalAlignment`/`FullJustify`), and a second,
+genuinely separate pre-existing bug was found and fixed in the same pass: `REAL_SOURCE_COMMIT` had been silently
+overloaded for two different pins (the symbol fixture''s own commit vs. the furnished example''s compile-
+verification pin) that coincided before TC-263 and diverged after - split into `REAL_SOURCE_COMMIT`/
+`REAL_EXAMPLE_SOURCE_COMMIT`, mirroring the identical, already-established split in
+`test_pdf_typescript_live_content.py` rather than inventing a new pattern.
+
+All three cards (TC-278, TC-279, TC-280) are integrated. C7 is closed. Remaining from the third audit: C6 (per-
+language extraction fidelity, full-chain verification), C8 (narrative documentation gap, P2), and OWNER-11 (B08,
+owner-only).
