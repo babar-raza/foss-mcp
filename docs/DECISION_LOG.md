@@ -1970,3 +1970,38 @@ richer, more specific data" principle TC-261's own `m.get("inherited_from") or p
 for provenance rooting. Must verify the fix live against 3d/python (the real reproduction already in hand) and
 at least one other real pilot, and must not disturb the full-`class_import`-keyed resolution path at all (that
 path was already unambiguous and correct before this fix).
+
+## 2026-10-09 — a third, distinct root cause for html_python's zero inherited_from tags: TC-274's underscore-re-export recovery never extracts methods, only class-level fields
+TC-289 (another card in the same 5-pilot follow-up wave as TC-288) stopped correctly without committing a
+fixture regeneration that would still show zero `inherited_from` tags, and found a third genuine root cause,
+distinct from both TC-281 (flattening never executed for Python) and TC-288/TC-293 (the short-name-collision
+defect in `_flatten_inheritance()` itself).
+
+`python_surface.py`'s `_origin_definition()` (TC-274's own fix, added to recover structured data for a symbol
+reachable only through an underscore-prefixed impl-module re-export — the common `_foo.py` implementation file
+re-exported via `__init__.py` convention) resolves the real `ast.ClassDef` and extracts `bases`/`return_type`/
+`param_types`/`docstring`/`signature` via `_structured_fields(found)`. It never calls `_methods()` on that same
+`found` node. `_methods()` (defined at line 236, the function that normally walks a class body to build each
+method's own `PublicSymbol` entry) is only ever invoked from `_module_symbols()`'s own normal per-file scan path
+— and `_module_symbols()` refuses to scan underscore-prefixed modules at all. So for any class whose real
+definition lives behind an underscore-prefixed module and is only reachable via re-export, its methods are never
+created as their own symbol-table entries anywhere, regardless of how correctly the class-level re-export
+recovery or `_flatten_inheritance()`'s own short-name resolution behave.
+
+Confirmed live and measured: html_python is close to a worst case for this convention (TC-267's own earlier
+finding: 97% of its real classes use it). Across the full 323-type real extraction (commit
+`bf0f1e7a6d29ca9e14de576fe3ff1aa49ddbaf11`), only 2 of 323 types (`CSS`, `HTMLDocument`) carry any methods at
+all. `HTMLElement` — the #1-centrality anchor and the real base of 156 real subclasses — has zero own methods,
+despite its real upstream source (`dom/_html_element.py`) defining roughly 15 real public methods/properties
+(`click`, `focus`, `blur`, `show_popover`, `title`, `tab_index`, `hidden`, ...), all silently dropped. With zero
+methods on the base, `_flatten_inheritance()` (even once both TC-281 and the pending TC-293 fix are in place)
+has nothing to copy onto any subclass — this defect sits upstream of, and independent from, both of those.
+
+**Fix plan (next taskcard, TC-294, to be authored and dispatched):** extend the underscore-re-export recovery
+path so that when it resolves a real `ast.ClassDef`, it also extracts that class's own methods (reusing
+`_methods()` or equivalent logic) and makes them available as real `PublicSymbol` entries attributed to the
+class's *public* re-exported qualified name — not the private origin module's own qualified name, so that
+`run_extraction.py`'s own method-grouping-by-prefix logic in `_python_types_from_surface()` picks them up under
+the correct, public class. Must verify live against html_python (the real reproduction already in hand) and at
+least one other real pilot using the same convention, and must not disturb the existing, already-correct
+non-underscore resolution path.
