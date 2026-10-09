@@ -199,6 +199,102 @@ def test_extract_pinned_repository_records_language_python_with_no_network(
     assert "unresolved" in artifact and artifact["unresolved"]
 
 
+PACKAGE_INHERITANCE = '''"""Package with a real base/subclass relationship, for TC-281's inheritance-
+flattening fix: api_surface._flatten_inheritance() is now reached on the Python path too.
+"""
+
+
+class Base:
+    """The base class."""
+
+    def inherited_method(self):
+        """A method Child inherits unchanged - must gain inherited_from pointing to Base."""
+        return None
+
+    def overridden_method(self):
+        """Base's own version - Child declares its own, which must win and stay untagged."""
+        return "base"
+
+
+class Child(Base):
+    """Subclass: one own-only method, plus an override of a method Base also declares."""
+
+    def own_method(self):
+        """Declared only here - must never gain an inherited_from tag."""
+        return None
+
+    def overridden_method(self):
+        """Child's own override, same name as Base's - must stay Child's own, untagged."""
+        return "child"
+'''
+
+
+def _write_inheritance_package(root: Path) -> None:
+    """A src-layout python package mirroring ``_write_package``'s own convention, carrying a
+    real local-base ``Child(Base)`` relationship instead of ``_write_package``'s unrelated
+    classes.
+    """
+    (root / "pyproject.toml").write_text('[project]\nname = "widgets"\n', encoding="utf-8")
+    pkg = root / "src" / "widgets"
+    pkg.mkdir(parents=True)
+    (pkg / "__init__.py").write_text('"""A small product package."""\n', encoding="utf-8")
+    (pkg / "core.py").write_text(PACKAGE_INHERITANCE, encoding="utf-8")
+
+
+def test_extract_python_surface_flattens_inherited_members_from_a_real_base_class(
+    tmp_path: Path,
+) -> None:
+    """TC-281: api_surface._flatten_inheritance() is fully language-agnostic (it operates
+    purely on class_import/name/bases/methods/properties dict keys) but never ran for any
+    Python-sourced pilot before this fix, because run_extraction.py routed Python entirely
+    through python_surface.py, never through api_surface.extract_api_surface() - the only
+    other place _flatten_inheritance() was invoked. After the fix, a subclass's own methods
+    list must genuinely include its real base class's methods, each tagged with the correct
+    inherited_from pointing at the real declaring ancestor's class_import.
+    """
+    _write_inheritance_package(tmp_path)
+    types, _unresolved = run_extraction._extract_python_surface(tmp_path)
+    by_name = {entry["name"]: entry for entry in types}
+
+    base = by_name["Base"]
+    child = by_name["Child"]
+    assert child["bases"] == ["Base"]
+
+    method_names = {m["name"] for m in child["methods"]}
+    assert "inherited_method" in method_names, "Base's method must now be copied onto Child"
+
+    inherited = next(m for m in child["methods"] if m["name"] == "inherited_method")
+    assert inherited["inherited_from"] == base["class_import"]
+    # The base's own entry for the same method must never itself carry an inherited_from -
+    # it is genuinely declared there, not copied from anywhere.
+    base_inherited_method = next(m for m in base["methods"] if m["name"] == "inherited_method")
+    assert "inherited_from" not in base_inherited_method
+
+
+def test_extract_python_surface_never_tags_a_genuinely_own_declared_method(
+    tmp_path: Path,
+) -> None:
+    """Regression (mirrors TC-261's own do-not-break convention from
+    test_flatten_inheritance_provenance.py, applied here for the Python path for the first
+    time): a method the subclass declares itself - even one that shares a name with a base
+    method it overrides - must never gain an inherited_from key at all.
+    """
+    _write_inheritance_package(tmp_path)
+    types, _unresolved = run_extraction._extract_python_surface(tmp_path)
+    by_name = {entry["name"]: entry for entry in types}
+    child = by_name["Child"]
+
+    own_method = next(m for m in child["methods"] if m["name"] == "own_method")
+    assert "inherited_from" not in own_method
+
+    # Child's own override shares a name with Base's method - the child's own declaration
+    # must win (not be duplicated or replaced by the base's copy) and must stay untagged.
+    overridden = [m for m in child["methods"] if m["name"] == "overridden_method"]
+    assert len(overridden) == 1, "the override must not be duplicated by the flattening pass"
+    assert "inherited_from" not in overridden[0]
+    assert overridden[0]["doc"].startswith("Child's own override")
+
+
 def _class_symbol(qualified_name: str, *, bases: tuple[str, ...] = ()) -> PublicSymbol:
     module, name = qualified_name.rsplit(".", 1)
     return PublicSymbol(qualified_name, module, name, "class", "pkg/mod.py", 1, "name", bases=bases)

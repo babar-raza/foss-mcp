@@ -161,7 +161,15 @@ def _extract_python_surface(clone_root: Path) -> tuple[list[dict[str, Any]], lis
     """
     package_dirs = _python_package_dirs(clone_root)
     surface = python_surface.inspect_public_surface(clone_root, package_dirs)
-    return _python_types_from_surface(surface), list(surface.unresolved)
+    types = _python_types_from_surface(surface)
+    # TC-281: api_surface._flatten_inheritance() is fully language-agnostic (it operates
+    # purely on class_import/name/bases/methods/properties dict keys, which the adapter above
+    # already populates) but was never reached for any Python-sourced pilot - extract_from_clone
+    # routes "python" around api_surface.extract_api_surface() entirely (see its own docstring),
+    # the only other call site. Reusing it unmodified here, rather than writing a second
+    # Python-specific flattening implementation, closes that gap for every Python pilot.
+    api_surface._flatten_inheritance(types)
+    return types, list(surface.unresolved)
 
 
 def extract_from_clone(clone_root: Path, manifest: dict[str, Any]) -> tuple[list[dict[str, Any]], list[str]]:
