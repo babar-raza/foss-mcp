@@ -251,9 +251,7 @@ def test_real_inherited_members_carry_the_correct_inherited_from_tag() -> None:
     # 20 real interfaces (`ChartInfo` plus 19 `*ShapeInfo` shape-kind interfaces) extend
     # `ShapeInfo` in the real upstream source - confirmed by hand-counting
     # `grep -c 'extends ShapeInfo' aspose_cells/types.ts` against the pinned commit.
-    shape_info_subtypes = [
-        entry["name"] for entry in data["types"] if entry.get("bases") == ["ShapeInfo"]
-    ]
+    shape_info_subtypes = [entry["name"] for entry in data["types"] if entry.get("bases") == ["ShapeInfo"]]
     assert len(shape_info_subtypes) == 20
 
     # `Style` (a real class, `aspose_cells/style.ts`) `implements StyleType` - an import-alias
