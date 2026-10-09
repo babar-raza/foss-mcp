@@ -18,25 +18,37 @@ pdf/typescript's, pdf/java's, or pdf/go's:
 
 - ``REAL_SYMBOL``/``REAL_SOURCE_COMMIT`` come from the real, committed
   ``tests/fixtures/slides_python/api_surface.json`` fixture. Its real ``source_commit`` is
-  ``4e63447ba79d1c27a5192844847d9f872c5b92ad``. Its raw ``types`` list carries TWO real entries
-  per class (one facade entry read from ``aspose/slides_foss/__init__.py`` with an empty
-  ``methods`` list, one from the class's own module with the real method list) - confirmed by
-  reading every one of the first 20 raw entries directly. The 5th/6th entries (index 4/5, well
-  within ``build_chunks_from_api_surface``'s default ``max_types=20``) are both real
-  ``AutoShape`` entries; index 5's own ``class_import``
-  (``aspose.slides_foss.AutoShape.AutoShape``) carries its 5 real methods, including
-  ``add_text_frame`` - a real, distinctive, well within-reach entry, this pilot's own equivalent
-  of pdf/net's ``AFRelationship``.
-- No enum entry within this fixture's own ``max_types=20`` slice carries any real members: its
-  two real ``enum``-kind entries in that slice (``BackgroundType``, ``BevelPresetType``, at index
-  8/9 and 18/19) both have an empty ``enum_members`` list in the raw fixture itself - confirmed by
-  reading every one of the first 20 raw entries' own ``enum_members`` directly. This file
+  ``4e63447ba79d1c27a5192844847d9f872c5b92ad`` (unchanged across TC-264/TC-277 - same pinned
+  commit, only the kept selection changed). G2/TC-277 regenerated this fixture for real with
+  TC-252's centrality-ranked ``reduce_fixture()`` now that TC-265 makes every Python-sourced
+  entry's ``bases``/``return_type``/``param_types`` real - previously every Python type scored
+  zero centrality, a complete no-op (TC-264 found this directly). ``infra/build_chunks.py``
+  publishes this pilot with ``--max-types 300`` (docker-compose.yml) - the WHOLE kept fixture, not
+  some smaller slice of it - so every one of this fixture's own 300 kept entries is genuinely
+  reachable through this live container, not only an early slice of it.
+
+  Its raw ``types`` list still carries TWO real entries per class (one facade entry read from
+  ``aspose/slides_foss/__init__.py`` with an empty ``methods`` list, one from the class's own
+  module with the real method list) - confirmed by reading this fixture's own committed content
+  directly. The OLD anchor, ``AutoShape``, does not survive this real centrality cut (confirmed
+  directly: its centrality score is 0, because this library types almost everything against its
+  own interfaces - ``IAutoShape``, ``IShape``, etc. - rather than the concrete class, so nothing
+  else's real ``bases``/``return_type``/``params`` textually references the bare word
+  "AutoShape" anywhere in the real corpus; the same real reason "Presentation" itself - the
+  symbol this whole multi-card effort originally chased - legitimately never survives the cut
+  either). The real replacement, ``Shape``/``aspose.slides_foss.Shape.Shape``, DOES survive
+  (confirmed directly against this fixture's own committed content, at index 136 of 300): its
+  real definition entry carries 27 real methods and, unlike every previous anchor this file has
+  used, a real non-empty ``Bases:`` list too (``StrictAttributes``, ``IShape``,
+  ``ISlideComponent``, ``IPresentationComponent``, ``IHyperlinkContainer``, ``ABC``) - TC-265's
+  fix reaching this live container for real, not just the offline fixture test.
+- No enum entry anywhere in this real, regenerated fixture carries any real members (confirmed by
+  reading every one of its 24 real enum entries' own ``enum_members`` directly - the pure-``ast``
+  Python reader was never asked to extract member values, unchanged by TC-265). This file
   therefore keeps pdf/typescript's/pdf/go's own adaptation rather than pdf/net's/pdf/java's
   enum-``get_symbol`` shape: there is no ``REAL_ENUM_FQN``/``REAL_ENUM_MEMBER`` pair for this
-  pilot; the ``get_symbol`` test below instead asserts the real ``AutoShape`` class_spec's own
-  ``Methods:`` line (no entry in this fixture's own ``max_types=20`` slice carries a non-empty
-  ``bases`` list either, so there is no ``Bases:`` line to assert alongside it, unlike pdf/go's
-  ``BarcodeField``).
+  pilot; the ``get_symbol`` test below instead asserts the real ``Shape`` class_spec's own
+  ``Methods:`` line AND - for the first time for this pilot - its real ``Bases:`` line too.
 - ``REAL_EXAMPLE_SYMBOL``/``REAL_TASK_QUERY``: TC-101's own worker found a real, reproducible gap
   here, confirmed both by a real, hands-on host-level run of the full ``infra/build_chunks.py``
   CLI and independently reproduced through the full containerized ``docker compose up --build
@@ -144,23 +156,31 @@ POLL_INTERVAL_SECONDS = 2
 
 PROTOCOL_VERSION = "2025-06-18"
 
-# TC-101's own real, committed slides_python fixture
-# (tests/fixtures/slides_python/api_surface.json): its real ``source_commit`` is
-# "4e63447ba79d1c27a5192844847d9f872c5b92ad", and its 5th/6th type entries (index 4/5, well
-# within build_chunks_from_api_surface's default max_types=20) are both real AutoShape entries. A
-# real query response containing this exact string is genuine, falsifiable proof of real content,
-# never a guess.
-REAL_SYMBOL = "AutoShape"
+# G2/TC-277's own real, regenerated slides_python fixture
+# (tests/fixtures/slides_python/api_surface.json): its real "source_commit" is
+# "4e63447ba79d1c27a5192844847d9f872c5b92ad" (same pinned commit as before TC-277 - only the kept
+# selection changed), now selected by TC-252/TC-265's real, non-degenerate centrality ranking
+# rather than alphabetical order. "Shape"'s real definition entry (class_import
+# "aspose.slides_foss.Shape.Shape", kept at index 136 of 300 - confirmed directly against the
+# committed fixture) carries 27 real methods. A real query response containing this exact string
+# is genuine, falsifiable proof of real content, never a guess.
+REAL_SYMBOL = "Shape"
 REAL_SOURCE_COMMIT = "4e63447ba79d1c27a5192844847d9f872c5b92ad"
 
-# No enum entry within this fixture's own max_types=20 slice carries any real members (confirmed
-# by inspecting every one of the first 20 raw entries' own "enum_members" - both real "enum"-kind
-# entries, BackgroundType and BevelPresetType, carry an empty list); AutoShape's own real FQN
-# (its class_import, distinct from the bare REAL_SYMBOL name above - this fixture's own
+# No enum entry in this real, regenerated fixture carries any real members (confirmed by
+# inspecting every one of its 24 real enum entries' own "enum_members" directly - the pure-ast
+# Python reader was never asked to extract member values, unchanged by TC-265); "Shape"'s own real
+# FQN (its class_import, distinct from the bare REAL_SYMBOL name above - this fixture's own
 # class_import values are dotted paths, unlike pdf/go's bare-name fixture) and its own real
-# Methods: line are asserted directly in get_symbol's test below instead.
-REAL_SYMBOL_FQN = "aspose.slides_foss.AutoShape.AutoShape"
-REAL_METHOD_FRAGMENT = "add_text_frame() -> void"
+# Methods:/Bases: lines are asserted directly in get_symbol's test below instead.
+REAL_SYMBOL_FQN = "aspose.slides_foss.Shape.Shape"
+REAL_METHOD_FRAGMENT = "presentation() -> IPresentation"
+# TC-265's real base-class data reaching this live container for real, not just the offline
+# fixture test: confirmed directly, "Shape"'s own real "bases" list is
+# ["StrictAttributes", "IShape", "ISlideComponent", "IPresentationComponent",
+# "IHyperlinkContainer", "ABC"] - the first entry this file has EVER been able to assert a real
+# Bases: line for.
+REAL_BASE_FRAGMENT = "IPresentationComponent"
 
 # REQ-G2-048 (TC-091/TC-097/TC-105 pattern): a real, hands-on run of the full containerized
 # ingest-slides-python pipeline (below) reports "verified 1/2 candidate examples" for this
@@ -444,20 +464,23 @@ def test_lookup_composes_the_real_task_answer_for_the_rectangle_question(
     assert REAL_SOURCE_COMMIT in snippet, snippet
 
 
-def test_get_symbol_returns_the_real_type_spec_for_autoshape(session: _McpSession) -> None:
+def test_get_symbol_returns_the_real_type_spec_for_shape(session: _McpSession) -> None:
     """This pilot's own equivalent of pdf/net's/pdf/java's enum-``get_symbol`` proof, adapted to
-    the real entry shape this fixture actually has: no enum entry within ``max_types=20`` of this
-    real fixture carries any real members (confirmed by inspecting every entry's own
+    the real entry shape this fixture actually has: no enum entry in this real, regenerated
+    fixture carries any real members (confirmed by inspecting every entry's own
     ``enum_members`` - see module docstring), so this asserts the real running slides-python
-    container's ``get_symbol`` for the real ``AutoShape`` class (its own real, fully-qualified
+    container's ``get_symbol`` for the real ``Shape`` class (its own real, fully-qualified
     ``class_import``, distinct from the bare ``REAL_SYMBOL`` used above) returns its real,
-    distinctive ``Methods:`` line - not a stub, not an empty index.
+    distinctive ``Methods:`` line - not a stub, not an empty index - AND, for the first time for
+    this pilot, a real, non-empty ``Bases:`` line too, proving TC-265's real base-class data
+    reaches this live container, not just the offline fixture test.
     """
     body = session.call_tool("get_symbol", {"fqn": REAL_SYMBOL_FQN})
     result = body["result"]["structuredContent"]["result"]
     assert isinstance(result, dict) and "raw_text" in result, f"expected a real SymbolSignature: {result}"
     assert result["kind"] == "class", result
     assert REAL_METHOD_FRAGMENT in result["raw_text"], result
+    assert REAL_BASE_FRAGMENT in result["raw_text"], result
 
 
 # ---------------------------------------------------------------------
