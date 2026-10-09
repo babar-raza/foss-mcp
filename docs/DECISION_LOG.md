@@ -2285,3 +2285,14 @@ resolver to the other five ecosystems and wiring it into the live report_index_f
 remainder of the round-4 audit's own findings (Helm non-atomic deploys, the TC-251 cold-start regression, chart
 guard gaps, lookup's lack of version-awareness, get_symbol's own documented-example bugs, cross-language
 consistency, and the still-partial C2/C5 fixes).
+
+## 2026-10-10 — cells_go and imaging_net confirmed genuinely flat, no action needed
+Both pilots' zero-bases state was investigated and confirmed correct, not stale. cells_go: the real pinned
+upstream repository (a small style/formatting-config library) uses no Go embedding idiom anywhere in its 106
+structs/interfaces - genuinely flat. imaging_net: the real pinned repository has only 3 public top-level types
+(ImageFormat/ImageInfo/ImageProbe), none with a base; real same-library inheritance does exist (11 classes
+implementing IFormatHandler) but every one of them, and the interface itself, is declared `internal` - correctly
+excluded by the engine's own public-surface filtering before bases are even considered. This closes the last
+open question from the full-fleet C3/C6 reconciliation. The only remaining piece of that saga is the 7 Python
+pilots that were never regenerated under the centrality+structured-data pipeline at all (barcode/cells/email/
+jmap/note/page/tex, all _python) - a larger scope than a simple re-pin, not yet investigated in detail.
