@@ -1,0 +1,122 @@
+id: TC-265
+gate: G2
+lane: extraction
+purpose: 'Fix a real, confirmed, fleet-wide defect found while executing TC-264 (C4 of the third independent audit,
+  2026-10-08): src/foss_mcp/extraction/run_extraction.py''s _python_types_from_surface() adapts the separate,
+  pure-ast-based Python reader (src/foss_mcp/extraction/tree_sitter_engine/python_surface.py - NOT the shared
+  tree-sitter engine every other language goes through) into the generic dict shape reduce_fixture()''s
+  _centrality_scores() consumes, but its own existing docstring already admits "bases", "params", "return_type",
+  and "properties" are always empty for a python-sourced entry - "the pure-ast reader was never asked to extract
+  them." _centrality_scores()''s only inputs are exactly those four fields, so for EVERY Python-platform pilot in
+  this fleet (at minimum slides/python, words/python, cells/python, jmap/python, pdf/python, email/python,
+  barcode/python, note/python, html/python, page/python, 3d/python, tex/python - twelve pilots), every single
+  extracted type scores 0, making TC-252''s "centrality-ranked" sort order-equivalent to the pre-TC-252 pure-
+  alphabetical sort it was meant to replace - confirmed directly by TC-264''s own worker, who computed
+  _centrality_scores() over the full 1023-type slides_python artifact and found zero non-zero scores anywhere, and
+  confirmed a real live re-extraction run produced a byte-for-byte identical fixture (0-line diff). This is the
+  exact failure mode AGENTS.md''s own Integration/liveness section names generically: a measurement mechanism that
+  can only ever produce one outcome is not a measurement. The real underlying data is available and merely
+  discarded: python_surface.py''s PublicSymbol._signature() already renders a real base-class list
+  (ast.unparse(base) for base in node.bases) and a real return-type annotation (ast.unparse(node.returns)) into one
+  opaque "signature" string, but PublicSymbol never exposes these as separate, structured fields.'
+depends_on:
+- TC-258
+- TC-264
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+- src/foss_mcp/extraction/run_extraction.py
+- tests/extraction/tree_sitter_engine/test_python_surface.py
+- tests/extraction/test_run_extraction_python.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read src/foss_mcp/extraction/tree_sitter_engine/python_surface.py''s PublicSymbol dataclass and _signature() (~line
+  37-71) in full, and src/foss_mcp/extraction/run_extraction.py''s _python_types_from_surface() (~line 92-148) in
+  full, before changing anything. Read _centrality_scores()/_reference_strings() in run_extraction.py''s
+  reduce_fixture() area to confirm exactly which four fields it reads (bases, methods[].return_type,
+  methods[].params[].type, properties[].type) - this card''s whole purpose is making those non-empty for Python.'
+- 'Extend PublicSymbol with new fields populated directly from the SAME AST nodes _signature() already has access
+  to when it builds the rendered string - do not re-parse the rendered signature string, derive structured data
+  from the real ast.ClassDef/ast.FunctionDef nodes directly, at the same call site _signature() is invoked from.
+  Add: `bases: tuple[str, ...] = ()` (for a class symbol - the unparsed text of each entry in node.bases, same
+  rendering ast.unparse(base) already uses, just kept as a tuple instead of joined into a string); `return_type:
+  str | None = None` (for a function/method symbol - ast.unparse(node.returns) when node.returns is not None, else
+  None - returns can legitimately be unannotated, this must never raise for that case); `param_types: tuple[tuple[str,
+  str], ...] = ()` (for a function/method symbol - (arg_name, ast.unparse(annotation)) pairs for every positional/
+  keyword arg that actually carries a type annotation; an unannotated arg is simply omitted from this tuple, never
+  guessed or defaulted to an empty string that would pollute centrality scoring with a false "referenced" signal).'
+- 'Update _python_types_from_surface() to populate the generic dict shape''s "bases" (from the class symbol''s new
+  `bases` field, converted to a list), and each method entry''s "return_type" (from the method symbol''s new
+  `return_type`, or "" when None, matching every other language''s existing convention for an absent return type)
+  and "params" (from `param_types`, building the same {"name": ..., "type": ...} dict shape every other language
+  already produces - only for the annotated args; an unannotated arg should still appear in "params" with
+  "type": "" so the real parameter COUNT stays accurate for any caller that counts params, but must never
+  contribute a type string to the reference-counting logic in _reference_strings() - verify directly that an empty
+  type string is already safely ignored there, since word-boundary matching against an empty pattern must not
+  happen; if it is not already safe, this card must make it safe without weakening anything else). properties stays
+  empty for Python - this card does not invent Python property extraction, only wires through what the AST reader
+  can already see about classes and functions/methods. Use exactly these three statements (literal trailing
+  comments included verbatim, wherever each value is actually assigned into the entry/method dict - the
+  supervisor''s negative control matches these exact comments, regardless of surrounding code shape, to reliably
+  disable each one independently):
+      entry["bases"] = list(symbol.bases)  # TC-265: real bases
+      ...
+      "return_type": method_symbol.return_type or "",  # TC-265: real return_type
+  (name the second variable whatever is natural in your own implementation - only the trailing comment text and
+  the fact that it sits on the line assigning the real value matters).'
+- 'Add tests to tests/extraction/tree_sitter_engine/test_python_surface.py: a real multi-class hierarchy (a base
+  class, a subclass naming it in parentheses, a method with an annotated return type referencing another real
+  class, an unannotated method) produces PublicSymbol entries with the new fields correctly populated, and an
+  unannotated function/method still extracts cleanly with return_type=None and no entry in param_types - never
+  raises.'
+- 'Add tests to tests/extraction/test_run_extraction_python.py: build a small synthetic PublicSurface (mirroring
+  this file''s own existing test-construction style - read it in full first) with a base/subclass relationship and
+  at least one annotated return type referencing a real class name, run it through the real
+  _python_types_from_surface() + reduce_fixture(), and assert the referenced class scores higher under
+  _centrality_scores() than an unrelated, never-referenced class - i.e. prove centrality ranking is no longer
+  degenerate for Python-sourced data. Add a second test proving a class/method with zero type annotations anywhere
+  still extracts without raising and without polluting any other type''s score.'
+- 'Run both new/updated test files, then run the full existing test suite once to check for downstream breakage. If
+  anything outside your four write_paths fails, STOP, do not patch it, and report exactly which test and why.'
+- 'Do NOT regenerate any committed Python-platform fixture as part of this card - every one of the twelve Python
+  pilots will need a fresh live extraction once this lands, and that is explicitly deferred to a follow-up wave,
+  mirroring every prior regeneration wave this session.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read PublicSymbol/_signature and _python_types_from_surface/_centrality_scores in full before changing anything.
+- Add the new structured fields to PublicSymbol, populated from the real AST nodes, never by re-parsing a string.
+- Wire them into _python_types_from_surface's bases/return_type/params output.
+- Add all four tests described; run them, then run the full suite once and report honestly.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/extraction/test_run_extraction_python.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 4
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;q=chr(34);nl=chr(10);p=pathlib.Path('src/foss_mcp/extraction/run_extraction.py');s=p.read_text(encoding='utf-8');old='# TC-265: real bases';new='# TC-265: real bases - DISABLED';i=s.index(old);line_start=s.rfind(nl,0,i)+1;line_end=s.index(nl,i);s=s[:line_start]+'        entry['+q+'bases'+q+'] = []  '+new+s[line_end:];p.write_text(s,encoding='utf-8')"
+  rationale: 'Finds this card''s own mandated "# TC-265: real bases" sentinel comment and replaces that whole line
+    with a hard-coded empty list, regardless of the surrounding implementation''s exact variable names, so the new
+    test asserting real base-class data is populated and improves centrality ranking must fail again. Built with
+    plain text.'
+evidence:
+- evidence/build/G2/TC-265/receipt.json
+closeout:
+- A Python-platform extraction populates real bases/return_type/param_type data from the AST it already parses,
+  making TC-252's centrality-ranked fixture selection a real, non-degenerate measurement for Python pilots too.
+recovery: Re-run from a clean tree.
