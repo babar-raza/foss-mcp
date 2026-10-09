@@ -71,3 +71,19 @@ def test_every_entry_is_a_real_python_surface_kind() -> None:
     # reduced fixture, this repository's truncated top 300 entries do include top-level
     # functions.
     assert kinds == {"class", "enum", "function"}
+
+
+def test_the_highest_centrality_type_survived_the_truncation() -> None:
+    # Measured directly from this card's own live run (TC-270): over the full real 391-type
+    # set, ``aspose.words_foss.md_import.Block`` is referenced by other types' bases/
+    # return_type/params more often than any other type (score 50 - computed the same way
+    # run_extraction._centrality_scores does, by whole-word bare-name reference count), ahead
+    # of a second, differently-qualified ``Block`` (``...md_import.blocks.Block``, score 49)
+    # and ``Document`` (score 13). TC-252's centrality-ranked reduce_fixture() is only a
+    # genuine fix for this pilot if that real top type actually survives the cut to 300 -
+    # this is this pilot's own concrete proof of that, since no audit already names one.
+    data = _load_fixture()
+    assert any(
+        entry["name"] == "Block" and entry["class_import"] == "aspose.words_foss.md_import.Block"
+        for entry in data["types"]
+    )
