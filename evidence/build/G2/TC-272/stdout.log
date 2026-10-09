@@ -1,0 +1,194 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_slides_cpp_extraction.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jhplb2_h\.junit-0.xml"
+--- stdout ---
+....................................................                     [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_slides_cpp_extraction.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jhplb2_h\.junit-0.xml"
+--- stdout ---
+....................................................                     [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/slides_cpp/api_surface.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_slides_cpp_extraction.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jhplb2_h\.junit-0.xml"
+--- stdout ---
+FFFFFFFFFF..................F.......................                     [100%]
+================================== FAILURES ===================================
+_____________ test_the_fixture_parses_and_has_the_expected_shape ______________
+
+    def test_the_fixture_parses_and_has_the_expected_shape() -> None:
+        data = _load_fixture()
+        assert isinstance(data, dict)
+>       assert isinstance(data["types"], list)
+                          ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_slides_cpp_extraction.py:55: KeyError
+_______ test_the_fixture_records_the_exact_source_commit_and_repository _______
+
+    def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
+        data = _load_fixture()
+>       assert _COMMIT_SHA.match(data["source_commit"]), data["source_commit"]
+                                 ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'source_commit'
+
+tests\extraction\test_slides_cpp_extraction.py:61: KeyError
+________________________ test_the_fixture_is_non_empty ________________________
+
+    def test_the_fixture_is_non_empty() -> None:
+        data = _load_fixture()
+>       assert len(data["types"]) > 0
+                   ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_slides_cpp_extraction.py:78: KeyError
+________________ test_the_fixture_contains_real_cpp_type_names ________________
+
+    def test_the_fixture_contains_real_cpp_type_names() -> None:
+        data = _load_fixture()
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_slides_cpp_extraction.py:91: KeyError
+____________ test_presentation_survives_the_centrality_truncation _____________
+
+    def test_presentation_survives_the_centrality_truncation() -> None:
+        """TC-272: this pilot was deliberately deferred out of the TC-255-258/TC-262-264
+        regeneration waves until TC-259 (the C1 fabricated-member-name fix) landed. Both
+        slides/python and slides/java independently needed that exact fix to recover this
+        exact symbol - "Presentation" is this product family's own central type, and a
+        truncation that drops it is not a representative fixture.
+        """
+        data = _load_fixture()
+>       by_name = {entry["name"]: entry for entry in data["types"]}
+                                                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_slides_cpp_extraction.py:110: KeyError
+_ test_reference_and_pointer_returning_accessors_are_named_after_themselves_not_their_type _
+
+    def test_reference_and_pointer_returning_accessors_are_named_after_themselves_not_their_type() -> None:
+        """TC-259 fixed C1: a C++ member's reference/pointer return type was mistakenly
+        extracted as the member's own name instead of the real accessor name. Spot-checked
+        directly against the real upstream header source at this fixture's pinned commit:
+    
+        - ``include/Aspose/Slides/Foss/i_base_portion_format.h``:
+          ``virtual LineFormat& line_format() = 0;`` / ``virtual FillFormat& fill_format() = 0;``
+        - ``include/Aspose/Slides/Foss/i_base_slide.h``:
+          ``virtual IPresentation* presentation() = 0;``
+        - ``include/Aspose/Slides/Foss/shape.h``:
+          ``const ShapeFrame& frame() const override { return frame_; }``
+    
+        Each is a genuine reference/pointer-returning accessor whose real name is a snake_case
+        verb/noun, never the bare return type - the exact shape C1 fabricated.
+        """
+        data = _load_fixture()
+>       by_name = {entry["name"]: entry for entry in data["types"]}
+                                                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_slides_cpp_extraction.py:134: KeyError
+_________________ test_every_entry_is_a_real_cpp_surface_kind _________________
+
+    def test_every_entry_is_a_real_cpp_surface_kind() -> None:
+        data = _load_fixture()
+>       kinds = {entry["kind"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_slides_cpp_extraction.py:159: KeyError
+________________ test_common_fields_are_present_on_every_entry ________________
+
+    def test_common_fields_are_present_on_every_entry() -> None:
+        data = _load_fixture()
+>       for entry in data["types"]:
+                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_slides_cpp_extraction.py:167: KeyError
+_________________ test_at_least_one_entry_has_non_empty_bases _________________
+
+    def test_at_least_one_entry_has_non_empty_bases() -> None:
+        data = _load_fixture()
+        # Genuine interface-implementation pairs observed in the live run, each deriving
+        # from a real base recorded by this fixture.
+>       with_bases = {entry["name"]: tuple(entry["bases"]) for entry in data["types"] if entry["bases"]}
+                                                                        ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_slides_cpp_extraction.py:176: KeyError
+_________ test_a_real_cross_file_free_function_survives_consolidation _________
+
+    def test_a_real_cross_file_free_function_survives_consolidation() -> None:
+        """TC-092 fixed consolidate_classes() silently collapsing same-named free functions
+        across different files down to a single surviving entry. This fixture is real,
+        live-extracted data, produced well after that fix - so a genuine free function
+        repeated across files must survive as multiple distinct entries, one per file.
+    
+        ``to_string_view`` is a real free helper function that recurs verbatim, spot-checked
+        directly from this fixture's own committed content, across 20 distinct real header
+        files in the live run - this family's own enum-to-string helper pattern, repeated
+        once per enum header.
+        """
+        data = _load_fixture()
+        functions_by_name: dict[str, set[str]] = defaultdict(set)
+>       for entry in data["types"]:
+                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_slides_cpp_extraction.py:195: KeyError
+____________________ test_slides_cpp_pilot_matches_compose ____________________
+
+    def test_slides_cpp_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("slides", "cpp")
+
+tests\infra\test_helm_pilots_match_compose.py:272: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+family = 'slides', platform = 'cpp'
+
+    def _assert_pilot_matches_compose(family: str, platform: str) -> None:
+        pilot = _pilot(family, platform)
+        build, ingest = _compose_arguments(family, platform)
+    
+        assert ingest["--family"] == family, family
+        assert ingest["--platform"] == platform, platform
+        assert pilot["family"] == family and pilot["platform"] == platform
+    
+        # A self-extracted pilot has an empty library block and no --library-commit flag: both None.
+        # The FIXTURE_CHECKED_PILOTS pilots have compose services that define no library flags, so their
+        # library is checked against their fixture's source_repository and source_commit instead.
+        if (family, platform) in FIXTURE_CHECKED_PILOTS:
+            fixture = json.loads(
+                (REPO_ROOT / "tests" / "fixtures" / f"{family}_{platform}" / "api_surface.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+>           assert pilot["library"]["repository"] == fixture["source_repository"], "library repository"
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'source_repository'
+
+tests\infra\test_helm_pilots_match_compose.py:179: KeyError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_slides_cpp_extraction.py::test_the_fixture_parses_and_has_the_expected_shape
+FAILED tests/extraction/test_slides_cpp_extraction.py::test_the_fixture_records_the_exact_source_commit_and_repository
+FAILED tests/extraction/test_slides_cpp_extraction.py::test_the_fixture_is_non_empty
+FAILED tests/extraction/test_slides_cpp_extraction.py::test_the_fixture_contains_real_cpp_type_names
+FAILED tests/extraction/test_slides_cpp_extraction.py::test_presentation_survives_the_centrality_truncation
+FAILED tests/extraction/test_slides_cpp_extraction.py::test_reference_and_pointer_returning_accessors_are_named_after_themselves_not_their_type
+FAILED tests/extraction/test_slides_cpp_extraction.py::test_every_entry_is_a_real_cpp_surface_kind
+FAILED tests/extraction/test_slides_cpp_extraction.py::test_common_fields_are_present_on_every_entry
+FAILED tests/extraction/test_slides_cpp_extraction.py::test_at_least_one_entry_has_non_empty_bases
+FAILED tests/extraction/test_slides_cpp_extraction.py::test_a_real_cross_file_free_function_survives_consolidation
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_slides_cpp_pilot_matches_compose
+
+--- stderr ---
+
