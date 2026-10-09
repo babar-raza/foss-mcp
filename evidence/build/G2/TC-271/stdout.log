@@ -1,0 +1,171 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_cells_cpp_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-imdfln5p\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_cells_cpp_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-imdfln5p\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/cells_cpp/api_surface.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_cells_cpp_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-imdfln5p\.junit-0.xml"
+--- stdout ---
+FFFFFFFFFF                                                               [100%]
+================================== FAILURES ===================================
+_____________ test_the_fixture_parses_and_has_the_expected_shape ______________
+
+    def test_the_fixture_parses_and_has_the_expected_shape() -> None:
+        data = _load_fixture()
+        assert isinstance(data, dict)
+>       assert isinstance(data["types"], list)
+                          ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_cpp_extraction.py:71: KeyError
+_______ test_the_fixture_records_the_exact_source_commit_and_repository _______
+
+    def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
+        data = _load_fixture()
+>       assert _COMMIT_SHA.match(data["source_commit"]), data["source_commit"]
+                                 ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'source_commit'
+
+tests\extraction\test_cells_cpp_extraction.py:77: KeyError
+________________________ test_the_fixture_is_non_empty ________________________
+
+    def test_the_fixture_is_non_empty() -> None:
+        data = _load_fixture()
+>       assert len(data["types"]) > 0
+                   ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_cpp_extraction.py:88: KeyError
+________________ test_the_fixture_contains_real_cpp_type_names ________________
+
+    def test_the_fixture_contains_real_cpp_type_names() -> None:
+        data = _load_fixture()
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_cpp_extraction.py:103: KeyError
+_________________ test_every_entry_is_a_real_cpp_surface_kind _________________
+
+    def test_every_entry_is_a_real_cpp_surface_kind() -> None:
+        data = _load_fixture()
+>       kinds = {entry["kind"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_cpp_extraction.py:115: KeyError
+________________ test_common_fields_are_present_on_every_entry ________________
+
+    def test_common_fields_are_present_on_every_entry() -> None:
+        data = _load_fixture()
+>       for entry in data["types"]:
+                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_cpp_extraction.py:123: KeyError
+_________________ test_at_least_one_entry_has_non_empty_bases _________________
+
+    def test_at_least_one_entry_has_non_empty_bases() -> None:
+        data = _load_fixture()
+        # Proves TC-010b's inheritance detection still holds for real C++ data: these are
+        # genuine exception classes observed in the live run, each deriving from a real base.
+>       with_bases = {entry["name"]: tuple(entry["bases"]) for entry in data["types"] if entry["bases"]}
+                                                                        ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_cpp_extraction.py:132: KeyError
+_________ test_a_real_cross_file_free_function_survives_consolidation _________
+
+    def test_a_real_cross_file_free_function_survives_consolidation() -> None:
+        """TC-092 fixed consolidate_classes() silently collapsing same-named free functions
+        across different files down to a single surviving entry. This fixture is real,
+        live-extracted data, produced AFTER that fix - so a genuine free function repeated
+        across files must survive as multiple distinct entries, one per file.
+    
+        ``EqualsIgnoreCase`` is a real free helper function (not a constructor sharing a
+        class's name, unlike some of this fixture's other repeated names such as ``Color``
+        or ``Border``) that recurs verbatim, spot-checked directly from this fixture's own
+        committed content, across 7 distinct real source files in the live run.
+        """
+        data = _load_fixture()
+        functions_by_name: dict[str, set[str]] = defaultdict(set)
+>       for entry in data["types"]:
+                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_cpp_extraction.py:151: KeyError
+____________ test_the_highest_centrality_type_survives_truncation _____________
+
+    def test_the_highest_centrality_type_survives_truncation() -> None:
+        """TC-252's reduce_fixture() keeps the 300 types with the highest centrality score
+        (how many other types in the FULL 346-type artifact reference this type's bare name),
+        not an alphabetical slice. Measured directly against this fixture's own real data (no
+        audit-named symbol exists for this pilot): ``LoadDiagnostics`` is the single type with
+        the highest centrality score (15 - computed the same way reduce_fixture() does, by
+        counting whole-word references to its name across every other type's bases/
+        return_type/params/properties). This is the concrete proof the fix kept the type that
+        matters most for this pilot, not a coincidental alphabetical survivor.
+        """
+        data = _load_fixture()
+>       load_diagnostics = [e for e in data["types"] if e["name"] == "LoadDiagnostics"]
+                                       ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_cpp_extraction.py:177: KeyError
+____________ test_no_member_is_fabricated_from_its_own_return_type ____________
+
+    def test_no_member_is_fabricated_from_its_own_return_type() -> None:
+        """The concrete C1 regression check for this pilot, swept across the ENTIRE kept 300
+        (not just a handful of spot-checked classes): no top-level entry's ``name`` is a bare
+        fabrication of some method's return type rather than the real accessor name.
+    
+        TC-259 fixed this for inline class-body members (``const Border& GetLeft() const
+        noexcept { ... }`` inside the class body - verified below via ``Borders.GetLeft`` and
+        ``Border.GetColor``, both genuine reference-returning accessors). TC-276 fixed the
+        SAME fabrication for out-of-line, qualified member definitions
+        (``Workbook& Worksheet::GetWorkbook() { ... }`` in a .cpp file, outside the class body)
+        - verified below directly: before TC-276, this exact real method produced a phantom
+        top-level entry named ``Workbook`` (its return type), not ``GetWorkbook`` (its real
+        name); that phantom must not exist in this fixture, while the real ``GetWorkbook``
+        method must still be present on ``Worksheet``.
+    
+        The sweep below is general, not limited to these spot-checks: ANY top-level
+        ``"function"``-kind entry whose name collides with a real class/struct/enum name
+        already present in this same kept set is exactly the fabrication shape TC-259/TC-276
+        fixed (a member - inline or out-of-line - mis-named after its own return type, which
+        is itself some other real type in this artifact), so zero such entries may exist.
+        """
+        data = _load_fixture()
+        by_name: dict[str, list[dict]] = defaultdict(list)
+>       for entry in data["types"]:
+                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_cpp_extraction.py:206: KeyError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_cells_cpp_extraction.py::test_the_fixture_parses_and_has_the_expected_shape
+FAILED tests/extraction/test_cells_cpp_extraction.py::test_the_fixture_records_the_exact_source_commit_and_repository
+FAILED tests/extraction/test_cells_cpp_extraction.py::test_the_fixture_is_non_empty
+FAILED tests/extraction/test_cells_cpp_extraction.py::test_the_fixture_contains_real_cpp_type_names
+FAILED tests/extraction/test_cells_cpp_extraction.py::test_every_entry_is_a_real_cpp_surface_kind
+FAILED tests/extraction/test_cells_cpp_extraction.py::test_common_fields_are_present_on_every_entry
+FAILED tests/extraction/test_cells_cpp_extraction.py::test_at_least_one_entry_has_non_empty_bases
+FAILED tests/extraction/test_cells_cpp_extraction.py::test_a_real_cross_file_free_function_survives_consolidation
+FAILED tests/extraction/test_cells_cpp_extraction.py::test_the_highest_centrality_type_survives_truncation
+FAILED tests/extraction/test_cells_cpp_extraction.py::test_no_member_is_fabricated_from_its_own_return_type
+
+--- stderr ---
+
