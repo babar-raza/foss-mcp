@@ -126,3 +126,38 @@ def test_at_least_one_entry_has_non_empty_bases() -> None:
     assert with_bases.get("msg_exception") == ("std::runtime_error",)
     assert with_bases.get("cfb_storage") == ("cfb_node",)
     assert with_bases.get("cfb_stream") == ("cfb_node",)
+
+
+def test_inherited_members_carry_the_correct_inherited_from_tag() -> None:
+    # TC-302 (re-pin after TC-261 landed _flatten_inheritance()'s provenance tagging):
+    # this real repository's own inheritance graph is only one level deep - cfb_node
+    # itself declares no bases, so cfb_storage and cfb_stream (both real, observed
+    # `cfb_node` subclasses) are the only genuine inheritance chains here. There is no
+    # real multi-level chain in this pilot's actual data (confirmed by inspecting every
+    # entry's "bases": cfb_node's own "bases" is empty), so single-level rooting is the
+    # honest ceiling for this repository, not an assumption.
+    data = _load_fixture()
+    by_name = {entry["name"]: entry for entry in data["types"]}
+    node = by_name["cfb_node"]
+    assert node["bases"] == []
+
+    # cfb_node's own, locally-declared members must never carry the tag.
+    for member in node["methods"] + node["properties"]:
+        assert "inherited_from" not in member, member["name"]
+
+    for child_name in ("cfb_storage", "cfb_stream"):
+        child = by_name[child_name]
+        copied = {m["name"]: m["inherited_from"] for m in child["methods"] + child["properties"] if "inherited_from" in m}
+        # Real cfb_node members observed copied into this real subclass, each correctly
+        # rooted to cfb_node's own fully-qualified class_import - the real declaring
+        # ancestor, not merely "some non-empty string".
+        assert copied.get("clone") == "aspose::email::foss::cfb::cfb_node"
+        assert copied.get("is_storage") == "aspose::email::foss::cfb::cfb_node"
+        assert copied.get("is_stream") == "aspose::email::foss::cfb::cfb_node"
+        assert node["class_import"] == "aspose::email::foss::cfb::cfb_node"
+
+        # The child's own, locally-declared members must never carry the tag.
+        own_methods = {"cfb_storage": {"cfb_storage", "add_storage", "add_stream"}, "cfb_stream": {"cfb_stream"}}
+        for member in child["methods"] + child["properties"]:
+            if member["name"] in own_methods[child_name]:
+                assert "inherited_from" not in member, (child_name, member["name"])
