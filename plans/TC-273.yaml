@@ -1,0 +1,136 @@
+id: TC-273
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix C5 of the third independent audit (2026-10-08): find_examples'' semantic (BM25) fallback path
+  (src/foss_mcp/mcp/tools/find_examples.py) accepts any chunk with a strictly-positive BM25 score as a confident
+  match, with no coverage or confidence threshold beyond "not exactly zero." A single shared common word between
+  the query and an otherwise-unrelated example chunk (e.g. both mention "page") is enough to produce a
+  full-confidence ExampleMatch for a query that has no real relevant example in the corpus at all. This violates
+  the audit''s own stated invariant: "a search system that returns something for every query is worse than one
+  that honestly misses" - the EXACT-match path (get_symbol-backed) is already precise and is NOT the problem; only
+  the semantic fallback''s total absence of a relevance floor is. The fix must independently satisfy three distinct
+  properties the audit requires tested separately: (1) a genuinely relevant example, when one exists, is still
+  found: (2) retrieval can actually distinguish a relevant chunk from a merely-common-word-overlapping one, not
+  just a zero-overlap one; (3) a query with no real relevant example gets an honest NoExampleFound, not a
+  confident wrong answer - tested with deliberately unrelated/nonsense queries, not just queries that share zero
+  tokens with anything.'
+depends_on:
+- TC-015
+- TC-017a
+- TC-017b
+- TC-071
+- TC-072
+- TC-074
+- TC-078
+- TC-079
+- TC-109
+- TC-120
+- TC-143
+- TC-202
+- TC-218
+- TC-263
+write_paths:
+- src/foss_mcp/indexing/lexical_index_writer.py
+- src/foss_mcp/mcp/tools/find_examples.py
+- tests/indexing/test_index_writers.py
+- tests/mcp/tools/test_retrieval_tools.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read src/foss_mcp/indexing/lexical_index_writer.py''s query_lexical_index() (currently ~line 247-284) and
+  src/foss_mcp/mcp/tools/find_examples.py (the whole file, ~96 lines) in full before changing anything. The exact-
+  FQN-match branch (backed by get_symbol) is already precise and must be left behaviorally unchanged - this card''s
+  fix applies ONLY to the semantic/BM25 fallback branch (the `example_doc_ids`/`query_lexical_index`/`hits` code
+  path), which is the only one with no relevance floor.'
+- 'Do NOT change query_lexical_index()''s existing signature or return type (list[str]) - it has two OTHER call
+  sites (search_docs.py, search_symbols.py) outside this card''s write_paths, and changing its contract would widen
+  this card''s blast radius into files it does not own. Instead, refactor its internal BM25 scoring loop into a
+  private helper (e.g. `_bm25_scores(payload, query_text) -> list[tuple[float, str]]`) that query_lexical_index()
+  itself now calls, and add a NEW, separate public function (e.g. `query_lexical_index_scored(payload, query_text,
+  top_k) -> list[tuple[str, float]]`) built on the same helper, that find_examples.py alone uses. This keeps
+  query_lexical_index()''s own existing behavior and every other caller byte-for-byte unchanged - prove this by
+  running tests/indexing/test_index_writers.py''s full existing suite with zero changes to its pre-existing
+  assertions.'
+- 'In find_examples.py''s semantic-fallback branch, compute a coverage signal for each candidate: the fraction of
+  the QUERY''s own distinct tokens (after this project''s existing `tokenize()` helper - do not invent a new
+  tokenizer) that actually appear among the candidate document''s own tokens. Require BOTH a strictly-positive
+  BM25 score (already required) AND coverage at or above a threshold you determine empirically, not guessed - see
+  the next input for how.'
+- 'Determine the coverage threshold empirically: using 3 real, already-ingested pilots'' own lexical indexes (pick
+  from existing committed fixtures/generations - do not fabricate a corpus), construct three query categories per
+  pilot: (a) a query that clearly names a real symbol/concept with a real verified example in that pilot
+  (expected: found, with high coverage); (b) a query built ONLY from one or two very common words that also appear
+  in several unrelated real example chunks (the exact "page"-style regression this card exists to close - expected:
+  NOT found once your threshold is applied, even though BM25 score alone would be >0 today); (c) a deliberately
+  unrelated/nonsense query naming a concept this pilot''s domain has nothing to do with (expected: NOT found,
+  honestly, both before and after your change - confirm this was already correct and stays correct, it is not what
+  this card fixes). Pick the lowest threshold that keeps (a) passing while making (b) correctly miss, verify against
+  all 3 pilots, and record your measured numbers in your report - do not pick a round number you did not test.'
+- 'Add a `coverage` field to the `ExampleMatch` dataclass (frozen, so a new field with no default is fine since it
+  is only ever constructed inside find_examples.py itself - confirm this via grep before assuming) so the matched
+  confidence is inspectable, not silently discarded. The exact-match branch (get_symbol-backed) should report
+  coverage=1.0 (it is definitionally exact).'
+- 'Update find_examples.py''s own module docstring to honestly state the semantic fallback''s now-real limitation:
+  it returns a match only above a measured relevance floor, and returns NoExampleFound rather than a low-confidence
+  guess otherwise - this is the audit''s own explicit "does the response contract state uncertainty honestly"
+  requirement, and it must be true of the actual code, not just asserted in prose.'
+- 'Add tests to tests/mcp/tools/test_retrieval_tools.py proving all three properties independently, using this
+  project''s existing per-test synthetic-manifest-construction convention (read the existing find_examples-adjacent
+  tests in this file for the pattern - do not invent a different fixture style): (1) a relevant example is still
+  found when the query and the right chunk share enough real terms; (2) a query sharing only one or two common
+  words with an unrelated chunk, where NO chunk clears the coverage threshold, returns NoExampleFound even though
+  the old score>0 check alone would have returned a match (construct this as a direct regression: assert the OLD
+  behavior would have wrongly matched, by computing the raw BM25 score is >0, then assert the NEW find_examples()
+  call correctly misses); (3) a deliberately unrelated/nonsense query returns NoExampleFound (this should already
+  hold before your change too - the test proves it still holds after).'
+- 'Add tests to tests/indexing/test_index_writers.py for query_lexical_index_scored() directly: it returns scores
+  paired correctly with their doc ids, in the same rank order query_lexical_index() would return for the same
+  input, and is capped by top_k identically.'
+- 'Run the full existing test_index_writers.py and test_retrieval_tools.py suites with zero changes to any
+  pre-existing assertion, then run your own new tests, then the full project suite once, and report honestly. If
+  the full-suite run shows some other existing test depended on the old no-threshold fallback behavior (e.g. a
+  live e2e test whose query only clears the old score>0 bar), STOP and report exactly which test and why rather
+  than guess-fixing or weakening your own new threshold to make it pass.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read query_lexical_index() and find_examples.py in full before changing anything.
+- Add query_lexical_index_scored() as an additive sibling function sharing the existing BM25 math, never changing
+  query_lexical_index()'s own contract.
+- Empirically measure a coverage threshold against 3 real pilots across the three required query categories.
+- Wire the threshold into find_examples.py's semantic fallback only; add the coverage field; update the docstring.
+- Add tests for all three required properties; run the full existing suites unchanged, then the full project suite once.
+checks:
+- command: '{python} -m pytest tests/indexing/test_index_writers.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/mcp/tools/test_retrieval_tools.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 6
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/find_examples.py');s=p.read_text(encoding='utf-8');old='coverage';new='coverage_DISABLED';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Renames the LAST occurrence of "coverage" in find_examples.py - the real threshold-comparison code,
+    not an earlier docstring/comment mention - so the coverage gate this card adds is disabled and every new test
+    proving the honest-miss/relevance-floor behavior must fail. Built with plain text, no backslash, using rindex
+    so a docstring mention occurring earlier in the file is never what the falsifier accidentally targets (the
+    exact vacuous-falsifier mistake TC-261 made and fixed this session).
+evidence:
+- evidence/build/G2/TC-273/receipt.json
+closeout:
+- find_examples' semantic fallback only returns a match above a real, measured relevance floor, and honestly
+  misses otherwise - a shared common word alone no longer manufactures a confident wrong answer, while a
+  genuinely relevant example is still found.
+recovery: Re-run from a clean tree.
