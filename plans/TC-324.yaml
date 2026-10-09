@@ -1,0 +1,82 @@
+id: TC-324
+gate: G2
+lane: extraction
+purpose: 'Sibling of TC-318 through TC-323, carved out separately per a 2026-10-10 scoping pass (recorded in
+  docs/DECISION_LOG.md): tests/fixtures/tex_python/api_surface.json is a genuine outlier, already flagged in
+  this same log''s 2026-10-07 TC-234 entry - the real pinned upstream repository has a genuine Python syntax
+  error in presentation/__init__.py (lines 107-108) at the pinned commit, which the pure-AST reader correctly
+  cannot parse past. Only 4 exception-class types have ever been resolvable; everything else is honestly
+  recorded in the fixture''s own `unresolved` list, not fabricated. Re-running extraction is EXPECTED to
+  produce the same 4 types and the same unresolved list - this card exists to confirm that expectation live
+  (so the pilot picks up any real engine-side change in how bases/inherited_from are populated for whatever
+  little surface IS resolvable) and to record the outcome honestly, NOT to fix the upstream syntax error, which
+  is out of scope and cannot be fixed from this repository.'
+depends_on:
+- TC-252
+- TC-261
+- TC-265
+- TC-274
+- TC-281
+- TC-293
+- TC-294
+- TC-234
+- TC-236
+write_paths:
+- tests/fixtures/tex_python/api_surface.json
+- tests/extraction/test_tex_python_extraction.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Confirm TC-252, TC-261, TC-265, TC-274, TC-281, TC-293, and TC-294 are all really on main before doing
+  anything else.'
+- 'Run `python -m foss_mcp.extraction.run_extraction config/products/tex/python.yaml
+  tests/fixtures/tex_python/api_surface.json` for real (network access available). EXPECT the same 4 resolvable
+  exception-class types and the same (or a closely similar) unresolved list as before - this is not a failure,
+  it is the real, honest state of a real upstream syntax error this project cannot fix. Confirm directly that
+  the syntax error is still present at the pinned commit (read presentation/__init__.py lines ~107-108 yourself,
+  do not assume last session''s finding is still accurate) before concluding the outcome is unchanged.'
+- 'If, against expectation, the real re-run now resolves MORE than 4 types (e.g. because the upstream repository
+  moved to a commit where the syntax error is fixed, or because some other engine change widens what''s
+  resolvable despite the error), report this explicitly and verify any new bases/inherited_from tags the same
+  way every sibling card in this wave does - do not assume the outlier status still holds without checking.'
+- 'Update tests/extraction/test_tex_python_extraction.py to match whatever the real re-run actually produces -
+  do not guess or invent names. If the outcome is genuinely unchanged from before, update the test file''s own
+  docstring/comments to record that this was reconfirmed on this date, rather than leaving stale provenance
+  language from TC-234/TC-236.'
+- 'IF the live run reveals a genuine extraction-engine defect outside this card''s two write_paths, OR your own
+  full-suite check at the end shows some other existing test now fails because it depended on the OLD fixture''s
+  specific content - STOP, do not guess-fix a file outside your write_paths, and report exactly which test(s)
+  and why. Do NOT attempt to work around or patch the upstream syntax error - that is explicitly out of scope
+  for this card.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Confirm TC-252/261/265/274/281/293/294 are integrated and real on main.
+- Run the real extraction for tex/python; confirm whether the known upstream syntax error still limits
+  resolution to the same 4 types, or whether the real situation has changed.
+- Update the fixture's own test file to reflect the real, honest outcome; run it; run the full suite once and
+  report honestly.
+checks:
+- command: '{python} -m pytest tests/extraction/test_tex_python_extraction.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 3
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/tex_python/api_surface.json');p.write_text('{}',encoding='utf-8')"
+  rationale: Emptying the pinned fixture must break the suite - a test that passes against an empty artifact is
+    asserting the file exists, not that a real extraction ran. Same shape as every prior extraction card's falsifier.
+evidence:
+- evidence/build/G2/TC-324/receipt.json
+closeout:
+- tests/fixtures/tex_python/api_surface.json's real, honest state (limited by a genuine upstream syntax error,
+  not an engine defect) is reconfirmed live under the current pipeline, closing this pilot's own piece of the
+  C3/C6 reconciliation without pretending to fix something this repository cannot fix.
+recovery: Re-run from a clean tree.
