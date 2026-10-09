@@ -20,6 +20,19 @@ leading-underscore impl module, re-exported via a public package __init__.py" co
 almost every type here even after TC-265. With TC-274 integrated, 218 of the full 323 types now
 carry a real, non-empty ``bases`` list and the centrality ranking is a genuine measurement
 rather than a near-total no-op (15 of 323 types score above zero, versus 3 before TC-274).
+
+Regenerated again 2026-10-09 (G2/TC-297) once TC-293 (the ``_flatten_inheritance`` short-name-
+collision fix) and TC-294 (real methods recovered for an underscore-origin re-export) both
+landed on main. TC-289's own live measurement against the pre-TC-294 fixture found only 2 of
+323 types carried any method at all, and HTMLElement - the #1-centrality anchor, real base of
+156 of this fixture's own kept subclass entries (78 distinct names, each appearing twice: once
+re-exported from ``aspose_html.dom`` and once from ``aspose_html.dom.html``) - had zero. This
+run's own live measurement: HTMLElement now carries 27 genuine own methods (``click``,
+``focus``, ``blur``, ``title``, ``tab_index`` among them, read straight from its real upstream
+definition in ``dom/_html_element.py``) plus 119 more copied in from its own bases (``Element``,
+``Node``, ``EventTarget``) by ``_flatten_inheritance`` - each of those 119 correctly carrying an
+``inherited_from`` tag pointing at the real declaring class, never at HTMLElement itself. 221 of
+the 300 kept types now carry at least one method (own or inherited), versus TC-289's measured 2.
 """
 
 from __future__ import annotations
@@ -75,8 +88,10 @@ def test_every_entry_is_a_real_python_surface_kind() -> None:
     data = _load_fixture()
     kinds = {entry["kind"] for entry in data["types"]}
     # Observed directly from the live pure-ast reader's output for this repository - not
-    # a tree-sitter grammar's node-type vocabulary, and not guessed.
-    assert kinds == {"class", "function"}
+    # a tree-sitter grammar's node-type vocabulary, and not guessed. TC-297's own live rerun
+    # added "enum" to this set versus TC-267's rework-attempt-2 fixture (an Enum/IntEnum/Flag
+    # subclass now survives the centrality-ranked truncation that did not before).
+    assert kinds == {"class", "function", "enum"}
 
 
 def test_the_real_highest_centrality_type_survived_truncation() -> None:
@@ -102,3 +117,44 @@ def test_the_real_highest_centrality_type_survived_truncation() -> None:
         if entry is not by_name["HTMLElement"] and "HTMLElement" in (entry.get("bases") or [])
     ]
     assert referencing, "expected at least one kept type to list HTMLElement as a base"
+
+
+def test_html_element_now_carries_real_own_methods() -> None:
+    # TC-289's own live measurement against the pre-TC-294 fixture found HTMLElement had
+    # ZERO methods of any kind - the underscore-origin re-export convention (its real
+    # definition lives in dom/_html_element.py, re-exported via dom/__init__.py) meant
+    # python_surface.py's per-file scan never reached its class body at all. TC-294 fixed
+    # that; this is HTMLElement's own live, observed method list from THIS run, not an
+    # invented or assumed one.
+    data = _load_fixture()
+    html_element = next(entry for entry in data["types"] if entry["name"] == "HTMLElement")
+    assert html_element["class_import"] == "aspose_html.dom.HTMLElement"
+    own_methods = [m for m in html_element["methods"] if not m.get("inherited_from")]
+    own_names = {m["name"] for m in own_methods}
+    # Real, observed upstream members of dom/_html_element.py's own HTMLElement class -
+    # not guessed: TC-289's own prior investigation of the live upstream source named
+    # exactly this set as the expected recovery target.
+    assert {"click", "focus", "blur", "title", "tab_index"} <= own_names
+    # Near-zero before TC-294 (0 observed by TC-289); comfortably non-trivial now.
+    assert len(own_methods) >= 20
+
+
+def test_a_real_subclass_carries_correct_inherited_from_provenance() -> None:
+    # TC-261's inherited_from tagging only matters if a real member actually gets copied
+    # down from a real base - which TC-293's short-name-collision fix and TC-294's method
+    # recovery are what make possible for HTMLElement's own subclasses for the first time.
+    # HTMLMediaElement is a real, concrete Aspose.HTML-FOSS-for-Python class (dom/__init__.py
+    # re-exports it from dom/_html_media_element.py) that lists HTMLElement as a base.
+    data = _load_fixture()
+    media_element = next(
+        entry
+        for entry in data["types"]
+        if entry["name"] == "HTMLMediaElement" and entry["class_import"] == "aspose_html.dom.HTMLMediaElement"
+    )
+    assert "HTMLElement" in media_element["bases"]
+    click_entries = [m for m in media_element["methods"] if m["name"] == "click"]
+    assert click_entries, "expected HTMLMediaElement to have inherited HTMLElement.click"
+    # The tag names the real, original declaring class's public qualified name - never the
+    # intermediate subclass, and never left absent (which is how a silently-uncredited
+    # inherited member looked before TC-261).
+    assert click_entries[0]["inherited_from"] == "aspose_html.dom.HTMLElement"
