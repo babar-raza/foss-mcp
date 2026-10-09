@@ -15,6 +15,7 @@ depends_on:
 write_paths:
 - tests/fixtures/pdf_typescript/api_surface.json
 - tests/extraction/test_pdf_typescript_extraction.py
+- tests/e2e/test_pdf_typescript_live_content.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -42,6 +43,17 @@ inputs:
   and why. This includes the commit-pin-divergence pattern (infra/helm/foss-mcp/values.yaml, docker-compose.yml,
   and the separate REAL_EXAMPLE_SOURCE_COMMIT split this pilot already needed once - TC-255''s own rework
   rounds) - check for it explicitly rather than being surprised by it.'
+- 'REWORK (attempt 2): attempt 1 correctly stopped - inherited_from tagging is confirmed working (ButtonField.
+  storeValue -> inherited_from "formfield.Field", 57 inherited members total now tagged). The real extraction
+  advanced the repo''s own live HEAD again (the manifest pins only a repository, not a commit - every re-run
+  clones current upstream), so source_commit moved from 0dc807e313400ad8582441fc13171182261de2b4 to
+  e0f4fe99c48e44690686df559a488bfc3623e995. This broke tests/e2e/test_pdf_typescript_live_content.py (now in
+  your write_paths)''s test_report_index_freshness_reports_the_real_fresh_generation, which hardcodes
+  REAL_SOURCE_COMMIT to the OLD value. Note this is a DIFFERENT pin from REAL_EXAMPLE_SOURCE_COMMIT (the
+  furnished-example compile-verification pin, already correctly separated out and untouched by this
+  regeneration) - update only REAL_SOURCE_COMMIT to the new real value (verify directly from your own committed
+  fixture), leave REAL_EXAMPLE_SOURCE_COMMIT and docker-compose.yml untouched. Re-run this file''s full live
+  suite (a real docker rebuild - be patient) and confirm every test passes, then the full suite once more.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
 - Confirm TC-252/TC-261 are integrated and real on main.
@@ -51,6 +63,12 @@ checks:
 - command: '{python} -m pytest tests/extraction/test_pdf_typescript_extraction.py -q -rfE'
   expect: exit 0
   timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/e2e/test_pdf_typescript_live_content.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
   junitxml: true
   proves:
   - REQ-G2-043
