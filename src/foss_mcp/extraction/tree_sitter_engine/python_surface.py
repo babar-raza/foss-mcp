@@ -282,6 +282,7 @@ class _OriginDefinition:
     bases: tuple[str, ...]
     return_type: str | None
     param_types: tuple[tuple[str, str], ...]
+    methods: tuple[PublicSymbol, ...] = ()  # the origin ClassDef's own public methods, via _methods()
 
 
 def _origin_definition(
@@ -320,8 +321,19 @@ def _origin_definition(
         if found is not None:
             kind: SymbolKind = _class_kind(found) if isinstance(found, ast.ClassDef) else "function"
             bases, return_type, param_types = _structured_fields(found)
+            methods = (
+                tuple(_methods(found, module, candidate.name, "reexport"))
+                if isinstance(found, ast.ClassDef)
+                else ()
+            )
             return _OriginDefinition(
-                kind, _first_docstring_line(found), _signature(found), bases, return_type, param_types
+                kind,
+                _first_docstring_line(found),
+                _signature(found),
+                bases,
+                return_type,
+                param_types,
+                methods,
             )
         if forwarded is None or forwarded in seen or forwarded == origin:
             return None
@@ -389,6 +401,38 @@ def _reexport_kind(
         current = origin
 
 
+def _reexported_methods(definition: _OriginDefinition, symbol: PublicSymbol, name: str) -> list[PublicSymbol]:
+    """One rehomed ``PublicSymbol`` per method *definition* (an underscore-origin's recovered
+    evidence) carries, keyed under the PUBLIC re-export's own qualified name.
+
+    ``_module_symbols()``'s normal per-file scan already turns a class's own methods into
+    sibling ``PublicSymbol`` entries by calling ``_methods()`` directly on the ``ast.ClassDef``
+    it just scanned; an underscore-prefixed origin module is never scanned that way at all, so
+    without this, a class reachable only through such a re-export keeps its bases/return_type/
+    docstring/signature (``_origin_definition()``'s own fix) but never gains a single method -
+    measured 2026-10-09 on Aspose.HTML for Python: 321 of 323 real classes carry zero methods.
+
+    Each method keeps its own kind/docstring/signature/bases/return_type/param_types verbatim -
+    read straight from the origin's own AST, via ``definition.methods`` - but ``qualified_name``
+    is rewritten to ``f"{name}.{method.name}"`` and ``module`` to *symbol*'s own module, so
+    ``run_extraction.py``'s ``_python_types_from_surface()`` (which finds a method's owner by
+    stripping its qualified_name's last segment) resolves it against the PUBLIC owner, never the
+    private origin. ``source_path``/``line`` reuse *symbol*'s own - the same citable, public
+    import-location precedent the class-level ``replace()`` call already sets - never the
+    private implementation file's.
+    """
+    return [
+        replace(
+            method,
+            qualified_name=f"{name}.{method.name}",
+            module=symbol.module,
+            source_path=symbol.source_path,
+            line=symbol.line,
+        )
+        for method in definition.methods
+    ]
+
+
 def _minimal_roots(package_dirs: Sequence[str]) -> list[str]:
     """Drop package directories that another listed directory already contains."""
     ordered = sorted(set(package_dirs))
@@ -435,7 +479,7 @@ def inspect_public_surface(repository_root: Path, package_dirs: Sequence[str]) -
                 # base-class/return-type/param-annotation data as evidence - from the origin
                 # symbol itself when its module was scanned, otherwise from the same AST node
                 # read directly off disk (``definition``, for an underscore-module origin).
-                symbols[name] = replace(
+                resolved = replace(
                     symbol,
                     kind=kind,
                     docstring=origin.docstring
@@ -452,6 +496,14 @@ def inspect_public_surface(repository_root: Path, package_dirs: Sequence[str]) -
                     if origin is not None
                     else (definition.param_types if definition else ()),
                 )
+                symbols[name] = resolved
+                # An underscore-origin class's own methods are never otherwise scanned (see
+                # _reexported_methods()'s own docstring); recover them here, the one place that
+                # already has both the resolved PublicSymbol and its origin's evidence.
+                if definition is not None:
+                    for method_symbol in _reexported_methods(definition, resolved, name):
+                        if method_symbol.qualified_name not in symbols:
+                            symbols[method_symbol.qualified_name] = method_symbol
     return PublicSurface(
         symbols=tuple(symbols[name] for name in sorted(symbols)),
         unresolved=tuple(sorted(set(unresolved))),

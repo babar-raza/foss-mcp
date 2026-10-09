@@ -339,6 +339,117 @@ def test_a_multi_hop_reexport_ending_at_an_underscore_module_carries_real_struct
     assert not surface.unresolved
 
 
+def test_a_reexport_of_an_underscore_module_origin_recovers_its_real_methods(
+    tmp_path: Path,
+) -> None:
+    """TC-294: the gap this card closes. ``_origin_definition()`` (TC-274) already recovers an
+    underscore-origin class's own bases/return_type/param_types/docstring/signature, but never
+    called ``_methods()`` against the same resolved ``ast.ClassDef`` - so the class's own public
+    methods never became ``PublicSymbol`` entries anywhere, independent of how well
+    ``_flatten_inheritance()`` itself works. A real public method on such a class must now
+    surface as its own method-level ``PublicSymbol``, keyed under the PUBLIC qualified name
+    (never the private origin module's), carrying real docstring/return_type/param_types read
+    straight off the origin's own AST - and a leading-underscore method on the same class body
+    must still never surface at all.
+    """
+    _write(tmp_path, "pkg/__init__.py", "from ._document import Document\n")
+    _write(
+        tmp_path,
+        "pkg/_document.py",
+        "class Node:\n    pass\n\n\nclass Document(Node):\n"
+        "    '''A live document.'''\n\n"
+        "    def query(self, selector: str) -> Node:\n"
+        "        '''Find a node.'''\n        return self\n\n"
+        "    def _hidden(self):\n        pass\n",
+    )
+    surface = inspect_public_surface(tmp_path, ["pkg"])
+    by_name = {symbol.qualified_name: symbol for symbol in surface.symbols}
+
+    assert "pkg.Document.query" in by_name
+    query = by_name["pkg.Document.query"]
+    assert query.kind == "method"
+    assert query.module == "pkg"  # the PUBLIC owner's own module, never the private origin's
+    assert query.source_path == by_name["pkg.Document"].source_path  # the public re-export site
+    assert query.line == by_name["pkg.Document"].line
+    assert query.docstring == "Find a node."
+    assert query.signature == "def query(self, selector: str) -> Node"
+    assert query.return_type == "Node"
+    assert query.param_types == (("selector", "str"),)
+    assert query.bases == ()
+
+    # The private-by-name method never surfaces under any key.
+    assert "pkg.Document._hidden" not in by_name
+    assert not any(name.endswith("._hidden") for name in by_name)
+    assert not surface.unresolved
+
+
+def test_a_multi_hop_reexport_ending_at_an_underscore_module_recovers_methods_too(
+    tmp_path: Path,
+) -> None:
+    """The method-recovery fix must apply at the same final, underscore-module hop a multi-hop
+    re-export chain lands on (mirroring
+    test_a_multi_hop_reexport_ending_at_an_underscore_module_carries_real_structured_data's own
+    chain shape), not only a direct one-hop re-export."""
+    _write(tmp_path, "pkg/__init__.py", "from .mid import Shape\n")
+    _write(tmp_path, "pkg/mid/__init__.py", "from ._impl import Shape\n")
+    _write(
+        tmp_path,
+        "pkg/mid/_impl.py",
+        "class Base:\n    pass\n\n\nclass Shape(Base):\n"
+        "    def area(self, scale: float) -> float:\n        return scale\n",
+    )
+    surface = inspect_public_surface(tmp_path, ["pkg"])
+    by_name = {symbol.qualified_name: symbol for symbol in surface.symbols}
+
+    assert "pkg.Shape.area" in by_name
+    area = by_name["pkg.Shape.area"]
+    assert area.kind == "method"
+    assert area.return_type == "float"
+    assert area.param_types == (("scale", "float"),)
+
+    assert "pkg.mid.Shape.area" in by_name
+    mid_area = by_name["pkg.mid.Shape.area"]
+    assert mid_area.kind == "method"
+    assert mid_area.return_type == "float"
+
+
+def test_a_functiondef_origin_has_no_methods_and_stays_unchanged(tmp_path: Path) -> None:
+    """Regression: a ``FunctionDef`` origin (never a ``ClassDef``) can have no methods at all -
+    this card's fix must be a complete no-op for it, never raising and never injecting anything.
+    """
+    _write(tmp_path, "pkg/__init__.py", "from ._helpers import make\n")
+    _write(tmp_path, "pkg/_helpers.py", "def make(name: str) -> str:\n    return name\n")
+    surface = inspect_public_surface(tmp_path, ["pkg"])
+    by_name = {symbol.qualified_name: symbol for symbol in surface.symbols}
+
+    make = by_name["pkg.make"]
+    assert make.kind == "function"
+    assert make.return_type == "str"
+    assert not any(name.startswith("pkg.make.") for name in by_name)
+    assert not surface.unresolved
+
+
+def test_an_underscore_origin_class_with_no_methods_stays_unchanged(tmp_path: Path) -> None:
+    """Regression: the already-passing underscore-origin case with an empty class body (no
+    methods to recover at all) must be completely unaffected by this fix - this is exactly
+    test_a_reexport_of_an_underscore_module_origin_carries_real_structured_data's own fixture,
+    re-asserted here to pin down that no spurious method key is ever injected for it."""
+    _write(tmp_path, "pkg/__init__.py", "from ._document import Document\n")
+    _write(
+        tmp_path,
+        "pkg/_document.py",
+        "class Node:\n    pass\n\n\nclass Document(Node):\n    '''A live document.'''\n",
+    )
+    surface = inspect_public_surface(tmp_path, ["pkg"])
+    by_name = {symbol.qualified_name: symbol for symbol in surface.symbols}
+
+    document = by_name["pkg.Document"]
+    assert document.kind == "class"
+    assert document.docstring == "A live document."
+    assert not any(name.startswith("pkg.Document.") for name in by_name)
+    assert not surface.unresolved
+
+
 def test_a_scanned_origins_structured_data_reaches_its_reexport_unchanged(tmp_path: Path) -> None:
     """Regression: when a re-export's origin module WAS scanned by ``_module_symbols`` (the
     already-correct path, untouched by this card), the origin symbol's own bases/docstring/

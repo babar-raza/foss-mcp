@@ -399,6 +399,73 @@ def _synthetic_type(
     }
 
 
+PACKAGE_UNDERSCORE_ORIGIN_INIT = '"""A package using the real-impl-in-underscore-module,\npublic-package-re-export convention."""\nfrom ._base import Base\n'
+
+PACKAGE_UNDERSCORE_ORIGIN_BASE = '''class Base:
+    """The base class, defined only behind a leading-underscore impl module."""
+
+    def greet(self):
+        """A method only recoverable through TC-294's underscore-origin method fix."""
+        return "hi"
+'''
+
+PACKAGE_UNDERSCORE_ORIGIN_CHILD = '''class Child(Base):
+    """Subclass of the underscore-origin base, defined in a normally-scanned module."""
+
+    def own_method(self):
+        """Declared only here - must never gain an inherited_from tag."""
+        return None
+'''
+
+
+def _write_underscore_origin_inheritance_package(root: Path) -> None:
+    """TC-294: mirrors ``_write_inheritance_package``'s own convention, except ``Base`` lives
+    behind a leading-underscore impl module (``_base.py``) and is only reachable through
+    ``__init__.py``'s re-export - the convention ``_origin_definition()`` (TC-274) recovers
+    bases/return_type/param_types/docstring/signature for, but which never recovered the
+    origin's own methods before this card.
+    """
+    (root / "pyproject.toml").write_text('[project]\nname = "widgets"\n', encoding="utf-8")
+    pkg = root / "src" / "widgets"
+    pkg.mkdir(parents=True)
+    (pkg / "__init__.py").write_text(PACKAGE_UNDERSCORE_ORIGIN_INIT, encoding="utf-8")
+    (pkg / "_base.py").write_text(PACKAGE_UNDERSCORE_ORIGIN_BASE, encoding="utf-8")
+    (pkg / "child.py").write_text(PACKAGE_UNDERSCORE_ORIGIN_CHILD, encoding="utf-8")
+
+
+def test_underscore_origin_methods_reach_the_owning_type_and_flow_through_flattening(
+    tmp_path: Path,
+) -> None:
+    """TC-294 end to end: a real method recovered off an underscore-origin class's own AST
+    (via the new ``_reexported_methods`` injection in ``inspect_public_surface()``) must reach
+    its owning type's own "methods" list through ``_python_types_from_surface()``, AND
+    ``_flatten_inheritance()`` (TC-281, wired into the Python path) must then be able to copy
+    that recovered method onto a real subclass, with a correct ``inherited_from`` tag pointing
+    at the base's own ``class_import`` - proving the fix is reachable end to end, not only at
+    the ``python_surface`` unit level.
+    """
+    _write_underscore_origin_inheritance_package(tmp_path)
+    types, _unresolved = run_extraction._extract_python_surface(tmp_path)
+    by_name = {entry["name"]: entry for entry in types}
+
+    base = by_name["Base"]
+    base_method_names = {m["name"] for m in base["methods"]}
+    assert "greet" in base_method_names, "the underscore-origin base's own method must surface"
+    base_greet = next(m for m in base["methods"] if m["name"] == "greet")
+    assert "inherited_from" not in base_greet
+    assert base_greet["doc"] == "A method only recoverable through TC-294's underscore-origin method fix."
+
+    child = by_name["Child"]
+    assert child["bases"] == ["Base"]
+    child_method_names = {m["name"] for m in child["methods"]}
+    assert "greet" in child_method_names, "Base's recovered method must now be copied onto Child"
+    child_greet = next(m for m in child["methods"] if m["name"] == "greet")
+    assert child_greet["inherited_from"] == base["class_import"]
+
+    own_method = next(m for m in child["methods"] if m["name"] == "own_method")
+    assert "inherited_from" not in own_method
+
+
 def test_reduce_fixture_keeps_a_centrally_referenced_type_over_alphabetically_earlier_ones() -> None:
     """The bug this card fixes: a pure alphabetical cut keeps "Aardvark"/"Bumble"/"Charlie" (all
     alphabetically earlier than "Zentral") and drops "Zentral" - even though "Zentral" is the
