@@ -1,0 +1,77 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yc2q6tdz\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_run_extraction_python.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yc2q6tdz\.junit-1.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yc2q6tdz\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_run_extraction_python.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yc2q6tdz\.junit-1.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/run_extraction.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yc2q6tdz\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_run_extraction_python.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yc2q6tdz\.junit-1.xml"
+--- stdout ---
+........F...                                                             [100%]
+================================== FAILURES ===================================
+___ test_python_types_from_surface_makes_centrality_ranking_non_degenerate ____
+
+    def test_python_types_from_surface_makes_centrality_ranking_non_degenerate() -> None:
+        """TC-265's whole point: a Python-sourced base-class/return-type reference must make the
+        referenced class score higher under ``_centrality_scores()`` than a type nothing else ever
+        mentions - the measurement TC-252 relies on, previously always zero for every Python pilot
+        because ``PublicSymbol`` discarded this data entirely.
+        """
+        surface = PublicSurface(
+            symbols=(
+                _class_symbol("pkg.mod.Base"),
+                _class_symbol("pkg.mod.Shape", bases=("Base",)),
+                _method_symbol("pkg.mod.Shape.touch", return_type="Base"),
+                _class_symbol("pkg.mod.Unrelated"),
+            ),
+            unresolved=(),
+        )
+        types = run_extraction._python_types_from_surface(surface)
+        scores = run_extraction._centrality_scores(types)
+        by_name = dict(zip((entry["name"] for entry in types), scores, strict=True))
+    
+        assert by_name["Base"] > by_name["Unrelated"]
+        assert by_name["Unrelated"] == 0
+        shape = next(entry for entry in types if entry["name"] == "Shape")
+>       assert shape["bases"] == ["Base"]
+E       AssertionError: assert [] == ['Base']
+E         
+E         Right contains one more item: 'Base'
+E         Use -v to get more diff
+
+tests\extraction\test_run_extraction_python.py:250: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_run_extraction_python.py::test_python_types_from_surface_makes_centrality_ranking_non_degenerate
+
+--- stderr ---
+

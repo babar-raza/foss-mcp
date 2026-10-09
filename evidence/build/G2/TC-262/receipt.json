@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "card": "TC-262",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-09T03:13:01Z",
+  "base_rev": "ae560176a9e122490139c24e9f91d1a2908c7238",
+  "head_rev": "62c8b33928575b4135fea890d298a5dd9b1fdba2",
+  "card_sha256": "73b8aa230fc3645a24e589c7bbf6a6c0a8f78fed4288795bb69fcb41dcdf50b7",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "docker-compose.yml",
+      "infra/helm/foss-mcp/values.yaml",
+      "tests/e2e/test_pdf_go_live_content.py",
+      "tests/extraction/test_pdf_go_extraction.py",
+      "tests/fixtures/pdf_go/api_surface.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_pdf_go_extraction.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.547,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/e2e/test_pdf_go_live_content.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 59.393,
+          "stdout_sha256": "585ba42829657b9e2d56f8614be6c3365a8405474eed008559511ab50f2ffcfb",
+          "tests": 9,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_pdf_go_extraction.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.5,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/e2e/test_pdf_go_live_content.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 33.843,
+          "stdout_sha256": "585ba42829657b9e2d56f8614be6c3365a8405474eed008559511ab50f2ffcfb",
+          "tests": 9,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('tests/fixtures/pdf_go/api_surface.json');p.write_text('{}',encoding='utf-8')\"",
+    "patch_sha256": "8662196aa5ddee0b0bfa940784c155bf1f821c8b6448e34197f274f63dd1aaee",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M tests/fixtures/pdf_go/api_surface.json",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
