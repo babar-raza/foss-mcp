@@ -276,7 +276,9 @@ def _real_example_chunk_mentioning_page_repeatedly() -> Chunk:
     front_matter = PDF_NET_FURNISHED_PAGE.read_text(encoding="utf-8").split("---", 2)[1]
     page = yaml.safe_load(front_matter)
     (candidate,) = [
-        c for c in extract_candidate_examples(page) if c.title == "Open a PDF, Add a Link Annotation, and Save"
+        c
+        for c in extract_candidate_examples(page)
+        if c.title == "Open a PDF, Add a Link Annotation, and Save"
     ]
     commit = "b7172877651413cff57a8bfe41fb8a8befb2406b"
     doc = make_document(

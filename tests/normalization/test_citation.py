@@ -299,9 +299,7 @@ def test_unambiguous_qualified_anchor_for_bare_member_returns_the_one_real_quali
     """
     fixture = _api_surface_fixture()
     index = symbol_index_from_api_surface(fixture["types"])
-    assert (
-        index.unambiguous_qualified_anchor_for_bare_member("AddFloatingBox") == "Page.AddFloatingBox"
-    )
+    assert index.unambiguous_qualified_anchor_for_bare_member("AddFloatingBox") == "Page.AddFloatingBox"
     assert index.unambiguous_qualified_anchor_for_bare_member("ThisMemberNameDoesNotExistAnywhere") is None
 
 
