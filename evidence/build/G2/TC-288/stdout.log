@@ -1,0 +1,136 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_3d_python_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ntio92x4\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_3d_python_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ntio92x4\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/3d_python/api_surface.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_3d_python_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ntio92x4\.junit-0.xml"
+--- stdout ---
+FFFFFFFF                                                                 [100%]
+================================== FAILURES ===================================
+_____________ test_the_fixture_parses_and_has_the_expected_shape ______________
+
+    def test_the_fixture_parses_and_has_the_expected_shape() -> None:
+        data = _load_fixture()
+        assert isinstance(data, dict)
+>       assert isinstance(data["types"], list)
+                          ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_3d_python_extraction.py:80: KeyError
+_______ test_the_fixture_records_the_exact_source_commit_and_repository _______
+
+    def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
+        data = _load_fixture()
+>       assert _COMMIT_SHA.match(data["source_commit"]), data["source_commit"]
+                                 ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'source_commit'
+
+tests\extraction\test_3d_python_extraction.py:86: KeyError
+________________________ test_the_fixture_is_non_empty ________________________
+
+    def test_the_fixture_is_non_empty() -> None:
+        data = _load_fixture()
+>       assert len(data["types"]) > 0
+                   ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_3d_python_extraction.py:93: KeyError
+______________ test_the_fixture_contains_real_python_type_names _______________
+
+    def test_the_fixture_contains_real_python_type_names() -> None:
+        data = _load_fixture()
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_3d_python_extraction.py:100: KeyError
+_______________ test_every_entry_is_a_real_python_surface_kind ________________
+
+    def test_every_entry_is_a_real_python_surface_kind() -> None:
+        data = _load_fixture()
+>       kinds = {entry["kind"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_3d_python_extraction.py:110: KeyError
+_ test_the_fixture_keeps_a3dobject_after_the_centrality_ranked_selection_fix __
+
+    def test_the_fixture_keeps_a3dobject_after_the_centrality_ranked_selection_fix() -> None:
+        """TC-252 replaced ``reduce_fixture``'s alphabetical truncation with a centrality-ranked
+        one, and TC-265 made that score non-degenerate for a Python-sourced fixture by populating
+        real ``bases``/``return_type``/``param_types``. Independently re-measured directly against
+        this fixture's own live run (re-running ``extract_pinned_repository`` plus
+        ``run_extraction._centrality_scores`` over the full, untruncated 697-type list - not
+        guessed, not carried over from another pilot): ``A3DObject`` is the single
+        highest-centrality type in the entire real surface, referenced by 35 other types' bases/
+        return_type/param_types - the highest score of any type measured. This is the concrete
+        proof the fix recovers it for this pilot: both the public re-export
+        (``aspose.threed.A3DObject``) and the submodule-qualified original
+        (``aspose.threed.A3DObject.A3DObject``) must be among the 300 kept types."""
+        data = _load_fixture()
+>       by_class_import = {entry["class_import"]: entry for entry in data["types"]}
+                                                                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_3d_python_extraction.py:132: KeyError
+_____ test_a_real_inherited_member_carries_the_correct_inherited_from_tag _____
+
+    def test_a_real_inherited_member_carries_the_correct_inherited_from_tag() -> None:
+        """TC-288/TC-293: the concrete proof this regenerated fixture closes the gap TC-288
+        originally found (TC-281 made ``_flatten_inheritance()`` execute for Python, but its own
+        short-name index still resolved every bare-name ``bases`` entry in this pilot to an empty
+        re-export shell, so it copied zero members anywhere - until TC-293 fixed that index).
+        ``AssetInfo`` genuinely declares ``bases == ["A3DObject"]`` (the bare, unqualified name, the
+        way the real source actually writes it) and now really does inherit ``A3DObject``'s own
+        real members, each tagged "inherited_from" the real, member-bearing definition
+        (``aspose.threed.A3DObject.A3DObject``) - never the empty re-export shell
+        (``aspose.threed.A3DObject``) that used to win this exact resolution before TC-293."""
+        data = _load_fixture()
+>       by_class_import = {entry["class_import"]: entry for entry in data["types"]}
+                                                                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_3d_python_extraction.py:153: KeyError
+_ test_a_real_transitively_inherited_member_is_rooted_to_the_real_grandparent _
+
+    def test_a_real_transitively_inherited_member_is_rooted_to_the_real_grandparent() -> None:
+        """A real, live multi-level chain confirmed directly against this fixture (not invented,
+        mirroring TC-261's own pdf/cpp PopupAnnotation/Annotation/BaseParagraph proof): ``Node``
+        declares ``bases == ["SceneObject"]`` (its direct parent only), and ``SceneObject`` itself
+        declares ``bases == ["A3DObject"]``. ``find_property`` is genuinely declared by the
+        grandparent ``A3DObject``, copied into ``SceneObject`` first (parents resolve before
+        children), then copied again into ``Node`` - and must still be rooted to ``A3DObject``,
+        the class that actually declares it, never to ``SceneObject``, the intermediate parent it
+        passed through on the way."""
+        data = _load_fixture()
+>       by_class_import = {entry["class_import"]: entry for entry in data["types"]}
+                                                                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_3d_python_extraction.py:175: KeyError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_3d_python_extraction.py::test_the_fixture_parses_and_has_the_expected_shape
+FAILED tests/extraction/test_3d_python_extraction.py::test_the_fixture_records_the_exact_source_commit_and_repository
+FAILED tests/extraction/test_3d_python_extraction.py::test_the_fixture_is_non_empty
+FAILED tests/extraction/test_3d_python_extraction.py::test_the_fixture_contains_real_python_type_names
+FAILED tests/extraction/test_3d_python_extraction.py::test_every_entry_is_a_real_python_surface_kind
+FAILED tests/extraction/test_3d_python_extraction.py::test_the_fixture_keeps_a3dobject_after_the_centrality_ranked_selection_fix
+FAILED tests/extraction/test_3d_python_extraction.py::test_a_real_inherited_member_carries_the_correct_inherited_from_tag
+FAILED tests/extraction/test_3d_python_extraction.py::test_a_real_transitively_inherited_member_is_rooted_to_the_real_grandparent
+
+--- stderr ---
+
