@@ -1,0 +1,349 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_flatten_inheritance_provenance.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vnwdc__w\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_flatten_inheritance_provenance.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vnwdc__w\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/api_surface.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_flatten_inheritance_provenance.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vnwdc__w\.junit-0.xml"
+--- stdout ---
+.......FFFF                                                              [100%]
+================================== FAILURES ===================================
+_ test_a_short_name_collision_between_an_empty_shell_and_a_real_definition_resolves_to_the_real_definition _
+
+    def test_a_short_name_collision_between_an_empty_shell_and_a_real_definition_resolves_to_the_real_definition() -> (
+        None
+    ):
+        """The fix this card adds: on a short-name collision, prefer whichever
+        candidate actually carries structured data over an empty shell, so a
+        bare-name base reference resolves to the real definition's real members,
+        correctly tagged "inherited_from" the real definition - never the empty
+        shell, and never left uncopied the way it was before this fix."""
+        classes = _shell_collision_fixture()
+>       _flatten_inheritance(classes)
+
+tests\extraction\tree_sitter_engine\test_flatten_inheritance_provenance.py:261: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+classes = [{'name': 'Base', 'class_import': 'pkg.Base', 'kind': 'class', 'bases': [], ...}, {'name': 'Base', 'class_import': 'pk...ass', 'bases': [], ...}, {'name': 'Child', 'class_import': 'pkg.Child.Child', 'kind': 'class', 'bases': ['Base'], ...}]
+
+    def _flatten_inheritance(classes: list[dict]) -> None:
+        """Copy inherited methods/properties into child classes (in-place).
+    
+        Walks the full inheritance tree (not just direct parents) by resolving
+        classes in topological order so parents are populated before children.
+        Child definitions take precedence over inherited ones.
+        Handles cycles via visited-set guard.
+    
+        TC-261 (C3 of the third independent recon, 2026-10-08): every copied
+        method/property gains an explicit ``"inherited_from"`` key recording the
+        real, ORIGINAL declaring class -- never a genuinely locally-declared
+        entry, which must never gain this key at all. For a multi-level chain
+        (confirmed live: pdf/cpp's real PopupAnnotation -> Annotation ->
+        BaseParagraph), a member copied transitively through an intermediate
+        parent must still be rooted to the class that actually declares it
+        (BaseParagraph), not the intermediate parent it was copied through
+        (Annotation) -- because parents are resolved before children, a parent's
+        own already-copied entries already carry the correct original
+        "inherited_from"; copying from the parent into the child preserves that
+        existing value instead of overwriting it with the parent's own identity,
+        and only a genuinely parent-declared entry (no existing "inherited_from")
+        gets the parent's own identity. Before this fix, a copied member carried
+        no ownership marker at all, silently misrepresenting an inherited member
+        as if it were locally declared -- the entry's own file/line metadata
+        stayed correctly pointed at the real ancestor, but nothing in the data
+        itself told a caller the member was not the child's own.
+    
+        TC-293: the short-name index below now prefers a structured-data-bearing
+        candidate over an empty shell on a short-name collision (see
+        ``_prefers_structured_data``'s own docstring). The full-class_import-keyed
+        resolution path (``by_name[key] = c`` immediately below) is untouched --
+        that path was already unambiguous and correct.
+        """
+        # Use class_import as key when available for namespace-aware resolution;
+        # also index by short name as fallback for base-class lookup.
+        by_name: dict[str, dict] = {}
+        for c in classes:
+            key = c.get("class_import") or c.get("name", "")
+            if key:
+                by_name[key] = c
+            short = c.get("name", "")
+            if short:
+                if short not in by_name:
+                    by_name[short] = c
+>               elif _prefers_structured_data_DISABLED(by_name[short], c):
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               NameError: name '_prefers_structured_data_DISABLED' is not defined
+
+src\foss_mcp\extraction\tree_sitter_engine\api_surface.py:2500: NameError
+____ test_the_empty_shells_own_entry_is_never_mutated_by_the_collision_fix ____
+
+    def test_the_empty_shells_own_entry_is_never_mutated_by_the_collision_fix() -> None:
+        """The shell itself is never resolved as anyone's parent (nothing's `bases`
+        names its own class_import), so it must stay exactly as empty as it
+        started - the fix changes which entry wins the short-name slot, not the
+        shell's own, independently-recorded data."""
+        classes = _shell_collision_fixture()
+>       _flatten_inheritance(classes)
+
+tests\extraction\tree_sitter_engine\test_flatten_inheritance_provenance.py:277: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+classes = [{'name': 'Base', 'class_import': 'pkg.Base', 'kind': 'class', 'bases': [], ...}, {'name': 'Base', 'class_import': 'pk...ass', 'bases': [], ...}, {'name': 'Child', 'class_import': 'pkg.Child.Child', 'kind': 'class', 'bases': ['Base'], ...}]
+
+    def _flatten_inheritance(classes: list[dict]) -> None:
+        """Copy inherited methods/properties into child classes (in-place).
+    
+        Walks the full inheritance tree (not just direct parents) by resolving
+        classes in topological order so parents are populated before children.
+        Child definitions take precedence over inherited ones.
+        Handles cycles via visited-set guard.
+    
+        TC-261 (C3 of the third independent recon, 2026-10-08): every copied
+        method/property gains an explicit ``"inherited_from"`` key recording the
+        real, ORIGINAL declaring class -- never a genuinely locally-declared
+        entry, which must never gain this key at all. For a multi-level chain
+        (confirmed live: pdf/cpp's real PopupAnnotation -> Annotation ->
+        BaseParagraph), a member copied transitively through an intermediate
+        parent must still be rooted to the class that actually declares it
+        (BaseParagraph), not the intermediate parent it was copied through
+        (Annotation) -- because parents are resolved before children, a parent's
+        own already-copied entries already carry the correct original
+        "inherited_from"; copying from the parent into the child preserves that
+        existing value instead of overwriting it with the parent's own identity,
+        and only a genuinely parent-declared entry (no existing "inherited_from")
+        gets the parent's own identity. Before this fix, a copied member carried
+        no ownership marker at all, silently misrepresenting an inherited member
+        as if it were locally declared -- the entry's own file/line metadata
+        stayed correctly pointed at the real ancestor, but nothing in the data
+        itself told a caller the member was not the child's own.
+    
+        TC-293: the short-name index below now prefers a structured-data-bearing
+        candidate over an empty shell on a short-name collision (see
+        ``_prefers_structured_data``'s own docstring). The full-class_import-keyed
+        resolution path (``by_name[key] = c`` immediately below) is untouched --
+        that path was already unambiguous and correct.
+        """
+        # Use class_import as key when available for namespace-aware resolution;
+        # also index by short name as fallback for base-class lookup.
+        by_name: dict[str, dict] = {}
+        for c in classes:
+            key = c.get("class_import") or c.get("name", "")
+            if key:
+                by_name[key] = c
+            short = c.get("name", "")
+            if short:
+                if short not in by_name:
+                    by_name[short] = c
+>               elif _prefers_structured_data_DISABLED(by_name[short], c):
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               NameError: name '_prefers_structured_data_DISABLED' is not defined
+
+src\foss_mcp\extraction\tree_sitter_engine\api_surface.py:2500: NameError
+_ test_a_short_name_collision_between_two_genuinely_non_empty_candidates_keeps_first_writer_wins _
+
+    def test_a_short_name_collision_between_two_genuinely_non_empty_candidates_keeps_first_writer_wins() -> None:
+        """When BOTH same-named candidates carry real, structured data (a genuine
+        ambiguity between two actually-different classes that merely share a bare
+        name across namespaces - confirmed live as a real shape in pdf_cpp/
+        pdf_java/pdf_typescript's own committed fixtures while checking this
+        card's tree-sitter-language question), this card does not invent a new
+        tie-break rule: the existing first-writer-wins behavior (whichever
+        candidate is processed first) is left completely unchanged."""
+        classes = [
+            {
+                "name": "Rect",
+                "class_import": "ns_a.Rect",
+                "kind": "class",
+                "bases": [],
+                "methods": [{"name": "area", "params": [], "return_type": "float"}],
+                "properties": [],
+            },
+            {
+                "name": "Rect",
+                "class_import": "ns_b.Rect",
+                "kind": "class",
+                "bases": [],
+                "methods": [{"name": "perimeter", "params": [], "return_type": "float"}],
+                "properties": [],
+            },
+            {
+                "name": "User",
+                "class_import": "pkg.User",
+                "kind": "class",
+                "bases": ["Rect"],
+                "methods": [],
+                "properties": [],
+            },
+        ]
+>       _flatten_inheritance(classes)
+
+tests\extraction\tree_sitter_engine\test_flatten_inheritance_provenance.py:318: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+classes = [{'name': 'Rect', 'class_import': 'ns_a.Rect', 'kind': 'class', 'bases': [], ...}, {'name': 'Rect', 'class_import': 'n...nd': 'class', 'bases': [], ...}, {'name': 'User', 'class_import': 'pkg.User', 'kind': 'class', 'bases': ['Rect'], ...}]
+
+    def _flatten_inheritance(classes: list[dict]) -> None:
+        """Copy inherited methods/properties into child classes (in-place).
+    
+        Walks the full inheritance tree (not just direct parents) by resolving
+        classes in topological order so parents are populated before children.
+        Child definitions take precedence over inherited ones.
+        Handles cycles via visited-set guard.
+    
+        TC-261 (C3 of the third independent recon, 2026-10-08): every copied
+        method/property gains an explicit ``"inherited_from"`` key recording the
+        real, ORIGINAL declaring class -- never a genuinely locally-declared
+        entry, which must never gain this key at all. For a multi-level chain
+        (confirmed live: pdf/cpp's real PopupAnnotation -> Annotation ->
+        BaseParagraph), a member copied transitively through an intermediate
+        parent must still be rooted to the class that actually declares it
+        (BaseParagraph), not the intermediate parent it was copied through
+        (Annotation) -- because parents are resolved before children, a parent's
+        own already-copied entries already carry the correct original
+        "inherited_from"; copying from the parent into the child preserves that
+        existing value instead of overwriting it with the parent's own identity,
+        and only a genuinely parent-declared entry (no existing "inherited_from")
+        gets the parent's own identity. Before this fix, a copied member carried
+        no ownership marker at all, silently misrepresenting an inherited member
+        as if it were locally declared -- the entry's own file/line metadata
+        stayed correctly pointed at the real ancestor, but nothing in the data
+        itself told a caller the member was not the child's own.
+    
+        TC-293: the short-name index below now prefers a structured-data-bearing
+        candidate over an empty shell on a short-name collision (see
+        ``_prefers_structured_data``'s own docstring). The full-class_import-keyed
+        resolution path (``by_name[key] = c`` immediately below) is untouched --
+        that path was already unambiguous and correct.
+        """
+        # Use class_import as key when available for namespace-aware resolution;
+        # also index by short name as fallback for base-class lookup.
+        by_name: dict[str, dict] = {}
+        for c in classes:
+            key = c.get("class_import") or c.get("name", "")
+            if key:
+                by_name[key] = c
+            short = c.get("name", "")
+            if short:
+                if short not in by_name:
+                    by_name[short] = c
+>               elif _prefers_structured_data_DISABLED(by_name[short], c):
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               NameError: name '_prefers_structured_data_DISABLED' is not defined
+
+src\foss_mcp\extraction\tree_sitter_engine\api_surface.py:2500: NameError
+_ test_the_full_class_import_keyed_resolution_path_is_unaffected_by_a_short_name_collision _
+
+    def test_the_full_class_import_keyed_resolution_path_is_unaffected_by_a_short_name_collision() -> None:
+        """A `bases` entry written as the FULL, exact class_import (not a bare
+        short name) must still resolve through the untouched, unconditional
+        `by_name[key] = c` qualified-key path - even when the very same short
+        name is, elsewhere in the same class list, involved in the collision this
+        card fixes. Explicitly asking for the shell by its own exact class_import
+        must still yield the shell, proving the two resolution paths (qualified-
+        key vs short-name-fallback) are independent and the qualified path was
+        never touched by this card."""
+        classes = [
+            {
+                "name": "Base",
+                "class_import": SHELL_IMPORT,
+                "kind": "class",
+                "bases": [],
+                "methods": [],
+                "properties": [],
+            },
+            {
+                "name": "Base",
+                "class_import": REAL_DEFINITION_IMPORT,
+                "kind": "class",
+                "bases": [],
+                "methods": [{"name": "find_property", "params": [], "return_type": "object"}],
+                "properties": [],
+            },
+            {
+                "name": "Child",
+                "class_import": "pkg.Other.Child",
+                "kind": "class",
+                # References the shell by its OWN exact, full class_import, not the
+                # bare short name "Base" that the collision fix affects.
+                "bases": [SHELL_IMPORT],
+                "methods": [],
+                "properties": [],
+            },
+        ]
+>       _flatten_inheritance(classes)
+
+tests\extraction\tree_sitter_engine\test_flatten_inheritance_provenance.py:363: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+classes = [{'name': 'Base', 'class_import': 'pkg.Base', 'kind': 'class', 'bases': [], ...}, {'name': 'Base', 'class_import': 'pk..., 'bases': [], ...}, {'name': 'Child', 'class_import': 'pkg.Other.Child', 'kind': 'class', 'bases': ['pkg.Base'], ...}]
+
+    def _flatten_inheritance(classes: list[dict]) -> None:
+        """Copy inherited methods/properties into child classes (in-place).
+    
+        Walks the full inheritance tree (not just direct parents) by resolving
+        classes in topological order so parents are populated before children.
+        Child definitions take precedence over inherited ones.
+        Handles cycles via visited-set guard.
+    
+        TC-261 (C3 of the third independent recon, 2026-10-08): every copied
+        method/property gains an explicit ``"inherited_from"`` key recording the
+        real, ORIGINAL declaring class -- never a genuinely locally-declared
+        entry, which must never gain this key at all. For a multi-level chain
+        (confirmed live: pdf/cpp's real PopupAnnotation -> Annotation ->
+        BaseParagraph), a member copied transitively through an intermediate
+        parent must still be rooted to the class that actually declares it
+        (BaseParagraph), not the intermediate parent it was copied through
+        (Annotation) -- because parents are resolved before children, a parent's
+        own already-copied entries already carry the correct original
+        "inherited_from"; copying from the parent into the child preserves that
+        existing value instead of overwriting it with the parent's own identity,
+        and only a genuinely parent-declared entry (no existing "inherited_from")
+        gets the parent's own identity. Before this fix, a copied member carried
+        no ownership marker at all, silently misrepresenting an inherited member
+        as if it were locally declared -- the entry's own file/line metadata
+        stayed correctly pointed at the real ancestor, but nothing in the data
+        itself told a caller the member was not the child's own.
+    
+        TC-293: the short-name index below now prefers a structured-data-bearing
+        candidate over an empty shell on a short-name collision (see
+        ``_prefers_structured_data``'s own docstring). The full-class_import-keyed
+        resolution path (``by_name[key] = c`` immediately below) is untouched --
+        that path was already unambiguous and correct.
+        """
+        # Use class_import as key when available for namespace-aware resolution;
+        # also index by short name as fallback for base-class lookup.
+        by_name: dict[str, dict] = {}
+        for c in classes:
+            key = c.get("class_import") or c.get("name", "")
+            if key:
+                by_name[key] = c
+            short = c.get("name", "")
+            if short:
+                if short not in by_name:
+                    by_name[short] = c
+>               elif _prefers_structured_data_DISABLED(by_name[short], c):
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               NameError: name '_prefers_structured_data_DISABLED' is not defined
+
+src\foss_mcp\extraction\tree_sitter_engine\api_surface.py:2500: NameError
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_flatten_inheritance_provenance.py::test_a_short_name_collision_between_an_empty_shell_and_a_real_definition_resolves_to_the_real_definition
+FAILED tests/extraction/tree_sitter_engine/test_flatten_inheritance_provenance.py::test_the_empty_shells_own_entry_is_never_mutated_by_the_collision_fix
+FAILED tests/extraction/tree_sitter_engine/test_flatten_inheritance_provenance.py::test_a_short_name_collision_between_two_genuinely_non_empty_candidates_keeps_first_writer_wins
+FAILED tests/extraction/tree_sitter_engine/test_flatten_inheritance_provenance.py::test_the_full_class_import_keyed_resolution_path_is_unaffected_by_a_short_name_collision
+
+--- stderr ---
+
