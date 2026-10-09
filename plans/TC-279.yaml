@@ -1,0 +1,110 @@
+id: TC-279
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix a defect found during TC-278''s own C7 investigation (recorded in docs/DECISION_LOG.md 2026-10-09),
+  deliberately kept separate from TC-278 because it is a different bug shape (a false negative from extraction/
+  matching granularity, not a ranking/threshold problem): search_symbols can never match a query that names a
+  METHOD or PROPERTY rather than a class, even when that method genuinely exists and its containing chunk ranks
+  at the very top of BM25. src/foss_mcp/indexing/chunk_builder.py''s build_chunks_from_api_surface publishes one
+  chunk per TYPE, with a single `FQN: ` line naming only the class; every method/property is rendered as prose
+  text inside that same chunk''s `Methods:`/`Properties:` block (src/foss_mcp/mcp/tools/get_symbol.py''s own
+  `_extract_block` already parses these blocks back out for get_symbol/list_members), with no FQN line of its
+  own. search_symbols.py''s `extract_fqn`/`is_exact_symbol_hit` only ever compare the query against that single
+  type-level FQN line, so a query naming a method can never pass the match filter, however highly BM25 ranks the
+  chunk. Live-confirmed against pdf_net: `Aspose.Pdf.Page.SetRotation` genuinely exists; querying "SetRotation"
+  has BM25 rank the `Aspose.Pdf.Page` chunk #1 by a wide margin (score 6.74 vs 4.70 for #2, since the chunk''s own
+  text literally contains "SetRotation" in its Methods: block) - yet search_symbols returns an honest-LOOKING
+  but actually WRONG Miss, with a misleading "did you mean" suggestion (`Aspose.Pdf.Rotation`, an unrelated enum)
+  for a symbol that genuinely exists. The architecture decision (made here, by the supervisor): do NOT change
+  chunk granularity (one chunk per method would be a much larger, riskier change touching the whole ingestion/
+  indexing/storage pipeline and the serving contract get_symbol/list_members already depend on) - instead, widen
+  search_symbols''s OWN matching step to also recognize a query that exactly names a member listed inside the
+  chunk''s already-rendered Methods:/Properties: blocks, and admit that chunk as a hit when it does. Returning
+  the TYPE''s full chunk (which already contains the matched method''s real signature in context, via
+  get_symbol-style raw_text) is the only sensible unit of content to serve - there is no separate method-level
+  chunk to return instead, and inventing one is explicitly out of scope.'
+depends_on:
+- TC-278
+write_paths:
+- src/foss_mcp/mcp/tools/search_symbols.py
+- tests/mcp/tools/test_retrieval_tools.py
+- tests/mcp/test_search_symbols_honest_miss.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read TC-278''s own final, integrated state of search_symbols.py in full first (it lands the `_match_tier`
+  helper and the tiered-sort this card builds on - confirm it is really integrated on main, read it, do not
+  assume its exact shape from this card''s prose). Also read get_symbol.py''s `_extract_block` (~line 64-74) and
+  `_BULLET_PREFIX`/the Methods:/Properties: rendering convention in chunk_builder.py''s `_method_line`/
+  `_property_line` (each renders as `"  - {name}(...) -> {return_type}..."` or `"  - {name}: {type}..."`) - reuse
+  this exact existing parsing logic (import `_extract_block` from get_symbol.py, or extract a shared helper if
+  importing directly would create an awkward cross-import - your call, but do not reimplement block-parsing from
+  scratch) rather than inventing a new one.'
+- 'Add a new tier to search_symbols''s matching: for each candidate chunk, in addition to checking the query
+  against the chunk''s own type-level FQN (the existing tiers), also check whether the query exactly names (case-
+  insensitively, by the member''s own bare name, OR as "Type.Member"/"Type::Member" using the chunk''s own FQN) a
+  method or property listed in that chunk''s Methods:/Properties: blocks - parse each block item''s leading
+  identifier (the text before the first `(`, `:`, or ` (inherited from` for a method/property line) and compare
+  it to the query the same way the existing final-segment tier compares a class''s own final segment. Place this
+  new tier appropriately relative to TC-278''s existing three (a bare, whole-member-name match is strong,
+  unambiguous evidence - similar strength to a final-segment class match; do not make it weaker than the
+  bag-of-words tier, which has much weaker evidence per-match). Verify directly against the real pdf_net fixture
+  (built through the real build_chunks_from_api_surface -> build_lexical_index -> search_symbols production
+  path) that querying "SetRotation" now returns the real Aspose.Pdf.Page chunk instead of an honest-looking but
+  wrong Miss.'
+- 'Handle the real ambiguity case honestly, do not guess: if the SAME bare member name (e.g. a common method name
+  like "ToString" or "Dispose") is genuinely declared on multiple distinct types in the same generation, decide
+  and document whether this new tier admits ALL of them (letting BM25/existing ranking sort among them, the
+  likely-correct default, consistent with how multiple exact-FQN-tier hits already coexist) or something else -
+  verify what actually happens with a real multi-declaration case in one of the real pilot fixtures before
+  deciding, rather than assuming either outcome.'
+- 'Do-not-break: run tests/mcp/test_search_symbols_honest_miss.py and tests/mcp/tools/test_retrieval_tools.py in
+  full, twice, before and after your change - none of TC-278''s own new or existing assertions must change
+  behavior for a query that does NOT name a real member (the honest-miss invariant is absolute: a query matching
+  nothing, at the class level OR this new member level, must still return Miss with its suggestions unchanged).'
+- 'Add new tests (in tests/mcp/tools/test_retrieval_tools.py) proving, against the real production chunking path
+  for the real pdf_net fixture: querying a real method/property''s bare name (e.g. "SetRotation") now returns
+  the real containing type''s chunk, not a Miss; querying a real method name prefixed with its real type
+  ("Page.SetRotation") also matches; a query that is a PARTIAL/truncated member name (mirroring the existing
+  "Watermar"/"Annotat" partial-word Miss tests) still correctly Misses, not a loosened match; and your own
+  decided-and-verified behavior for the multi-declaration-ambiguity case above.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read TC-278's integrated search_symbols.py and get_symbol.py's block-parsing convention in full first.
+- 'Add a new matching tier recognizing a query that names a real method/property inside a chunk''s own rendered
+  Methods:/Properties: blocks; verify against the real pdf_net SetRotation case.'
+- Decide and verify the multi-declaration-ambiguity behavior against a real case.
+- Add regression tests for the new tier and the still-correct partial-word Miss case; run the full do-not-break
+  list twice, before and after.
+checks:
+- command: '{python} -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py
+    -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 4
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py');s=p.read_text(encoding='utf-8');old='_extract_block';new='_extract_block_DISABLED';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: 'Renames the LAST occurrence of "_extract_block" (or whatever name the worker gives their own call
+    into the Methods:/Properties: parsing helper this card adds - if the worker names it differently, the
+    falsifier must target that exact name instead, reported explicitly rather than silently adjusted) in
+    search_symbols.py - the real call this card adds to recognize a member-name match, not an unrelated earlier
+    occurrence - so the new member-matching tier is disabled and every new test proving it must fail. Built with
+    plain text, no backslash, using rindex per this session''s established vacuous-falsifier safeguard.'
+evidence:
+- evidence/build/G2/TC-279/receipt.json
+closeout:
+- 'search_symbols correctly matches a query naming a real method or property, not just a class, by recognizing
+  the member inside its containing chunk''s own already-rendered Methods:/Properties: blocks - a query naming a
+  symbol that genuinely exists no longer returns a confusing, wrong Miss merely because it named a method
+  instead of a class, while a query naming nothing real still Misses honestly.'
+recovery: Re-run from a clean tree.
