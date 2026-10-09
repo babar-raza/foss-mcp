@@ -18,6 +18,14 @@ Mirrors ``tests/e2e/test_container_session.py``'s established real-docker-compos
 
 network: true on this card, for exactly this reason - everything here talks to containers this
 file itself builds, starts and tears down.
+
+TC-280: ``REAL_SOURCE_COMMIT`` (the committed ``tests/fixtures/pdf_net/api_surface.json``
+fixture's own ``source_commit``) and ``REAL_EXAMPLE_SOURCE_COMMIT`` (``docker-compose.yml``'s
+``--library-commit`` pin for ``ingest-pdf-net``, used only to compile-verify the furnished
+watermark example) are two genuinely separate pins that happened to share one literal value
+before TC-263 regenerated the api_surface fixture with the fixed, centrality-ranked selection -
+they must never be assumed equal again. Mirrors
+``tests/e2e/test_pdf_typescript_live_content.py``'s identical split for the identical reason.
 """
 
 from __future__ import annotations
@@ -47,13 +55,20 @@ POLL_INTERVAL_SECONDS = 2
 
 PROTOCOL_VERSION = "2025-06-18"
 
-# TC-011's own real, committed pdf/net fixture (tests/fixtures/pdf_net/api_surface.json): its
-# first entry is a real class, class_import "Aspose.Pdf.AFRelationship", kind
-# "enum_declaration" - build_chunks_from_api_surface's default max_types=20 includes it. A real
-# query response containing this exact string is genuine, falsifiable proof of real content,
-# never a guess.
-REAL_SYMBOL = "AFRelationship"
-REAL_SOURCE_COMMIT = "b7172877651413cff57a8bfe41fb8a8befb2406b"
+# TC-280: TC-263 regenerated this exact fixture (tests/fixtures/pdf_net/api_surface.json) with
+# the fixed, centrality-ranked selection (899->971 real upstream types, 300 kept) - the
+# AFRelationship-anchored values this file originally carried (TC-011-era) went stale the moment
+# that regeneration landed, because AFRelationship does not survive the centrality-ranked cut at
+# all (confirmed directly against the committed fixture: absent from all 300 kept entries, not
+# merely renamed or moved). Re-verified directly against the currently committed fixture: real
+# source_commit "10a363830fea952c29df20fdb37d35ad3a881433", 971 real upstream types, 300 kept.
+# "Page" is a real, sealed class (class_import "Aspose.Pdf.Page", kind "class_declaration") that
+# genuinely survives the cut (confirmed live - it is this fixture's own #1-centrality type per
+# TC-263's report) - its bare name is a whole word of its own FQN's final segment, so
+# is_exact_symbol_hit (search_symbols.py) matches it unambiguously, and "Page" literally appears
+# in its own chunk's FQN line, so it is genuine, falsifiable proof of real content, never a guess.
+REAL_SYMBOL = "Page"
+REAL_SOURCE_COMMIT = "10a363830fea952c29df20fdb37d35ad3a881433"
 
 # REQ-G2-048 (TC-069): the real, compile-verified example this card's real containerized
 # ingestion run produces - of the 3 real candidates in tests/fixtures/furnished/pdf_net's
@@ -62,6 +77,19 @@ REAL_SOURCE_COMMIT = "b7172877651413cff57a8bfe41fb8a8befb2406b"
 # TC-067/TC-068). ``AddWatermarkAnnotation`` is the real, distinctive method call this
 # candidate's real code uses - never a guess at what a container might return.
 REAL_EXAMPLE_SYMBOL = "AddWatermarkAnnotation"
+
+# TC-280: the furnished example's own compile-verification commit is a SEPARATE pin from the
+# api_surface fixture's source_commit above: docker-compose.yml's ingest-pdf-net service passes
+# this exact value as its own ``--library-commit`` flag (never re-derived from the live
+# extraction), so it stays "b717287..." even though TC-263 regenerated
+# tests/fixtures/pdf_net/api_surface.json (and therefore REAL_SOURCE_COMMIT above) to a newer
+# value. Confirmed live today (the previous, single-constant version of this file genuinely
+# failed test_lookup_composes_the_real_task_answer_for_the_watermark_question against the real
+# running container once REAL_SOURCE_COMMIT above was updated, because the example chunk's own
+# real ``Source-Commit:`` footer is still this value, not the newer one) - mirrors
+# ``tests/e2e/test_pdf_typescript_live_content.py``'s identical
+# ``REAL_EXAMPLE_SOURCE_COMMIT``/``REAL_SOURCE_COMMIT`` split for the exact same reason.
+REAL_EXAMPLE_SOURCE_COMMIT = "b7172877651413cff57a8bfe41fb8a8befb2406b"
 
 # REQ-G2-050 (TC-080): the exact literal, API-naive task question CONFIRMED live, by hand,
 # multiple times today, to make ``lookup`` compose a real ``TaskAnswer`` carrying the real
@@ -73,11 +101,13 @@ REAL_EXAMPLE_SYMBOL = "AddWatermarkAnnotation"
 # below actually break.
 REAL_TASK_QUERY = "how do I add a watermark to a PDF"
 
-# REQ-G2-047 (TC-080 companion): the real enum FQN (``class_import``, not the bare ``name``)
-# TC-011's own real fixture carries for Aspose.Pdf.AFRelationship, and one of its 7 real
+# REQ-G2-047 (TC-080 companion), re-anchored by TC-280: AFRelationship does not survive
+# TC-263's centrality-ranked cut (confirmed absent from the 300 kept types in the currently
+# committed fixture), so this now uses the real enum FQN (``class_import``, not the bare
+# ``name``) the fixture carries for Aspose.Pdf.HorizontalAlignment, and one of its 6 real
 # enum_members - real, distinctive values a stub or an empty index could never produce.
-REAL_ENUM_FQN = "Aspose.Pdf.AFRelationship"
-REAL_ENUM_MEMBER = "EncryptedPayload"
+REAL_ENUM_FQN = "Aspose.Pdf.HorizontalAlignment"
+REAL_ENUM_MEMBER = "FullJustify"
 
 # REQ-G2-047 (TC-113): real doc content, observed live through this exact container by hand on
 # 2026-09-29, now genuinely published and served - TC-119's regenerated furnished-content page
@@ -267,9 +297,11 @@ def test_report_index_freshness_reports_the_real_fresh_generation(session: _McpS
 
 
 def test_search_symbols_returns_real_content_from_the_real_fixture(session: _McpSession) -> None:
-    """``search_symbols`` for a real class name from TC-011's real fixture returns real,
-    non-empty content - never the "no published generation for this scope" Miss every content
-    tool call gave before this card wired ingestion into anything that runs.
+    """``search_symbols`` for a real class name (``Page``, TC-280's live-verified replacement
+    for the no-longer-surviving ``AFRelationship``) from the real, currently committed,
+    centrality-ranked fixture returns real, non-empty content - never the "no published
+    generation for this scope" Miss every content tool call gave before this card wired
+    ingestion into anything that runs.
     """
     body = session.call_tool("search_symbols", {"query": REAL_SYMBOL})
     result = body["result"]["structuredContent"]["result"]
@@ -321,7 +353,10 @@ def test_lookup_composes_the_real_task_answer_for_the_watermark_question(
     ``TaskAnswer`` - ``doc_matches`` (empty here, since no getting_started/developer_guide/
     troubleshooting/faq content has ever been published for this pilot) plus the same real,
     compile-verified ``AddWatermarkAnnotation`` example ``find_examples`` itself proves above,
-    carrying the real source commit ``infra/build_chunks.py`` appends to every real chunk's text.
+    carrying the furnished example's own pinned compile-verification commit
+    (``REAL_EXAMPLE_SOURCE_COMMIT`` - docker-compose.yml's own ``--library-commit``, a separate
+    pin from the api_surface fixture's ``REAL_SOURCE_COMMIT``) that ``infra/build_chunks.py``
+    appends to every real chunk's text.
     """
     body = session.call_tool("lookup", {"query": REAL_TASK_QUERY})
     result = body["result"]["structuredContent"]["result"]
@@ -330,14 +365,15 @@ def test_lookup_composes_the_real_task_answer_for_the_watermark_question(
     assert result["example"] is not None, f"expected a real, verified example, got none: {result}"
     snippet = result["example"]["snippet"]
     assert REAL_EXAMPLE_SYMBOL in snippet, snippet
-    assert REAL_SOURCE_COMMIT in snippet, snippet
+    assert REAL_EXAMPLE_SOURCE_COMMIT in snippet, snippet
 
 
-def test_get_symbol_returns_the_real_enum_members_for_afrelationship(session: _McpSession) -> None:
+def test_get_symbol_returns_the_real_enum_members_for_horizontalalignment(session: _McpSession) -> None:
     """REQ-G2-047's own live proof, now a permanent artifact alongside REQ-G2-050's: the real
-    running pdf/net container's ``get_symbol`` for the real ``Aspose.Pdf.AFRelationship`` enum
-    (TC-011's own real fixture, first entry, well within ``build_chunks_from_api_surface``'s
-    default ``max_types=20``) returns its real 7 enum members - not a stub, not an empty index.
+    running pdf/net container's ``get_symbol`` for the real ``Aspose.Pdf.HorizontalAlignment``
+    enum (TC-280's live-verified replacement for ``Aspose.Pdf.AFRelationship``, which does not
+    survive TC-263's centrality-ranked cut at all) returns its real 6 enum members - not a stub,
+    not an empty index.
     """
     body = session.call_tool("get_symbol", {"fqn": REAL_ENUM_FQN})
     result = body["result"]["structuredContent"]["result"]
