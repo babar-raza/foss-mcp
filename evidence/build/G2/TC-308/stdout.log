@@ -1,0 +1,108 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_jmap_cpp_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vew_clke\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_jmap_cpp_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vew_clke\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/jmap_cpp/api_surface.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_jmap_cpp_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vew_clke\.junit-0.xml"
+--- stdout ---
+FFFFFFFF                                                                 [100%]
+================================== FAILURES ===================================
+_____________ test_the_fixture_parses_and_has_the_expected_shape ______________
+
+    def test_the_fixture_parses_and_has_the_expected_shape() -> None:
+        data = _load_fixture()
+        assert isinstance(data, dict)
+>       assert isinstance(data["types"], list)
+                          ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_cpp_extraction.py:90: KeyError
+_______ test_the_fixture_records_the_exact_source_commit_and_repository _______
+
+    def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
+        data = _load_fixture()
+>       assert _COMMIT_SHA.match(data["source_commit"]), data["source_commit"]
+                                 ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'source_commit'
+
+tests\extraction\test_jmap_cpp_extraction.py:96: KeyError
+________________________ test_the_fixture_is_non_empty ________________________
+
+    def test_the_fixture_is_non_empty() -> None:
+        data = _load_fixture()
+>       assert len(data["types"]) > 0
+                   ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_cpp_extraction.py:107: KeyError
+________________ test_the_fixture_contains_real_cpp_type_names ________________
+
+    def test_the_fixture_contains_real_cpp_type_names() -> None:
+        data = _load_fixture()
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_cpp_extraction.py:117: KeyError
+_________________ test_every_entry_is_a_real_cpp_surface_kind _________________
+
+    def test_every_entry_is_a_real_cpp_surface_kind() -> None:
+        data = _load_fixture()
+>       kinds = {entry["kind"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_cpp_extraction.py:127: KeyError
+_______________ test_real_inheritance_relationships_are_present _______________
+
+    def test_real_inheritance_relationships_are_present() -> None:
+        data = _load_fixture()
+>       by_name = {entry["name"]: entry for entry in data["types"]}
+                                                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_cpp_extraction.py:135: KeyError
+_______ test_a_real_multilevel_inherited_from_chain_is_correctly_rooted _______
+
+    def test_a_real_multilevel_inherited_from_chain_is_correctly_rooted() -> None:
+        data = _load_fixture()
+>       by_name = {entry["name"]: entry for entry in data["types"]}
+                                                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_cpp_extraction.py:154: KeyError
+______ test_a_one_level_inherited_from_relationship_is_correctly_rooted _______
+
+    def test_a_one_level_inherited_from_relationship_is_correctly_rooted() -> None:
+        data = _load_fixture()
+>       by_name = {entry["name"]: entry for entry in data["types"]}
+                                                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_cpp_extraction.py:196: KeyError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_jmap_cpp_extraction.py::test_the_fixture_parses_and_has_the_expected_shape
+FAILED tests/extraction/test_jmap_cpp_extraction.py::test_the_fixture_records_the_exact_source_commit_and_repository
+FAILED tests/extraction/test_jmap_cpp_extraction.py::test_the_fixture_is_non_empty
+FAILED tests/extraction/test_jmap_cpp_extraction.py::test_the_fixture_contains_real_cpp_type_names
+FAILED tests/extraction/test_jmap_cpp_extraction.py::test_every_entry_is_a_real_cpp_surface_kind
+FAILED tests/extraction/test_jmap_cpp_extraction.py::test_real_inheritance_relationships_are_present
+FAILED tests/extraction/test_jmap_cpp_extraction.py::test_a_real_multilevel_inherited_from_chain_is_correctly_rooted
+FAILED tests/extraction/test_jmap_cpp_extraction.py::test_a_one_level_inherited_from_relationship_is_correctly_rooted
+
+--- stderr ---
+
