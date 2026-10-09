@@ -14,6 +14,7 @@ depends_on:
 - TC-252
 - TC-265
 - TC-155
+- TC-274
 write_paths:
 - tests/fixtures/html_python/api_surface.json
 - tests/extraction/test_html_python_extraction.py
@@ -45,6 +46,18 @@ inputs:
   full-suite check at the end shows some other existing test now fails because it depended on the OLD fixture''s
   specific content - STOP, do not guess-fix a file outside your write_paths, and report exactly which test(s) and
   why, so a properly scoped rework restatement can be issued.'
+- 'REWORK (attempt 2): attempt 1 correctly stopped on a genuine, newly-discovered defect it found during its own
+  required inspection - not a problem with its own write_paths. It found that this repository''s near-universal
+  "real class in a leading-underscore impl module, re-exported publicly via package __init__.py" convention
+  (confirmed: 101 of 104 real .py files) meant TC-265''s fix was a near-total no-op here specifically: only 3 of
+  323 types had any non-zero centrality score (everything else defined via this convention scored exactly 0).
+  That root cause is now fixed and integrated as TC-274 - verify this yourself first (read python_surface.py''s
+  _origin_kind()/_reexport_kind()/inspect_public_surface() and confirm the origin-is-None fallback now recovers
+  real bases/return_type/param_types via _structured_fields() for an underscore-module origin, not just a
+  SymbolKind - do not trust this claim without checking the code). Re-run the real extraction for html/python now;
+  confirm centrality scores are genuinely non-degenerate across a meaningful fraction of the 323 real types (not
+  just 3), and identify and report the real highest-centrality type (this project has no audit-named symbol for
+  this pilot).'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
 - Confirm TC-252 and TC-265 are integrated and their fixes are really what main's extraction path does now.

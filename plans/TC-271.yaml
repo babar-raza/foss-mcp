@@ -13,6 +13,7 @@ purpose: 'Regenerate tests/fixtures/cells_cpp/api_surface.json with TC-252''s fi
 depends_on:
 - TC-252
 - TC-259
+- TC-276
 write_paths:
 - tests/fixtures/cells_cpp/api_surface.json
 - tests/extraction/test_cells_cpp_extraction.py
@@ -53,6 +54,18 @@ inputs:
   full-suite check at the end shows some other existing test now fails because it depended on the OLD fixture''s
   specific content - STOP, do not guess-fix a file outside your write_paths, and report exactly which test(s) and
   why, so a properly scoped rework restatement can be issued.'
+- 'REWORK (attempt 2): attempt 1 correctly stopped on a genuine, newly-discovered defect it found during its own
+  required inspection - not a problem with its own write_paths. It found that an out-of-line, qualified C++ member
+  definition (ReturnType ClassName::Method(...) { ... } in a .cpp file, e.g. Workbook& Worksheet::GetWorkbook())
+  fabricates a phantom top-level entry named after its return type, through a path TC-259 did not cover
+  (_cpp_is_free_function misclassified it as a free function). That root cause is now fixed and integrated as
+  TC-276 - verify this yourself first (read tree_helpers.py''s _cpp_is_free_function() and confirm it now returns
+  False for a qualified_identifier function_declarator, with the literal "# TC-276: out-of-line member" comment -
+  do not trust this claim without checking the code). Re-run the real extraction for cells/cpp now; your C1
+  regression spot-check must cover BOTH inline-bodied members (the TC-259 shape) AND out-of-line qualified member
+  definitions (the TC-276 shape, e.g. spot-check Worksheet::GetWorkbook and similar real out-of-line accessors in
+  this repository) - confirm zero fabricated entries of either shape anywhere in the full kept 300, not just the
+  3 originally-spot-checked classes from attempt 1.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
 - Confirm TC-252 and TC-259 are integrated and their fixes are really what main's extraction path does now.
