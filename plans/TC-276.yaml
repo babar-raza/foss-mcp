@@ -1,0 +1,108 @@
+id: TC-276
+gate: G2
+lane: extraction
+purpose: 'Fix C1-out-of-line (found by the TC-271/cells-cpp worker, recorded in docs/DECISION_LOG.md
+  2026-10-09): TC-259 fixed C1 (fabricated member names from reference/pointer return types) for inline-bodied
+  class members and genuine free functions, but the identical shape recurs through a path TC-259 does not cover
+  - an out-of-line, qualified member definition (`ReturnType ClassName::Method(...) { ... }` in a .cpp file).
+  src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py''s _cpp_is_free_function() walks the node''s ancestor
+  chain and returns True for such a definition (it is textually outside any class body, so the walk never passes
+  through a field_declaration_list) even though it is semantically a member, not a free function.
+  _cpp_free_function_name() then fails to find a name (the function_declarator''s name child is a
+  qualified_identifier - `ClassName::Method` - a node type it does not check for among
+  identifier/field_identifier/destructor_name/operator_name), returns "", and _node_name() falls through to the
+  generic return-type fallback, fabricating a phantom top-level type entry named after the return type. Live-
+  confirmed against cells/cpp: `Workbook& Worksheet::GetWorkbook()` fabricates a phantom top-level entry literally
+  named "Workbook"; `OperatorType FormatCondition::GetOperator()`, `DiagnosticSeverity LoadIssue::GetSeverity()`,
+  and `CellAddress CellAddress::Parse(...)` reproduce the identical shape for value returns. The real method is
+  already correctly captured from the class''s own header declaration in every spot-checked case - confirmed
+  present in the ALREADY-ACCEPTED main fixture (this predates this session''s regeneration work; it was newly
+  surfaced, not introduced, by TC-271''s required careful inspection).'
+depends_on:
+- TC-259
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py
+- tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read tree_helpers.py''s _cpp_is_free_function() (~line 369-400+), _cpp_free_function_name() (~line 334-366),
+  and _node_name()''s cpp branch (~line 287-331, including the TC-259 comment block) in full before changing
+  anything. Also read src/foss_mcp/extraction/tree_sitter_engine/api_surface.py''s dedicated C++
+  field_declaration_list member loop TC-259''s own comment references, to confirm (do not assume) that a class''s
+  header-declared member is ALREADY the sole source of that member''s real, correctly-named entry - this card
+  must never create a second source of truth for it.'
+- 'Extend _cpp_is_free_function() to recognize a qualified_identifier as the function_declarator''s name child
+  (optionally through the same reference_declarator/pointer_declarator wrapping _cpp_free_function_name() already
+  tolerates) - this identifies an out-of-line `ClassName::Method` definition, which is semantically a member, not
+  a free function, regardless of where it sits in the file. Return False for it, exactly as the function already
+  returns False upon reaching a field_declaration_list ancestor - both cases mean "this is a member," and
+  _node_name()''s existing `else: return ""  # TC-259: member case` branch already does the right thing once
+  _cpp_is_free_function correctly reports that. Verify via a live tree-sitter-cpp parse probe (the same technique
+  TC-010b/TC-058/TC-059/TC-259 each used and documented in their own comments) that a qualified_identifier really
+  is the node type tree-sitter-cpp produces for this declarator shape - do not assume the name without checking.
+  Your new early-return statement for this case MUST be written as the exact literal line
+  `return False  # TC-276: out-of-line member` (this card''s negative control finds this exact string, return
+  statement plus trailing comment together, so it targets exactly this line regardless of indentation and never
+  the unrelated, pre-existing "qualified_identifier" substring that already appears earlier in this file at
+  ~line 836 - the same class of mistake TC-261 made and fixed earlier this session, just avoided here by matching
+  the full statement text, not a bare substring).'
+- 'Before committing, empirically verify (grep/inspect the real cells/cpp clone, or any other already-cloned
+  C++ pilot available to you) whether every out-of-line qualified member definition in real source has a
+  corresponding header declaration that already captures the real member - this card''s fix assumes exactly that
+  (so excluding the out-of-line definition entirely from the top-level extraction path loses nothing). If you
+  find a real counter-example (an out-of-line definition with no header-declared counterpart, meaning this fix
+  would silently drop a real member with no replacement), STOP and report it rather than proceeding on the
+  assumption - that would need different handling (recovering the real name from the qualified_identifier itself,
+  not just suppressing the phantom).'
+- 'Add tests to tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py (TC-259''s own
+  file - extend it, do not create a parallel one): a real-shaped out-of-line reference-returning member
+  definition (mirroring `Workbook& Worksheet::GetWorkbook()`) must never produce a phantom top-level entry named
+  after its return type; a real-shaped out-of-line value-returning member definition (mirroring `OperatorType
+  FormatCondition::GetOperator()`) must never produce a phantom entry named after its return type either; a
+  genuine out-of-line CONSTRUCTOR (`Foo::Foo(...)  { ... }`, whose qualified_identifier''s final component
+  legitimately equals the class name) must still be handled correctly - confirm what the existing constructor
+  path already does for this case and that this card''s fix does not disturb it, this is a direct regression
+  check, not just absence of a new failure. Add a regression test proving TC-259''s own inline-member and genuine-
+  free-function cases are completely unchanged by this card.'
+- 'Run the full existing test_cpp_reference_return_member_naming.py suite with zero changes to any pre-existing
+  assertion, then your new tests, then the full project suite once, and report honestly. Do NOT regenerate any
+  committed C++ fixture as part of this card - every C++ pilot needs independent re-measurement and re-pinning in
+  a follow-up wave once this fix is reviewed and accepted, exactly mirroring how TC-259 itself was followed by a
+  separate regeneration wave rather than regenerating fixtures as part of the root-cause fix itself.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read _cpp_is_free_function, _cpp_free_function_name, and _node_name's cpp branch in full before changing anything.
+- Verify empirically that out-of-line definitions have a header-declared counterpart in real source before
+  assuming exclusion loses nothing.
+- Extend _cpp_is_free_function to recognize a qualified_identifier declarator and return False for it.
+- Add tests for the reference-return, value-return, genuine-constructor, and unchanged-TC-259-cases; run the
+  full existing suite unchanged, then the full project suite once.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 6
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py');s=p.read_text(encoding='utf-8');old='return False  # TC-276: out-of-line member';new='pass  # TC-276 negative control: out-of-line member disabled';i=s.index(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: 'Finds this card''s own new out-of-line-member early return by its mandated, exact, unique line text
+    (the return statement plus its trailing comment together, not a bare substring) and replaces it with a
+    no-op, leaving every pre-existing case (the field_declaration_list ancestor check, genuine free functions)
+    completely untouched, so the new tests asserting no phantom entry is ever fabricated for an out-of-line
+    member must fail again. Mirrors TC-259''s own negative control exactly. Built with chr(), no backslash.'
+evidence:
+- evidence/build/G2/TC-276/receipt.json
+closeout:
+- An out-of-line, qualified C++ member definition (ClassName::Method) never fabricates a phantom top-level type
+  entry named after its return type - closing the C1 fabrication shape TC-259 left open for this declarator form.
+recovery: Re-run from a clean tree.
