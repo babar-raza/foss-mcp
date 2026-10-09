@@ -1934,3 +1934,39 @@ root-cause fix itself.
 All seven cards (TC-281-287) are integrated. C6 is closed. Remaining from the third audit: C8 (narrative
 documentation gap, P2) and OWNER-11 (B08, owner-only). A follow-up wave to apply TC-281's fix to the 12 real
 Python-sourced fixtures has not yet been authored as of this entry.
+
+## 2026-10-09 — a deeper _flatten_inheritance() defect found while applying TC-281's fix: short-name collision
+between a re-export shell and the real definition (first-writer-wins)
+TC-288 (the first of the 5-pilot follow-up wave re-applying TC-281 to already-regenerated Python fixtures)
+stopped correctly without committing a fixture that would still show zero `inherited_from` tags, and found a
+genuine, deeper root cause in `_flatten_inheritance()` itself - a defect that predates TC-281 entirely and lives
+in shared, language-agnostic code (`src/foss_mcp/extraction/tree_sitter_engine/api_surface.py` ~line 2452-2461).
+
+`by_name`'s short-name index is built first-writer-wins (`if short and short not in by_name: by_name[short] = c`).
+For a Python package following the common "class defined in its own submodule, re-exported at the package level"
+convention, TWO entries share the same bare class name: the re-export shell (`class_import` e.g. `pkg.Base`,
+`methods=[]`, since `python_surface.py`'s own re-export handling never populates structured data for a pure
+re-export entry) and the real definition (`class_import` e.g. `pkg.Base.Base`, real methods). Because the
+shell's shorter `class_import` sorts first in the type list, it claims the `by_name["Base"]` slot before the real
+definition is ever processed - and since Python source almost always references a base class by its bare,
+unqualified name (`class Child(Base):`, never `class Child(pkg.Base.Base):`), every subclass's `bases` entry
+resolves through the short-name index straight to the empty shell, never the real definition. Confirmed three
+independent ways (direct in-memory centrality/resolution counts over the full untruncated 3d/python extraction;
+calling the real `_flatten_inheritance()` directly and observing zero change in tagged-method count before/after;
+an isolated 3-entry synthetic reproduction isolating the exact collision). This makes `_flatten_inheritance()` a
+near-total no-op for ANY Python package built on this (very common) module layout, independent of TC-281's own
+fix - TC-281 made the function execute for Python; this defect means that even when it executes, it can resolve
+every base reference to the wrong, empty entry.
+
+This is NOT specific to 3d/python or to this session's regeneration work - it is a pre-existing defect in shared
+code, and the worker's own blast-radius warning (confirmed plausible, not yet independently verified for each
+pilot) is that TC-289 through TC-292 - the sibling cards in the same follow-up wave - likely hit the identical
+defect, since none of them have reported back yet as of this entry.
+
+**Fix plan (next taskcard, to be authored and dispatched):** change the short-name insertion rule in `by_name`
+construction from unconditional first-writer-wins to "prefer the candidate that actually carries structured data
+(non-empty methods/properties) over an empty shell on a short-name collision" - mirroring the same "prefer the
+richer, more specific data" principle TC-261's own `m.get("inherited_from") or parent_identity` already applies
+for provenance rooting. Must verify the fix live against 3d/python (the real reproduction already in hand) and
+at least one other real pilot, and must not disturb the full-`class_import`-keyed resolution path at all (that
+path was already unambiguous and correct before this fix).
