@@ -1,0 +1,112 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_verify_package_registry.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4yakutb2\.junit-0.xml"
+--- stdout ---
+.....................................................                    [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_verify_package_registry.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4yakutb2\.junit-0.xml"
+--- stdout ---
+.....................................................                    [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/verify_package_registry.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_verify_package_registry.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4yakutb2\.junit-0.xml"
+--- stdout ---
+....................................FFFF.............                    [100%]
+================================== FAILURES ===================================
+____ test_go_published_commit_composes_latest_version_with_tag_resolution _____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002418FECB9A0>
+
+    def test_go_published_commit_composes_latest_version_with_tag_resolution(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        calls: list[tuple[str, str]] = []
+    
+        def _fake_latest_version(coordinate: str) -> str | None:
+            calls.append(("go_latest_version", coordinate))
+            return "v0.9.0"
+    
+        def _fake_resolve_tag_commit(repository: str, ref: str) -> str | None:
+            calls.append(("resolve_tag_commit", f"{repository}@{ref}"))
+            return "6784921e711f00a26fb30a0be279965502d3ff34"
+    
+        monkeypatch.setattr(verify_package_registry, "go_latest_version", _fake_latest_version)
+        monkeypatch.setattr(verify_package_registry, "resolve_tag_commit", _fake_resolve_tag_commit)
+    
+>       result = verify_package_registry.go_published_commit(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            "github.com/aspose-pdf-foss/aspose-pdf-foss-for-go",
+            "aspose-pdf-foss/Aspose-PDF-FOSS-for-Go",
+        )
+E       AttributeError: module 'infra.verify_package_registry' has no attribute 'go_published_commit'
+
+tests\infra\test_verify_package_registry.py:353: AttributeError
+__ test_go_published_commit_returns_none_when_the_module_was_never_published __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002418FECB380>
+
+    def test_go_published_commit_returns_none_when_the_module_was_never_published(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def _must_not_be_called(repository: str, ref: str) -> str | None:
+            raise AssertionError("resolve_tag_commit must not be called when there is no version")
+    
+        monkeypatch.setattr(verify_package_registry, "go_latest_version", lambda coordinate: None)
+        monkeypatch.setattr(verify_package_registry, "resolve_tag_commit", _must_not_be_called)
+    
+>       assert verify_package_registry.go_published_commit("github.com/example/missing", "owner/repo") is None
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.verify_package_registry' has no attribute 'go_published_commit'
+
+tests\infra\test_verify_package_registry.py:374: AttributeError
+_ test_go_published_commit_returns_none_when_the_resolved_version_is_not_a_real_tag _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002418FE4A660>
+
+    def test_go_published_commit_returns_none_when_the_resolved_version_is_not_a_real_tag(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(verify_package_registry, "go_latest_version", lambda coordinate: "v1.2.3")
+        monkeypatch.setattr(verify_package_registry, "resolve_tag_commit", lambda repository, ref: None)
+    
+>       assert verify_package_registry.go_published_commit("github.com/example/thing", "owner/repo") is None
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.verify_package_registry' has no attribute 'go_published_commit'
+
+tests\infra\test_verify_package_registry.py:383: AttributeError
+__ test_go_published_commit_propagates_a_transport_failure_from_either_step ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002418FE49DA0>
+
+    def test_go_published_commit_propagates_a_transport_failure_from_either_step(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def _fails(coordinate: str) -> str | None:
+            raise urllib.error.URLError("boom: simulated proxy outage")
+    
+        monkeypatch.setattr(verify_package_registry, "go_latest_version", _fails)
+        with pytest.raises(urllib.error.URLError):
+>           verify_package_registry.go_published_commit("github.com/example/thing", "owner/repo")
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: module 'infra.verify_package_registry' has no attribute 'go_published_commit'
+
+tests\infra\test_verify_package_registry.py:394: AttributeError
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/infra/test_verify_package_registry.py::test_go_published_commit_composes_latest_version_with_tag_resolution
+FAILED tests/infra/test_verify_package_registry.py::test_go_published_commit_returns_none_when_the_module_was_never_published
+FAILED tests/infra/test_verify_package_registry.py::test_go_published_commit_returns_none_when_the_resolved_version_is_not_a_real_tag
+FAILED tests/infra/test_verify_package_registry.py::test_go_published_commit_propagates_a_transport_failure_from_either_step
+
+--- stderr ---
+
