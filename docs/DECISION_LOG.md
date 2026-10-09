@@ -1710,3 +1710,43 @@ rule requires. Every other in-flight Python-pilot regeneration card (TC-264 slid
 3d/python, TC-268 pdf/python, TC-270 words/python) is expected to independently hit the same measurement
 degeneracy to whatever degree their own repository uses this convention; each is being individually verified
 against its own actual report rather than assumed broken or assumed fine.
+
+## 2026-10-09 — C1-out-of-line: _cpp_is_free_function misclassifies an out-of-line qualified member
+definition as a free function (new finding, found by the TC-271/cells-cpp worker)
+TC-259 fixed C1 (fabricated member names from reference/pointer return types) for inline-bodied class members
+and genuine free functions, but a THIRD case recurs through a path TC-259 does not cover: an out-of-line,
+qualified member definition (`ReturnType ClassName::Method(...) { ... }` in a .cpp file).
+`_cpp_is_free_function()` (tree_helpers.py ~line 369) walks the node''s ancestor chain and returns True the
+moment it reaches `translation_unit`/a namespace `declaration_list` without passing through a
+`field_declaration_list` first - which is exactly what happens for an out-of-line definition, since it is
+textually outside any class body. `_cpp_free_function_name()` then looks for an `identifier`/`field_identifier`/
+`destructor_name`/`operator_name` as the function_declarator''s name child, but an out-of-line definition''s name
+child is a `qualified_identifier` (`ClassName::Method`) - a node type that function does not check for - so it
+returns "", and `_node_name()` falls through to the generic return-type fallback, fabricating a phantom top-level
+type entry named after the return type (e.g. `Workbook& Worksheet::GetWorkbook() {...}` fabricates a phantom
+entry literally named "Workbook"). The REAL method (`GetWorkbook` on `Worksheet`) is already correctly captured
+from the header''s own inline declaration - the out-of-line .cpp definition has no legitimate standalone identity
+and should never reach the free-function extraction path at all.
+
+Live-confirmed against cells/cpp: `Worksheet::GetWorkbook` (reference return) and multiple value-returning cases
+(`FormatCondition::GetOperator` -> phantom "OperatorType", `LoadIssue::GetSeverity` -> phantom
+"DiagnosticSeverity", `CellAddress::Parse` -> phantom "CellAddress") all reproduce the identical fabrication
+shape. In the fixture''s kept 300 types, at least 20 phantom entries are unambiguously bogus because the
+fabricated name matches a real enum (an enum cannot have a constructor), with up to 109 broader candidates not
+yet fully partitioned from genuine out-of-line constructors (whose fabricated name legitimately equals the real
+class name by coincidence). Confirmed this predates TC-271 and is already present, silently, in the currently-
+accepted main fixture - not a regression introduced by this session''s regeneration work, just newly surfaced by
+the careful inspection TC-271''s own card required.
+
+**Fix plan (next taskcard, to be authored and dispatched):** extend `_cpp_is_free_function()` to recognize a
+`qualified_identifier` name child on the function_declarator (an out-of-line `ClassName::Method` definition) and
+return False for it, the same as it already does for an inline class-body member - the real member is already
+captured via the header declaration, so this node should contribute nothing to the top-level free-function/type
+list at all, mirroring exactly how `_node_name()`''s `else: return ""  # TC-259: member case` branch already
+handles the inline case once `_cpp_is_free_function` correctly says "this is a member." Must verify empirically
+(not assume) whether every such out-of-line definition in the real corpus has a corresponding header declaration
+already capturing it - if a genuine standalone case exists with no header counterpart, that case needs its own
+handling, not silent exclusion.
+TC-271 (cells/cpp) stopped correctly without committing a fixture carrying this now-identified fabrication,
+exactly the discipline TC-267 (html/python, C4-Python-reexport above) and this project's "never weaken a check to
+make it pass" rule already established this session.
