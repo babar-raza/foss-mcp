@@ -410,7 +410,9 @@ def test_install_coordinate_for_verification_is_none_when_no_manifest_was_provid
 def test_install_coordinate_for_verification_is_none_when_the_manifest_field_is_missing() -> None:
     """The "install" branch itself would answer NotAvailable here (no PackageId/AssemblyName) -
     this function must mirror that exactly, never raise."""
-    csproj_text = "<Project><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>"
+    csproj_text = (
+        "<Project><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>"
+    )
     inputs = ProductReferenceInputs(manifest_text=csproj_text, platform="net")
     assert install_coordinate_for_verification(inputs) is None
 
@@ -419,7 +421,7 @@ def test_install_coordinate_for_verification_is_none_when_the_manifest_field_is_
 
 
 def test_install_returns_not_available_when_verification_confirmed_the_current_coordinate_absent() -> None:
-    """"False information is more dangerous than missing information": once ingestion-time
+    """ "False information is more dangerous than missing information": once ingestion-time
     verification has confirmed THIS EXACT coordinate does not resolve on its real registry, the
     "install" section must stop serving it as confident content."""
     inputs = ProductReferenceInputs(
@@ -457,7 +459,9 @@ def test_install_returns_unmodified_content_when_never_checked_the_default() -> 
     assert result.text == "pip install aspose-pdf-foss"
 
 
-def test_install_returns_unmodified_content_when_verified_false_but_the_coordinate_has_since_changed() -> None:
+def test_install_returns_unmodified_content_when_verified_false_but_the_coordinate_has_since_changed() -> (
+    None
+):
     """Guards against serving a stale verification result for a manifest that has since changed:
     install_verified=False only suppresses when install_verified_coordinate still matches the
     coordinate install_coordinate_for_verification would derive right now."""

@@ -345,9 +345,7 @@ def test_serving_product_reference_inputs_merges_a_present_registry_verification
     tmp_path: Path,
 ) -> None:
     config = DeploymentConfig(family="pdf", platform="net")
-    manifest_text = (
-        "<Project><PropertyGroup><PackageId>Aspose.PDF-FOSS</PackageId></PropertyGroup></Project>"
-    )
+    manifest_text = "<Project><PropertyGroup><PackageId>Aspose.PDF-FOSS</PackageId></PropertyGroup></Project>"
     _write_manifest_sidecar(tmp_path, "pdf", "net", manifest_text)
     registry_sidecar = {
         "ecosystem": "nuget",

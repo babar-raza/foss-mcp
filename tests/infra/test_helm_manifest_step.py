@@ -270,7 +270,9 @@ def test_the_verify_install_step_is_brace_grouped_with_or_true_and_precedes_rece
     docs = _render()
     tokens = _job_tokens(_job(docs, pilot))
     verify_index = tokens.index(VERIFY_INSTALL_COMMAND)
-    assert tokens[verify_index - 1] == "python" and tokens[verify_index - 2] == "{", tokens[: verify_index + 1]
+    assert tokens[verify_index - 1] == "python" and tokens[verify_index - 2] == "{", tokens[
+        : verify_index + 1
+    ]
     assert tokens[verify_index - 3] == "&&", tokens[: verify_index + 1]
     or_index = tokens.index("||", verify_index)
     true_index = or_index + 1

@@ -82,7 +82,9 @@ def _registry_output_path(manifests_dir: Path, family: str, platform: str) -> Pa
 # --- writes the expected sidecar shape when a real coordinate exists ----------------------------
 
 
-def test_main_writes_the_expected_sidecar_shape_when_a_coordinate_exists(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_main_writes_the_expected_sidecar_shape_when_a_coordinate_exists(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
     _write_manifest_sidecar(tmp_path, "jmap", "python", manifest_text=PYPROJECT_TEXT)
     monkeypatch.setitem(verify_package_registry._CHECKERS, "pypi", lambda coordinate: True)
     _set_argv(monkeypatch, tmp_path)
@@ -114,7 +116,9 @@ def test_main_round_trips_through_load_package_registry_sidecar(tmp_path: Path, 
 
     verify_product_reference_install.main()
 
-    loaded = verify_package_registry.load_package_registry_sidecar(_registry_output_path(tmp_path, "jmap", "python"))
+    loaded = verify_package_registry.load_package_registry_sidecar(
+        _registry_output_path(tmp_path, "jmap", "python")
+    )
     assert loaded is not None
     assert loaded["coordinate"] == "aspose-jmap-foss"
 
