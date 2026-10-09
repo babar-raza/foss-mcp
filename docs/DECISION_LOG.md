@@ -2264,3 +2264,24 @@ attempt number; worth remembering as the standard unblock for this exact shape r
 
 This closes the entire TC-306/TC-311/TC-315/TC-316 defect-and-fix cluster. TC-317 (pdf/typescript's own re-pin,
 also needing the extends_type_clause fix) remains the one still-open follow-up from this cluster.
+
+## 2026-10-10 — TC-317 closed: the TypeScript extends_type_clause cluster is fully resolved
+TC-317 is integrated: pdf/typescript re-pinned, with a real, hand-verified 4-level interface-extends-interface
+chain (ComboBoxInit->ChoiceInit->FieldInit->FieldStyle->WidgetStyle) correctly rooted through two non-declaring
+intermediates. tests/e2e/test_pdf_typescript_live_content.py's REAL_SOURCE_COMMIT was updated in lockstep
+(e0f4fe99... -> c672b391..., the real upstream repository advanced again since TC-285's own pin), mirroring
+TC-285's own established precedent for this file; REAL_SYMBOL/REAL_METHOD_FRAGMENT needed no change.
+
+This closes the entire TC-306/TC-311/TC-315/TC-316/TC-317 cluster: both pilots affected by the missing
+extends_type_clause node type (cells_typescript, pdf_typescript) and both pilots affected by the missing
+javascript namespace branch (jmap/nodejs's own collision) are now fixed and re-pinned. 29 taskcards have been
+authored, dispatched, reviewed, accepted, and integrated so far in this session (TC-281-282 through TC-317,
+minus TC-289 which is SUPERSEDED).
+
+Remaining open items from this session's own work, not yet started: the 7 zero-bases Python pilots (barcode/
+cells/email/jmap/note/page/tex, none ever regenerated under the centrality+structured-data pipeline at all);
+cells_go/imaging_net's own flat-vs-stale ambiguity, uninvestigated; generalizing TC-296's Go published-commit
+resolver to the other five ecosystems and wiring it into the live report_index_freshness tool; and the large
+remainder of the round-4 audit's own findings (Helm non-atomic deploys, the TC-251 cold-start regression, chart
+guard gaps, lookup's lack of version-awareness, get_symbol's own documented-example bugs, cross-language
+consistency, and the still-partial C2/C5 fixes).
