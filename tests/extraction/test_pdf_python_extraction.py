@@ -10,13 +10,20 @@ Like slides/python, this fixture was produced by the independent pure-``ast`` re
 ``run_extraction._python_types_from_surface``): its ``language`` field reads literally
 ``"python"`` and there is no tree-sitter grammar name here at all.
 
-Regenerated under TC-268 with TC-252's centrality-ranked ``reduce_fixture()`` and
-TC-265's real ``bases``/``return_type``/``param_types`` population (both confirmed
-integrated on main before this run). The reduced 300-entry sample for this repository
-kept only ``"class"`` and ``"enum"`` kinds - observed directly from the live run, not
-assumed from the sibling platform's fixture or from this file's own prior content.
-Centrality ranking now recovers ``"Page"``, same as every sibling pdf/* pilot
-(go, java, net, cpp, typescript) needed this exact fix for.
+Regenerated under TC-290 (a pure re-pin, no new root-cause work) because the
+previous regeneration (TC-268) ran before TC-281's Python inheritance-flattening
+fix (``run_extraction._extract_python_surface`` calling
+``api_surface._flatten_inheritance(types)``) landed on main: that left 135 types
+with non-empty ``bases`` but zero ``inherited_from`` tags. TC-252's
+centrality-ranked ``reduce_fixture()`` and TC-265's real
+``bases``/``return_type``/``param_types`` population are unchanged and still
+integrated (confirmed by reading the source before this run). The reduced
+300-entry sample for this repository still keeps only ``"class"`` and ``"enum"``
+kinds, and centrality ranking still recovers ``"Page"`` - both observed directly
+from this live run, not assumed from the sibling platform's fixture or from this
+file's own prior content. New in this fixture: real inherited members now carry
+a correct ``inherited_from`` tag (e.g. ``PdfStream`` inherits ``get``/``pop``
+from its real base ``PdfDictionary``).
 """
 
 from __future__ import annotations
@@ -86,3 +93,32 @@ def test_the_fixture_keeps_page_after_centrality_ranking() -> None:
     # the same top-level page type every sibling pdf/* pilot (go, java, net, cpp,
     # typescript) needed this exact fix to stop losing to alphabetical truncation.
     assert "Page" in names
+
+
+def test_a_real_inherited_member_carries_the_correct_inherited_from_tag() -> None:
+    data = _load_fixture()
+    by_name = {entry["name"]: entry for entry in data["types"]}
+    # TC-290: TC-281's api_surface._flatten_inheritance() now runs for every
+    # Python-sourced pilot (run_extraction._extract_python_surface calls it before
+    # returning). Observed directly from this live run: PdfStream's real base is
+    # PdfDictionary (see entry["bases"] below), and _flatten_inheritance copies
+    # PdfDictionary's "get"/"pop" methods onto PdfStream, each tagged with the
+    # base's real qualified class_import as inherited_from - not a guessed name,
+    # and not present at all in the pre-TC-281 fixture this replaces (zero
+    # inherited_from tags existed anywhere in it).
+    pdf_stream = by_name["PdfStream"]
+    assert pdf_stream["bases"] == ["PdfDictionary"]
+    inherited = {m["name"]: m["inherited_from"] for m in pdf_stream["methods"] if "inherited_from" in m}
+    assert inherited["get"] == "aspose_pdf.engine.cos.PdfDictionary"
+    assert inherited["pop"] == "aspose_pdf.engine.cos.PdfDictionary"
+
+
+def test_inherited_from_tags_are_not_vacuous() -> None:
+    data = _load_fixture()
+    # Falsifier guard for the regeneration itself: the pre-TC-281 fixture this
+    # replaces had 135 types with non-empty bases but exactly zero inherited_from
+    # tags anywhere. At least one real inherited member must now carry one.
+    total_inherited = sum(
+        1 for entry in data["types"] for m in entry.get("methods", []) if "inherited_from" in m
+    )
+    assert total_inherited > 0
