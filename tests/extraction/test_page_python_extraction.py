@@ -111,9 +111,7 @@ def test_a_real_type_now_carries_a_non_empty_bases_list() -> None:
     # concrete class that extends ClipperBase, observed directly in this run, not guessed.
     data = _load_fixture()
     clipper = next(
-        entry
-        for entry in data["types"]
-        if entry["class_import"] == "aspose.page.ps.clipper.Clipper"
+        entry for entry in data["types"] if entry["class_import"] == "aspose.page.ps.clipper.Clipper"
     )
     assert clipper["bases"] == ["ClipperBase"]
     # Real, observed inheritance evidence across the fixture - not a single coincidence:
@@ -132,9 +130,7 @@ def test_a_real_subclass_carries_correct_inherited_from_provenance() -> None:
     # ClipperBase's own real methods, observed directly in this run.
     data = _load_fixture()
     clipper = next(
-        entry
-        for entry in data["types"]
-        if entry["class_import"] == "aspose.page.ps.clipper.Clipper"
+        entry for entry in data["types"] if entry["class_import"] == "aspose.page.ps.clipper.Clipper"
     )
     assert "ClipperBase" in clipper["bases"]
     add_path_entries = [m for m in clipper["methods"] if m["name"] == "add_path"]
