@@ -86,14 +86,9 @@ def test_real_inherited_members_carry_provenance_rooted_to_the_true_declaring_cl
     by_name = _by_name(data)
 
     formula_exc = by_name["FormulaException"]
-    inherited_ctors = [
-        m for m in formula_exc["methods"] if m.get("inherited_from")
-    ]
+    inherited_ctors = [m for m in formula_exc["methods"] if m.get("inherited_from")]
     assert len(inherited_ctors) == 2
-    assert all(
-        m["inherited_from"] == "Aspose.Cells_FOSS.CellsException"
-        for m in inherited_ctors
-    )
+    assert all(m["inherited_from"] == "Aspose.Cells_FOSS.CellsException" for m in inherited_ctors)
     assert all(m["name"] == "CellsException" and m["is_constructor"] for m in inherited_ctors)
 
     # The root itself must carry no "inherited_from" on its own members - it is
@@ -103,9 +98,7 @@ def test_real_inherited_members_carry_provenance_rooted_to_the_true_declaring_cl
 
     pdf_save_options = by_name["PdfSaveOptions"]
     inherited_props = {
-        p["name"]: p["inherited_from"]
-        for p in pdf_save_options["properties"]
-        if p.get("inherited_from")
+        p["name"]: p["inherited_from"] for p in pdf_save_options["properties"] if p.get("inherited_from")
     }
     assert inherited_props == {
         "SaveFormat": "Aspose.Cells_FOSS.SaveOptions",
@@ -137,6 +130,4 @@ def test_other_cellsexception_subclasses_also_inherit_the_same_constructors() ->
         assert cls["bases"] == ["CellsException"]
         inherited = [m for m in cls["methods"] if m.get("inherited_from")]
         assert len(inherited) == 2, name
-        assert all(
-            m["inherited_from"] == "Aspose.Cells_FOSS.CellsException" for m in inherited
-        ), name
+        assert all(m["inherited_from"] == "Aspose.Cells_FOSS.CellsException" for m in inherited), name
