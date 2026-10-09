@@ -21,24 +21,45 @@ inheritance (non-empty ``bases``) with ZERO ``inherited_from`` tags anywhere - t
 defect TC-261 exists to close. TC-285 re-ran the SAME real extraction now that both TC-252
 and TC-261 are genuinely on ``main``, closing that regeneration-ordering gap.
 
-The live repository has moved on again since TC-255's run (5173 -> 5274 public types, and a
+TC-316 then found a SEPARATE engine defect, cross-cutting from its own pilot (cells/typescript):
+``tree_helpers.py``'s ``_extract_bases()`` recognized TypeScript's class-level
+``class_heritage``/``extends_clause``/``implements_clause`` nodes but not ``extends_type_clause``
+- the real node type for an INTERFACE extending another interface
+(``interface_declaration -> type_identifier, extends_type_clause[extends, type_identifier],
+interface_body``). TC-316's own worker live-confirmed this pilot has 57 real
+``interface X extends Y`` relationships, 56 of which extracted as ``bases: []`` before the fix.
+TC-317 re-runs the SAME real extraction now that TC-316's fix is genuinely on ``main``, closing
+that gap for this pilot.
+
+The live repository has moved on again since TC-285's run (5274 -> 5342 public types, and a
 new HEAD commit) - re-running the real extraction naturally re-pins both the fixture's
 ``source_commit`` and ``type_count`` to whatever the live repository's HEAD genuinely was at
-run time, same as every previous re-run of this pilot's extraction.
+run time, same as every previous re-run of this pilot's extraction. (Re-run twice, minutes
+apart, during TC-317: both runs independently landed on the identical commit and type count,
+confirming the live repository was not mid-push.)
 
-Each name/value asserted on below was read directly from this fixture after TC-285's real
-live run (commit ``e0f4fe99c48e44690686df559a488bfc3623e995``), not invented. ``Page``,
+Each name/value asserted on below was read directly from this fixture after TC-317's real
+live run (commit ``c672b3918318ccd0c13bc9dc619620cac2674c9e``), not invented. ``Page``,
 ``Document``, ``PdfDict``, ``PdfObject`` and ``StructElement`` are still the five
-highest-centrality entries of the real 5274-type surface (order among the five shifted
-slightly from TC-255's run, but the set is unchanged).
+highest-centrality entries of the real 5342-type surface (order among the five shifted
+slightly from TC-285's run, but the set is unchanged).
 
 ``ButtonField`` (``src/formfield.ts``) is a real class whose only base is ``Field``
 (``src/formfield.ts``, itself a root with no bases) - confirmed directly from this fixture
-after the live run. Its copied ``storeValue`` method now carries
+after the live run, unchanged from TC-285's run. Its copied ``storeValue`` method still carries
 ``"inherited_from": "formfield.Field"``, correctly rooted to the real declaring ancestor,
 while ``Field``'s own ``storeValue`` entry (the genuinely locally-declared original) carries
-no ``inherited_from`` key at all - exactly the provenance TC-261 exists to add and TC-255's
-pre-TC-261 run was missing entirely.
+no ``inherited_from`` key at all - the class-level provenance TC-261 added, confirmed still
+intact after TC-317's re-run.
+
+TC-317's own target defect (TC-316's ``extends_type_clause`` fix) is proven by a real,
+genuine 4-level INTERFACE-extends-INTERFACE chain now present in this fixture:
+``ComboBoxInit -> ChoiceInit -> FieldInit -> FieldStyle -> WidgetStyle`` (all real interfaces
+in ``src/formcreate.ts``/``src/fieldstyle.ts``). None of the three example relationships
+TC-316's own worker cited (``FileAttachmentOptions``/``PopupOptions``/``LineMarker``) survived
+this run's top-300 centrality cut - the live repository grew again and the cut shifted - but
+this chain did, and demonstrates the identical fix: before TC-316 landed, every one of these
+four real relationships extracted as ``bases: []``.
 """
 
 from __future__ import annotations
@@ -69,13 +90,12 @@ def test_the_fixture_parses_and_has_the_expected_shape() -> None:
 def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
     data = _load_fixture()
     assert _COMMIT_SHA.match(data["source_commit"]), data["source_commit"]
-    # Recorded from the real live clone that produced this fixture (TC-285's re-run, now with
-    # BOTH TC-252's fixed, centrality-ranked reduce_fixture AND TC-261's inherited_from
-    # provenance tagging on main - a different commit from TC-255's prior run, because the
-    # repository has moved on since). Re-verify by hand with
+    # Recorded from the real live clone that produced this fixture (TC-317's re-run, now with
+    # TC-316's extends_type_clause fix also on main - a different commit from TC-285's prior
+    # run, because the repository has moved on since). Re-verify by hand with
     # `git ls-remote https://github.com/aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript` if this
     # ever needs re-pinning; do not change it to make a test pass.
-    assert data["source_commit"] == "e0f4fe99c48e44690686df559a488bfc3623e995"
+    assert data["source_commit"] == "c672b3918318ccd0c13bc9dc619620cac2674c9e"
     manifest = yaml.safe_load(MANIFEST.read_text(encoding="utf-8"))
     assert data["source_repository"] == manifest["repository"]
 
@@ -84,10 +104,10 @@ def test_the_fixture_is_non_empty_and_records_real_truncation() -> None:
     data = _load_fixture()
     assert len(data["types"]) > 0
     assert data["reduced_type_count"] == len(data["types"])
-    # The real repository now has 5274 public types (grown again since TC-255's 5173) - far
+    # The real repository now has 5342 public types (grown again since TC-285's 5274) - far
     # over the CLI's real default --max-types 300 cap, which this run used unmodified (no
     # --max-types override, per this card's own instructions).
-    assert data["type_count"] == 5274
+    assert data["type_count"] == 5342
     assert data["reduced_type_count"] == 300
     assert data["truncated"] is True
 
@@ -229,3 +249,66 @@ def test_a_real_inherited_member_carries_the_correct_inherited_from_tag() -> Non
     field_methods = {m["name"]: m for m in field["methods"]}
     original = field_methods["storeValue"]
     assert "inherited_from" not in original
+
+
+def test_a_real_interface_extends_interface_chain_carries_correctly_rooted_inherited_from_tags() -> None:
+    """TC-316/TC-317: ``tree_helpers.py``'s ``_extract_bases()`` previously recognized only
+    TypeScript's class-level ``class_heritage``/``extends_clause``/``implements_clause`` nodes,
+    missing ``extends_type_clause`` - the real node type for an INTERFACE extending another
+    interface. Before TC-316's fix, every one of this pilot's 56 real
+    ``interface X extends Y`` relationships extracted as ``bases: []``.
+
+    This fixture (TC-317's re-run, the first against TC-316's fix) carries a real, genuine
+    4-level interface-extends-interface chain - confirmed directly from this fixture, not
+    guessed: ``ComboBoxInit -> ChoiceInit -> FieldInit -> FieldStyle -> WidgetStyle`` (all real
+    interfaces, ``src/formcreate.ts``/``src/fieldstyle.ts``). It exercises TC-261's
+    multi-level-chain rooting rule end to end for this node type for the first time: a member
+    copied transitively through an intermediate parent must still be rooted to the class that
+    actually DECLARES it, never the intermediate parent it was copied through.
+    """
+    data = _load_fixture()
+    by_import = {entry["class_import"]: entry for entry in data["types"] if entry.get("class_import")}
+
+    combo_box_init = by_import["formcreate.ComboBoxInit"]
+    choice_init = by_import["formcreate.ChoiceInit"]
+    field_init = by_import["formcreate.FieldInit"]
+    field_style = by_import["fieldstyle.FieldStyle"]
+
+    assert combo_box_init["bases"] == ["ChoiceInit"]
+    assert choice_init["bases"] == ["FieldInit"]
+    assert field_init["bases"] == ["FieldStyle"]
+    assert field_style["bases"] == ["WidgetStyle"]
+
+    combo_box_init_props = {p["name"]: p for p in combo_box_init["properties"]}
+
+    # `editable` and `options`/`value` are genuinely ComboBoxInit's/ChoiceInit's own: `options`
+    # and `value` are copied one level up from `ChoiceInit` (the direct parent), so they carry
+    # `inherited_from` rooted there.
+    assert "inherited_from" not in combo_box_init_props["editable"]
+    assert combo_box_init_props["options"]["inherited_from"] == "formcreate.ChoiceInit"
+    assert combo_box_init_props["value"]["inherited_from"] == "formcreate.ChoiceInit"
+
+    # `name`/`page` etc. are copied transitively through `ChoiceInit` but genuinely DECLARED by
+    # the grandparent `FieldInit` - correctly rooted there, not to the intermediate `ChoiceInit`.
+    assert combo_box_init_props["name"]["inherited_from"] == "formcreate.FieldInit"
+    assert combo_box_init_props["page"]["inherited_from"] == "formcreate.FieldInit"
+
+    # `font`/`fontSize`/`textColor` are copied through two intermediates (`ChoiceInit`,
+    # `FieldInit`) but genuinely declared three levels up by `FieldStyle` - correctly rooted
+    # there, confirming the multi-level-chain rule holds for this node type.
+    assert combo_box_init_props["font"]["inherited_from"] == "fieldstyle.FieldStyle"
+    assert combo_box_init_props["fontSize"]["inherited_from"] == "fieldstyle.FieldStyle"
+    assert combo_box_init_props["textColor"]["inherited_from"] == "fieldstyle.FieldStyle"
+
+    # `backgroundColor`/`borderColor` are copied through three intermediates but genuinely
+    # declared four levels up, at the root `WidgetStyle` - correctly rooted there, never to
+    # `FieldStyle` (the parent they were actually copied through at this step).
+    assert combo_box_init_props["backgroundColor"]["inherited_from"] == "fieldstyle.WidgetStyle"
+    assert combo_box_init_props["borderColor"]["inherited_from"] == "fieldstyle.WidgetStyle"
+
+    # `FieldStyle`'s own `font`/`fontSize`/`textColor` are the genuine, locally-declared
+    # originals: they must carry no `inherited_from` key at all.
+    field_style_props = {p["name"]: p for p in field_style["properties"]}
+    assert "inherited_from" not in field_style_props["font"]
+    assert "inherited_from" not in field_style_props["fontSize"]
+    assert "inherited_from" not in field_style_props["textColor"]

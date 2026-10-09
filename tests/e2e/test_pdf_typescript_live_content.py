@@ -19,30 +19,33 @@ Every value below is this pilot's OWN real, distinctive data - never copied from
   adding explicit ``inherited_from`` provenance tagging to every copied inherited
   method/property) landed on ``main`` the day after, so TC-255's fixture carried real
   inheritance with zero ``inherited_from`` tags. TC-285 re-ran the SAME real extraction now that
-  both TC-252 and TC-261 are genuinely on ``main``, closing that gap - and, because the
-  manifest pins only a repository (never a commit), naturally re-pinning ``source_commit`` to
-  whatever the live repository's HEAD genuinely was at that run (the repository also grew
-  again, 5173 -> 5274 public types, of which this fixture keeps the real top 300 by
-  centrality). The real production ingestion pipeline (see ``docker-compose.yml``'s
-  ``ingest-pdf-typescript`` service) passes ``--max-types 300`` - the fixture's own full
-  ``reduced_type_count`` - so every one of this fixture's 300 entries is genuinely published,
-  not merely its first 20.
-  ``Page`` (``class_import`` ``page.Page``) is the real, distinctive class used here: still the
-  5th-highest-centrality type in the entire real 5274-type surface after TC-285's re-run
-  (independently confirmed directly against the regenerated fixture), a genuine
-  ``class_declaration`` in ``src/page.ts`` with real methods (``RemoveAnnotation``,
-  ``AddTextNote``, ...) and real properties, unchanged from TC-255's run - exactly the kind of
-  central symbol TC-252's fix exists to stop an alphabetical cut from losing. The ``get_symbol``
-  test below is adapted accordingly (asserting a real ``Methods:`` line, since
+  both TC-252 and TC-261 are genuinely on ``main``, closing that gap. TC-316 then found a
+  separate engine defect (TypeScript's ``extends_type_clause`` - interface-extends-interface -
+  missing from ``tree_helpers.py``'s recognized-base-node tuple) and fixed it; TC-317 re-ran the
+  SAME real extraction again now that TC-316's fix is genuinely on ``main``, closing that gap
+  too - and, because the manifest pins only a repository (never a commit), each of these
+  re-runs naturally re-pins ``source_commit`` to whatever the live repository's HEAD genuinely
+  was at that run (the repository also grew again, 5274 -> 5342 public types as of TC-317's
+  run, of which this fixture keeps the real top 300 by centrality). The real production
+  ingestion pipeline (see ``docker-compose.yml``'s ``ingest-pdf-typescript`` service) passes
+  ``--max-types 300`` - the fixture's own full ``reduced_type_count`` - so every one of this
+  fixture's 300 entries is genuinely published, not merely its first 20.
+  ``Page`` (``class_import`` ``page.Page``) is the real, distinctive class used here: still
+  present as a genuine ``class_declaration`` in ``src/page.ts`` with real methods
+  (``RemoveAnnotation``, ``AddTextNote``, ...) and real properties after TC-317's re-run
+  (independently confirmed directly against the regenerated fixture), unchanged from TC-285's
+  run - exactly the kind of central symbol TC-252's fix exists to stop an alphabetical cut from
+  losing. The ``get_symbol`` test below is adapted accordingly (asserting a real ``Methods:``
+  line, since
   ``chunk_builder._format_type_text`` emits ``Methods:``/``Properties:`` rather than ``Value:``
   for a ``kind == "class_declaration"`` entry; there is no comparable ``REAL_ENUM_FQN``/
   ``REAL_ENUM_MEMBER`` pair for this pilot).
 - ``REAL_EXAMPLE_SYMBOL``/``REAL_TASK_QUERY``/``REAL_EXAMPLE_SOURCE_COMMIT`` come from the real,
   committed ``tests/fixtures/furnished/pdf_typescript/pages/_index.md`` furnished content - a
   SEPARATE pin from the api_surface fixture's own ``REAL_SOURCE_COMMIT`` above, never touched by
-  TC-255 or TC-285 (tracked separately as OQ-003). Unlike pdf/net's furnished page (where only
-  1 of 3 candidates actually compiled against the pinned reference commit), all 4 of this pilot's real
-  candidates compile-verify successfully against the pinned commit
+  TC-255, TC-285, or TC-317 (tracked separately as OQ-003). Unlike pdf/net's furnished page
+  (where only 1 of 3 candidates actually compiled against the pinned reference commit), all 4
+  of this pilot's real candidates compile-verify successfully against the pinned commit
   ``155bfc7a33f0ba23fb4252b6ba201828b02a5b9d`` - ``docker-compose.yml``'s own
   ``--library-commit`` for ``ingest-pdf-typescript`` (confirmed today by a real, hands-on run of
   ``prepare_typescript_library``/``verify_typescript_example`` against the real fixture, and
@@ -83,19 +86,20 @@ POLL_INTERVAL_SECONDS = 2
 
 PROTOCOL_VERSION = "2025-06-18"
 
-# TC-285's own real, regenerated pdf/typescript fixture
+# TC-317's own real, regenerated pdf/typescript fixture
 # (tests/fixtures/pdf_typescript/api_surface.json): its real ``source_commit`` is
-# "e0f4fe99c48e44690686df559a488bfc3623e995" (re-pinned from TC-255's prior
-# "0dc807e313400ad8582441fc13171182261de2b4" - the manifest pins only a repository, never a
-# commit, so TC-285's re-run against TC-261's inherited_from fix naturally re-pinned this to
-# whatever the live repository's HEAD genuinely was at that run; verified directly by reading
-# this fixture's own committed "source_commit" field, not assumed), and its real
-# ``class_import`` "page.Page" (a genuine class in src/page.ts, still the 5th-highest-centrality
-# type in the real 5274-type surface - independently confirmed by TC-285's own live extraction
-# run) is the real, distinctive symbol used here. A real query response containing this exact
-# string is genuine, falsifiable proof of real content, never a guess.
+# "c672b3918318ccd0c13bc9dc619620cac2674c9e" (re-pinned from TC-285's prior
+# "e0f4fe99c48e44690686df559a488bfc3623e995" - the manifest pins only a repository, never a
+# commit, so TC-317's re-run against TC-316's extends_type_clause fix naturally re-pinned this
+# to whatever the live repository's HEAD genuinely was at that run; verified directly by
+# reading this fixture's own committed "source_commit" field, not assumed, and confirmed stable
+# across two independent runs minutes apart), and its real ``class_import`` "page.Page" (a
+# genuine class in src/page.ts, still present in the real 300-of-5342-type reduced surface -
+# independently confirmed by TC-317's own live extraction run) is the real, distinctive symbol
+# used here. A real query response containing this exact string is genuine, falsifiable proof
+# of real content, never a guess.
 REAL_SYMBOL = "page.Page"
-REAL_SOURCE_COMMIT = "e0f4fe99c48e44690686df559a488bfc3623e995"
+REAL_SOURCE_COMMIT = "c672b3918318ccd0c13bc9dc619620cac2674c9e"
 
 # "page.Page" is a real "class_declaration" entry, not a constant - chunk_builder emits a
 # "Methods:" section (never "Value:") for it. "RemoveAnnotation" is a real method genuinely
@@ -117,7 +121,7 @@ REAL_EXAMPLE_SYMBOL = "AddText"
 # The furnished example's own compile-verification commit is a SEPARATE pin from the api_surface
 # fixture's source_commit above: docker-compose.yml's ingest-pdf-typescript service passes this
 # exact value as its own ``--library-commit`` flag (never re-derived from the live extraction),
-# so it stays "155bfc7a..." - neither TC-255 nor TC-285 (which regenerated
+# so it stays "155bfc7a..." - none of TC-255, TC-285, or TC-317 (each of which regenerated
 # tests/fixtures/pdf_typescript/api_surface.json, and therefore REAL_SOURCE_COMMIT above) ever
 # touched docker-compose.yml or the furnished content pipeline (tracked separately as OQ-003),
 # and this value must not be confused with it.
