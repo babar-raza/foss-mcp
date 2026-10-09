@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "card": "TC-275",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-09T05:16:38Z",
+  "base_rev": "37f90fbfe2b51ee0e1c08e28d8f85453fa571370",
+  "head_rev": "4d2bfbdc2c7ab17fc1ff78e3ccb2d5cf9ad506d6",
+  "card_sha256": "7b41b3f6cfcd0ef11158b382afde5fec0c6109da519cf3e37e3f6a132c49c592",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "Dockerfile.ingestion",
+      "Dockerfile.serving",
+      "infra/helm/foss-mcp/templates/ingestion-job.yaml",
+      "infra/serve_http.py",
+      "infra/verify_product_reference_install.py",
+      "src/foss_mcp/mcp/tools/get_product_reference.py",
+      "tests/infra/test_helm_manifest_step.py",
+      "tests/infra/test_serve_http.py",
+      "tests/infra/test_verify_product_reference_install.py",
+      "tests/mcp/tools/test_get_product_reference_platforms.py",
+      "tests/test_unwired_modules.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_get_product_reference_platforms.py tests/infra/test_verify_product_reference_install.py tests/infra/test_serve_http.py tests/infra/test_helm_manifest_step.py tests/test_unwired_modules.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 8.325,
+          "stdout_sha256": "daa4774caa1c135714b0dc1a154fa2c95b8fef90f6ce0d8f5ee1d5c5b1d08a05",
+          "tests": 96,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_get_product_reference_platforms.py tests/infra/test_verify_product_reference_install.py tests/infra/test_serve_http.py tests/infra/test_helm_manifest_step.py tests/test_unwired_modules.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 6.293,
+          "stdout_sha256": "daa4774caa1c135714b0dc1a154fa2c95b8fef90f6ce0d8f5ee1d5c5b1d08a05",
+          "tests": 96,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/get_product_reference.py');s=p.read_text(encoding='utf-8');old='install_verified';new='install_verified_DISABLED';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')\"\n",
+    "patch_sha256": "24ae9b8c9754eef1f1e2eb6d5ebb9ebee1d11bcba8756edf80d10c75955ccdd4",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/get_product_reference.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

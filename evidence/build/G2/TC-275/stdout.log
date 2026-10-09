@@ -1,0 +1,212 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_platforms.py tests/infra/test_verify_product_reference_install.py tests/infra/test_serve_http.py tests/infra/test_helm_manifest_step.py tests/test_unwired_modules.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5fi9jux_\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 75%]
+........................                                                 [100%]
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_platforms.py tests/infra/test_verify_product_reference_install.py tests/infra/test_serve_http.py tests/infra/test_helm_manifest_step.py tests/test_unwired_modules.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5fi9jux_\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 75%]
+........................                                                 [100%]
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/get_product_reference.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_platforms.py tests/infra/test_verify_product_reference_install.py tests/infra/test_serve_http.py tests/infra/test_helm_manifest_step.py tests/test_unwired_modules.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5fi9jux_\.junit-0.xml"
+--- stdout ---
+.....................................F.................................. [ 75%]
+........................                                                 [100%]
+================================== FAILURES ===================================
+_ test_install_returns_not_available_when_verification_confirmed_the_current_coordinate_absent _
+
+    def test_install_returns_not_available_when_verification_confirmed_the_current_coordinate_absent() -> None:
+        """ "False information is more dangerous than missing information": once ingestion-time
+        verification has confirmed THIS EXACT coordinate does not resolve on its real registry, the
+        "install" section must stop serving it as confident content."""
+        inputs = ProductReferenceInputs(
+            manifest_text=PYPROJECT_TEXT,
+            platform="python",
+            install_verified=False,
+            install_verified_coordinate="aspose-pdf-foss",
+            install_verified_checked_at="2026-10-08T00:00:00+00:00",
+        )
+>       result = get_product_reference(inputs, "install")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_platforms.py:434: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+inputs = ProductReferenceInputs(manifest_text='\n[project]\nname = "aspose-pdf-foss"\nversion = "26.9.0"\nlicense = { text = "M...verified=False, install_verified_coordinate='aspose-pdf-foss', install_verified_checked_at='2026-10-08T00:00:00+00:00')
+section = 'install'
+
+    def get_product_reference(
+        inputs: ProductReferenceInputs, section: Section
+    ) -> ReferenceContent | NotAvailable:
+        """Real content for *section*, or an explicit ``NotAvailable`` - never a guess."""
+        if section not in SECTIONS:
+            raise ValueError(f"section must be one of {SECTIONS}, got {section!r}")
+    
+        if section == "contributing":
+            return _document_section(section, inputs.contributing)
+        if section == "agent_guidance":
+            return _document_section(section, inputs.agent_guidance)
+    
+        if section in ("formats", "limitations"):
+            return NotAvailable(section, f"{section} has no data source in this project yet")
+    
+        if inputs.manifest_text is None:
+            return NotAvailable(section, "no packaging manifest was provided")
+    
+        # A single read of inputs.platform, reused by every branch below - this is what
+        # the card's negative control targets: force this back to a literal 'net' and every
+        # non-.NET platform's dispatch collapses onto the .NET path, which raises when it
+        # tries to parse non-XML manifest text as a .csproj.
+        platform = inputs.platform
+    
+        if section == "compatibility":
+            if platform in _DOTNET_PLATFORMS:
+                manifest = read_dotnet_manifest(inputs.manifest_text)
+                if not manifest.target_framework:
+                    return NotAvailable(section, "manifest does not state a TargetFramework")
+                return ReferenceContent(section, manifest.target_framework)
+            if platform == "python":
+                value = read_python_manifest(inputs.manifest_text).requires_python
+                reason = "manifest does not state requires-python"
+            elif platform == "java":
+                value = read_java_manifest(inputs.manifest_text).runtime_min_version
+                reason = "manifest does not state a compiler target version"
+            elif platform in _JS_PLATFORMS:
+                value = read_js_manifest(inputs.manifest_text).engines_node
+                reason = "manifest does not state an engines.node range"
+            elif platform == "go":
+                value = read_go_manifest(inputs.manifest_text).go_version
+                reason = "manifest does not state a go version"
+            elif platform == "rust":
+                value = read_rust_manifest(inputs.manifest_text).rust_version
+                reason = "manifest does not state a rust-version"
+            elif platform == "cpp":
+                value = read_cpp_manifest(inputs.manifest_text).cpp_standard
+                reason = "manifest does not state a C++ standard"
+            else:
+                return NotAvailable(section, f"platform {platform!r} is not supported")
+            if not value:
+                return NotAvailable(section, reason)
+            return ReferenceContent(section, value)
+    
+        if section == "license":
+            if platform in _DOTNET_PLATFORMS:
+                license_expression = _xml_field(inputs.manifest_text, "PackageLicenseExpression")
+                if not license_expression:
+                    return NotAvailable(section, "manifest does not state a license expression")
+                return ReferenceContent(section, license_expression)
+            if platform == "python":
+                value = read_python_manifest(inputs.manifest_text).license
+            elif platform in _JS_PLATFORMS:
+                value = read_js_manifest(inputs.manifest_text).license
+            elif platform == "rust":
+                value = read_rust_manifest(inputs.manifest_text).license
+            elif platform in ("java", "go", "cpp"):
+                value = ""
+            else:
+                return NotAvailable(section, f"platform {platform!r} is not supported")
+            if not value:
+                return NotAvailable(section, "manifest does not state a license expression")
+            return ReferenceContent(section, value)
+    
+        if section == "install":
+            content: ReferenceContent | NotAvailable
+            if platform in _DOTNET_PLATFORMS:
+                manifest = read_dotnet_manifest(inputs.manifest_text)
+                if not manifest.package_id:
+                    content = NotAvailable(section, "manifest does not state a package id")
+                else:
+                    content = ReferenceContent(section, f"dotnet add package {manifest.package_id}")
+            elif platform == "python":
+                name = read_python_manifest(inputs.manifest_text).name
+                if not name:
+                    content = NotAvailable(section, "manifest does not state a package name")
+                else:
+                    content = ReferenceContent(section, f"pip install {name}")
+            elif platform in _JS_PLATFORMS:
+                name = read_js_manifest(inputs.manifest_text).name
+                if not name:
+                    content = NotAvailable(section, "manifest does not state a package name")
+                else:
+                    content = ReferenceContent(section, f"npm install {name}")
+            elif platform == "java":
+                java_manifest = read_java_manifest(inputs.manifest_text)
+                if not java_manifest.artifact_id:
+                    content = NotAvailable(section, "manifest does not state an artifact id")
+                else:
+                    coordinate = (
+                        f"{java_manifest.group_id}:{java_manifest.artifact_id}"
+                        if java_manifest.group_id
+                        else java_manifest.artifact_id
+                    )
+                    content = ReferenceContent(section, coordinate)
+            elif platform == "go":
+                name = read_go_manifest(inputs.manifest_text).name
+                if not name:
+                    content = NotAvailable(section, "manifest does not state a module path")
+                else:
+                    content = ReferenceContent(section, f"go get {name}")
+            elif platform == "rust":
+                name = read_rust_manifest(inputs.manifest_text).name
+                if not name:
+                    content = NotAvailable(section, "manifest does not state a package name")
+                else:
+                    content = ReferenceContent(section, f"cargo add {name}")
+            elif platform == "cpp":
+                content = NotAvailable(section, "cpp has no package-manager install command")
+            else:
+                content = NotAvailable(section, f"platform {platform!r} is not supported")
+    
+            # G2/TC-275 (C2 part 2): "False information is more dangerous than missing information" -
+            # once ingestion-time verification has confirmed THIS EXACT coordinate does not resolve on
+            # its real registry, stop serving it as confident content. install_verified is read as a
+            # literal `is False` (never truthiness): True and None (never checked, or checked under a
+            # since-changed coordinate) both fall through to the unmodified ReferenceContent below,
+            # exactly as before this card.
+            if isinstance(content, ReferenceContent) and inputs.install_verified is False:
+                current = install_coordinate_for_verification(inputs)
+                if current is not None and current[1] == inputs.install_verified_coordinate:
+                    ecosystem, coordinate = current
+                    return NotAvailable(
+                        section,
+                        f"{coordinate} ({ecosystem}) was checked against its real registry at "
+>                       f"{inputs.install_verified_DISABLED_checked_at} and does not resolve there",
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    )
+E                   AttributeError: 'ProductReferenceInputs' object has no attribute 'install_verified_DISABLED_checked_at'. Did you mean: 'install_verified_checked_at'?
+
+src\foss_mcp\mcp\tools\get_product_reference.py:322: AttributeError
+============================== warnings summary ===============================
+..\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_get_product_reference_platforms.py::test_install_returns_not_available_when_verification_confirmed_the_current_coordinate_absent
+
+--- stderr ---
+
