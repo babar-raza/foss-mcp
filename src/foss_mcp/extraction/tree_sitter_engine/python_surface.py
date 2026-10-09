@@ -438,8 +438,12 @@ def inspect_public_surface(repository_root: Path, package_dirs: Sequence[str]) -
                 symbols[name] = replace(
                     symbol,
                     kind=kind,
-                    docstring=origin.docstring if origin is not None else (definition.docstring if definition else None),
-                    signature=origin.signature if origin is not None else (definition.signature if definition else None),
+                    docstring=origin.docstring
+                    if origin is not None
+                    else (definition.docstring if definition else None),
+                    signature=origin.signature
+                    if origin is not None
+                    else (definition.signature if definition else None),
                     bases=origin.bases if origin is not None else (definition.bases if definition else ()),
                     return_type=origin.return_type
                     if origin is not None
