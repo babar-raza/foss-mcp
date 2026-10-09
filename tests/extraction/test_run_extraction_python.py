@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 
 from foss_mcp.extraction import run_extraction
+from foss_mcp.extraction.tree_sitter_engine.python_surface import PublicSurface, PublicSymbol
 
 PACKAGE_INIT = '''"""A small product package."""
 from .core import Gadget, make_widget
@@ -196,6 +197,81 @@ def test_extract_pinned_repository_records_language_python_with_no_network(
     assert artifact["type_count"] == len(artifact["types"])
     assert any(entry["class_import"] == "widgets.core.Gadget" for entry in artifact["types"])
     assert "unresolved" in artifact and artifact["unresolved"]
+
+
+def _class_symbol(qualified_name: str, *, bases: tuple[str, ...] = ()) -> PublicSymbol:
+    module, name = qualified_name.rsplit(".", 1)
+    return PublicSymbol(qualified_name, module, name, "class", "pkg/mod.py", 1, "name", bases=bases)
+
+
+def _method_symbol(
+    qualified_name: str,
+    *,
+    return_type: str | None = None,
+    param_types: tuple[tuple[str, str], ...] = (),
+) -> PublicSymbol:
+    module = qualified_name.rsplit(".", 2)[0]
+    name = qualified_name.rsplit(".", 1)[-1]
+    return PublicSymbol(
+        qualified_name,
+        module,
+        name,
+        "method",
+        "pkg/mod.py",
+        2,
+        "name",
+        return_type=return_type,
+        param_types=param_types,
+    )
+
+
+def test_python_types_from_surface_makes_centrality_ranking_non_degenerate() -> None:
+    """TC-265's whole point: a Python-sourced base-class/return-type reference must make the
+    referenced class score higher under ``_centrality_scores()`` than a type nothing else ever
+    mentions - the measurement TC-252 relies on, previously always zero for every Python pilot
+    because ``PublicSymbol`` discarded this data entirely.
+    """
+    surface = PublicSurface(
+        symbols=(
+            _class_symbol("pkg.mod.Base"),
+            _class_symbol("pkg.mod.Shape", bases=("Base",)),
+            _method_symbol("pkg.mod.Shape.touch", return_type="Base"),
+            _class_symbol("pkg.mod.Unrelated"),
+        ),
+        unresolved=(),
+    )
+    types = run_extraction._python_types_from_surface(surface)
+    scores = run_extraction._centrality_scores(types)
+    by_name = dict(zip((entry["name"] for entry in types), scores, strict=True))
+
+    assert by_name["Base"] > by_name["Unrelated"]
+    assert by_name["Unrelated"] == 0
+    shape = next(entry for entry in types if entry["name"] == "Shape")
+    assert shape["bases"] == ["Base"]
+    touch = next(method for method in shape["methods"] if method["name"] == "touch")
+    assert touch["return_type"] == "Base"
+
+
+def test_python_types_from_surface_never_raises_or_pollutes_for_zero_annotations() -> None:
+    """A class/method with no base classes and no annotations anywhere must still extract
+    cleanly and must never contribute a false reference to any other type's score."""
+    surface = PublicSurface(
+        symbols=(
+            _class_symbol("pkg.mod.Plain"),
+            _method_symbol("pkg.mod.Plain.noop"),
+            _class_symbol("pkg.mod.Other"),
+        ),
+        unresolved=(),
+    )
+    types = run_extraction._python_types_from_surface(surface)
+    scores = run_extraction._centrality_scores(types)
+
+    assert scores == [0, 0]
+    plain = next(entry for entry in types if entry["name"] == "Plain")
+    assert plain["bases"] == []
+    noop = next(method for method in plain["methods"] if method["name"] == "noop")
+    assert noop["return_type"] == ""
+    assert noop["params"] == []
 
 
 def _synthetic_type(

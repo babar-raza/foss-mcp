@@ -219,6 +219,56 @@ def test_modules_that_forward_a_name_to_each_other_stay_unresolved(tmp_path: Pat
     assert surface.unresolved == ("pkg:1:unresolved-reexport:pkg._left.Loop",)
 
 
+def test_bases_return_type_and_param_types_are_read_from_the_real_ast_nodes(tmp_path: Path) -> None:
+    """A real base-class hierarchy and a real return-type annotation referencing another class
+    are exposed as structured fields - never re-derived by re-parsing ``signature``."""
+    _write(
+        tmp_path,
+        "lib/__init__.py",
+        "from .shapes import Base, Shape\n",
+    )
+    _write(
+        tmp_path,
+        "lib/shapes.py",
+        "class Base:\n    pass\n\n\nclass Shape(Base):\n"
+        "    def scale(self, factor: float, label: str) -> Base:\n"
+        "        return self\n\n"
+        "    def touch(self):\n        pass\n",
+    )
+    surface = inspect_public_surface(tmp_path, ["lib"])
+    by_name = {symbol.qualified_name: symbol for symbol in surface.symbols}
+
+    base = by_name["lib.shapes.Base"]
+    assert base.bases == ()
+    shape = by_name["lib.shapes.Shape"]
+    assert shape.bases == ("Base",)
+    assert shape.return_type is None
+    assert shape.param_types == ()
+
+    scale = by_name["lib.shapes.Shape.scale"]
+    assert scale.return_type == "Base"
+    assert scale.param_types == (("factor", "float"), ("label", "str"))
+    assert scale.bases == ()
+
+    touch = by_name["lib.shapes.Shape.touch"]
+    assert touch.return_type is None
+    assert touch.param_types == ()
+
+
+def test_an_unannotated_function_extracts_cleanly_with_no_structured_type_data(
+    tmp_path: Path,
+) -> None:
+    """An unannotated def never raises, and never fabricates a return type or param type."""
+    _write(tmp_path, "pkg/__init__.py", "")
+    _write(tmp_path, "pkg/mod.py", "def plain(a, b):\n    return a\n")
+    surface = inspect_public_surface(tmp_path, ["pkg"])
+    by_name = {symbol.qualified_name: symbol for symbol in surface.symbols}
+    plain = by_name["pkg.mod.plain"]
+    assert plain.return_type is None
+    assert plain.param_types == ()
+    assert plain.bases == ()
+
+
 def test_a_package_that_reexports_a_submodule_of_its_own_name_stays_a_module(
     tmp_path: Path,
 ) -> None:

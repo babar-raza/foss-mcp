@@ -95,10 +95,12 @@ def _python_types_from_surface(surface: python_surface.PublicSurface) -> list[di
     ``extract_api_surface`` produces (see tests/fixtures/pdf_net/api_surface.json), so
     downstream fixture/citation code needs no changes regardless of which reader ran.
 
-    ``PublicSymbol`` carries no base-class, parameter, return-type, or enum-member data (the
-    pure-``ast`` reader was never asked to extract them), so ``bases``, ``params``,
-    ``return_type``, and ``enum_members`` are always empty for a python-sourced entry - the
-    *keys* still match exactly, only their python-specific values are trivial.
+    ``PublicSymbol`` now carries real base-class, return-type, and param-annotation data,
+    read straight from the ``ast.ClassDef``/``ast.FunctionDef`` nodes the pure-``ast`` reader
+    already walks (``python_surface._structured_fields``) - so ``bases``, ``methods[].
+    return_type``, and ``methods[].params[].type`` are real for a python-sourced entry too,
+    the same fields ``_centrality_scores()`` reads for every other language. ``properties``
+    and ``enum_members`` stay empty - the ``ast`` reader was never asked to extract either.
     """
     entries: dict[str, dict[str, Any]] = {}
     order: list[str] = []
@@ -114,12 +116,12 @@ def _python_types_from_surface(surface: python_surface.PublicSurface) -> list[di
             "visibility": "public",
             "deprecated": False,
             "deprecated_reason": "",
-            "bases": [],
             "class_import": symbol.qualified_name,
             "canonical_namespace": symbol.module,
             "methods": [],
             "properties": [],
         }
+        entry["bases"] = list(symbol.bases)  # TC-265: real bases
         if symbol.kind == "enum":
             entry["enum_members"] = []
         entries[symbol.qualified_name] = entry
@@ -131,14 +133,17 @@ def _python_types_from_surface(surface: python_surface.PublicSurface) -> list[di
         owner = entries.get(symbol.qualified_name.rsplit(".", 1)[0])
         if owner is None:
             continue  # the owning class was itself unresolved/excluded; never guess one up
+        # Only the annotated params symbol.param_types carries are listed - an unannotated arg
+        # is simply absent, never a false "type": "" that would pollute _reference_strings().
+        params = [{"name": arg_name, "type": arg_type} for arg_name, arg_type in symbol.param_types]
         owner["methods"].append(
             {
                 "name": symbol.name,
                 "doc": symbol.docstring or "",
                 "file": symbol.source_path,
                 "line": symbol.line,
-                "params": [],
-                "return_type": "",
+                "params": params,
+                "return_type": symbol.return_type or "",  # TC-265: real return_type
                 "deprecated": False,
                 "deprecated_reason": "",
                 "is_constructor": symbol.name == "__init__",

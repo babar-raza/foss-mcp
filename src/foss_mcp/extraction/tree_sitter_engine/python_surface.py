@@ -48,6 +48,9 @@ class PublicSymbol:
     reexported_from: str | None = None
     docstring: str | None = None  # the first line of the symbol's own docstring
     signature: str | None = None  # the definition line as the source states it
+    bases: tuple[str, ...] = ()  # a class's base-class list, each entry ast.unparse(base)
+    return_type: str | None = None  # a function/method's ast.unparse(node.returns); None if unannotated
+    param_types: tuple[tuple[str, str], ...] = ()  # (arg_name, ast.unparse(annotation)) per annotated arg
 
 
 def _first_docstring_line(node: ast.AST) -> str | None:
@@ -69,6 +72,25 @@ def _signature(node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef) -> s
     prefix = "async def" if isinstance(node, ast.AsyncFunctionDef) else "def"
     returns = f" -> {ast.unparse(node.returns)}" if node.returns is not None else ""
     return f"{prefix} {node.name}({ast.unparse(node.args)}){returns}"
+
+
+def _structured_fields(
+    node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
+) -> tuple[tuple[str, ...], str | None, tuple[tuple[str, str], ...]]:
+    """The base-class list / return-type annotation / per-param annotations of *node*, read
+    straight from the same AST nodes ``_signature()`` already renders into one opaque string -
+    never by re-parsing that rendered string. Returns ``(bases, return_type, param_types)``;
+    whichever two of the three don't apply to *node*'s own kind come back empty/``None``.
+    """
+    if isinstance(node, ast.ClassDef):
+        return tuple(ast.unparse(base) for base in node.bases), None, ()
+    return_type = ast.unparse(node.returns) if node.returns is not None else None
+    param_types = tuple(
+        (arg.arg, ast.unparse(arg.annotation))
+        for arg in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)
+        if arg.annotation is not None
+    )
+    return (), return_type, param_types
 
 
 def _class_kind(node: ast.ClassDef) -> SymbolKind:
@@ -169,6 +191,7 @@ def _module_symbols(
             public, public_by = _public_name(node.name, explicit)
             if public:
                 kind: SymbolKind = _class_kind(node) if isinstance(node, ast.ClassDef) else "function"
+                bases, return_type, param_types = _structured_fields(node)
                 symbols.append(
                     PublicSymbol(
                         f"{module}.{node.name}",
@@ -180,6 +203,9 @@ def _module_symbols(
                         public_by,
                         docstring=_first_docstring_line(node),
                         signature=_signature(node),
+                        bases=bases,
+                        return_type=return_type,
+                        param_types=param_types,
                     )
                 )
                 if isinstance(node, ast.ClassDef):
@@ -217,6 +243,7 @@ def _methods(node: ast.ClassDef, module: str, relative: str, public_by: PublicBy
         if item.name.startswith("_") or item.name in seen:
             continue
         seen.add(item.name)
+        bases, return_type, param_types = _structured_fields(item)
         found.append(
             PublicSymbol(
                 f"{module}.{node.name}.{item.name}",
@@ -228,6 +255,9 @@ def _methods(node: ast.ClassDef, module: str, relative: str, public_by: PublicBy
                 public_by,
                 docstring=_first_docstring_line(item),
                 signature=_signature(item),
+                bases=bases,
+                return_type=return_type,
+                param_types=param_types,
             )
         )
     return found
@@ -356,12 +386,16 @@ def inspect_public_surface(repository_root: Path, package_dirs: Sequence[str]) -
                     f"{symbol.module}:{symbol.line}:unresolved-reexport:{symbol.reexported_from}"
                 )
             else:
-                # A re-export carries its origin's own docstring and signature as evidence.
+                # A re-export carries its origin's own docstring, signature, and structured
+                # base-class/return-type/param-annotation data as evidence.
                 symbols[name] = replace(
                     symbol,
                     kind=kind,
                     docstring=origin.docstring if origin is not None else None,
                     signature=origin.signature if origin is not None else None,
+                    bases=origin.bases if origin is not None else (),
+                    return_type=origin.return_type if origin is not None else None,
+                    param_types=origin.param_types if origin is not None else (),
                 )
     return PublicSurface(
         symbols=tuple(symbols[name] for name in sorted(symbols)),
