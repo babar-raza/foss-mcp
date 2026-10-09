@@ -1,0 +1,160 @@
+id: TC-275
+gate: G2
+lane: storage-retrieval
+purpose: 'C2 part 2 (third independent audit, 2026-10-08): wire infra/verify_package_registry.py (TC-260,
+  already integrated - the registry-verification sidecar fetcher, deliberately built and left unwired) into the
+  real ingestion Job chain, Helm/compose, and get_product_reference''s own response shape, exactly as TC-260''s own
+  module docstring defers. Before this card, get_product_reference(section="install") presents whatever package
+  coordinate a product''s own packaging manifest states as if it were a verified, installable public package -
+  live-confirmed (TC-260''s own docstring): 15 of 33 install-claiming pilots serve a coordinate that does not exist
+  on its stated registry, and this is NOT an extraction bug - the manifest genuinely states exactly what is
+  served; the gap is architectural. The architecture decision (made here, by the supervisor, per the audit''s own
+  requirement that this NOT be live per-request registry queries without first deciding the right design):
+  verification runs ONCE per pilot, at ingestion time, as a fourth Job step after the existing
+  build_chunks/ingest/fetch_product_reference chain (mirroring fetch_recent_releases.py''s own placement and
+  "|| true" transient-failure tolerance exactly), writing a sidecar the serving pod reads at startup - never a
+  live call inside a request handler. "False information is more dangerous than missing information": once
+  verification comes back negative for a pilot''s current coordinate, get_product_reference must stop serving
+  that coordinate as confident content and answer NotAvailable instead; a coordinate that has simply never been
+  checked yet is served exactly as today (no claim either way), never blocked on this card landing everywhere at
+  once.'
+depends_on:
+- TC-260
+- TC-244
+- TC-242
+- TC-254
+- TC-256
+- TC-262
+write_paths:
+- src/foss_mcp/mcp/tools/get_product_reference.py
+- infra/verify_product_reference_install.py
+- infra/serve_http.py
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
+- docker-compose.yml
+- tests/mcp/tools/test_get_product_reference_platforms.py
+- tests/infra/test_verify_product_reference_install.py
+- tests/infra/test_serve_http.py
+- tests/infra/test_helm_manifest_step.py
+- tests/test_unwired_modules.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read, in full, before changing anything: src/foss_mcp/mcp/tools/get_product_reference.py (especially its
+  "install" section branch and the ProductReferenceInputs dataclass), infra/verify_package_registry.py (its
+  _CHECKERS dict, check_* functions, verify_package_registry_sidecar_name, load_package_registry_sidecar, and its
+  module docstring''s own explicit statement of what this card must do), infra/fetch_product_reference.py (the
+  sidecar-write/load convention to mirror exactly), and infra/serve_http.py''s _serving_product_reference_inputs
+  and _serving_recent_releases (the TC-244 precedent for "load an optional sidecar, merge it into
+  ProductReferenceInputs/default when absent" - follow this exact shape, do not invent a different one).'
+- 'In get_product_reference.py, add a small, explicit per-platform mapping from platform to its registry
+  ecosystem (net/dotnet -> "nuget", python -> "pypi", the JS platforms -> "npm", java -> "maven", go -> "go",
+  rust -> "cargo"; cpp has no package-manager install command already and needs no entry). Add one new public
+  function, e.g. `install_coordinate_for_verification(inputs: ProductReferenceInputs) -> tuple[str, str] | None`
+  (ecosystem, bare_coordinate), covering exactly the same platforms the existing "install" section branch already
+  covers, reading the same manifest fields that branch already reads (do not re-derive them differently). Return
+  None when the existing "install" branch would itself return NotAvailable (no manifest, missing field, cpp, or
+  an unsupported platform) - this function must never raise where the install branch would not error either.'
+- 'Add three new fields to ProductReferenceInputs: `install_verified: bool | None = None`,
+  `install_verified_coordinate: str | None = None`, `install_verified_checked_at: str | None = None`. In the
+  "install" section branch, after computing the existing ReferenceContent exactly as today, if
+  `inputs.install_verified is False` AND `inputs.install_verified_coordinate` equals the bare coordinate
+  `install_coordinate_for_verification` would derive right now for these same inputs (guards against serving a
+  stale verification result for a manifest that has since changed), return NotAvailable(section, a message naming
+  the coordinate, the ecosystem, and `install_verified_checked_at`) INSTEAD of the ReferenceContent. If
+  `install_verified` is True or None (never checked yet, or the coordinate changed since the last check), return
+  the existing ReferenceContent completely unchanged - never claim verified confidence beyond what is actually
+  known, and never regress the common case where no verification has run yet.'
+- 'Add infra/verify_product_reference_install.py, a new ingestion-time CLI mirroring infra/fetch_product_reference.py''s
+  own argparse/plain-print convention: given --family, --platform, and the manifests directory, it loads that
+  identity''s existing product_reference_<family>_<platform>.json sidecar via load_manifest_sidecar, calls
+  install_coordinate_for_verification() on the resulting ProductReferenceInputs, and - when it returns a real
+  (ecosystem, coordinate) pair - calls the matching checker from infra/verify_package_registry.py''s own _CHECKERS
+  dict and writes the result via that module''s OWN verify_package_registry_sidecar_name/sidecar JSON shape (reuse
+  directly, never re-implement). When no sidecar exists yet, or install_coordinate_for_verification() returns
+  None (nothing to verify for this pilot), print why and exit 0 writing nothing - never an error. Reuse
+  verify_package_registry.py''s existing freshness-cache convention (its `_sidecar_is_fresh`/
+  `_SIDECAR_FRESHNESS_SECONDS`) so a repeated run within the freshness window is a no-op, exactly like that
+  module''s own `main()` already behaves - import its private helpers directly, the same way
+  get_product_reference.py already imports manifest_reader''s private `_load_toml`. Do NOT wrap the checker call
+  in try/except - a genuine transport failure must propagate, exactly as verify_package_registry.py''s own
+  module docstring requires of its callers; the Helm/compose step below is what tolerates it, with "|| true".'
+- 'In infra/serve_http.py''s _serving_product_reference_inputs, after loading the existing manifest sidecar,
+  ALSO attempt to load this identity''s package_registry_<family>_<platform>.json sidecar via
+  infra/verify_package_registry.py''s load_package_registry_sidecar, and - when present - merge its
+  verified/coordinate/checked_at fields into the returned ProductReferenceInputs via dataclasses.replace. Mirror
+  _serving_recent_releases''s exact "sidecar absent -> default, never raise" tolerance; do not make the registry-
+  verification sidecar''s presence a hard requirement anywhere.'
+- 'Add the new ingestion step to BOTH infra/helm/foss-mcp/templates/ingestion-job.yaml and docker-compose.yml,
+  immediately after the existing fetch_product_reference.py step, conditioned the SAME way that step already is
+  (only pilots with a manifest path get it - cpp pilots and anything without manifestPath get neither this step
+  nor the one before it), wrapped in the identical "{ ... || true; }" brace-grouped tolerance the
+  fetch_product_reference.py and fetch_recent_releases.py steps already use for the identical reason (a transient
+  registry/network failure must never fail the whole ingestion Job). Update ingestion-job.yaml''s own header
+  comment block to describe this fourth step, mirroring how it already documents the third
+  (fetch_product_reference.py) and the unconditional fetch_recent_releases.py step.'
+- 'Add infra/verify_product_reference_install.py to tests/test_unwired_modules.py''s entrypoint list (currently
+  seven; this makes eight), exactly as TC-140 added infra/rollback.py as a sixth entrypoint when it gave
+  rollback_generation its first real caller - read that file''s own docstring (points 2 and the historical notes)
+  for the precedent and follow it precisely, including updating the docstring''s own prose describing "the seven
+  real production entrypoints" to say eight.'
+- 'Add tests: tests/mcp/tools/test_get_product_reference_platforms.py - install_coordinate_for_verification()
+  returns the right (ecosystem, coordinate) pair per supported platform and None for cpp/unsupported/missing-
+  manifest cases (mirror this file''s existing per-platform test structure); the "install" branch returns
+  NotAvailable when install_verified is False and the coordinate matches, and returns the normal ReferenceContent
+  unchanged when install_verified is True, None, or the coordinate has since changed. tests/infra/
+  test_verify_product_reference_install.py (new) - the CLI with a mocked checker: writes the expected sidecar
+  shape when a coordinate exists, writes nothing and exits 0 when there is nothing to verify, respects the
+  freshness cache. tests/infra/test_serve_http.py - _serving_product_reference_inputs merges a present
+  registry-verification sidecar''s fields in, and is unchanged when that sidecar is absent (a direct regression
+  test against this file''s existing TC-244-style assertions). tests/infra/test_helm_manifest_step.py - the
+  rendered ingestion-job.yaml template includes the new step, correctly conditioned on manifestPath, for a
+  representative pilot with and without one (mirror this file''s existing rendering-assertion convention for the
+  fetch_product_reference.py step).'
+- 'Run every one of this card''s own check commands, then the full project suite once, and report honestly. If
+  the full suite shows some other existing test depended on get_product_reference''s "install" branch always
+  returning content regardless of verification (unlikely, since no prior test could have exercised the new
+  fields - confirm this rather than assume it), STOP and report exactly which test and why rather than
+  weakening this card''s own new behavior to make it pass.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read get_product_reference.py, verify_package_registry.py, fetch_product_reference.py, and serve_http.py's
+  existing sidecar-merge precedent in full before changing anything.
+- Add the platform-to-ecosystem mapping and install_coordinate_for_verification() helper; add the three new
+  ProductReferenceInputs fields and the install-branch suppression logic for a confirmed-false verification.
+- Add infra/verify_product_reference_install.py, reusing verify_package_registry.py's checkers/sidecar
+  conventions directly.
+- Wire the new step into serve_http.py's sidecar loading, the Helm ingestion-job template, and docker-compose.yml.
+- Add the new script as an eighth entrypoint in tests/test_unwired_modules.py.
+- Add tests for every piece; run the full existing suites unchanged, then the full project suite once.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_get_product_reference_platforms.py tests/infra/test_verify_product_reference_install.py
+    tests/infra/test_serve_http.py tests/infra/test_helm_manifest_step.py tests/test_unwired_modules.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 10
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/get_product_reference.py');s=p.read_text(encoding='utf-8');old='install_verified';new='install_verified_DISABLED';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Renames the LAST occurrence of "install_verified" in get_product_reference.py - the real suppression-
+    branch comparison this card adds, not an earlier docstring/field-declaration mention - so a confirmed-false
+    verification result is silently ignored and every new test proving the suppression behavior must fail. Built
+    with plain text, no backslash, using rindex to avoid the exact vacuous-falsifier mistake TC-261 made and fixed
+    this session.
+evidence:
+- evidence/build/G2/TC-275/receipt.json
+closeout:
+- get_product_reference's install section stops serving a package coordinate once an ingestion-time check has
+  confirmed it does not resolve on the real registry, and the verification itself runs once per pilot at
+  ingestion time through a real Job step - never a live per-request registry query - with every piece (the Helm
+  template, docker-compose.yml, serve_http's sidecar loading, and the entrypoint list) genuinely wired, not just
+  unit-tested in isolation.
+recovery: Re-run from a clean tree.
