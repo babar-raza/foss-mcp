@@ -1145,7 +1145,7 @@ def test_search_symbols_finds_the_real_setrotation_method_by_its_bare_name(tmp_p
 
 
 def test_search_symbols_finds_setrotation_qualified_by_its_real_type_name(tmp_path: Path) -> None:
-    """"Type.Member" (using the chunk's own FQN's final segment) is also recognized, not just
+    """ "Type.Member" (using the chunk's own FQN's final segment) is also recognized, not just
     the bare member name alone."""
     store = _store(tmp_path)
     _publish_real_pdf_net_surface(store)
