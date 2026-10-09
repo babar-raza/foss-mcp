@@ -1,0 +1,64 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_tree_helpers.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7n9dqs0b\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_tree_helpers.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7n9dqs0b\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_tree_helpers.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7n9dqs0b\.junit-0.xml"
+--- stdout ---
+FF......                                                                 [100%]
+================================== FAILURES ===================================
+_________ test_typescript_interface_extends_interface_populates_bases _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4419/test_typescript_interface_exte0')
+
+    def test_typescript_interface_extends_interface_populates_bases(tmp_path: Path) -> None:
+        """The exact TC-316 bug: a single `interface X extends Y` relationship."""
+        package = _ts_package(tmp_path, TYPESCRIPT_INTERFACE_EXTENDS)
+        types = _extract_ts(package, tmp_path)
+        by_name = {t["name"]: t for t in types}
+    
+        assert by_name["ChartInfo"]["kind"] == "interface_declaration"
+>       assert by_name["ChartInfo"]["bases"] == ["ShapeInfo"]
+E       AssertionError: assert [] == ['ShapeInfo']
+E         
+E         Right contains one more item: 'ShapeInfo'
+E         Use -v to get more diff
+
+tests\extraction\tree_sitter_engine\test_tree_helpers.py:118: AssertionError
+_____ test_typescript_interface_extends_multiple_interfaces_splits_bases ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4419/test_typescript_interface_exte1')
+
+    def test_typescript_interface_extends_multiple_interfaces_splits_bases(tmp_path: Path) -> None:
+        """`interface Foo extends A, B {}` must split into two separate bases."""
+        package = _ts_package(tmp_path, TYPESCRIPT_INTERFACE_EXTENDS)
+        types = _extract_ts(package, tmp_path)
+        by_name = {t["name"]: t for t in types}
+    
+>       assert by_name["MultiChild"]["bases"] == ["A", "B"]
+E       AssertionError: assert [] == ['A', 'B']
+E         
+E         Right contains 2 more items, first extra item: 'A'
+E         Use -v to get more diff
+
+tests\extraction\tree_sitter_engine\test_tree_helpers.py:127: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_tree_helpers.py::test_typescript_interface_extends_interface_populates_bases
+FAILED tests/extraction/tree_sitter_engine/test_tree_helpers.py::test_typescript_interface_extends_multiple_interfaces_splits_bases
+
+--- stderr ---
+
