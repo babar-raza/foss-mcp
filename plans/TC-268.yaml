@@ -17,9 +17,12 @@ depends_on:
 - TC-252
 - TC-265
 - TC-157
+- TC-256
+- TC-262
 write_paths:
 - tests/fixtures/pdf_python/api_surface.json
 - tests/extraction/test_pdf_python_extraction.py
+- infra/helm/foss-mcp/values.yaml
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -50,12 +53,25 @@ inputs:
   specific content - STOP, do not guess-fix a file outside your write_paths, and report exactly which test(s) and
   why, so a properly scoped rework restatement can be issued.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
+- 'REWORK (attempt 2): attempt 1 correctly stopped - "Page" is confirmed recovered (aspose_pdf.Page re-export and
+  aspose_pdf.pages.Page canonical, both present). Full suite surfaced one real, directly-attributable downstream
+  failure outside attempt 1''s write_paths: tests/infra/test_helm_pilots_match_compose.py::test_pdf_python_pilot_matches_compose
+  asserts infra/helm/foss-mcp/values.yaml''s pdf/python pilot entry''s library.commit equals the regenerated
+  fixture''s own source_commit (this pilot has no furnished examples, so it is checked against the fixture''s
+  source_commit directly, not a separate docker-compose --library-commit flag - confirm this yourself by reading
+  the test''s own _assert_pilot_matches_compose helper before changing anything). The current pin
+  (1da0ec0f55990f99ef7e5b631385523a1055b460) is stale; update it to your regenerated fixture''s real source_commit
+  (verify directly from your own committed fixture, do not hardcode it blindly) - the exact same "commit-pin
+  divergence" pattern this session already found and fixed for pdf/java (TC-256) and pdf/go (TC-262), just without
+  a docker-compose.yml counterpart this time since pdf/python has no furnished-example library flags there. Do not
+  touch any OTHER pilot''s entry in values.yaml. Re-run tests/infra/test_helm_pilots_match_compose.py::test_pdf_python_pilot_matches_compose
+  plus your original check command to confirm both pass, then the full suite once more.'
 actions:
 - Confirm TC-252 and TC-265 are integrated and their fixes are really what main's extraction path does now.
 - Run the real extraction for pdf/python; inspect the real output carefully, specifically for "Page".
 - Update the fixture's own test file to match the real new content; run it; run the full suite once and report honestly.
 checks:
-- command: '{python} -m pytest tests/extraction/test_pdf_python_extraction.py -q -rfE'
+- command: '{python} -m pytest tests/extraction/test_pdf_python_extraction.py tests/infra/test_helm_pilots_match_compose.py -q -rfE'
   expect: exit 0
   timeout_seconds: 300
   junitxml: true
