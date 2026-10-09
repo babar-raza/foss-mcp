@@ -10,10 +10,11 @@ Method (real, structural, ``ast``-based - never a hand-maintained prose list):
    import graph (``import x``, ``from x import y``, ``from pkg import submodule``, relative
    imports, and the implicit edge every submodule import carries to each ancestor package's
    own ``__init__.py``).
-2. BFS that graph from the seven real production entrypoints
+2. BFS that graph from the eight real production entrypoints
    (``infra/serve_http.py``, ``infra/serve_stdio.py``, ``infra/ingest.py``,
    ``infra/build_chunks.py``, ``infra/rollback.py``, ``infra/fetch_product_reference.py``,
-   ``src/foss_mcp/mcp/server.py``) to get every file genuinely on a production import path, and
+   ``infra/verify_product_reference_install.py``, ``src/foss_mcp/mcp/server.py``) to get every
+   file genuinely on a production import path, and
    separately from every file under ``tests/`` to get every file a test genuinely exercises.
 3. For every top-level public (non-underscore) function or class defined anywhere under
    ``src/foss_mcp/`` whose OWN FILE is on that production path, check whether the symbol itself
@@ -52,7 +53,12 @@ grew to eleven as this walk's own method matured, before TC-144 through TC-148's
 ``with_validation``, and ``usage_recorder``'s whole file via ``UsageRecorder``/``build_event``/
 ``new_correlation_id`` in ``server.py``) and TC-149's registration of
 ``infra/fetch_product_reference.py`` as a seventh entrypoint shrank it back down to the current
-five, and emptied ``_KNOWN_UNWIRED_AND_UNTESTED`` entirely.)
+five, and emptied ``_KNOWN_UNWIRED_AND_UNTESTED`` entirely. TC-275 added
+``infra/verify_product_reference_install.py`` as an eighth entrypoint - the first real caller of
+``get_product_reference.install_coordinate_for_verification`` - which did not change the pinned
+five: every file it newly makes production-reachable (itself, and ``infra/verify_package_registry.py``
+transitively) lives under ``infra/``, outside this walk's ``SRC_FOSS``-only unwired scan, and
+``get_product_reference.py`` was already production-reachable before this card.)
 """
 
 from __future__ import annotations
@@ -73,6 +79,7 @@ ENTRYPOINTS: tuple[Path, ...] = (
     INFRA_ROOT / "build_chunks.py",
     INFRA_ROOT / "rollback.py",
     INFRA_ROOT / "fetch_product_reference.py",
+    INFRA_ROOT / "verify_product_reference_install.py",
     SRC_FOSS / "mcp" / "server.py",
 )
 

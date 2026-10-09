@@ -29,6 +29,7 @@ that reported healthy while serving nothing).
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 import os
@@ -45,6 +46,7 @@ from starlette.responses import JSONResponse, PlainTextResponse
 from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Send
 from starlette.types import Scope as ASGIScope
+from verify_package_registry import load_package_registry_sidecar, verify_package_registry_sidecar_name
 
 from foss_mcp.extraction.github_release_reader import Release
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
@@ -251,6 +253,16 @@ def _serving_product_reference_inputs(
     ``FOSS_MCP_FAMILY`` and ``FOSS_MCP_PLATFORM``. Only the file ``sidecar_name`` gives for that
     identity is read; there is no fallback to another file. A sidecar whose platform differs from
     the deployment's raises rather than being rewritten.
+
+    G2/TC-275 (C2 part 2): ALSO attempts to load this identity's own registry-verification
+    sidecar (``package_registry_<family>_<platform>.json``, written by
+    ``infra/verify_product_reference_install.py`` via ``infra/verify_package_registry.py``'s own
+    sidecar shape) and, when present, merges its ``verified``/``coordinate``/``checked_at`` fields
+    into the returned ``ProductReferenceInputs`` via ``dataclasses.replace``. Mirrors
+    ``_serving_recent_releases``'s exact "sidecar absent -> default, never raise" tolerance: the
+    registry-verification sidecar's presence is never a hard requirement here, so a pilot whose
+    verification step has not run yet (or never will, e.g. cpp) still serves everything else this
+    sidecar carries exactly as before this card.
     """
     family = deployment_config.family
     platform = deployment_config.platform
@@ -261,7 +273,17 @@ def _serving_product_reference_inputs(
         raise RuntimeError(
             f"sidecar platform {sidecar.platform!r} does not match {PLATFORM_ENV}={platform!r}"
         )
-    return sidecar
+    registry_verification = load_package_registry_sidecar(
+        manifests_dir / verify_package_registry_sidecar_name(family, platform)
+    )
+    if registry_verification is None:
+        return sidecar
+    return dataclasses.replace(
+        sidecar,
+        install_verified=registry_verification["verified"],
+        install_verified_coordinate=registry_verification["coordinate"],
+        install_verified_checked_at=registry_verification["checked_at"],
+    )
 
 
 def _serving_recent_releases(manifests_dir: Path, deployment_config: DeploymentConfig) -> Sequence[Release]:

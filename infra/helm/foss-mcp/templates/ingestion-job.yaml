@@ -10,7 +10,18 @@ infra/fetch_product_reference.py, which the serving pod for the same identity re
 has its own file, so the pilots never overwrite one another. A pilot without manifestPath gets
 no such step.
 
-G2/TC-244: every pilot ALSO gets a step - unconditional, unlike the one above, because every
+G2/TC-275 (C2 part 2): a pilot with a manifestPath ALSO gets a fourth step, immediately after the
+fetch_product_reference.py step above and conditioned on the SAME manifestPath guard (a pilot
+without manifestPath gets neither this step nor the one before it): infra/verify_product_reference_install.py,
+which reads that pilot's just-written product_reference_<family>_<platform>.json sidecar, derives
+its "install" coordinate the same way get_product_reference.py's own install branch does, and -
+when there is one - checks it against its real package registry (infra/verify_package_registry.py),
+writing the result to package_registry_<family>_<platform>.json on the manifests claim, which the
+serving pod for the same identity reads. Brace-grouped with "|| true", the identical shape the
+fetch_product_reference.py step uses, for the identical reason: a transient registry/network
+failure here must never fail the whole ingestion Job.
+
+G2/TC-244: every pilot ALSO gets a step - unconditional, unlike the two above, because every
 self_extracted pilot already has a library.repository field regardless of manifestPath -
 appended after the existing chain: infra/fetch_recent_releases.py, which writes that pilot's
 GitHub-releases sidecar to the manifests claim. The file name is
@@ -94,6 +105,12 @@ spec:
               --manifest-path {{ . }}
               --ref {{ $lib.commit | quote }}
               --output {{ $.Values.manifests.mountPath }}/{{ printf "product_reference_%s_%s.json" $p.family $p.platform }}
+              || true; }
+              &&
+              { python /app/infra/verify_product_reference_install.py
+              --family {{ $p.family }}
+              --platform {{ $p.platform }}
+              --manifests-dir {{ $.Values.manifests.mountPath }}
               || true; }
               {{- end }}
               &&

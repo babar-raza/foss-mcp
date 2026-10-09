@@ -18,6 +18,7 @@ actually exercising the same path a live ingest would.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -318,6 +319,91 @@ def test_metrics_reports_a_real_drop_once_the_queue_is_at_capacity(tmp_path: Pat
         response = client.get("/metrics")
     assert response.status_code == 200
     assert response.json() == {"usage_events_queued": 1, "usage_events_dropped": 1}
+
+
+# ---------------------------------------------------------------------
+# _serving_product_reference_inputs' registry-verification sidecar merge (G2/TC-275, C2 part 2):
+# a direct regression test against this file's own TC-244-style "sidecar present -> merged,
+# sidecar absent -> default, never raise" assertions, now extended to the new optional
+# package_registry_<family>_<platform>.json sidecar.
+# ---------------------------------------------------------------------
+
+
+def _write_manifest_sidecar(manifests_dir: Path, family: str, platform: str, manifest_text: str) -> None:
+    sidecar = {
+        "manifest_text": manifest_text,
+        "platform": platform,
+        "contributing": {"status": "not_present", "path": "CONTRIBUTING.md"},
+        "agent_guidance": {"status": "not_present", "path": "AGENTS.md"},
+    }
+    (manifests_dir / serve_http.sidecar_name(family, platform)).write_text(
+        json.dumps(sidecar), encoding="utf-8"
+    )
+
+
+def test_serving_product_reference_inputs_merges_a_present_registry_verification_sidecar(
+    tmp_path: Path,
+) -> None:
+    config = DeploymentConfig(family="pdf", platform="net")
+    manifest_text = (
+        "<Project><PropertyGroup><PackageId>Aspose.PDF-FOSS</PackageId></PropertyGroup></Project>"
+    )
+    _write_manifest_sidecar(tmp_path, "pdf", "net", manifest_text)
+    registry_sidecar = {
+        "ecosystem": "nuget",
+        "coordinate": "Aspose.PDF-FOSS",
+        "verified": False,
+        "checked_at": "2026-10-08T00:00:00+00:00",
+    }
+    (tmp_path / serve_http.verify_package_registry_sidecar_name("pdf", "net")).write_text(
+        json.dumps(registry_sidecar), encoding="utf-8"
+    )
+
+    result = serve_http._serving_product_reference_inputs(tmp_path, config)
+
+    assert result is not None
+    assert result.manifest_text == manifest_text
+    assert result.install_verified is False
+    assert result.install_verified_coordinate == "Aspose.PDF-FOSS"
+    assert result.install_verified_checked_at == "2026-10-08T00:00:00+00:00"
+
+
+def test_serving_product_reference_inputs_is_unchanged_when_the_registry_sidecar_is_absent(
+    tmp_path: Path,
+) -> None:
+    """Mirrors _serving_recent_releases' own "sidecar absent -> default, never raise" tolerance:
+    the registry-verification sidecar's presence is never a hard requirement."""
+    config = DeploymentConfig(family="pdf", platform="net")
+    manifest_text = "<Project><PropertyGroup><PackageId>Aspose.PDF-FOSS</PackageId></PropertyGroup></Project>"
+    _write_manifest_sidecar(tmp_path, "pdf", "net", manifest_text)
+
+    result = serve_http._serving_product_reference_inputs(tmp_path, config)
+
+    assert result is not None
+    assert result.manifest_text == manifest_text
+    assert result.install_verified is None
+    assert result.install_verified_coordinate is None
+    assert result.install_verified_checked_at is None
+
+
+def test_serving_product_reference_inputs_is_none_when_the_manifest_sidecar_is_absent_even_with_a_registry_sidecar(
+    tmp_path: Path,
+) -> None:
+    """The manifest sidecar is the hard requirement (unchanged from before this card); a stray
+    registry-verification sidecar with no matching manifest sidecar must never manufacture a
+    ProductReferenceInputs on its own."""
+    config = DeploymentConfig(family="pdf", platform="net")
+    registry_sidecar = {
+        "ecosystem": "nuget",
+        "coordinate": "Aspose.PDF-FOSS",
+        "verified": True,
+        "checked_at": "2026-10-08T00:00:00+00:00",
+    }
+    (tmp_path / serve_http.verify_package_registry_sidecar_name("pdf", "net")).write_text(
+        json.dumps(registry_sidecar), encoding="utf-8"
+    )
+
+    assert serve_http._serving_product_reference_inputs(tmp_path, config) is None
 
 
 def test_mcp_transport_is_still_reachable_alongside_readyz(tmp_path: Path) -> None:

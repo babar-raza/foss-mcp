@@ -17,6 +17,7 @@ from foss_mcp.mcp.tools.get_product_reference import (
     ProductReferenceInputs,
     ReferenceContent,
     get_product_reference,
+    install_coordinate_for_verification,
 )
 
 PYPROJECT_TEXT = """
@@ -354,3 +355,119 @@ def test_go_support_is_not_available_go_mod_has_no_equivalent_field() -> None:
     result = get_product_reference(inputs, "support")
     assert isinstance(result, NotAvailable)
     assert "project url" in result.reason
+
+
+# --- install_coordinate_for_verification (G2/TC-275, C2 part 2) ---------------------------------
+
+
+def test_install_coordinate_for_verification_dotnet_returns_nuget_coordinate() -> None:
+    inputs = ProductReferenceInputs(manifest_text=CSPROJ_WITH_PROJECT_URL_TEXT, platform="net")
+    assert install_coordinate_for_verification(inputs) == ("nuget", "Aspose.PDF-FOSS")
+
+
+def test_install_coordinate_for_verification_python_returns_pypi_coordinate() -> None:
+    inputs = ProductReferenceInputs(manifest_text=PYPROJECT_TEXT, platform="python")
+    assert install_coordinate_for_verification(inputs) == ("pypi", "aspose-pdf-foss")
+
+
+def test_install_coordinate_for_verification_js_returns_npm_coordinate() -> None:
+    inputs = ProductReferenceInputs(manifest_text=PACKAGE_JSON_TEXT, platform="typescript")
+    assert install_coordinate_for_verification(inputs) == ("npm", "aspose-pdf-foss")
+
+
+def test_install_coordinate_for_verification_java_returns_maven_coordinate() -> None:
+    inputs = ProductReferenceInputs(manifest_text=POM_XML_TEXT, platform="java")
+    assert install_coordinate_for_verification(inputs) == ("maven", "com.aspose:aspose-pdf-foss")
+
+
+def test_install_coordinate_for_verification_go_returns_go_coordinate() -> None:
+    inputs = ProductReferenceInputs(manifest_text=GO_MOD_TEXT, platform="go")
+    assert install_coordinate_for_verification(inputs) == ("go", "github.com/aspose/pdf-foss-for-go")
+
+
+def test_install_coordinate_for_verification_rust_returns_cargo_coordinate() -> None:
+    inputs = ProductReferenceInputs(manifest_text=CARGO_TOML_NO_RUST_VERSION_TEXT, platform="rust")
+    assert install_coordinate_for_verification(inputs) == ("cargo", "aspose-pdf-foss")
+
+
+def test_install_coordinate_for_verification_is_none_for_cpp() -> None:
+    """cpp has no package-manager install command already (the "install" section's own cpp
+    branch), so there is no ecosystem entry for it and this must answer None, not raise."""
+    inputs = ProductReferenceInputs(manifest_text=CMAKE_LISTS_TEXT, platform="cpp")
+    assert install_coordinate_for_verification(inputs) is None
+
+
+def test_install_coordinate_for_verification_is_none_for_an_unsupported_platform() -> None:
+    inputs = ProductReferenceInputs(manifest_text=GO_MOD_TEXT, platform="cobol")
+    assert install_coordinate_for_verification(inputs) is None
+
+
+def test_install_coordinate_for_verification_is_none_when_no_manifest_was_provided() -> None:
+    inputs = ProductReferenceInputs(manifest_text=None, platform="python")
+    assert install_coordinate_for_verification(inputs) is None
+
+
+def test_install_coordinate_for_verification_is_none_when_the_manifest_field_is_missing() -> None:
+    """The "install" branch itself would answer NotAvailable here (no PackageId/AssemblyName) -
+    this function must mirror that exactly, never raise."""
+    csproj_text = "<Project><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>"
+    inputs = ProductReferenceInputs(manifest_text=csproj_text, platform="net")
+    assert install_coordinate_for_verification(inputs) is None
+
+
+# --- the "install" branch's registry-verification suppression (G2/TC-275, C2 part 2) ------------
+
+
+def test_install_returns_not_available_when_verification_confirmed_the_current_coordinate_absent() -> None:
+    """"False information is more dangerous than missing information": once ingestion-time
+    verification has confirmed THIS EXACT coordinate does not resolve on its real registry, the
+    "install" section must stop serving it as confident content."""
+    inputs = ProductReferenceInputs(
+        manifest_text=PYPROJECT_TEXT,
+        platform="python",
+        install_verified=False,
+        install_verified_coordinate="aspose-pdf-foss",
+        install_verified_checked_at="2026-10-08T00:00:00+00:00",
+    )
+    result = get_product_reference(inputs, "install")
+    assert isinstance(result, NotAvailable)
+    assert "aspose-pdf-foss" in result.reason
+    assert "pypi" in result.reason
+    assert "2026-10-08T00:00:00+00:00" in result.reason
+
+
+def test_install_returns_unmodified_content_when_verification_is_true() -> None:
+    inputs = ProductReferenceInputs(
+        manifest_text=PYPROJECT_TEXT,
+        platform="python",
+        install_verified=True,
+        install_verified_coordinate="aspose-pdf-foss",
+        install_verified_checked_at="2026-10-08T00:00:00+00:00",
+    )
+    result = get_product_reference(inputs, "install")
+    assert isinstance(result, ReferenceContent)
+    assert result.text == "pip install aspose-pdf-foss"
+
+
+def test_install_returns_unmodified_content_when_never_checked_the_default() -> None:
+    inputs = ProductReferenceInputs(manifest_text=PYPROJECT_TEXT, platform="python")
+    assert inputs.install_verified is None
+    result = get_product_reference(inputs, "install")
+    assert isinstance(result, ReferenceContent)
+    assert result.text == "pip install aspose-pdf-foss"
+
+
+def test_install_returns_unmodified_content_when_verified_false_but_the_coordinate_has_since_changed() -> None:
+    """Guards against serving a stale verification result for a manifest that has since changed:
+    install_verified=False only suppresses when install_verified_coordinate still matches the
+    coordinate install_coordinate_for_verification would derive right now."""
+    inputs = ProductReferenceInputs(
+        manifest_text=PYPROJECT_TEXT,
+        platform="python",
+        install_verified=False,
+        install_verified_coordinate="some-other-package-entirely",
+        install_verified_checked_at="2026-10-08T00:00:00+00:00",
+    )
+    result = get_product_reference(inputs, "install")
+    assert isinstance(result, ReferenceContent)
+    assert result.text == "pip install aspose-pdf-foss"

@@ -30,6 +30,9 @@ DOCKERFILE_SERVING = REPO_ROOT / "Dockerfile.serving"
 DOCKERFILE_INGESTION = REPO_ROOT / "Dockerfile.ingestion"
 TAG = "tc201-test-tag"
 FETCH_COMMAND = "/app/infra/fetch_product_reference.py"
+# G2/TC-275 (C2 part 2): the registry-verification step, conditioned the SAME way as
+# FETCH_COMMAND (only pilots with a manifestPath get it), immediately after it.
+VERIFY_INSTALL_COMMAND = "/app/infra/verify_product_reference_install.py"
 # G2/TC-244: the recent-releases fetch step, appended after the chain above for EVERY pilot
 # (never conditional on manifestPath - every self_extracted pilot already has a
 # library.repository field).
@@ -216,6 +219,71 @@ def test_a_pilot_without_a_manifest_path_gets_no_fetch_step(tmp_path: Path) -> N
         assert "fetch_product_reference" not in " ".join(tokens), pilot["family"] + "/" + pilot["platform"]
 
 
+def _verify_install_tokens(tokens: list[str]) -> list[str]:
+    """The tokens of the verify-install step only: from its command to the end of the chain."""
+    return tokens[tokens.index(VERIFY_INSTALL_COMMAND) - 1 :]
+
+
+def test_every_pilot_with_a_manifest_path_gets_the_verify_install_step_after_the_fetch_step() -> None:
+    # G2/TC-275 (C2 part 2): conditioned the SAME way FETCH_COMMAND already is - only pilots with
+    # a manifestPath get it - and immediately after it, on the same read-write manifests claim.
+    values = _values()
+    pilots = _pilots_with_a_manifest_path()
+    docs = _render()
+    for pilot in pilots:
+        identity = pilot["family"] + "/" + pilot["platform"]
+        tokens = _job_tokens(_job(docs, pilot))
+        assert VERIFY_INSTALL_COMMAND in tokens, identity
+        assert tokens.index(VERIFY_INSTALL_COMMAND) > tokens.index(FETCH_COMMAND), (
+            "the verify-install step must run after the fetch step"
+        )
+        verify = _verify_install_tokens(tokens)
+        assert verify[:2] == ["python", VERIFY_INSTALL_COMMAND], identity
+        assert _flag_after(verify, 0, "--family") == pilot["family"], identity
+        assert _flag_after(verify, 0, "--platform") == pilot["platform"], identity
+        assert _flag_after(verify, 0, "--manifests-dir") == values["manifests"]["mountPath"], identity
+
+
+def test_a_pilot_without_a_manifest_path_gets_no_verify_install_step_either(tmp_path: Path) -> None:
+    pilots = copy.deepcopy(_values()["ingestion"]["pilots"])
+    for pilot in pilots:
+        pilot.pop("manifestPath", None)
+    # One pilot keeps its manifest path, so one render shows the step on one Job and none on the rest.
+    pilots[0]["manifestPath"] = _values()["ingestion"]["pilots"][0]["manifestPath"]
+    path = tmp_path / "pilots.yaml"
+    path.write_text(yaml.safe_dump({"ingestion": {"pilots": pilots}}), encoding="utf-8")
+    docs = _render("-f", str(path))
+    assert VERIFY_INSTALL_COMMAND in _job_tokens(_job(docs, pilots[0]))
+    for pilot in pilots[1:]:
+        tokens = _job_tokens(_job(docs, pilot))
+        assert VERIFY_INSTALL_COMMAND not in tokens, pilot["family"] + "/" + pilot["platform"]
+        assert "verify_product_reference_install" not in " ".join(tokens), (
+            pilot["family"] + "/" + pilot["platform"]
+        )
+
+
+def test_the_verify_install_step_is_brace_grouped_with_or_true_and_precedes_recent_releases() -> None:
+    # pdf/cpp has a manifestPath and is used as a stable example by other tests in this file.
+    pilot = next(
+        p for p in _values()["ingestion"]["pilots"] if p["family"] == "pdf" and p["platform"] == "cpp"
+    )
+    docs = _render()
+    tokens = _job_tokens(_job(docs, pilot))
+    verify_index = tokens.index(VERIFY_INSTALL_COMMAND)
+    assert tokens[verify_index - 1] == "python" and tokens[verify_index - 2] == "{", tokens[: verify_index + 1]
+    assert tokens[verify_index - 3] == "&&", tokens[: verify_index + 1]
+    or_index = tokens.index("||", verify_index)
+    true_index = or_index + 1
+    assert tokens[true_index].rstrip(";") == "true", tokens[verify_index:]
+    # The verify-install step's own brace group ends the manifestPath-conditional block: only its
+    # own closing "}" follows, then the unconditional recent-releases step's own "&& { python ..."
+    # chain continues - mirroring how the fetch step's own closing "}" is followed by this same
+    # verify-install step rather than the end of the chain.
+    assert tokens[true_index + 1] == "}", tokens[verify_index:]
+    assert tokens[true_index + 2 : true_index + 5] == ["&&", "{", "python"], tokens[verify_index:]
+    assert tokens[true_index + 5] == RECENT_RELEASES_COMMAND, tokens[verify_index:]
+
+
 def test_the_serving_deployment_mounts_the_manifests_claim_read_only() -> None:
     values = _values()
     docs = _render()
@@ -279,12 +347,13 @@ def test_the_fetch_step_failure_is_swallowed_but_still_logged() -> None:
     true_index = or_index + 1
     assert tokens[true_index].rstrip(";") == "true", tokens[fetch_index:]
     # "true" is the last relevant token the fetch step's OWN brace group ends on: the group's own
-    # closing "}" follows it, and then (G2/TC-244) the unconditional recent-releases step's own
-    # "&& { python ..." chain continues - this fetch step is no longer the last one in the Job's
+    # closing "}" follows it, and then (G2/TC-275) the verify-install step's own "&& { python ..."
+    # chain continues, immediately followed (G2/TC-244) by the unconditional recent-releases
+    # step's own "&& { python ..." chain - this fetch step is no longer the last one in the Job's
     # overall chain, but its own grouping is still exactly self-contained.
     assert tokens[true_index + 1] == "}", tokens[fetch_index:]
     assert tokens[true_index + 2 : true_index + 5] == ["&&", "{", "python"], tokens[fetch_index:]
-    assert tokens[true_index + 5] == RECENT_RELEASES_COMMAND, tokens[fetch_index:]
+    assert tokens[true_index + 5] == VERIFY_INSTALL_COMMAND, tokens[fetch_index:]
     # build_chunks.py and ingest.py are NOT wrapped: a real content-publish failure in either one
     # must still propagate and fail the Job exactly as before, so each is still immediately
     # followed by a bare "&&" token, never a "|| true" grouping of its own.
@@ -385,3 +454,33 @@ def test_dockerfile_ingestion_copies_the_recent_releases_module_the_job_step_run
     lines = DOCKERFILE_INGESTION.read_text(encoding="utf-8").splitlines()
     copies = [line for line in lines if line.startswith("COPY ") and "fetch_recent_releases.py" in line]
     assert copies == ["COPY infra/fetch_recent_releases.py ./infra/fetch_recent_releases.py"], copies
+
+
+# ---------------------------------------------------------------------
+# G2/TC-275 (C2 part 2): Dockerfile COPY lines for the new wiring. TC-244 itself hit and had to
+# fast-follow-fix (commits e107e55/0dae519) the exact gap these tests guard against: a module
+# imported at the top of serve_http.py, or run as the ingestion Job's new step, that the built
+# image never actually copied in.
+# ---------------------------------------------------------------------
+
+
+def test_dockerfile_serving_copies_the_package_registry_module_that_serve_http_imports() -> None:
+    lines = DOCKERFILE_SERVING.read_text(encoding="utf-8").splitlines()
+    copies = [line for line in lines if line.startswith("COPY ") and "verify_package_registry.py" in line]
+    assert copies == ["COPY infra/verify_package_registry.py ./infra/verify_package_registry.py"], copies
+
+
+def test_dockerfile_ingestion_copies_the_package_registry_module_the_new_cli_imports() -> None:
+    lines = DOCKERFILE_INGESTION.read_text(encoding="utf-8").splitlines()
+    copies = [line for line in lines if line.startswith("COPY ") and "verify_package_registry.py" in line]
+    assert copies == ["COPY infra/verify_package_registry.py ./infra/verify_package_registry.py"], copies
+
+
+def test_dockerfile_ingestion_copies_the_verify_install_module_the_job_step_runs() -> None:
+    lines = DOCKERFILE_INGESTION.read_text(encoding="utf-8").splitlines()
+    copies = [
+        line for line in lines if line.startswith("COPY ") and "verify_product_reference_install.py" in line
+    ]
+    assert copies == [
+        "COPY infra/verify_product_reference_install.py ./infra/verify_product_reference_install.py"
+    ], copies

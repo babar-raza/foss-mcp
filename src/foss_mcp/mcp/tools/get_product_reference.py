@@ -46,6 +46,24 @@ _KNOWN_PLATFORMS = _DOTNET_PLATFORMS + ("python", "java") + _JS_PLATFORMS + ("go
 # closest thing it has, and is not a separate homepage/repository field).
 _CPP_HOMEPAGE_URL_RE = re.compile(r'HOMEPAGE_URL\s+"([^"]*)"', re.IGNORECASE)
 
+# G2/TC-275 (C2 part 2): the registry each platform's "install" coordinate is checked against by
+# infra/verify_package_registry.py's own _CHECKERS dict - one key per ecosystem that module
+# actually implements a checker for. cpp has no package-manager install command already (see the
+# "install" section's own cpp branch below) and so has no entry here either; a platform with no
+# entry here is exactly a platform install_coordinate_for_verification() answers None for.
+_REGISTRY_ECOSYSTEM_BY_PLATFORM: dict[str, str] = {
+    "net": "nuget",
+    "dotnet": "nuget",
+    "python": "pypi",
+    "typescript": "npm",
+    "javascript": "npm",
+    "js": "npm",
+    "nodejs": "npm",
+    "java": "maven",
+    "go": "go",
+    "rust": "cargo",
+}
+
 Section = Literal[
     "install",
     "formats",
@@ -92,6 +110,16 @@ class ProductReferenceInputs:
     contributing: DocumentResult | None = None
     agent_guidance: DocumentResult | None = None
     platform: str = "net"
+    # G2/TC-275 (C2 part 2): the ingestion-time registry-verification result for THIS platform's
+    # current install coordinate (infra/verify_package_registry.py via
+    # infra/verify_product_reference_install.py), merged in by infra/serve_http.py when its
+    # sidecar is present. None/None/None (the default) means "never checked yet" - served exactly
+    # as before this card landed. install_verified is only ever read as a literal `is False` below,
+    # never truthiness, so True and None are deliberately indistinguishable to the "install"
+    # branch - both mean "serve the manifest's own claim, unmodified".
+    install_verified: bool | None = None
+    install_verified_coordinate: str | None = None
+    install_verified_checked_at: str | None = None
 
 
 def _xml_field(manifest_text: str, tag: str) -> str | None:
@@ -103,6 +131,57 @@ def _document_section(section: Section, document: DocumentResult | None) -> Refe
     if document is None or isinstance(document, DocumentNotPresent):
         return NotAvailable(section, f"{section} is not present in this repository")
     return ReferenceContent(section, document.content)
+
+
+def install_coordinate_for_verification(inputs: ProductReferenceInputs) -> tuple[str, str] | None:
+    """The ``(ecosystem, bare_coordinate)`` pair the "install" section branch below would serve
+    right now for *inputs*, or ``None`` exactly where that branch would itself answer
+    ``NotAvailable`` (no manifest, a missing manifest field, cpp, or a platform this tool does not
+    know about) - this function reads the identical manifest fields that branch reads, and must
+    never raise where that branch would not error either.
+
+    ``infra/verify_product_reference_install.py`` (G2/TC-275, C2 part 2) is this function's one
+    real caller: it feeds the returned coordinate to ``infra/verify_package_registry.py``'s own
+    checker for the returned ecosystem, at ingestion time, once per pilot - never from inside a
+    request handler.
+    """
+    if inputs.manifest_text is None:
+        return None
+    platform = inputs.platform
+    ecosystem = _REGISTRY_ECOSYSTEM_BY_PLATFORM.get(platform)
+    if ecosystem is None:
+        return None
+
+    if platform in _DOTNET_PLATFORMS:
+        package_id = read_dotnet_manifest(inputs.manifest_text).package_id
+        return (ecosystem, package_id) if package_id else None
+    if platform == "python":
+        name = read_python_manifest(inputs.manifest_text).name
+        return (ecosystem, name) if name else None
+    if platform in _JS_PLATFORMS:
+        name = read_js_manifest(inputs.manifest_text).name
+        return (ecosystem, name) if name else None
+    if platform == "java":
+        java_manifest = read_java_manifest(inputs.manifest_text)
+        if not java_manifest.artifact_id:
+            return None
+        coordinate = (
+            f"{java_manifest.group_id}:{java_manifest.artifact_id}"
+            if java_manifest.group_id
+            else java_manifest.artifact_id
+        )
+        return (ecosystem, coordinate)
+    if platform == "go":
+        name = read_go_manifest(inputs.manifest_text).name
+        return (ecosystem, name) if name else None
+    if platform == "rust":
+        name = read_rust_manifest(inputs.manifest_text).name
+        return (ecosystem, name) if name else None
+    # Unreachable: every key _REGISTRY_ECOSYSTEM_BY_PLATFORM carries is handled above. Kept as an
+    # explicit None rather than falling off the end, so a future ecosystem-dict entry without a
+    # matching branch here fails safe (None) instead of silently returning nothing via a missing
+    # return path.
+    return None
 
 
 def get_product_reference(
@@ -180,44 +259,69 @@ def get_product_reference(
         return ReferenceContent(section, value)
 
     if section == "install":
+        content: ReferenceContent | NotAvailable
         if platform in _DOTNET_PLATFORMS:
             manifest = read_dotnet_manifest(inputs.manifest_text)
             if not manifest.package_id:
-                return NotAvailable(section, "manifest does not state a package id")
-            return ReferenceContent(section, f"dotnet add package {manifest.package_id}")
-        if platform == "python":
+                content = NotAvailable(section, "manifest does not state a package id")
+            else:
+                content = ReferenceContent(section, f"dotnet add package {manifest.package_id}")
+        elif platform == "python":
             name = read_python_manifest(inputs.manifest_text).name
             if not name:
-                return NotAvailable(section, "manifest does not state a package name")
-            return ReferenceContent(section, f"pip install {name}")
-        if platform in _JS_PLATFORMS:
+                content = NotAvailable(section, "manifest does not state a package name")
+            else:
+                content = ReferenceContent(section, f"pip install {name}")
+        elif platform in _JS_PLATFORMS:
             name = read_js_manifest(inputs.manifest_text).name
             if not name:
-                return NotAvailable(section, "manifest does not state a package name")
-            return ReferenceContent(section, f"npm install {name}")
-        if platform == "java":
+                content = NotAvailable(section, "manifest does not state a package name")
+            else:
+                content = ReferenceContent(section, f"npm install {name}")
+        elif platform == "java":
             java_manifest = read_java_manifest(inputs.manifest_text)
             if not java_manifest.artifact_id:
-                return NotAvailable(section, "manifest does not state an artifact id")
-            coordinate = (
-                f"{java_manifest.group_id}:{java_manifest.artifact_id}"
-                if java_manifest.group_id
-                else java_manifest.artifact_id
-            )
-            return ReferenceContent(section, coordinate)
-        if platform == "go":
+                content = NotAvailable(section, "manifest does not state an artifact id")
+            else:
+                coordinate = (
+                    f"{java_manifest.group_id}:{java_manifest.artifact_id}"
+                    if java_manifest.group_id
+                    else java_manifest.artifact_id
+                )
+                content = ReferenceContent(section, coordinate)
+        elif platform == "go":
             name = read_go_manifest(inputs.manifest_text).name
             if not name:
-                return NotAvailable(section, "manifest does not state a module path")
-            return ReferenceContent(section, f"go get {name}")
-        if platform == "rust":
+                content = NotAvailable(section, "manifest does not state a module path")
+            else:
+                content = ReferenceContent(section, f"go get {name}")
+        elif platform == "rust":
             name = read_rust_manifest(inputs.manifest_text).name
             if not name:
-                return NotAvailable(section, "manifest does not state a package name")
-            return ReferenceContent(section, f"cargo add {name}")
-        if platform == "cpp":
-            return NotAvailable(section, "cpp has no package-manager install command")
-        return NotAvailable(section, f"platform {platform!r} is not supported")
+                content = NotAvailable(section, "manifest does not state a package name")
+            else:
+                content = ReferenceContent(section, f"cargo add {name}")
+        elif platform == "cpp":
+            content = NotAvailable(section, "cpp has no package-manager install command")
+        else:
+            content = NotAvailable(section, f"platform {platform!r} is not supported")
+
+        # G2/TC-275 (C2 part 2): "False information is more dangerous than missing information" -
+        # once ingestion-time verification has confirmed THIS EXACT coordinate does not resolve on
+        # its real registry, stop serving it as confident content. install_verified is read as a
+        # literal `is False` (never truthiness): True and None (never checked, or checked under a
+        # since-changed coordinate) both fall through to the unmodified ReferenceContent below,
+        # exactly as before this card.
+        if isinstance(content, ReferenceContent) and inputs.install_verified is False:
+            current = install_coordinate_for_verification(inputs)
+            if current is not None and current[1] == inputs.install_verified_coordinate:
+                ecosystem, coordinate = current
+                return NotAvailable(
+                    section,
+                    f"{coordinate} ({ecosystem}) was checked against its real registry at "
+                    f"{inputs.install_verified_checked_at} and does not resolve there",
+                )
+        return content
 
     # section == "support"
     if platform in _DOTNET_PLATFORMS:
