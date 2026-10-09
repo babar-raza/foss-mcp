@@ -1,0 +1,102 @@
+id: TC-326
+gate: G2
+lane: verification
+purpose: 'Generalizes TC-296 (the Go-ecosystem published-commit resolver, built for the round-4 audit''s top
+  P0: indexed source can run far ahead of the only version an agent can actually install) to PyPI, the
+  ecosystem most of this project''s ~40 pilots actually use. A 2026-10-10 investigation confirmed the "fetch
+  latest version string" half is mechanically identical to Go (check_pypi() already hits PyPI''s JSON API,
+  discarding the body - parsing info.version instead is the same shape as TC-296''s own go_latest_version()),
+  but the "match a GitHub tag" half hits real friction Go''s own single worked example never surfaced: (1)
+  tag-prefix conventions vary per-repository even within this one project''s own pilots - slides/python''s real
+  tag is bare "26.8.0", cells/python''s real tag is "V26.7.0" (capital V), so a single unprefixed guess is not
+  universal; (2) GitHub''s commits-by-ref endpoint returned 422, not 404, for cells/python''s own unprefixed
+  guess before the correct "V"-prefixed form was tried - TC-296''s own resolve_tag_commit() only treats 404 as
+  "ref not found," so a 422 would incorrectly propagate as an exception instead of cleanly meaning the same
+  thing; (3) words/python''s real GitHub repository has zero tags and zero releases at all, a legitimate
+  "cannot resolve" outcome that must come back as None, never an exception.'
+depends_on:
+- TC-296
+write_paths:
+- infra/verify_package_registry.py
+- tests/infra/test_verify_package_registry.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read check_pypi(), go_latest_version(), resolve_tag_commit(), and go_published_commit() (all in
+  infra/verify_package_registry.py) in full before changing anything. Reproduce the 422-vs-404 finding
+  yourself first: call resolve_tag_commit() directly against a real repository with a real, live tag-prefix
+  mismatch (cells/python''s own aspose-cells-foss/Aspose.Cells-FOSS-for-Python, tag "V26.7.0", trying the bare
+  unprefixed "26.7.0" first) and confirm it raises rather than returning None.'
+- 'Widen resolve_tag_commit()''s own exception handling to also return None on a 422 (GitHub''s own
+  "No commit found for SHA" response for some not-found-ref shapes), not only a 404 - this is a correctness fix
+  to the shared, language-agnostic function itself (it already serves Go too), not a PyPI-only special case.
+  Verify this does not change go_published_commit()''s own existing behavior for any case already covered by
+  TC-296''s own tests (a 404 case should behave identically; this only adds a previously-unhandled status).'
+- 'Add `pypi_latest_version(coordinate) -> str | None`, mirroring go_latest_version()''s own shape exactly:
+  parse the PyPI JSON API response''s `info.version` field. Return None on a 404 (package never published);
+  propagate other failures.'
+- 'Add `pypi_published_commit(coordinate: str, repository: str) -> str | None` that tries a small, ordered set
+  of candidate ref formats against the resolved version string via the now-widened resolve_tag_commit() -
+  bare version, "v"+version, "V"+version - returning the first that resolves to a real commit, or None if
+  every candidate fails to resolve (including the words/python case: zero tags exist, every candidate
+  correctly returns None, and the function returns None overall rather than raising). Document explicitly, in
+  this function''s own docstring, that this candidate-list approach is a pragmatic heuristic for a convention
+  that is NOT universal (unlike Go''s own single-guess approach, which TC-296''s own docstring already
+  documented as "the overwhelming common case") - if a future pilot uses some other prefix convention entirely,
+  it will correctly resolve to None (a safe, honest "cannot determine" outcome) rather than silently resolving
+  to the wrong commit.'
+- 'Verify live against all three real pilots the investigation already used: slides/python (aspose-slides-foss,
+  expect the bare "26.8.0" candidate to resolve directly), cells/python (aspose-cells-foss, expect the bare
+  candidate to 422/fail and the "V"-prefixed candidate to resolve), words/python (aspose-words-foss, expect
+  every candidate to cleanly return None, confirming the overall function returns None rather than raising).'
+- 'Add tests to tests/infra/test_verify_package_registry.py (read its existing test conventions for the Go
+  functions first and mirror them): success/404/transport-failure paths for pypi_latest_version(); a test
+  proving resolve_tag_commit() now correctly returns None on a 422 response (not just 404) without changing
+  its existing 404 behavior; and composition tests for pypi_published_commit() covering the bare-match case,
+  the prefixed-fallback-match case, and the no-candidate-resolves case - mirroring the three real pilots'' own
+  shapes (you may use realistic synthetic/mocked responses for these rather than live network calls in the
+  committed tests, following whatever convention this file''s own existing Go tests already use).'
+- 'Do NOT touch report_index_freshness.py, server.py, or any MCP tool wiring - wiring any of this into the
+  live, agent-facing tool remains explicitly deferred to a future card, same as TC-296''s own deferral.'
+- 'Run the full existing test suite once and report honestly. If anything outside your two write_paths breaks,
+  STOP and report rather than patching around it.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Reproduce the 422-vs-404 gap in resolve_tag_commit() live before changing anything.
+- Widen resolve_tag_commit() to treat 422 the same as 404; add pypi_latest_version() and the candidate-list
+  pypi_published_commit(); verify live against slides/python, cells/python, and words/python.
+- Add tests for the new functions' success/404/422/no-candidate paths and a regression test proving Go's own
+  existing behavior is unchanged; run the full suite once.
+checks:
+- command: '{python} -m pytest tests/infra/test_verify_package_registry.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 8
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/verify_package_registry.py');s=p.read_text(encoding='utf-8');old='pypi_published_commit';new='pypi_published_commit_DISABLED';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Renames the LAST occurrence of "pypi_published_commit" - the function's own call site in whatever
+    test exercises the end-to-end composition, not its def line - so calling it raises a NameError/
+    AttributeError and the composing-function tests fail. Built with plain text, no backslash, using rindex
+    per this session's established vacuous-falsifier safeguard. If the worker names this function differently,
+    this falsifier must be updated to match - report explicitly rather than silently renaming to fit a
+    pre-written falsifier.
+evidence:
+- evidence/build/G2/TC-326/receipt.json
+closeout:
+- infra/verify_package_registry.py can now resolve the real commit a fresh `pip install` would actually fetch
+  for a PyPI-ecosystem pilot right now, handling the real tag-prefix variation and GitHub API status-code
+  quirks this session's own investigation found - proven live against three real Python pilots covering all
+  three outcome shapes (clean match, prefixed-fallback match, no-tags-exist). Generalizing to the remaining
+  ecosystems (npm/cargo/maven/nuget) and wiring any of this into the live report_index_freshness tool remain
+  deferred to future cards.
+recovery: Re-run from a clean tree.
