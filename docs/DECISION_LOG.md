@@ -1667,3 +1667,46 @@ run `git merge-base --is-ancestor <card's known commit> main` (or re-check `gate
 against actual git ancestry, not just the `ACCEPTED` label) rather than inferring integration from acceptance.
 `ACCEPTED` and `INTEGRATED` are different gatectl verbs with different evidence; this session had been treating
 them as interchangeable once a card cleared review.
+
+## 2026-10-09 — C4-Python-reexport: TC-265 is a near-total no-op for repos using the `_impl.py` + re-export
+convention (new finding, found by the TC-267/html-python worker)
+TC-265 (populate real `bases`/`return_type`/`param_types` on `PublicSymbol`) fixed centrality scoring for Python
+symbols `python_surface.py`'s `_module_symbols()` scans directly - but it does nothing for a symbol reached only
+through a re-export chain whose origin module is leading-underscore-prefixed, because `_module_symbols()` refuses
+to scan ANY module with an underscore-prefixed path component (`if not module or any(part.startswith("_") ...)`
+at line ~169) at all, so that module's classes never enter the `symbols` table in the first place.
+`_reexport_kind()`/`inspect_public_surface()`'s fallback (`origin is None`, ~line 340) then calls `_origin_kind()`
+to recover just the `SymbolKind` by reading the origin file's AST directly - but `_origin_kind()` only returns a
+`SymbolKind`, never the structured `bases`/`return_type`/`param_types`/docstring/signature data the same AST node
+carries, so `inspect_public_surface()`'s `replace()` call (~line 391-399) falls back to `()`/`None` for all of
+them.
+
+Live-confirmed against html/python (`aspose-html-foss/Aspose.HTML-FOSS-for-Python`, commit
+`bf0f1e7a6d29ca9e14de576fe3ff1aa49ddbaf11`): 101 of 104 real `.py` files in `src/aspose_html` are leading-
+underscore implementation modules (e.g. `dom/_document.py` defining the real `Document` class, re-exported
+publicly as `aspose_html.dom.Document` via `dom/__init__.py`). Across the full 323-type real extraction: the
+highest centrality score is 1 (tied across exactly 3 types), every other type scores 0, zero types anywhere in
+the artifact have non-empty `bases`, and only 4 methods total are captured across all 323 types (all on the two
+classes that happen to be defined directly in non-underscore files). This is the same failure class AGENTS.md's
+"Integration and liveness" section names explicitly - "confirm the measurement mechanism can actually produce
+more than one outcome" - at most 3 non-zero outcomes out of 323 is not a meaningful centrality measurement.
+
+This convention (public API defined in a leading-underscore impl module, re-exported through a package
+`__init__.py`) is a common, ordinary Python packaging style, not specific to this one repository - every other
+Python-sourced pilot (3d/python, pdf/python, words/python, slides/python, cells/python, etc.) is suspected to be
+affected to varying degrees and must each be independently re-measured, never assumed fixed by extension.
+
+**Fix plan (next taskcard, to be authored and dispatched):** extend `_origin_kind()` (or a sibling helper reusing
+the same AST read) to also return the structured fields the real class/function node carries - `bases`,
+`return_type`, `param_types`, docstring, signature - not just its `SymbolKind`, and have
+`inspect_public_surface()`'s `origin is None` fallback branch use them instead of unconditionally falling back to
+empty/`None`. Must handle the same forwarding-chain/cycle cases `_origin_kind()` already handles correctly for
+`SymbolKind` (a module that only forwards, multiple hops, cycles via `seen`).
+
+TC-267 (html/python) stopped correctly without committing a degenerate fixture, per its own card's explicit
+instruction to STOP and report rather than patch around or commit when a genuine extraction-engine defect is
+found outside its write_paths - exactly the discipline this project's "never weaken a check to make it pass"
+rule requires. Every other in-flight Python-pilot regeneration card (TC-264 slides/python rework-3, TC-266
+3d/python, TC-268 pdf/python, TC-270 words/python) is expected to independently hit the same measurement
+degeneracy to whatever degree their own repository uses this convention; each is being individually verified
+against its own actual report rather than assumed broken or assumed fine.
