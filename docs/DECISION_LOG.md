@@ -2105,3 +2105,14 @@ platform). AGENTS.md's own claimed budget-enforcement line was investigated and 
 (package/commit divergence is itself a two-pilot-confirmed, fleet-wide-shaped P0), these will be worked through
 in priority order starting with the two new P0s, after reconciling C3/C6's current true state against this
 session's own TC-281-294 wave.
+
+## 2026-10-09 — The TC-288-292 follow-up wave is closed; html_python's own fixture regen is the one piece still pending
+TC-288 (3d/python), TC-290 (pdf/python), TC-291 (slides/python), and TC-292 (words/python) are all integrated,
+each live-verified with real inherited_from provenance after TC-293's fix landed (TC-288: AssetInfo<-A3DObject,
+plus a real 3-level Node->SceneObject->A3DObject chain correctly rooted at the grandparent; TC-290: PdfStream<-
+PdfDictionary; TC-291: IChart's 3-hop chain to IPresentationComponent; TC-292: Paragraph's 8 real NodeCastMixin
+methods). TC-289 (html/python) correctly never produced a fixture commit - its own worker found and correctly
+deferred the deeper TC-294 defect (methods missing entirely for underscore-origin classes) instead of regenerating
+a fixture that would still show zero inherited_from tags. With TC-294 now also integrated, html_python's own
+fixture regeneration is the one piece of this wave still outstanding and is now unblocked - a follow-up card,
+mirroring TC-288/290-292's own shape exactly, is the natural next step.
