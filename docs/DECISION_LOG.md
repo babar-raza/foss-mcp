@@ -1804,3 +1804,20 @@ Status of the third independent audit's (2026-10-08) findings as of this entry:
   likely root cause of much of this session's recurring "docker resource contention" symptom when multiple
   workers run live e2e suites concurrently. Not yet fixed; worth a dedicated card if live e2e flakiness continues
   to recur at this frequency.
+
+## 2026-10-09 — B08 reconciled as OWNER-11: no recoverable content anywhere in this repository (supervisor)
+An exhaustive investigation (full read of this log, every `plans/*.yaml`, every `ops/*.jsonl`, and `git log`
+pickaxe searches for "B08") confirms B08 - one of the second independent audit's original ten blockers (B01-B10,
+pasted into a prior session as chat text, never committed as a file) - has no inspectable content anywhere in
+this repository. B01/B02/B03-B07/B09/B10 were each independently re-derived from live/code evidence and closed
+by TC-250 through TC-258; this log's own prior entries (the ones introducing and re-affirming B08's open status)
+state explicitly that B08 alone was never given any claim beyond the audit's own "procedural description" - not
+even a one-line summary of what the defect was. The second audit's original full text is not in git history,
+not in any commit message, and not in any tracked file; it exists only (if anywhere) in the human operator's own
+prior chat session, outside this repo's governance.
+
+Per AGENTS.md's blocking taxonomy, this is not a code defect to diagnose further - it is a missing-information
+item only the human operator can resolve (either by supplying the original B08 text, or by confirming it should
+be retired with no further investigation). Recorded as **OWNER-11** in `ops/owner_items.yaml`. This does not
+block G2 gate exit on its own (it is not one of the open questions OQ-007/OQ-008 already gating G3) and blocks
+no card by name, consistent with "an owner item blocks only the cards that name it, never the whole loop."
