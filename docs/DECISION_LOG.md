@@ -1821,3 +1821,36 @@ item only the human operator can resolve (either by supplying the original B08 t
 be retired with no further investigation). Recorded as **OWNER-11** in `ops/owner_items.yaml`. This does not
 block G2 gate exit on its own (it is not one of the open questions OQ-007/OQ-008 already gating G3) and blocks
 no card by name, consistent with "an owner item blocks only the cards that name it, never the whole loop."
+
+## 2026-10-09 — C7 investigated and authored (TC-278); a third, separate defect found and deliberately NOT
+folded into it
+C7 ("search ranking: buried-correct-results and confident-wrong-top-1") is real and concretely reproduced against
+pdf/net's real fixture through the actual production chunking path. `search_symbols.py`'s `is_exact_symbol_hit`
+already distinguishes three strengths of evidence (full-FQN equality, final-segment equality, bag-of-words
+word-set containment) but discards that distinction immediately, using it only as a boolean pass/fail - so
+raw BM25 term density (which rewards a subclass's shorter document) can bury a qualitatively stronger
+final-segment match behind several weaker bag-of-words matches (querying "Annotation" ranks the real base class
+`Aspose.Pdf.Annotations.Annotation` 9th of 14, behind 8 subclasses). Separately, the bag-of-words branch has no
+precision floor beyond one-directional "every query word appears somewhere in the FQN" - querying "set pattern
+color"/"set color pattern" confidently returns `Aspose.Pdf.Operators.BasicSetColorAndPatternOperator` (an
+internal content-stream-operator base class, not a real "set pattern color" feature; no such feature exists),
+because all 3 scattered, reordered query words happen to appear somewhere among the FQN's 9, at a lower
+one-directional coverage than an already-required true positive. TC-278 authored and dispatched: tier the
+already-admitted matches by evidence strength (pure reordering, cannot weaken the honest-miss invariant) and add
+an empirically-measured precision floor to the bag-of-words tier specifically (methodology only, not the number,
+reused from TC-273 - the false positive here scores lower on TC-273's own signal than a required true positive,
+so that signal and threshold do not transfer).
+
+A third, genuinely different defect surfaced during the same investigation and was deliberately left out of
+TC-278's scope: `build_chunks_from_api_surface` (`src/foss_mcp/indexing/chunk_builder.py`) publishes one chunk
+per TYPE, with a single `FQN:` line naming only the class - every method/property is prose text inside that same
+chunk's `Methods:`/`Properties:` block, with no FQN of its own. `extract_fqn`/`is_exact_symbol_hit` only ever
+compare against the type-level FQN, so a query naming a METHOD rather than a class can never pass the filter no
+matter how highly BM25 ranks its containing chunk. Live-confirmed: `Aspose.Pdf.Page.SetRotation` genuinely exists
+and its containing `Page` chunk ranks #1 by a wide BM25 margin for the query "SetRotation" - yet `search_symbols`
+returns an honest-looking but actually wrong Miss, with a misleading suggestion (`Aspose.Pdf.Rotation`, an
+unrelated enum) for a symbol that does exist. This is a different bug shape (extraction/matching granularity, a
+false negative, not a ranking/threshold problem) requiring its own measurement and test coverage, and the
+audit's own C7 description does not obviously cover it - folding it into TC-278 risked exactly the "fixed it as
+a side effect" scope creep this project's governance exists to prevent. Tracked as its own finding here;
+**status: not yet authored as a taskcard** as of this entry - the next supervisor action on this track.
