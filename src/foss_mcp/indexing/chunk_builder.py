@@ -27,12 +27,26 @@ from foss_mcp.normalization.chunker import Chunk, chunk_document
 from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
 
 
+def _inherited_from_suffix(entry: Mapping[str, object]) -> str:
+    """TC-261 (C3): the "(inherited from X)" suffix, mirroring
+    ``_property_writability``/``_property_line``'s existing optional-suffix style. An entry
+    with no "inherited_from" key - every genuinely own-declared member, and every existing
+    fixture's content before this card lands - renders this as an empty string, so its caller's
+    rendered line is completely unchanged.
+    """
+    inherited_from = entry.get("inherited_from")
+    return f"  (inherited from {inherited_from})" if inherited_from else ""
+
+
 def _method_line(method: Mapping[str, object]) -> str:
     params = ", ".join(
         f"{param.get('name', '')}: {param.get('type', '')}" for param in method.get("params") or []
     )
     return_type = method.get("return_type") or "void"
-    return f"  - {method.get('name', '')}({params}) -> {return_type}"
+    return (
+        f"  - {method.get('name', '')}({params}) -> {return_type}"
+        f"{_inherited_from_suffix(method)}"
+    )
 
 
 def _property_writability(prop: Mapping[str, object]) -> str | None:
@@ -58,7 +72,7 @@ def _property_writability(prop: Mapping[str, object]) -> str | None:
 def _property_line(prop: Mapping[str, object]) -> str:
     writability = _property_writability(prop)
     suffix = f" ({writability})" if writability is not None else ""
-    return f"  - {prop.get('name', '')}: {prop.get('type', '')}{suffix}"
+    return f"  - {prop.get('name', '')}: {prop.get('type', '')}{suffix}{_inherited_from_suffix(prop)}"
 
 
 def _member_line(member: Mapping[str, object]) -> str:

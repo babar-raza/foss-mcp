@@ -2429,6 +2429,25 @@ def _flatten_inheritance(classes: list[dict]) -> None:
     classes in topological order so parents are populated before children.
     Child definitions take precedence over inherited ones.
     Handles cycles via visited-set guard.
+
+    TC-261 (C3 of the third independent recon, 2026-10-08): every copied
+    method/property gains an explicit ``"inherited_from"`` key recording the
+    real, ORIGINAL declaring class -- never a genuinely locally-declared
+    entry, which must never gain this key at all. For a multi-level chain
+    (confirmed live: pdf/cpp's real PopupAnnotation -> Annotation ->
+    BaseParagraph), a member copied transitively through an intermediate
+    parent must still be rooted to the class that actually declares it
+    (BaseParagraph), not the intermediate parent it was copied through
+    (Annotation) -- because parents are resolved before children, a parent's
+    own already-copied entries already carry the correct original
+    "inherited_from"; copying from the parent into the child preserves that
+    existing value instead of overwriting it with the parent's own identity,
+    and only a genuinely parent-declared entry (no existing "inherited_from")
+    gets the parent's own identity. Before this fix, a copied member carried
+    no ownership marker at all, silently misrepresenting an inherited member
+    as if it were locally declared -- the entry's own file/line metadata
+    stayed correctly pointed at the real ancestor, but nothing in the data
+    itself told a caller the member was not the child's own.
     """
     # Use class_import as key when available for namespace-aware resolution;
     # also index by short name as fallback for base-class lookup.
@@ -2482,16 +2501,26 @@ def _flatten_inheritance(classes: list[dict]) -> None:
                     tuple(p.get("type", "") for p in entry.get("params", [])),
                 )
 
+            # Provenance root for a member genuinely declared by `parent` itself
+            # (not already carrying its own "inherited_from" from a deeper
+            # ancestor -- see the docstring above for why that case is
+            # preserved instead of overwritten).
+            parent_identity = parent.get("class_import") or parent.get("name", "")
+
             child_method_keys = {_method_key(m) for m in cls.get("methods", [])}
             for m in parent.get("methods", []):
                 key = _method_key(m)
                 if key not in child_method_keys:
-                    cls.setdefault("methods", []).append(copy.deepcopy(m))
+                    copied_method = copy.deepcopy(m)
+                    copied_method["inherited_from"] = m.get("inherited_from") or parent_identity
+                    cls.setdefault("methods", []).append(copied_method)
                     child_method_keys.add(key)
             child_prop_names = {p["name"] for p in cls.get("properties", [])}
             for p in parent.get("properties", []):
                 if p["name"] not in child_prop_names:
-                    cls.setdefault("properties", []).append(copy.deepcopy(p))
+                    copied_prop = copy.deepcopy(p)
+                    copied_prop["inherited_from"] = p.get("inherited_from") or parent_identity
+                    cls.setdefault("properties", []).append(copied_prop)
                     child_prop_names.add(p["name"])
         visiting.discard(cls_name)
         resolved.add(cls_name)

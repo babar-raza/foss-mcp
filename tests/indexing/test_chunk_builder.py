@@ -333,6 +333,92 @@ def test_property_writability_resolved_honestly_across_three_real_shapes() -> No
     assert "artifactType: ArtifactType (" not in all_text
 
 
+def test_inherited_from_renders_as_an_inherited_from_suffix_on_methods_and_properties() -> None:
+    """TC-261 (C3 of the third independent recon, 2026-10-08): _flatten_inheritance() now tags
+    a copied method/property with an explicit "inherited_from" key (docs/DECISION_LOG.md's
+    "C3" heading; the real example is pdf/cpp's PopupAnnotation inheriting from Annotation).
+    A method/property entry carrying a non-empty "inherited_from" must render with a new
+    "  (inherited from X)" suffix, mirroring the existing _property_writability "(readwrite)"/
+    "(readonly)" suffix style, appended after whatever is already there (the writability
+    parenthetical for a property, the return type for a method) rather than replacing it.
+    """
+    fixture = {
+        "source_repository": "example-org/Example-FOSS-for-Widgets",
+        "source_commit": "deadbeefcafef00d1234567890abcdef1234567",
+        "types": [
+            {
+                "name": "PopupAnnotation",
+                "class_import": "Aspose::Pdf::Annotations::PopupAnnotation",
+                "kind": "class",
+                "bases": ["Annotation"],
+                "methods": [
+                    {"name": "Accept", "params": [], "return_type": "void"},
+                    {
+                        "name": "GetRectangle",
+                        "params": [],
+                        "return_type": "Rectangle",
+                        "inherited_from": "Aspose::Pdf::Annotations::Annotation",
+                    },
+                ],
+                "properties": [
+                    {"name": "Open", "type": "bool", "writable": True},
+                    {
+                        "name": "Rect",
+                        "type": "Rectangle",
+                        "writable": True,
+                        "inherited_from": "Aspose::Pdf::Annotations::Annotation",
+                    },
+                ],
+            }
+        ],
+    }
+
+    chunks = build_chunks_from_api_surface(fixture, title="pdf/cpp API surface")
+    all_text = "\n".join(chunk.text for chunk in chunks)
+
+    # The real, own-declared member renders exactly as before - no suffix at all.
+    assert "  - Accept() -> void" in all_text
+    assert "  - Open: bool (writable)" in all_text
+
+    # The inherited member's existing rendered content (return type / writability
+    # parenthetical) is still fully present, with the new suffix appended after it.
+    assert "  - GetRectangle() -> Rectangle  (inherited from Aspose::Pdf::Annotations::Annotation)" in all_text
+    assert "  - Rect: Rectangle (writable)  (inherited from Aspose::Pdf::Annotations::Annotation)" in all_text
+
+
+def test_no_inherited_from_key_renders_completely_unchanged() -> None:
+    """Direct regression against this file's own pre-existing rendered-text assertions: an
+    entry with no "inherited_from" key - every genuinely own-declared member, and every
+    fixture committed before TC-261 - must render byte-for-byte identically to before this
+    card, proving the new suffix logic never fires for the common case.
+    """
+    chunks = build_chunks_from_api_surface(SYNTHETIC_FIXTURE, title="widgets/example API surface")
+    all_text = "\n".join(chunk.text for chunk in chunks)
+    assert "  - Create() -> void" in all_text
+    assert "  - Destroy() -> void" in all_text
+    assert "  - Spin() -> void" in all_text
+    assert "(inherited from" not in all_text
+
+    fixture = {
+        "source_repository": "example-org/Example-FOSS-for-Widgets",
+        "source_commit": "deadbeefcafef00d1234567890abcdef1234567",
+        "types": [
+            {
+                "name": "Cog",
+                "class_import": "Example.Widgets.Cog",
+                "kind": "class",
+                "methods": [{"name": "Rotate", "params": [], "return_type": "bool"}],
+                "properties": [{"name": "ToothCount", "type": "int", "writable": True}],
+            }
+        ],
+    }
+    chunks = build_chunks_from_api_surface(fixture, title="widgets/example API surface")
+    all_text = "\n".join(chunk.text for chunk in chunks)
+    assert "  - Rotate() -> bool" in all_text
+    assert "  - ToothCount: int (writable)" in all_text
+    assert "(inherited from" not in all_text
+
+
 def test_real_free_functions_get_real_signatures_across_the_three_affected_pilots() -> None:
     """Runs build_chunks_from_api_surface against the ACTUAL committed pdf_go, cells_rust, and
     pdf_typescript fixtures (real JSON, not a synthetic stand-in) and asserts a real free
