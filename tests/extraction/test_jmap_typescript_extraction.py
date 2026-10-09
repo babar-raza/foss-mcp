@@ -123,20 +123,12 @@ def test_a_real_inherited_member_carries_inherited_from_correctly_rooted() -> No
     for child_name in ("JmapNetworkError", "JmapProtocolError"):
         child = _find_type(data, child_name)
         assert child["bases"] == ["JmapError"]
-        inherited = [
-            m
-            for m in child["methods"]
-            if m["name"] == "constructor" and m.get("inherited_from")
-        ]
+        inherited = [m for m in child["methods"] if m["name"] == "constructor" and m.get("inherited_from")]
         assert len(inherited) == 1, child_name
         assert inherited[0]["inherited_from"] == "models.CommonTypes.JmapError"
         # The child's own constructor (with its own, different parameter list) is kept
         # alongside the inherited one rather than being replaced by it.
-        own = [
-            m
-            for m in child["methods"]
-            if m["name"] == "constructor" and not m.get("inherited_from")
-        ]
+        own = [m for m in child["methods"] if m["name"] == "constructor" and not m.get("inherited_from")]
         assert len(own) == 1, child_name
 
     parent = _find_type(data, "JmapError")
