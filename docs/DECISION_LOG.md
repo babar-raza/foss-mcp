@@ -2296,3 +2296,32 @@ excluded by the engine's own public-surface filtering before bases are even cons
 open question from the full-fleet C3/C6 reconciliation. The only remaining piece of that saga is the 7 Python
 pilots that were never regenerated under the centrality+structured-data pipeline at all (barcode/cells/email/
 jmap/note/page/tex, all _python) - a larger scope than a simple re-pin, not yet investigated in detail.
+
+## 2026-10-10 — The final Python wave closes; C3/C6 (inheritance provenance) is now resolved across the ENTIRE 40-pilot fleet
+TC-318 through TC-325 are all accepted/integrated (TC-325 landed as a direct supervisor commit rather than a
+worker-branch replay, since its fix was a trivial, already-verified 2-line commit-pin correction with no
+worker worktree involved - `gatectl integrate` correctly has nothing to replay for it; ACCEPTED is its own
+terminal state). Outcomes: barcode_python, cells_python, jmap_python, note_python, page_python all found real
+bases now populate, with note_python specifically producing a genuine 3-level chain (Node<-CompositeNode<-
+Document) correctly rooted to the true grandparent declarer. email_python was hand-verified as a genuine
+absence (every class extends only a stdlib builtin). tex_python's own known upstream Python syntax error was
+reconfirmed live (same 4 resolvable types, same unresolved list) - one real, incidental improvement surfaced
+anyway (its 4 exception classes now carry real bases, from the same engine work, though still zero
+inherited_from since none defines a method).
+
+note_python's own live re-run surfaced a genuine new commit-pin divergence (the real upstream repository
+advanced from e459eb50... to 0014dbee... between the original TC-154 pin and this re-run) - closed by TC-325,
+which updated infra/helm/foss-mcp/values.yaml and docker-compose.yml's pin to match. All 42 tests in
+tests/infra/test_helm_pilots_match_compose.py now pass.
+
+**This closes the entire C3/C6 full-fleet reconciliation.** Starting point (round-4 audit): 3 of 31 eligible
+pilots live. Ending point: every pilot across the 40-pilot fleet has been live-verified, one at a time, as
+either genuinely carrying correct inherited_from provenance, or genuinely and honestly having no real
+inheritance to tag - never assumed, never fabricated. Five independent, genuine engine root causes were found
+and fixed along the way (TC-281: Python flattening never executed; TC-293: short-name collision resolving to
+an empty shell; TC-294: methods never recovered for underscore-origin re-exports; TC-315: no javascript
+namespace branch; TC-316: TypeScript's extends_type_clause never recognized), plus one commit-pin-divergence
+fix (TC-325) and two "genuinely flat, not stale" confirmations (cells_go, imaging_net) that needed no code
+change at all. 36 taskcards (TC-281-282 through TC-325, counting the TC-282-287 wave) closed this problem
+completely across every language this project extracts from: Python, C++, C#, Java, Go, Rust, TypeScript, and
+JavaScript.
