@@ -35,10 +35,13 @@ depends_on:
 - TC-210
 - TC-218
 - TC-273
+- TC-248
+- TC-249
 write_paths:
 - src/foss_mcp/mcp/tools/search_symbols.py
 - tests/mcp/tools/test_retrieval_tools.py
 - tests/mcp/test_search_symbols_honest_miss.py
+- tests/indexing/test_lookup_doc_fallback_query_safety.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -110,6 +113,21 @@ inputs:
   misleading suggestion for a symbol that genuinely exists. This is a different bug shape (extraction/matching
   granularity, not a ranking/threshold problem) requiring its own measurement and test coverage - it is tracked
   separately (see docs/DECISION_LOG.md) and must not be touched by this card.'
+- 'REWORK (attempt 2): attempt 1''s Fix A and Fix B are both correct and well-verified (the base class now ranks
+  1st of 14, survives at top_k=5; the contiguous-run constraint - correctly independently re-derived after
+  disqualifying the symmetric-overlap signal the same way the card disqualified reusing TC-273''s own threshold -
+  correctly rejects both real false positives while admitting every required true positive across 3 real
+  pilots). One genuine, correctly-identified consequence needs resolving: `is_exact_symbol_hit` now has only its
+  one test caller (tests/indexing/test_lookup_doc_fallback_query_safety.py), since search_symbols() itself now
+  calls `_match_tier` directly for the tier value, not the boolean wrapper - test_unwired_modules.py correctly
+  flags it as newly production-unwired. Decision (do not pad _KNOWN_UNWIRED - this project''s own test file
+  documents that list as one that should shrink, not grow, when a symbol becomes genuinely redundant rather than
+  merely hard to reach): DELETE `is_exact_symbol_hit` entirely (it is now dead weight - every real need it served
+  is better served by `_match_tier(query, fqn) is not None`, which is exactly as clear) and update
+  tests/indexing/test_lookup_doc_fallback_query_safety.py''s one call site (`any(is_exact_symbol_hit(...) for fqn
+  in real_fqns)`) to import and call `_match_tier(OFFLINE_SAFE_QUERY, fqn) is not None` instead - same boolean
+  meaning, same assertion, no public wrapper left unreferenced. Re-run that test file plus your original check
+  command, then the full suite once more, and confirm test_unwired_modules.py no longer flags anything new.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
 - Read search_symbols.py's three-branch is_exact_symbol_hit and search_symbols() in full before changing anything.
@@ -119,7 +137,7 @@ actions:
   twice, before and after.
 checks:
 - command: '{python} -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py
-    -q -rfE'
+    tests/indexing/test_lookup_doc_fallback_query_safety.py -q -rfE'
   expect: exit 0
   timeout_seconds: 300
   junitxml: true
