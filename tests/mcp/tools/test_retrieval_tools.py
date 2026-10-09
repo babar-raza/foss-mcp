@@ -1004,9 +1004,7 @@ def test_find_examples_honestly_misses_a_deliberately_unrelated_nonsense_query(
     key = scope_key(PDF_NET_SCOPE, SYMBOLS_SOURCE_KIND)
     manifest = store.read_generation(key, generation_id)
     lexical_payload = manifest.payload["lexical_index"]
-    old_bar_ranked = query_lexical_index(
-        lexical_payload, "quantum teleportation breakfast recipe", top_k=5
-    )
+    old_bar_ranked = query_lexical_index(lexical_payload, "quantum teleportation breakfast recipe", top_k=5)
     assert old_bar_ranked == [], "a genuinely unrelated query must already score 0.0 everywhere"
 
     result = find_examples(store, PDF_NET_SCOPE, "quantum teleportation breakfast recipe")
