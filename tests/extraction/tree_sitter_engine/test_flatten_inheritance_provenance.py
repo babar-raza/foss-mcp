@@ -185,3 +185,182 @@ def test_a_child_declared_override_takes_precedence_and_is_never_tagged() -> Non
     matches = [m for m in child["methods"] if m["name"] == "GetRectangle"]
     assert len(matches) == 1
     assert "inherited_from" not in matches[0]
+
+
+# ---------------------------------------------------------------------------
+# TC-293: short-name collision between an empty re-export shell and a real
+# definition (found while verifying TC-281/TC-288 against 3d/python's real
+# extraction; see docs/DECISION_LOG.md's 2026-10-09 entry).
+#
+# ROOT CAUSE: _flatten_inheritance()'s by-name index resolves a `bases` entry
+# written as a bare, unqualified name (the overwhelmingly common way source
+# code references its own base class) through a short-name fallback built
+# first-writer-wins across the full class list. A Python package following
+# the common "class defined in its own submodule, re-exported at the package
+# level" convention produces two entries sharing one bare name: an empty
+# re-export shell (class_import e.g. "pkg.Base", methods=[]) and the real
+# definition (class_import e.g. "pkg.Base.Base", real methods/properties).
+# Because the shell's shorter class_import sorts first in the type list, it
+# used to claim the short-name slot before the real definition was ever
+# processed, so every subclass's unqualified `bases` reference resolved
+# straight to the empty shell - live-confirmed against 3d/python's real
+# extraction, where _flatten_inheritance() copied zero members anywhere in
+# the entire 697-type pilot as a result.
+# ---------------------------------------------------------------------------
+
+SHELL_IMPORT = "pkg.Base"
+REAL_DEFINITION_IMPORT = "pkg.Base.Base"
+COLLISION_CHILD_IMPORT = "pkg.Child.Child"
+
+
+def _shell_collision_fixture() -> list[dict]:
+    """Mirrors TC-288's own isolated repro and the real 3d/python shape exactly:
+    an empty re-export shell and the real definition share the bare name "Base",
+    and a child references the base by its bare, unqualified name - the way
+    Python source (and most other languages') actually writes a base-class
+    reference."""
+    shell = {
+        "name": "Base",
+        "class_import": SHELL_IMPORT,
+        "kind": "class",
+        "bases": [],
+        "methods": [],
+        "properties": [],
+    }
+    real_definition = {
+        "name": "Base",
+        "class_import": REAL_DEFINITION_IMPORT,
+        "kind": "class",
+        "bases": [],
+        "methods": [{"name": "find_property", "params": [], "return_type": "object"}],
+        "properties": [{"name": "name", "type": "str", "writable": True}],
+    }
+    child = {
+        "name": "Child",
+        "class_import": COLLISION_CHILD_IMPORT,
+        "kind": "class",
+        "bases": ["Base"],
+        "methods": [],
+        "properties": [],
+    }
+    # List order matters: the shell's shorter class_import sorts before the
+    # real definition's, exactly as it does in the real, live 3d/python
+    # extraction's own (alphabetically sorted) type list.
+    return [shell, real_definition, child]
+
+
+def test_a_short_name_collision_between_an_empty_shell_and_a_real_definition_resolves_to_the_real_definition() -> (
+    None
+):
+    """The fix this card adds: on a short-name collision, prefer whichever
+    candidate actually carries structured data over an empty shell, so a
+    bare-name base reference resolves to the real definition's real members,
+    correctly tagged "inherited_from" the real definition - never the empty
+    shell, and never left uncopied the way it was before this fix."""
+    classes = _shell_collision_fixture()
+    _flatten_inheritance(classes)
+    child = next(c for c in classes if c["class_import"] == COLLISION_CHILD_IMPORT)
+
+    method = _by_name(child["methods"], "find_property")
+    assert method.get("inherited_from") == REAL_DEFINITION_IMPORT
+
+    prop = _by_name(child["properties"], "name")
+    assert prop.get("inherited_from") == REAL_DEFINITION_IMPORT
+
+
+def test_the_empty_shells_own_entry_is_never_mutated_by_the_collision_fix() -> None:
+    """The shell itself is never resolved as anyone's parent (nothing's `bases`
+    names its own class_import), so it must stay exactly as empty as it
+    started - the fix changes which entry wins the short-name slot, not the
+    shell's own, independently-recorded data."""
+    classes = _shell_collision_fixture()
+    _flatten_inheritance(classes)
+    shell = next(c for c in classes if c["class_import"] == SHELL_IMPORT)
+
+    assert shell["methods"] == []
+    assert shell["properties"] == []
+
+
+def test_a_short_name_collision_between_two_genuinely_non_empty_candidates_keeps_first_writer_wins() -> None:
+    """When BOTH same-named candidates carry real, structured data (a genuine
+    ambiguity between two actually-different classes that merely share a bare
+    name across namespaces - confirmed live as a real shape in pdf_cpp/
+    pdf_java/pdf_typescript's own committed fixtures while checking this
+    card's tree-sitter-language question), this card does not invent a new
+    tie-break rule: the existing first-writer-wins behavior (whichever
+    candidate is processed first) is left completely unchanged."""
+    classes = [
+        {
+            "name": "Rect",
+            "class_import": "ns_a.Rect",
+            "kind": "class",
+            "bases": [],
+            "methods": [{"name": "area", "params": [], "return_type": "float"}],
+            "properties": [],
+        },
+        {
+            "name": "Rect",
+            "class_import": "ns_b.Rect",
+            "kind": "class",
+            "bases": [],
+            "methods": [{"name": "perimeter", "params": [], "return_type": "float"}],
+            "properties": [],
+        },
+        {
+            "name": "User",
+            "class_import": "pkg.User",
+            "kind": "class",
+            "bases": ["Rect"],
+            "methods": [],
+            "properties": [],
+        },
+    ]
+    _flatten_inheritance(classes)
+    user = next(c for c in classes if c["class_import"] == "pkg.User")
+
+    method_names = {m["name"] for m in user["methods"]}
+    assert method_names == {"area"}, method_names
+    assert "perimeter" not in method_names
+
+
+def test_the_full_class_import_keyed_resolution_path_is_unaffected_by_a_short_name_collision() -> None:
+    """A `bases` entry written as the FULL, exact class_import (not a bare
+    short name) must still resolve through the untouched, unconditional
+    `by_name[key] = c` qualified-key path - even when the very same short
+    name is, elsewhere in the same class list, involved in the collision this
+    card fixes. Explicitly asking for the shell by its own exact class_import
+    must still yield the shell, proving the two resolution paths (qualified-
+    key vs short-name-fallback) are independent and the qualified path was
+    never touched by this card."""
+    classes = [
+        {
+            "name": "Base",
+            "class_import": SHELL_IMPORT,
+            "kind": "class",
+            "bases": [],
+            "methods": [],
+            "properties": [],
+        },
+        {
+            "name": "Base",
+            "class_import": REAL_DEFINITION_IMPORT,
+            "kind": "class",
+            "bases": [],
+            "methods": [{"name": "find_property", "params": [], "return_type": "object"}],
+            "properties": [],
+        },
+        {
+            "name": "Child",
+            "class_import": "pkg.Other.Child",
+            "kind": "class",
+            # References the shell by its OWN exact, full class_import, not the
+            # bare short name "Base" that the collision fix affects.
+            "bases": [SHELL_IMPORT],
+            "methods": [],
+            "properties": [],
+        },
+    ]
+    _flatten_inheritance(classes)
+    child = next(c for c in classes if c["class_import"] == "pkg.Other.Child")
+
+    assert child["methods"] == []

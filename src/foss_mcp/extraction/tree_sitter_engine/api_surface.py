@@ -2422,6 +2422,37 @@ def consolidate_classes(classes: list[dict], language: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
+def _prefers_structured_data(existing: dict, candidate: dict) -> bool:
+    """True if *candidate* should displace *existing* in the short-name index.
+
+    TC-293 (found while verifying TC-281/TC-288 against 3d/python's real Python
+    extraction): a Python package following the common "class defined in its own
+    submodule, re-exported at the package level" convention produces two entries
+    sharing the same bare ``name`` -- a re-export shell (``class_import`` e.g.
+    ``pkg.Base``, ``methods=[]``, ``properties=[]``) and the real definition
+    (``class_import`` e.g. ``pkg.Base.Base``, real methods/properties). Because
+    the shell's shorter ``class_import`` sorts first in the type list, it used to
+    claim the short-name slot before the real definition was ever processed --
+    and since source almost always references a base class by its bare,
+    unqualified name, every subclass's ``bases`` entry resolved through the
+    short-name index straight to the empty shell, never the real definition.
+    Live-confirmed against 3d/python's real extraction: every one of 281
+    short-name-resolved base references in that pilot hit an empty shell, and
+    ``_flatten_inheritance()`` copied zero members anywhere in the pilot.
+
+    This prefers whichever candidate actually carries structured data (a
+    non-empty ``methods`` or ``properties`` list) over an empty shell. If BOTH
+    candidates are non-empty, that is a genuine ambiguity this function does not
+    resolve -- it returns ``False`` and the existing first-writer-wins entry is
+    kept, exactly as before this fix. Mirrors the same "prefer the richer, more
+    specific data" principle TC-261's own ``m.get("inherited_from") or
+    parent_identity`` already applies for provenance rooting.
+    """
+    existing_has_data = bool(existing.get("methods")) or bool(existing.get("properties"))
+    candidate_has_data = bool(candidate.get("methods")) or bool(candidate.get("properties"))
+    return candidate_has_data and not existing_has_data
+
+
 def _flatten_inheritance(classes: list[dict]) -> None:
     """Copy inherited methods/properties into child classes (in-place).
 
@@ -2448,6 +2479,12 @@ def _flatten_inheritance(classes: list[dict]) -> None:
     as if it were locally declared -- the entry's own file/line metadata
     stayed correctly pointed at the real ancestor, but nothing in the data
     itself told a caller the member was not the child's own.
+
+    TC-293: the short-name index below now prefers a structured-data-bearing
+    candidate over an empty shell on a short-name collision (see
+    ``_prefers_structured_data``'s own docstring). The full-class_import-keyed
+    resolution path (``by_name[key] = c`` immediately below) is untouched --
+    that path was already unambiguous and correct.
     """
     # Use class_import as key when available for namespace-aware resolution;
     # also index by short name as fallback for base-class lookup.
@@ -2457,8 +2494,11 @@ def _flatten_inheritance(classes: list[dict]) -> None:
         if key:
             by_name[key] = c
         short = c.get("name", "")
-        if short and short not in by_name:
-            by_name[short] = c
+        if short:
+            if short not in by_name:
+                by_name[short] = c
+            elif _prefers_structured_data(by_name[short], c):
+                by_name[short] = c
 
     resolved: set[str] = set()
 
