@@ -1770,8 +1770,12 @@ Status of the third independent audit's (2026-10-08) findings as of this entry:
   fixes landed mid-wave because fixture-level symptoms traced back to deeper engine gaps, not just stale pins:
   TC-265 (Python symbols never carried real bases/return_type/param_types at all) and TC-274 (TC-265's fix was
   itself a near-total no-op for the common "impl module behind a leading underscore, re-exported via __init__.py"
-  Python convention). Two pilots (cells/cpp TC-271, html/python TC-267) are mid-rework now that their respective
-  blocking root causes (TC-276, TC-274) are integrated.
+  Python convention). CLOSED as of this entry: the remaining two pilots, cells/cpp (TC-271) and html/python
+  (TC-267), each independently found their own blocking root cause mid-regeneration, stopped without committing a
+  broken fixture, and both re-ran clean once TC-276/TC-274 landed - TC-271's own comprehensive post-fix sweep
+  found zero C1-shape fabrications anywhere in the kept 300 (down from 109 candidates/20 unambiguous phantoms);
+  TC-267's re-measurement went from 0/323 to 218/323 types carrying real bases data. All eleven originally-
+  affected pilots are now regenerated and integrated.
 - **C5 (find_examples relevance floor)**: CLOSED. TC-273 added an empirically-measured (not guessed) 0.6 query-
   coverage threshold to the BM25 semantic fallback alone (the exact-match path was already precise), additive to
   query_lexical_index's existing contract. Found and resolved a genuine conflict in the process: one real e2e
