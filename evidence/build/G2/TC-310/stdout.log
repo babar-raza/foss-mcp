@@ -1,0 +1,117 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_jmap_net_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-h7eqfaha\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_jmap_net_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-h7eqfaha\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/jmap_net/api_surface.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_jmap_net_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-h7eqfaha\.junit-0.xml"
+--- stdout ---
+FFFFFFF                                                                  [100%]
+================================== FAILURES ===================================
+_____________ test_the_fixture_parses_and_has_the_expected_shape ______________
+
+    def test_the_fixture_parses_and_has_the_expected_shape() -> None:
+        data = _load_fixture()
+        assert isinstance(data, dict)
+>       assert isinstance(data["types"], list)
+                          ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_net_extraction.py:82: KeyError
+_______ test_the_fixture_records_the_exact_source_commit_and_repository _______
+
+    def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
+        data = _load_fixture()
+>       assert _COMMIT_SHA.match(data["source_commit"]), data["source_commit"]
+                                 ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'source_commit'
+
+tests\extraction\test_jmap_net_extraction.py:88: KeyError
+________________________ test_the_fixture_is_non_empty ________________________
+
+    def test_the_fixture_is_non_empty() -> None:
+        data = _load_fixture()
+>       assert len(data["types"]) > 0
+                   ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_net_extraction.py:99: KeyError
+______________ test_the_fixture_contains_real_dotnet_type_names _______________
+
+    def test_the_fixture_contains_real_dotnet_type_names() -> None:
+        data = _load_fixture()
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_net_extraction.py:109: KeyError
+_____________ test_every_entry_is_a_real_csharp_declaration_kind ______________
+
+    def test_every_entry_is_a_real_csharp_declaration_kind() -> None:
+        data = _load_fixture()
+>       kinds = {entry["kind"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_net_extraction.py:118: KeyError
+_____ test_the_only_real_inheritance_relationships_are_exactly_these_five _____
+
+    def test_the_only_real_inheritance_relationships_are_exactly_these_five() -> None:
+        """Confirmed by hand against a fresh clone of the pinned commit: these are the only
+        five types in the real public surface with a non-empty ``bases`` list, and these are
+        their exact real bases (``JmapException``, ``IJmapTransport`` are in-repo;
+        ``Exception``, ``IDisposable``, ``IAsyncDisposable`` are framework types, not declared
+        in this repository at all).
+        """
+        data = _load_fixture()
+>       by_name = {entry["name"]: entry for entry in data["types"]}
+                                                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_net_extraction.py:136: KeyError
+_ test_no_inherited_from_tag_exists_because_no_real_ancestor_has_a_copyable_member _
+
+    def test_no_inherited_from_tag_exists_because_no_real_ancestor_has_a_copyable_member() -> None:
+        """``JmapException`` (``src/Aspose.Jmap/Models/CommonTypes.cs``, line 80:
+        ``public abstract class JmapException : Exception``) declares only *protected*
+        constructors in the real, pinned source - no public methods or properties at all - so
+        there is nothing on it for ``_flatten_inheritance()`` (TC-261) to copy down to either
+        ``JmapNetworkException`` or ``JmapProtocolException``; both declare their own
+        constructors directly. ``IJmapTransport``'s only member, ``SendAsync``, must always be
+        re-implemented by any class that implements it (C# interface semantics); the real
+        source confirms ``HttpJmapTransport`` declares its own ``SendAsync`` directly rather
+        than inheriting one. TC-261's own tagging is exercised correctly elsewhere (e.g.
+        pdf/net's own fixture, which carries real ``inherited_from`` tags) - there is simply
+        nothing on any of this repository's real ancestors to tag. This is accurate extraction
+        of this repository's real shape, not evidence that TC-261's tagging is stale.
+        """
+        data = _load_fixture()
+>       by_name = {entry["name"]: entry for entry in data["types"]}
+                                                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_net_extraction.py:165: KeyError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_jmap_net_extraction.py::test_the_fixture_parses_and_has_the_expected_shape
+FAILED tests/extraction/test_jmap_net_extraction.py::test_the_fixture_records_the_exact_source_commit_and_repository
+FAILED tests/extraction/test_jmap_net_extraction.py::test_the_fixture_is_non_empty
+FAILED tests/extraction/test_jmap_net_extraction.py::test_the_fixture_contains_real_dotnet_type_names
+FAILED tests/extraction/test_jmap_net_extraction.py::test_every_entry_is_a_real_csharp_declaration_kind
+FAILED tests/extraction/test_jmap_net_extraction.py::test_the_only_real_inheritance_relationships_are_exactly_these_five
+FAILED tests/extraction/test_jmap_net_extraction.py::test_no_inherited_from_tag_exists_because_no_real_ancestor_has_a_copyable_member
+
+--- stderr ---
+
