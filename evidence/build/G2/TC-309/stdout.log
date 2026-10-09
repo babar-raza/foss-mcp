@@ -1,0 +1,114 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_jmap_java_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wzeu1zqa\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_jmap_java_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wzeu1zqa\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/jmap_java/api_surface.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_jmap_java_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wzeu1zqa\.junit-0.xml"
+--- stdout ---
+FFFFFFF                                                                  [100%]
+================================== FAILURES ===================================
+_____________ test_the_fixture_parses_and_has_the_expected_shape ______________
+
+    def test_the_fixture_parses_and_has_the_expected_shape() -> None:
+        data = _load_fixture()
+        assert isinstance(data, dict)
+>       assert isinstance(data["types"], list)
+                          ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_java_extraction.py:83: KeyError
+_______ test_the_fixture_records_the_exact_source_commit_and_repository _______
+
+    def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
+        data = _load_fixture()
+>       assert _COMMIT_SHA.match(data["source_commit"]), data["source_commit"]
+                                 ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'source_commit'
+
+tests\extraction\test_jmap_java_extraction.py:89: KeyError
+________________________ test_the_fixture_is_non_empty ________________________
+
+    def test_the_fixture_is_non_empty() -> None:
+        data = _load_fixture()
+>       assert len(data["types"]) > 0
+                   ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_java_extraction.py:100: KeyError
+_______________ test_the_fixture_contains_real_java_type_names ________________
+
+    def test_the_fixture_contains_real_java_type_names() -> None:
+        data = _load_fixture()
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_java_extraction.py:110: KeyError
+______________ test_every_entry_is_a_real_java_declaration_kind _______________
+
+    def test_every_entry_is_a_real_java_declaration_kind() -> None:
+        data = _load_fixture()
+>       kinds = {entry["kind"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_java_extraction.py:119: KeyError
+_______ test_inherited_members_carry_correct_inherited_from_provenance ________
+
+    def test_inherited_members_carry_correct_inherited_from_provenance() -> None:
+        """TC-309: this repository's real, live re-run genuinely carries non-empty
+        ``inherited_from`` tags (unlike the genuinely-flat jmap/go sibling, TC-303) - verified
+        directly against a fresh clone of the pinned commit, not assumed from the card's own
+        premise.
+        """
+        data = _load_fixture()
+>       by_name = {entry["name"]: entry for entry in data["types"]}
+                                                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_java_extraction.py:137: KeyError
+____ test_no_real_multi_level_inheritance_chain_exists_in_this_repository _____
+
+    def test_no_real_multi_level_inheritance_chain_exists_in_this_repository() -> None:
+        """Hand-verified against a fresh clone of the pinned commit, not assumed: neither
+        apparent "grandparent" link in this repository resolves to a second real, public
+        ancestor with its own members. ``JmapClientCore implements JmapCoreOperations``, but
+        ``JmapCoreOperations`` is package-private (no ``public`` modifier) and therefore
+        correctly excluded from this public-surface fixture entirely by the engine's existing
+        visibility filter - it never appears as its own entry. ``JmapError extends
+        RuntimeException``, an external JDK class with no declaration in this repository. So
+        every real inheritance relationship here is exactly one level deep; this is a genuine
+        structural property of the real source, not a defect in ``_flatten_inheritance()``'s
+        chain-walking.
+        """
+        data = _load_fixture()
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_java_extraction.py:187: KeyError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_jmap_java_extraction.py::test_the_fixture_parses_and_has_the_expected_shape
+FAILED tests/extraction/test_jmap_java_extraction.py::test_the_fixture_records_the_exact_source_commit_and_repository
+FAILED tests/extraction/test_jmap_java_extraction.py::test_the_fixture_is_non_empty
+FAILED tests/extraction/test_jmap_java_extraction.py::test_the_fixture_contains_real_java_type_names
+FAILED tests/extraction/test_jmap_java_extraction.py::test_every_entry_is_a_real_java_declaration_kind
+FAILED tests/extraction/test_jmap_java_extraction.py::test_inherited_members_carry_correct_inherited_from_provenance
+FAILED tests/extraction/test_jmap_java_extraction.py::test_no_real_multi_level_inheritance_chain_exists_in_this_repository
+
+--- stderr ---
+
