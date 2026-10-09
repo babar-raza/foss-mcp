@@ -2047,3 +2047,61 @@ inheritance flattening being a near-total no-op are now closed. The remaining op
 5-pilot fixture re-pin follow-up (TC-288/290/291/292) - TC-290 is integrated; TC-288 and TC-291 both independently
 hit TC-293's own collision shape before it landed and are being re-verified now that it has; TC-292's status is
 pending its own final report.
+
+## 2026-10-09 — A fourth independent audit claims NOT_READY: two new P0s (package/commit divergence, Helm non-atomicity), a verifier-quality meta-finding, and a TC-251 regression
+A fourth independent review (HEAD 5caa7dc at review time, substantially behind this session's own work - most
+of its C1-C5/B01-B10 reconciliation below predates TC-278 through TC-294) delivered a full round-4 synthesis.
+Headline verdict: NOT_READY, for two new reasons independent of everything round 3 already flagged.
+
+**New P0s, not previously tracked:**
+1. **Package-version/source-commit divergence masking real upstream fixes.** The indexed source for a pilot can
+   run far ahead of the only version an agent can actually install (`slides/java`: 45 commits ahead, masking a
+   documented `SaveFormat`-mislabeling bug the published code still has; `pdf/go`: 66 commits ahead of its only
+   published version v0.9.0 - `search_symbols` confidently serves a "verified" example for `BarcodeField`/
+   `FlattenTransparency` that will not compile against what `go get` actually fetches, and the unpublished-but-
+   indexed code contains a merged password-bypass security fix absent from the installable package). This is a
+   content-trust defect distinct from C1 (fabrication) - the content is real, just not actually available to
+   whoever installs what the MCP itself told them to install.
+2. **Helm non-atomic deploys silently leave orphaned resources behind a failed install**, demonstrated live
+   twice, affecting every pilot's install path, not a crafted edge case.
+
+**TC-251 regression (new, this round's own finding):** the release-sidecar boot-race fix traded one failure
+mode for another. Under a genuinely cold, concurrent bulk install (never exercised until this round - the real
+fleet was built warm/incremental over many days), a GitHub rate-limit hit on either sidecar now permanently
+wedges the serving pod at `Init:0/1`, while the Job reports `Complete` and the install success table shows
+nothing wrong.
+
+**Verifier-quality meta-finding:** direct mutation testing of 6 defect classes found 4 invisible to every
+current verification layer (wrong return type on real data, a fabricated member in committed fixture data, a
+wrong-but-registry-real install swap, an irrelevant example tagged "verified").
+
+**Reconciliation against prior-round fixes (this audit's own numbering, not necessarily this session's C-numbers):**
+C1 (fabrication) FIXED_AND_VERIFIED. C4 (missing central symbols) FIXED_AND_VERIFIED for every re-checked case.
+C2 (fake install coords) PARTIALLY_FIXED - 8/15 pilots still confidently fake, rollout inconsistent even within
+one language family. C3 (inheritance provenance - this audit's own umbrella, likely covering both this
+session's C6/TC-281 wave and earlier work) PARTIALLY_FIXED, far narrower than claimed: live in only 3 of 31
+eligible pilots at review time; 5 pilots regenerated after a fix landed are still broken because the
+regeneration only touched centrality-ranking, not inheritance-flattening - this may already be substantially
+closed by this session's own TC-281/288-294 wave, landed largely after this review's own HEAD, and needs
+reconciling against the review's specific pilot list rather than assumed closed. C5 (find_examples relevance)
+PARTIALLY_FIXED - recurs easily on fresh queries (4/10 new multi-word queries produced false positives). C7
+PARTIALLY_FIXED as the supervisor's own record already states (TC-279 in progress at review time, since
+integrated).
+
+**Other confirmed findings, not yet actioned:** a chart `required()` guard gap (every scope-defining field
+except `image.tag` is unguarded); `report_index_freshness` never reflects sidecar staleness (4/5 pilots checked
+had sidecars up to 28h stale while reporting fresh); `lookup()` has zero version-awareness; `get_symbol`'s own
+documented example syntax doesn't work and its canonical FQN example is wrong, undocumented, for every platform
+tested; cross-language consistency for an identical query varies from exactly-right to unrelated across one
+family's 8 platforms; `search_symbols` never indexes bare method names; reverse discovery is absent fleet-wide;
+task-to-API coverage averages ~59% across 6 families; every response duplicates its full payload twice; a real
+measured resource leak on `slides/python` (3000 undisposed objects -> 510MB linear growth) traces to the MCP
+never surfacing a dispose/context-manager capability; C8 (narrative documentation) confirmed a categorical
+non-implementation (`get_product_reference(formats/limitations)` hardcoded to `NotAvailable` for every
+platform). AGENTS.md's own claimed budget-enforcement line was investigated and found real-but-mis-described
+(now TC-295); it is NOT the orphaned/unreferenced defect the audit characterized it as.
+
+**Not yet triaged into taskcards as of this entry:** everything in this section except TC-295. Given the scale
+(package/commit divergence is itself a two-pilot-confirmed, fleet-wide-shaped P0), these will be worked through
+in priority order starting with the two new P0s, after reconciling C3/C6's current true state against this
+session's own TC-281-294 wave.
