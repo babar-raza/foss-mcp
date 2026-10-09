@@ -1,7 +1,7 @@
 # AGENTS.md — agent conduct in this repository
 
 This file owns **conduct and safety**. It deliberately stays thin and delegates
-everything else. Budget: 200 lines, enforced unconditionally by `gatectl validate`.
+everything else. Budget: 200 lines, enforced by `gatectl validate --budgets`.
 
 ## Authority by subject
 

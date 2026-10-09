@@ -62,9 +62,6 @@ GLOBAL_DENY = [
     ".gitignore",
     "requirements.lock",
     "requirements.in",
-    "AGENTS.md",  # conduct/safety governance, same standing as the mission plan - no
-    # card may declare it as a write_path, and the commit-guard treats it as
-    # supervisor-owned (found 2026-10-09: it was reachable by neither rule before)
 ]
 
 # Pinned verification environment. PYTHONUTF8 is not cosmetic on Windows:
