@@ -48,9 +48,24 @@ def test_the_fixture_contains_real_dotnet_type_names() -> None:
     data = _load_fixture()
     names = {entry["name"] for entry in data["types"]}
     # Real Aspose.PDF types, not placeholders - would not survive an empty or synthetic fixture.
-    assert {"AcroFormData", "AFRelationship", "ActionCollection"} <= names
+    assert {"Page", "Document", "ActionCollection"} <= names
     assert all(entry.get("class_import", "").startswith("Aspose.Pdf") for entry in data["types"])
     assert all(entry["file"].endswith(".cs") for entry in data["types"])
+
+
+def test_the_fixture_keeps_page_after_the_centrality_ranked_selection_fix() -> None:
+    """TC-252 replaced reduce_fixture's alphabetical truncation with a centrality-ranked one;
+    before that fix this fixture's reduced 300 never included "Page" even though 899-971 real
+    types existed upstream. This is the concrete proof the fix recovers it for this pilot: a
+    type named exactly "Page" (not e.g. "ExamplePage") must be among the 300 kept types, with
+    its own real qualified name and source file."""
+    data = _load_fixture()
+    page_entries = [entry for entry in data["types"] if entry["name"] == "Page"]
+    assert page_entries, "Page" + " must be present among the kept types"
+    page = page_entries[0]
+    assert page["class_import"] == "Aspose.Pdf.Page"
+    assert page["kind"] == "class_declaration"
+    assert page["file"].endswith(".cs")
 
 
 def test_every_entry_is_a_real_csharp_declaration_kind() -> None:

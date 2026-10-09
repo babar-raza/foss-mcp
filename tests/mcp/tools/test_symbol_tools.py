@@ -30,7 +30,14 @@ PDF_NET_SCOPE = Scope(family="pdf", platform="net")
 # The two real symbols this suite publishes: one WITH a verified example, one without, so
 # find_examples's exact-match-first behaviour and its "no example here" honesty are both
 # provable against real published content.
-WITH_EXAMPLE = "AnnotationCollection"
+#
+# TC-263 (rework attempt 2): "AnnotationCollection" (the original WITH_EXAMPLE) no longer
+# survives TC-252's centrality-ranked fixture cut - confirmed absent in the regenerated
+# tests/fixtures/pdf_net/api_surface.json. "Annotation" (its real base class, now the #3-
+# centrality type in the whole artifact, confirmed present with a real "Flatten" method) is
+# used in its place. "CompositingParameters" (WITHOUT_EXAMPLE) is unchanged - confirmed still
+# present with the same real properties.
+WITH_EXAMPLE = "Annotation"
 WITHOUT_EXAMPLE = "CompositingParameters"
 
 
@@ -53,10 +60,7 @@ def _format_signature(entry: dict) -> str:
         lines.extend(f"  - {property_line(p)}" for p in entry["properties"])
     if entry["name"] == WITH_EXAMPLE:
         lines.append("Example:")
-        lines.append(
-            "var annotations = page.Annotations;\n"
-            'annotations.AddTextAnnotation(rect, "A note", "Reviewer", true);'
-        )
+        lines.append("annotation.Flatten();")
     return "\n".join(lines)
 
 
@@ -248,7 +252,7 @@ def test_find_examples_prefers_an_exact_match(tmp_path: Path) -> None:
 
     assert isinstance(result, list) and len(result) == 1
     assert result[0].fqn == WITH_EXAMPLE
-    assert "AddTextAnnotation" in result[0].snippet
+    assert "Flatten" in result[0].snippet
 
 
 def test_find_examples_falls_back_to_semantic_search(tmp_path: Path) -> None:
@@ -256,7 +260,7 @@ def test_find_examples_falls_back_to_semantic_search(tmp_path: Path) -> None:
     store = _store(tmp_path)
     _publish_pdf_net_symbols(store)
 
-    result = find_examples(store, PDF_NET_SCOPE, "text annotation")
+    result = find_examples(store, PDF_NET_SCOPE, "flatten annotation")
 
     assert isinstance(result, list) and result
     assert any(match.fqn == WITH_EXAMPLE for match in result)

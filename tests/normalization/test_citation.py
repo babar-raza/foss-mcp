@@ -2,14 +2,20 @@
 
 OQ-001: the furnished products.aspose.org page for pdf/net once asserted the library
 "exposes 805 classes"; foss-mcp's own extraction found 899 TYPES (all kinds combined,
-TC-011's fixture), and the *reduced* fixture's own kind breakdown is a property of an
-arbitrary alphabetic prefix, not of the real population, so it cannot corroborate a
+TC-011's original fixture), and the *reduced* fixture's own kind breakdown is a property of
+an arbitrary alphabetic prefix, not of the real population, so it cannot corroborate a
 narrower claim like "805 classes" either way. TC-119 later regenerated the real furnished
 pdf/net fixture from repository-presenter's own sealed candidates, replacing the old
 aspose.org-copied prose (including this sentence) with real README-derived content. These
 tests use that exact original sentence, preserved as a hardcoded synthetic regression
 fixture rather than read live off the fixture, and prove the system refuses to serve it as
 a citable fact - it does not have to resolve whether 805 was ever right.
+
+TC-263 (rework attempt 2): the api_surface.json fixture itself was later regenerated again,
+with TC-252's centrality-ranked ``reduce_fixture()`` in place of the old alphabetical one.
+The real upstream repository has also grown since TC-011's original onboarding, so the real
+live ``type_count`` is now 971 (up from 899) - a real, independent fact about the real
+repository, unrelated to the selection-algorithm fix.
 """
 
 from __future__ import annotations
@@ -98,10 +104,15 @@ def test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count(
     mirroring test_the_805_classes_sentence_is_excluded_or_qualified_as_a_whole_chunk's
     own already-correct pattern - using the exact original sentence so the defect class
     keeps being guarded even though the live fixture that once exhibited it has moved on.
+
+    TC-263 (rework attempt 2): ``known_counts["types"]`` is a live read off the committed
+    ``api_surface.json`` fixture, which TC-263 regenerated for real against the pinned
+    upstream repository - it now reports 971 (real upstream growth since TC-011's original
+    899, unrelated to the TC-252 selection-algorithm fix this fixture regeneration proves).
     """
     known_counts = known_counts_from_fixture(_api_surface_fixture())
     assert "classes" not in known_counts
-    assert known_counts["types"] == 899
+    assert known_counts["types"] == 971
 
     historical_805_classes_sentence = "The library exposes 805 classes."
 
@@ -237,18 +248,23 @@ def test_an_example_chunk_with_a_contradicting_numeric_claim_is_still_unsupporte
 
 def test_a_globally_unambiguous_bare_method_name_resolves_in_ordinary_prose() -> None:
     """TC-111: real furnished prose routinely cites a method conversationally by its bare name
-    with no ``ClassName.`` prefix - confirmed by reading real fixture content, pdf/net's own
-    overview cites `AddTextAnnotation`, `AddLinkAnnotation`, `AddHighlightAnnotation`,
-    `AddWatermarkAnnotation`, `AddRedactAnnotation` this way. This is an ordinary
-    (non-``example``) chunk, so it has no independent compile-verification behind it - the
-    anchor-resolution mechanism itself must recognize the bare name is globally unambiguous
-    (``AnnotationCollection`` is the only class in pdf/net's real surface declaring
-    ``AddTextAnnotation``).
+    with no ``ClassName.`` prefix. This is an ordinary (non-``example``) chunk, so it has no
+    independent compile-verification behind it - the anchor-resolution mechanism itself must
+    recognize each bare name is globally unambiguous.
+
+    TC-263 (rework attempt 2): the original names used here (`AddTextAnnotation` etc., all
+    declared only by ``AnnotationCollection``) no longer survive the regenerated, centrality-
+    ranked fixture's cut - confirmed absent entirely. Verified directly against the
+    regenerated fixture: `AddFloatingBox` and `AddContentStream` are each declared by exactly
+    one class (``Page``, itself the single highest-centrality type in the whole artifact), and
+    `GetOrCreateMetadata` is declared by exactly one class (``Document``) - all three real and
+    each globally unambiguous.
     """
     fixture = _api_surface_fixture()
     index = symbol_index_from_api_surface(fixture["types"])
     chunk = _chunk(
-        "Use `AddTextAnnotation`, `AddHighlightAnnotation`, and `AddRedactAnnotation` to annotate a page."
+        "Call `AddFloatingBox` and `AddContentStream` on a page, then call "
+        "`GetOrCreateMetadata` on the document to record it."
     )
     validated = validate_chunk(chunk, index, {})
     assert validated.validation.verdict == SUPPORTED
@@ -275,13 +291,16 @@ def test_a_bare_method_name_shared_by_two_or_more_classes_still_stays_unresolved
 
 def test_unambiguous_qualified_anchor_for_bare_member_returns_the_one_real_qualified_anchor() -> None:
     """Direct unit coverage of the new SymbolIndex method itself, using the real pdf/net
-    fixture: exactly one class (``AnnotationCollection``) declares ``AddWatermarkAnnotation``.
+    fixture.
+
+    TC-263 (rework attempt 2): ``AnnotationCollection``/``AddWatermarkAnnotation`` no longer
+    survive the regenerated, centrality-ranked fixture's cut. Verified directly against the
+    regenerated fixture: exactly one class (``Page``) declares ``AddFloatingBox``.
     """
     fixture = _api_surface_fixture()
     index = symbol_index_from_api_surface(fixture["types"])
     assert (
-        index.unambiguous_qualified_anchor_for_bare_member("AddWatermarkAnnotation")
-        == "AnnotationCollection.AddWatermarkAnnotation"
+        index.unambiguous_qualified_anchor_for_bare_member("AddFloatingBox") == "Page.AddFloatingBox"
     )
     assert index.unambiguous_qualified_anchor_for_bare_member("ThisMemberNameDoesNotExistAnywhere") is None
 
