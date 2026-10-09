@@ -1,0 +1,110 @@
+id: TC-293
+gate: G2
+lane: extraction
+purpose: 'Fix a deep, pre-existing _flatten_inheritance() defect found by TC-288 while applying TC-281''s fix
+  (recorded in docs/DECISION_LOG.md 2026-10-09): the function''s by_name short-name index
+  (src/foss_mcp/extraction/tree_sitter_engine/api_surface.py ~line 2452-2461) is built first-writer-wins
+  (`if short and short not in by_name: by_name[short] = c`). For a Python package following the common "class
+  defined in its own submodule, re-exported at the package level" convention, two entries share the same bare
+  class name: the re-export shell (class_import e.g. `pkg.Base`, methods=[]) and the real definition (class_import
+  e.g. `pkg.Base.Base`, real methods). Because the shell''s shorter class_import sorts first in the type list, it
+  claims the short-name slot before the real definition is ever processed - and since Python source almost always
+  references a base class by its bare, unqualified name, every subclass''s `bases` entry resolves through the
+  short-name index straight to the empty shell, never the real definition. Live-confirmed three independent ways
+  against 3d/python''s real extraction (direct in-memory resolution counts over the full untruncated type list;
+  calling the real _flatten_inheritance() directly and observing zero change in tagged-method count; an isolated
+  3-entry synthetic reproduction). This makes _flatten_inheritance() a near-total no-op for ANY Python package
+  built on this common layout, independent of TC-281''s own fix (TC-281 made the function execute for Python;
+  this defect means that even when it executes, it can resolve every base reference to the wrong, empty entry).
+  Not specific to 3d/python or to Python at all in principle - it is shared, language-agnostic code - though in
+  practice the collision shape (an empty re-export shell sharing a short name with a real definition) is
+  specific to how python_surface.py models re-exports; the tree-sitter-routed languages'' own re-export handling
+  may or may not produce the identical shape and should be checked, not assumed either way.'
+depends_on:
+- TC-261
+- TC-281
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- tests/extraction/tree_sitter_engine/test_flatten_inheritance_provenance.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read _flatten_inheritance()''s by_name construction (~line 2452-2461) and the real 3d/python reproduction
+  described above in full before changing anything. Reproduce the exact collision yourself first (a synthetic
+  3-entry case: a re-export shell with empty methods/properties and a real definition sharing the same bare
+  name, mirroring TC-288''s own isolated repro) to confirm you understand the exact mechanism before touching
+  the fix.'
+- 'Change the short-name insertion rule from unconditional first-writer-wins to: prefer the candidate that
+  actually carries structured data (non-empty methods OR non-empty properties) over an empty shell on a
+  short-name collision - mirroring the same "prefer the richer, more specific data" principle TC-261''s own
+  `m.get("inherited_from") or parent_identity` already applies for provenance rooting. If BOTH candidates for a
+  given short name are non-empty (a genuine ambiguity, not an empty-shell artifact), keep the existing first-
+  writer-wins behavior for that case - do not invent a new tie-break rule for an ambiguity this card was not
+  asked to resolve. Do NOT touch the full-class_import-keyed resolution path at all (`by_name[key] = c` for the
+  qualified key) - that path was already unambiguous and correct before this fix and must stay byte-for-byte
+  identical in behavior. Implement the preference check as a small, separately-named helper function (e.g.
+  `_prefers_structured_data(existing: dict, candidate: dict) -> bool`), called once at the exact point of
+  short-name insertion - this card''s own negative control disables this card''s fix by renaming that
+  function''s call site, so the helper must exist as a distinct, callable name, not inlined into the loop.'
+- 'Verify the fix live against the real 3d/python extraction (network access available; re-run
+  `python -m foss_mcp.extraction.run_extraction config/products/3d/python.yaml` to a scratch path, NOT the
+  committed fixture - do not regenerate any committed fixture as part of this card, that is explicitly deferred
+  to a follow-up wave, mirroring TC-265/TC-274/TC-281''s own precedent) and confirm real subclasses now resolve
+  to their real base''s real methods, tagged inherited_from, instead of an empty shell. Verify against at least
+  one additional real Python pilot of your own choosing with the same re-export convention.'
+- 'Check (do not assume either way) whether the identical collision shape - an empty re-export/forward-declared
+  entry sharing a short name with a real definition - can occur for any tree-sitter-routed language''s own
+  extraction (C++/C#/Java/Go/Rust/TypeScript). If you find a real case, report it explicitly as a further
+  finding; if you confirm it cannot occur (e.g. because those languages'' own re-export handling never produces
+  an empty-methods placeholder entry with a colliding short name), state that explicitly with your evidence
+  rather than leaving it unaddressed.'
+- 'Add tests to tests/extraction/tree_sitter_engine/test_flatten_inheritance_provenance.py (read this file''s
+  own existing synthetic-dict construction convention first, from TC-261): a short-name collision between an
+  empty re-export shell and a real definition correctly resolves to the real definition''s methods/properties,
+  tagged inherited_from correctly; a direct regression test proving the existing full-class_import-keyed
+  resolution and the existing multi-level provenance-rooting tests (TC-261''s own) are completely unchanged by
+  this fix.'
+- 'Run the full existing test_flatten_inheritance_provenance.py suite with zero changes to any pre-existing
+  assertion, then your new tests, then the full project suite once, and report honestly. If anything outside
+  your two write_paths breaks, STOP and report rather than patching around it.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read _flatten_inheritance's by_name construction and reproduce the real collision yourself before changing anything.
+- Change the short-name insertion rule to prefer a non-empty candidate over an empty shell on collision, leaving
+  the full-class_import-keyed path and the genuine-ambiguity case untouched.
+- Verify live against 3d/python and a second real Python pilot; check whether the same shape can occur for any
+  tree-sitter-routed language.
+- Add tests for the collision case and a regression test for the already-correct paths; run the full existing
+  suite unchanged, then the full project suite once.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_flatten_inheritance_provenance.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 8
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='_prefers_structured_data';new='_prefers_structured_data_DISABLED';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Renames the LAST occurrence of "_prefers_structured_data" in api_surface.py - the real call site
+    this card adds at the point of short-name insertion, not the function's own def line - so calling it raises
+    a NameError and the short-name insertion reverts to unconditional first-writer-wins, failing every new test
+    proving the collision now resolves to the real definition. Built with plain text, no backslash, using
+    rindex per this session's established vacuous-falsifier safeguard. If the worker names the helper
+    differently than `_prefers_structured_data`, this falsifier must be updated to match - report this
+    explicitly rather than silently renaming the helper to fit a pre-written falsifier.
+evidence:
+- evidence/build/G2/TC-293/receipt.json
+closeout:
+- _flatten_inheritance() correctly resolves a short-name base-class reference to the real, structured-data-
+  bearing definition instead of an empty re-export shell on a name collision, closing the deeper root cause
+  that made inheritance flattening a near-total no-op for Python packages using the common per-class-file +
+  package-level-re-export convention, even after TC-281 made the function execute for Python at all.
+recovery: Re-run from a clean tree.
