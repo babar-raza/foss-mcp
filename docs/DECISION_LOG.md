@@ -2232,3 +2232,22 @@ other recognized type already shares.
 
 Both TC-311 and TC-306 remain blocked/open; both fix cards should be re-dispatched (or the originals resumed)
 once TC-315/TC-316 land.
+
+## 2026-10-10 — Second tree-sitter wave closed (TC-304-316); two engine-fix cards also landed
+TC-304, TC-305, TC-307, TC-308, TC-309, TC-310, TC-312, TC-313, TC-314 are all integrated - 9 of the 11 pilots
+in this wave. Mixed outcomes, exactly as the calibration finding predicted: cells_java/cells_net/email_net/
+jmap_cpp/jmap_java/jmap_net/jmap_typescript/slides_net all found real inheritance (slides_net notably produced a
+genuine 4-level chain, Table->GraphicalObject->Shape->PVIObject, correctly rooted through two non-declaring
+intermediates); jmap_rust independently reconfirmed the genuinely-flat pattern (one trait, no default methods).
+
+The remaining two pilots (cells_typescript/TC-306, jmap_nodejs/TC-311) each found a genuine, distinct engine
+defect instead of a stale fixture, and both fix cards are now also integrated:
+- TC-315: added a `javascript` canonical_namespace/class_import branch to api_surface.py (previously missing
+  entirely), fixing the real jmap/nodejs JmapClient collision TC-311 found.
+- TC-316: added TypeScript's `extends_type_clause` (interface-extends-interface) to tree_helpers.py's
+  recognized-base-node tuple, fixing the gap TC-306 found - and confirmed live, independently, that pdf/typescript
+  has the identical gap (56 real relationships affected), not yet re-pinned.
+
+TC-306 and TC-311 themselves remain open (BLOCKED, no commit) - both should now be resumed to actually re-pin
+their fixtures with the fixes in place. A follow-up card is also needed for pdf/typescript's own re-pin once
+the extends_type_clause fix has been exercised there.
