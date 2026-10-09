@@ -301,13 +301,9 @@ def test_resolve_tag_commit_returns_the_sha_on_200(monkeypatch: pytest.MonkeyPat
         return _FakeResponse(b'{"sha":"6784921e711f00a26fb30a0be279965502d3ff34"}')
 
     monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _fake_urlopen)
-    sha = verify_package_registry.resolve_tag_commit(
-        "aspose-pdf-foss/Aspose-PDF-FOSS-for-Go", "v0.9.0"
-    )
+    sha = verify_package_registry.resolve_tag_commit("aspose-pdf-foss/Aspose-PDF-FOSS-for-Go", "v0.9.0")
     assert sha == "6784921e711f00a26fb30a0be279965502d3ff34"
-    assert calls == [
-        "https://api.github.com/repos/aspose-pdf-foss/Aspose-PDF-FOSS-for-Go/commits/v0.9.0"
-    ]
+    assert calls == ["https://api.github.com/repos/aspose-pdf-foss/Aspose-PDF-FOSS-for-Go/commits/v0.9.0"]
 
 
 def test_resolve_tag_commit_returns_none_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
