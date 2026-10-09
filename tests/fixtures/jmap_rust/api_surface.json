@@ -9,6 +9,357 @@
     {
       "bases": [
         "Debug",
+        "Clone",
+        "PartialEq",
+        "Eq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "canonical_namespace": "invocation",
+      "class_import": "invocation::Invocation",
+      "deprecated": false,
+      "deprecated_reason": "",
+      "doc": "A JMAP method invocation.",
+      "file": "src/invocation.rs",
+      "kind": "struct_item",
+      "line": 17,
+      "methods": [
+        {
+          "doc": "",
+          "file": "src/invocation.rs",
+          "is_constructor": false,
+          "line": 28,
+          "name": "serialize",
+          "params": [
+            {
+              "name": "serializer",
+              "type": "S"
+            }
+          ],
+          "return_type": "Result<S::Ok, S::Error>"
+        },
+        {
+          "doc": "",
+          "file": "src/invocation.rs",
+          "is_constructor": false,
+          "line": 41,
+          "name": "deserialize",
+          "params": [
+            {
+              "name": "deserializer",
+              "type": "D"
+            }
+          ],
+          "return_type": "Result<Self, D::Error>"
+        }
+      ],
+      "name": "Invocation",
+      "properties": [
+        {
+          "access_mode": "readwrite",
+          "doc": "The JMAP method name (e.g.",
+          "file": "src/invocation.rs",
+          "kind": "property",
+          "line": 19,
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "The method arguments as a map from argument name to JSON value.",
+          "file": "src/invocation.rs",
+          "kind": "property",
+          "line": 21,
+          "name": "arguments",
+          "type": "HashMap<String, Value>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Client\u2011chosen identifier for this call, echoed back in the response.",
+          "file": "src/invocation.rs",
+          "kind": "property",
+          "line": 24,
+          "name": "method_call_id",
+          "type": "String"
+        }
+      ],
+      "reachable": true,
+      "visibility": "public"
+    },
+    {
+      "bases": [
+        "Debug",
+        "Clone",
+        "fmt::Display",
+        "From"
+      ],
+      "canonical_namespace": "common_types",
+      "class_import": "common_types::JmapError",
+      "deprecated": false,
+      "deprecated_reason": "",
+      "doc": "Errors that can be returned by the JMAP client.",
+      "enum_members": [
+        {
+          "name": "Network",
+          "value": ""
+        },
+        {
+          "name": "Protocol",
+          "value": ""
+        },
+        {
+          "name": "InvalidResponse",
+          "value": ""
+        }
+      ],
+      "file": "src/common_types.rs",
+      "kind": "enum_item",
+      "line": 79,
+      "methods": [
+        {
+          "doc": "",
+          "file": "src/common_types.rs",
+          "is_constructor": false,
+          "line": 97,
+          "name": "fmt",
+          "params": [
+            {
+              "name": "f",
+              "type": "&mut fmt::Formatter<'_>"
+            }
+          ],
+          "return_type": "fmt::Result"
+        },
+        {
+          "doc": "",
+          "file": "src/common_types.rs",
+          "is_constructor": false,
+          "line": 111,
+          "name": "from",
+          "params": [
+            {
+              "name": "err",
+              "type": "ureq::Error"
+            }
+          ],
+          "return_type": "Self"
+        }
+      ],
+      "name": "JmapError",
+      "properties": [],
+      "reachable": true,
+      "visibility": "public"
+    },
+    {
+      "bases": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "canonical_namespace": "email_address",
+      "class_import": "email_address::EmailAddress",
+      "deprecated": false,
+      "deprecated_reason": "",
+      "doc": "One address in a header such as From/To/Cc (RFC 8621 section 4.1.2.3).",
+      "file": "src/email_address.rs",
+      "kind": "struct_item",
+      "line": 5,
+      "methods": [],
+      "name": "EmailAddress",
+      "properties": [
+        {
+          "access_mode": "readwrite",
+          "doc": "The display name of the address, or `null` if not present.",
+          "file": "src/email_address.rs",
+          "kind": "property",
+          "line": 8,
+          "name": "name",
+          "type": "Option<String>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "The email address (required).",
+          "file": "src/email_address.rs",
+          "kind": "property",
+          "line": 12,
+          "name": "email",
+          "type": "String"
+        }
+      ],
+      "reachable": true,
+      "visibility": "public"
+    },
+    {
+      "bases": [
+        "Debug"
+      ],
+      "canonical_namespace": "transport",
+      "class_import": "transport::Transport",
+      "deprecated": false,
+      "deprecated_reason": "",
+      "doc": "Trait representing an HTTP transport used by the JMAP client.",
+      "file": "src/transport.rs",
+      "kind": "trait_item",
+      "line": 54,
+      "methods": [
+        {
+          "deprecated": false,
+          "deprecated_reason": "",
+          "doc": "Sends the given request and returns the server's response.",
+          "file": "src/transport.rs",
+          "is_constructor": false,
+          "line": 56,
+          "name": "send",
+          "params": [
+            {
+              "name": "req",
+              "type": "&HttpRequest"
+            }
+          ],
+          "return_type": "Result<HttpResponse, JmapError>"
+        },
+        {
+          "deprecated": false,
+          "deprecated_reason": "",
+          "doc": "Clone the boxed transport.",
+          "file": "src/transport.rs",
+          "is_constructor": false,
+          "line": 60,
+          "name": "box_clone",
+          "params": [],
+          "return_type": "Box<dyn Transport>"
+        },
+        {
+          "deprecated": false,
+          "deprecated_reason": "",
+          "doc": "Returns `self` as `&dyn Any`, so tests can `downcast_ref` a `Box<dyn Transport>` back to their own fake implementation (e.g.",
+          "file": "src/transport.rs",
+          "is_constructor": false,
+          "line": 64,
+          "name": "as_any",
+          "params": [],
+          "return_type": "&dyn std::any::Any"
+        }
+      ],
+      "name": "Transport",
+      "properties": [],
+      "reachable": true,
+      "visibility": "public"
+    },
+    {
+      "bases": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "serde::Serialize",
+        "serde::Deserialize"
+      ],
+      "canonical_namespace": "transport",
+      "class_import": "transport::HttpRequest",
+      "deprecated": false,
+      "deprecated_reason": "",
+      "doc": "A low\u2011level HTTP request used by the transport layer.",
+      "file": "src/transport.rs",
+      "kind": "struct_item",
+      "line": 18,
+      "methods": [],
+      "name": "HttpRequest",
+      "properties": [
+        {
+          "access_mode": "readwrite",
+          "doc": "HTTP method, e.g.",
+          "file": "src/transport.rs",
+          "kind": "property",
+          "line": 20,
+          "name": "method",
+          "type": "String"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Full request URL.",
+          "file": "src/transport.rs",
+          "kind": "property",
+          "line": 22,
+          "name": "url",
+          "type": "String"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Header map where each key/value is a string.",
+          "file": "src/transport.rs",
+          "kind": "property",
+          "line": 24,
+          "name": "headers",
+          "type": "HashMap<String, String>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Optional raw request body bytes.",
+          "file": "src/transport.rs",
+          "kind": "property",
+          "line": 29,
+          "name": "body",
+          "type": "Option<Vec<u8>>"
+        }
+      ],
+      "reachable": true,
+      "visibility": "public"
+    },
+    {
+      "bases": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "serde::Serialize",
+        "serde::Deserialize"
+      ],
+      "canonical_namespace": "transport",
+      "class_import": "transport::HttpResponse",
+      "deprecated": false,
+      "deprecated_reason": "",
+      "doc": "A low\u2011level HTTP response returned by a transport implementation.",
+      "file": "src/transport.rs",
+      "kind": "struct_item",
+      "line": 34,
+      "methods": [],
+      "name": "HttpResponse",
+      "properties": [
+        {
+          "access_mode": "readwrite",
+          "doc": "Numeric HTTP status code (e.g.",
+          "file": "src/transport.rs",
+          "kind": "property",
+          "line": 36,
+          "name": "status_code",
+          "type": "u16"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Header map.",
+          "file": "src/transport.rs",
+          "kind": "property",
+          "line": 38,
+          "name": "headers",
+          "type": "HashMap<String, String>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Raw response body bytes (typically JSON text, but a blob download's body is arbitrary binary data - see the note on [`HttpRequest::body`]).",
+          "file": "src/transport.rs",
+          "kind": "property",
+          "line": 41,
+          "name": "body",
+          "type": "Vec<u8>"
+        }
+      ],
+      "reachable": true,
+      "visibility": "public"
+    },
+    {
+      "bases": [
+        "Debug",
         "Clone"
       ],
       "canonical_namespace": "client_core",
@@ -66,6 +417,790 @@
           "line": 47,
           "name": "transport",
           "type": "Option<Box<dyn Transport>>"
+        }
+      ],
+      "reachable": true,
+      "visibility": "public"
+    },
+    {
+      "bases": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "canonical_namespace": "delivery_status",
+      "class_import": "delivery_status::DeliveryStatus",
+      "deprecated": false,
+      "deprecated_reason": "",
+      "doc": "Per-recipient delivery outcome, keyed by recipient email address on `EmailSubmission.deliveryStatus`.",
+      "file": "src/delivery_status.rs",
+      "kind": "struct_item",
+      "line": 6,
+      "methods": [],
+      "name": "DeliveryStatus",
+      "properties": [
+        {
+          "access_mode": "readwrite",
+          "doc": "The SMTP reply string from the server.",
+          "file": "src/delivery_status.rs",
+          "kind": "property",
+          "line": 9,
+          "name": "smtp_reply",
+          "type": "String"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Delivery status: one of `\"queued\"`, `\"yes\"`, `\"no\"`, or `\"unknown\"`.",
+          "file": "src/delivery_status.rs",
+          "kind": "property",
+          "line": 13,
+          "name": "delivered",
+          "type": "String"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Display status: either `\"unknown\"` or `\"yes\"`.",
+          "file": "src/delivery_status.rs",
+          "kind": "property",
+          "line": 17,
+          "name": "displayed",
+          "type": "String"
+        }
+      ],
+      "reachable": true,
+      "visibility": "public"
+    },
+    {
+      "bases": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "canonical_namespace": "email",
+      "class_import": "email::EmailBodyValue",
+      "deprecated": false,
+      "deprecated_reason": "",
+      "doc": "Represents a body value with its content and flags.",
+      "file": "src/email.rs",
+      "kind": "struct_item",
+      "line": 138,
+      "methods": [],
+      "name": "EmailBodyValue",
+      "properties": [
+        {
+          "access_mode": "readwrite",
+          "doc": "The actual body content.",
+          "file": "src/email.rs",
+          "kind": "property",
+          "line": 141,
+          "name": "value",
+          "type": "String"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Indicates an encoding problem.",
+          "file": "src/email.rs",
+          "kind": "property",
+          "line": 145,
+          "name": "is_encoding_problem",
+          "type": "bool"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Indicates whether the value was truncated.",
+          "file": "src/email.rs",
+          "kind": "property",
+          "line": 149,
+          "name": "is_truncated",
+          "type": "bool"
+        }
+      ],
+      "reachable": true,
+      "visibility": "public"
+    },
+    {
+      "bases": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "canonical_namespace": "email_body_part",
+      "class_import": "email_body_part::EmailBodyPart",
+      "deprecated": false,
+      "deprecated_reason": "",
+      "doc": "One node of the Email's MIME bodyStructure tree.",
+      "file": "src/email_body_part.rs",
+      "kind": "struct_item",
+      "line": 6,
+      "methods": [],
+      "name": "EmailBodyPart",
+      "properties": [
+        {
+          "access_mode": "readwrite",
+          "doc": "Part identifier, may be null.",
+          "file": "src/email_body_part.rs",
+          "kind": "property",
+          "line": 9,
+          "name": "part_id",
+          "type": "Option<String>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Blob identifier, may be null.",
+          "file": "src/email_body_part.rs",
+          "kind": "property",
+          "line": 13,
+          "name": "blob_id",
+          "type": "Option<String>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Size in bytes.",
+          "file": "src/email_body_part.rs",
+          "kind": "property",
+          "line": 17,
+          "name": "size",
+          "type": "u64"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "List of headers.",
+          "file": "src/email_body_part.rs",
+          "kind": "property",
+          "line": 21,
+          "name": "headers",
+          "type": "Vec<EmailHeader>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Filename, from Content\u2011Disposition or Content\u2011Type, may be null.",
+          "file": "src/email_body_part.rs",
+          "kind": "property",
+          "line": 25,
+          "name": "name",
+          "type": "Option<String>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "MIME type, e.g.",
+          "file": "src/email_body_part.rs",
+          "kind": "property",
+          "line": 29,
+          "name": "type_",
+          "type": "String"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Character set, may be null.",
+          "file": "src/email_body_part.rs",
+          "kind": "property",
+          "line": 33,
+          "name": "charset",
+          "type": "Option<String>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Disposition, e.g.",
+          "file": "src/email_body_part.rs",
+          "kind": "property",
+          "line": 37,
+          "name": "disposition",
+          "type": "Option<String>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Content\u2011Id, may be null.",
+          "file": "src/email_body_part.rs",
+          "kind": "property",
+          "line": 41,
+          "name": "cid",
+          "type": "Option<String>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Languages, may be null.",
+          "file": "src/email_body_part.rs",
+          "kind": "property",
+          "line": 45,
+          "name": "language",
+          "type": "Option<Vec<String>>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Location, may be null.",
+          "file": "src/email_body_part.rs",
+          "kind": "property",
+          "line": 49,
+          "name": "location",
+          "type": "Option<String>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Sub\u2011parts, may be null.",
+          "file": "src/email_body_part.rs",
+          "kind": "property",
+          "line": 53,
+          "name": "sub_parts",
+          "type": "Option<Vec<EmailBodyPart>>"
+        }
+      ],
+      "reachable": true,
+      "visibility": "public"
+    },
+    {
+      "bases": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "canonical_namespace": "email_header",
+      "class_import": "email_header::EmailHeader",
+      "deprecated": false,
+      "deprecated_reason": "",
+      "doc": "Represents an email header as defined by JMAP.",
+      "file": "src/email_header.rs",
+      "kind": "struct_item",
+      "line": 5,
+      "methods": [],
+      "name": "EmailHeader",
+      "properties": [
+        {
+          "access_mode": "readwrite",
+          "doc": "The name of the header.",
+          "file": "src/email_header.rs",
+          "kind": "property",
+          "line": 8,
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "The value of the header.",
+          "file": "src/email_header.rs",
+          "kind": "property",
+          "line": 11,
+          "name": "value",
+          "type": "String"
+        }
+      ],
+      "reachable": true,
+      "visibility": "public"
+    },
+    {
+      "bases": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "canonical_namespace": "email_submission",
+      "class_import": "email_submission::EmailSubmission",
+      "deprecated": false,
+      "deprecated_reason": "",
+      "doc": "One attempt to submit an Email for delivery.",
+      "file": "src/email_submission.rs",
+      "kind": "struct_item",
+      "line": 10,
+      "methods": [],
+      "name": "EmailSubmission",
+      "properties": [
+        {
+          "access_mode": "readwrite",
+          "doc": "Server\u2011assigned identifier (omitted when constructing a create payload).",
+          "file": "src/email_submission.rs",
+          "kind": "property",
+          "line": 13,
+          "name": "id",
+          "type": "Option<String>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Must reference an existing Identity (required).",
+          "file": "src/email_submission.rs",
+          "kind": "property",
+          "line": 17,
+          "name": "identity_id",
+          "type": "String"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "The Email to send; typically a draft created via `Email/set` just before this call (required).",
+          "file": "src/email_submission.rs",
+          "kind": "property",
+          "line": 21,
+          "name": "email_id",
+          "type": "String"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Server\u2011assigned thread identifier (omitted when constructing a create payload).",
+          "file": "src/email_submission.rs",
+          "kind": "property",
+          "line": 25,
+          "name": "thread_id",
+          "type": "Option<String>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "If `null`, the server derives it from the Email's From/To/Cc/Bcc headers.",
+          "file": "src/email_submission.rs",
+          "kind": "property",
+          "line": 29,
+          "name": "envelope",
+          "type": "Option<Envelope>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Server\u2011assigned UTC date when the submission is to be sent (omitted when constructing a create payload).",
+          "file": "src/email_submission.rs",
+          "kind": "property",
+          "line": 33,
+          "name": "send_at",
+          "type": "Option<String>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Server\u2011assigned undo status (`pending` | `final` | `canceled`) (omitted when constructing a create payload).",
+          "file": "src/email_submission.rs",
+          "kind": "property",
+          "line": 37,
+          "name": "undo_status",
+          "type": "Option<String>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Server\u2011assigned delivery status map (omitted when constructing a create payload).",
+          "file": "src/email_submission.rs",
+          "kind": "property",
+          "line": 41,
+          "name": "delivery_status",
+          "type": "Option<HashMap<String, DeliveryStatus>>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Server\u2011assigned DSN blob identifiers (omitted when constructing a create payload).",
+          "file": "src/email_submission.rs",
+          "kind": "property",
+          "line": 45,
+          "name": "dsn_blob_ids",
+          "type": "Option<Vec<String>>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Server\u2011assigned MDN blob identifiers (omitted when constructing a create payload).",
+          "file": "src/email_submission.rs",
+          "kind": "property",
+          "line": 49,
+          "name": "mdn_blob_ids",
+          "type": "Option<Vec<String>>"
+        }
+      ],
+      "reachable": true,
+      "visibility": "public"
+    },
+    {
+      "bases": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "canonical_namespace": "envelope",
+      "class_import": "envelope::Address",
+      "deprecated": false,
+      "deprecated_reason": "",
+      "doc": "Address",
+      "file": "src/envelope.rs",
+      "kind": "struct_item",
+      "line": 18,
+      "methods": [],
+      "name": "Address",
+      "properties": [
+        {
+          "access_mode": "readwrite",
+          "doc": "The email address.",
+          "file": "src/envelope.rs",
+          "kind": "property",
+          "line": 21,
+          "name": "email",
+          "type": "String"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "SMTP MAIL/RCPT parameters, e.g.",
+          "file": "src/envelope.rs",
+          "kind": "property",
+          "line": 28,
+          "name": "parameters",
+          "type": "Option<HashMap<String, Option<String>>>"
+        }
+      ],
+      "reachable": true,
+      "visibility": "public"
+    },
+    {
+      "bases": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "canonical_namespace": "envelope",
+      "class_import": "envelope::Envelope",
+      "deprecated": false,
+      "deprecated_reason": "",
+      "doc": "SMTP MAIL FROM / RCPT TO envelope for a submission, distinct from the message's own From/To headers.",
+      "file": "src/envelope.rs",
+      "kind": "struct_item",
+      "line": 6,
+      "methods": [],
+      "name": "Envelope",
+      "properties": [
+        {
+          "access_mode": "readwrite",
+          "doc": "The SMTP MAIL FROM address.",
+          "file": "src/envelope.rs",
+          "kind": "property",
+          "line": 9,
+          "name": "mail_from",
+          "type": "Address"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "The SMTP RCPT TO addresses.",
+          "file": "src/envelope.rs",
+          "kind": "property",
+          "line": 13,
+          "name": "rcpt_to",
+          "type": "Vec<Address>"
+        }
+      ],
+      "reachable": true,
+      "visibility": "public"
+    },
+    {
+      "bases": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "canonical_namespace": "jmap_response_envelope",
+      "class_import": "jmap_response_envelope::JmapResponseEnvelope",
+      "deprecated": false,
+      "deprecated_reason": "",
+      "doc": "The JSON body returned from apiUrl.",
+      "file": "src/jmap_response_envelope.rs",
+      "kind": "struct_item",
+      "line": 8,
+      "methods": [],
+      "name": "JmapResponseEnvelope",
+      "properties": [
+        {
+          "access_mode": "readwrite",
+          "doc": "",
+          "file": "src/jmap_response_envelope.rs",
+          "kind": "property",
+          "line": 10,
+          "name": "method_responses",
+          "type": "Vec<Invocation>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "",
+          "file": "src/jmap_response_envelope.rs",
+          "kind": "property",
+          "line": 14,
+          "name": "created_ids",
+          "type": "Option<HashMap<String, String>>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "",
+          "file": "src/jmap_response_envelope.rs",
+          "kind": "property",
+          "line": 17,
+          "name": "session_state",
+          "type": "String"
+        }
+      ],
+      "reachable": true,
+      "visibility": "public"
+    },
+    {
+      "bases": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "canonical_namespace": "mailbox",
+      "class_import": "mailbox::MailboxRights",
+      "deprecated": false,
+      "deprecated_reason": "",
+      "doc": "Rights the authenticated user has on a mailbox.",
+      "file": "src/mailbox.rs",
+      "kind": "struct_item",
+      "line": 57,
+      "methods": [],
+      "name": "MailboxRights",
+      "properties": [
+        {
+          "access_mode": "readwrite",
+          "doc": "",
+          "file": "src/mailbox.rs",
+          "kind": "property",
+          "line": 59,
+          "name": "may_read_items",
+          "type": "bool"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "",
+          "file": "src/mailbox.rs",
+          "kind": "property",
+          "line": 62,
+          "name": "may_add_items",
+          "type": "bool"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "",
+          "file": "src/mailbox.rs",
+          "kind": "property",
+          "line": 65,
+          "name": "may_remove_items",
+          "type": "bool"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "",
+          "file": "src/mailbox.rs",
+          "kind": "property",
+          "line": 68,
+          "name": "may_set_seen",
+          "type": "bool"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "",
+          "file": "src/mailbox.rs",
+          "kind": "property",
+          "line": 71,
+          "name": "may_set_keywords",
+          "type": "bool"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "",
+          "file": "src/mailbox.rs",
+          "kind": "property",
+          "line": 74,
+          "name": "may_create_child",
+          "type": "bool"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "",
+          "file": "src/mailbox.rs",
+          "kind": "property",
+          "line": 77,
+          "name": "may_rename",
+          "type": "bool"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "",
+          "file": "src/mailbox.rs",
+          "kind": "property",
+          "line": 80,
+          "name": "may_delete",
+          "type": "bool"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "",
+          "file": "src/mailbox.rs",
+          "kind": "property",
+          "line": 83,
+          "name": "may_submit",
+          "type": "bool"
+        }
+      ],
+      "reachable": true,
+      "visibility": "public"
+    },
+    {
+      "bases": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "canonical_namespace": "session",
+      "class_import": "session::Account",
+      "deprecated": false,
+      "deprecated_reason": "",
+      "doc": "An account description within a JMAP Session.",
+      "file": "src/session.rs",
+      "kind": "struct_item",
+      "line": 60,
+      "methods": [],
+      "name": "Account",
+      "properties": [
+        {
+          "access_mode": "readwrite",
+          "doc": "Human\u2011readable name of the account.",
+          "file": "src/session.rs",
+          "kind": "property",
+          "line": 63,
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Indicates whether the account is a personal (true) or shared (false) account.",
+          "file": "src/session.rs",
+          "kind": "property",
+          "line": 67,
+          "name": "is_personal",
+          "type": "bool"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Indicates whether the account is read\u2011only.",
+          "file": "src/session.rs",
+          "kind": "property",
+          "line": 71,
+          "name": "is_read_only",
+          "type": "bool"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Map of capability URNs to capability\u2011specific information for this account.",
+          "file": "src/session.rs",
+          "kind": "property",
+          "line": 75,
+          "name": "account_capabilities",
+          "type": "HashMap<String, Value>"
+        }
+      ],
+      "reachable": true,
+      "visibility": "public"
+    },
+    {
+      "bases": [
+        "Debug",
+        "Clone",
+        "PartialEq",
+        "Serialize",
+        "Deserialize"
+      ],
+      "canonical_namespace": "session",
+      "class_import": "session::Session",
+      "deprecated": false,
+      "deprecated_reason": "",
+      "doc": "The JMAP Session resource.",
+      "file": "src/session.rs",
+      "kind": "struct_item",
+      "line": 16,
+      "methods": [],
+      "name": "Session",
+      "properties": [
+        {
+          "access_mode": "readwrite",
+          "doc": "Map of capability URNs to capability objects.",
+          "file": "src/session.rs",
+          "kind": "property",
+          "line": 23,
+          "name": "capabilities",
+          "type": "HashMap<String, Value>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Map of account IDs to account objects.",
+          "file": "src/session.rs",
+          "kind": "property",
+          "line": 27,
+          "name": "accounts",
+          "type": "HashMap<String, Account>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Map of capability URNs to the default account ID for that capability.",
+          "file": "src/session.rs",
+          "kind": "property",
+          "line": 31,
+          "name": "primary_accounts",
+          "type": "HashMap<String, String>"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "The authenticated username.",
+          "file": "src/session.rs",
+          "kind": "property",
+          "line": 35,
+          "name": "username",
+          "type": "String"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "URL for POSTing JMAP method\u2011call requests.",
+          "file": "src/session.rs",
+          "kind": "property",
+          "line": 39,
+          "name": "api_url",
+          "type": "String"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "URL template for downloading blobs.",
+          "file": "src/session.rs",
+          "kind": "property",
+          "line": 43,
+          "name": "download_url",
+          "type": "String"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "URL template for uploading blobs.",
+          "file": "src/session.rs",
+          "kind": "property",
+          "line": 47,
+          "name": "upload_url",
+          "type": "String"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "URL template for the push EventSource stream.",
+          "file": "src/session.rs",
+          "kind": "property",
+          "line": 51,
+          "name": "event_source_url",
+          "type": "String"
+        },
+        {
+          "access_mode": "readwrite",
+          "doc": "Opaque state string that changes whenever the Session object changes.",
+          "file": "src/session.rs",
+          "kind": "property",
+          "line": 55,
+          "name": "state",
+          "type": "String"
         }
       ],
       "reachable": true,
@@ -268,70 +1403,6 @@
       "receiver_type": "Box",
       "return_type": "Box<dyn Transport>",
       "trait_impl": "Clone"
-    },
-    {
-      "bases": [
-        "Debug",
-        "Clone",
-        "fmt::Display",
-        "From"
-      ],
-      "canonical_namespace": "common_types",
-      "class_import": "common_types::JmapError",
-      "deprecated": false,
-      "deprecated_reason": "",
-      "doc": "Errors that can be returned by the JMAP client.",
-      "enum_members": [
-        {
-          "name": "Network",
-          "value": ""
-        },
-        {
-          "name": "Protocol",
-          "value": ""
-        },
-        {
-          "name": "InvalidResponse",
-          "value": ""
-        }
-      ],
-      "file": "src/common_types.rs",
-      "kind": "enum_item",
-      "line": 79,
-      "methods": [
-        {
-          "doc": "",
-          "file": "src/common_types.rs",
-          "is_constructor": false,
-          "line": 97,
-          "name": "fmt",
-          "params": [
-            {
-              "name": "f",
-              "type": "&mut fmt::Formatter<'_>"
-            }
-          ],
-          "return_type": "fmt::Result"
-        },
-        {
-          "doc": "",
-          "file": "src/common_types.rs",
-          "is_constructor": false,
-          "line": 111,
-          "name": "from",
-          "params": [
-            {
-              "name": "err",
-              "type": "ureq::Error"
-            }
-          ],
-          "return_type": "Self"
-        }
-      ],
-      "name": "JmapError",
-      "properties": [],
-      "reachable": true,
-      "visibility": "public"
     },
     {
       "bases": [
@@ -601,56 +1672,6 @@
         "Serialize",
         "Deserialize"
       ],
-      "canonical_namespace": "delivery_status",
-      "class_import": "delivery_status::DeliveryStatus",
-      "deprecated": false,
-      "deprecated_reason": "",
-      "doc": "Per-recipient delivery outcome, keyed by recipient email address on `EmailSubmission.deliveryStatus`.",
-      "file": "src/delivery_status.rs",
-      "kind": "struct_item",
-      "line": 6,
-      "methods": [],
-      "name": "DeliveryStatus",
-      "properties": [
-        {
-          "access_mode": "readwrite",
-          "doc": "The SMTP reply string from the server.",
-          "file": "src/delivery_status.rs",
-          "kind": "property",
-          "line": 9,
-          "name": "smtp_reply",
-          "type": "String"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Delivery status: one of `\"queued\"`, `\"yes\"`, `\"no\"`, or `\"unknown\"`.",
-          "file": "src/delivery_status.rs",
-          "kind": "property",
-          "line": 13,
-          "name": "delivered",
-          "type": "String"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Display status: either `\"unknown\"` or `\"yes\"`.",
-          "file": "src/delivery_status.rs",
-          "kind": "property",
-          "line": 17,
-          "name": "displayed",
-          "type": "String"
-        }
-      ],
-      "reachable": true,
-      "visibility": "public"
-    },
-    {
-      "bases": [
-        "Debug",
-        "Clone",
-        "PartialEq",
-        "Serialize",
-        "Deserialize"
-      ],
       "canonical_namespace": "email",
       "class_import": "email::Email",
       "deprecated": false,
@@ -899,97 +1920,6 @@
         "Serialize",
         "Deserialize"
       ],
-      "canonical_namespace": "email",
-      "class_import": "email::EmailBodyValue",
-      "deprecated": false,
-      "deprecated_reason": "",
-      "doc": "Represents a body value with its content and flags.",
-      "file": "src/email.rs",
-      "kind": "struct_item",
-      "line": 138,
-      "methods": [],
-      "name": "EmailBodyValue",
-      "properties": [
-        {
-          "access_mode": "readwrite",
-          "doc": "The actual body content.",
-          "file": "src/email.rs",
-          "kind": "property",
-          "line": 141,
-          "name": "value",
-          "type": "String"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Indicates an encoding problem.",
-          "file": "src/email.rs",
-          "kind": "property",
-          "line": 145,
-          "name": "is_encoding_problem",
-          "type": "bool"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Indicates whether the value was truncated.",
-          "file": "src/email.rs",
-          "kind": "property",
-          "line": 149,
-          "name": "is_truncated",
-          "type": "bool"
-        }
-      ],
-      "reachable": true,
-      "visibility": "public"
-    },
-    {
-      "bases": [
-        "Debug",
-        "Clone",
-        "PartialEq",
-        "Serialize",
-        "Deserialize"
-      ],
-      "canonical_namespace": "email_address",
-      "class_import": "email_address::EmailAddress",
-      "deprecated": false,
-      "deprecated_reason": "",
-      "doc": "One address in a header such as From/To/Cc (RFC 8621 section 4.1.2.3).",
-      "file": "src/email_address.rs",
-      "kind": "struct_item",
-      "line": 5,
-      "methods": [],
-      "name": "EmailAddress",
-      "properties": [
-        {
-          "access_mode": "readwrite",
-          "doc": "The display name of the address, or `null` if not present.",
-          "file": "src/email_address.rs",
-          "kind": "property",
-          "line": 8,
-          "name": "name",
-          "type": "Option<String>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "The email address (required).",
-          "file": "src/email_address.rs",
-          "kind": "property",
-          "line": 12,
-          "name": "email",
-          "type": "String"
-        }
-      ],
-      "reachable": true,
-      "visibility": "public"
-    },
-    {
-      "bases": [
-        "Debug",
-        "Clone",
-        "PartialEq",
-        "Serialize",
-        "Deserialize"
-      ],
       "canonical_namespace": "email_address_group",
       "class_import": "email_address_group::EmailAddressGroup",
       "deprecated": false,
@@ -1018,178 +1948,6 @@
           "line": 13,
           "name": "addresses",
           "type": "Vec<EmailAddress>"
-        }
-      ],
-      "reachable": true,
-      "visibility": "public"
-    },
-    {
-      "bases": [
-        "Debug",
-        "Clone",
-        "PartialEq",
-        "Serialize",
-        "Deserialize"
-      ],
-      "canonical_namespace": "email_body_part",
-      "class_import": "email_body_part::EmailBodyPart",
-      "deprecated": false,
-      "deprecated_reason": "",
-      "doc": "One node of the Email's MIME bodyStructure tree.",
-      "file": "src/email_body_part.rs",
-      "kind": "struct_item",
-      "line": 6,
-      "methods": [],
-      "name": "EmailBodyPart",
-      "properties": [
-        {
-          "access_mode": "readwrite",
-          "doc": "Part identifier, may be null.",
-          "file": "src/email_body_part.rs",
-          "kind": "property",
-          "line": 9,
-          "name": "part_id",
-          "type": "Option<String>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Blob identifier, may be null.",
-          "file": "src/email_body_part.rs",
-          "kind": "property",
-          "line": 13,
-          "name": "blob_id",
-          "type": "Option<String>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Size in bytes.",
-          "file": "src/email_body_part.rs",
-          "kind": "property",
-          "line": 17,
-          "name": "size",
-          "type": "u64"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "List of headers.",
-          "file": "src/email_body_part.rs",
-          "kind": "property",
-          "line": 21,
-          "name": "headers",
-          "type": "Vec<EmailHeader>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Filename, from Content\u2011Disposition or Content\u2011Type, may be null.",
-          "file": "src/email_body_part.rs",
-          "kind": "property",
-          "line": 25,
-          "name": "name",
-          "type": "Option<String>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "MIME type, e.g.",
-          "file": "src/email_body_part.rs",
-          "kind": "property",
-          "line": 29,
-          "name": "type_",
-          "type": "String"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Character set, may be null.",
-          "file": "src/email_body_part.rs",
-          "kind": "property",
-          "line": 33,
-          "name": "charset",
-          "type": "Option<String>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Disposition, e.g.",
-          "file": "src/email_body_part.rs",
-          "kind": "property",
-          "line": 37,
-          "name": "disposition",
-          "type": "Option<String>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Content\u2011Id, may be null.",
-          "file": "src/email_body_part.rs",
-          "kind": "property",
-          "line": 41,
-          "name": "cid",
-          "type": "Option<String>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Languages, may be null.",
-          "file": "src/email_body_part.rs",
-          "kind": "property",
-          "line": 45,
-          "name": "language",
-          "type": "Option<Vec<String>>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Location, may be null.",
-          "file": "src/email_body_part.rs",
-          "kind": "property",
-          "line": 49,
-          "name": "location",
-          "type": "Option<String>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Sub\u2011parts, may be null.",
-          "file": "src/email_body_part.rs",
-          "kind": "property",
-          "line": 53,
-          "name": "sub_parts",
-          "type": "Option<Vec<EmailBodyPart>>"
-        }
-      ],
-      "reachable": true,
-      "visibility": "public"
-    },
-    {
-      "bases": [
-        "Debug",
-        "Clone",
-        "PartialEq",
-        "Serialize",
-        "Deserialize"
-      ],
-      "canonical_namespace": "email_header",
-      "class_import": "email_header::EmailHeader",
-      "deprecated": false,
-      "deprecated_reason": "",
-      "doc": "Represents an email header as defined by JMAP.",
-      "file": "src/email_header.rs",
-      "kind": "struct_item",
-      "line": 5,
-      "methods": [],
-      "name": "EmailHeader",
-      "properties": [
-        {
-          "access_mode": "readwrite",
-          "doc": "The name of the header.",
-          "file": "src/email_header.rs",
-          "kind": "property",
-          "line": 8,
-          "name": "name",
-          "type": "String"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "The value of the header.",
-          "file": "src/email_header.rs",
-          "kind": "property",
-          "line": 11,
-          "name": "value",
-          "type": "String"
         }
       ],
       "reachable": true,
@@ -1276,201 +2034,6 @@
           "line": 34,
           "name": "limit",
           "type": "Option<u64>"
-        }
-      ],
-      "reachable": true,
-      "visibility": "public"
-    },
-    {
-      "bases": [
-        "Debug",
-        "Clone",
-        "PartialEq",
-        "Serialize",
-        "Deserialize"
-      ],
-      "canonical_namespace": "email_submission",
-      "class_import": "email_submission::EmailSubmission",
-      "deprecated": false,
-      "deprecated_reason": "",
-      "doc": "One attempt to submit an Email for delivery.",
-      "file": "src/email_submission.rs",
-      "kind": "struct_item",
-      "line": 10,
-      "methods": [],
-      "name": "EmailSubmission",
-      "properties": [
-        {
-          "access_mode": "readwrite",
-          "doc": "Server\u2011assigned identifier (omitted when constructing a create payload).",
-          "file": "src/email_submission.rs",
-          "kind": "property",
-          "line": 13,
-          "name": "id",
-          "type": "Option<String>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Must reference an existing Identity (required).",
-          "file": "src/email_submission.rs",
-          "kind": "property",
-          "line": 17,
-          "name": "identity_id",
-          "type": "String"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "The Email to send; typically a draft created via `Email/set` just before this call (required).",
-          "file": "src/email_submission.rs",
-          "kind": "property",
-          "line": 21,
-          "name": "email_id",
-          "type": "String"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Server\u2011assigned thread identifier (omitted when constructing a create payload).",
-          "file": "src/email_submission.rs",
-          "kind": "property",
-          "line": 25,
-          "name": "thread_id",
-          "type": "Option<String>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "If `null`, the server derives it from the Email's From/To/Cc/Bcc headers.",
-          "file": "src/email_submission.rs",
-          "kind": "property",
-          "line": 29,
-          "name": "envelope",
-          "type": "Option<Envelope>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Server\u2011assigned UTC date when the submission is to be sent (omitted when constructing a create payload).",
-          "file": "src/email_submission.rs",
-          "kind": "property",
-          "line": 33,
-          "name": "send_at",
-          "type": "Option<String>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Server\u2011assigned undo status (`pending` | `final` | `canceled`) (omitted when constructing a create payload).",
-          "file": "src/email_submission.rs",
-          "kind": "property",
-          "line": 37,
-          "name": "undo_status",
-          "type": "Option<String>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Server\u2011assigned delivery status map (omitted when constructing a create payload).",
-          "file": "src/email_submission.rs",
-          "kind": "property",
-          "line": 41,
-          "name": "delivery_status",
-          "type": "Option<HashMap<String, DeliveryStatus>>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Server\u2011assigned DSN blob identifiers (omitted when constructing a create payload).",
-          "file": "src/email_submission.rs",
-          "kind": "property",
-          "line": 45,
-          "name": "dsn_blob_ids",
-          "type": "Option<Vec<String>>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Server\u2011assigned MDN blob identifiers (omitted when constructing a create payload).",
-          "file": "src/email_submission.rs",
-          "kind": "property",
-          "line": 49,
-          "name": "mdn_blob_ids",
-          "type": "Option<Vec<String>>"
-        }
-      ],
-      "reachable": true,
-      "visibility": "public"
-    },
-    {
-      "bases": [
-        "Debug",
-        "Clone",
-        "PartialEq",
-        "Serialize",
-        "Deserialize"
-      ],
-      "canonical_namespace": "envelope",
-      "class_import": "envelope::Address",
-      "deprecated": false,
-      "deprecated_reason": "",
-      "doc": "Address",
-      "file": "src/envelope.rs",
-      "kind": "struct_item",
-      "line": 18,
-      "methods": [],
-      "name": "Address",
-      "properties": [
-        {
-          "access_mode": "readwrite",
-          "doc": "The email address.",
-          "file": "src/envelope.rs",
-          "kind": "property",
-          "line": 21,
-          "name": "email",
-          "type": "String"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "SMTP MAIL/RCPT parameters, e.g.",
-          "file": "src/envelope.rs",
-          "kind": "property",
-          "line": 28,
-          "name": "parameters",
-          "type": "Option<HashMap<String, Option<String>>>"
-        }
-      ],
-      "reachable": true,
-      "visibility": "public"
-    },
-    {
-      "bases": [
-        "Debug",
-        "Clone",
-        "PartialEq",
-        "Serialize",
-        "Deserialize"
-      ],
-      "canonical_namespace": "envelope",
-      "class_import": "envelope::Envelope",
-      "deprecated": false,
-      "deprecated_reason": "",
-      "doc": "SMTP MAIL FROM / RCPT TO envelope for a submission, distinct from the message's own From/To headers.",
-      "file": "src/envelope.rs",
-      "kind": "struct_item",
-      "line": 6,
-      "methods": [],
-      "name": "Envelope",
-      "properties": [
-        {
-          "access_mode": "readwrite",
-          "doc": "The SMTP MAIL FROM address.",
-          "file": "src/envelope.rs",
-          "kind": "property",
-          "line": 9,
-          "name": "mail_from",
-          "type": "Address"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "The SMTP RCPT TO addresses.",
-          "file": "src/envelope.rs",
-          "kind": "property",
-          "line": 13,
-          "name": "rcpt_to",
-          "type": "Vec<Address>"
         }
       ],
       "reachable": true,
@@ -1623,86 +2186,6 @@
     },
     {
       "bases": [
-        "Debug",
-        "Clone",
-        "PartialEq",
-        "Eq",
-        "Serialize",
-        "Deserialize"
-      ],
-      "canonical_namespace": "invocation",
-      "class_import": "invocation::Invocation",
-      "deprecated": false,
-      "deprecated_reason": "",
-      "doc": "A JMAP method invocation.",
-      "file": "src/invocation.rs",
-      "kind": "struct_item",
-      "line": 17,
-      "methods": [
-        {
-          "doc": "",
-          "file": "src/invocation.rs",
-          "is_constructor": false,
-          "line": 28,
-          "name": "serialize",
-          "params": [
-            {
-              "name": "serializer",
-              "type": "S"
-            }
-          ],
-          "return_type": "Result<S::Ok, S::Error>"
-        },
-        {
-          "doc": "",
-          "file": "src/invocation.rs",
-          "is_constructor": false,
-          "line": 41,
-          "name": "deserialize",
-          "params": [
-            {
-              "name": "deserializer",
-              "type": "D"
-            }
-          ],
-          "return_type": "Result<Self, D::Error>"
-        }
-      ],
-      "name": "Invocation",
-      "properties": [
-        {
-          "access_mode": "readwrite",
-          "doc": "The JMAP method name (e.g.",
-          "file": "src/invocation.rs",
-          "kind": "property",
-          "line": 19,
-          "name": "name",
-          "type": "String"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "The method arguments as a map from argument name to JSON value.",
-          "file": "src/invocation.rs",
-          "kind": "property",
-          "line": 21,
-          "name": "arguments",
-          "type": "HashMap<String, Value>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Client\u2011chosen identifier for this call, echoed back in the response.",
-          "file": "src/invocation.rs",
-          "kind": "property",
-          "line": 24,
-          "name": "method_call_id",
-          "type": "String"
-        }
-      ],
-      "reachable": true,
-      "visibility": "public"
-    },
-    {
-      "bases": [
         "Visitor"
       ],
       "canonical_namespace": "invocation",
@@ -1793,56 +2276,6 @@
           "line": 25,
           "name": "created_ids",
           "type": "Option<HashMap<String, String>>"
-        }
-      ],
-      "reachable": true,
-      "visibility": "public"
-    },
-    {
-      "bases": [
-        "Debug",
-        "Clone",
-        "PartialEq",
-        "Serialize",
-        "Deserialize"
-      ],
-      "canonical_namespace": "jmap_response_envelope",
-      "class_import": "jmap_response_envelope::JmapResponseEnvelope",
-      "deprecated": false,
-      "deprecated_reason": "",
-      "doc": "The JSON body returned from apiUrl.",
-      "file": "src/jmap_response_envelope.rs",
-      "kind": "struct_item",
-      "line": 8,
-      "methods": [],
-      "name": "JmapResponseEnvelope",
-      "properties": [
-        {
-          "access_mode": "readwrite",
-          "doc": "",
-          "file": "src/jmap_response_envelope.rs",
-          "kind": "property",
-          "line": 10,
-          "name": "method_responses",
-          "type": "Vec<Invocation>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "",
-          "file": "src/jmap_response_envelope.rs",
-          "kind": "property",
-          "line": 14,
-          "name": "created_ids",
-          "type": "Option<HashMap<String, String>>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "",
-          "file": "src/jmap_response_envelope.rs",
-          "kind": "property",
-          "line": 17,
-          "name": "session_state",
-          "type": "String"
         }
       ],
       "reachable": true,
@@ -2040,110 +2473,6 @@
       "visibility": "public"
     },
     {
-      "bases": [
-        "Debug",
-        "Clone",
-        "PartialEq",
-        "Serialize",
-        "Deserialize"
-      ],
-      "canonical_namespace": "mailbox",
-      "class_import": "mailbox::MailboxRights",
-      "deprecated": false,
-      "deprecated_reason": "",
-      "doc": "Rights the authenticated user has on a mailbox.",
-      "file": "src/mailbox.rs",
-      "kind": "struct_item",
-      "line": 57,
-      "methods": [],
-      "name": "MailboxRights",
-      "properties": [
-        {
-          "access_mode": "readwrite",
-          "doc": "",
-          "file": "src/mailbox.rs",
-          "kind": "property",
-          "line": 59,
-          "name": "may_read_items",
-          "type": "bool"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "",
-          "file": "src/mailbox.rs",
-          "kind": "property",
-          "line": 62,
-          "name": "may_add_items",
-          "type": "bool"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "",
-          "file": "src/mailbox.rs",
-          "kind": "property",
-          "line": 65,
-          "name": "may_remove_items",
-          "type": "bool"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "",
-          "file": "src/mailbox.rs",
-          "kind": "property",
-          "line": 68,
-          "name": "may_set_seen",
-          "type": "bool"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "",
-          "file": "src/mailbox.rs",
-          "kind": "property",
-          "line": 71,
-          "name": "may_set_keywords",
-          "type": "bool"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "",
-          "file": "src/mailbox.rs",
-          "kind": "property",
-          "line": 74,
-          "name": "may_create_child",
-          "type": "bool"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "",
-          "file": "src/mailbox.rs",
-          "kind": "property",
-          "line": 77,
-          "name": "may_rename",
-          "type": "bool"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "",
-          "file": "src/mailbox.rs",
-          "kind": "property",
-          "line": 80,
-          "name": "may_delete",
-          "type": "bool"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "",
-          "file": "src/mailbox.rs",
-          "kind": "property",
-          "line": 83,
-          "name": "may_submit",
-          "type": "bool"
-        }
-      ],
-      "reachable": true,
-      "visibility": "public"
-    },
-    {
       "bases": [],
       "doc": "Moves messages to a different mailbox by updating their `mailboxIds`.",
       "file": "src/client_mail.rs",
@@ -2211,65 +2540,6 @@
           "line": 18,
           "name": "preview",
           "type": "Option<String>"
-        }
-      ],
-      "reachable": true,
-      "visibility": "public"
-    },
-    {
-      "bases": [
-        "Debug",
-        "Clone",
-        "PartialEq",
-        "Serialize",
-        "Deserialize"
-      ],
-      "canonical_namespace": "session",
-      "class_import": "session::Account",
-      "deprecated": false,
-      "deprecated_reason": "",
-      "doc": "An account description within a JMAP Session.",
-      "file": "src/session.rs",
-      "kind": "struct_item",
-      "line": 60,
-      "methods": [],
-      "name": "Account",
-      "properties": [
-        {
-          "access_mode": "readwrite",
-          "doc": "Human\u2011readable name of the account.",
-          "file": "src/session.rs",
-          "kind": "property",
-          "line": 63,
-          "name": "name",
-          "type": "String"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Indicates whether the account is a personal (true) or shared (false) account.",
-          "file": "src/session.rs",
-          "kind": "property",
-          "line": 67,
-          "name": "is_personal",
-          "type": "bool"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Indicates whether the account is read\u2011only.",
-          "file": "src/session.rs",
-          "kind": "property",
-          "line": 71,
-          "name": "is_read_only",
-          "type": "bool"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Map of capability URNs to capability\u2011specific information for this account.",
-          "file": "src/session.rs",
-          "kind": "property",
-          "line": 75,
-          "name": "account_capabilities",
-          "type": "HashMap<String, Value>"
         }
       ],
       "reachable": true,
@@ -2371,110 +2641,6 @@
       "visibility": "public"
     },
     {
-      "bases": [
-        "Debug",
-        "Clone",
-        "PartialEq",
-        "Serialize",
-        "Deserialize"
-      ],
-      "canonical_namespace": "session",
-      "class_import": "session::Session",
-      "deprecated": false,
-      "deprecated_reason": "",
-      "doc": "The JMAP Session resource.",
-      "file": "src/session.rs",
-      "kind": "struct_item",
-      "line": 16,
-      "methods": [],
-      "name": "Session",
-      "properties": [
-        {
-          "access_mode": "readwrite",
-          "doc": "Map of capability URNs to capability objects.",
-          "file": "src/session.rs",
-          "kind": "property",
-          "line": 23,
-          "name": "capabilities",
-          "type": "HashMap<String, Value>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Map of account IDs to account objects.",
-          "file": "src/session.rs",
-          "kind": "property",
-          "line": 27,
-          "name": "accounts",
-          "type": "HashMap<String, Account>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Map of capability URNs to the default account ID for that capability.",
-          "file": "src/session.rs",
-          "kind": "property",
-          "line": 31,
-          "name": "primary_accounts",
-          "type": "HashMap<String, String>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "The authenticated username.",
-          "file": "src/session.rs",
-          "kind": "property",
-          "line": 35,
-          "name": "username",
-          "type": "String"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "URL for POSTing JMAP method\u2011call requests.",
-          "file": "src/session.rs",
-          "kind": "property",
-          "line": 39,
-          "name": "api_url",
-          "type": "String"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "URL template for downloading blobs.",
-          "file": "src/session.rs",
-          "kind": "property",
-          "line": 43,
-          "name": "download_url",
-          "type": "String"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "URL template for uploading blobs.",
-          "file": "src/session.rs",
-          "kind": "property",
-          "line": 47,
-          "name": "upload_url",
-          "type": "String"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "URL template for the push EventSource stream.",
-          "file": "src/session.rs",
-          "kind": "property",
-          "line": 51,
-          "name": "event_source_url",
-          "type": "String"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Opaque state string that changes whenever the Session object changes.",
-          "file": "src/session.rs",
-          "kind": "property",
-          "line": 55,
-          "name": "state",
-          "type": "String"
-        }
-      ],
-      "reachable": true,
-      "visibility": "public"
-    },
-    {
       "bases": [],
       "doc": "Sets a keyword (e.g.",
       "file": "src/client_mail.rs",
@@ -2535,172 +2701,6 @@
           "type": "Option<Vec<String>>"
         }
       ],
-      "reachable": true,
-      "visibility": "public"
-    },
-    {
-      "bases": [
-        "Debug",
-        "Clone",
-        "PartialEq",
-        "serde::Serialize",
-        "serde::Deserialize"
-      ],
-      "canonical_namespace": "transport",
-      "class_import": "transport::HttpRequest",
-      "deprecated": false,
-      "deprecated_reason": "",
-      "doc": "A low\u2011level HTTP request used by the transport layer.",
-      "file": "src/transport.rs",
-      "kind": "struct_item",
-      "line": 18,
-      "methods": [],
-      "name": "HttpRequest",
-      "properties": [
-        {
-          "access_mode": "readwrite",
-          "doc": "HTTP method, e.g.",
-          "file": "src/transport.rs",
-          "kind": "property",
-          "line": 20,
-          "name": "method",
-          "type": "String"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Full request URL.",
-          "file": "src/transport.rs",
-          "kind": "property",
-          "line": 22,
-          "name": "url",
-          "type": "String"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Header map where each key/value is a string.",
-          "file": "src/transport.rs",
-          "kind": "property",
-          "line": 24,
-          "name": "headers",
-          "type": "HashMap<String, String>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Optional raw request body bytes.",
-          "file": "src/transport.rs",
-          "kind": "property",
-          "line": 29,
-          "name": "body",
-          "type": "Option<Vec<u8>>"
-        }
-      ],
-      "reachable": true,
-      "visibility": "public"
-    },
-    {
-      "bases": [
-        "Debug",
-        "Clone",
-        "PartialEq",
-        "serde::Serialize",
-        "serde::Deserialize"
-      ],
-      "canonical_namespace": "transport",
-      "class_import": "transport::HttpResponse",
-      "deprecated": false,
-      "deprecated_reason": "",
-      "doc": "A low\u2011level HTTP response returned by a transport implementation.",
-      "file": "src/transport.rs",
-      "kind": "struct_item",
-      "line": 34,
-      "methods": [],
-      "name": "HttpResponse",
-      "properties": [
-        {
-          "access_mode": "readwrite",
-          "doc": "Numeric HTTP status code (e.g.",
-          "file": "src/transport.rs",
-          "kind": "property",
-          "line": 36,
-          "name": "status_code",
-          "type": "u16"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Header map.",
-          "file": "src/transport.rs",
-          "kind": "property",
-          "line": 38,
-          "name": "headers",
-          "type": "HashMap<String, String>"
-        },
-        {
-          "access_mode": "readwrite",
-          "doc": "Raw response body bytes (typically JSON text, but a blob download's body is arbitrary binary data - see the note on [`HttpRequest::body`]).",
-          "file": "src/transport.rs",
-          "kind": "property",
-          "line": 41,
-          "name": "body",
-          "type": "Vec<u8>"
-        }
-      ],
-      "reachable": true,
-      "visibility": "public"
-    },
-    {
-      "bases": [
-        "Debug"
-      ],
-      "canonical_namespace": "transport",
-      "class_import": "transport::Transport",
-      "deprecated": false,
-      "deprecated_reason": "",
-      "doc": "Trait representing an HTTP transport used by the JMAP client.",
-      "file": "src/transport.rs",
-      "kind": "trait_item",
-      "line": 54,
-      "methods": [
-        {
-          "deprecated": false,
-          "deprecated_reason": "",
-          "doc": "Sends the given request and returns the server's response.",
-          "file": "src/transport.rs",
-          "is_constructor": false,
-          "line": 56,
-          "name": "send",
-          "params": [
-            {
-              "name": "req",
-              "type": "&HttpRequest"
-            }
-          ],
-          "return_type": "Result<HttpResponse, JmapError>"
-        },
-        {
-          "deprecated": false,
-          "deprecated_reason": "",
-          "doc": "Clone the boxed transport.",
-          "file": "src/transport.rs",
-          "is_constructor": false,
-          "line": 60,
-          "name": "box_clone",
-          "params": [],
-          "return_type": "Box<dyn Transport>"
-        },
-        {
-          "deprecated": false,
-          "deprecated_reason": "",
-          "doc": "Returns `self` as `&dyn Any`, so tests can `downcast_ref` a `Box<dyn Transport>` back to their own fake implementation (e.g.",
-          "file": "src/transport.rs",
-          "is_constructor": false,
-          "line": 64,
-          "name": "as_any",
-          "params": [],
-          "return_type": "&dyn std::any::Any"
-        }
-      ],
-      "name": "Transport",
-      "properties": [],
       "reachable": true,
       "visibility": "public"
     },

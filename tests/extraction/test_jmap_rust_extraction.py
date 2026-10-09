@@ -9,6 +9,37 @@
 ordinary tree-sitter path (grammar name literally ``"rust"``). Its ``language`` field reads
 literally ``"rust"``, and the observed ``kind`` vocabulary among the fixture is the tree-sitter
 Rust grammar's own node-type names: ``{"struct_item", "enum_item", "trait_item", "function"}``.
+
+TC-312 re-ran this extraction live (network access, real default --max-types 300, no
+truncation) now that both TC-252 (centrality-ranked ``reduce_fixture()``) and TC-261
+(``inherited_from`` provenance tagging in ``_flatten_inheritance()``) are on main. The
+commit pin (``d7286100735e6d518837fde8639e8de694a08ef6``) and repository
+(``aspose-email-foss/Aspose.JMAP-FOSS-for-Rust``) came back unchanged and match
+``infra/helm/foss-mcp/values.yaml`` and ``docker-compose.yml`` exactly - no commit-pin
+divergence here. Every one of the 45 types' own content (methods/properties/bases/doc) is
+byte-identical to the pre-TC-312 fixture; only the list order changed (TC-252's centrality
+ranking, inert for ranking purposes since ``truncated is False`` but still reorders the list).
+
+TC-312 also hand-verified, against a fresh clone of the pinned commit, why this real
+re-run still carries zero ``inherited_from`` tags. ``tree_helpers._extract_bases()`` for
+Rust (see its own docstring) populates a struct's/enum's ``"bases"`` from two sources that
+are NOT real inheritance: (a) trait names pulled out of a ``#[derive(...)]`` attribute
+(``Debug``, ``Clone``, ``PartialEq``, ``Serialize``, ``Deserialize``, etc. - these never
+match any extracted type's own name, so ``_flatten_inheritance()``'s ``by_name.get(base_name)``
+is always ``None`` for them and nothing is ever copied) and (b) real ``impl Trait for Type``
+relationships added by ``_associate_rust_impl_methods``. The ONLY member of case (b) in this
+entire repository's public surface is ``UreqTransport`` implementing the ``Transport`` trait
+(``src/transport.rs``, hand-read at the pinned commit): ``Transport`` declares exactly three
+methods (``send``, ``box_clone``, ``as_any``), all bare signatures with no default body, and
+``UreqTransport`` is the only in-crate implementor (the four other ``impl Transport for
+FakeTransport`` blocks hand-found in ``tests/*.rs`` are test doubles outside ``src/``, never
+part of the extracted public surface) and overrides all three with identical signatures.
+``_flatten_inheritance()``'s own dedup-by-``(name, param-types)`` key therefore already finds
+every one of ``Transport``'s three methods present in ``UreqTransport`` before it ever
+considers copying, so correctly nothing is copied and nothing is tagged. This is accurate
+extraction of this repository's real shape, not evidence of stale tagging: a trait WITH a
+default method that some implementor leaves un-overridden would exercise the copy-and-tag
+path, but no such trait exists anywhere in this crate's public surface.
 """
 
 from __future__ import annotations
@@ -92,3 +123,51 @@ def test_the_trait_and_enum_and_free_functions_observed_are_real() -> None:
     assert trait_items == {"Transport"}
     assert enum_items == {"JmapError"}
     assert {"list_mailboxes", "fetch_message", "move_message"} <= functions
+
+
+def test_the_only_real_trait_implementation_is_rooted_correctly() -> None:
+    """``UreqTransport`` is the only real ``impl Trait for Type`` relationship in this
+    repository's public surface (hand-verified against a fresh clone of the pinned commit:
+    ``src/transport.rs`` is the only file with a non-test ``impl Transport for ...`` block).
+    Every other type's non-empty "bases" entries are ``#[derive(...)]`` trait names, never a
+    real extracted type - confirmed by checking that no base name other than "Transport"
+    matches any type's own "name" anywhere in this fixture.
+    """
+    data = _load_fixture()
+    by_name = {entry["name"]: entry for entry in data["types"]}
+    names = set(by_name)
+    assert "Transport" in by_name["UreqTransport"]["bases"]
+    for entry in data["types"]:
+        if entry["name"] == "UreqTransport":
+            continue
+        assert not (set(entry["bases"]) & names), (entry["name"], entry["bases"])
+
+
+def test_no_inherited_from_tag_exists_because_the_trait_has_no_default_methods() -> None:
+    """``Transport`` (``src/transport.rs``, hand-read at the pinned commit
+    ``d7286100735e6d518837fde8639e8de694a08ef6``) declares exactly three methods - ``send``,
+    ``box_clone``, ``as_any`` - every one a bare signature with no default body. Its only
+    real in-crate implementor, ``UreqTransport``, overrides all three with identical
+    (name, param-types) signatures. TC-261's ``_flatten_inheritance()`` copies a parent
+    method down only when the child does not already declare one with the same
+    ``(name, param-types)`` key; here the child already declares all three, so correctly
+    nothing is copied and nothing anywhere in this real fixture carries "inherited_from".
+    This is accurate extraction of this repository's real shape, not evidence that TC-261's
+    tagging is stale: a trait with an un-overridden default method would exercise the
+    copy-and-tag path (see e.g. pdf/cpp's own fixture/test for that case), but no such trait
+    exists in this crate's public surface.
+    """
+    data = _load_fixture()
+    by_name = {entry["name"]: entry for entry in data["types"]}
+    transport = by_name["Transport"]
+    ureq_transport = by_name["UreqTransport"]
+    transport_method_keys = {
+        (m["name"], tuple(p.get("type", "") for p in m.get("params", []))) for m in transport["methods"]
+    }
+    ureq_method_keys = {
+        (m["name"], tuple(p.get("type", "") for p in m.get("params", []))) for m in ureq_transport["methods"]
+    }
+    assert transport_method_keys <= ureq_method_keys
+    for entry in data["types"]:
+        for member in entry["methods"] + entry["properties"]:
+            assert member.get("inherited_from") is None
