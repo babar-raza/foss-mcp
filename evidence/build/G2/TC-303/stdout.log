@@ -1,0 +1,113 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_jmap_go_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k819gjp7\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_jmap_go_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k819gjp7\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/jmap_go/api_surface.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_jmap_go_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k819gjp7\.junit-0.xml"
+--- stdout ---
+FFFFFFF                                                                  [100%]
+================================== FAILURES ===================================
+_____________ test_the_fixture_parses_and_has_the_expected_shape ______________
+
+    def test_the_fixture_parses_and_has_the_expected_shape() -> None:
+        data = _load_fixture()
+        assert isinstance(data, dict)
+>       assert isinstance(data["types"], list)
+                          ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_go_extraction.py:73: KeyError
+_______ test_the_fixture_records_the_exact_source_commit_and_repository _______
+
+    def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
+        data = _load_fixture()
+>       assert _COMMIT_SHA.match(data["source_commit"]), data["source_commit"]
+                                 ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'source_commit'
+
+tests\extraction\test_jmap_go_extraction.py:79: KeyError
+________________________ test_the_fixture_is_non_empty ________________________
+
+    def test_the_fixture_is_non_empty() -> None:
+        data = _load_fixture()
+>       assert len(data["types"]) > 0
+                   ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_go_extraction.py:90: KeyError
+________________ test_the_fixture_contains_real_go_type_names _________________
+
+    def test_the_fixture_contains_real_go_type_names() -> None:
+        data = _load_fixture()
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_go_extraction.py:100: KeyError
+_________________ test_every_entry_is_a_real_go_surface_kind __________________
+
+    def test_every_entry_is_a_real_go_surface_kind() -> None:
+        data = _load_fixture()
+>       kinds = {entry["kind"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_go_extraction.py:109: KeyError
+_______ test_the_only_real_inheritance_relationship_is_rooted_correctly _______
+
+    def test_the_only_real_inheritance_relationship_is_rooted_correctly() -> None:
+        """NetworkError and ProtocolError both embed JmapError - the only struct embedding in
+        this repository's public surface (hand-verified against a fresh clone of the pinned
+        commit: every other type's "bases" is empty). _flatten_inheritance() (TC-261) correctly
+        records that relationship via "bases" for both.
+        """
+        data = _load_fixture()
+>       by_name = {entry["name"]: entry for entry in data["types"]}
+                                                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_go_extraction.py:124: KeyError
+_ test_no_inherited_from_tag_exists_because_the_real_ancestor_has_no_members __
+
+    def test_no_inherited_from_tag_exists_because_the_real_ancestor_has_no_members() -> None:
+        """JmapError (common_types.go:47, ``type JmapError struct{}``) is declared with zero
+        fields and zero methods in the real, pinned source - it is a marker/sentinel type for
+        errors.As dispatch, not a carrier of shared implementation. TC-261's
+        _flatten_inheritance() copies a member down only when the parent actually declares one
+        ("inherited_from" tags genuine parent-declared members - see api_surface.py); there is
+        nothing on this real ancestor to copy, so correctly, zero members anywhere in this real
+        fixture carry "inherited_from". This is accurate extraction of this repository's real
+        shape, not evidence that TC-261's tagging is stale: a repository WITH a non-empty base
+        class exercises that path elsewhere (e.g. pdf/go's own fixture and test).
+        """
+        data = _load_fixture()
+>       by_name = {entry["name"]: entry for entry in data["types"]}
+                                                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_jmap_go_extraction.py:145: KeyError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_jmap_go_extraction.py::test_the_fixture_parses_and_has_the_expected_shape
+FAILED tests/extraction/test_jmap_go_extraction.py::test_the_fixture_records_the_exact_source_commit_and_repository
+FAILED tests/extraction/test_jmap_go_extraction.py::test_the_fixture_is_non_empty
+FAILED tests/extraction/test_jmap_go_extraction.py::test_the_fixture_contains_real_go_type_names
+FAILED tests/extraction/test_jmap_go_extraction.py::test_every_entry_is_a_real_go_surface_kind
+FAILED tests/extraction/test_jmap_go_extraction.py::test_the_only_real_inheritance_relationship_is_rooted_correctly
+FAILED tests/extraction/test_jmap_go_extraction.py::test_no_inherited_from_tag_exists_because_the_real_ancestor_has_no_members
+
+--- stderr ---
+
