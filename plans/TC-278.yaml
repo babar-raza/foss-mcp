@@ -1,0 +1,148 @@
+id: TC-278
+gate: G2
+lane: storage-retrieval
+purpose: 'Fix C7 of the third independent audit (2026-10-08): search_symbols already has a relevance floor
+  (is_exact_symbol_hit, src/foss_mcp/mcp/tools/search_symbols.py ~line 64-91), but it has two distinct, concretely
+  reproduced defects. (1) "Correct symbols buried too deep": is_exact_symbol_hit already distinguishes three
+  strengths of evidence internally (full-FQN equality > final-segment equality > bag-of-words word-set
+  containment) but discards that distinction immediately, using it only as a boolean filter - so a weaker
+  bag-of-words match with a shorter, denser document can out-rank a stronger final-segment match by raw BM25
+  score alone. Live-confirmed against pdf/net: querying "Annotation" ranks the real base class
+  Aspose.Pdf.Annotations.Annotation (a final-segment-equality hit, the strongest evidence short of exact-FQN) 9th
+  of 14 admitted candidates behind 8 subclasses (each only a weaker bag-of-words hit, e.g.
+  AnnotationSelector/PopupAnnotation/MarkupAnnotation), because every subclass repeats "Annotation" in a shorter
+  overall document and so scores higher on raw BM25 term density alone - at the real default top_k=10 it only
+  barely survives; at find_examples'' own default top_k=5 it would not appear at all. (2) "Nonexistent features
+  yield a confident, wrong top-1": the bag-of-words branch has no precision floor beyond "every query word
+  appears somewhere in the FQN''s own word set," with no check on order, adjacency, or how much of the FQN''s own
+  structure the query actually covers. Live-confirmed against pdf/net: the queries "set pattern color" and "set
+  color pattern" each return exactly one confident match, Aspose.Pdf.Operators.BasicSetColorAndPatternOperator -
+  an internal, abstract content-stream-operator base class for parsing raw SCN/scn operators, not a public "set
+  pattern color" feature at all (no such feature exists in this corpus; the honest answer is a Miss). The match
+  happens because all 3 scattered, reordered query words happen to appear somewhere among the FQN''s 9 words,
+  with no sense of containment DENSITY - this scores LOWER one-directional coverage (3/9) than an already-
+  required true positive the existing tests lock in (e.g. "watermark" against PdfDocument.AddWatermarkAnnotation,
+  4 words, 1/4 density) despite being the false positive, proving one-directional containment alone is the wrong
+  signal, not merely under-tuned. The audit''s own explicit invariant governs both fixes: "Ranking improvements
+  must not weaken negative knowledge... A search system that returns something for every query is worse than one
+  that honestly misses."'
+depends_on:
+- TC-079
+- TC-109
+- TC-120
+- TC-143
+- TC-202
+- TC-210
+- TC-218
+- TC-273
+write_paths:
+- src/foss_mcp/mcp/tools/search_symbols.py
+- tests/mcp/tools/test_retrieval_tools.py
+- tests/mcp/test_search_symbols_honest_miss.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read src/foss_mcp/mcp/tools/search_symbols.py in full (is_exact_symbol_hit ~line 64-91, search_symbols
+  ~line 137-186) before changing anything. Confirm the three-branch structure (full-FQN equality, final-segment
+  equality, bag-of-words containment) yourself in the real code, not from this card''s prose. Confirm (via grep)
+  that is_exact_symbol_hit has exactly one caller outside this file -
+  tests/indexing/test_lookup_doc_fallback_query_safety.py, used only as a boolean predicate
+  (`any(is_exact_symbol_hit(...) for fqn in real_fqns)`) - so its existing boolean return contract must be
+  preserved exactly; do not change its signature or remove it.'
+- 'FIX A (buried-too-deep, low risk): restructure the three-branch logic into a new function, e.g.
+  `_match_tier(query, fqn) -> int | None` - returns 0 for full-FQN equality, 1 for final-segment equality, 2 for
+  bag-of-words containment, or None for no match (the exact same three conditions is_exact_symbol_hit already
+  checks, just returning which one fired instead of a bare bool). Redefine `is_exact_symbol_hit(query, fqn)` as
+  `_match_tier(query, fqn) is not None` so its existing callers and contract are completely unchanged. In
+  search_symbols() itself, when building the candidate list, keep each admitted doc''s tier alongside its BM25
+  score, and sort the admitted candidates primarily by tier (ascending - strongest evidence first), secondarily
+  by BM25 score (descending, the existing order) as the tiebreak within a tier - never discard the BM25 score,
+  it is still the right tiebreak among same-tier candidates. This is a pure reordering of already-admitted
+  matches: it must add no new positive result and remove none. Verify directly against the real pdf/net fixture
+  (tests/fixtures/pdf_net/api_surface.json, built through the real build_chunks_from_api_surface ->
+  build_lexical_index -> search_symbols production path - NOT a hand-shaped one-chunk-per-method synthetic
+  fixture, which does not match real chunking) that querying "Annotation" now ranks
+  Aspose.Pdf.Annotations.Annotation ahead of every bag-of-words-tier subclass.'
+- 'FIX B (confidently-wrong, needs real measurement - do not guess a number or reuse TC-273''s 0.6 BM25-coverage
+  threshold verbatim; that was measured for a different signal - BM25-score-based coverage in an otherwise-
+  unfiltered fallback - against a different failure mode, and the false positive here scores LOWER on that exact
+  signal than an already-required true positive, proving it is the wrong signal for this bug, not merely the
+  wrong number): add a precision floor to the bag-of-words branch specifically (tier 2 only - never touch the
+  full-FQN or final-segment branches, which have no such problem). Measure, empirically, against the real
+  lexical/symbol data for at least 3 real pilots (pdf/net, cells/cpp, slides/python - mirroring TC-273''s own
+  3-pilot/7-phrasing protocol), BOTH of these candidate signals before picking either: (a) a SYMMETRIC overlap
+  ratio - the fraction of the FQN''s OWN total word count the query''s words actually cover (not the current
+  one-directional "all query words are somewhere in fqn" containment, which is what let a 3-word query match a
+  9-word FQN); (b) an adjacency/order constraint - the query''s words must appear as a contiguous or near-
+  contiguous run in the FQN''s own word sequence, not scattered or reordered. Pick whichever candidate (or
+  combination) correctly admits every already-required true positive in the existing test suites (see the next
+  input) while correctly rejecting the real "set pattern color"/"set color pattern" false positives above -
+  record your measured numbers and the real symbols/queries you tested against in your own report, the same way
+  TC-273 recorded its coverage numbers.'
+- 'Do-not-break list, read both files in full first: tests/mcp/test_search_symbols_honest_miss.py locks in exact
+  FQN match, case-insensitive final-segment match, miss-not-match for a token-sharing-but-absent symbol
+  ("PdfDocument.Rotate"), fuzzy suggestion on a near-miss, WHOLE-WORD single-token match ("watermark" against
+  PdfDocument.AddWatermarkAnnotation - this is the true positive your Fix B measurement must keep admitting),
+  miss for a name sharing no word, miss for a partial/truncated word ("Watermar"/"Annotat" must stay Misses), and
+  C++ `::`-scoped FQN handling. tests/mcp/tools/test_retrieval_tools.py has test_search_symbols_finds_a_real_
+  published_symbol and test_search_symbols_returns_an_explicit_miss_never_a_widened_result (the honest-miss
+  invariant itself) plus pseudo-symbol-exclusion and miss-suggestion tests. Confirmed (by this card''s own
+  investigation): none of these assertions pin the ORDER of multiple returned matches (all use `any(...)` over
+  the result list) - Fix A''s reordering is safe against every one of them as written. Run both files in full,
+  twice, before and after your changes.'
+- 'Add new tests (in tests/mcp/tools/test_retrieval_tools.py, this file''s own existing search_symbols test
+  section) proving both fixes against the REAL production chunking path (build_chunks_from_api_surface, not a
+  hand-shaped synthetic fixture): Fix A - querying "Annotation" against the real pdf/net fixture ranks the base
+  class ahead of its subclasses (a direct regression test for the exact buried-too-deep case this card closes);
+  Fix B - "set pattern color"/"set color pattern" against the real pdf/net fixture return an honest Miss, not
+  BasicSetColorAndPatternOperator (a direct regression test for the exact confident-wrong case this card closes),
+  while "watermark" against the real pdf/net fixture''s AddWatermarkAnnotation still correctly matches (proving
+  Fix B did not regress an existing true positive).'
+- 'Do NOT fold in or attempt to fix, as a side effect of this card, the SEPARATE defect this card''s own
+  investigation also found: build_chunks_from_api_surface publishes one chunk per TYPE with a single FQN line
+  naming only the class, so a query naming a METHOD (e.g. "SetRotation" for the real Aspose.Pdf.Page.SetRotation)
+  can never pass is_exact_symbol_hit no matter how BM25 ranks its containing chunk, producing a Miss with a
+  misleading suggestion for a symbol that genuinely exists. This is a different bug shape (extraction/matching
+  granularity, not a ranking/threshold problem) requiring its own measurement and test coverage - it is tracked
+  separately (see docs/DECISION_LOG.md) and must not be touched by this card.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read search_symbols.py's three-branch is_exact_symbol_hit and search_symbols() in full before changing anything.
+- Restructure the three branches into a tier-returning helper; sort admitted candidates by tier then BM25 score.
+- Empirically measure a precision floor for the bag-of-words tier against 3 real pilots; wire it in.
+- Add regression tests for both fixes against the real production chunking path; run the full do-not-break list
+  twice, before and after.
+checks:
+- command: '{python} -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py
+    -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 8
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py');s=p.read_text(encoding='utf-8');old='_match_tier';new='_match_tier_DISABLED';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Renames the LAST occurrence of "_match_tier" in the file - the real call site inside search_symbols()
+    that sorts admitted candidates by tier, not the function's own definition (which this card mandates the
+    worker name exactly this way) - so the new tiered-ranking/precision-floor behavior is disabled (a NameError
+    at the real call site) and every new test proving either fix must fail. Built with plain text, no backslash,
+    using rindex per this session's established vacuous-falsifier safeguard. If the worker names the new
+    function something else, the falsifier must be updated to match - report this explicitly rather than
+    silently adjusting the negative control to fit whatever was built.
+evidence:
+- evidence/build/G2/TC-278/receipt.json
+closeout:
+- search_symbols ranks already-admitted matches by the strength of evidence that admitted them (exact FQN, then
+  final segment, then bag-of-words), not by raw BM25 density alone, so a real base class is never buried behind
+  its own subclasses; and the bag-of-words tier has a real, measured precision floor so a query naming a
+  nonexistent feature gets an honest Miss instead of a confident wrong top-1 - without weakening any single
+  already-required true positive.
+recovery: Re-run from a clean tree.
