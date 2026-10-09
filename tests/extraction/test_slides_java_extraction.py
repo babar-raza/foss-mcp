@@ -11,13 +11,24 @@ pdf/java. The real repository has 241 public types - under the CLI's real defaul
 ``--max-types 300`` cap, so this fixture was regenerated at the project's actual intended
 cap (TC-257, after TC-252's centrality-ranked ``reduce_fixture()`` landed on main) and keeps
 every one of them: ``reduced_type_count`` equals ``type_count`` (241) and ``truncated`` is
-``False``. The fixture is 2,107,179 bytes.
+``False``.
 
 This fixture's original onboarding (TC-167) used the pre-TC-252 alphabetical cut at an
 explicit ``--max-types 150``, which kept only the "IPresentation" interface and silently
 dropped the "Presentation" class itself - the single most central type in a presentation
 library, and the exact defect this regeneration exists to prove fixed. ``Presentation`` is
 now present (see ``test_the_fixture_keeps_the_presentation_class_itself`` below).
+
+TC-287 (2026-10-09): TC-257's regeneration ran BEFORE TC-261 (the C3 fix adding
+``inherited_from`` provenance tagging) landed on main, so this fixture had real inheritance
+(bases, copied members) but carried zero ``inherited_from`` tags anywhere - the exact defect
+TC-261 was supposed to close. Re-running the same extraction now that both TC-252 and TC-261
+are on main is a pure, purely-additive re-pin: the diff against the prior commit is exactly
+1,641 inserted lines, every one of them an ``"inherited_from": "..."`` key added to an
+already-copied member - same 241 types, same source commit, same structure otherwise. See
+``test_a_real_inherited_member_carries_the_correct_inherited_from_tag`` below for a genuine
+multi-level chain proving the tag is rooted to the real original declaring interface, not an
+intermediate one it was copied through.
 
 Unlike pdf/java's reduced subset, this surface does exercise Java's ``record`` form: two
 ``record_declaration`` entries (``CommentsPartEntry``, ``FontData``). Their presence depends
@@ -166,3 +177,45 @@ def test_a_real_interface_class_enum_and_record_are_present() -> None:
     record_methods = {m["name"]: m for m in record["methods"]}
     assert "getFontName" in record_methods
     assert record_methods["getFontName"]["return_type"] == "String"
+
+
+def test_a_real_inherited_member_carries_the_correct_inherited_from_tag() -> None:
+    # TC-287's headline assertion: this fixture's real inheritance predates TC-261's
+    # inherited_from provenance fix, so before this regeneration every copied member was
+    # untagged. 1,641 real copied members now carry the tag (verified live during this
+    # card's run). This test picks one genuine multi-level chain and proves the tag is
+    # rooted to the real ORIGINAL declaring interface, not the intermediate one the member
+    # was copied through - the same shape TC-261 itself required proof of.
+    #
+    # Real chain: IBaseSlide extends IThemeable (among others); IThemeable itself extends
+    # ISlideComponent. ISlideComponent is the interface that actually declares getSlide();
+    # IThemeable has no getSlide() of its own, so its copy is tagged back to
+    # ISlideComponent. IBaseSlide's own copy must preserve that same root, not the
+    # intermediate IThemeable it was copied through.
+    data = _load_fixture()
+    by_name = {entry["name"]: entry for entry in data["types"]}
+
+    slide_component = by_name["ISlideComponent"]
+    assert slide_component["bases"] == ["IPresentationComponent"]
+    slide_component_methods = {m["name"]: m for m in slide_component["methods"]}
+    # getSlide is genuinely declared by ISlideComponent itself - no inherited_from key.
+    assert "inherited_from" not in slide_component_methods["getSlide"]
+
+    themeable = by_name["IThemeable"]
+    assert "ISlideComponent" in themeable["bases"]
+    themeable_methods = {m["name"]: m for m in themeable["methods"]}
+    assert (
+        themeable_methods["getSlide"]["inherited_from"]
+        == "org.aspose.slides.foss.ISlideComponent"
+    )
+
+    base_slide = by_name["IBaseSlide"]
+    assert "IThemeable" in base_slide["bases"]
+    base_slide_methods = {m["name"]: m for m in base_slide["methods"]}
+    # IBaseSlide inherits getSlide transitively THROUGH IThemeable, but the tag stays
+    # rooted to ISlideComponent - the real original declarer - not the intermediate
+    # IThemeable it was copied through.
+    assert (
+        base_slide_methods["getSlide"]["inherited_from"]
+        == "org.aspose.slides.foss.ISlideComponent"
+    )
