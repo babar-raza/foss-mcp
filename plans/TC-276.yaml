@@ -20,9 +20,11 @@ purpose: 'Fix C1-out-of-line (found by the TC-271/cells-cpp worker, recorded in 
   surfaced, not introduced, by TC-271''s required careful inspection).'
 depends_on:
 - TC-259
+- TC-215
 write_paths:
 - src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py
 - tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py
+- tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -76,6 +78,21 @@ inputs:
   a follow-up wave once this fix is reviewed and accepted, exactly mirroring how TC-259 itself was followed by a
   separate regeneration wave rather than regenerating fixtures as part of the root-cause fix itself.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
+- 'REWORK (attempt 2): attempt 1''s fix is correct and well-verified (live parse probe, negative-control self-check,
+  regression coverage for TC-259''s own cases and the pre-existing out-of-line-constructor path). Full suite
+  surfaced exactly one real, directly-attributable failure: tests/extraction/tree_sitter_engine/
+  test_consolidate_classes_free_functions.py::test_real_cells_cpp_free_function_count_increases_substantially
+  (now in your write_paths) asserts `len(cells_cpp_free_functions) >= 250`; your fix correctly removes the
+  phantom out-of-line-member entries this test''s own docstring (from TC-092) already names and explicitly defers
+  ("This is a real, distinct, pre-existing defect... It is not fixed here... consider it for a follow-up
+  taskcard") - TC-276 IS that follow-up. The real count after your fix is legitimately lower (confirmed by you:
+  146) because the removed ~100+ entries were never genuine free functions. Update that test''s threshold to
+  reflect the real, current, post-fix count (measure it yourself directly from your own fix''s output, do not
+  reuse the 146 figure blindly - confirm it independently) and update its docstring to record that this
+  recalibration is a direct, intended consequence of TC-276 closing the exact gap TC-092''s own docstring flagged,
+  not a weakening of the check''s intent (the check still proves free functions are found and counted; it no
+  longer counts phantoms as thought they were free functions). Re-run this test file, plus your original check
+  command, then the full suite once more.'
 actions:
 - Read _cpp_is_free_function, _cpp_free_function_name, and _node_name's cpp branch in full before changing anything.
 - Verify empirically that out-of-line definitions have a header-declared counterpart in real source before
@@ -84,7 +101,7 @@ actions:
 - Add tests for the reference-return, value-return, genuine-constructor, and unchanged-TC-259-cases; run the
   full existing suite unchanged, then the full project suite once.
 checks:
-- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py -q -rfE'
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py -q -rfE'
   expect: exit 0
   timeout_seconds: 120
   junitxml: true
