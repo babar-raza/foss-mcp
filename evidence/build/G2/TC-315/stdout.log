@@ -1,0 +1,83 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_api_surface_javascript.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-x_htxrl1\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_api_surface_javascript.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-x_htxrl1\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/api_surface.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_api_surface_javascript.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-x_htxrl1\.junit-0.xml"
+--- stdout ---
+FF....                                                                   [100%]
+================================== FAILURES ===================================
+_ test_javascript_same_name_classes_in_different_files_derive_distinct_namespaces _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4427/test_javascript_same_name_clas0')
+
+    def test_javascript_same_name_classes_in_different_files_derive_distinct_namespaces(
+        tmp_path: Path,
+    ) -> None:
+        package = _write_jmap_nodejs_fixture(tmp_path)
+        types, *_ = api_surface.extract_api_surface(
+            get_parser("javascript"), "javascript", package, tmp_path, "jmap"
+        )
+    
+        jmap_clients = [t for t in types if t.get("name") == "JmapClient"]
+    
+        # The exact TC-315 bug: before the fix, only one `JmapClient` entry survived
+        # `consolidate_classes()` -- the near-empty wrapper -- because neither entry had a
+        # namespace signal, so both landed in the same dedup group and the "has bases = more
+        # complete" heuristic kept the wrapper (bases=["CoreClient"]) and discarded the real
+        # implementation (bases=[]).
+>       assert len(jmap_clients) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': '', 'file': 'src/index.js', ...}])
+
+tests\extraction\tree_sitter_engine\test_api_surface_javascript.py:95: AssertionError
+______ test_javascript_canonical_namespace_derived_from_nested_file_path ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4427/test_javascript_canonical_name0')
+
+    def test_javascript_canonical_namespace_derived_from_nested_file_path(tmp_path: Path) -> None:
+        (tmp_path / "package.json").write_text('{"name": "widget"}\n', encoding="utf-8")
+        package = tmp_path / "src"
+        (package / "models").mkdir(parents=True)
+        (package / "models" / "widget.js").write_text(
+            """
+    export class Widget {
+      constructor(name) {
+        this.name = name;
+      }
+    }
+    """,
+            encoding="utf-8",
+        )
+        types, *_ = api_surface.extract_api_surface(
+            get_parser("javascript"), "javascript", package, tmp_path, "widget"
+        )
+        by_name = {t["name"]: t for t in types}
+    
+        # module_path derived from the file's path relative to pkg_root, stripping the .js
+        # extension -- mirroring the typescript/python branches' own convention exactly.
+>       assert by_name["Widget"]["canonical_namespace"] == "models.widget"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'canonical_namespace'
+
+tests\extraction\tree_sitter_engine\test_api_surface_javascript.py:142: KeyError
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_api_surface_javascript.py::test_javascript_same_name_classes_in_different_files_derive_distinct_namespaces
+FAILED tests/extraction/tree_sitter_engine/test_api_surface_javascript.py::test_javascript_canonical_namespace_derived_from_nested_file_path
+
+--- stderr ---
+
