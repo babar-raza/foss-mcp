@@ -143,12 +143,8 @@ def test_encryption_parameters_subclasses_have_a_hand_verified_genuine_absence_o
     # relationship is the one hand-verified above, and every stdlib Enum/IntEnum base is never
     # itself a kept type in this fixture, so it can never seed an inherited_from tag either.
     assert not any(
-        method.get("inherited_from")
-        for entry in data["types"]
-        for method in entry.get("methods", [])
+        method.get("inherited_from") for entry in data["types"] for method in entry.get("methods", [])
     )
     assert not any(
-        prop.get("inherited_from")
-        for entry in data["types"]
-        for prop in entry.get("properties", [])
+        prop.get("inherited_from") for entry in data["types"] for prop in entry.get("properties", [])
     )
