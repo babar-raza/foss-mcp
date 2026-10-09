@@ -12,9 +12,11 @@ purpose: 'Regenerate tests/fixtures/pdf_go/api_surface.json with TC-252''s fixed
   it rather than patching around it or committing a broken fixture.'
 depends_on:
 - TC-252
+- TC-123
 write_paths:
 - tests/fixtures/pdf_go/api_surface.json
 - tests/extraction/test_pdf_go_extraction.py
+- tests/e2e/test_pdf_go_live_content.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -43,6 +45,17 @@ inputs:
   full-suite check at the end shows some other existing test now fails because it depended on the OLD fixture''s
   specific content - STOP, do not guess-fix a file outside your write_paths, and report exactly which test and why,
   so a properly scoped rework restatement can be issued.'
+- 'REWORK (attempt 2): your attempt 1 correctly stopped - "Page" is confirmed recovered (kind type_spec, file
+  page.go, real methods including RenderBMP/AddFloatingBox/Forms). One real, directly-attributable downstream
+  failure: tests/e2e/test_pdf_go_live_content.py hardcodes REAL_SOURCE_COMMIT = "286484d235196d65c9a458c5eff3d3d6539216dc"
+  (the old fixture''s commit); your real re-extraction landed on a newer real upstream commit
+  (cdf43df10c8c565ecaa978428b1fe66ad6685f8d, confirmed directly from your own regenerated fixture''s source_commit
+  field - do not hardcode this number blindly, verify it against your own committed fixture), so
+  report_index_freshness now correctly reports staleness against that old constant. Update REAL_SOURCE_COMMIT to
+  the real current value and re-run tests/e2e/test_pdf_go_live_content.py''s full file (a real docker rebuild - be
+  patient) to confirm every test in it passes now. Do not touch ops/tests/test_parallel_dispatch.py (a known,
+  unrelated worktree-path artifact already confirmed elsewhere this session) - it stays out of scope regardless of
+  what the full suite shows.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
 - Confirm TC-252 is integrated and its fix is really what main's reduce_fixture does now.
@@ -52,6 +65,12 @@ checks:
 - command: '{python} -m pytest tests/extraction/test_pdf_go_extraction.py -q -rfE'
   expect: exit 0
   timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/e2e/test_pdf_go_live_content.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
   junitxml: true
   proves:
   - REQ-G2-043
