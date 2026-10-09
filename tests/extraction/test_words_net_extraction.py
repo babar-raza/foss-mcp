@@ -48,9 +48,30 @@ def test_the_fixture_contains_real_dotnet_type_names() -> None:
     data = _load_fixture()
     names = {entry["name"] for entry in data["types"]}
     # Real Aspose.Words types, not placeholders - would not survive an empty or synthetic fixture.
-    assert {"Document", "DocumentBuilder", "ArrowType"} <= names
+    assert {"Document", "Field", "ArrowType"} <= names
     assert all(entry.get("class_import", "").startswith("Aspose.Words") for entry in data["types"])
     assert all(entry["file"].endswith(".cs") for entry in data["types"])
+
+
+def test_the_fixture_keeps_fieldtype_after_the_centrality_ranked_selection_fix() -> None:
+    """TC-252 replaced reduce_fixture's alphabetical truncation with a centrality-ranked one.
+    This pilot is .NET-sourced via the shared tree-sitter engine (not Python), so it was never
+    affected by the Python-only centrality-no-op bug TC-265 fixed - its "bases" data was already
+    real before this card ran. This project has no audit-named symbol for this specific pilot,
+    so an independent measurement over the real, full (pre-truncation) 618-type set is the
+    concrete proof the centrality fix works here too: "FieldType" (Aspose.Words.Fields.FieldType)
+    scored highest - 103 OTHER types in the artifact reference its bare name in a base, a method's
+    return_type/params, or a property's type - of any type in the real upstream artifact, measured
+    directly against commit 0d3f1add920f5294d726b4f286c2d6ba7c3ae22c. It must be among the 300
+    kept types, with its own real qualified name, source file, and enum members."""
+    data = _load_fixture()
+    field_type_entries = [entry for entry in data["types"] if entry["name"] == "FieldType"]
+    assert field_type_entries, "FieldType must be present among the kept types"
+    field_type = field_type_entries[0]
+    assert field_type["class_import"] == "Aspose.Words.Fields.FieldType"
+    assert field_type["kind"] == "enum_declaration"
+    assert field_type["file"].endswith(".cs")
+    assert field_type["enum_members"], "FieldType is a real enum - it must carry real members"
 
 
 def test_every_entry_is_a_real_csharp_declaration_kind() -> None:
