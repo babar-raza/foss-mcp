@@ -19,6 +19,20 @@ Centrality is genuinely non-degenerate now: scores range 0-115 over the full 102
 before truncation, with ``IPresentationComponent`` the single highest-scoring type (115) - and,
 since ``reduce_fixture()`` keeps the full pre-truncation sort order, it is this fixture's own
 first entry.
+
+G2/TC-291 (re-pinned again, same commit, after two more real fixes landed on main): TC-281 made
+``_flatten_inheritance()`` actually run for Python-sourced pilots, but this pilot's own real data
+exposed a second, independent defect in that function itself - EVERY one of its 300 kept types is
+one half of a facade/real-module pair sharing one bare name (a package-level re-export shell with
+``methods: []`` and the real defining-module entry with the real methods), and
+``_flatten_inheritance()``'s short-name index used to let the empty shell permanently win that
+slot (its shorter ``class_import`` always sorts first). Confirmed directly: a real re-run against
+TC-281 alone still carried zero ``inherited_from`` tags anywhere in the full 1023-type corpus for
+this pilot - a complete no-op, not a truncation artifact. TC-293 fixed the index itself (prefer a
+structured-data-bearing candidate over an empty shell on a collision); this real re-run, now on
+top of TC-293, carries 449 ``inherited_from`` tags across the reduced 300 kept types. "Shape" (this
+pilot's own live-e2e anchor, ``tests/e2e/test_slides_python_live_content.py``) is unaffected: same
+27 own methods, same real ``bases``, now plus 3 genuinely inherited ones.
 """
 
 from __future__ import annotations
@@ -96,3 +110,53 @@ def test_the_highest_centrality_type_survives_the_cut() -> None:
     assert data["types"][0]["name"] == "IPresentationComponent"
     assert data["types"][0]["class_import"] == "aspose.slides_foss.IPresentationComponent"
     assert "Presentation" not in {entry["name"] for entry in data["types"]}
+
+
+def test_shapes_own_real_method_is_untouched_by_flattening() -> None:
+    """``Shape`` (``aspose.slides_foss.Shape.Shape``) is this pilot's own live-e2e anchor
+    (``tests/e2e/test_slides_python_live_content.py``'s ``REAL_SYMBOL_FQN``/``REAL_METHOD_FRAGMENT``):
+    it must keep its real, locally-declared ``presentation`` method exactly as TC-277 left it -
+    child definitions take precedence over an inherited one of the same name, per
+    ``_flatten_inheritance()``'s own documented contract - even though ``IPresentationComponent``
+    (one of Shape's own six real bases) also declares a ``presentation`` method.
+    """
+    data = _load_fixture()
+    shape = next(entry for entry in data["types"] if entry["class_import"] == "aspose.slides_foss.Shape.Shape")
+    assert shape["bases"] == [
+        "StrictAttributes",
+        "IShape",
+        "ISlideComponent",
+        "IPresentationComponent",
+        "IHyperlinkContainer",
+        "ABC",
+    ]
+    presentation = next(m for m in shape["methods"] if m["name"] == "presentation")
+    assert presentation["return_type"] == "IPresentation"
+    assert "inherited_from" not in presentation
+
+
+def test_a_real_multi_level_inherited_member_carries_the_correct_inherited_from_tag() -> None:
+    """G2/TC-291's own closing proof, using the strongest real multi-level chain in this corpus
+    (per the card's own instruction to prefer one over a direct-parent case): ``IChart``'s real
+    class_import (``aspose.slides_foss.charts.IChart.IChart``) declares bases
+    ``["IGraphicalObject", "IFormattedTextContainer", "IChartComponent", "ABC"]`` - none of them
+    ``IPresentationComponent``, ``IShape``, or ``ISlideComponent`` - yet its real ``presentation``
+    method (the same method name/return-type Shape itself declares directly, see the test above)
+    is tagged ``inherited_from: "aspose.slides_foss.IPresentationComponent.IPresentationComponent"``:
+    the TRUE original declaring ancestor, reached only transitively (confirmed directly against
+    this fixture's own committed content: ``IGraphicalObject``'s real bases are
+    ``["IShape", "ABC"]``, and ``IShape``'s real bases include ``IPresentationComponent``
+    directly) - never ``IGraphicalObject`` or ``IShape``, the two intermediates IChart actually
+    passes through on the way there. This is real, run-verified proof that TC-293's fix to
+    ``_flatten_inheritance()``'s short-name index - preferring a structured-data-bearing
+    candidate over an empty package-re-export shell on a collision - reaches this pilot's real,
+    committed fixture, not just TC-293's own scratch-path verification against 3d/python and
+    words/python.
+    """
+    data = _load_fixture()
+    ichart = next(
+        entry for entry in data["types"] if entry["class_import"] == "aspose.slides_foss.charts.IChart.IChart"
+    )
+    assert ichart["bases"] == ["IGraphicalObject", "IFormattedTextContainer", "IChartComponent", "ABC"]
+    presentation = next(m for m in ichart["methods"] if m["name"] == "presentation")
+    assert presentation["inherited_from"] == "aspose.slides_foss.IPresentationComponent.IPresentationComponent"
