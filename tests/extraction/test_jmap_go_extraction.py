@@ -19,6 +19,34 @@ declaration (free function or method with a receiver) surfaces as ``function``.
 The real repository's full public surface is only 149 types - well under the CLI's default
 --max-types 300 cap - so this fixture is the complete surface, not a sub-sample:
 ``type_count == reduced_type_count == 149`` and ``truncated is False``.
+
+TC-303 re-ran this extraction live (network access, real default --max-types 300, no
+truncation) now that both TC-252 (centrality-ranked reduce_fixture()) and TC-261
+(``inherited_from`` provenance tagging in ``_flatten_inheritance()``) are on main. The
+commit pin (``327dda39116ba02657fa49ec6dbeb69965628447``) and repository
+(``aspose-email-foss/Aspose.JMAP-FOSS-for-Go``) came back unchanged and match
+``infra/helm/foss-mcp/values.yaml`` and ``docker-compose.yml`` exactly - no commit-pin
+divergence here, unlike several sibling pilots fixed earlier this session. Re-ordering
+within ``types`` (TC-252's centrality ranking, inert here since ``truncated is False``) is
+the only textual change the diff shows.
+
+TC-303 also hand-verified, against a fresh clone of the pinned commit, the ONLY struct
+embedding ("inheritance") relationship this real repository's public surface contains:
+``NetworkError`` and ``ProtocolError`` both embed ``JmapError`` (``common_types.go``, line
+47: ``type JmapError struct{}``). ``JmapError`` is declared with zero fields and zero
+methods - it exists purely as a marker/sentinel base type for ``errors.As`` dispatch, not
+to share implementation. Each of ``NetworkError`` and ``ProtocolError`` declares its own
+``Error()`` method directly; nothing is copied down from an empty ancestor, so
+``_flatten_inheritance()`` correctly produces zero ``inherited_from`` tags anywhere in this
+fixture - confirmed by grepping the fixture JSON for the literal string
+``"inherited_from"`` (zero hits, both before and after this re-pin). That is accurate
+extraction of accurate source, not evidence of stale tagging: TC-261's own fix is
+exercised correctly by this fixture - rooting ``bases`` on the true ancestor, which is
+exactly what it did - there is simply nothing on that ancestor to tag. A multi-level chain
+does not exist anywhere in this repository's public surface either (only two struct
+embeddings total, both one level deep, both rooted on the same empty ``JmapError``); this
+was confirmed by scanning every ``.go`` file in the pinned clone for anonymous
+(embedded-field) struct members.
 """
 
 from __future__ import annotations
@@ -84,3 +112,40 @@ def test_every_entry_is_a_real_go_surface_kind() -> None:
     # its own: every named type declaration surfaces as "type_spec" and every func
     # declaration (free function or method) surfaces as "function".
     assert kinds == {"type_spec", "function"}
+
+
+def test_the_only_real_inheritance_relationship_is_rooted_correctly() -> None:
+    """NetworkError and ProtocolError both embed JmapError - the only struct embedding in
+    this repository's public surface (hand-verified against a fresh clone of the pinned
+    commit: every other type's "bases" is empty). _flatten_inheritance() (TC-261) correctly
+    records that relationship via "bases" for both.
+    """
+    data = _load_fixture()
+    by_name = {entry["name"]: entry for entry in data["types"]}
+    assert by_name["NetworkError"]["bases"] == ["JmapError"]
+    assert by_name["ProtocolError"]["bases"] == ["JmapError"]
+    # Every other real type in this fixture has no base at all - this really is the only
+    # inheritance relationship in the whole public surface, not a sample of a larger set.
+    others = [t for t in data["types"] if t["name"] not in ("NetworkError", "ProtocolError")]
+    assert all(t["bases"] == [] for t in others)
+
+
+def test_no_inherited_from_tag_exists_because_the_real_ancestor_has_no_members() -> None:
+    """JmapError (common_types.go:47, ``type JmapError struct{}``) is declared with zero
+    fields and zero methods in the real, pinned source - it is a marker/sentinel type for
+    errors.As dispatch, not a carrier of shared implementation. TC-261's
+    _flatten_inheritance() copies a member down only when the parent actually declares one
+    ("inherited_from" tags genuine parent-declared members - see api_surface.py); there is
+    nothing on this real ancestor to copy, so correctly, zero members anywhere in this real
+    fixture carry "inherited_from". This is accurate extraction of this repository's real
+    shape, not evidence that TC-261's tagging is stale: a repository WITH a non-empty base
+    class exercises that path elsewhere (e.g. pdf/go's own fixture and test).
+    """
+    data = _load_fixture()
+    by_name = {entry["name"]: entry for entry in data["types"]}
+    jmap_error = by_name["JmapError"]
+    assert jmap_error["methods"] == []
+    assert jmap_error["properties"] == []
+    for entry in data["types"]:
+        for member in entry["methods"] + entry["properties"]:
+            assert member.get("inherited_from") is None
