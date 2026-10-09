@@ -1,0 +1,105 @@
+id: TC-281
+gate: G2
+lane: extraction
+purpose: 'Fix C6 finding #2 (per-language extraction fidelity, third independent audit 2026-10-08, confirmed by
+  a dedicated 2026-10-09 investigation recorded in docs/DECISION_LOG.md): inheritance flattening
+  (src/foss_mcp/extraction/tree_sitter_engine/api_surface.py''s _flatten_inheritance(), the same function TC-261
+  added provenance tagging to for C3) ARCHITECTURALLY NEVER RUNS for any Python-sourced pilot. Confirmed by
+  direct code reading: run_extraction.py routes every Python platform to _extract_python_surface(), which calls
+  python_surface.inspect_public_surface() directly and NEVER calls api_surface.extract_api_surface() - the only
+  place _flatten_inheritance() is invoked (api_surface.py line ~4113), strictly inside that pipeline. This is
+  deeper and more severe than C3''s original framing (a member silently mislabeled as locally-declared): for
+  Python, an inherited member is not mislabeled, it is ENTIRELY ABSENT from the subclass''s own methods/properties
+  list. Live-confirmed: words_python''s real Aspose.Words-FOSS-for-Python.light_document_model.Paragraph(NodeCastMixin)
+  has 6 own methods; NodeCastMixin itself genuinely has 8 methods; none of those 8 appear on Paragraph in the
+  committed fixture at all. An agent calling get_symbol/list_members on Paragraph sees "Bases: [NodeCastMixin]"
+  (populated by TC-265''s own fix) but has no way to discover what methods that base class actually contributes -
+  a real completeness gap across all 12 Python-sourced pilots (TC-274''s own enumeration), distinct from and not
+  covered by TC-261''s fix, which only ever executes for the tree-sitter-routed languages.'
+depends_on:
+- TC-252
+- TC-261
+- TC-265
+- TC-274
+write_paths:
+- src/foss_mcp/extraction/run_extraction.py
+- tests/extraction/test_run_extraction_python.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read src/foss_mcp/extraction/tree_sitter_engine/api_surface.py''s _flatten_inheritance() (~line 2425-2502,
+  including TC-261''s own docstring paragraph about provenance) in full first. Confirm it is GENUINELY language-
+  agnostic: it takes `classes: list[dict]` and operates purely on dict keys (`class_import`, `name`, `bases`,
+  `methods`, `properties`) with no language-specific branching anywhere in its own body - this is the
+  architecture decision already made (by the supervisor, recorded here): reuse this exact function unmodified on
+  Python-sourced type dicts, never write a second, Python-specific flattening implementation. Confirm
+  src/foss_mcp/extraction/run_extraction.py already imports `api_surface` at module level (it does, alongside
+  `package_root`/`python_surface` - confirm the exact import line yourself) so no new import is needed beyond
+  calling `api_surface._flatten_inheritance(...)`.'
+- 'In run_extraction.py''s _extract_python_surface() (~line 156-164), after `types =
+  _python_types_from_surface(surface)` and before the function returns, call
+  `api_surface._flatten_inheritance(types)` (mutates `types` in place, exactly as it already does for the
+  tree-sitter-routed languages - do not assume a different call convention, read the function''s own signature
+  and every existing call site in api_surface.py first). Confirm _python_types_from_surface already populates
+  each entry''s `bases`/`methods`/`properties`/`class_import`/`name` fields in the shape _flatten_inheritance
+  expects (TC-265 added `bases`; confirm `methods`/`properties` are already dict-shaped compatibly - read the
+  function yourself rather than assuming).'
+- 'Verify directly, by running the real extraction for at least 2 real Python pilots with a genuine local-base
+  inheritance relationship (e.g. words/python''s real Paragraph(NodeCastMixin) case named above, and a second
+  pilot of your own choosing with network access), that a subclass''s own methods/properties list now genuinely
+  contains its base class''s real methods, each carrying the correct `inherited_from` key rooted to the real
+  declaring ancestor (test a multi-level chain if one exists in either real pilot you check, mirroring TC-261''s
+  own multi-level verification requirement - do not assume one level is sufficient without checking).'
+- 'Add tests to tests/extraction/test_run_extraction_python.py (read this file''s own existing construction
+  convention first - it already tests _python_types_from_surface''s TC-265 fields): a synthetic multi-class
+  Python source tree (a base class with real methods, a subclass with its own methods plus the base as a real
+  `bases` entry) run through `_extract_python_surface()` end-to-end, asserting the subclass''s own methods list
+  now contains the base''s methods with the correct `inherited_from` tag, AND a direct regression test proving a
+  genuinely own-declared method on the subclass never gains an `inherited_from` tag (mirroring
+  test_flatten_inheritance_provenance.py''s own do-not-break convention from TC-261, applied here for the first
+  time to the Python path).'
+- 'Do NOT regenerate any committed Python fixture as part of this card - every one of the 12 Python-sourced
+  fixtures needs independent re-measurement and re-pinning in a follow-up wave once this fix is reviewed and
+  accepted, exactly mirroring how TC-265 and TC-274 were each followed by a separate regeneration wave rather
+  than regenerating fixtures as part of the root-cause fix itself.'
+- 'Run the full existing test_run_extraction_python.py suite with zero changes to any pre-existing assertion,
+  then your new tests, then the full project suite once, and report honestly. If anything outside your two
+  write_paths breaks, STOP and report rather than patching around it.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read _flatten_inheritance and _extract_python_surface in full before changing anything.
+- Add the single call api_surface._flatten_inheritance(types) inside _extract_python_surface, after building types.
+- Verify against at least 2 real Python pilots with real inheritance that subclass methods/properties now
+  include correctly-tagged inherited members.
+- Add tests for the synthetic multi-class case and the own-declared-never-tagged regression; run the full
+  existing suite unchanged, then the full project suite once.
+checks:
+- command: '{python} -m pytest tests/extraction/test_run_extraction_python.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 5
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/run_extraction.py');s=p.read_text(encoding='utf-8');old='_flatten_inheritance';new='_flatten_inheritance_DISABLED';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Renames the LAST occurrence of "_flatten_inheritance" in run_extraction.py - the real new call site
+    this card adds, not any earlier, unrelated mention - so Python inheritance flattening is disabled again
+    (an AttributeError at the real call site) and every new test proving a subclass now carries its base's
+    inherited methods must fail. Built with plain text, no backslash, using rindex per this session's
+    established vacuous-falsifier safeguard.
+evidence:
+- evidence/build/G2/TC-281/receipt.json
+closeout:
+- A Python-sourced type's own methods/properties list genuinely includes its real base class's inherited
+  members, each correctly tagged with inherited_from rooted to the real declaring ancestor - closing the
+  architectural gap that made inheritance flattening (and TC-261's own C3 fix) never execute for any of the 12
+  Python-sourced pilots.
+recovery: Re-run from a clean tree.
