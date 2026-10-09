@@ -1,0 +1,1444 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mchgrw1d\.junit-0.xml"
+--- stdout ---
+..............................................                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mchgrw1d\.junit-0.xml"
+--- stdout ---
+..............................................                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_symbols.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mchgrw1d\.junit-0.xml"
+--- stdout ---
+FFFFF..FFFFFFFF.FFF.......F.......FF...FFFFFFF                           [100%]
+================================== FAILURES ===================================
+______________________ test_an_exact_fqn_returns_a_match ______________________
+
+    def test_an_exact_fqn_returns_a_match() -> None:
+>       result = search_symbols(_InMemoryGenerationStore(), PDF_NET_SCOPE, "PdfDocument.AddWatermarkAnnotation")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_search_symbols_honest_miss.py:69: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'PdfDocument.AddWatermarkAnnotation'
+fqn = 'PdfDocument.AddWatermarkAnnotation'
+text = 'FQN: PdfDocument.AddWatermarkAnnotation\nKind: Method\nAdds a watermark annotation to the page.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+_________ test_an_exact_final_segment_in_another_case_returns_a_match _________
+
+    def test_an_exact_final_segment_in_another_case_returns_a_match() -> None:
+>       result = search_symbols(_InMemoryGenerationStore(), PDF_NET_SCOPE, "addwatermarkannotation")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_search_symbols_honest_miss.py:76: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'addwatermarkannotation', fqn = 'PdfDocument.AddWatermarkAnnotation'
+text = 'FQN: PdfDocument.AddWatermarkAnnotation\nKind: Method\nAdds a watermark annotation to the page.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+_ test_an_absent_symbol_sharing_a_token_with_a_real_one_is_a_miss_not_a_match _
+
+    def test_an_absent_symbol_sharing_a_token_with_a_real_one_is_a_miss_not_a_match() -> None:
+        # "PdfDocument" is a real token in two indexed FQNs, but "PdfDocument.Rotate" is not one of them.
+>       result = search_symbols(_InMemoryGenerationStore(), PDF_NET_SCOPE, "PdfDocument.Rotate")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_search_symbols_honest_miss.py:84: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'PdfDocument.Rotate', fqn = 'PdfDocument.Merge'
+text = 'FQN: PdfDocument.Merge\nKind: Method\nMerges several documents into one.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+________ test_the_miss_for_an_absent_symbol_suggests_a_close_real_name ________
+
+    def test_the_miss_for_an_absent_symbol_suggests_a_close_real_name() -> None:
+        # A single dropped trailing character of a real FQN: a miss, with that FQN as the hint.
+>       result = search_symbols(_InMemoryGenerationStore(), PDF_NET_SCOPE, "PdfDocument.AddWatermarkAnnotatio")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_search_symbols_honest_miss.py:94: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'PdfDocument.AddWatermarkAnnotatio'
+fqn = 'PdfDocument.AddWatermarkAnnotation'
+text = 'FQN: PdfDocument.AddWatermarkAnnotation\nKind: Method\nAdds a watermark annotation to the page.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+__________ test_a_whole_word_query_finds_the_symbol_that_contains_it __________
+
+    def test_a_whole_word_query_finds_the_symbol_that_contains_it() -> None:
+>       result = search_symbols(_InMemoryGenerationStore(), PDF_NET_SCOPE, "watermark")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_search_symbols_honest_miss.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'watermark', fqn = 'PdfDocument.AddWatermarkAnnotation'
+text = 'FQN: PdfDocument.AddWatermarkAnnotation\nKind: Method\nAdds a watermark annotation to the page.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+________________ test_a_cpp_symbol_is_found_by_its_short_name _________________
+
+    def test_a_cpp_symbol_is_found_by_its_short_name() -> None:
+>       _assert_cpp_hit("AFRelationship")
+
+tests\mcp\test_search_symbols_honest_miss.py:138: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_search_symbols_honest_miss.py:133: in _assert_cpp_hit
+    texts = _matched_fqns(_cpp_result(query))
+                          ^^^^^^^^^^^^^^^^^^
+tests\mcp\test_search_symbols_honest_miss.py:129: in _cpp_result
+    return search_symbols(_InMemoryGenerationStore(_CPP_SYMBOLS), PDF_NET_SCOPE, query)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'AFRelationship', fqn = 'Aspose::Pdf::AFRelationship'
+text = 'FQN: Aspose::Pdf::AFRelationship\nKind: Enum\nDescribes how an embedded file relates to the document.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+__________________ test_a_cpp_short_name_is_case_insensitive __________________
+
+    def test_a_cpp_short_name_is_case_insensitive() -> None:
+>       _assert_cpp_hit("afrelationship")
+
+tests\mcp\test_search_symbols_honest_miss.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_search_symbols_honest_miss.py:133: in _assert_cpp_hit
+    texts = _matched_fqns(_cpp_result(query))
+                          ^^^^^^^^^^^^^^^^^^
+tests\mcp\test_search_symbols_honest_miss.py:129: in _cpp_result
+    return search_symbols(_InMemoryGenerationStore(_CPP_SYMBOLS), PDF_NET_SCOPE, query)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'afrelationship', fqn = 'Aspose::Pdf::AFRelationship'
+text = 'FQN: Aspose::Pdf::AFRelationship\nKind: Enum\nDescribes how an embedded file relates to the document.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+_____________ test_a_cpp_symbol_is_found_by_its_full_scoped_name ______________
+
+    def test_a_cpp_symbol_is_found_by_its_full_scoped_name() -> None:
+>       _assert_cpp_hit("Aspose::Pdf::AFRelationship")
+
+tests\mcp\test_search_symbols_honest_miss.py:146: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_search_symbols_honest_miss.py:133: in _assert_cpp_hit
+    texts = _matched_fqns(_cpp_result(query))
+                          ^^^^^^^^^^^^^^^^^^
+tests\mcp\test_search_symbols_honest_miss.py:129: in _cpp_result
+    return search_symbols(_InMemoryGenerationStore(_CPP_SYMBOLS), PDF_NET_SCOPE, query)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'Aspose::Pdf::AFRelationship', fqn = 'Aspose::Pdf::AFRelationship'
+text = 'FQN: Aspose::Pdf::AFRelationship\nKind: Enum\nDescribes how an embedded file relates to the document.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+______________ test_a_cpp_whole_word_of_the_short_name_is_a_hit _______________
+
+    def test_a_cpp_whole_word_of_the_short_name_is_a_hit() -> None:
+>       _assert_cpp_hit("Relationship")
+
+tests\mcp\test_search_symbols_honest_miss.py:150: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_search_symbols_honest_miss.py:133: in _assert_cpp_hit
+    texts = _matched_fqns(_cpp_result(query))
+                          ^^^^^^^^^^^^^^^^^^
+tests\mcp\test_search_symbols_honest_miss.py:129: in _cpp_result
+    return search_symbols(_InMemoryGenerationStore(_CPP_SYMBOLS), PDF_NET_SCOPE, query)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'Relationship', fqn = 'Aspose::Pdf::AFRelationship'
+text = 'FQN: Aspose::Pdf::AFRelationship\nKind: Enum\nDescribes how an embedded file relates to the document.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+____________________ test_a_cpp_partial_word_is_not_a_hit _____________________
+
+    def test_a_cpp_partial_word_is_not_a_hit() -> None:
+>       result = _cpp_result("AFRelation")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_search_symbols_honest_miss.py:154: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_search_symbols_honest_miss.py:129: in _cpp_result
+    return search_symbols(_InMemoryGenerationStore(_CPP_SYMBOLS), PDF_NET_SCOPE, query)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'AFRelation', fqn = 'Aspose::Pdf::AFRelationship'
+text = 'FQN: Aspose::Pdf::AFRelationship\nKind: Enum\nDescribes how an embedded file relates to the document.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+__________________ test_an_absent_cpp_scoped_name_is_a_miss ___________________
+
+    def test_an_absent_cpp_scoped_name_is_a_miss() -> None:
+>       result = _cpp_result("Aspose::Pdf::Nonexistent")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_search_symbols_honest_miss.py:161: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\test_search_symbols_honest_miss.py:129: in _cpp_result
+    return search_symbols(_InMemoryGenerationStore(_CPP_SYMBOLS), PDF_NET_SCOPE, query)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'Aspose::Pdf::Nonexistent', fqn = 'Aspose::Pdf::AFRelationship'
+text = 'FQN: Aspose::Pdf::AFRelationship\nKind: Enum\nDescribes how an embedded file relates to the document.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+______________ test_a_dotted_fqn_still_matches_whole_words_only _______________
+
+    def test_a_dotted_fqn_still_matches_whole_words_only() -> None:
+        store = _InMemoryGenerationStore()
+    
+        assert isinstance(search_symbols(store, PDF_NET_SCOPE, "Watermar"), Miss)
+>       texts = _matched_fqns(search_symbols(store, PDF_NET_SCOPE, "watermark"))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\test_search_symbols_honest_miss.py:171: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'watermark', fqn = 'PdfDocument.AddWatermarkAnnotation'
+text = 'FQN: PdfDocument.AddWatermarkAnnotation\nKind: Method\nAdds a watermark annotation to the page.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+______________ test_search_symbols_finds_a_real_published_symbol ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4236/test_search_symbols_finds_a_re0')
+
+    def test_search_symbols_finds_a_real_published_symbol(tmp_path: Path) -> None:
+        store = _store(tmp_path)
+        _publish_pdf_net_symbols(store)
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        real_name = fixture["types"][0]["name"]
+    
+>       result = search_symbols(store, PDF_NET_SCOPE, real_name)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'Page', fqn = 'Aspose.Pdf.Page'
+text = 'FQN: Aspose.Pdf.Page\nAspose.Pdf.Page is a class_declaration. Methods: SetRotation, Accept, GetResources, Accept, Get...atingBox, AddExtGState, AddShading, AddPattern, AddLuminositySoftMask, AddStamp, AddStamp, AddStamp, Flatten, IsBlank.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+_ test_search_symbols_excludes_tc068_pseudo_symbol_chunks_from_its_own_matching _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4236/test_search_symbols_excludes_t0')
+
+    def test_search_symbols_excludes_tc068_pseudo_symbol_chunks_from_its_own_matching(
+        tmp_path: Path,
+    ) -> None:
+        """TC-068's ``Example: <title>`` pseudo-symbols are published into the exact same
+        self_extracted generation search_symbols reads (see infra/build_chunks.py's own real
+        chunk shape: a heading, an ``FQN: Example: <title>`` line, then an ``Example:`` code
+        block). A pseudo-symbol is not a real symbol and search_symbols's own module docstring
+        says so - it must never be reported as a match, even when it lexically matches at least
+        as strongly as a real symbol answering the very same query.
+    
+        Real regression, not a mock: one real symbol chunk and one Example:-prefixed pseudo-symbol
+        chunk are published side by side, both containing the word "watermark" in their own prose,
+        so a lexical scan with no filter would return both.
+        """
+        store = _store(tmp_path)
+        real_symbol_body = """## PdfDocument.AddWatermarkAnnotation
+    
+    FQN: PdfDocument.AddWatermarkAnnotation
+    Kind: Method
+    Adds a watermark annotation to the page.
+    """
+        pseudo_symbol_body = (
+            "# Example: Add a Watermark Annotation\n\n"
+            "FQN: Example: Add a Watermark Annotation\n"
+            "Kind: verified_example\n"
+            "Adds a watermark annotation to a document using a real, verified snippet.\n\n"
+            'Example:\ndocument.AddWatermarkAnnotation("Confidential")'
+        )
+        real_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="api_surface",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="pdf/net API surface",
+            body=real_symbol_body,
+        )
+        pseudo_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="example",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="Add a Watermark Annotation",
+            body=pseudo_symbol_body,
+        )
+        chunks = chunk_document(real_doc) + chunk_document(pseudo_doc)
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+    
+>       result = search_symbols(store, PDF_NET_SCOPE, "watermark")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:207: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'watermark', fqn = 'PdfDocument.AddWatermarkAnnotation'
+text = 'FQN: PdfDocument.AddWatermarkAnnotation\nKind: Method\nAdds a watermark annotation to the page.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+_ test_search_symbols_excludes_tc112_doc_pseudo_symbol_chunks_from_its_own_matching _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4236/test_search_symbols_excludes_t1')
+
+    def test_search_symbols_excludes_tc112_doc_pseudo_symbol_chunks_from_its_own_matching(
+        tmp_path: Path,
+    ) -> None:
+        """TC-112's furnished documentation chunks are published into this exact same
+        self_extracted generation search_symbols reads, marked with a parallel pseudo-FQN of the
+        literal shape ``Doc: <title>`` (see ``infra/build_chunks.py``'s own
+        ``FQN: Doc: {candidate.title}\\n{chunk.text}`` construction, applied to each chunk AFTER
+        ``chunk_document`` splits the candidate's body - reproduced exactly the same way here, not
+        baked into the document body). A doc chunk is not a real symbol and must never be reported
+        as one, exactly like a TC-068 ``Example:`` chunk already isn't (see the sibling test above).
+    
+        Real regression, not a mock: one real symbol chunk and one Doc:-prefixed pseudo-symbol
+        chunk are published side by side, both containing the word "watermark" in their own prose,
+        so a lexical scan with no filter would return both.
+        """
+        import dataclasses
+    
+        store = _store(tmp_path)
+        real_symbol_body = """## PdfDocument.AddWatermarkAnnotation
+    
+    FQN: PdfDocument.AddWatermarkAnnotation
+    Kind: Method
+    Adds a watermark annotation to the page.
+    """
+        doc_title = "Adding a Watermark"
+        pseudo_doc_body = """## Adding a Watermark
+    
+    Use PdfDocument.AddWatermarkAnnotation to add a watermark to a PDF document, stamping
+    confidential markings onto every exported page.
+    """
+        real_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="api_surface",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="pdf/net API surface",
+            body=real_symbol_body,
+        )
+        pseudo_doc = make_document(
+            source_kind=SourceKind.FURNISHED,
+            content_type="doc",
+            provenance=Provenance(repository="Aspose/aspose.org", commit="x", path="content/pdf/net"),
+            evidence_refs=(),
+            title=doc_title,
+            body=pseudo_doc_body,
+        )
+        pseudo_chunks = [
+            dataclasses.replace(chunk, text=f"FQN: Doc: {doc_title}\n{chunk.text}")
+            for chunk in chunk_document(pseudo_doc)
+        ]
+        chunks = chunk_document(real_doc) + pseudo_chunks
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+    
+>       result = search_symbols(store, PDF_NET_SCOPE, "watermark")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:272: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'watermark', fqn = 'PdfDocument.AddWatermarkAnnotation'
+text = 'FQN: PdfDocument.AddWatermarkAnnotation\nKind: Method\nAdds a watermark annotation to the page.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+_ test_search_symbols_miss_suggests_a_real_close_fqn_from_this_same_generation _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4236/test_search_symbols_miss_sugge0')
+
+    def test_search_symbols_miss_suggests_a_real_close_fqn_from_this_same_generation(tmp_path: Path) -> None:
+        """TC-143 (G2/REQ-G2-047): a genuine Miss may carry a purely additive 'did you mean' hint.
+    
+        ``Annotation`` is a real class confirmed present in the committed pdf/net fixture
+        (``Aspose.Pdf.Annotations.Annotation``, see ``tests/fixtures/pdf_net/api_surface.json``).
+        ``Annotatio`` (a single dropped trailing character) shares zero BM25 tokens with the
+        published chunk's own prose - confirmed directly against ``tokenize`` before writing this
+        test - so this is a genuine lexical Miss, not an accidental real hit. The suggestion itself
+        comes only from ``difflib.get_close_matches`` against the real FQN this exact generation
+        published - never a fabricated or stale one - and the Miss verdict/reason stay completely
+        unchanged.
+        """
+        store = _store(tmp_path)
+        real_symbol_body = """## Annotation
+    
+    FQN: Annotation
+    Kind: Class
+    Serves as the abstract base for every markup element placed on a PDF page.
+    """
+        real_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="api_surface",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="pdf/net API surface",
+            body=real_symbol_body,
+        )
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(real_doc))
+    
+        result = search_symbols(store, PDF_NET_SCOPE, "Annotatio")
+    
+        assert isinstance(result, SymbolsMiss)
+        assert result.scope == PDF_NET_SCOPE
+        assert result.reason == "no symbol matches 'Annotatio'"
+        assert result.suggestions == ("Annotation",)
+    
+        # A genuinely unrelated query (no real close match) stays empty - never fabricated.
+        unrelated_result = search_symbols(store, PDF_NET_SCOPE, "CompletelyUnrelatedXyzzyWombatTerm")
+    
+        assert isinstance(unrelated_result, SymbolsMiss)
+        assert unrelated_result.suggestions == ()
+    
+        # A real, successful match is completely unaffected - no suggestions field pollution on a hit.
+>       hit_result = search_symbols(store, PDF_NET_SCOPE, "Annotation")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:327: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'Annotation', fqn = 'Annotation'
+text = 'FQN: Annotation\nKind: Class\nServes as the abstract base for every markup element placed on a PDF page.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+_________ test_lookup_dispatches_to_search_symbols_for_a_symbol_query _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4236/test_lookup_dispatches_to_sear0')
+
+    def test_lookup_dispatches_to_search_symbols_for_a_symbol_query(tmp_path: Path) -> None:
+        store = _store(tmp_path)
+        _publish_pdf_net_symbols(store)
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        real_name = fixture["types"][0]["name"]
+    
+>       result = lookup(store, PDF_NET_SCOPE, real_name)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:505: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\lookup.py:156: in lookup
+    symbol_result = search_symbols(store, scope, query, top_k=top_k)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'Page', fqn = 'Aspose.Pdf.Page'
+text = 'FQN: Aspose.Pdf.Page\nAspose.Pdf.Page is a class_declaration. Methods: SetRotation, Accept, GetResources, Accept, Get...atingBox, AddExtGState, AddShading, AddPattern, AddLuminositySoftMask, AddStamp, AddStamp, AddStamp, Flatten, IsBlank.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+_ test_lookup_prefers_doc_composition_over_an_incidental_symbol_collision_for_a_task_question _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4236/test_lookup_prefers_doc_compos0')
+
+    def test_lookup_prefers_doc_composition_over_an_incidental_symbol_collision_for_a_task_question(
+        tmp_path: Path,
+    ) -> None:
+        """Reproduces the real 'pdf' collision TC-073's worker found live, at fixture scale: a real
+        symbol's FQN (``PdfDocument.Merge``) lexically overlaps one of a natural-language question's
+        own words (``pdf``, via camelCase sub-word splitting), purely incidentally - the symbol is
+        about merging, the question is about watermarking. Before this card, lookup's own "any
+        non-empty search_symbols result wins" dispatch order let that incidental overlap capture a
+        real task question and starve it of the doc+example answer it actually needed.
+    
+        Proves BOTH halves of the card's closeout: the task-shaped question now gets the composed
+        TaskAnswer instead of the incidental symbol match, while a short, bare query for that exact
+        same overlapping symbol still correctly returns the symbol match unchanged.
+        """
+        store = _store(tmp_path)
+        real_symbol_body = """## PdfDocument.Merge
+    
+    FQN: PdfDocument.Merge
+    Kind: Method
+    Merges multiple PDF files into a single output document.
+    """
+        real_doc = make_document(
+            source_kind=SourceKind.SELF_EXTRACTED,
+            content_type="api_surface",
+            provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+            evidence_refs=(),
+            title="pdf/net API surface",
+            body=real_symbol_body,
+        )
+        watermark_guide_doc = make_document(
+            source_kind=SourceKind.FURNISHED,
+            content_type="product_page",
+            provenance=Provenance(repository="Aspose/aspose.org", commit="x", path="content/pdf/net"),
+            evidence_refs=(),
+            title="pdf/net watermarking guide",
+            body="""## Adding a Watermark to a PDF
+    
+    Use PdfDocument.AddWatermarkAnnotation to add a watermark to a PDF document, stamping
+    confidential markings onto every exported page.
+    """,
+        )
+        # One combined publish, matching every real pilot's actual shape (TC-109, G2/REQ-G2-047):
+        # there is no separate "furnished" scope key for search_docs to read anymore.
+        chunks = chunk_document(real_doc) + chunk_document(watermark_guide_doc)
+        _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+    
+        task_question = "how do I add a watermark to a PDF"
+    
+        # TC-202 restatement (line 785): the Merge symbol's FQN shares only the word "pdf" with the
+        # question. The exact-hit predicate needs every query word to be a whole word of the FQN, so
+        # the collision is rejected and search_symbols returns a Miss for the question.
+>       raw_symbol_result = search_symbols(store, PDF_NET_SCOPE, task_question)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:842: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'how do I add a watermark to a PDF', fqn = 'PdfDocument.Merge'
+text = 'FQN: PdfDocument.Merge\nKind: Method\nMerges multiple PDF files into a single output document.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+____ test_every_result_carries_the_scope_that_was_passed_in_never_another _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4236/test_every_result_carries_the_0')
+
+    def test_every_result_carries_the_scope_that_was_passed_in_never_another(tmp_path: Path) -> None:
+        """The generation-isolation regression the card names: two different products, published
+        separately, and a search in one must never surface or be attributed to the other."""
+        store = _store(tmp_path)
+        _publish_pdf_net_symbols(store)
+    
+        cells_generation_id = _publish(
+            store,
+            CELLS_PYTHON_SCOPE,
+            "self_extracted",
+            chunk_document(
+                make_document(
+                    source_kind=SourceKind.SELF_EXTRACTED,
+                    content_type="api_surface",
+                    provenance=Provenance(
+                        repository="aspose-cells-foss/Aspose.Cells-FOSS-for-Python", commit="y"
+                    ),
+                    evidence_refs=(),
+                    title="cells/python API surface",
+                    body="## Workbook\n\nFQN: Workbook\nWorkbook is a class. Methods: Save, Open.",
+                )
+            ),
+        )
+    
+        pdf_result = search_symbols(store, PDF_NET_SCOPE, "Workbook")
+>       cells_result = search_symbols(store, CELLS_PYTHON_SCOPE, "Workbook")
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:885: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'Workbook', fqn = 'Workbook'
+text = 'FQN: Workbook\nWorkbook is a class. Methods: Save, Open.'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+__ test_search_symbols_ranks_the_real_base_class_ahead_of_its_own_subclasses __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4236/test_search_symbols_ranks_the_0')
+
+    def test_search_symbols_ranks_the_real_base_class_ahead_of_its_own_subclasses(tmp_path: Path) -> None:
+        """FIX A regression: before this card, ``Aspose.Pdf.Annotations.Annotation`` (a real,
+        final-segment-equality hit - tier 1, the strongest evidence short of exact-FQN) ranked 9th
+        of 14 admitted candidates for the query "Annotation", behind 8 of its own subclasses (each
+        only a weaker bag-of-words/tier-2 hit, e.g. AnnotationSelector, PopupAnnotation,
+        MarkupAnnotation) - purely because each subclass's own chunk is shorter and so scores a
+        higher raw BM25 term density, never because any subclass is stronger EVIDENCE of a real
+        match for "Annotation" than the base class itself is. Confirmed live against this exact
+        fixture before this card's fix landed. search_symbols now sorts admitted candidates by tier
+        first, so the base class - still a tier-1 hit - ranks ahead of every tier-2 subclass,
+        regardless of raw BM25 score.
+        """
+        store = _store(tmp_path)
+        _publish_real_pdf_net_surface(store)
+    
+>       result = search_symbols(store, PDF_NET_SCOPE, "Annotation", top_k=10)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:1048: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'Annotation', fqn = 'Aspose.Pdf.Annotations.AnnotationSelector'
+text = 'FQN: Aspose.Pdf.Annotations.AnnotationSelector\nKind: class_declaration\nVisitor that filters annotations across one ...tion) -> void\n  - Visit(widget: WidgetAnnotation) -> void\n\nProperties:\n  - Selected: IList<Annotation> (read-only)'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+_ test_search_symbols_honestly_misses_a_scattered_reordered_bag_of_words_query _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4236/test_search_symbols_honestly_m0')
+
+    def test_search_symbols_honestly_misses_a_scattered_reordered_bag_of_words_query(
+        tmp_path: Path,
+    ) -> None:
+        """FIX B regression: before this card, the bag-of-words tier admitted any query whose
+        words were ALL present somewhere in an FQN's own word SET, with no check on order,
+        adjacency, or how much of the FQN's structure the query actually covered. Live-confirmed
+        against this exact fixture: "set pattern color" and "set color pattern" each returned a
+        confident match on ``Aspose.Pdf.Operators.BasicSetColorAndPatternOperator`` - an internal,
+        abstract content-stream-operator base class for parsing raw SCN/scn operators, not a public
+        "set pattern color" feature (no such feature exists in this corpus; the honest answer is a
+        Miss). All 3 of the query's words really do appear somewhere among the FQN's own 9 words
+        ("aspose", "pdf", "operators", "basic", "set", "color", "and", "pattern", "operator"), but
+        scattered and reordered - "set" and "color" are adjacent in the FQN, "pattern" is not next
+        to either. search_symbols' new contiguous-run precision floor (measured empirically against
+        3 real pilots - see search_symbols.py's own module docstring) requires the query's own
+        words, in the query's own order, to appear as one unbroken run in the FQN's own word
+        sequence; neither phrasing's words do, so both are now an honest Miss.
+        """
+        store = _store(tmp_path)
+        _publish_real_pdf_net_surface(store)
+    
+        for query in ("set pattern color", "set color pattern"):
+>           result = search_symbols(store, PDF_NET_SCOPE, query)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:1084: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'set pattern color', fqn = 'Aspose.Pdf.Operators.SetAdvancedColor'
+text = 'FQN: Aspose.Pdf.Operators.SetAdvancedColor\nKind: class_declaration\nscn — Set color (with optional pattern name) in ...le[] (read-only)\n  - PatternName: string? (read-only)\n  - CommandName: string (read-only)\n  - Index: int (writable)'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+_ test_search_symbols_fix_b_precision_floor_does_not_regress_a_whole_word_true_positive _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4236/test_search_symbols_fix_b_prec0')
+
+    def test_search_symbols_fix_b_precision_floor_does_not_regress_a_whole_word_true_positive(
+        tmp_path: Path,
+    ) -> None:
+        """FIX B non-regression, against the real fixture: the card's own prose names
+        ``PdfDocument.AddWatermarkAnnotation`` as the already-required true positive "watermark"
+        must keep matching - but that exact FQN does not exist anywhere in the real, committed
+        ``tests/fixtures/pdf_net/api_surface.json`` (confirmed directly: no "AddWatermarkAnnotation"
+        substring anywhere in the fixture file). The real fixture's genuinely equivalent symbol -
+        same shape of regression, same single-word bag-of-words query - is
+        ``Aspose.Pdf.Annotations.WatermarkAnnotation``. This test uses that real symbol instead of
+        fabricating the nonexistent one the card's prose named, and proves the same property: Fix
+        B's new contiguous-run floor is trivially satisfied by any single-word query (a run of
+        length 1 is always contiguous), so it does not regress this already-required whole-word
+        true positive.
+        """
+        store = _store(tmp_path)
+        _publish_real_pdf_net_surface(store)
+    
+>       result = search_symbols(store, PDF_NET_SCOPE, "watermark")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:1108: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'watermark', fqn = 'Aspose.Pdf.Artifact.ArtifactSubtype'
+text = 'FQN: Aspose.Pdf.Artifact.ArtifactSubtype\nKind: enum_declaration\nEnumerates artifact subtypes.\n\nMembers:\n  - Header = 0\n  - Footer = 1\n  - Watermark = 2\n  - Background = 3\n  - Undefined = 4\n  - BatesN = 5'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+___ test_search_symbols_finds_the_real_setrotation_method_by_its_bare_name ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4236/test_search_symbols_finds_the_0')
+
+    def test_search_symbols_finds_the_real_setrotation_method_by_its_bare_name(tmp_path: Path) -> None:
+        """The exact live-confirmed defect this card fixes: before this card, querying the bare
+        method name "SetRotation" returned an honest-LOOKING but WRONG Miss (with a misleading "did
+        you mean" suggestion pointing at the unrelated ``Aspose.Pdf.Rotation`` enum), even though
+        BM25 ranked the real containing chunk (``Aspose.Pdf.Page``) #1 by a wide margin - because
+        ``_match_tier`` only ever compared the query against the chunk's own type-level FQN, never
+        against a method name rendered as prose inside its Methods: block. This is now a real hit.
+        """
+        store = _store(tmp_path)
+        _publish_real_pdf_net_surface(store)
+    
+>       result = search_symbols(store, PDF_NET_SCOPE, "SetRotation")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:1140: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'SetRotation', fqn = 'Aspose.Pdf.Page'
+text = 'FQN: Aspose.Pdf.Page\nKind: class_declaration\nRepresents a page in a PDF document.\n\nBases:\n  - IDisposable\n\nMet...mage? (writable)\n  - Layers: System.Collections.Generic.List<Layer> (writable)\n  - Fonts: FontCollection (read-only)'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+____ test_search_symbols_finds_setrotation_qualified_by_its_real_type_name ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4236/test_search_symbols_finds_setr0')
+
+    def test_search_symbols_finds_setrotation_qualified_by_its_real_type_name(tmp_path: Path) -> None:
+        """ "Type.Member" (using the chunk's own FQN's final segment) is also recognized, not just
+        the bare member name alone."""
+        store = _store(tmp_path)
+        _publish_real_pdf_net_surface(store)
+    
+>       result = search_symbols(store, PDF_NET_SCOPE, "Page.SetRotation")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:1153: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'Page.SetRotation', fqn = 'Aspose.Pdf.Page'
+text = 'FQN: Aspose.Pdf.Page\nKind: class_declaration\nRepresents a page in a PDF document.\n\nBases:\n  - IDisposable\n\nMet...mage? (writable)\n  - Layers: System.Collections.Generic.List<Layer> (writable)\n  - Fonts: FontCollection (read-only)'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+__ test_search_symbols_still_honestly_misses_a_partial_truncated_member_name __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4236/test_search_symbols_still_hone0')
+
+    def test_search_symbols_still_honestly_misses_a_partial_truncated_member_name(tmp_path: Path) -> None:
+        """Mirrors ``test_search_symbols_honest_miss.py``'s own "Watermar"/"Annotat" partial-word
+        Miss tests, at the member level: a truncated real method name must never be loosened into a
+        match merely because it is a prefix of one. "SetRotatio" is a dropped-trailing-character
+        prefix of the real method name "SetRotation" above - never a whole member name itself - so
+        this must stay an honest Miss, exactly like a partial CLASS name already does.
+        """
+        store = _store(tmp_path)
+        _publish_real_pdf_net_surface(store)
+    
+>       result = search_symbols(store, PDF_NET_SCOPE, "SetRotatio")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:1169: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'SetRotatio', fqn = 'Aspose.Pdf.Operators.SetAdvancedColor'
+text = 'FQN: Aspose.Pdf.Operators.SetAdvancedColor\nKind: class_declaration\nscn — Set color (with optional pattern name) in ...le[] (read-only)\n  - PatternName: string? (read-only)\n  - CommandName: string (read-only)\n  - Index: int (writable)'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+_ test_search_symbols_member_tier_admits_every_real_type_sharing_an_ambiguous_member_name _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4236/test_search_symbols_member_tie0')
+
+    def test_search_symbols_member_tier_admits_every_real_type_sharing_an_ambiguous_member_name(
+        tmp_path: Path,
+    ) -> None:
+        """The real ambiguity case, verified against the real fixture rather than assumed: "Dispose"
+        is genuinely declared on 9 distinct real types in ``tests/fixtures/pdf_net/api_surface.json``
+        (confirmed directly before writing this test). The decided-and-verified behavior: this tier
+        admits ALL of them, letting BM25/existing ranking sort among them - the same way TC-278's own
+        bag-of-words tier already lets several same-tier class candidates coexist (see
+        ``test_search_symbols_ranks_the_real_base_class_ahead_of_its_own_subclasses`` above) - rather
+        than silently picking one "winner" and hiding the rest.
+        """
+        store = _store(tmp_path)
+        _publish_real_pdf_net_surface(store)
+    
+>       result = search_symbols(store, PDF_NET_SCOPE, "Dispose", top_k=20)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_retrieval_tools.py:1189: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\search_symbols.py:347: in search_symbols
+    member_hit = _matches_a_rendered_member(query, fqn, text)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+query = 'Dispose', fqn = 'Aspose.Pdf.Facades.IFacade'
+text = 'FQN: Aspose.Pdf.Facades.IFacade\nKind: interface_declaration\n\nBases:\n  - IDisposable\n\nMethods:\n  - BindPdf(srcD...- BindPdf(srcFile: string) -> void\n  - BindPdf(srcStream: Stream) -> void\n  - Close() -> void\n  - Dispose() -> void'
+
+    def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+        """True when *query* exactly names (case-insensitively) a method or property this chunk's
+        own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+        as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+    
+        Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+        reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+        exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+        real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+        own partial-word floor.
+        """
+        from foss_mcp.mcp.tools.get_symbol import _extract_block
+    
+        needle = query.strip().casefold()
+        if not needle:
+            return False
+        final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+        for header in ("Methods:", "Properties:"):
+>           for item in _extract_block_DISABLED(text, header):
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_extract_block_DISABLED' is not defined
+
+src\foss_mcp\mcp\tools\search_symbols.py:233: NameError
+=========================== short test summary info ===========================
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_an_exact_fqn_returns_a_match
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_an_exact_final_segment_in_another_case_returns_a_match
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_an_absent_symbol_sharing_a_token_with_a_real_one_is_a_miss_not_a_match
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_the_miss_for_an_absent_symbol_suggests_a_close_real_name
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_a_whole_word_query_finds_the_symbol_that_contains_it
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_a_cpp_symbol_is_found_by_its_short_name
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_a_cpp_short_name_is_case_insensitive
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_a_cpp_symbol_is_found_by_its_full_scoped_name
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_a_cpp_whole_word_of_the_short_name_is_a_hit
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_a_cpp_partial_word_is_not_a_hit
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_an_absent_cpp_scoped_name_is_a_miss
+FAILED tests/mcp/test_search_symbols_honest_miss.py::test_a_dotted_fqn_still_matches_whole_words_only
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_finds_a_real_published_symbol
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_excludes_tc068_pseudo_symbol_chunks_from_its_own_matching
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_excludes_tc112_doc_pseudo_symbol_chunks_from_its_own_matching
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_miss_suggests_a_real_close_fqn_from_this_same_generation
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_lookup_dispatches_to_search_symbols_for_a_symbol_query
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_lookup_prefers_doc_composition_over_an_incidental_symbol_collision_for_a_task_question
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_every_result_carries_the_scope_that_was_passed_in_never_another
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_ranks_the_real_base_class_ahead_of_its_own_subclasses
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_honestly_misses_a_scattered_reordered_bag_of_words_query
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_fix_b_precision_floor_does_not_regress_a_whole_word_true_positive
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_finds_the_real_setrotation_method_by_its_bare_name
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_finds_setrotation_qualified_by_its_real_type_name
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_still_honestly_misses_a_partial_truncated_member_name
+FAILED tests/mcp/tools/test_retrieval_tools.py::test_search_symbols_member_tier_admits_every_real_type_sharing_an_ambiguous_member_name
+
+--- stderr ---
+
