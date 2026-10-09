@@ -1,0 +1,116 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vyex77af\.junit-0.xml"
+--- stdout ---
+...................                                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vyex77af\.junit-0.xml"
+--- stdout ---
+...................                                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vyex77af\.junit-0.xml"
+--- stdout ---
+..FF.F.............                                                      [100%]
+================================== FAILURES ===================================
+_ test_cpp_out_of_line_reference_return_member_never_fabricates_phantom_type __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4110/test_cpp_out_of_line_reference0')
+
+    def test_cpp_out_of_line_reference_return_member_never_fabricates_phantom_type(
+        tmp_path: Path,
+    ) -> None:
+        types = _extract(tmp_path, CPP_OUT_OF_LINE_REFERENCE_RETURN_MEMBER, "workbook_test")
+    
+        # The exact TC-276 bug: no phantom top-level FUNCTION entry is ever
+        # fabricated named after the out-of-line member's return type. (The real
+        # class "Workbook" legitimately exists in this source, so the check is
+        # on kind, not bare presence.)
+>       assert not any(t["name"] == "Workbook" and t["kind"] == "function" for t in types), types
+E       AssertionError: [{'name': 'Workbook', 'kind': 'class_specifier', 'doc': '', 'file': 'src/widget.cpp', ...}, {'name': 'Worksheet', 'kin...'', 'file': 'src/widget.cpp', ...}, {'name': 'Workbook', 'kind': 'function', 'doc': '', 'file': 'src/widget.cpp', ...}]
+E       assert not True
+E        +  where True = any(<generator object test_cpp_out_of_line_reference_return_member_never_fabricates_phantom_type.<locals>.<genexpr> at 0x00000203E87E2190>)
+
+tests\extraction\tree_sitter_engine\test_cpp_reference_return_member_naming.py:230: AssertionError
+___ test_cpp_out_of_line_value_return_member_never_fabricates_phantom_type ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4110/test_cpp_out_of_line_value_ret0')
+
+    def test_cpp_out_of_line_value_return_member_never_fabricates_phantom_type(
+        tmp_path: Path,
+    ) -> None:
+        types = _extract(tmp_path, CPP_OUT_OF_LINE_VALUE_RETURN_MEMBER, "format_condition_test")
+    
+        # The exact TC-276 bug for a VALUE return type: no phantom top-level
+        # FUNCTION entry named "OperatorType".
+>       assert not any(t["name"] == "OperatorType" and t["kind"] == "function" for t in types), types
+E       AssertionError: [{'name': 'OperatorType', 'kind': 'enum_specifier', 'doc': '', 'file': 'src/widget.cpp', ...}, {'name': 'FormatConditi...'file': 'src/widget.cpp', ...}, {'name': 'OperatorType', 'kind': 'function', 'doc': '', 'file': 'src/widget.cpp', ...}]
+E       assert not True
+E        +  where True = any(<generator object test_cpp_out_of_line_value_return_member_never_fabricates_phantom_type.<locals>.<genexpr> at 0x00000203E85C28E0>)
+
+tests\extraction\tree_sitter_engine\test_cpp_reference_return_member_naming.py:251: AssertionError
+_ test_cpp_out_of_line_member_fix_does_not_disturb_tc259_inline_and_free_function_cases _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4110/test_cpp_out_of_line_member_fi0')
+
+    def test_cpp_out_of_line_member_fix_does_not_disturb_tc259_inline_and_free_function_cases(
+        tmp_path: Path,
+    ) -> None:
+        """Regression check: combine TC-259's own inline-member and genuine-
+        free-function sources with this card's new out-of-line-member shape in a
+        single parse, and prove every TC-259 assertion still holds unchanged
+        alongside the new fix -- the two code paths (ancestor-walk member check,
+        new qualified_identifier declarator check) must not interact.
+        """
+        combined = (
+            CPP_MEMBER_REFERENCE_RETURN
+            + CPP_FREE_FUNCTION_REFERENCE_RETURN
+            + CPP_OUT_OF_LINE_REFERENCE_RETURN_MEMBER
+        )
+        types = _extract(tmp_path, combined, "combined_test")
+        by_name = {t["name"]: t for t in types}
+    
+        # TC-259's inline-member case: still correctly extracted, still never
+        # misnamed after its return type.
+        assert "Borders" in by_name
+        borders = by_name["Borders"]
+        method_names = {m["name"] for m in borders["methods"]}
+        property_names = {p["name"] for p in borders["properties"]}
+        assert "Border" not in method_names, method_names
+        assert "Border" not in property_names, property_names
+        methods_by_name = {m["name"]: m for m in borders["methods"]}
+        assert "GetLeft" in methods_by_name
+        assert "Border" in methods_by_name["GetLeft"]["return_type"]
+        assert "SetLeft" in method_names
+        assert "Borders" in method_names  # constructor
+        assert "GetDiagonalUp" in method_names
+        assert "SetDiagonalUp" in method_names
+    
+        # TC-259's genuine-free-function case: still resolves to its real name.
+        assert "Identity" in by_name
+        assert by_name["Identity"]["kind"] == "function"
+        assert "Matrix" not in by_name or by_name["Matrix"]["kind"] != "function"
+    
+        # TC-276's new out-of-line-member case: still no phantom, alongside both
+        # of the above.
+>       assert not any(t["name"] == "Workbook" and t["kind"] == "function" for t in types), types
+E       AssertionError: [{'name': 'Border', 'kind': 'class_specifier', 'doc': '', 'file': 'src/widget.cpp', ...}, {'name': 'Borders', 'kind': ...file': 'src/widget.cpp', ...}, {'name': 'Identity', 'kind': 'function', 'doc': '', 'file': 'src/widget.cpp', ...}, ...]
+E       assert not True
+E        +  where True = any(<generator object test_cpp_out_of_line_member_fix_does_not_disturb_tc259_inline_and_free_function_cases.<locals>.<genexpr> at 0x00000203E885EB50>)
+
+tests\extraction\tree_sitter_engine\test_cpp_reference_return_member_naming.py:319: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py::test_cpp_out_of_line_reference_return_member_never_fabricates_phantom_type
+FAILED tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py::test_cpp_out_of_line_value_return_member_never_fabricates_phantom_type
+FAILED tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py::test_cpp_out_of_line_member_fix_does_not_disturb_tc259_inline_and_free_function_cases
+
+--- stderr ---
+
