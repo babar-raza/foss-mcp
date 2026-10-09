@@ -1,0 +1,74 @@
+id: TC-263
+gate: G2
+lane: extraction
+purpose: 'Regenerate tests/fixtures/pdf_net/api_surface.json with TC-252''s fixed, centrality-ranked reduce_fixture()
+  - one of the three pilots the third independent audit (2026-10-08, C4) explicitly named as still missing its own
+  central symbol after the algorithm fix landed. Live-confirmed this session: pdf_net''s fixture was never part of
+  the TC-255-258 regeneration wave, so it still reflects the OLD, pre-TC-252 alphabetical selection - 899 real
+  types, 300 kept, and the real "Page" type (the exact symbol the audit named for this pilot) is confirmed absent.
+  This card is run-and-pin only, following TC-153/TC-255-258''s own established pattern: run it for real, inspect
+  the actual output carefully, and if the live run reveals a genuine defect outside this card''s write_paths, STOP
+  and report it rather than patching around it or committing a broken fixture.'
+depends_on:
+- TC-252
+write_paths:
+- tests/fixtures/pdf_net/api_surface.json
+- tests/extraction/test_pdf_net_extraction.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Confirm TC-252''s fix is really on main (read src/foss_mcp/extraction/tree_sitter_engine/run_extraction.py''s
+  reduce_fixture() and confirm it sorts by a centrality score, not pure alphabetical order) before doing anything
+  else.'
+- 'Run `python -m foss_mcp.extraction.run_extraction config/products/pdf/net.yaml
+  tests/fixtures/pdf_net/api_surface.json` for real (network access is available to you for this one-time
+  generation step; do not pass --max-types, let it use the real default of 300). The manifest pins
+  repository: aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET.'
+- 'Inspect the real output carefully before committing anything: confirm reduced_type_count/type_count/truncated,
+  and SPECIFICALLY confirm whether a type named exactly "Page" is now present - this is the exact symbol this
+  session''s audit confirmed missing, and the concrete proof this fix actually worked. If it is STILL absent after
+  regeneration, that is itself a genuinely different, real finding - report it explicitly with your own diagnosis
+  rather than silently accepting a regeneration that did not fix the one thing it was meant to prove.'
+- 'pdf_net is this project''s own ORIGINAL, most heavily-referenced fixture (TC-011''s original onboarding pilot) -
+  many existing tests across this repository use it as a representative example, more so than any other pilot.
+  Treat ANY existing test failure outside your two write_paths as expected and worth reporting precisely, not as a
+  sign you did something wrong; this pilot is the single most likely one in the whole fleet to need a follow-up
+  rework round, exactly like TC-256 (pdf/java) needed three.'
+- 'Update tests/extraction/test_pdf_net_extraction.py to match the new real fixture content exactly - do not guess
+  or invent names; assert only on type/symbol names and counts you actually observed in your own run. Mirror this
+  file''s own existing structure and assertions (read it in full first). If "Page" is present, add an assertion
+  specifically proving it is among the kept types.'
+- 'IF the live run reveals a genuine extraction-engine defect outside this card''s two write_paths, OR your own
+  full-suite check at the end shows some other existing test now fails because it depended on the OLD fixture''s
+  specific content - STOP, do not guess-fix a file outside your write_paths, and report exactly which test(s) and
+  why, so a properly scoped rework restatement can be issued.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Confirm TC-252 is integrated and its fix is really what main's reduce_fixture does now.
+- Run the real extraction for pdf/net; inspect the real output carefully, specifically for "Page".
+- Update the fixture's own test file to match the real new content; run it; run the full suite once and report honestly.
+checks:
+- command: '{python} -m pytest tests/extraction/test_pdf_net_extraction.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 3
+network: true
+negative_control:
+  mutate: python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/pdf_net/api_surface.json');p.write_text('{}',encoding='utf-8')"
+  rationale: Emptying the pinned fixture must break the suite - a test that passes against an empty artifact is
+    asserting the file exists, not that a real extraction ran. Same shape as every prior extraction card's falsifier.
+evidence:
+- evidence/build/G2/TC-263/receipt.json
+closeout:
+- tests/fixtures/pdf_net/api_surface.json reflects a real, current extraction at the project's actual intended cap
+  (300), selected by centrality rather than alphabetical luck, and specifically keeps "Page" if the real repository
+  defines it reachably - the concrete symbol this fix exists to stop losing.
+recovery: Re-run from a clean tree.
