@@ -71,6 +71,40 @@ positive and every natural-order real multi-word probe tried across all 3 pilots
 This module's own write_paths do not include ``docs/DECISION_LOG.md``; the full measurement
 record (exact numbers, the real symbols/queries probed in all 3 pilots) is this card's own
 worker report, for the supervisor to fold into the decision log at the gate boundary.
+
+TC-279 (G2/REQ-G2-043): a SEPARATE defect from TC-278's ranking/threshold fixes above - a false
+NEGATIVE from extraction/matching granularity, not a ranking problem. ``chunk_builder.py``'s
+``build_chunks_from_api_surface`` publishes one chunk per TYPE, with a single ``FQN:`` line
+naming only the class; every method/property is rendered as prose inside that same chunk's
+``Methods:``/``Properties:`` block, with no FQN of its own. A query naming a real METHOD or
+PROPERTY (e.g. ``SetRotation`` for the real ``Aspose.Pdf.Page.SetRotation``) therefore never
+passed ``_match_tier`` - a tier-0/1 FQN-equality check and a tier-2 bag-of-words check both
+compare only against the type's own FQN - however highly BM25 ranked the containing chunk,
+producing a wrong, misleading Miss for a symbol that genuinely exists. Live-confirmed: querying
+"SetRotation" ranked the real ``Aspose.Pdf.Page`` chunk #1 by a wide BM25 margin, yet returned
+an honest-LOOKING but WRONG Miss.
+
+The architecture decision (the supervisor's, recorded on this card): do not change chunk
+granularity - get_symbol/list_members already depend on one-chunk-per-type, and one chunk per
+method would be a much larger, riskier change to the whole ingestion/indexing/storage pipeline.
+Instead, widen ``search_symbols``'s own matching step: ``_member_name`` parses a rendered
+Methods:/Properties: block item's leading identifier (reusing ``get_symbol.py``'s own block-
+parsing logic rather than reimplementing it), and a query that exactly names that member - by
+its own bare name, or as "Type.Member"/"Type::Member" using the chunk's own FQN's final segment
+- admits the chunk as a hit. Returning the TYPE's full chunk is correct: it already contains the
+matched method's real signature in context, and there is no separate method-level chunk to
+return instead.
+
+This new member-match tier sits between TC-278's tier 1 (final-segment class equality) and its
+tier 2 (bag-of-words), which is renumbered to tier 3 here: a bare, whole-member-name match is
+strong, unambiguous evidence - similar strength to a final-segment class match, and never weaker
+than bag-of-words, which has much weaker evidence per match. The real ambiguity case - the same
+bare member name declared on multiple distinct types - was verified directly against the real
+pdf/net fixture rather than assumed: "Dispose" is genuinely declared on 9 distinct real types
+(``Aspose.Pdf.Page``, ``Aspose.Pdf.Document``, ``Aspose.Pdf.XForm`` and 6 others). This tier
+admits ALL of them, exactly like TC-278's own bag-of-words tier already admits every one of
+"Annotation"'s 8 real subclasses side by side - BM25 sorts among tied-tier candidates, same as
+every other tier here, so no special-casing was needed or added.
 """
 
 from __future__ import annotations
@@ -127,6 +161,12 @@ def _match_tier(query: str, fqn: str | None) -> int | None:
     A partial word such as ``Watermar`` is never a whole word of anything, so it never reaches
     tier 2 regardless of this floor. A chunk with no FQN line (*fqn* is ``None``) can never
     match at any tier.
+
+    This is CLASS-level evidence only - it never looks inside the chunk's own rendered
+    Methods:/Properties: blocks. ``search_symbols`` (TC-279, G2/REQ-G2-043) combines this
+    result with ``_matches_a_rendered_member`` below to place a member-name match between this
+    function's own tier 1 and tier 2, remapping this function's tier 2 (bag-of-words) to overall
+    tier 3 - see ``search_symbols``'s own docstring for the combined ordering.
     """
     if fqn is None:
         return None
@@ -153,6 +193,55 @@ def _match_tier(query: str, fqn: str | None) -> int | None:
         if fqn_words[start : start + run_length] == query_words:
             return 2
     return None
+
+
+_MEMBER_NAME_END = re.compile(r"\(|:| \(inherited from")
+
+
+def _member_name(item: str) -> str:
+    """The member's own leading identifier, parsed off one already-stripped item of a rendered
+    Methods:/Properties: block (as returned by get_symbol.py's block-parsing helper) - the text
+    before its first ``(`` (a method's own parameter list opening), ``:`` (a property's own
+    type), or `` (inherited from`` suffix, whichever comes first. ``chunk_builder.py``'s
+    ``_method_line``/``_property_line`` always render one of ``(`` or ``:`` immediately after
+    the name itself (``"SetRotation(degrees: int) -> void"``, ``"Name: Type (writable)"``), so
+    the `` (inherited from`` alternative is a defensive fallback rather than one these two real
+    conventions currently need.
+    """
+    match = _MEMBER_NAME_END.search(item)
+    return (item[: match.start()] if match is not None else item).strip()
+
+
+def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+    """True when *query* exactly names (case-insensitively) a method or property this chunk's
+    own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
+    as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+
+    Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
+    reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
+    exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
+    real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
+    own partial-word floor.
+    """
+    from foss_mcp.mcp.tools.get_symbol import _extract_block
+
+    needle = query.strip().casefold()
+    if not needle:
+        return False
+    final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+    for header in ("Methods:", "Properties:"):
+        for item in _extract_block(text, header):
+            member_name = _member_name(item).casefold()
+            if not member_name:
+                continue
+            if needle == member_name:
+                return True
+            if final_segment is not None and needle in (
+                f"{final_segment}.{member_name}",
+                f"{final_segment}::{member_name}",
+            ):
+                return True
+    return False
 
 
 def suggest_similar_fqns(known_fqns: Iterable[str], target: str, *, limit: int = 3) -> tuple[str, ...]:
@@ -218,6 +307,19 @@ def search_symbols(
     own subclasses (each only a tier-2 hit) purely because the subclasses' shorter chunks scored
     a higher raw BM25 term density - never because they were stronger evidence of a real match.
 
+    TC-279 (G2/REQ-G2-043): a FOURTH tier recognizes a query that exactly names a method or
+    property listed inside a candidate chunk's own already-rendered Methods:/Properties: blocks
+    (``_matches_a_rendered_member``) - a real member genuinely exists but, unlike a type, never
+    gets its own ``FQN:`` line, so ``_match_tier`` alone can never see it no matter how highly
+    BM25 ranks the containing chunk. This member-name evidence is placed between TC-278's tier 1
+    (final-segment class equality) and its tier 2 (bag-of-words), which is renumbered to overall
+    tier 3 here: a bare, whole-member-name match is strong, unambiguous evidence, similar in
+    strength to a final-segment class match, and never weaker than bag-of-words. When the SAME
+    bare member name is genuinely declared on several distinct types (confirmed against the real
+    pdf/net fixture - "Dispose" on 9 distinct real types), this tier admits ALL of them, exactly
+    like every other tier already lets BM25 sort among several same-tier candidates - there is
+    no special-casing for this case because none was needed.
+
     A query with no match returns an explicit ``Miss`` - never a widened search, never a
     fallback to a different generation or scope.
     """
@@ -237,12 +339,20 @@ def search_symbols(
     ranked = query_lexical_index_scored(lexical_payload, query, top_k=len(documents))
     admitted: list[tuple[int, float, str]] = []
     for doc_id, bm25_score in ranked:
-        fqn = extract_fqn(documents[doc_id]["text"])
+        text = documents[doc_id]["text"]
+        fqn = extract_fqn(text)
         if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
             continue
-        tier = _match_tier(query, fqn)
-        if tier is None:
+        class_tier = _match_tier(query, fqn)
+        member_hit = _matches_a_rendered_member(query, fqn, text)
+        if class_tier is None and not member_hit:
             continue
+        if class_tier is not None and class_tier < 2:
+            tier = class_tier
+        elif member_hit:
+            tier = 2
+        else:
+            tier = 3
         admitted.append((tier, bm25_score, doc_id))
     # Strongest evidence first (ascending tier); within a tier, the existing BM25-descending
     # order is still the right tiebreak - it is never discarded, only demoted to secondary.

@@ -1109,3 +1109,101 @@ def test_search_symbols_fix_b_precision_floor_does_not_regress_a_whole_word_true
 
     assert isinstance(result, list) and result
     assert any("FQN: Aspose.Pdf.Annotations.WatermarkAnnotation\n" in match.text for match in result)
+
+
+# --- TC-279 (G2/REQ-G2-043): a query naming a real METHOD or PROPERTY (not just a class) now ---
+# matches, by recognizing the member inside its containing chunk's own rendered Methods:/
+# Properties: blocks - verified against the REAL production chunking path
+# (build_chunks_from_api_surface -> build_lexical_index -> search_symbols) over the real
+# committed pdf/net fixture, never a hand-shaped one-chunk-per-method synthetic fixture.
+#
+# Live-confirmed real facts about this exact fixture (see the worker report for the full
+# measurement): ``Aspose.Pdf.Page.SetRotation`` genuinely exists, with the real rendered method
+# line ``"  - SetRotation(degrees: int) -> void"`` inside ``Aspose.Pdf.Page``'s own chunk.
+# ``Dispose`` is genuinely declared on 9 distinct real types in this fixture (Page, Document,
+# XForm, FileSpecification, Artifact, Facades.Form, Facades.IFacade, Facades.ISaveableFacade,
+# OperatorCollection) - the real multi-declaration ambiguity case, confirmed directly rather than
+# assumed, used below to prove this tier admits ALL of them rather than guessing one "winner".
+
+
+def test_search_symbols_finds_the_real_setrotation_method_by_its_bare_name(tmp_path: Path) -> None:
+    """The exact live-confirmed defect this card fixes: before this card, querying the bare
+    method name "SetRotation" returned an honest-LOOKING but WRONG Miss (with a misleading "did
+    you mean" suggestion pointing at the unrelated ``Aspose.Pdf.Rotation`` enum), even though
+    BM25 ranked the real containing chunk (``Aspose.Pdf.Page``) #1 by a wide margin - because
+    ``_match_tier`` only ever compared the query against the chunk's own type-level FQN, never
+    against a method name rendered as prose inside its Methods: block. This is now a real hit.
+    """
+    store = _store(tmp_path)
+    _publish_real_pdf_net_surface(store)
+
+    result = search_symbols(store, PDF_NET_SCOPE, "SetRotation")
+
+    assert isinstance(result, list) and result
+    assert any("FQN: Aspose.Pdf.Page\n" in match.text for match in result)
+    assert any("SetRotation(degrees: int) -> void" in match.text for match in result)
+
+
+def test_search_symbols_finds_setrotation_qualified_by_its_real_type_name(tmp_path: Path) -> None:
+    """"Type.Member" (using the chunk's own FQN's final segment) is also recognized, not just
+    the bare member name alone."""
+    store = _store(tmp_path)
+    _publish_real_pdf_net_surface(store)
+
+    result = search_symbols(store, PDF_NET_SCOPE, "Page.SetRotation")
+
+    assert isinstance(result, list) and result
+    assert any("FQN: Aspose.Pdf.Page\n" in match.text for match in result)
+
+
+def test_search_symbols_still_honestly_misses_a_partial_truncated_member_name(tmp_path: Path) -> None:
+    """Mirrors ``test_search_symbols_honest_miss.py``'s own "Watermar"/"Annotat" partial-word
+    Miss tests, at the member level: a truncated real method name must never be loosened into a
+    match merely because it is a prefix of one. "SetRotatio" is a dropped-trailing-character
+    prefix of the real method name "SetRotation" above - never a whole member name itself - so
+    this must stay an honest Miss, exactly like a partial CLASS name already does.
+    """
+    store = _store(tmp_path)
+    _publish_real_pdf_net_surface(store)
+
+    result = search_symbols(store, PDF_NET_SCOPE, "SetRotatio")
+
+    assert isinstance(result, SymbolsMiss)
+    assert "SetRotation" not in result.reason
+
+
+def test_search_symbols_member_tier_admits_every_real_type_sharing_an_ambiguous_member_name(
+    tmp_path: Path,
+) -> None:
+    """The real ambiguity case, verified against the real fixture rather than assumed: "Dispose"
+    is genuinely declared on 9 distinct real types in ``tests/fixtures/pdf_net/api_surface.json``
+    (confirmed directly before writing this test). The decided-and-verified behavior: this tier
+    admits ALL of them, letting BM25/existing ranking sort among them - the same way TC-278's own
+    bag-of-words tier already lets several same-tier class candidates coexist (see
+    ``test_search_symbols_ranks_the_real_base_class_ahead_of_its_own_subclasses`` above) - rather
+    than silently picking one "winner" and hiding the rest.
+    """
+    store = _store(tmp_path)
+    _publish_real_pdf_net_surface(store)
+
+    result = search_symbols(store, PDF_NET_SCOPE, "Dispose", top_k=20)
+
+    assert isinstance(result, list) and result
+    matched_fqns = {
+        line[len("FQN: ") :]
+        for match in result
+        for line in match.text.splitlines()
+        if line.startswith("FQN: ")
+    }
+    expected = {
+        "Aspose.Pdf.Page",
+        "Aspose.Pdf.Document",
+        "Aspose.Pdf.XForm",
+        "Aspose.Pdf.FileSpecification",
+        "Aspose.Pdf.Artifact",
+        "Aspose.Pdf.Facades.Form",
+        "Aspose.Pdf.Facades.IFacade",
+        "Aspose.Pdf.Facades.ISaveableFacade",
+        "Aspose.Pdf.OperatorCollection",
+    }
+    assert expected <= matched_fqns, f"missing: {expected - matched_fqns}"
