@@ -71,7 +71,7 @@ from foss_mcp.indexing.lexical_index_writer import doc_id as lexical_doc_id
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
 from foss_mcp.mcp.tools.lookup import _looks_like_a_task_question
 from foss_mcp.mcp.tools.search_docs import CONTENT_TYPES, classify_content_type
-from foss_mcp.mcp.tools.search_symbols import is_exact_symbol_hit
+from foss_mcp.mcp.tools.search_symbols import _match_tier
 from foss_mcp.normalization.chunker import Chunk, chunk_document
 from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
 
@@ -327,11 +327,12 @@ def test_every_offline_safe_query_token_is_unique_to_the_troubleshooting_chunk(
 
 
 def test_offline_safe_query_has_no_exact_or_near_symbol_match(offline_replica: _OfflineReplica) -> None:
-    """``search_symbols``'s own match rule (``is_exact_symbol_hit``) never fires for
-    OFFLINE_SAFE_QUERY against any real FQN this fixture publishes - confirming a bare-query
-    dispatch landing on ``search_symbols`` instead (not this card's concern directly, since
-    ``lookup`` tries the doc-fallback path first for a task question, but asserted precisely
-    because the card's own safety bar names it explicitly).
+    """``search_symbols``'s own match rule (``_match_tier``, G2/TC-278 - formerly the boolean
+    ``is_exact_symbol_hit`` wrapper this card's rework deleted once it had no production caller
+    left) never fires for OFFLINE_SAFE_QUERY against any real FQN this fixture publishes -
+    confirming a bare-query dispatch landing on ``search_symbols`` instead (not this card's
+    concern directly, since ``lookup`` tries the doc-fallback path first for a task question,
+    but asserted precisely because the card's own safety bar names it explicitly).
     """
     real_fqns = [
         fqn
@@ -340,7 +341,7 @@ def test_offline_safe_query_has_no_exact_or_near_symbol_match(offline_replica: _
     ]
     assert real_fqns, "expected real symbol FQNs from the real type fixture"
 
-    assert not any(is_exact_symbol_hit(OFFLINE_SAFE_QUERY, fqn) for fqn in real_fqns)
+    assert not any(_match_tier(OFFLINE_SAFE_QUERY, fqn) is not None for fqn in real_fqns)
 
 
 def test_offline_safe_query_overlaps_no_candidate_example_text(offline_replica: _OfflineReplica) -> None:

@@ -44,6 +44,15 @@ tier-2 hit) purely because the subclasses' shorter chunks scored a higher raw BM
 density - live-confirmed against pdf/net: querying "Annotation" ranked the real base class
 ``Aspose.Pdf.Annotations.Annotation`` 9th of 14 admitted candidates, behind 8 subclasses.
 
+REWORK (attempt 2): the old ``is_exact_symbol_hit`` boolean wrapper - kept, at first, only
+for its one external test caller - is now DELETED entirely rather than left in place. Once
+``search_symbols`` itself called ``_match_tier`` directly (to get the tier, not just a bool),
+``is_exact_symbol_hit`` had no production caller left anywhere, and this project's own
+``tests/test_unwired_modules.py`` correctly flagged it as newly unwired. Its one remaining
+caller (``tests/indexing/test_lookup_doc_fallback_query_safety.py``) now calls
+``_match_tier(query, fqn) is not None`` directly instead - the exact same boolean meaning,
+with no redundant wrapper left unreferenced by anything.
+
 Tier 2 (bag-of-words) also gained a real, measured precision floor (FIX B): the query's own
 words, in the query's own order, must now appear as one unbroken, correctly-ordered run
 inside the FQN's own word sequence - not merely be present somewhere in the FQN's word SET,
@@ -144,16 +153,6 @@ def _match_tier(query: str, fqn: str | None) -> int | None:
         if fqn_words[start : start + run_length] == query_words:
             return 2
     return None
-
-
-def is_exact_symbol_hit(query: str, fqn: str | None) -> bool:
-    """True when *query* names *fqn* at any tier ``_match_tier`` recognizes - full-FQN
-    equality, final-segment equality, or bag-of-words containment with its contiguous-run
-    precision floor. Unchanged boolean contract: this predicate's one external caller
-    (``tests/indexing/test_lookup_doc_fallback_query_safety.py``) uses it only as
-    ``any(is_exact_symbol_hit(...) for fqn in real_fqns)``.
-    """
-    return _match_tier(query, fqn) is not None
 
 
 def suggest_similar_fqns(known_fqns: Iterable[str], target: str, *, limit: int = 3) -> tuple[str, ...]:
