@@ -65,3 +65,48 @@ def test_every_entry_is_a_real_csharp_declaration_kind() -> None:
         "record_declaration",
     }
     assert kinds
+
+
+def test_inherited_members_carry_the_correct_inherited_from_tag() -> None:
+    # TC-307 (re-pin after TC-261 landed _flatten_inheritance()'s provenance tagging): this
+    # real repository's own inheritance graph is only one level deep - live-verified directly
+    # against the pinned upstream source (commit 59125b4732df0eedbc4d4c2ab978698ed4348eb7):
+    # CfbNode itself declares no base (`public abstract class CfbNode`), so CfbStorage and
+    # CfbStream (both real, observed `CfbNode` subclasses: `CfbStorage : CfbNode`,
+    # `CfbStream : CfbNode`) are the only genuine inheritance chains here. There is no real
+    # multi-level chain in this pilot's actual data (confirmed by inspecting every entry's
+    # "bases": CfbNode's own "bases" is empty), so single-level rooting is the honest ceiling
+    # for this repository, not an assumption - mirroring email/cpp's identical
+    # CfbNode/CfbStorage/CfbStream lineage in the same product library (TC-302).
+    data = _load_fixture()
+    by_name = {entry["name"]: entry for entry in data["types"]}
+    node = by_name["CfbNode"]
+    assert node["bases"] == []
+    assert node["class_import"] == "Aspose.Email.Foss.Cfb.CfbNode"
+
+    # CfbNode's own, locally-declared members must never carry the tag.
+    for member in node["methods"] + node["properties"]:
+        assert "inherited_from" not in member, member["name"]
+
+    own_members = {
+        "CfbStorage": {"CfbStorage", "AddStorage", "AddStream", "Children"},
+        "CfbStream": {"CfbStream", "Data"},
+    }
+    for child_name in ("CfbStorage", "CfbStream"):
+        child = by_name[child_name]
+        assert child["bases"] == ["CfbNode"]
+        copied = {
+            m["name"]: m["inherited_from"]
+            for m in child["methods"] + child["properties"]
+            if "inherited_from" in m
+        }
+        # Real CfbNode members observed copied into this real subclass, each correctly rooted
+        # to CfbNode's own fully-qualified class_import - the real declaring ancestor, not
+        # merely "some non-empty string".
+        for member_name in ("Name", "Clsid", "StateBits", "CreationTime", "ModifiedTime"):
+            assert copied.get(member_name) == "Aspose.Email.Foss.Cfb.CfbNode"
+
+        # The child's own, locally-declared members must never carry the tag.
+        for member in child["methods"] + child["properties"]:
+            if member["name"] in own_members[child_name]:
+                assert "inherited_from" not in member, (child_name, member["name"])
