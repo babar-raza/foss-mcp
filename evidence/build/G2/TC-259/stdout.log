@@ -1,0 +1,50 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8f6z8nkv\.junit-0.xml"
+--- stdout ---
+..                                                                       [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8f6z8nkv\.junit-0.xml"
+--- stdout ---
+..                                                                       [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8f6z8nkv\.junit-0.xml"
+--- stdout ---
+F.                                                                       [100%]
+================================== FAILURES ===================================
+_ test_cpp_member_with_reference_return_type_is_never_named_after_its_return_type _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4025/test_cpp_member_with_reference0')
+
+    def test_cpp_member_with_reference_return_type_is_never_named_after_its_return_type(
+        tmp_path: Path,
+    ) -> None:
+        types = _extract(tmp_path, CPP_MEMBER_REFERENCE_RETURN, "borders_test")
+        by_name = {t["name"]: t for t in types}
+    
+        assert "Borders" in by_name
+        borders = by_name["Borders"]
+        method_names = {m["name"] for m in borders["methods"]}
+        property_names = {p["name"] for p in borders["properties"]}
+    
+        # The exact TC-259 bug: no method or property is ever named exactly
+        # after its own zero-parameter return type.
+>       assert "Border" not in method_names, method_names
+E       AssertionError: {'Border', 'Borders', 'GetDiagonalUp', 'GetLeft', 'SetDiagonalUp', 'SetLeft'}
+E       assert 'Border' not in {'Border', 'Borders', 'GetDiagonalUp', 'GetLeft', 'SetDiagonalUp', 'SetLeft'}
+
+tests\extraction\tree_sitter_engine\test_cpp_reference_return_member_naming.py:119: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py::test_cpp_member_with_reference_return_type_is_never_named_after_its_return_type
+
+--- stderr ---
+
