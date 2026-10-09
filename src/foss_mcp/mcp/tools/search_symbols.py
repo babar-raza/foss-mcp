@@ -33,6 +33,35 @@ a "did you mean" hint computed with the standard library's own ``difflib.get_clo
 against the real FQNs this exact same miss was computed against. This never widens the verdict
 itself: a Miss stays a Miss, the ``reason`` field is untouched, and a suggestion is never
 substituted for a real match. See ``suggest_similar_fqns`` below.
+
+TC-278 (G2/REQ-G2-043, C7 of the third independent audit): ``_match_tier`` replaces the old
+boolean-only ``is_exact_symbol_hit`` check INSIDE ``search_symbols`` with the strength of
+evidence that admitted a candidate - 0 (full-FQN equality), 1 (final-segment equality) or
+2 (bag-of-words containment) - and ``search_symbols`` now sorts its admitted candidates by
+that tier first, raw BM25 score only as the tiebreak within a tier (FIX A). Before this, a
+real base class (a tier-1 hit) could be buried behind its own subclasses (each only a
+tier-2 hit) purely because the subclasses' shorter chunks scored a higher raw BM25 term
+density - live-confirmed against pdf/net: querying "Annotation" ranked the real base class
+``Aspose.Pdf.Annotations.Annotation`` 9th of 14 admitted candidates, behind 8 subclasses.
+
+Tier 2 (bag-of-words) also gained a real, measured precision floor (FIX B): the query's own
+words, in the query's own order, must now appear as one unbroken, correctly-ordered run
+inside the FQN's own word sequence - not merely be present somewhere in the FQN's word SET,
+which is all the old check required. Measured directly against 3 real pilots' own lexical
+data (pdf/net, cells/cpp, slides/python), mirroring TC-273's own 3-pilot measurement
+protocol: a symmetric overlap ratio (the fraction of the FQN's own word count the query's
+words cover) does NOT discriminate the real false positive from an already-required true
+positive - "set pattern color"/"set color pattern" against the real, unrelated
+``Aspose.Pdf.Operators.BasicSetColorAndPatternOperator`` scored 0.333, HIGHER than the
+already-required true positive "annotation" against ``Aspose.Pdf.Annotations.Annotation``
+(0.250) - so a threshold on that ratio alone cannot reject the false positive without also
+rejecting the true positive. The contiguous-run/order constraint, by contrast, correctly
+separated every case measured: both real false positives (their 3 query words are scattered
+and reordered across the FQN's 9 words) failed it, while every already-required true
+positive and every natural-order real multi-word probe tried across all 3 pilots passed it.
+This module's own write_paths do not include ``docs/DECISION_LOG.md``; the full measurement
+record (exact numbers, the real symbols/queries probed in all 3 pilots) is this card's own
+worker report, for the supervisor to fold into the decision log at the gate boundary.
 """
 
 from __future__ import annotations
@@ -43,7 +72,7 @@ from dataclasses import dataclass
 from difflib import get_close_matches
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
-from foss_mcp.indexing.lexical_index_writer import query_lexical_index
+from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored
 from foss_mcp.mcp.routing import Scope
 
 SOURCE_KIND = "self_extracted"
@@ -65,30 +94,66 @@ def _symbol_words(text: str) -> list[str]:
     return [word.casefold() for word in _WORD_SEPARATORS.split(spaced) if word]
 
 
-def is_exact_symbol_hit(query: str, fqn: str | None) -> bool:
-    """True when *query* names *fqn*: it equals the full FQN or its final segment (dotted or
-    ``::``-scoped), compared case-insensitively after stripping whitespace; or every word of *query*
-    is a whole word among the words of *fqn* (words split at camel-case boundaries, dots, ``::``
-    and underscores).
+def _match_tier(query: str, fqn: str | None) -> int | None:
+    """The strength of evidence that *query* names *fqn*, as a tier - 0 (strongest) to 2
+    (weakest) - or ``None`` for no match at all. The three tiers, in admission order:
 
-    ``watermark`` is a whole word of ``PdfDocument.AddWatermarkAnnotation``, so it is a hit. A
-    partial word such as ``Watermar`` is not, and neither is an absent name that shares no whole
-    word with the FQN. A lexical rank is never enough on its own, and a chunk with no FQN line
-    can never be an exact hit.
+    0. Full-FQN equality: *query* equals the whole FQN, case-insensitively after stripping.
+    1. Final-segment equality: *query* equals the FQN's final dotted (or ``::``-scoped)
+       segment, same comparison.
+    2. Bag-of-words containment with a contiguous-run precision floor (TC-278, G2/REQ-G2-043):
+       every word of *query* is a whole word among the words of *fqn* (words split at
+       camel-case boundaries, dots, ``::`` and underscores) AND, additionally, the query's
+       own words - in the query's own order - appear as one unbroken, correctly-ordered run
+       inside the FQN's own word sequence. ``watermark`` is a contiguous one-word run of
+       ``PdfDocument.AddWatermarkAnnotation``, so it is a tier-2 hit. A scattered, reordered
+       multi-word query (e.g. "set pattern color" against an FQN whose own words are
+       "...set color ... pattern...") satisfies the bag-of-words containment alone but fails
+       this additional floor, so it is not a hit at any tier - measured empirically against 3
+       real pilots (see this module's own docstring) rather than guessed; a plain
+       containment-SET check alone cannot tell this case apart from a real
+       match, and a symmetric overlap-ratio threshold cannot either (the measured false
+       positive scores higher on that signal than an already-required true positive).
+
+    A partial word such as ``Watermar`` is never a whole word of anything, so it never reaches
+    tier 2 regardless of this floor. A chunk with no FQN line (*fqn* is ``None``) can never
+    match at any tier.
     """
     if fqn is None:
-        return False
+        return None
     needle = query.strip().casefold()
     if not needle:
-        return False
+        return None
     full = fqn.strip().casefold()
-    if needle == full or needle == _FINAL_SEGMENT.split(full)[-1]:
-        return True
+    if needle == full:
+        return 0
+    if needle == _FINAL_SEGMENT.split(full)[-1]:
+        return 1
     query_words = _symbol_words(query)
     if not query_words:
-        return False
-    fqn_words = set(_symbol_words(fqn))
-    return all(word in fqn_words for word in query_words)
+        return None
+    fqn_words = _symbol_words(fqn)
+    fqn_word_set = set(fqn_words)
+    if not all(word in fqn_word_set for word in query_words):
+        return None
+    run_length = len(query_words)
+    window_count = len(fqn_words) - run_length + 1
+    if window_count < 1:
+        return None
+    for start in range(window_count):
+        if fqn_words[start : start + run_length] == query_words:
+            return 2
+    return None
+
+
+def is_exact_symbol_hit(query: str, fqn: str | None) -> bool:
+    """True when *query* names *fqn* at any tier ``_match_tier`` recognizes - full-FQN
+    equality, final-segment equality, or bag-of-words containment with its contiguous-run
+    precision floor. Unchanged boolean contract: this predicate's one external caller
+    (``tests/indexing/test_lookup_doc_fallback_query_safety.py``) uses it only as
+    ``any(is_exact_symbol_hit(...) for fqn in real_fqns)``.
+    """
+    return _match_tier(query, fqn) is not None
 
 
 def suggest_similar_fqns(known_fqns: Iterable[str], target: str, *, limit: int = 3) -> tuple[str, ...]:
@@ -143,9 +208,16 @@ def search_symbols(
     TC-068's ``Example: <title>`` pseudo-symbol chunks and TC-112's ``Doc: <title>`` furnished
     documentation chunks live in this exact same generation but are never real symbols, so they
     are excluded from this tool's own notion of a match: the whole corpus is ranked first
-    (mirroring ``find_examples.py``'s own ``query_lexical_index(..., top_k=len(documents))``
+    (mirroring ``find_examples.py``'s own ``query_lexical_index_scored(..., top_k=len(documents))``
     pattern, so a real symbol is never lost to a premature cut), pseudo-symbols are dropped, and
     only then is the result truncated to the caller's real ``top_k``.
+
+    TC-278 (G2/REQ-G2-043): admitted candidates are sorted by the STRENGTH of the evidence that
+    admitted them first (tier 0 - full-FQN equality - ranks ahead of tier 1 - final-segment
+    equality - ranks ahead of tier 2 - bag-of-words containment), raw BM25 score only as the
+    tiebreak within a tier. Before this, a real base class (a tier-1 hit) could rank behind its
+    own subclasses (each only a tier-2 hit) purely because the subclasses' shorter chunks scored
+    a higher raw BM25 term density - never because they were stronger evidence of a real match.
 
     A query with no match returns an explicit ``Miss`` - never a widened search, never a
     fallback to a different generation or scope.
@@ -163,15 +235,20 @@ def search_symbols(
         return Miss(scope, query, "published generation has no symbol index")
 
     documents = lexical_payload["documents"]
-    ranked = query_lexical_index(lexical_payload, query, top_k=len(documents))
-    doc_ids: list[str] = []
-    for doc_id in ranked:
+    ranked = query_lexical_index_scored(lexical_payload, query, top_k=len(documents))
+    admitted: list[tuple[int, float, str]] = []
+    for doc_id, bm25_score in ranked:
         fqn = extract_fqn(documents[doc_id]["text"])
         if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
             continue
-        if is_exact_symbol_hit(query, fqn):
-            doc_ids.append(doc_id)
-    doc_ids = doc_ids[:top_k]
+        tier = _match_tier(query, fqn)
+        if tier is None:
+            continue
+        admitted.append((tier, bm25_score, doc_id))
+    # Strongest evidence first (ascending tier); within a tier, the existing BM25-descending
+    # order is still the right tiebreak - it is never discarded, only demoted to secondary.
+    admitted.sort(key=lambda candidate: (candidate[0], -candidate[1]))
+    doc_ids = [doc_id for _tier, _bm25_score, doc_id in admitted][:top_k]
     if not doc_ids:
         known_fqns = []
         for doc_id in documents:

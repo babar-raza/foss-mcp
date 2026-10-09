@@ -19,6 +19,7 @@ from pathlib import Path
 
 import pytest
 
+from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.lexical_index_writer import query_lexical_index
 from foss_mcp.indexing.publisher import publish_generation
@@ -1011,3 +1012,100 @@ def test_find_examples_honestly_misses_a_deliberately_unrelated_nonsense_query(
 
     assert isinstance(result, NoExampleFound)
     assert result.scope == PDF_NET_SCOPE
+
+
+# --- TC-278 (C7, G2/REQ-G2-043): tier-ordered ranking + a measured bag-of-words precision ------
+# floor, both proved against the REAL production chunking path - build_chunks_from_api_surface
+# over the real committed pdf/net fixture - never a hand-shaped one-chunk-per-method synthetic
+# fixture. This differs deliberately from this file's own ``_pdf_net_symbol_chunks()`` helper
+# above (a 20-type hand-rolled slice that bypasses chunk_builder.py entirely): the card is
+# explicit that both the live reproduction and these regression tests must go through the real
+# extraction->chunking pipeline, so the real FQN/Kind/Methods formatting and the real sibling
+# chunks (every other type in the fixture) are genuinely present, not approximated.
+
+
+def _publish_real_pdf_net_surface(store: GenerationManifestStore) -> str:
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    chunks = build_chunks_from_api_surface(fixture, title="pdf/net API surface")
+    return _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
+
+
+def test_search_symbols_ranks_the_real_base_class_ahead_of_its_own_subclasses(tmp_path: Path) -> None:
+    """FIX A regression: before this card, ``Aspose.Pdf.Annotations.Annotation`` (a real,
+    final-segment-equality hit - tier 1, the strongest evidence short of exact-FQN) ranked 9th
+    of 14 admitted candidates for the query "Annotation", behind 8 of its own subclasses (each
+    only a weaker bag-of-words/tier-2 hit, e.g. AnnotationSelector, PopupAnnotation,
+    MarkupAnnotation) - purely because each subclass's own chunk is shorter and so scores a
+    higher raw BM25 term density, never because any subclass is stronger EVIDENCE of a real
+    match for "Annotation" than the base class itself is. Confirmed live against this exact
+    fixture before this card's fix landed. search_symbols now sorts admitted candidates by tier
+    first, so the base class - still a tier-1 hit - ranks ahead of every tier-2 subclass,
+    regardless of raw BM25 score.
+    """
+    store = _store(tmp_path)
+    _publish_real_pdf_net_surface(store)
+
+    result = search_symbols(store, PDF_NET_SCOPE, "Annotation", top_k=10)
+
+    assert isinstance(result, list) and result
+    assert "FQN: Aspose.Pdf.Annotations.Annotation\n" in result[0].text, (
+        "the real base class must rank FIRST, ahead of every one of its own subclasses"
+    )
+
+    # It must also survive find_examples' own, stricter default (top_k=5) - before this card's
+    # fix, the base class did not even reach the real default top_k=10, let alone top_k=5.
+    narrow_result = search_symbols(store, PDF_NET_SCOPE, "Annotation", top_k=5)
+    assert isinstance(narrow_result, list)
+    assert any("FQN: Aspose.Pdf.Annotations.Annotation\n" in match.text for match in narrow_result)
+
+
+def test_search_symbols_honestly_misses_a_scattered_reordered_bag_of_words_query(
+    tmp_path: Path,
+) -> None:
+    """FIX B regression: before this card, the bag-of-words tier admitted any query whose
+    words were ALL present somewhere in an FQN's own word SET, with no check on order,
+    adjacency, or how much of the FQN's structure the query actually covered. Live-confirmed
+    against this exact fixture: "set pattern color" and "set color pattern" each returned a
+    confident match on ``Aspose.Pdf.Operators.BasicSetColorAndPatternOperator`` - an internal,
+    abstract content-stream-operator base class for parsing raw SCN/scn operators, not a public
+    "set pattern color" feature (no such feature exists in this corpus; the honest answer is a
+    Miss). All 3 of the query's words really do appear somewhere among the FQN's own 9 words
+    ("aspose", "pdf", "operators", "basic", "set", "color", "and", "pattern", "operator"), but
+    scattered and reordered - "set" and "color" are adjacent in the FQN, "pattern" is not next
+    to either. search_symbols' new contiguous-run precision floor (measured empirically against
+    3 real pilots - see search_symbols.py's own module docstring) requires the query's own
+    words, in the query's own order, to appear as one unbroken run in the FQN's own word
+    sequence; neither phrasing's words do, so both are now an honest Miss.
+    """
+    store = _store(tmp_path)
+    _publish_real_pdf_net_surface(store)
+
+    for query in ("set pattern color", "set color pattern"):
+        result = search_symbols(store, PDF_NET_SCOPE, query)
+
+        assert isinstance(result, SymbolsMiss), f"{query!r} must be an honest Miss, got {result!r}"
+        assert "BasicSetColorAndPatternOperator" not in result.reason
+
+
+def test_search_symbols_fix_b_precision_floor_does_not_regress_a_whole_word_true_positive(
+    tmp_path: Path,
+) -> None:
+    """FIX B non-regression, against the real fixture: the card's own prose names
+    ``PdfDocument.AddWatermarkAnnotation`` as the already-required true positive "watermark"
+    must keep matching - but that exact FQN does not exist anywhere in the real, committed
+    ``tests/fixtures/pdf_net/api_surface.json`` (confirmed directly: no "AddWatermarkAnnotation"
+    substring anywhere in the fixture file). The real fixture's genuinely equivalent symbol -
+    same shape of regression, same single-word bag-of-words query - is
+    ``Aspose.Pdf.Annotations.WatermarkAnnotation``. This test uses that real symbol instead of
+    fabricating the nonexistent one the card's prose named, and proves the same property: Fix
+    B's new contiguous-run floor is trivially satisfied by any single-word query (a run of
+    length 1 is always contiguous), so it does not regress this already-required whole-word
+    true positive.
+    """
+    store = _store(tmp_path)
+    _publish_real_pdf_net_surface(store)
+
+    result = search_symbols(store, PDF_NET_SCOPE, "watermark")
+
+    assert isinstance(result, list) and result
+    assert any("FQN: Aspose.Pdf.Annotations.WatermarkAnnotation\n" in match.text for match in result)
