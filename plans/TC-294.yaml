@@ -1,0 +1,132 @@
+id: TC-294
+gate: G2
+lane: extraction
+purpose: 'Fix a third, distinct root cause found by TC-289 while applying TC-281''s fix (recorded in
+  docs/DECISION_LOG.md 2026-10-09): python_surface.py''s underscore-impl-module re-export recovery path
+  (_origin_definition(), TC-274''s own fix) resolves the real ast.ClassDef for a class reachable only through an
+  underscore-prefixed module (the "real impl in _foo.py, re-exported via __init__.py" convention) and extracts
+  its bases/return_type/param_types/docstring/signature via _structured_fields(found), but never calls
+  _methods() on that same `found` node. _methods() is only ever invoked from _module_symbols()''s own normal
+  per-file scan path, and _module_symbols() refuses to scan underscore-prefixed modules at all (returns ([], [])
+  immediately). So for any class whose real definition lives behind an underscore-prefixed module and is only
+  reachable via re-export, its methods never become PublicSymbol entries anywhere - independent of whether
+  _flatten_inheritance() itself is wired in (TC-281) or correctly resolves short-name collisions (TC-293).
+  Live-confirmed on html_python (TC-267''s own earlier finding: 97% of its real classes use this convention):
+  across the full 323-type real extraction, only 2 of 323 types (CSS, HTMLDocument) carry any methods at all;
+  HTMLElement - the #1-centrality anchor and real base of 156 real subclasses - has zero own methods despite its
+  real upstream source (dom/_html_element.py) defining roughly 15 real public methods/properties (click, focus,
+  blur, title, tab_index, ...), all silently dropped. With zero methods on the base, _flatten_inheritance() has
+  nothing to copy onto any subclass regardless of its own correctness - this defect sits upstream of, and is
+  independent from, both TC-281 and TC-293.'
+depends_on:
+- TC-274
+- TC-281
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+- tests/extraction/tree_sitter_engine/test_python_surface.py
+- tests/extraction/test_run_extraction_python.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read _origin_definition() (~line 287-329), _methods() (~line 236-263), _OriginDefinition (~line 266-285), and
+  the resolution loop in inspect_public_surface() that applies a resolved _OriginDefinition to a re-export symbol
+  via replace() (~line 425-454) in full before changing anything. Reproduce the gap yourself first: a synthetic
+  underscore-module package (mirroring this file''s own existing
+  test_a_reexport_of_an_underscore_module_origin_carries_real_structured_data fixture convention) whose
+  underscore-origin class defines a real public method, re-exported at the package level - confirm today, before
+  any fix, that the resulting PublicSurface has zero PublicSymbol entries for that method anywhere.'
+- 'Extend _OriginDefinition with a new field carrying the origin class''s own methods, reusing _methods() itself
+  (do not duplicate its body) - call it against the resolved ast.ClassDef found inside _origin_definition(), only
+  when `found` is a ClassDef (a FunctionDef/AsyncFunctionDef origin has no methods). _methods() needs
+  (node, module, relative, public_by); module is already the local variable holding the origin''s own dotted
+  module path inside _origin_definition(), relative and public_by may be any value that produces structurally
+  correct PublicSymbol objects (e.g. relative=candidate.name, public_by="reexport") since every field that
+  matters downstream is rewritten at the injection site described next - do not thread repository_root through
+  this function to compute a fully-accurate relative path, that is explicitly out of scope for this card.'
+- 'At the exact point inspect_public_surface()''s resolution loop currently does
+  `symbols[name] = replace(symbol, kind=..., docstring=..., ...)` for the underscore-origin (definition-based)
+  case, ALSO inject one new PublicSymbol per method the resolved _OriginDefinition now carries - keyed
+  `f"{name}.{method.name}"`, with qualified_name rewritten to that same key and module rewritten to the PUBLIC
+  symbol''s own module (symbol.module), so run_extraction.py''s _python_types_from_surface() (which groups a
+  method under its owner by stripping the qualified_name''s last segment and looking up the remainder) finds the
+  owner correctly. Reuse the already-resolved method''s own kind="method"/docstring/signature/bases/return_type/
+  param_types verbatim - that data is real, read straight from the origin''s own AST. For source_path/line,
+  reuse the PUBLIC re-export symbol''s own source_path/line (symbol.source_path/symbol.line) rather than the
+  private origin file''s - this deliberately mirrors the precedent the existing class-level replace() call
+  already sets (provenance points at the citable, public import location, never the private implementation file)
+  and must not be "improved" into a different convention for this card. Implement the injection as a small,
+  separately-named helper (e.g. `_reexported_methods(definition, symbol, name) -> list[PublicSymbol]`), not
+  inlined into the loop body - this card''s own negative control disables the fix by renaming that function''s
+  call site, so the helper must exist as a distinct, callable name.'
+- 'Guard against ever overwriting an existing symbols[] entry: only insert an injected method key when it is not
+  already present in the symbols dict. This should never actually trigger in practice (the injection path only
+  fires for a re-export the normal scan could not resolve directly), but if your own live verification run finds
+  a real collision, report it explicitly rather than silently overwriting.'
+- 'Verify the fix live against the real html_python extraction (network access available; run
+  `python -m foss_mcp.extraction.run_extraction config/products/html/python.yaml` to a scratch path, NOT the
+  committed fixture - do not regenerate any committed fixture as part of this card, that is explicitly deferred
+  to the existing TC-289 follow-up, mirroring TC-265/TC-274/TC-281/TC-293''s own precedent). Confirm HTMLElement
+  (or another real underscore-origin class) now carries its real methods, and that a real subclass of such a
+  class - once _flatten_inheritance() runs (already wired in by TC-281, assuming TC-293 has also landed; if
+  TC-293 has not yet landed when you run this, verify flattening onto a case that does NOT hit TC-293''s
+  short-name-collision shape, or note explicitly that full end-to-end inherited_from verification is blocked on
+  TC-293 and verify only that methods now exist on the base) now shows a correct inherited_from tag. Verify
+  against at least one additional real Python pilot of your own choosing using the same underscore-origin
+  convention.'
+- 'Add tests to tests/extraction/tree_sitter_engine/test_python_surface.py (read this file''s own existing
+  underscore-origin tests first, especially test_a_reexport_of_an_underscore_module_origin_carries_real_structured_data
+  and test_a_multi_hop_reexport_ending_at_an_underscore_module_carries_real_structured_data, and mirror their
+  fixture-construction convention exactly): an underscore-origin class with a real public method now produces a
+  method-level PublicSymbol keyed under the public qualified name with correct docstring/return_type/param_types;
+  a regression test proving a FunctionDef origin (no methods possible) and an already-passing underscore-origin
+  case with no methods in the class body are both completely unchanged by this fix. Add a test to
+  tests/extraction/test_run_extraction_python.py (TC-281''s own file - read its existing
+  PACKAGE_INHERITANCE/_write_inheritance_package() fixture convention first) proving these recovered methods flow
+  through _python_types_from_surface() into the owning type''s own "methods" list, and that _flatten_inheritance()
+  can copy one onto a real subclass with a correct inherited_from tag end to end.'
+- 'Run the full existing test_python_surface.py and test_run_extraction_python.py suites with zero changes to any
+  pre-existing assertion, then your new tests, then the full project suite once, and report honestly. If anything
+  outside your three write_paths breaks, STOP and report rather than patching around it.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read _origin_definition/_methods/_OriginDefinition and the resolution loop; reproduce the missing-methods gap
+  yourself with a synthetic underscore-origin fixture before changing anything.
+- Extend _OriginDefinition with a methods field populated via _methods() against the resolved ClassDef; inject
+  rehomed method PublicSymbol entries at the resolution-loop's replace() site via a distinctly-named helper.
+- Verify live against html_python and a second real Python pilot using the same underscore-origin convention.
+- Add tests for the new method-recovery case and regression tests for the unaffected paths; add an
+  end-to-end run_extraction test proving the methods reach _flatten_inheritance(); run the full existing suite
+  unchanged, then the full project suite once.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/test_run_extraction_python.py
+    -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 10
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/python_surface.py');s=p.read_text(encoding='utf-8');old='_reexported_methods';new='_reexported_methods_DISABLED';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Renames the LAST occurrence of "_reexported_methods" in python_surface.py - the real call site this
+    card adds inside the resolution loop, not the helper's own def line - so calling it raises a NameError and no
+    method is ever injected for an underscore-origin re-export, failing every new test proving a method now
+    appears under the public qualified name. Built with plain text, no backslash, using rindex per this session's
+    established vacuous-falsifier safeguard. If the worker names the helper differently than
+    `_reexported_methods`, this falsifier must be updated to match - report this explicitly rather than silently
+    renaming the helper to fit a pre-written falsifier.
+evidence:
+- evidence/build/G2/TC-294/receipt.json
+closeout:
+- python_surface.py's underscore-impl-module re-export recovery path now recovers a class's own real methods, not
+  only its class-level bases/return_type/param_types/docstring/signature, closing the third and deepest of the
+  three stacked root causes (TC-281, TC-293, this card) that together made inheritance flattening a near-total
+  no-op for Python packages using the common per-class-underscore-file + package-level-re-export convention.
+recovery: Re-run from a clean tree.
