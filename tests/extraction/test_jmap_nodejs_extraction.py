@@ -136,7 +136,15 @@ def test_both_jmap_client_classes_survive_as_distinct_records() -> None:
     assert full["class_import"] == "client-core.JmapClient"
     assert full["canonical_namespace"] == "client-core"
     method_names = {m["name"] for m in full["methods"]}
-    assert {"constructor", "connect", "close", "sendRequest", "echo", "uploadBlob", "downloadBlob"} <= method_names
+    assert {
+        "constructor",
+        "connect",
+        "close",
+        "sendRequest",
+        "echo",
+        "uploadBlob",
+        "downloadBlob",
+    } <= method_names
 
 
 def test_a_real_inherited_member_carries_correct_provenance() -> None:
