@@ -204,10 +204,7 @@ def test_a_real_inherited_member_carries_the_correct_inherited_from_tag() -> Non
     themeable = by_name["IThemeable"]
     assert "ISlideComponent" in themeable["bases"]
     themeable_methods = {m["name"]: m for m in themeable["methods"]}
-    assert (
-        themeable_methods["getSlide"]["inherited_from"]
-        == "org.aspose.slides.foss.ISlideComponent"
-    )
+    assert themeable_methods["getSlide"]["inherited_from"] == "org.aspose.slides.foss.ISlideComponent"
 
     base_slide = by_name["IBaseSlide"]
     assert "IThemeable" in base_slide["bases"]
@@ -215,7 +212,4 @@ def test_a_real_inherited_member_carries_the_correct_inherited_from_tag() -> Non
     # IBaseSlide inherits getSlide transitively THROUGH IThemeable, but the tag stays
     # rooted to ISlideComponent - the real original declarer - not the intermediate
     # IThemeable it was copied through.
-    assert (
-        base_slide_methods["getSlide"]["inherited_from"]
-        == "org.aspose.slides.foss.ISlideComponent"
-    )
+    assert base_slide_methods["getSlide"]["inherited_from"] == "org.aspose.slides.foss.ISlideComponent"
