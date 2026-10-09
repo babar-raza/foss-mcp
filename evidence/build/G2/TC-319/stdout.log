@@ -1,0 +1,112 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_cells_python_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7xfb_1w4\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_cells_python_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7xfb_1w4\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/cells_python/api_surface.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/extraction/test_cells_python_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7xfb_1w4\.junit-0.xml"
+--- stdout ---
+FFFFFFF                                                                  [100%]
+================================== FAILURES ===================================
+_____________ test_the_fixture_parses_and_has_the_expected_shape ______________
+
+    def test_the_fixture_parses_and_has_the_expected_shape() -> None:
+        data = _load_fixture()
+        assert isinstance(data, dict)
+>       assert isinstance(data["types"], list)
+                          ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_python_extraction.py:61: KeyError
+_______ test_the_fixture_records_the_exact_source_commit_and_repository _______
+
+    def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
+        data = _load_fixture()
+>       assert _COMMIT_SHA.match(data["source_commit"]), data["source_commit"]
+                                 ^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'source_commit'
+
+tests\extraction\test_cells_python_extraction.py:67: KeyError
+________________________ test_the_fixture_is_non_empty ________________________
+
+    def test_the_fixture_is_non_empty() -> None:
+        data = _load_fixture()
+>       assert len(data["types"]) > 0
+                   ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_python_extraction.py:74: KeyError
+______________ test_the_fixture_contains_real_python_type_names _______________
+
+    def test_the_fixture_contains_real_python_type_names() -> None:
+        data = _load_fixture()
+>       names = {entry["name"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_python_extraction.py:81: KeyError
+_______________ test_every_entry_is_a_real_python_surface_kind ________________
+
+    def test_every_entry_is_a_real_python_surface_kind() -> None:
+        data = _load_fixture()
+>       kinds = {entry["kind"] for entry in data["types"]}
+                                            ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_python_extraction.py:91: KeyError
+_ test_the_fixture_now_carries_real_bases_under_the_full_inheritance_pipeline _
+
+    def test_the_fixture_now_carries_real_bases_under_the_full_inheritance_pipeline() -> None:
+        # TC-319's own closing proof: the pre-TC-319 fixture (TC-160, the original onboarding
+        # wave) had EVERY one of its 204 types at bases == [] - it predated TC-265/TC-274/TC-281/
+        # TC-293/TC-294 entirely. This real re-run against the same pinned commit now carries 35
+        # non-empty bases lists - observed directly, not guessed.
+        data = _load_fixture()
+>       with_bases = [entry for entry in data["types"] if entry.get("bases")]
+                                         ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_python_extraction.py:104: KeyError
+_ test_encryption_parameters_subclasses_have_a_hand_verified_genuine_absence_of_inherited_from _
+
+    def test_encryption_parameters_subclasses_have_a_hand_verified_genuine_absence_of_inherited_from() -> None:
+        # Unlike html/python's HTMLElement chain (TC-294) or slides/python's IChart chain
+        # (TC-291/TC-293), this pilot's own real upstream source
+        # (aspose/cells_foss/encryption_params.py at the pinned commit, read directly - not
+        # assumed) shows EncryptionParameters declares exactly one method, __init__, which
+        # python_surface.py's own underscore-name filter excludes from the public surface (the
+        # same filter that drops every dunder everywhere else in this pipeline) - and both real
+        # subclasses below define their own __init__ anyway, overriding rather than inheriting it.
+        # There is therefore no public member left for either subclass to inherit: zero
+        # inherited_from tags for this base relationship is a verified-genuine absence, not a
+        # pipeline no-op.
+        data = _load_fixture()
+>       by_name = {entry["name"]: entry for entry in data["types"]}
+                                                     ^^^^^^^^^^^^^
+E       KeyError: 'types'
+
+tests\extraction\test_cells_python_extraction.py:133: KeyError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_cells_python_extraction.py::test_the_fixture_parses_and_has_the_expected_shape
+FAILED tests/extraction/test_cells_python_extraction.py::test_the_fixture_records_the_exact_source_commit_and_repository
+FAILED tests/extraction/test_cells_python_extraction.py::test_the_fixture_is_non_empty
+FAILED tests/extraction/test_cells_python_extraction.py::test_the_fixture_contains_real_python_type_names
+FAILED tests/extraction/test_cells_python_extraction.py::test_every_entry_is_a_real_python_surface_kind
+FAILED tests/extraction/test_cells_python_extraction.py::test_the_fixture_now_carries_real_bases_under_the_full_inheritance_pipeline
+FAILED tests/extraction/test_cells_python_extraction.py::test_encryption_parameters_subclasses_have_a_hand_verified_genuine_absence_of_inherited_from
+
+--- stderr ---
+
