@@ -901,6 +901,19 @@ def _extract_bases(node, language: str) -> list[str]:
             "class_heritage",
             "extends_clause",
             "implements_clause",
+            # TC-316 finding: TypeScript's `interface Child extends Parent`
+            # wraps the clause as its OWN direct `extends_type_clause` child
+            # of interface_declaration -- a distinct node type from the
+            # class-level `extends_clause`/`class_heritage` handled above
+            # (confirmed via a live parse probe: `export interface ChartInfo
+            # extends ShapeInfo {}` parses as interface_declaration ->
+            # type_identifier, extends_type_clause[extends, type_identifier],
+            # interface_body). Node text is "extends ShapeInfo" (or
+            # "extends A, B" for `interface Foo extends A, B {}`), which the
+            # existing leading-keyword-strip + comma-split below already
+            # handles identically to every other recognized type here, so no
+            # further special-casing is needed.
+            "extends_type_clause",
         ):
             text = node_text(ch)
             # strip keywords
