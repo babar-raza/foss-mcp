@@ -1648,3 +1648,22 @@ Confirmed the real underlying data IS available and merely discarded: `python_su
 **B08, C2(remaining wiring)/C6-C8, and the proof-harness fix itself: not yet investigated/built as of this entry** - C1/C3/C4/C5 and the first stage of C2 were prioritized per the recon's own explicit ordering (Section 29: false-information and completeness defects before retrieval-quality and non-blocking ones). Each remaining item will be independently checked against running code and the live fleet before being accepted, exactly as the others were.
 
 Every card's review ran gatectl's real negative-control falsifier and two clean runs before acceptance; every rework was driven by the project's own coverage gate or full-suite check catching real breakage, never guessed. All nine cards are now on `main` (`777f38d` is the latest integration evidence commit as of this entry). B08 remains the only item from the second audit with no evidence yet supplied to investigate.
+
+## 2026-10-09 — Supervisor-side integration gap: TC-265 accepted but never integrated (process note)
+Gap found by the TC-264 rework-2 worker, not by the supervisor: TC-265 passed `gatectl review` and was `ACCEPTED`,
+but the supervisor never ran `gatectl integrate TC-265` before dispatching TC-264's rework-2 with the instruction
+"TC-265 is now integrated on main." It was not - `git merge-base --is-ancestor 8ffcdd0 main` was false at the time
+of that dispatch. The worker independently re-verified `python_surface.py`/`run_extraction.py` on its rebased
+worktree HEAD, found the pre-TC-265 code verbatim, traced the commit graph, confirmed the gap, reverted its own
+no-op fixture regeneration, and stopped without committing rather than trusting the dispatch instruction's claim.
+This is exactly the class of failure AGENTS.md's "Integration and liveness" section warns about (a green
+review/accept proves a fix was produced and gated, never that it was actually wired into the branch other work
+builds on) - just one level up the stack, on the supervisor's own `review -> accept -> integrate` pipeline rather
+than on a worker's code. Fixed immediately on report: `gatectl integrate TC-265` run for real (evidence commit
+`6ec7fb4`), confirmed `bases:`/`return_type`/`param_types` genuinely present in `python_surface.py` on current
+main, TC-264 rework-3 dispatched with the corrected premise.
+**Process correction:** before any dispatch instruction asserts "<card> is integrated," the supervisor must itself
+run `git merge-base --is-ancestor <card's known commit> main` (or re-check `gatectl resume-brief`'s per-card status
+against actual git ancestry, not just the `ACCEPTED` label) rather than inferring integration from acceptance.
+`ACCEPTED` and `INTEGRATED` are different gatectl verbs with different evidence; this session had been treating
+them as interchangeable once a card cleared review.
