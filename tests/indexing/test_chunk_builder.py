@@ -382,7 +382,9 @@ def test_inherited_from_renders_as_an_inherited_from_suffix_on_methods_and_prope
 
     # The inherited member's existing rendered content (return type / writability
     # parenthetical) is still fully present, with the new suffix appended after it.
-    assert "  - GetRectangle() -> Rectangle  (inherited from Aspose::Pdf::Annotations::Annotation)" in all_text
+    assert (
+        "  - GetRectangle() -> Rectangle  (inherited from Aspose::Pdf::Annotations::Annotation)" in all_text
+    )
     assert "  - Rect: Rectangle (writable)  (inherited from Aspose::Pdf::Annotations::Annotation)" in all_text
 
 

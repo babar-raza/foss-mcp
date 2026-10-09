@@ -106,7 +106,9 @@ def test_a_method_copied_from_the_direct_parent_is_rooted_to_the_parent() -> Non
     assert get_rectangle.get("inherited_from") == PARENT_IMPORT
 
 
-def test_a_method_copied_transitively_from_the_grandparent_is_rooted_to_the_grandparent_not_the_parent() -> None:
+def test_a_method_copied_transitively_from_the_grandparent_is_rooted_to_the_grandparent_not_the_parent() -> (
+    None
+):
     """The multi-level case TC-261's card requires verifying directly: GetIsInLine only
     exists on BaseParagraph (the grandparent). It reaches PopupAnnotation (the grandchild)
     by being copied into Annotation first, then copied again from Annotation into
@@ -150,7 +152,7 @@ def test_properties_behave_the_same_way_as_methods() -> None:
 
 
 def test_the_ancestors_own_original_entries_never_gain_the_key() -> None:
-    """"inherited_from" is set on the COPIED dict only - the real ancestor's own original
+    """ "inherited_from" is set on the COPIED dict only - the real ancestor's own original
     entry in its own methods/properties list must never be mutated to carry it, since that
     entry genuinely IS a local declaration from that class's own point of view."""
     classes = _three_level_chain()

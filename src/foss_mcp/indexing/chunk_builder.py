@@ -43,10 +43,7 @@ def _method_line(method: Mapping[str, object]) -> str:
         f"{param.get('name', '')}: {param.get('type', '')}" for param in method.get("params") or []
     )
     return_type = method.get("return_type") or "void"
-    return (
-        f"  - {method.get('name', '')}({params}) -> {return_type}"
-        f"{_inherited_from_suffix(method)}"
-    )
+    return f"  - {method.get('name', '')}({params}) -> {return_type}{_inherited_from_suffix(method)}"
 
 
 def _property_writability(prop: Mapping[str, object]) -> str | None:
