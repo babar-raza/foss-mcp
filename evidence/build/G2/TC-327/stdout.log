@@ -1,0 +1,91 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0bn1bcaw\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 86%]
+...........                                                              [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0bn1bcaw\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 86%]
+...........                                                              [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M docker-compose.yml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0bn1bcaw\.junit-0.xml"
+--- stdout ---
+F.......................................F............................... [ 86%]
+...........                                                              [100%]
+================================== FAILURES ===================================
+__ test_every_pilot_s_install_verification_wiring_matches_its_manifest_path ___
+
+    def test_every_pilot_s_install_verification_wiring_matches_its_manifest_path() -> None:
+        """Covers all 40 pilots in one sweep, including any pilot not named below - the aggregate
+        counterpart to the per-pilot tests, so a future pilot added without a dedicated test function
+        still gets this parity enforced.
+        """
+        for family, platform in sorted(FORTY_PILOTS):
+>           _assert_install_verification_matches_manifest_path(family, platform)
+
+tests\infra\test_helm_pilots_match_compose.py:245: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+family = 'tex', platform = 'python'
+
+    def _assert_install_verification_matches_manifest_path(family: str, platform: str) -> None:
+        pilot = _pilot(family, platform)
+        manifest_path = pilot.get("manifestPath")
+        fetch_segment = _find_segment(family, platform, "fetch_product_reference.py")
+        verify_segment = _find_segment(family, platform, "verify_product_reference_install.py")
+    
+        if manifest_path:
+            assert fetch_segment is not None, (
+                f"{family}/{platform} has a manifestPath but no fetch_product_reference.py step"
+            )
+>           assert verify_segment is not None, (
+                f"{family}/{platform} has a manifestPath but no verify_product_reference_install.py step"
+            )
+E           AssertionError: tex/python has a manifestPath but no verify_product_reference_install.py step
+E           assert None is not None
+
+tests\infra\test_helm_pilots_match_compose.py:210: AssertionError
+____________ test_tex_python_pilot_has_install_verification_wiring ____________
+
+    def test_tex_python_pilot_has_install_verification_wiring() -> None:
+>       _assert_install_verification_matches_manifest_path("tex", "python")
+
+tests\infra\test_helm_pilots_match_compose.py:405: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+family = 'tex', platform = 'python'
+
+    def _assert_install_verification_matches_manifest_path(family: str, platform: str) -> None:
+        pilot = _pilot(family, platform)
+        manifest_path = pilot.get("manifestPath")
+        fetch_segment = _find_segment(family, platform, "fetch_product_reference.py")
+        verify_segment = _find_segment(family, platform, "verify_product_reference_install.py")
+    
+        if manifest_path:
+            assert fetch_segment is not None, (
+                f"{family}/{platform} has a manifestPath but no fetch_product_reference.py step"
+            )
+>           assert verify_segment is not None, (
+                f"{family}/{platform} has a manifestPath but no verify_product_reference_install.py step"
+            )
+E           AssertionError: tex/python has a manifestPath but no verify_product_reference_install.py step
+E           assert None is not None
+
+tests\infra\test_helm_pilots_match_compose.py:210: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_every_pilot_s_install_verification_wiring_matches_its_manifest_path
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_tex_python_pilot_has_install_verification_wiring
+
+--- stderr ---
+
