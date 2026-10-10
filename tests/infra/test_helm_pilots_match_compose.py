@@ -159,6 +159,250 @@ def _compose_arguments(family: str, platform: str) -> tuple[dict[str, str], dict
     return _flags(build), _flags(ingest)
 
 
+def _command_segments(family: str, platform: str) -> list[list[str]]:
+    """The `&&`-separated segments of one ingest service's command, each still tokenized."""
+    tokens = shlex.split(_compose_service(family, platform)["command"][0])
+    segments: list[list[str]] = []
+    current: list[str] = []
+    for token in tokens:
+        if token == "&&":
+            segments.append(current)
+            current = []
+        else:
+            current.append(token)
+    segments.append(current)
+    return segments
+
+
+def _segment_flags(segment: list[str]) -> dict[str, str]:
+    """A brace-grouped, `|| true`-guarded segment's own flags, stripping that shell scaffolding
+    (`{`, `}`, `||`, `true;`) before handing the rest to `_flags`.
+    """
+    cleaned = [token for token in segment if token not in ("{", "}", "||", "true;")]
+    return _flags(cleaned)
+
+
+def _find_segment(family: str, platform: str, script_filename: str) -> list[str] | None:
+    for segment in _command_segments(family, platform):
+        if f"/app/infra/{script_filename}" in segment:
+            return segment
+    return None
+
+
+# G2/TC-327: a pilot with a manifestPath gets two more steps after ingest.py, mirroring
+# infra/helm/foss-mcp/templates/ingestion-job.yaml's own identical, identically-conditioned pair
+# (C2 part 2, G2/TC-275): fetch_product_reference.py, then verify_product_reference_install.py.
+# A pilot without manifestPath gets neither. This asserts both directions, byte-correct against
+# the chart's own argument shape, so the pair documented in TC-327's own closeout (docker-compose.yml
+# now matching the production Job template for every manifestPath pilot) can never silently drift
+# again - the whole reason this card exists: it had been wired into the Job template but not here,
+# for any of the 40 pilots, until this card.
+def _assert_install_verification_matches_manifest_path(family: str, platform: str) -> None:
+    pilot = _pilot(family, platform)
+    manifest_path = pilot.get("manifestPath")
+    fetch_segment = _find_segment(family, platform, "fetch_product_reference.py")
+    verify_segment = _find_segment(family, platform, "verify_product_reference_install.py")
+
+    if manifest_path:
+        assert fetch_segment is not None, (
+            f"{family}/{platform} has a manifestPath but no fetch_product_reference.py step"
+        )
+        assert verify_segment is not None, (
+            f"{family}/{platform} has a manifestPath but no verify_product_reference_install.py step"
+        )
+        lib = pilot.get("library") or {}
+        fetch_flags = _segment_flags(fetch_segment)
+        verify_flags = _segment_flags(verify_segment)
+
+        assert fetch_flags.get("--repository") == lib.get("repository"), "fetch_product_reference repository"
+        assert fetch_flags.get("--platform") == platform, "fetch_product_reference platform"
+        assert fetch_flags.get("--manifest-path") == manifest_path, "fetch_product_reference manifest-path"
+        assert fetch_flags.get("--ref") == lib.get("commit"), "fetch_product_reference ref"
+        assert fetch_flags.get("--output") == f"/data/manifests/product_reference_{family}_{platform}.json", (
+            "fetch_product_reference output"
+        )
+
+        assert verify_flags.get("--family") == family, "verify_product_reference_install family"
+        assert verify_flags.get("--platform") == platform, "verify_product_reference_install platform"
+        assert verify_flags.get("--manifests-dir") == "/data/manifests", "verify_product_reference_install manifests-dir"
+    else:
+        assert fetch_segment is None, (
+            f"{family}/{platform} has no manifestPath but runs fetch_product_reference.py anyway"
+        )
+        assert verify_segment is None, (
+            f"{family}/{platform} has no manifestPath but runs verify_product_reference_install.py anyway"
+        )
+
+
+def test_every_pilot_s_install_verification_wiring_matches_its_manifest_path() -> None:
+    """Covers all 40 pilots in one sweep, including any pilot not named below - the aggregate
+    counterpart to the per-pilot tests, so a future pilot added without a dedicated test function
+    still gets this parity enforced.
+    """
+    for family, platform in sorted(FORTY_PILOTS):
+        _assert_install_verification_matches_manifest_path(family, platform)
+
+
+def test_pdf_net_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("pdf", "net")
+
+
+def test_slides_python_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("slides", "python")
+
+
+def test_pdf_typescript_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("pdf", "typescript")
+
+
+def test_pdf_go_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("pdf", "go")
+
+
+def test_pdf_java_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("pdf", "java")
+
+
+def test_cells_rust_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("cells", "rust")
+
+
+def test_pdf_cpp_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("pdf", "cpp")
+
+
+def test_words_python_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("words", "python")
+
+
+def test_words_net_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("words", "net")
+
+
+def test_slides_java_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("slides", "java")
+
+
+def test_cells_go_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("cells", "go")
+
+
+def test_cells_typescript_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("cells", "typescript")
+
+
+def test_jmap_rust_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("jmap", "rust")
+
+
+def test_cells_cpp_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("cells", "cpp")
+
+
+def test_cells_net_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("cells", "net")
+
+
+def test_cells_python_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("cells", "python")
+
+
+def test_jmap_python_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("jmap", "python")
+
+
+def test_pdf_python_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("pdf", "python")
+
+
+def test_slides_cpp_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("slides", "cpp")
+
+
+def test_slides_net_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("slides", "net")
+
+
+def test_email_python_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("email", "python")
+
+
+def test_email_cpp_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("email", "cpp")
+
+
+def test_email_net_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("email", "net")
+
+
+def test_barcode_python_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("barcode", "python")
+
+
+def test_note_python_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("note", "python")
+
+
+def test_html_python_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("html", "python")
+
+
+def test_page_python_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("page", "python")
+
+
+def test_imaging_net_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("imaging", "net")
+
+
+def test_cells_java_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("cells", "java")
+
+
+def test_jmap_typescript_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("jmap", "typescript")
+
+
+def test_jmap_go_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("jmap", "go")
+
+
+def test_jmap_net_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("jmap", "net")
+
+
+def test_jmap_cpp_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("jmap", "cpp")
+
+
+def test_jmap_java_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("jmap", "java")
+
+
+def test_jmap_nodejs_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("jmap", "nodejs")
+
+
+def test_3d_python_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("3d", "python")
+
+
+def test_3d_typescript_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("3d", "typescript")
+
+
+def test_3d_net_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("3d", "net")
+
+
+def test_3d_java_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("3d", "java")
+
+
+def test_tex_python_pilot_has_install_verification_wiring() -> None:
+    _assert_install_verification_matches_manifest_path("tex", "python")
+
+
 def _assert_pilot_matches_compose(family: str, platform: str) -> None:
     pilot = _pilot(family, platform)
     build, ingest = _compose_arguments(family, platform)

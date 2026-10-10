@@ -147,6 +147,20 @@ services:
         --api-surface /app/fixtures/pdf_net/api_surface.json
         --held-by ingestion-pdf-net
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET
+        --platform net
+        --manifest-path src/Aspose.Pdf.Foss.csproj
+        --ref b7172877651413cff57a8bfe41fb8a8befb2406b
+        --output /data/manifests/product_reference_pdf_net.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family pdf
+        --platform net
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET
         --output /data/manifests/recent_releases_pdf_net.json
@@ -202,6 +216,20 @@ services:
         --api-surface /app/fixtures/pdf_typescript/api_surface.json
         --held-by ingestion-pdf-typescript
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript
+        --platform typescript
+        --manifest-path package.json
+        --ref 155bfc7a33f0ba23fb4252b6ba201828b02a5b9d
+        --output /data/manifests/product_reference_pdf_typescript.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family pdf
+        --platform typescript
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript
         --output /data/manifests/recent_releases_pdf_typescript.json
@@ -252,8 +280,22 @@ services:
         --api-surface /app/fixtures/pdf_cpp/api_surface.json
         --held-by ingestion-pdf-cpp
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp
+        --platform cpp
+        --manifest-path CMakeLists.txt
+        --ref 4b83c9fec1e37fd205156770161f6843bac00ceb
+        --output /data/manifests/product_reference_pdf_cpp.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family pdf
+        --platform cpp
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
-        --repository
+        --repository aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp
         --output /data/manifests/recent_releases_pdf_cpp.json
         || true; }
 
@@ -307,6 +349,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/pdf_java/api_surface.json
         --held-by ingestion-pdf-java
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-pdf-foss/Aspose.PDF-FOSS-for-Java
+        --platform java
+        --manifest-path pom.xml
+        --ref 736cedaa2922e4952f429364bdb9a4bbb1d97863
+        --output /data/manifests/product_reference_pdf_java.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family pdf
+        --platform java
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-pdf-foss/Aspose.PDF-FOSS-for-Java
@@ -365,6 +421,20 @@ services:
         --api-surface /app/fixtures/pdf_go/api_surface.json
         --held-by ingestion-pdf-go
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-pdf-foss/Aspose-PDF-FOSS-for-Go
+        --platform go
+        --manifest-path go.mod
+        --ref cdf43df10c8c565ecaa978428b1fe66ad6685f8d
+        --output /data/manifests/product_reference_pdf_go.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family pdf
+        --platform go
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-pdf-foss/Aspose-PDF-FOSS-for-Go
         --output /data/manifests/recent_releases_pdf_go.json
@@ -421,6 +491,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/slides_python/api_surface.json
         --held-by ingestion-slides-python
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-slides-foss/Aspose.Slides-FOSS-for-Python
+        --platform python
+        --manifest-path pyproject.toml
+        --ref 4e63447ba79d1c27a5192844847d9f872c5b92ad
+        --output /data/manifests/product_reference_slides_python.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family slides
+        --platform python
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-slides-foss/Aspose.Slides-FOSS-for-Python
@@ -480,6 +564,20 @@ services:
         --api-surface /app/fixtures/cells_rust/api_surface.json
         --held-by ingestion-cells-rust
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-cells-foss/Aspose.Cells-FOSS-for-Rust
+        --platform rust
+        --manifest-path Cargo.toml
+        --ref 1a6004af47b1ef15385f9d36d381a8172428cc7e
+        --output /data/manifests/product_reference_cells_rust.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family cells
+        --platform rust
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-cells-foss/Aspose.Cells-FOSS-for-Rust
         --output /data/manifests/recent_releases_cells_rust.json
@@ -526,6 +624,20 @@ services:
         --api-surface /app/fixtures/words_python/api_surface.json
         --held-by ingestion-words-python
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-words-foss/Aspose.Words-FOSS-for-Python
+        --platform python
+        --manifest-path pyproject.toml
+        --ref 2d2efee2787cb9e56d071d17f8d7b740dce8b784
+        --output /data/manifests/product_reference_words_python.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family words
+        --platform python
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-words-foss/Aspose.Words-FOSS-for-Python
         --output /data/manifests/recent_releases_words_python.json
@@ -570,6 +682,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/words_net/api_surface.json
         --held-by ingestion-words-net
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-words-foss/Aspose.Words-FOSS-for-.NET
+        --platform net
+        --manifest-path Aspose.Words/Aspose.Words.csproj
+        --ref 0d3f1add920f5294d726b4f286c2d6ba7c3ae22c
+        --output /data/manifests/product_reference_words_net.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family words
+        --platform net
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-words-foss/Aspose.Words-FOSS-for-.NET
@@ -616,6 +742,20 @@ services:
         --api-surface /app/fixtures/slides_java/api_surface.json
         --held-by ingestion-slides-java
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-slides-foss/Aspose.Slides-FOSS-for-Java
+        --platform java
+        --manifest-path pom.xml
+        --ref 620a2614418854b4a18966a361e6907ddc88c7cb
+        --output /data/manifests/product_reference_slides_java.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family slides
+        --platform java
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-slides-foss/Aspose.Slides-FOSS-for-Java
         --output /data/manifests/recent_releases_slides_java.json
@@ -660,6 +800,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/cells_go/api_surface.json
         --held-by ingestion-cells-go
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-cells-foss/Aspose.Cells-FOSS-for-Go
+        --platform go
+        --manifest-path go.mod
+        --ref fa4e890e46c509efd22d09b97411202c2b0b8a67
+        --output /data/manifests/product_reference_cells_go.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family cells
+        --platform go
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-cells-foss/Aspose.Cells-FOSS-for-Go
@@ -706,6 +860,20 @@ services:
         --api-surface /app/fixtures/cells_typescript/api_surface.json
         --held-by ingestion-cells-typescript
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-cells-foss/Aspose.Cells-FOSS-for-TypeScript
+        --platform typescript
+        --manifest-path package.json
+        --ref fc186507e5b7124f4664aa6035f25cfd3112367d
+        --output /data/manifests/product_reference_cells_typescript.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family cells
+        --platform typescript
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-cells-foss/Aspose.Cells-FOSS-for-TypeScript
         --output /data/manifests/recent_releases_cells_typescript.json
@@ -750,6 +918,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/jmap_rust/api_surface.json
         --held-by ingestion-jmap-rust
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-email-foss/Aspose.JMAP-FOSS-for-Rust
+        --platform rust
+        --manifest-path Cargo.toml
+        --ref d7286100735e6d518837fde8639e8de694a08ef6
+        --output /data/manifests/product_reference_jmap_rust.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family jmap
+        --platform rust
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-email-foss/Aspose.JMAP-FOSS-for-Rust
@@ -797,6 +979,20 @@ services:
         --api-surface /app/fixtures/cells_cpp/api_surface.json
         --held-by ingestion-cells-cpp
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp
+        --platform cpp
+        --manifest-path Aspose.Cells.Foss.Cpp/CMakeLists.txt
+        --ref 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2
+        --output /data/manifests/product_reference_cells_cpp.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family cells
+        --platform cpp
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp
         --output /data/manifests/recent_releases_cells_cpp.json
@@ -841,6 +1037,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/cells_net/api_surface.json
         --held-by ingestion-cells-net
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-cells-foss/Aspose.Cells-FOSS-for-.NET
+        --platform net
+        --manifest-path src/Aspose.Cells_FOSS/Aspose.Cells_FOSS.csproj
+        --ref 941814fd138dc28cf47123d48194f329f283498d
+        --output /data/manifests/product_reference_cells_net.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family cells
+        --platform net
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-cells-foss/Aspose.Cells-FOSS-for-.NET
@@ -887,6 +1097,20 @@ services:
         --api-surface /app/fixtures/cells_python/api_surface.json
         --held-by ingestion-cells-python
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-cells-foss/Aspose.Cells-FOSS-for-Python
+        --platform python
+        --manifest-path pyproject.toml
+        --ref 4f6768a7b349a1309644f456eb43bc35f70c16d7
+        --output /data/manifests/product_reference_cells_python.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family cells
+        --platform python
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-cells-foss/Aspose.Cells-FOSS-for-Python
         --output /data/manifests/recent_releases_cells_python.json
@@ -931,6 +1155,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/jmap_python/api_surface.json
         --held-by ingestion-jmap-python
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-email-foss/Aspose.JMAP-FOSS-for-Python
+        --platform python
+        --manifest-path pyproject.toml
+        --ref f2137fa6bade0002c317e3a73081f2a0b5173a23
+        --output /data/manifests/product_reference_jmap_python.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family jmap
+        --platform python
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-email-foss/Aspose.JMAP-FOSS-for-Python
@@ -977,6 +1215,20 @@ services:
         --api-surface /app/fixtures/pdf_python/api_surface.json
         --held-by ingestion-pdf-python
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-pdf-foss/Aspose-PDF-FOSS-for-Python
+        --platform python
+        --manifest-path pyproject.toml
+        --ref c391ee72ca153070e5ba0c62d42484861070debc
+        --output /data/manifests/product_reference_pdf_python.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family pdf
+        --platform python
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-pdf-foss/Aspose-PDF-FOSS-for-Python
         --output /data/manifests/recent_releases_pdf_python.json
@@ -1021,6 +1273,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/slides_cpp/api_surface.json
         --held-by ingestion-slides-cpp
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-slides-foss/Aspose.Slides-FOSS-for-Cpp
+        --platform cpp
+        --manifest-path CMakeLists.txt
+        --ref 469ce77a07b988c49deb930632b8276c89ec6b66
+        --output /data/manifests/product_reference_slides_cpp.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family slides
+        --platform cpp
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-slides-foss/Aspose.Slides-FOSS-for-Cpp
@@ -1067,6 +1333,20 @@ services:
         --api-surface /app/fixtures/slides_net/api_surface.json
         --held-by ingestion-slides-net
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-slides-foss/Aspose.Slides-FOSS-for-.NET
+        --platform net
+        --manifest-path src/Aspose.Slides.Foss/Aspose.Slides.Foss.csproj
+        --ref 86c441b5d81e707f2ea9e01b197dbb6ff7a3859b
+        --output /data/manifests/product_reference_slides_net.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family slides
+        --platform net
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-slides-foss/Aspose.Slides-FOSS-for-.NET
         --output /data/manifests/recent_releases_slides_net.json
@@ -1111,6 +1391,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/email_python/api_surface.json
         --held-by ingestion-email-python
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-email-foss/Aspose.Email-FOSS-for-Python
+        --platform python
+        --manifest-path pyproject.toml
+        --ref 10a906b48c0c11005c4d93b524e4431901c9717c
+        --output /data/manifests/product_reference_email_python.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family email
+        --platform python
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-email-foss/Aspose.Email-FOSS-for-Python
@@ -1157,6 +1451,20 @@ services:
         --api-surface /app/fixtures/email_cpp/api_surface.json
         --held-by ingestion-email-cpp
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-email-foss/Aspose.Email-FOSS-for-Cpp
+        --platform cpp
+        --manifest-path CMakeLists.txt
+        --ref c844a467cf7f2503819b655f4d6ceaef91056c40
+        --output /data/manifests/product_reference_email_cpp.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family email
+        --platform cpp
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-email-foss/Aspose.Email-FOSS-for-Cpp
         --output /data/manifests/recent_releases_email_cpp.json
@@ -1201,6 +1509,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/email_net/api_surface.json
         --held-by ingestion-email-net
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-email-foss/Aspose.Email-FOSS-for-.Net
+        --platform net
+        --manifest-path src/Aspose.Email.Foss/Aspose.Email.Foss.csproj
+        --ref 59125b4732df0eedbc4d4c2ab978698ed4348eb7
+        --output /data/manifests/product_reference_email_net.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family email
+        --platform net
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-email-foss/Aspose.Email-FOSS-for-.Net
@@ -1247,6 +1569,20 @@ services:
         --api-surface /app/fixtures/barcode_python/api_surface.json
         --held-by ingestion-barcode-python
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-barcode-foss/Aspose.BarCode-FOSS-for-Python
+        --platform python
+        --manifest-path pyproject.toml
+        --ref 06eca5c01e13ed6d59a640f1cf330c1c5a57d151
+        --output /data/manifests/product_reference_barcode_python.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family barcode
+        --platform python
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-barcode-foss/Aspose.BarCode-FOSS-for-Python
         --output /data/manifests/recent_releases_barcode_python.json
@@ -1291,6 +1627,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/note_python/api_surface.json
         --held-by ingestion-note-python
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-note-foss/Aspose.Note-FOSS-for-Python
+        --platform python
+        --manifest-path pyproject.toml
+        --ref 0014dbeef9511af360b936d95d47947d6b1d8a4f
+        --output /data/manifests/product_reference_note_python.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family note
+        --platform python
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-note-foss/Aspose.Note-FOSS-for-Python
@@ -1337,6 +1687,20 @@ services:
         --api-surface /app/fixtures/html_python/api_surface.json
         --held-by ingestion-html-python
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-html-foss/Aspose.HTML-FOSS-for-Python
+        --platform python
+        --manifest-path pyproject.toml
+        --ref bf0f1e7a6d29ca9e14de576fe3ff1aa49ddbaf11
+        --output /data/manifests/product_reference_html_python.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family html
+        --platform python
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-html-foss/Aspose.HTML-FOSS-for-Python
         --output /data/manifests/recent_releases_html_python.json
@@ -1381,6 +1745,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/page_python/api_surface.json
         --held-by ingestion-page-python
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-page-foss/Aspose.Page-FOSS-for-Python
+        --platform python
+        --manifest-path pyproject.toml
+        --ref 43cef367cd0b2cf00cc03064ca9d29d1ff507967
+        --output /data/manifests/product_reference_page_python.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family page
+        --platform python
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-page-foss/Aspose.Page-FOSS-for-Python
@@ -1427,6 +1805,20 @@ services:
         --api-surface /app/fixtures/imaging_net/api_surface.json
         --held-by ingestion-imaging-net
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-imaging-foss/Aspose.Imaging-FOSS-for-.NET
+        --platform net
+        --manifest-path src/Aspose.Imaging.Foss/Aspose.Imaging.Foss.csproj
+        --ref c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa
+        --output /data/manifests/product_reference_imaging_net.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family imaging
+        --platform net
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-imaging-foss/Aspose.Imaging-FOSS-for-.NET
         --output /data/manifests/recent_releases_imaging_net.json
@@ -1471,6 +1863,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/cells_java/api_surface.json
         --held-by ingestion-cells-java
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-cells-foss/Aspose.Cells-FOSS-for-Java
+        --platform java
+        --manifest-path pom.xml
+        --ref c65329e7257b1311abb9686d7e4957a8cc002955
+        --output /data/manifests/product_reference_cells_java.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family cells
+        --platform java
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-cells-foss/Aspose.Cells-FOSS-for-Java
@@ -1517,6 +1923,20 @@ services:
         --api-surface /app/fixtures/jmap_typescript/api_surface.json
         --held-by ingestion-jmap-typescript
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-email-foss/Aspose.JMAP-FOSS-for-TypeScript
+        --platform typescript
+        --manifest-path package.json
+        --ref d8fdf9e8f3367424c3a900271eb3bd0b99c6195e
+        --output /data/manifests/product_reference_jmap_typescript.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family jmap
+        --platform typescript
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-email-foss/Aspose.JMAP-FOSS-for-TypeScript
         --output /data/manifests/recent_releases_jmap_typescript.json
@@ -1561,6 +1981,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/jmap_go/api_surface.json
         --held-by ingestion-jmap-go
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-email-foss/Aspose.JMAP-FOSS-for-Go
+        --platform go
+        --manifest-path go.mod
+        --ref 327dda39116ba02657fa49ec6dbeb69965628447
+        --output /data/manifests/product_reference_jmap_go.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family jmap
+        --platform go
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-email-foss/Aspose.JMAP-FOSS-for-Go
@@ -1607,6 +2041,20 @@ services:
         --api-surface /app/fixtures/jmap_net/api_surface.json
         --held-by ingestion-jmap-net
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-email-foss/Aspose.JMAP-FOSS-for-.NET
+        --platform net
+        --manifest-path src/Aspose.Jmap/Aspose.Jmap.csproj
+        --ref 0d5cf17e0e9ee185eea2847f6587b918ac0eb016
+        --output /data/manifests/product_reference_jmap_net.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family jmap
+        --platform net
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-email-foss/Aspose.JMAP-FOSS-for-.NET
         --output /data/manifests/recent_releases_jmap_net.json
@@ -1651,6 +2099,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/jmap_cpp/api_surface.json
         --held-by ingestion-jmap-cpp
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-email-foss/Aspose.JMAP-FOSS-for-Cpp
+        --platform cpp
+        --manifest-path CMakeLists.txt
+        --ref 559c962081323468039dc75cf38676499f32b20e
+        --output /data/manifests/product_reference_jmap_cpp.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family jmap
+        --platform cpp
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-email-foss/Aspose.JMAP-FOSS-for-Cpp
@@ -1697,6 +2159,20 @@ services:
         --api-surface /app/fixtures/jmap_java/api_surface.json
         --held-by ingestion-jmap-java
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-email-foss/Aspose.JMAP-FOSS-for-Java
+        --platform java
+        --manifest-path pom.xml
+        --ref f0d6ba73dc92db4b3effaa7c1fa76682e2d09fd4
+        --output /data/manifests/product_reference_jmap_java.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family jmap
+        --platform java
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-email-foss/Aspose.JMAP-FOSS-for-Java
         --output /data/manifests/recent_releases_jmap_java.json
@@ -1741,6 +2217,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/jmap_nodejs/api_surface.json
         --held-by ingestion-jmap-nodejs
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-email-foss/Aspose.JMAP-FOSS-for-Node.js
+        --platform nodejs
+        --manifest-path package.json
+        --ref 93f22fb57ba83484d14af5af2017590a0f5bf55f
+        --output /data/manifests/product_reference_jmap_nodejs.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family jmap
+        --platform nodejs
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-email-foss/Aspose.JMAP-FOSS-for-Node.js
@@ -1787,6 +2277,20 @@ services:
         --api-surface /app/fixtures/3d_python/api_surface.json
         --held-by ingestion-3d-python
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-3d-foss/Aspose.3D-FOSS-for-Python
+        --platform python
+        --manifest-path setup.py
+        --ref 65b1f577c0f16d0d9112bb6c1153d3024543ac02
+        --output /data/manifests/product_reference_3d_python.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family 3d
+        --platform python
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-3d-foss/Aspose.3D-FOSS-for-Python
         --output /data/manifests/recent_releases_3d_python.json
@@ -1831,6 +2335,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/3d_typescript/api_surface.json
         --held-by ingestion-3d-typescript
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-3d-foss/Aspose.3D-FOSS-for-TypeScript
+        --platform typescript
+        --manifest-path package.json
+        --ref 66cb26df3b031f0bf6976d4e88dc89721983afa4
+        --output /data/manifests/product_reference_3d_typescript.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family 3d
+        --platform typescript
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-3d-foss/Aspose.3D-FOSS-for-TypeScript
@@ -1877,6 +2395,20 @@ services:
         --api-surface /app/fixtures/3d_net/api_surface.json
         --held-by ingestion-3d-net
         &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-3d-foss/Aspose.3D-FOSS-for-.NET
+        --platform net
+        --manifest-path src/main/Aspose.ThreeD/Aspose.ThreeD.csproj
+        --ref 52b0f00ebf28a0b4173921725ff170685ec2c502
+        --output /data/manifests/product_reference_3d_net.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family 3d
+        --platform net
+        --manifests-dir /data/manifests
+        || true; }
+        &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-3d-foss/Aspose.3D-FOSS-for-.NET
         --output /data/manifests/recent_releases_3d_net.json
@@ -1921,6 +2453,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/3d_java/api_surface.json
         --held-by ingestion-3d-java
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-3d-foss/Aspose.3D-FOSS-for-Java
+        --platform java
+        --manifest-path pom.xml
+        --ref 3d2ed6be91f5abdd1c52ecbcfa192719883cb1b3
+        --output /data/manifests/product_reference_3d_java.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family 3d
+        --platform java
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-3d-foss/Aspose.3D-FOSS-for-Java
@@ -1969,6 +2515,20 @@ services:
         --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
         --api-surface /app/fixtures/tex_python/api_surface.json
         --held-by ingestion-tex-python
+        &&
+        { python /app/infra/fetch_product_reference.py
+        --repository aspose-tex-foss/Aspose.TeX-FOSS-for-Python
+        --platform python
+        --manifest-path pyproject.toml
+        --ref 181015d2eee3e19f8af3d84e4a932ac84ad47c7c
+        --output /data/manifests/product_reference_tex_python.json
+        || true; }
+        &&
+        { python /app/infra/verify_product_reference_install.py
+        --family tex
+        --platform python
+        --manifests-dir /data/manifests
+        || true; }
         &&
         { python /app/infra/fetch_recent_releases.py
         --repository aspose-tex-foss/Aspose.TeX-FOSS-for-Python
