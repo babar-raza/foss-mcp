@@ -2434,3 +2434,48 @@ Deliberately NOT decided by this entry: how far this gateway is wired INTO the s
 scoped to the provider in isolation only - it does not re-run ingestion for any pilot and does not wire
 any MCP tool to query vectors. Each of those is treated as its own card, each measured rather than
 assumed, following this project's own established discipline for exactly this kind of change.
+
+## 2026-10-10 — NumPy added to requirements-serving.in/.lock (supervisor, pre-TC-336)
+
+Measured directly, not guessed: `query_vector_index_scored` (`src/foss_mcp/indexing/vector_index_writer.py`),
+called from `find_examples.py`'s vector fallback (TC-331) on every serving query that reaches it, computes
+cosine similarity as a pure-Python per-point float loop. Timed against today's largest real pilot corpus
+(pdf/go, 314 points, 4096-dim) and synthetic corpora at larger sizes: ~103ms at 314 points, ~308ms at 1,000,
+~2,964ms at 10,000 - linear, and already a real, paid latency cost today, not a hypothetical one at some
+future scale. Pilot *count* growing to "a few hundred" does not worsen this (each serving pod only ever reads
+its own pilot's scope, confirmed directly in `GenerationManifestStore`'s own per-scope file layout) - the real
+risk is any single pilot's own corpus growing, which this already-measurable cost makes urgent regardless.
+
+This project has stated a no-new-runtime-dependency discipline twice already (`HashingEmbeddingProvider`:
+"Zero ML/network dependencies"; the lexical tokenizer: "no new dependency... matching this project's own
+no-new-runtime-dependency discipline"). NumPy is a deliberate, measured exception to it, not a quiet
+reversal: no stdlib facility gives vectorized float-array math, and a matrix-vector multiply against a
+few-thousand-row float array is exactly the operation NumPy exists for - the alternative (hand-rolled
+vectorization in pure Python/`array`) would still pay Python's own per-element interpreter overhead, which is
+the actual cost being measured above, not the `_cosine` formula itself.
+
+Added `numpy` to `requirements-serving.in` (used by `src/foss_mcp/mcp/tools/find_examples.py`'s own query-time
+call chain, so the SERVING image needs it) and regenerated `requirements-serving.lock` via
+`uv pip compile --universal --generate-hashes --output-file requirements-serving.lock requirements-serving.in`
+(`numpy==2.5.3`, real hashes, 31 packages resolved) - done directly by the supervisor, not through a taskcard,
+mirroring this log's own 2026-09-10 tree-sitter-pinning entry: "Lockfiles are coordinator-owned, so this is a
+supervisor action rather than a card." The actual vectorized-cosine code change (consuming this new dependency)
+is a separate, normal taskcard (TC-336) - this entry covers only the dependency decision itself.
+
+`requirements.in`/`.lock` (the broader dev/test/ingestion lockfile `gatectl verify`'s own cached venv is built
+from) also gained the same `numpy` line and a re-pin, for a reason distinct from serving's own need: the test
+suite (`tests/indexing/test_index_writers.py`, `tests/mcp/tools/test_retrieval_tools.py`) imports
+`vector_index_writer.py` directly, so the dev venv needs NumPy importable too, or every test touching that
+module breaks with `ImportError` regardless of what ships in the serving image. Both files are GLOBAL_DENY to
+every card already, so this is the same supervisor-direct action as `requirements-serving.*` above, not a
+separate decision.
+
+Regenerated with `uv pip compile --universal --generate-hashes --output-file requirements.lock
+requirements.in`, NOT the header comment's own documented `piptools compile` command: a first attempt with
+plain `pip-tools` on this machine silently resolved markers for this platform/interpreter only, stripping
+every existing `; sys_platform != 'emscripten'`/`; platform_python_implementation != 'PyPy'` marker and
+dropping the emscripten-only `httpx2-jsfetch` dependency entirely - a real, almost-committed regression,
+caught by diffing before commit rather than assumed safe. `uv --universal` reproduced the file's existing
+cross-platform marker style exactly, adding only the one new `numpy==2.5.3` block. The header comment is now
+stale against what actually keeps this file's cross-platform markers correct and should be corrected in a
+future card.
