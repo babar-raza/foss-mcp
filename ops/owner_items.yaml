@@ -235,3 +235,36 @@ owner_items:
     those. Recorded here per AGENTS.md''s blocking taxonomy (a missing-information item only a human can supply)
     rather than left as an unexplained recurring mention in DECISION_LOG.md with no resolution path.'
   last_checked_at: '2026-10-09T06:30:00Z'
+- id: OWNER-12
+  status: OPEN
+  summary: 'A round-4 independent audit''s C2 finding ("fake install coordinates, 8/15 pilots still confidently
+    fake") was investigated 2026-10-10 and found to be a deployment-state fact, not a code defect: TC-260/TC-275''s
+    verification chain (infra/verify_package_registry.py, infra/verify_product_reference_install.py,
+    get_product_reference.py''s honest-override branch) is correctly and uniformly wired for every platform,
+    including the jmap/net and jmap/typescript pilots the audit called out as inconsistent - diffed directly,
+    byte-for-byte structurally identical dispatch to every sibling platform. The real cause: Kubernetes Jobs
+    (infra/helm/foss-mcp/templates/ingestion-job.yaml) are immutable once created, with a stable (non-content-
+    hashed) metadata.name, so a `helm upgrade` after TC-275 landed does not recreate an already-existing pilot''s
+    Job - that pilot''s own live pod never actually ran the newer 4-step chain and never wrote its
+    package_registry_<family>_<platform>.json sidecar, so get_product_reference.py''s own install_verified check
+    sees None (never checked), not False, and silently serves the original, unverified, confirmed-fake coordinate.
+    Live-reconfirmed 2026-10-10: all 6 real jmap coordinates (python/rust/java/nodejs/net/typescript) return 404
+    on their real registries right now, with zero difference in actual fakeness between the audit''s "7 fixed"
+    and "8 still fake" groups.'
+  resume_predicate: 'An authorized owner with real cluster access re-runs/recreates the live ingestion Jobs for
+    every affected pilot (likely: delete the stale Job objects and let the next scheduled/triggered helm
+    reconciliation recreate them, or force a manual `kubectl delete job` + re-apply) so they actually execute the
+    already-correct, already-integrated verification chain and write their missing package_registry sidecars.
+    Separately, not gating this item but recorded alongside it: a code-level fix so FUTURE helm upgrades
+    propagate Job-template changes without requiring manual Job deletion (a content-hash-suffixed Job name or a
+    delete-before-create lifecycle hook are the standard Helm idioms; either has real tradeoffs worth a dedicated
+    design pass before a taskcard is dispatched) remains unscoped, as does whether docker-compose.yml should gain
+    the same fetch/verify steps (confirmed 2026-10-10 to have zero such wiring for any of the 40 pilots).'
+  consumed_by:
+  - NONE
+  recorded_at: '2026-10-10T05:30:00Z'
+  note: 'Not a code defect in this repository - the fix code itself (TC-260/TC-275) is correct and complete.
+    Recorded per AGENTS.md''s blocking taxonomy (a live-infrastructure action only an authorized owner with
+    cluster access can perform) rather than guessed at with a code change that would not actually address the
+    real cause. The loop continues on everything else in the meantime.'
+  last_checked_at: '2026-10-10T05:30:00Z'

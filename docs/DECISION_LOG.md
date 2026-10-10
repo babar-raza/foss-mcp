@@ -2340,3 +2340,40 @@ actually wiring any of this into the live, agent-facing report_index_freshness t
 remains purely caller-supplied with no automatic resolution at all. Next priority shifting to C2 (fake/fabricated
 install coordinates, 8/15 pilots per the round-4 audit's own count) per that audit's own blocker-priority
 ordering, now that C3 is fully closed.
+
+## 2026-10-10 — C2 investigated: the fix code is correct and complete; the gap is deployment-state, not code
+A 2026-10-10 investigation of the round-4 audit's C2 finding ("7/15 fixed, 8/15 still confidently fake,
+rollout inconsistent even within jmap") found the fix mechanism (TC-260's `infra/verify_package_registry.py`
+checkers, TC-275's `infra/verify_product_reference_install.py` ingestion-time CLI, and
+`get_product_reference.py`'s honest-`NotAvailable`-override branch) is correctly and uniformly wired for EVERY
+platform, including `net`/`typescript` - diffed `config/products/jmap/{python,net,typescript}.yaml` and the
+Helm Job template's own per-platform dispatch directly; both are structurally identical across all six jmap
+platforms with no code-level gap.
+
+**Root cause: Kubernetes Jobs (`infra/helm/foss-mcp/templates/ingestion-job.yaml`) are immutable once created
+and the Job's own `metadata.name` is NOT content-hashed or revision-suffixed** - a `helm upgrade` after TC-275
+landed does not recreate an already-existing pilot's Job, so that pilot's own live pod never actually ran the
+new 4-step verification chain and never wrote its `package_registry_<family>_<platform>.json` sidecar at all.
+`get_product_reference.py`'s own honest-override branch only fires when `install_verified is False` - a `None`
+(never checked) silently falls through to serving the original, unverified, possibly-fake coordinate. This is a
+deployment-state fact, not a reproducible code defect - confirmed live: all 6 real jmap coordinates (python/
+rust/java/nodejs/net/typescript) return 404 on their real registries right now, with zero difference in
+fakeness between the "7 fixed" and "8 still fake" groups; the only real difference is whether each pilot's own
+live Job has ever actually run the newer chain.
+
+**A second, separate, fleet-wide gap, also confirmed**: `docker-compose.yml` never got this wiring added at
+all, for any of the 40 pilots - `fetch_product_reference.py`/`verify_product_reference_install.py` appear zero
+times in that file. Any compose-based deployment of this project never honestly flags a fake install
+coordinate for any pilot.
+
+**Recorded as OWNER-12** (ops/owner_items.yaml): re-running/recreating the live ingestion Jobs for every
+affected pilot on the real deployed cluster so they actually execute the already-correct verification chain -
+this is a live-infrastructure action only an authorized owner with cluster access can perform; the loop
+continues on everything else in the meantime.
+
+**Deferred, needs its own design pass before a taskcard is dispatched blindly**: making FUTURE `helm upgrade`s
+correctly propagate a Job-template change without requiring manual Job deletion (the standard Helm idiom is a
+content-hash-suffixed Job name or converting these to proper lifecycle hooks with a delete-before-create
+policy, but either choice has real tradeoffs - e.g. orphaned old Job cleanup, or hooks not being visible the
+same way as managed release resources - that deserve more thought than a one-line fix) - and separately,
+whether/how to add the same fetch/verify steps to docker-compose.yml for parity with the Helm chart.
