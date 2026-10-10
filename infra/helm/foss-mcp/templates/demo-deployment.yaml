@@ -68,6 +68,25 @@ spec:
               value: {{ $p.platform | quote }}
             - name: FOSS_MCP_SOURCE_KIND
               value: {{ $p.sourceKind | default "self_extracted" | quote }}
+            {{- with $.Values.embeddingGateway }}
+            {{- if .existingSecret }}
+            # The endpoint/API key are read from an operator-created Secret. optional keeps a
+            # missing key from failing the pod; find_examples then falls back to lexical-only
+            # matching, as it does with no gateway configured at all.
+            - name: FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .existingSecret | quote }}
+                  key: {{ .endpointKey | quote }}
+                  optional: true
+            - name: FOSS_MCP_EMBEDDING_GATEWAY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .existingSecret | quote }}
+                  key: {{ .apiKeyKey | quote }}
+                  optional: true
+            {{- end }}
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /healthz

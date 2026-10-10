@@ -625,6 +625,20 @@ ingestion:
         commit: "181015d2eee3e19f8af3d84e4a932ac84ad47c7c"
         platform: python
 
+# Optional embedding gateway for find_examples' vector fallback (GatewayEmbeddingProvider). A
+# serving-time concern shared by both the live per-pilot deployment (deployment.yaml) and the
+# demo path (demo-deployment.yaml) - never nested inside ingestion: or demo:, which are each
+# scoped to only one of those two paths. The endpoint/API key are never values here and never in
+# the chart: the operator creates the Secret, and the chart only names it and the two keys inside
+# it. When existingSecret is empty (the default) neither env var is emitted and find_examples
+# falls back to lexical-only matching, exactly as it does today. When it is set, both serving
+# paths get FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT/_API_KEY from that Secret's two keys, each
+# optional so a missing key never stops the pod - it only leaves the feature inactive.
+embeddingGateway:
+  existingSecret: ""
+  endpointKey: endpoint
+  apiKeyKey: apiKey
+
 # A second, additive serving topology (demo-deployment.yaml, demo-ingress.yaml) for a self-
 # contained demo image (Dockerfile.serving's `demo` stage, built with pre-built generations
 # already baked into /data/manifests - no PersistentVolumeClaim, no ingestion Job, and no
