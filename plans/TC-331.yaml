@@ -1,0 +1,143 @@
+id: TC-331
+gate: G2
+lane: storage-retrieval
+purpose: 'TC-330 built a real EmbeddingProvider against the confirmed-live internal Qwen gateway, in
+  isolation - no MCP tool queries it yet. The mission plan''s own tool registry (search_docs: "semantic
+  retrieval"; search_symbols: "lexical+semantic"; find_examples: "deterministic exact-match + semantic
+  fallback") specifies a semantic signal for three tools; today all three are lexical-only (confirmed by
+  direct reading: none references vector_index/query_vector_index/embedding_provider anywhere).
+  find_examples is the smallest, lowest-risk of the three to wire first: its own existing BM25+coverage
+  fallback is already isolated behind an explicit `if not hits:` branch, so a new vector-based attempt
+  slotted in only when that branch already found nothing is STRICTLY ADDITIVE - it can only turn an
+  existing NoExampleFound into a real match, never regress an existing hit. This card measured the real
+  separation directly (not guessed) against 2 real pilots'' own real example chunks (pdf/go, 4 examples;
+  pdf/typescript, 4 examples) through the real gateway: 8 true-positive probes (a natural query for each
+  example''s own real task) scored cosine 0.6446-0.8427; 4 false-positive probes (unrelated queries)
+  scored, at best, 0.1782-0.2768 against any example in the same pilot. A floor of 0.45 sits with real
+  margin on both sides of this measured gap.'
+depends_on:
+- TC-330
+- TC-284
+- TC-278
+- TC-279
+write_paths:
+- src/foss_mcp/indexing/vector_index_writer.py
+- src/foss_mcp/mcp/tools/find_examples.py
+- tests/indexing/test_index_writers.py
+- tests/mcp/tools/test_retrieval_tools.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 9.1 Hosting'
+  sha256: 8b5afbf681487772ea2236c90689646bc28ff171cfd767bc64a0a5967f630704
+inputs:
+- 'src/foss_mcp/indexing/vector_index_writer.py: add `query_vector_index_scored(payload, query_vector,
+  top_k=5) -> list[tuple[str, float]]`, mirroring `lexical_index_writer.query_lexical_index_scored`''s
+  exact sibling-function convention (added by TC-273 for this exact same "the caller needs the real
+  score, not just an id" reason) - same body as the existing `query_vector_index` but returning
+  `(point_id, score)` pairs instead of discarding the score, in the same `(identifier, score)` field
+  order `query_lexical_index_scored` uses. `query_vector_index`''s own existing signature, behavior, and
+  both call sites are untouched by this addition.'
+- 'src/foss_mcp/mcp/tools/find_examples.py: when the existing lexical fallback''s `hits` list is empty
+  (right before the current `if not hits: return NoExampleFound(scope, query)`), attempt ONE more stage
+  before giving up: read `manifest.payload.get("vector_index")` - if absent or empty (no vector data
+  published for this generation, e.g. a generation from before vector indexing existed), skip straight to
+  the existing `NoExampleFound` return, unchanged. Otherwise, construct
+  `foss_mcp.indexing.gateway_embedding_provider.GatewayEmbeddingProvider()` and embed the query INSIDE a
+  `try/except Exception` - ANY failure here (a missing env var because this deployment has no gateway
+  configured, a network error, a budget-exceeded error, anything) must fall through to the existing,
+  unchanged `NoExampleFound` return, never raise out of `find_examples()` itself. This mirrors the
+  mission plan''s own named risk mitigation ("deterministic/lexical fallback always available") - a
+  gateway outage or a deployment with no gateway configured must degrade this tool back to exactly
+  today''s behavior, never break it.'
+- 'On a successful embed: call the new `query_vector_index_scored(vector_index_payload, query_vector,
+  top_k=len(vector_index_payload["points"]))` (rank the WHOLE corpus first, same "never let top_k cut
+  candidates before filtering" discipline `search_symbols.py`''s own docstring already establishes for
+  this exact reason), build a `point_id -> point` lookup from `vector_index_payload["points"]` (mirroring
+  how the lexical path already does `documents[doc_id]["text"]`), filter to points whose own `text`
+  contains the `_EXAMPLE_MARKER` constant already defined in this file, and keep only those scoring at or
+  above `_VECTOR_SIMILARITY_THRESHOLD = 0.45` (a new module-level constant - document the real measured
+  numbers from this card''s own `purpose` field in the constant''s own comment, mirroring
+  `_COVERAGE_THRESHOLD`''s existing comment style exactly: cite the real pilots, the real scores, and why
+  0.45 sits with margin on both sides). Truncate to the caller''s real `top_k`. Build `ExampleMatch`
+  results from these exactly like the existing lexical-fallback branch does (FQN/snippet extracted from
+  the point''s own `text` the same way), but set `coverage` to the point''s own cosine similarity score
+  (document in `ExampleMatch`''s own docstring that `coverage` means two different things depending on
+  which stage produced the match - the lexical token-overlap fraction, or the vector cosine similarity -
+  and add a new field, e.g. `source: str` with value `"exact"`/`"lexical"`/`"vector"`, so a caller can
+  always tell which mechanism answered rather than needing to infer it from whether `coverage` happens to
+  equal 1.0).'
+- 'Independently re-measure the threshold yourself before trusting this card''s own numbers: using the
+  SAME 2 real pilots named above (their real text already sits in the committed
+  infra/demo-manifests/pdf__go__self_extracted and infra/demo-manifests/pdf__typescript__self_extracted
+  generation files - read the real Example chunks'' own text directly from there), embed each example''s
+  own task name as a true-positive probe and at least 2 genuinely unrelated queries as false-positive
+  probes through your own real `GatewayEmbeddingProvider()` call (your own session has
+  `GPT_OSS_ENDPOINT`/`GPT_OSS_API_KEY` available, same as TC-330''s worker used - map them to
+  `FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT`/`_API_KEY` the same way). Confirm your own numbers land in the
+  same bands this card reports (true positives comfortably above 0.45, false positives comfortably
+  below). If they genuinely do not, STOP and report the real discrepancy rather than forcing the
+  pre-stated threshold to pass - this is empirical, not a foregone conclusion.'
+- 'Tests to add in tests/mcp/tools/test_retrieval_tools.py (read this file''s own existing
+  publish/fixture helpers first and reuse them, mirroring its established convention exactly - do not
+  reimplement chunk-publishing): (1) a generation with example chunks AND a real vector_index payload
+  (construct one directly, e.g. via `foss_mcp.indexing.vector_index_writer.build_vector_index` over a
+  small set of fake deterministic vectors you construct by hand - NEVER a real network call in this
+  deterministic test file) where the lexical fallback finds nothing (the query shares no tokens with any
+  example) but the vector fallback DOES find a match at or above the threshold - confirm `find_examples`
+  returns it with `source="vector"`. (2) the same shape but the best vector score is BELOW the
+  threshold - confirm `NoExampleFound` is still returned, never a weak guess. (3) a generation with NO
+  vector_index payload at all (an older-shaped generation) - confirm `find_examples` still returns
+  exactly what it does today (NoExampleFound or a real lexical/exact hit), proving this card is
+  backward-compatible with already-published generations. (4) the embedding provider raising ANY
+  exception (monkeypatch `GatewayEmbeddingProvider.__init__` or `.embed` to raise) - confirm
+  `find_examples` still returns its existing, unchanged `NoExampleFound` rather than propagating the
+  exception.'
+- 'Tests to add in tests/indexing/test_index_writers.py for `query_vector_index_scored`: mirrors
+  whatever existing test(s) cover `query_lexical_index_scored`''s own added-sibling behavior (read them
+  first) - confirms the returned pairs carry real scores in descending order and that
+  `query_vector_index`''s own existing tests still pass unmodified.'
+- 'Run `{python} -m pytest tests/indexing/test_index_writers.py tests/mcp/tools/test_retrieval_tools.py
+  -q -rfE` and confirm it passes. Then run the full `{python} -m pytest tests/indexing tests/mcp -q -rfE`
+  once - tests/mcp (unlike tests/indexing) has no network-reaching tests to worry about sweeping in;
+  confirm tests/indexing/ itself still needs the narrower selection TC-330 already established
+  (test_index_writers.py plus this card''s own new file, never the whole directory, for the same reason
+  TC-330''s own card documented).'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Add query_vector_index_scored (mirroring query_lexical_index_scored's own sibling convention).
+- Wire find_examples' existing empty-fallback branch to attempt one more, strictly additive vector-based
+  stage behind a measured 0.45 cosine-similarity floor, exception-safe end to end so a gateway outage or
+  unconfigured deployment degrades to exactly today's behavior.
+- Add a source field to ExampleMatch so callers can always tell which mechanism (exact/lexical/vector)
+  answered.
+- Independently re-measure the threshold against the same 2 real pilots before trusting it, and add
+  tests proving the additive, backward-compatible, and fail-safe properties this card's design rests on.
+checks:
+- command: '{python} -m pytest tests/indexing/test_index_writers.py tests/mcp/tools/test_retrieval_tools.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 90
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 4
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/find_examples.py');s=p.read_text(encoding='utf-8');old='_VECTOR_SIMILARITY_THRESHOLD';new='_VECTOR_SIMILARITY_THRESHOLD_DISABLED';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Renames the last occurrence of the threshold constant's own name (its real read site inside
+    the new vector-fallback stage), so the comparison against it fails with a NameError that the
+    surrounding try/except swallows - the vector fallback silently stops ever matching anything, failing
+    the new test proving a genuine vector-only match is returned. A real semantic break on this card's
+    central claim, not a vacuous textual one.
+evidence:
+- evidence/build/G2/TC-331/receipt.json
+closeout:
+- find_examples now has a real, measured, strictly-additive, fail-safe vector-based fallback stage
+  behind its existing exact/lexical paths, closing one of the three "semantic" gaps the mission plan's
+  own tool registry specifies. search_docs and search_symbols remain lexical-only pending their own,
+  separately-scoped cards.
+recovery: Re-run from a clean tree.
