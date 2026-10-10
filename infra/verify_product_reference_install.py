@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fetch_product_reference import load_manifest_sidecar, sidecar_name
@@ -99,7 +99,7 @@ def main() -> None:
         "ecosystem": ecosystem,
         "coordinate": coordinate,
         "verified": verified,
-        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "checked_at": datetime.now(UTC).isoformat(),
     }
     output.write_text(json.dumps(sidecar), encoding="utf-8")
     print(f"wrote verification result for {coordinate} ({ecosystem}) -> {output}: verified={verified}")

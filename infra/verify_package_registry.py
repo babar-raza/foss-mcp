@@ -64,9 +64,9 @@ import re
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 
 from foss_mcp.extraction.github_http import urlopen_with_backoff, with_auth
 
@@ -416,7 +416,7 @@ def main() -> None:
         "ecosystem": args.ecosystem,
         "coordinate": args.coordinate,
         "verified": verified,
-        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "checked_at": datetime.now(UTC).isoformat(),
     }
     args.output.write_text(json.dumps(sidecar), encoding="utf-8")
     print(

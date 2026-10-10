@@ -186,7 +186,6 @@ def test_no_real_multi_level_inheritance_chain_exists_in_this_repository() -> No
     data = _load_fixture()
     names = {entry["name"] for entry in data["types"]}
     assert "JmapCoreOperations" not in names
-    by_name = {entry["name"]: entry for entry in data["types"]}
     # Every base referenced anywhere either resolves to another real entry in this fixture,
     # or is one of the two known-external/non-public roots - never a silently-dropped name.
     known_unresolved_roots = {"JmapCoreOperations", "RuntimeException"}

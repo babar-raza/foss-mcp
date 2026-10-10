@@ -166,7 +166,7 @@ def test_a_real_inherited_member_carries_the_correct_inherited_from_tag() -> Non
     # Presentation. Shape's copy is rooted to PVIObject; Table inherits them transitively
     # through TWO intermediate classes (GraphicalObject and Shape) yet the tag stays
     # rooted all the way back to PVIObject.
-    pvi_object = by_name["PVIObject"]
+    assert "PVIObject" in by_name
     pvi_slide = member("PVIObject", "Slide")
     assert "inherited_from" not in pvi_slide
 
