@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "card": "TC-336",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-10T16:24:05Z",
+  "base_rev": "98d4186eec1e2acbfa43eb203e7ebfee5a4db130",
+  "head_rev": "8ab57340c9afd48eb940f99593ed57a898a10bd9",
+  "card_sha256": "d0cf330fe985aed45266e7c3edcc1e2526e5e7f4cdca4732c1a65dcbde59f85e",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "requirements-serving.in",
+      "requirements-serving.lock",
+      "src/foss_mcp/indexing/vector_index_writer.py",
+      "tests/indexing/test_index_writers.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_index_writers.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 2.785,
+          "stdout_sha256": "ecf57d762b443151696ef4727347520d0d5715719bac1e0cd93caddf627ffa61",
+          "tests": 16,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_index_writers.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.796,
+          "stdout_sha256": "ecf57d762b443151696ef4727347520d0d5715719bac1e0cd93caddf627ffa61",
+          "tests": 16,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/indexing/vector_index_writer.py');s=p.read_text(encoding='utf-8');old='_cosine_scores';new='_cosine_scores_disabled';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')\"\n",
+    "patch_sha256": "914d4c45ec319c0cde877ca717d2491ea7f520b29b6a6d974058463a9352d755",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/indexing/vector_index_writer.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
