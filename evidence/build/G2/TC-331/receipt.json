@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "card": "TC-331",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-10T10:52:06Z",
+  "base_rev": "119694891e3e7cc6b755ebd9c5de3a350719b249",
+  "head_rev": "09f955256dfbc0e4ecac931d1e72723e6c312bfc",
+  "card_sha256": "77ea916fd127c7800375493067d01b3784105deea29478a4dc832685535f65e5",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/indexing/vector_index_writer.py",
+      "src/foss_mcp/mcp/tools/find_examples.py",
+      "tests/indexing/test_index_writers.py",
+      "tests/mcp/tools/test_retrieval_tools.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_index_writers.py tests/mcp/tools/test_retrieval_tools.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.973,
+          "stdout_sha256": "5952b218382e51f578768c0a348723d5418c12143cc6d5f49d527f1d1b978a79",
+          "tests": 50,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_index_writers.py tests/mcp/tools/test_retrieval_tools.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.715,
+          "stdout_sha256": "5952b218382e51f578768c0a348723d5418c12143cc6d5f49d527f1d1b978a79",
+          "tests": 50,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/find_examples.py');s=p.read_text(encoding='utf-8');old='_VECTOR_SIMILARITY_THRESHOLD';new='_VECTOR_SIMILARITY_THRESHOLD_DISABLED';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')\"\n",
+    "patch_sha256": "5a5276334437af3894738b7a8ec48ba379d2f48dc294299db31af95c5dadc37f",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/find_examples.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
