@@ -94,7 +94,7 @@ spec:
               --source-kind {{ $p.sourceKind }}
               --chunks {{ $chunk }}
               --manifest-store {{ $.Values.manifests.mountPath }}
-              --embedding-provider foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider
+              --embedding-provider {{ if $.Values.embeddingGateway.existingSecret }}foss_mcp.indexing.gateway_embedding_provider:GatewayEmbeddingProvider{{ else }}foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider{{ end }}
               --api-surface {{ $p.apiSurface }}
               --held-by {{ $p.heldBy }}
               {{- with $p.manifestPath }}
@@ -138,6 +138,25 @@ spec:
                   key: {{ .key | quote }}
                   optional: true
             {{- end }}
+            {{- end }}
+            {{- if $.Values.embeddingGateway.existingSecret }}
+            {{- /*
+            G2/TC-337: the same two env vars, from the same operator Secret, that the serving pods
+            read (TC-334), so the stored vectors and the query vectors come from one embedding model.
+            Unlike the serving side these refs are NOT optional: an operator who asked for the
+            gateway must get a loud CreateContainerConfigError on a missing key, never a silently
+            built hashing index.
+            */}}
+            - name: FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.embeddingGateway.existingSecret | quote }}
+                  key: {{ $.Values.embeddingGateway.endpointKey | quote }}
+            - name: FOSS_MCP_EMBEDDING_GATEWAY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.embeddingGateway.existingSecret | quote }}
+                  key: {{ $.Values.embeddingGateway.apiKeyKey | quote }}
             {{- end }}
           securityContext:
             {{- toYaml $.Values.containerSecurityContext | nindent 12 }}
