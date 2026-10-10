@@ -34,6 +34,7 @@ PILOTS: list[dict[str, Any]] = [
         "title": "pdf/net API surface",
         "maxTypes": 300,
         "furnishedPage": "/app/fixtures/furnished/pdf_net/pages/_index.md",
+        "manifestPath": "src/Aspose.Pdf.Foss.csproj",
         "library": {
             "repository": "aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET",
             "commit": "b7172877651413cff57a8bfe41fb8a8befb2406b",
@@ -50,6 +51,7 @@ PILOTS: list[dict[str, Any]] = [
         "title": "pdf/typescript API surface",
         "maxTypes": 300,
         "furnishedPage": "/app/fixtures/furnished/pdf_typescript/pages/_index.md",
+        "manifestPath": "package.json",
         "library": {
             "repository": "aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript",
             "commit": "155bfc7a33f0ba23fb4252b6ba201828b02a5b9d",
@@ -65,6 +67,21 @@ PILOTS: list[dict[str, Any]] = [
         "apiSurface": "/app/fixtures/pdf_cpp/api_surface.json",
         "title": "pdf/cpp API surface",
         "maxTypes": 300,
+        "manifestPath": "CMakeLists.txt",
+        # TC-327 (attempt 2): this synthetic pilot has no furnishedPage, so it never got a
+        # "library" block either - unlike the real pdf/cpp pilot in values.yaml, which has one
+        # (repository/commit/platform) even without a furnishedPage, because
+        # infra/helm/foss-mcp/templates/ingestion-job.yaml's fetch_product_reference.py and
+        # fetch_recent_releases.py steps both read $lib.repository/$lib.commit unconditionally,
+        # never gated on furnishedPage. Without this, those two steps render with an empty
+        # --repository/--ref here and no longer match docker-compose.yml's own (correctly
+        # populated) ingest-pdf-cpp service. Values copied verbatim from values.yaml's own
+        # pdf/cpp pilot.
+        "library": {
+            "repository": "aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp",
+            "commit": "4b83c9fec1e37fd205156770161f6843bac00ceb",
+            "platform": "cpp",
+        },
     },
     {
         "family": "cells",
@@ -75,6 +92,7 @@ PILOTS: list[dict[str, Any]] = [
         "title": "cells/rust API surface",
         "maxTypes": 300,
         "furnishedPage": "/app/fixtures/furnished/cells_rust/pages/_index.md",
+        "manifestPath": "Cargo.toml",
         "library": {
             "repository": "aspose-cells-foss/Aspose.Cells-FOSS-for-Rust",
             "commit": "1a6004af47b1ef15385f9d36d381a8172428cc7e",
