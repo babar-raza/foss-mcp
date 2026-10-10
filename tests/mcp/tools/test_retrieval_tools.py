@@ -20,9 +20,9 @@ from pathlib import Path
 import pytest
 
 from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
-from foss_mcp.indexing.generation_manifest import GenerationManifestStore
-from foss_mcp.indexing.lexical_index_writer import query_lexical_index
-from foss_mcp.indexing.publisher import publish_generation
+from foss_mcp.indexing.generation_manifest import GenerationManifestStore, build_manifest
+from foss_mcp.indexing.lexical_index_writer import build_lexical_index, query_lexical_index
+from foss_mcp.indexing.publisher import content_chunk_id, new_version, publish_generation
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.find_examples import ExampleMatch, NoExampleFound, find_examples
 from foss_mcp.mcp.tools.get_symbol import NotFound, SymbolSignature, get_symbol
@@ -1009,6 +1009,239 @@ def test_find_examples_honestly_misses_a_deliberately_unrelated_nonsense_query(
     assert old_bar_ranked == [], "a genuinely unrelated query must already score 0.0 everywhere"
 
     result = find_examples(store, PDF_NET_SCOPE, "quantum teleportation breakfast recipe")
+
+    assert isinstance(result, NoExampleFound)
+    assert result.scope == PDF_NET_SCOPE
+
+
+# --- TC-331: find_examples' vector-based fallback, strictly additive behind the existing ----
+# exact/lexical paths above, only ever attempted when the lexical fallback found nothing,
+# bounded by its own independently-measured cosine-similarity floor
+# (_VECTOR_SIMILARITY_THRESHOLD). This worker independently re-measured that floor against the
+# real embedding gateway before trusting it (see find_examples.py's own
+# _VECTOR_SIMILARITY_THRESHOLD comment for the real numbers); these tests stay fully offline
+# and deterministic, using hand-constructed vectors (never a real network call) so the
+# resulting cosine similarity is exactly known and controllable.
+
+
+class _FixedVectorEmbeddingProvider:
+    """A hand-constructed, deterministic embedding provider for TC-331's vector-fallback
+    tests: returns a specific, pre-chosen vector per input text (looked up by exact text), so
+    the cosine similarity between a query vector and a chunk's own vector is fully controlled
+    and exactly known - never a real network call, and deliberately NOT the hash-based
+    DeterministicEmbeddingProvider above (whose vectors have no controllable relationship to
+    each other; this card's tests probe find_examples' own wiring and threshold logic, never
+    embedding quality).
+    """
+
+    dimension = 2
+
+    def __init__(self, vectors_by_text: dict[str, tuple[float, float]]) -> None:
+        self._vectors_by_text = vectors_by_text
+
+    def embed(self, texts):
+        return [self._vectors_by_text[text] for text in texts]
+
+
+class _FakeQueryEmbeddingProvider:
+    """Stands in for ``GatewayEmbeddingProvider()`` inside find_examples.py's vector-fallback
+    stage: constructed with the one fixed vector the test wants the query to embed to,
+    regardless of the actual query text, so the cosine similarity against the generation's own
+    hand-picked vectors (``_FixedVectorEmbeddingProvider`` above) is fully controlled.
+    """
+
+    def __init__(self, vector: tuple[float, float]) -> None:
+        self._vector = vector
+
+    def embed(self, texts):
+        return [self._vector for _ in texts]
+
+
+_VECTOR_FALLBACK_EXAMPLE_BODY = (
+    "# Example: Merge Two Documents\n\n"
+    "FQN: Example: Merge Two Documents\n"
+    "Kind: verified_example\n"
+    "Merges two documents into one using a real, verified snippet.\n\n"
+    "Example:\ndocument.Merge(other)"
+)
+
+# A query confirmed (directly against tokenize, before writing these tests) to share ZERO
+# tokens with the example chunk above - every test below needs the lexical fallback to
+# genuinely find nothing, so the vector fallback is the ONLY thing that can ever produce a
+# match (or, for the negative tests, the only thing that could wrongly produce one).
+_VECTOR_FALLBACK_NONSENSE_QUERY = "zyzzyx quproc negfoo"
+
+
+def _vector_fallback_chunk() -> list:
+    doc = make_document(
+        source_kind=SourceKind.SELF_EXTRACTED,
+        content_type="example",
+        provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
+        evidence_refs=(),
+        title="Merge Two Documents",
+        body=_VECTOR_FALLBACK_EXAMPLE_BODY,
+    )
+    return chunk_document(doc)
+
+
+def _publish_with_hand_vectors(
+    store: GenerationManifestStore, scope: Scope, chunks, vectors_by_text: dict[str, tuple[float, float]]
+) -> str:
+    """Publishes ``chunks`` through the real ``publish_generation`` authority path, but with a
+    hand-constructed ``_FixedVectorEmbeddingProvider`` in place of the hash-based
+    ``DeterministicEmbeddingProvider`` every other test in this file uses - the only way to
+    make the resulting ``vector_index`` payload's cosine similarities exactly known and
+    controllable, per the card's own instruction to construct fake deterministic vectors by
+    hand.
+    """
+    source_kind = "self_extracted"
+    lease = store.acquire_lease("::".join((scope.family, scope.platform, source_kind)), "worker-1", "pending")
+    return publish_generation(
+        store,
+        family=scope.family,
+        platform=scope.platform,
+        source_kind=source_kind,
+        expected_active=None,
+        chunks=chunks,
+        embedding_provider=_FixedVectorEmbeddingProvider(vectors_by_text),
+        lease=lease,
+    )
+
+
+def _publish_without_vector_index(store: GenerationManifestStore, scope: Scope, chunks) -> str:
+    """An older-shaped generation, built before vector indexing existed: a payload carrying
+    ONLY ``"lexical_index"``, no ``"vector_index"`` key at all - constructed directly via
+    ``build_manifest`` + ``store.write_and_validate`` + ``store.cas_activate`` (bypassing
+    ``publish_generation``, which always builds a ``vector_index``), the same direct-
+    construction precedent this project's own test suite already uses for an edge-case
+    generation shape a real publish path can no longer produce.
+    """
+    source_kind = "self_extracted"
+    version = new_version()
+    generation_id = build_manifest(scope.family, scope.platform, source_kind, version).generation_id
+    chunk_ids = [content_chunk_id(c) for c in chunks]
+    payload = {"lexical_index": build_lexical_index(chunks, chunk_ids, generation_id)}
+    manifest = build_manifest(scope.family, scope.platform, source_kind, version, payload)
+    scope_str = "::".join((scope.family, scope.platform, source_kind))
+    lease = store.acquire_lease(scope_str, "worker-1", "pending")
+    generation_id = store.write_and_validate(manifest)
+    return store.cas_activate(scope_str, None, generation_id, lease)
+
+
+def test_find_examples_vector_fallback_finds_a_match_the_lexical_stage_missed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """TC-331 property (1): the lexical fallback finds nothing for this nonsense query (proved
+    directly below, not assumed), but a real ``vector_index`` payload exists and the hand-
+    picked query vector's cosine similarity against the one example point is exactly 0.9 -
+    comfortably above ``_VECTOR_SIMILARITY_THRESHOLD`` (0.45) - so ``find_examples`` must
+    return it, tagged ``source="vector"``.
+    """
+    store = _store(tmp_path)
+    chunks = _vector_fallback_chunk()
+    vectors_by_text = {chunks[0].text: (1.0, 0.0)}
+    generation_id = _publish_with_hand_vectors(store, PDF_NET_SCOPE, chunks, vectors_by_text)
+
+    key = scope_key(PDF_NET_SCOPE, SYMBOLS_SOURCE_KIND)
+    manifest = store.read_generation(key, generation_id)
+    lexical_payload = manifest.payload["lexical_index"]
+    assert query_lexical_index(lexical_payload, _VECTOR_FALLBACK_NONSENSE_QUERY, top_k=5) == [], (
+        "the lexical fallback must genuinely find nothing for this query - otherwise this is "
+        "not a reproduction of 'lexical missed, vector caught it' at all"
+    )
+
+    query_vector = (0.9, (1.0 - 0.9**2) ** 0.5)  # cosine against (1.0, 0.0) is exactly 0.9
+    monkeypatch.setattr(
+        "foss_mcp.mcp.tools.find_examples.GatewayEmbeddingProvider",
+        lambda: _FakeQueryEmbeddingProvider(query_vector),
+    )
+
+    result = find_examples(store, PDF_NET_SCOPE, _VECTOR_FALLBACK_NONSENSE_QUERY)
+
+    assert isinstance(result, list) and result
+    assert all(isinstance(match, ExampleMatch) for match in result)
+    assert all(match.source == "vector" for match in result)
+    assert any("document.Merge(other)" in match.snippet for match in result)
+    assert all(match.coverage == pytest.approx(0.9) for match in result)
+
+
+def test_find_examples_vector_fallback_honestly_misses_below_threshold(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """TC-331 property (2): same shape as property (1), but the hand-picked query vector's
+    cosine similarity against the one example point is only 0.3 - below
+    ``_VECTOR_SIMILARITY_THRESHOLD`` (0.45) - so ``find_examples`` must still return
+    ``NoExampleFound``, never a weak guess.
+    """
+    store = _store(tmp_path)
+    chunks = _vector_fallback_chunk()
+    vectors_by_text = {chunks[0].text: (1.0, 0.0)}
+    generation_id = _publish_with_hand_vectors(store, PDF_NET_SCOPE, chunks, vectors_by_text)
+
+    key = scope_key(PDF_NET_SCOPE, SYMBOLS_SOURCE_KIND)
+    manifest = store.read_generation(key, generation_id)
+    lexical_payload = manifest.payload["lexical_index"]
+    assert query_lexical_index(lexical_payload, _VECTOR_FALLBACK_NONSENSE_QUERY, top_k=5) == []
+
+    query_vector = (0.3, (1.0 - 0.3**2) ** 0.5)  # cosine against (1.0, 0.0) is exactly 0.3
+    monkeypatch.setattr(
+        "foss_mcp.mcp.tools.find_examples.GatewayEmbeddingProvider",
+        lambda: _FakeQueryEmbeddingProvider(query_vector),
+    )
+
+    result = find_examples(store, PDF_NET_SCOPE, _VECTOR_FALLBACK_NONSENSE_QUERY)
+
+    assert isinstance(result, NoExampleFound)
+    assert result.scope == PDF_NET_SCOPE
+
+
+def test_find_examples_without_a_vector_index_stays_exactly_as_backward_compatible(
+    tmp_path: Path,
+) -> None:
+    """TC-331 property (3): an older-shaped generation published before vector indexing
+    existed at all - no ``"vector_index"`` key in its payload - must make ``find_examples``
+    behave EXACTLY as it did before this card: a genuinely relevant lexical query still returns
+    its real lexical match (the vector stage is never even attempted - there is nothing for it
+    to read), and a genuinely unrelated query still returns ``NoExampleFound``, never crashing
+    on the missing key.
+    """
+    store = _store(tmp_path)
+    chunks = _vector_fallback_chunk()
+    generation_id = _publish_without_vector_index(store, PDF_NET_SCOPE, chunks)
+
+    key = scope_key(PDF_NET_SCOPE, SYMBOLS_SOURCE_KIND)
+    manifest = store.read_generation(key, generation_id)
+    assert "vector_index" not in manifest.payload
+
+    hit = find_examples(store, PDF_NET_SCOPE, "merge two documents")
+    assert isinstance(hit, list) and hit
+    assert all(match.source == "lexical" for match in hit)
+
+    miss = find_examples(store, PDF_NET_SCOPE, _VECTOR_FALLBACK_NONSENSE_QUERY)
+    assert isinstance(miss, NoExampleFound)
+
+
+def test_find_examples_vector_fallback_degrades_safely_on_any_embedding_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """TC-331 property (4): the embedding provider failing for ANY reason (a missing gateway
+    configuration, a network error, anything) must degrade ``find_examples`` back to its
+    existing, unchanged ``NoExampleFound`` - never raise out of ``find_examples()`` itself. A
+    real ``vector_index`` IS present here (unlike property (3)'s test above), so this proves
+    the exception guard inside the vector-fallback stage itself, not merely the
+    absent-payload short-circuit.
+    """
+    store = _store(tmp_path)
+    chunks = _vector_fallback_chunk()
+    vectors_by_text = {chunks[0].text: (1.0, 0.0)}
+    _publish_with_hand_vectors(store, PDF_NET_SCOPE, chunks, vectors_by_text)
+
+    def _raise(*_args, **_kwargs):
+        raise RuntimeError("FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT must be set")
+
+    monkeypatch.setattr("foss_mcp.mcp.tools.find_examples.GatewayEmbeddingProvider", _raise)
+
+    result = find_examples(store, PDF_NET_SCOPE, _VECTOR_FALLBACK_NONSENSE_QUERY)
 
     assert isinstance(result, NoExampleFound)
     assert result.scope == PDF_NET_SCOPE

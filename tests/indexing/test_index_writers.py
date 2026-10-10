@@ -27,7 +27,12 @@ from foss_mcp.indexing.lexical_index_writer import (
     query_lexical_index_scored,
     tokenize,
 )
-from foss_mcp.indexing.vector_index_writer import build_vector_index, point_id, query_vector_index
+from foss_mcp.indexing.vector_index_writer import (
+    build_vector_index,
+    point_id,
+    query_vector_index,
+    query_vector_index_scored,
+)
 from foss_mcp.normalization.chunker import Chunk, chunk_document
 from foss_mcp.normalization.document_schema import NOT_CHECKED, Provenance, SourceKind, make_document
 
@@ -109,6 +114,42 @@ def test_query_vector_index_ranks_the_closest_point_first() -> None:
     payload = build_vector_index(chunks, ["c1", "c2"], provider, "gen-1")
     query_vector = provider.embed([chunks[0].text])[0]
     assert query_vector_index(payload, query_vector, top_k=1) == [point_id("gen-1", "c1")]
+
+
+# --- TC-331: query_vector_index_scored(), the additive sibling find_examples.py's vector ------
+# fallback stage alone uses (mirrors TC-273's query_lexical_index_scored() sibling convention).
+
+
+def test_query_vector_index_scored_matches_query_vector_index_order_and_caps_by_top_k() -> None:
+    """query_vector_index_scored() must share query_vector_index()'s own cosine-similarity
+    ranking: the SAME two chunks must come back from BOTH functions in the identical rank
+    order, pairing each point id with a real score in descending order rather than discarding
+    it - and top_k must cap the scored list exactly the way it already caps the plain id list.
+    query_vector_index()'s own existing tests (above) are untouched by this addition.
+    """
+    chunks = _chunks()
+    provider = DeterministicEmbeddingProvider()
+    payload = build_vector_index(chunks, ["c1", "c2"], provider, "gen-1")
+    query_vector = provider.embed([chunks[0].text])[0]
+
+    ids = query_vector_index(payload, query_vector, top_k=5)
+    scored = query_vector_index_scored(payload, query_vector, top_k=5)
+
+    assert [pid for pid, _ in scored] == ids
+    assert len(scored) == 2
+    assert all(isinstance(score, float) for _, score in scored)
+    # Descending order: the first point's own score must be >= the second's.
+    assert scored[0][1] >= scored[1][1]
+    # The point whose own text produced query_vector ranks first, with cosine similarity of a
+    # vector against itself - exactly 1.0, modulo floating-point rounding.
+    assert scored[0][0] == point_id("gen-1", "c1")
+    assert abs(scored[0][1] - 1.0) < 1e-9
+
+    capped_ids = query_vector_index(payload, query_vector, top_k=1)
+    capped_scored = query_vector_index_scored(payload, query_vector, top_k=1)
+    assert len(capped_scored) == 1
+    assert [pid for pid, _ in capped_scored] == capped_ids
+    assert capped_scored == scored[:1]
 
 
 def test_build_lexical_index_produces_one_document_per_chunk() -> None:

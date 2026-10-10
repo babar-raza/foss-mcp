@@ -75,3 +75,18 @@ def query_vector_index(payload: dict, query_vector: Vector, top_k: int = 5) -> l
     scored = [(_cosine(query_vector, point["vector"]), point["point_id"]) for point in payload["points"]]
     scored.sort(key=lambda pair: (-pair[0], pair[1]))
     return [pid for _, pid in scored[:top_k]]
+
+
+def query_vector_index_scored(payload: dict, query_vector: Vector, top_k: int = 5) -> list[tuple[str, float]]:
+    """Like ``query_vector_index()``, but pairs each returned point id with its own cosine
+    similarity score instead of discarding it - same body as ``query_vector_index()``, in the
+    same ``(identifier, score)`` field order ``query_lexical_index_scored()`` uses.
+
+    Added by TC-331 for ``find_examples.py``'s vector-based fallback stage alone: that stage
+    needs the real score to enforce ``_VECTOR_SIMILARITY_THRESHOLD``, which
+    ``query_vector_index()``'s plain id list cannot carry. ``query_vector_index()``'s own
+    signature, behavior, and both existing call sites are untouched by this addition.
+    """
+    scored = [(_cosine(query_vector, point["vector"]), point["point_id"]) for point in payload["points"]]
+    scored.sort(key=lambda pair: (-pair[0], pair[1]))
+    return [(pid, score) for score, pid in scored[:top_k]]
