@@ -141,9 +141,18 @@ def test_values_comment_says_the_operator_creates_the_secret() -> None:
 # --- template text ---------------------------------------------------------------------------
 
 
-def test_template_names_secret_key_ref_exactly_once() -> None:
-    # The negative control rewrites this exact text; one occurrence means one env entry carries it.
-    assert TEMPLATE.read_text(encoding="utf-8").count("secretKeyRef") == 1
+def test_template_has_three_secret_key_refs_and_the_github_token_entry_holds_exactly_one() -> None:
+    # ingestion-job.yaml carries three secretKeyRefs: GITHUB_TOKEN's own plus the two required
+    # embedding-gateway refs (TC-337). The negative control rewrites EVERY occurrence, so it still
+    # breaks the GITHUB_TOKEN rendering; the second assertion pins that this entry itself, from its
+    # "- name: GITHUB_TOKEN" line to the next "- name:" or the closing "{{- end }}", holds exactly one.
+    text = TEMPLATE.read_text(encoding="utf-8")
+    assert text.count("secretKeyRef") == 3
+    marker = "- name: GITHUB_TOKEN"
+    rest = text[text.index(marker) + len(marker) :]
+    stops = [i for i in (rest.find("- name:"), rest.find("{{- end }}")) if i != -1]
+    assert stops, "the GITHUB_TOKEN entry has no terminator"
+    assert rest[: min(stops)].count("secretKeyRef") == 1
 
 
 def test_template_gates_the_entry_on_existing_secret() -> None:
