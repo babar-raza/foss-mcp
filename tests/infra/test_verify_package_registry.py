@@ -26,6 +26,16 @@ hits the real Go module proxy and the real GitHub API for the actual pdf/go pilo
 only the SHAPE of a real answer (a 40-hex-character commit SHA) rather than a specific SHA value,
 since the upstream repository can tag a new release at any time and a hardcoded SHA would then be
 a flaky assertion, not a regression guard.
+
+The PyPI generalization (G2/TC-326) follows the exact same offline-mocked convention for
+``pypi_latest_version`` and the composing ``pypi_published_commit``, plus a dedicated offline test
+proving ``resolve_tag_commit`` now treats a 422 the same as a 404 (the real status GitHub's own
+commits-by-ref endpoint returned for a real, live tag-prefix mismatch during this card's own
+investigation - see ``resolve_tag_commit``'s own docstring) without changing its existing 404
+behavior. Three more live tests mirror the Go one above, one per real PyPI pilot the investigation
+used, covering all three outcome shapes a tag-prefix heuristic can hit: a clean bare-version match
+(slides/python), a "V"-prefixed fallback match (cells/python), and a repository with zero tags at
+all, where every candidate correctly resolves to None (words/python).
 """
 
 from __future__ import annotations
@@ -311,7 +321,28 @@ def test_resolve_tag_commit_returns_none_on_404(monkeypatch: pytest.MonkeyPatch)
     assert verify_package_registry.resolve_tag_commit("owner/repo", "v9.9.9-does-not-exist") is None
 
 
-def test_resolve_tag_commit_propagates_a_non_404_http_error_instead_of_guessing(
+def test_resolve_tag_commit_returns_none_on_422_the_same_as_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    """G2/TC-326: live-confirmed against the real cells/python pilot that GitHub's own
+    commits-by-ref endpoint answers 422 ("Unprocessable Entity"), not 404, for some not-found-ref
+    shapes - passing the bare version string "26.7.0" against a repository whose real tag is the
+    capitalized "V26.7.0". Both status codes mean the same thing from this function's own point of
+    view, so both must return None rather than letting only one of them propagate as an exception.
+    """
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(422)))
+    assert verify_package_registry.resolve_tag_commit("owner/repo", "26.7.0") is None
+
+
+def test_resolve_tag_commit_404_behavior_is_unchanged_by_the_422_widening(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression guard for the 422 widening above: a 404 - the case TC-296's own tests already
+    covered - must still return None, exactly as before, now that 422 is also handled.
+    """
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404)))
+    assert verify_package_registry.resolve_tag_commit("owner/repo", "v9.9.9-does-not-exist") is None
+
+
+def test_resolve_tag_commit_propagates_a_non_404_non_422_http_error_instead_of_guessing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(500)))
@@ -424,6 +455,188 @@ def test_check_pypi_propagates_a_url_error_instead_of_guessing(
     )
     with pytest.raises(urllib.error.URLError):
         verify_package_registry.check_pypi("aspose-pdf-foss-for-python")
+
+
+# --- pypi_latest_version: the real published VERSION string, mirroring go_latest_version --------
+
+
+def test_pypi_latest_version_returns_the_real_version_string(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def _fake_urlopen(request: object, timeout: float | None = None) -> _FakeResponse:
+        calls.append(request.full_url)
+        return _FakeResponse(b'{"info":{"version":"26.8.0"}}')
+
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _fake_urlopen)
+    assert verify_package_registry.pypi_latest_version("aspose-slides-foss") == "26.8.0"
+    assert calls == ["https://pypi.org/pypi/aspose-slides-foss/json"]
+
+
+def test_pypi_latest_version_returns_none_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404)))
+    assert verify_package_registry.pypi_latest_version("does-not-exist") is None
+
+
+def test_pypi_latest_version_propagates_a_non_404_http_error_instead_of_guessing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(500)))
+    with pytest.raises(urllib.error.HTTPError):
+        verify_package_registry.pypi_latest_version("aspose-slides-foss")
+
+
+def test_pypi_latest_version_propagates_a_url_error_instead_of_guessing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        verify_package_registry.urllib.request,
+        "urlopen",
+        _urlopen_raising(urllib.error.URLError("boom: simulated connection failure")),
+    )
+    with pytest.raises(urllib.error.URLError):
+        verify_package_registry.pypi_latest_version("aspose-slides-foss")
+
+
+# --- pypi_published_commit: the composing function, covering all three real-pilot shapes --------
+
+
+def test_pypi_published_commit_resolves_on_the_bare_candidate_first(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Mirrors the real slides/python shape: the bare version string IS the real tag, so the
+    first candidate must resolve and no further candidate may even be tried.
+    """
+    calls: list[tuple[str, str]] = []
+
+    def _fake_latest_version(coordinate: str) -> str | None:
+        calls.append(("pypi_latest_version", coordinate))
+        return "26.8.0"
+
+    def _fake_resolve_tag_commit(repository: str, ref: str) -> str | None:
+        calls.append(("resolve_tag_commit", f"{repository}@{ref}"))
+        if ref == "26.8.0":
+            return "ffaf6355fdc7f0b7a66680d742051e809a9d8c5f"
+        raise AssertionError(f"must not try a further candidate after the bare one resolved, got {ref!r}")
+
+    monkeypatch.setattr(verify_package_registry, "pypi_latest_version", _fake_latest_version)
+    monkeypatch.setattr(verify_package_registry, "resolve_tag_commit", _fake_resolve_tag_commit)
+
+    result = verify_package_registry.pypi_published_commit(
+        "aspose-slides-foss", "aspose-slides-foss/Aspose.Slides-FOSS-for-Python"
+    )
+
+    assert result == "ffaf6355fdc7f0b7a66680d742051e809a9d8c5f"
+    assert calls == [
+        ("pypi_latest_version", "aspose-slides-foss"),
+        ("resolve_tag_commit", "aspose-slides-foss/Aspose.Slides-FOSS-for-Python@26.8.0"),
+    ]
+
+
+def test_pypi_published_commit_falls_back_to_a_prefixed_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Mirrors the real cells/python shape: the bare candidate fails (the real tag is capitalized
+    with a "V" prefix), so the function must fall back and try the next candidate in order.
+    """
+    calls: list[tuple[str, str]] = []
+
+    def _fake_resolve_tag_commit(repository: str, ref: str) -> str | None:
+        calls.append(("resolve_tag_commit", f"{repository}@{ref}"))
+        if ref == "V26.7.0":
+            return "1139a9a90280783cd91a7d3747adfdaa97a9cb47"
+        return None
+
+    monkeypatch.setattr(verify_package_registry, "pypi_latest_version", lambda coordinate: "26.7.0")
+    monkeypatch.setattr(verify_package_registry, "resolve_tag_commit", _fake_resolve_tag_commit)
+
+    result = verify_package_registry.pypi_published_commit(
+        "aspose-cells-foss", "aspose-cells-foss/Aspose.Cells-FOSS-for-Python"
+    )
+
+    assert result == "1139a9a90280783cd91a7d3747adfdaa97a9cb47"
+    assert calls == [
+        ("resolve_tag_commit", "aspose-cells-foss/Aspose.Cells-FOSS-for-Python@26.7.0"),
+        ("resolve_tag_commit", "aspose-cells-foss/Aspose.Cells-FOSS-for-Python@v26.7.0"),
+        ("resolve_tag_commit", "aspose-cells-foss/Aspose.Cells-FOSS-for-Python@V26.7.0"),
+    ]
+
+
+def test_pypi_published_commit_returns_none_when_no_candidate_resolves(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Mirrors the real words/python shape: the repository has zero tags and zero releases at
+    all, so every candidate correctly fails to resolve, and the overall function must return None
+    rather than raising.
+    """
+    monkeypatch.setattr(verify_package_registry, "pypi_latest_version", lambda coordinate: "26.7.0")
+    monkeypatch.setattr(verify_package_registry, "resolve_tag_commit", lambda repository, ref: None)
+
+    result = verify_package_registry.pypi_published_commit(
+        "aspose-words-foss", "aspose-words-foss/Aspose.Words-FOSS-for-Python"
+    )
+
+    assert result is None
+
+
+def test_pypi_published_commit_returns_none_when_the_package_was_never_published(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _must_not_be_called(repository: str, ref: str) -> str | None:
+        raise AssertionError("resolve_tag_commit must not be called when there is no version")
+
+    monkeypatch.setattr(verify_package_registry, "pypi_latest_version", lambda coordinate: None)
+    monkeypatch.setattr(verify_package_registry, "resolve_tag_commit", _must_not_be_called)
+
+    assert verify_package_registry.pypi_published_commit("does-not-exist", "owner/repo") is None
+
+
+def test_pypi_published_commit_propagates_a_transport_failure_from_either_step(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _fails(coordinate: str) -> str | None:
+        raise urllib.error.URLError("boom: simulated registry outage")
+
+    monkeypatch.setattr(verify_package_registry, "pypi_latest_version", _fails)
+    with pytest.raises(urllib.error.URLError):
+        verify_package_registry.pypi_published_commit("aspose-slides-foss", "owner/repo")
+
+
+@pytest.mark.live
+def test_pypi_published_commit_live_against_the_real_slides_python_pilot_bare_match() -> None:
+    """Live, network-opt-in: slides/python's real tag is the bare version string, so the first
+    candidate must resolve directly. Asserts only the shape of the answer (a 40-hex-character
+    commit SHA), not a specific value - the upstream repository can tag a new release at any time.
+    """
+    commit = verify_package_registry.pypi_published_commit(
+        "aspose-slides-foss", "aspose-slides-foss/Aspose.Slides-FOSS-for-Python"
+    )
+    assert commit is not None
+    assert re.fullmatch(r"[0-9a-f]{40}", commit), f"expected a 40-hex-char commit SHA, got {commit!r}"
+
+
+@pytest.mark.live
+def test_pypi_published_commit_live_against_the_real_cells_python_pilot_prefixed_fallback() -> None:
+    """Live, network-opt-in: cells/python's real tag is capitalized with a "V" prefix
+    ("V26.7.0"), so the bare candidate must fail (GitHub answers 422 for it, live-confirmed by
+    this card's own investigation) before the "V"-prefixed candidate resolves.
+    """
+    commit = verify_package_registry.pypi_published_commit(
+        "aspose-cells-foss", "aspose-cells-foss/Aspose.Cells-FOSS-for-Python"
+    )
+    assert commit is not None
+    assert re.fullmatch(r"[0-9a-f]{40}", commit), f"expected a 40-hex-char commit SHA, got {commit!r}"
+
+
+@pytest.mark.live
+def test_pypi_published_commit_live_against_the_real_words_python_pilot_no_tags_exist() -> None:
+    """Live, network-opt-in: words/python's real GitHub repository has zero tags and zero
+    releases at all, so every candidate ref format must cleanly fail to resolve, and the overall
+    function must return None rather than raising.
+    """
+    commit = verify_package_registry.pypi_published_commit(
+        "aspose-words-foss", "aspose-words-foss/Aspose.Words-FOSS-for-Python"
+    )
+    assert commit is None
 
 
 # --- main(): the CLI end to end against a mocked checker ---------------------------------------

@@ -42,6 +42,18 @@ installable package still lacks. This card proves the resolution for ONE ecosyst
 the audit's own worked example). Generalizing to every other ecosystem, and wiring the result into
 the live ``report_index_freshness`` MCP tool so an agent is actually warned, are both explicitly
 deferred to follow-up cards; nothing in this module calls or is called by that tool yet.
+
+``pypi_latest_version`` and the composing ``pypi_published_commit`` (G2/TC-326) generalize that
+same capability to PyPI, the ecosystem most of this project's own pilots actually use. A
+2026-10-10 investigation found the "fetch latest version" half mechanically identical to Go, but
+the "match a GitHub tag" half hits real friction Go's own single worked example never surfaced:
+tag-prefix conventions vary per-repository (slides/python's real tag is the bare version string,
+cells/python's is capitalized with a "V" prefix), GitHub's commits-by-ref endpoint answers 422,
+not only 404, for some not-found-ref shapes (``resolve_tag_commit`` now treats both identically),
+and some repositories (words/python) have zero tags at all - a legitimate "cannot resolve" outcome
+that must come back as None, never an exception. All three shapes were live-confirmed against the
+real slides/python, cells/python, and words/python pilots. Generalizing further (npm, cargo,
+maven, nuget) and wiring any of this into the live ``report_index_freshness`` tool remain deferred.
 """
 
 from __future__ import annotations
@@ -238,7 +250,16 @@ def resolve_tag_commit(repository: str, ref: str) -> str | None:
     (``with_auth`` for an optional token, ``urlopen_with_backoff`` for bounded rate-limit
     tolerance) rather than reimplementing GitHub-API calling here.
 
-    Returns None on a 404 (*ref* does not exist on *repository*). Any other failure propagates.
+    Returns None on a 404 (*ref* does not exist on *repository*) OR a 422 (G2/TC-326: live
+    investigation against the real cells/python pilot found GitHub's own commits-by-ref endpoint
+    answers 422 "Unprocessable Entity", not 404, for some not-found-ref shapes - e.g. passing the
+    bare version string "26.7.0" as *ref* against a repository whose real tag is the capitalized
+    "V26.7.0". Both status codes mean the exact same thing from this function's own point of view
+    - "ref not found on this repository" - so both are treated identically. This widening is to the
+    shared function itself, not specific to any one ecosystem: it changes no existing 404 case
+    (confirmed by this card's own regression test), it only additionally handles a previously
+    unhandled status that a 404-only check used to let propagate as a raised exception instead of
+    cleanly meaning "not found". Any other failure propagates.
     """
     url = f"{_GITHUB_API_ROOT}/repos/{repository}/commits/{ref}"
     request = urllib.request.Request(url, headers=with_auth(_GITHUB_HEADERS), method="GET")
@@ -246,7 +267,7 @@ def resolve_tag_commit(repository: str, ref: str) -> str | None:
         with urlopen_with_backoff(request, timeout=_REQUEST_TIMEOUT_SECONDS) as response:
             body = response.read()
     except urllib.error.HTTPError as exc:
-        if exc.code == 404:
+        if exc.code in (404, 422):
             return None
         raise
     return json.loads(body)["sha"]
@@ -269,6 +290,70 @@ def go_published_commit(coordinate: str, repository: str) -> str | None:
     if version is None:
         return None
     return resolve_tag_commit(repository, version)
+
+
+def pypi_latest_version(coordinate: str) -> str | None:
+    """The real published version string for *coordinate* right now, per PyPI's own JSON API -
+    the same endpoint ``check_pypi`` already calls, but parsing the body's ``info.version`` field
+    instead of merely checking that the request succeeded. Mirrors ``go_latest_version``'s own
+    shape exactly (G2/TC-296's "fetch latest version" half was confirmed, by this card's own
+    investigation, to be mechanically identical between Go and PyPI).
+
+    Returns None on a 404 (the package has never been published to PyPI). Any other failure - a
+    different HTTP status, a transport failure, or a 200 whose body is not the expected JSON shape
+    - propagates rather than being guessed at, the same discipline every function in this module
+    already follows.
+    """
+    url = f"https://pypi.org/pypi/{coordinate}/json"
+    request = urllib.request.Request(url, method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=_REQUEST_TIMEOUT_SECONDS) as response:
+            body = response.read()
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+    return json.loads(body)["info"]["version"]
+
+
+_PYPI_TAG_PREFIXES: tuple[str, ...] = ("", "v", "V")
+
+
+def pypi_published_commit(coordinate: str, repository: str) -> str | None:
+    """The real commit SHA a fresh, unconstrained ``pip install`` of *coordinate* would fetch RIGHT
+    NOW - composing ``pypi_latest_version`` (what version PyPI actually serves) with
+    ``resolve_tag_commit`` (what commit that version's own git tag actually points at on
+    *repository*).
+
+    Unlike ``go_published_commit`` - where the resolved version string IS the git ref in "the
+    overwhelming common case" per that function's own docstring - this project's own PyPI pilots
+    do NOT share one tag-prefix convention: slides/python's real tag is the bare version string
+    ("26.8.0"), while cells/python's real tag is capitalized with a "V" prefix ("V26.7.0"). This
+    function tries a small, ORDERED list of candidate ref formats - bare version, "v"+version,
+    "V"+version (``_PYPI_TAG_PREFIXES``) - and returns the commit SHA for the first candidate that
+    ``resolve_tag_commit`` resolves.
+
+    This candidate-list approach is a pragmatic heuristic, not a guarantee: it covers every
+    tag-prefix convention observed among this project's own pilots at the time this card was
+    written, but it is NOT universal the way Go's own single-guess approach is documented to be.
+    If some future pilot uses a prefix convention outside this list entirely, every candidate will
+    correctly fail to resolve and this function returns None - a safe, honest "cannot determine"
+    outcome - rather than silently resolving to the wrong commit.
+
+    Returns None when *coordinate* has never been published (``pypi_latest_version`` returns
+    None), or when none of the candidate ref formats resolves on *repository* - including the
+    legitimate case where *repository* has zero tags and zero releases at all (words/python, live-
+    confirmed by this card's own investigation: every candidate correctly resolves to None). Any
+    transport failure from either step propagates unchanged.
+    """
+    version = pypi_latest_version(coordinate)
+    if version is None:
+        return None
+    for prefix in _PYPI_TAG_PREFIXES:
+        commit = resolve_tag_commit(repository, f"{prefix}{version}")
+        if commit is not None:
+            return commit
+    return None
 
 
 _CHECKERS: dict[str, Callable[[str], bool]] = {
