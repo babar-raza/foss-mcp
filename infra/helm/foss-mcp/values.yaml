@@ -638,6 +638,13 @@ embeddingGateway:
   existingSecret: ""
   endpointKey: endpoint
   apiKeyKey: apiKey
+  # Destinations (CIDR blocks) serving pods may reach on TCP 443 to call the gateway at query time,
+  # granted by the additive <fullname>-gateway-egress NetworkPolicy. The gateway sits behind a public
+  # hostname whose address the chart cannot know, so the default is any destination. An operator who
+  # knows the gateway's address range should narrow this list to it. Only used when existingSecret
+  # is set: with the secret empty that policy is not rendered at all.
+  egressCidrs:
+    - 0.0.0.0/0
 
 # A second, additive serving topology (demo-deployment.yaml, demo-ingress.yaml) for a self-
 # contained demo image (Dockerfile.serving's `demo` stage, built with pre-built generations
