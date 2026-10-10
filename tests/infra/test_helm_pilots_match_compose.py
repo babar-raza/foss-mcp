@@ -224,7 +224,9 @@ def _assert_install_verification_matches_manifest_path(family: str, platform: st
 
         assert verify_flags.get("--family") == family, "verify_product_reference_install family"
         assert verify_flags.get("--platform") == platform, "verify_product_reference_install platform"
-        assert verify_flags.get("--manifests-dir") == "/data/manifests", "verify_product_reference_install manifests-dir"
+        assert verify_flags.get("--manifests-dir") == "/data/manifests", (
+            "verify_product_reference_install manifests-dir"
+        )
     else:
         assert fetch_segment is None, (
             f"{family}/{platform} has no manifestPath but runs fetch_product_reference.py anyway"
