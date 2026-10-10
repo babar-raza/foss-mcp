@@ -77,7 +77,13 @@ def _make_synthetic_clone(tmp_path: Path) -> tuple[Path, str]:
 
     _run_git("add", "-A", cwd=clone)
     _run_git(
-        "-c", "user.email=test@example.invalid", "-c", "user.name=Test", "commit", "-m", "synthetic commit",
+        "-c",
+        "user.email=test@example.invalid",
+        "-c",
+        "user.name=Test",
+        "commit",
+        "-m",
+        "synthetic commit",
         cwd=clone,
     )
     result = subprocess.run(

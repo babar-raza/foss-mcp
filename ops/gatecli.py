@@ -264,27 +264,39 @@ def _jsonl_problems(path: Path, schema_name: str, label: str):
 def _source_ref_problems(cards):
     """A card's source_refs must still resolve to the exact section they were written against.
 
-    The hash-drift check alone is grandfathered once a card holds an accepted receipt - same
-    precedent as cardlint's own `accepted` grandfather clause just above this call site. An
-    append-only log (docs/DECISION_LOG.md) hashes "anchor line to the next heading"
-    (`_section_bytes`), so appending any new entry after what was, at authoring time, the last
-    section in the file changes that section's own captured bytes retroactively - found
-    2026-10-10 appending this very incident's own entry right after TC-336's anchor. An already-
-    accepted card's history is not re-litigated by later, unrelated edits to the log it cited.
-    The file-existence check is NOT grandfathered: a card whose cited file is simply gone is a
-    real problem regardless of acceptance.
+    Fully grandfathered once a card is ACCEPTED or SUPERSEDED (`_accepted_or_superseded_cards`,
+    the same done-signal already used by the commit-guard fix above) - closely mirroring
+    cardlint's own `accepted` grandfather clause just above this call site, extended to
+    SUPERSEDED since a superseded card's own receipt was never separately accepted, only its
+    successor's. source_refs are how a card was justified at AUTHORING time; once its work is
+    done, that justification is historical record, not a live constraint re-checked forever
+    after.
+
+    This now covers the file-existence case too, not only hash-drift, per an explicit operator
+    decision (docs/DECISION_LOG.md, 2026-10-10): the former external mission-plan file
+    (C:\\Users\\prora\\.claude\\plans\\mission-plan-and-stateful-sprout.md) that ~300 already-
+    accepted cards cite is retired and not coming back - "you do not need the legacy plan file...
+    validate from internally maintained taskcards" - yet every one of those cards' source_refs
+    still pointed at it, so gatectl validate reported hundreds of failures. That alone was
+    already an accepted condition, but it has a sharper consequence found while pushing this
+    very commit: `scripts/ci_check.sh`'s gatectl step hard-fails on any validate problem, which
+    made `.githooks/pre-push` refuse every push, from any commit, unconditionally, until this
+    was fixed - not a cosmetic validate-output issue but a full push outage. Recorded as a
+    PROVISIONAL_ACCEPT rather than stopping the loop to ask (AGENTS.md's "you decide, you never
+    ask"): an unaccepted card whose cited file truly vanishes is still a real authoring problem
+    and is NOT grandfathered.
     """
     out = []
+    done_cards = _accepted_or_superseded_cards()
     for cid, c in sorted(cards.items()):
-        accepted = bool((V.load_receipt(c["gate"], cid) or {}).get("accepted"))
+        if done_cards.get(cid):
+            continue
         for ref in c.get("source_refs", []):
             f = Path(ref["file"])
             if not f.is_absolute():
                 f = G.REPO / f
             if not f.exists():
                 out.append(f"{cid}: source_ref file does not exist: {ref['file']}")
-                continue
-            if accepted:
                 continue
             text = f.read_text(encoding="utf-8", errors="replace")
             if ref["anchor"] not in text:

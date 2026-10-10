@@ -84,7 +84,9 @@ def test_identity_problems_catches_a_local_user_email_override(monkeypatch, tmp_
     subprocess.run(["git", "init", "-q"], cwd=r, check=True, env=_clean_env())
     subprocess.run(
         ["git", "config", "--local", "user.email", "test@example.invalid"],
-        cwd=r, check=True, env=_clean_env(),
+        cwd=r,
+        check=True,
+        env=_clean_env(),
     )
     monkeypatch.setattr(G, "REPO", r)
     problems = C._git_identity_problems()
@@ -96,7 +98,10 @@ def test_identity_problems_catches_core_bare_true(monkeypatch, tmp_path: Path) -
     r.mkdir()
     subprocess.run(["git", "init", "-q"], cwd=r, check=True, env=_clean_env())
     subprocess.run(
-        ["git", "config", "core.bare", "true"], cwd=r, check=True, env=_clean_env(),
+        ["git", "config", "core.bare", "true"],
+        cwd=r,
+        check=True,
+        env=_clean_env(),
     )
     monkeypatch.setattr(G, "REPO", r)
     problems = C._git_identity_problems()
