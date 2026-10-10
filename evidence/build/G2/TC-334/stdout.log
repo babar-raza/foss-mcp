@@ -1,0 +1,104 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_embedding_gateway.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-oou2_bp2\.junit-0.xml"
+--- stdout ---
+...........................................................              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_github_token.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-oou2_bp2\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 19%]
+........................................................................ [ 39%]
+........................................................................ [ 58%]
+........................................................................ [ 78%]
+........................................................................ [ 97%]
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_embedding_gateway.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-oou2_bp2\.junit-0.xml"
+--- stdout ---
+...........................................................              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_github_token.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-oou2_bp2\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 19%]
+........................................................................ [ 39%]
+........................................................................ [ 58%]
+........................................................................ [ 78%]
+........................................................................ [ 97%]
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/templates/deployment.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_embedding_gateway.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-oou2_bp2\.junit-0.xml"
+--- stdout ---
+.....F......FF.............................................              [100%]
+================================== FAILURES ===================================
+________ test_deployment_template_gates_the_entries_on_existing_secret ________
+
+    def test_deployment_template_gates_the_entries_on_existing_secret() -> None:
+        text = DEPLOYMENT_TEMPLATE.read_text(encoding="utf-8")
+>       assert "{{- with .Values.embeddingGateway }}" in text
+E       assert '{{- with .Values.embeddingGateway }}' in '# The serving pod runs the HTTP entrypoint, the same override docker-compose.yml uses. The stdio\n# CMD of Dockerfile...:\n            claimName: {{ include "foss-mcp.manifestsClaimName" . }}\n        - name: tmp\n          emptyDir: {}\n'
+
+tests\infra\test_helm_embedding_gateway.py:158: AssertionError
+____ test_main_deployment_gets_both_gateway_env_vars_from_the_named_secret ____
+
+    def test_main_deployment_gets_both_gateway_env_vars_from_the_named_secret() -> None:
+        deployment = _main_deployment(_render(*_with_secret()))
+        entries = {e["name"]: e for e in _gateway_entries(deployment)}
+>       assert set(entries) == {ENDPOINT_VAR, API_KEY_VAR}
+E       AssertionError: assert set() == {'FOSS_MCP_EM...WAY_ENDPOINT'}
+E         
+E         Extra items in the right set:
+E         'FOSS_MCP_EMBEDDING_GATEWAY_API_KEY'
+E         'FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT'
+E         Use -v to get more diff
+
+tests\infra\test_helm_embedding_gateway.py:217: AssertionError
+_ test_main_deployment_gateway_entries_are_inserted_between_platform_and_source_kind _
+
+    def test_main_deployment_gateway_entries_are_inserted_between_platform_and_source_kind() -> None:
+        deployment = _main_deployment(_render(*_with_secret()))
+        names = [entry["name"] for entry in _env(deployment)]
+>       assert names == [
+            "FOSS_MCP_FAMILY",
+            "FOSS_MCP_PLATFORM",
+            ENDPOINT_VAR,
+            API_KEY_VAR,
+            "FOSS_MCP_SOURCE_KIND",
+        ]
+E       AssertionError: assert ['FOSS_MCP_FA..._SOURCE_KIND'] == ['FOSS_MCP_FA..._SOURCE_KIND']
+E         
+E         At index 2 diff: 'FOSS_MCP_SOURCE_KIND' != 'FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT'
+E         Right contains 2 more items, first extra item: 'FOSS_MCP_EMBEDDING_GATEWAY_API_KEY'
+E         Use -v to get more diff
+
+tests\infra\test_helm_embedding_gateway.py:233: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_embedding_gateway.py::test_deployment_template_gates_the_entries_on_existing_secret
+FAILED tests/infra/test_helm_embedding_gateway.py::test_main_deployment_gets_both_gateway_env_vars_from_the_named_secret
+FAILED tests/infra/test_helm_embedding_gateway.py::test_main_deployment_gateway_entries_are_inserted_between_platform_and_source_kind
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_github_token.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-oou2_bp2\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 19%]
+........................................................................ [ 39%]
+........................................................................ [ 58%]
+........................................................................ [ 78%]
+........................................................................ [ 97%]
+.........                                                                [100%]
+
+--- stderr ---
+
