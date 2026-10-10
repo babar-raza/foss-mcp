@@ -1,0 +1,91 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_gateway_embedding_provider.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-q0buvxu9\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py tests/indexing/test_gateway_embedding_provider.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-q0buvxu9\.junit-1.xml"
+--- stdout ---
+......................                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_gateway_embedding_provider.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-q0buvxu9\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py tests/indexing/test_gateway_embedding_provider.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-q0buvxu9\.junit-1.xml"
+--- stdout ---
+......................                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/gateway_embedding_provider.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_gateway_embedding_provider.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-q0buvxu9\.junit-0.xml"
+--- stdout ---
+....F....                                                                [100%]
+================================== FAILURES ===================================
+___ test_budget_cap_blocks_a_subsequent_call_with_no_further_transport_call ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001C33491ACF0>
+
+    def test_budget_cap_blocks_a_subsequent_call_with_no_further_transport_call(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        _set_required_env(monkeypatch)
+        monkeypatch.setenv("FOSS_MCP_EMBEDDING_GATEWAY_MAX_REQUESTS", "1")
+        transport = FakeTransport()
+        provider = GatewayEmbeddingProvider(_transport=transport, _sleep=_no_sleep)
+    
+        first = provider.embed(["alpha", "beta"])
+        assert len(first) == 2
+        assert len(transport.calls) == 1
+    
+>       with pytest.raises(EmbeddingBudgetExceededError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE EmbeddingBudgetExceededError
+
+tests\indexing\test_gateway_embedding_provider.py:156: Failed
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_gateway_embedding_provider.py::test_budget_cap_blocks_a_subsequent_call_with_no_further_transport_call
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py tests/indexing/test_gateway_embedding_provider.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-q0buvxu9\.junit-1.xml"
+--- stdout ---
+.................F....                                                   [100%]
+================================== FAILURES ===================================
+___ test_budget_cap_blocks_a_subsequent_call_with_no_further_transport_call ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000285A16649E0>
+
+    def test_budget_cap_blocks_a_subsequent_call_with_no_further_transport_call(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        _set_required_env(monkeypatch)
+        monkeypatch.setenv("FOSS_MCP_EMBEDDING_GATEWAY_MAX_REQUESTS", "1")
+        transport = FakeTransport()
+        provider = GatewayEmbeddingProvider(_transport=transport, _sleep=_no_sleep)
+    
+        first = provider.embed(["alpha", "beta"])
+        assert len(first) == 2
+        assert len(transport.calls) == 1
+    
+>       with pytest.raises(EmbeddingBudgetExceededError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE EmbeddingBudgetExceededError
+
+tests\indexing\test_gateway_embedding_provider.py:156: Failed
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_gateway_embedding_provider.py::test_budget_cap_blocks_a_subsequent_call_with_no_further_transport_call
+
+--- stderr ---
+
