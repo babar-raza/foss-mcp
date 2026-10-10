@@ -416,9 +416,9 @@ def _dry_run_helm_lines(capsys, values_dir, *extra) -> list[str]:
     return [line for line in lines if line.startswith("helm ")]
 
 
-def _sets(cmd: list[str]) -> list[str]:
-    """The value of every `--set` in an argv, in order."""
-    return [cmd[i + 1] for i, token in enumerate(cmd) if token == "--set"]
+def _set_args(cmd: list[str]) -> list[tuple[str, str]]:
+    """Every `--set` / `--set-string` in an argv as (flag, value), in order."""
+    return [(token, cmd[i + 1]) for i, token in enumerate(cmd) if token in ("--set", "--set-string")]
 
 
 def test_the_chart_has_the_pilot_list_the_secret_tests_derive_their_count_from():
@@ -471,9 +471,9 @@ def test_helm_command_appends_each_extra_set_after_image_tag_and_before_the_valu
         "ns1",
         "--set",
         "image.tag=rev-abc1234",
-        "--set",
+        "--set-string",
         "a.b=one",
-        "--set",
+        "--set-string",
         "c.d=two",
         "-f",
         str(Path("values/pdf_net.yaml")),
@@ -489,7 +489,8 @@ def test_without_either_secret_flag_no_dry_run_line_mentions_a_secret_key(tmp_pa
     for line in lines:
         assert "embeddingGateway" not in line
         assert "githubToken" not in line
-        assert line.count("--set") == 1
+        assert line.count("--set-string") == 0
+        assert line.count(" --set ") == 1
         assert "--set image.tag=t" in line
 
 
@@ -499,10 +500,11 @@ def test_embedding_gateway_secret_adds_exactly_its_pair_to_every_pilot_and_no_to
     lines = _dry_run_helm_lines(capsys, tmp_path, "--embedding-gateway-secret", "my-gw")
     assert len(lines) == len(ALL_PILOTS)
     for line in lines:
-        assert f"--set {GATEWAY_PAIR}" in line
+        assert f"--set-string {GATEWAY_PAIR}" in line
         assert "githubToken" not in line
         assert "--set image.tag=t" in line
-        assert line.count("--set") == 2
+        assert line.count("--set-string") == 1
+        assert line.count(" --set ") == 1
 
 
 def test_github_token_secret_adds_exactly_its_pair_to_every_pilot_and_no_gateway_pair(
@@ -511,10 +513,11 @@ def test_github_token_secret_adds_exactly_its_pair_to_every_pilot_and_no_gateway
     lines = _dry_run_helm_lines(capsys, tmp_path, "--github-token-secret", "my-token")
     assert len(lines) == len(ALL_PILOTS)
     for line in lines:
-        assert f"--set {TOKEN_PAIR}" in line
+        assert f"--set-string {TOKEN_PAIR}" in line
         assert "embeddingGateway" not in line
         assert "--set image.tag=t" in line
-        assert line.count("--set") == 2
+        assert line.count("--set-string") == 1
+        assert line.count(" --set ") == 1
 
 
 def test_both_secret_flags_add_both_pairs_to_every_pilot_and_keep_the_image_tag(
@@ -525,10 +528,11 @@ def test_both_secret_flags_add_both_pairs_to_every_pilot_and_keep_the_image_tag(
     )
     assert len(lines) == len(ALL_PILOTS)
     for line in lines:
-        assert f"--set {GATEWAY_PAIR}" in line
-        assert f"--set {TOKEN_PAIR}" in line
+        assert f"--set-string {GATEWAY_PAIR}" in line
+        assert f"--set-string {TOKEN_PAIR}" in line
         assert "--set image.tag=t" in line
-        assert line.count("--set") == 3
+        assert line.count("--set-string") == 2
+        assert line.count(" --set ") == 1
 
 
 def test_a_real_install_passes_the_secret_pairs_in_the_argv_it_executes_for_every_pilot(
@@ -551,7 +555,11 @@ def test_a_real_install_passes_the_secret_pairs_in_the_argv_it_executes_for_ever
     assert len(helm_calls) == len(ALL_PILOTS)
     assert {cmd[3] for cmd in helm_calls} == {pilots.release_name(p) for p in ALL_PILOTS}
     for cmd in helm_calls:
-        assert _sets(cmd) == ["image.tag=t", GATEWAY_PAIR, TOKEN_PAIR]
+        assert _set_args(cmd) == [
+            ("--set", "image.tag=t"),
+            ("--set-string", GATEWAY_PAIR),
+            ("--set-string", TOKEN_PAIR),
+        ]
         assert cmd.index("-f") > cmd.index(TOKEN_PAIR)
     results = json.loads((tmp_path / install.RESULTS_FILE).read_text(encoding="utf-8"))
     assert [r["command"] for r in results if r["release"] == helm_calls[0][3]] == [helm_calls[0]]
@@ -563,7 +571,7 @@ def test_a_real_install_with_one_secret_flag_passes_only_that_pair(tmp_path, mon
     assert rc == 0
     assert len(fake.helm_calls()) == len(ALL_PILOTS)
     for cmd in fake.helm_calls():
-        assert _sets(cmd) == ["image.tag=t", GATEWAY_PAIR]
+        assert _set_args(cmd) == [("--set", "image.tag=t"), ("--set-string", GATEWAY_PAIR)]
 
 
 def test_a_real_install_without_the_flags_runs_the_exact_pre_existing_argv(tmp_path, monkeypatch):
@@ -647,4 +655,32 @@ def test_an_invalid_name_is_refused_even_when_the_other_secret_name_is_valid(tmp
 def test_valid_dns_1123_secret_names_are_accepted(tmp_path, capsys, no_subprocess, name):
     lines = _dry_run_helm_lines(capsys, tmp_path, f"--embedding-gateway-secret={name}", "--only", "pdf_net")
     assert len(lines) == 1
-    assert f"--set embeddingGateway.existingSecret={name}" in lines[0]
+    assert f"--set-string embeddingGateway.existingSecret={name}" in lines[0]
+
+
+@pytest.mark.parametrize("name", ["null", "true", "false", "123"])
+def test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string(
+    tmp_path, monkeypatch, name
+):
+    fake = _fake(monkeypatch)
+    rc = install.main(
+        [
+            *BASE_ARGS,
+            "--only",
+            "pdf_net",
+            "--values-dir",
+            str(tmp_path),
+            f"--embedding-gateway-secret={name}",
+            f"--github-token-secret={name}",
+        ]
+    )
+    assert rc == 0
+    (cmd,) = fake.helm_calls()
+    for key in ("embeddingGateway.existingSecret", "ingestion.githubToken.existingSecret"):
+        pair = f"{key}={name}"
+        assert cmd[cmd.index(pair) - 1] == "--set-string"
+    # No Secret pair ever travels on a plain --set, where helm would coerce null/true/123 to a non-string.
+    for flag, value in _set_args(cmd):
+        if flag == "--set":
+            assert "existingSecret" not in value
+    assert [flag for flag, _ in _set_args(cmd)].count("--set") == 1

@@ -19,8 +19,9 @@ ingestion Job, immediately before each upgrade.
 --dry-run prints each pilot's Job removal command and helm command and runs neither, and writes nothing.
 
 Two optional flags name Secrets the operator created (G2/TC-339): --embedding-gateway-secret NAME and
---github-token-secret NAME. Each appends exactly one `--set <chart key>=NAME` pair to every helm command
-and nothing when absent, so the default command is unchanged. A NAME is checked against the Kubernetes
+--github-token-secret NAME. Each appends exactly one `--set-string <chart key>=NAME` pair to every helm
+command and nothing when absent, so the default command is unchanged. It is --set-string, never --set:
+plain --set would coerce a valid Secret name such as `null`, `true` or `123` into a non-string. A NAME is checked against the Kubernetes
 DNS-1123 subdomain grammar before any command is built; an invalid one exits 2 without running anything.
 """
 
@@ -52,7 +53,7 @@ COMPONENT_LABEL = "app.kubernetes.io/component"
 RESULTS_FILE = "install-results.json"
 
 # Kubernetes DNS-1123 subdomain: the grammar a Secret name must satisfy. Checked before a name is placed in a
-# helm --set argument, so a comma, equals sign or backslash can never smuggle a second value into it.
+# helm --set-string argument, so a comma, equals sign or backslash can never smuggle a second value into it.
 SECRET_NAME_PATTERN = re.compile(r"^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$")
 SECRET_NAME_MAX_LENGTH = 253
 # (CLI flag, argparse dest, chart values key it sets). The chart's own key names stay the defaults.
@@ -75,7 +76,7 @@ class InstallResult:
 
 
 def secret_set_pairs(args: argparse.Namespace) -> list[str]:
-    """The `key=NAME` helm --set pairs for the Secret flags that were given, in SECRET_FLAGS order.
+    """The `key=NAME` helm --set-string pairs for the Secret flags that were given, in SECRET_FLAGS order.
 
     Raises ValueError, naming the flag, if a given NAME is not a valid DNS-1123 subdomain. An empty NAME
     means the flag was not given and contributes nothing.
@@ -117,7 +118,8 @@ def helm_install_command(
         f"image.tag={tag}",
     ]
     for pair in extra_sets:
-        cmd += ["--set", pair]
+        # --set-string, never --set: plain --set turns a name such as null, true or 123 into a non-string.
+        cmd += ["--set-string", pair]
     cmd += ["-f", str(values_file), "--wait", "--timeout", timeout]
     return cmd
 

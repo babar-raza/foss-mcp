@@ -81,8 +81,8 @@ Useful options:
 | `--dry-run` | Print each helm command. Run nothing and write nothing. |
 | `--parallel N` | Installs running at once. Default 2. |
 | `--timeout 45m` | `helm --timeout` for each install. Default 30m. |
-| `--embedding-gateway-secret NAME` | Name of an operator-created Secret holding the embedding gateway. Adds `--set embeddingGateway.existingSecret=NAME` to every install. See the section on passing the Secrets. |
-| `--github-token-secret NAME` | Name of an operator-created Secret holding a GitHub token. Adds `--set ingestion.githubToken.existingSecret=NAME` to every install. |
+| `--embedding-gateway-secret NAME` | Name of an operator-created Secret holding the embedding gateway. Adds `--set-string embeddingGateway.existingSecret=NAME` to every install. See the section on passing the Secrets. |
+| `--github-token-secret NAME` | Name of an operator-created Secret holding a GitHub token. Adds `--set-string ingestion.githubToken.existingSecret=NAME` to every install. |
 
 The tool never removes a release or a resource. It runs no uninstall and no delete.
 
@@ -142,10 +142,14 @@ a token in a values file or the repository.
 Two optional installer flags name Secrets that the **operator** creates. The installer and the chart
 only ever name a Secret; neither creates one or carries a credential value.
 
-- `--embedding-gateway-secret NAME` adds `--set embeddingGateway.existingSecret=NAME` to the helm
-  command of every pilot. The Secret needs the keys `endpoint` and `apiKey`.
-- `--github-token-secret NAME` adds `--set ingestion.githubToken.existingSecret=NAME` to the helm
-  command of every pilot. The Secret needs the key `token`.
+- `--embedding-gateway-secret NAME` adds `--set-string embeddingGateway.existingSecret=NAME` to the
+  helm command of every pilot. The Secret needs the keys `endpoint` and `apiKey`.
+- `--github-token-secret NAME` adds `--set-string ingestion.githubToken.existingSecret=NAME` to the
+  helm command of every pilot. The Secret needs the key `token`.
+
+The pairs use `--set-string`, not `--set`, so helm keeps the name as text. Plain `--set` would turn a
+Secret named `null`, `true` or `123` into a non-string, and `null` would silently switch the feature
+off.
 
 Create the namespace and the Secrets first. The values below are placeholders; type your own, and do
 not write them into a file in the repository:
@@ -178,7 +182,7 @@ What to expect:
   with a letter or digit, at most 253 characters. Anything else, a comma or an equals sign included,
   makes the installer print an error and exit 2 before it builds or runs any command, `--dry-run`
   included.
-- `--dry-run` prints the helm line each pilot would get, `--set` pairs included, so check it before a
+- `--dry-run` prints the helm line each pilot would get, `--set-string` pairs included, so check it before a
   real run.
 
 ## Retrying one pilot
