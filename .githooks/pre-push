@@ -57,12 +57,20 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY G
 # 2026-10-10 bad-author commits still permanently in main's own history on every such push.
 # `--not --remotes` instead only ever looks at commits genuinely new to the remote, regardless
 # of which ref carries them in.
+#
+# %aE/%cE (mailmap-resolved), never %ae/%ce (raw): some already-made, still-unpushed commits
+# predate this fix and carry a raw test@example.invalid/t@example.com identity that .mailmap
+# already redeems to the real one for display - the explicit decision (docs/DECISION_LOG.md's
+# 2026-10-10 entry) was to fix those via .mailmap, never by rewriting commits that are safe to
+# rewrite only by accident of not being pushed yet. Reading raw emails here would re-litigate
+# that decision by blocking the very push that was always going to carry them. A genuinely new
+# bad-identity commit has no .mailmap entry, so %aE/%cE still catches it unresolved.
 allowed_email="$(git config --global --get user.email || true)"
 if [ -n "$allowed_email" ]; then
   while read -r local_ref local_sha remote_ref remote_sha; do
     [ -z "$local_sha" ] && continue
     case "$local_sha" in 0000000000000000000000000000000000000000) continue ;; esac
-    bad="$(git log "$local_sha" --not --remotes --format='%H %ae %ce' 2>/dev/null | awk -v a="$allowed_email" '$2!=a || $3!=a {print}')"
+    bad="$(git log "$local_sha" --not --remotes --format='%H %aE %cE' 2>/dev/null | awk -v a="$allowed_email" '$2!=a || $3!=a {print}')"
     if [ -n "$bad" ]; then
       echo "pre-push: BLOCKED - commit(s) in $local_ref not authored/committed as $allowed_email:" >&2
       echo "$bad" >&2
