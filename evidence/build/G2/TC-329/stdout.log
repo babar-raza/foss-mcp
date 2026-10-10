@@ -1,0 +1,130 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_demo_manifests.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5rmmfh0j\.junit-0.xml"
+--- stdout ---
+....                                                                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_container_build.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5rmmfh0j\.junit-1.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_demo_manifests.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5rmmfh0j\.junit-0.xml"
+--- stdout ---
+....                                                                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_container_build.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5rmmfh0j\.junit-1.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/demo-manifests/pdf__net__self_extracted/generation__20261010T034948907394Z-799ce0ea.json, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_demo_manifests.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5rmmfh0j\.junit-0.xml"
+--- stdout ---
+...F                                                                     [100%]
+================================== FAILURES ===================================
+__ test_each_scope_directorys_generation_carries_non_empty_lexical_documents __
+
+    def test_each_scope_directorys_generation_carries_non_empty_lexical_documents() -> None:
+        for scope in _expected_scope_dirs():
+            scope_dir = DEMO_MANIFESTS / scope
+            generation_files = sorted(scope_dir.glob("generation__*.json"))
+            assert len(generation_files) == 1, (scope, generation_files)
+            generation = json.loads(generation_files[0].read_text(encoding="utf-8"))
+            documents = generation["payload"]["lexical_index"]["documents"]
+            assert isinstance(documents, dict), (scope, type(documents))
+>           assert len(documents) > 0, (scope, "documents is empty - no queryable content")
+E           AssertionError: ('pdf__net__self_extracted', 'documents is empty - no queryable content')
+E           assert 0 > 0
+E            +  where 0 = len({})
+
+tests\infra\test_demo_manifests.py:71: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_demo_manifests.py::test_each_scope_directorys_generation_carries_non_empty_lexical_documents
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/test_container_build.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5rmmfh0j\.junit-1.xml"
+--- stdout ---
+......F..                                                                [100%]
+================================== FAILURES ===================================
+_ test_a_real_docker_build_of_the_demo_target_is_self_contained_and_serves_real_content _
+
+    def test_a_real_docker_build_of_the_demo_target_is_self_contained_and_serves_real_content() -> None:
+        """TC-329: the `demo` stage now COPYs infra/demo-manifests/ (committed to this repo)
+        instead of reading a Buildx named build-context supplied only at build time - so this
+        build deliberately passes NO --build-context flag, proving it is genuinely self-contained
+        from committed data alone. The live /readyz check (AGENTS.md's Integration-and-liveness
+        live-content smoke test) proves the built container really serves a real, baked-in
+        generation - not just that the image built."""
+        image_tag = f"foss-mcp-serving:test-build-demo-{os.getpid()}"
+        container_name = f"foss-mcp-serving-demo-test-{os.getpid()}"
+        port = _free_port()
+        try:
+            build_result = subprocess.run(
+                ["docker", "build", "-f", "Dockerfile.serving", "--target", "demo", "-t", image_tag, "."],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=900,
+            )
+            assert build_result.returncode == 0, (build_result.stdout + build_result.stderr)[-6000:]
+    
+            run_result = subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "-d",
+                    "--name",
+                    container_name,
+                    "-p",
+                    f"{port}:8080",
+                    "-e",
+                    "FOSS_MCP_FAMILY=pdf",
+                    "-e",
+                    "FOSS_MCP_PLATFORM=net",
+                    image_tag,
+                    "python",
+                    "/app/infra/serve_http.py",
+                ],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=60,
+            )
+            assert run_result.returncode == 0, (run_result.stdout + run_result.stderr)[-2000:]
+    
+            deadline = time.monotonic() + 30
+            status: int | None = None
+            last_error: Exception | None = None
+            while time.monotonic() < deadline:
+                try:
+                    with urllib.request.urlopen(f"http://localhost:{port}/readyz", timeout=3) as response:
+                        status = response.status
+                    break
+                except (urllib.error.URLError, OSError) as exc:
+                    last_error = exc
+                    time.sleep(1)
+>           assert status == 200, f"/readyz never returned 200 (last error: {last_error})"
+E           AssertionError: /readyz never returned 200 (last error: HTTP Error 503: Service Unavailable)
+E           assert None == 200
+
+tests\test_container_build.py:151: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_container_build.py::test_a_real_docker_build_of_the_demo_target_is_self_contained_and_serves_real_content
+
+--- stderr ---
+
