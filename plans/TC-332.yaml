@@ -1,0 +1,72 @@
+id: TC-332
+gate: G2
+lane: verification
+purpose: 'Bring five files to a clean `ruff check .`. The push gate (scripts/ci_check.sh, step lint) fails at HEAD with 7 errors in files written by
+  workers under TC-275, TC-309, TC-314 and TC-326: UP035 (Callable from typing) and UP017 (timezone.utc) and UP037 (quoted annotation) in
+  infra/verify_package_registry.py, infra/verify_product_reference_install.py and tests/infra/test_verify_package_registry.py, and two F841 unused
+  locals in tests/extraction/test_jmap_java_extraction.py and tests/extraction/test_slides_net_extraction.py. gatectl review ran ruff format on each card
+  but never ruff check, so every one of them was accepted and the first push after them is blocked. This card removes the lint errors and changes no
+  behaviour: no test is added, removed, renamed or weakened.'
+depends_on:
+- TC-260
+- TC-275
+- TC-296
+- TC-309
+- TC-314
+- TC-326
+write_paths:
+- infra/verify_package_registry.py
+- infra/verify_product_reference_install.py
+- tests/extraction/test_jmap_java_extraction.py
+- tests/extraction/test_slides_net_extraction.py
+- tests/infra/test_verify_package_registry.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 9.1 Hosting'
+  sha256: 8b5afbf681487772ea2236c90689646bc28ff171cfd767bc64a0a5967f630704
+inputs:
+- 'Run `python -m ruff check` on exactly the five write_paths files to see the 7 errors. Five are auto-fixable: run `python -m ruff check --fix` on those five files
+  only (never on the whole repository). Then read the diff: it must be import and annotation spelling only (Callable now from collections.abc; datetime.UTC
+  instead of timezone.utc; the quotes removed from the "_FakeResponse" annotation). If the diff changes the meaning of any line, stop and say so.'
+- 'The two F841 are not auto-fixed and need judgement. In tests/extraction/test_jmap_java_extraction.py the local `by_name` is a dict built from data["types"] and
+  never read: delete that one line. In tests/extraction/test_slides_net_extraction.py the line `pvi_object = by_name["PVIObject"]` is never read after the
+  assignment, but the subscript raises KeyError when PVIObject is absent, so it is an implicit existence check. Do NOT simply delete it. Replace it with
+  `assert "PVIObject" in by_name` so the check stays and is now explicit. Leave every other line in both tests untouched.'
+- 'After the fixes run python -m ruff format on the five files, and confirm `python -m ruff check .` over the whole repository reports no error.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Apply the autofixes to the five files and the two judgement fixes.
+- Format the five files.
+- Confirm `ruff check .` is clean for the whole repository and the diff changes no behaviour.
+- Run the card checks and report exact counts.
+checks:
+- command: '{python} -m ruff check .'
+  expect: exit 0
+  timeout_seconds: 300
+  proves:
+  - REQ-G2-043
+- command: '{python} -m ruff format --check infra/verify_package_registry.py infra/verify_product_reference_install.py tests/extraction/test_jmap_java_extraction.py tests/extraction/test_slides_net_extraction.py tests/infra/test_verify_package_registry.py'
+  expect: exit 0
+  timeout_seconds: 300
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/extraction/test_jmap_java_extraction.py tests/extraction/test_slides_net_extraction.py tests/infra/test_verify_package_registry.py tests/infra/test_verify_product_reference_install.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 87
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/infra/test_verify_package_registry.py');p.write_text(p.read_text(encoding='utf-8')+chr(10)+'def _zz():'+chr(10)+'    unused_zz = 1'+chr(10),encoding='utf-8')"
+  rationale: 'Appends a function with an unused local to one of the five files, so `ruff check .` must fail with F841. Built with plain text and chr(10), no backslashes.'
+evidence:
+- evidence/build/G2/TC-332/receipt.json
+closeout:
+- ruff check . passes for the whole repository.
+- The 87 tests in the four test files still pass, none removed or loosened.
+recovery: Re-run from a clean tree.
