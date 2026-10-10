@@ -199,7 +199,10 @@ def test_default_demo_deployment_env_is_unchanged_by_the_gateway_feature() -> No
 
 def test_empty_existing_secret_emits_nothing_even_with_keys_set() -> None:
     text = _render_text(
-        "--set", f"embeddingGateway.endpointKey={ENDPOINT_KEY}", "--set", f"embeddingGateway.apiKeyKey={API_KEY_KEY}"
+        "--set",
+        f"embeddingGateway.endpointKey={ENDPOINT_KEY}",
+        "--set",
+        f"embeddingGateway.apiKeyKey={API_KEY_KEY}",
     )
     assert ENDPOINT_VAR not in text
     assert API_KEY_VAR not in text
