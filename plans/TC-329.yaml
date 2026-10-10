@@ -1,0 +1,138 @@
+id: TC-329
+gate: G2
+lane: transport-deployment
+purpose: 'Owner follow-up on TC-328: /data/manifests for the self-contained demo image must be made
+  PERSISTENT by committing it, rather than living only in a Buildx named build-context supplied from an
+  ephemeral local directory at build time (TC-328''s own design, which this card deliberately supersedes
+  for the demo stage''s data source - "never committed to git" was the wrong call once the owner asked for
+  durability over build-time flexibility). A real local-ingestion run (build_chunks.py + ingest.py + the
+  fetch_product_reference.py/verify_product_reference_install.py/fetch_recent_releases.py sidecars),
+  already executed this session for all 40 pilots named in infra/helm/foss-mcp/values.yaml''s
+  `ingestion.pilots`, produced real, non-empty GenerationManifestStore output for every one of them. This
+  card commits that output into the repository so the demo image is buildable and reproducible from git
+  alone, with no local ingestion run and no --build-context flag required.'
+depends_on:
+- TC-001
+- TC-103
+- TC-223
+- TC-328
+write_paths:
+- infra/demo-manifests/**
+- Dockerfile.serving
+- docs/REPOSITORY_LAYOUT.md
+- tests/infra/test_demo_manifests.py
+- tests/test_container_build.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 9.1 Hosting'
+  sha256: 8b5afbf681487772ea2236c90689646bc28ff171cfd767bc64a0a5967f630704
+inputs:
+- 'The real source data to commit already exists on this machine at the absolute path
+  C:\Users\babar\AppData\Local\Temp\claude\e--Users-prora-OneDrive-Documents-GitHub-foss-mcp\7cc50ffe-90e7-4881-a5bf-84f21ce83723\scratchpad\demo-manifests
+  - 40 subdirectories, one per pilot, each named `<family>__<platform>__self_extracted` (matching
+  GenerationManifestStore''s own `_scope_dir()` naming, src/foss_mcp/indexing/generation_manifest.py).
+  Copy it into this repo at `infra/demo-manifests/` with ONE deliberate curation rule per scope directory:
+  copy `active_pointer.json` verbatim, copy ONLY the one `generation__*.json` file whose `generation_id`
+  matches what `active_pointer.json` names (read both to confirm before copying - do not assume
+  filename-sort order picks the right one), and copy NOTHING else. Specifically, do NOT copy
+  `lease_state.json` (lease/fencing-token bookkeeping `GenerationManifestStore.read_active`/
+  `read_generation` never read - see read_active/read_generation vs acquire_lease/cas_activate in
+  generation_manifest.py - it is write-path-only machinery, and the committed copies are themselves TTL-
+  expired and stale from the local run, e.g. its `generation_id` field literally still says "pending" for
+  at least one pilot). Exactly one pilot directory in the source (pdf__net__self_extracted) has TWO
+  generation__*.json files from an earlier, superseded local test run - copy only the one
+  active_pointer.json actually names; do not copy the orphaned one. After copying, each of the 40
+  destination directories under infra/demo-manifests/ must contain exactly 2 files:
+  `active_pointer.json` and one `generation__*.json`.'
+- 'Dockerfile.serving''s `demo` stage currently reads `COPY --from=demo-data --chown=foss-mcp:foss-mcp .
+  /data/manifests`, sourcing a Buildx NAMED build context supplied only at build time
+  (`--build-context demo-data=<path>`), deliberately never committed. Change this ONE line to
+  `COPY --chown=foss-mcp:foss-mcp infra/demo-manifests/ /data/manifests` - a plain COPY from this repo''s
+  own default build context, now that the data lives there. This means `docker build --target demo -t
+  foss-mcp-serving:demo .` now succeeds with NO `--build-context` flag at all - rewrite the large comment
+  block above the `demo` stage to describe this (persisted, committed, reproducible from git alone;
+  the toolchain still never enters this image - the ingestion pipeline still only ever runs on whichever
+  machine is updating infra/demo-manifests/, host-level, same as before; to refresh or add pilots, re-run
+  the local ingestion pipeline and commit the updated infra/demo-manifests/ output through this same
+  governed process) rather than describing the now-removed Buildx-named-context mechanism. The trailing,
+  instruction-free `FROM runtime` stage after `demo` (TC-328''s own fix keeping the implicit default build
+  target unaffected) does not change at all - leave it exactly as is.'
+- 'docs/REPOSITORY_LAYOUT.md: add one new short section (after whichever existing section precedes it
+  alphabetically/logically - match the file''s own existing style and heading level) documenting
+  `infra/demo-manifests/`: committed, already-published GenerationManifestStore output, one subdirectory
+  per scope, that Dockerfile.serving''s `demo` stage COPYs into /data/manifests; produced by running the
+  ingestion pipeline locally and committing only each scope''s active_pointer.json and the one
+  generation__*.json it names; it is build-time data, not product code, and is never imported by `src/`.'
+- 'tests/infra/test_demo_manifests.py (NEW FILE, fully offline, no docker and no network): add these four
+  tests. (1) infra/demo-manifests/ contains exactly one directory per pilot in
+  infra/helm/foss-mcp/values.yaml''s `ingestion.pilots` list, named `<family>__<platform>__self_extracted`
+  - derive the expected set FROM values.yaml, never hardcode the 40 pilots'' names in the test. (2) every
+  one of those directories contains EXACTLY two files: `active_pointer.json` and exactly one
+  `generation__*.json` - no `lease_state.json`, no extra/orphaned generation files. (3) every directory''s
+  `active_pointer.json`''s `generation_id` exactly matches the `generation_id` field inside its own
+  `generation__*.json` file. (4) every directory''s `generation__*.json`''s own
+  `payload.lexical_index.documents` is a non-empty dict/object - the real content-integrity assertion this
+  card exists to prove: every one of the 40 pilots'' committed data genuinely carries queryable content,
+  not an empty generation.'
+- 'tests/test_container_build.py: add ONE new test, `test_a_real_docker_build_of_the_demo_target_is_self_
+  contained_and_serves_real_content` (or equivalent name), mirroring this file''s own existing
+  `test_a_real_docker_build_of_the_serving_image_succeeds` pattern (subprocess, image-tag-by-pid, `finally:
+  docker rmi -f`), with two differences: (a) the build command is `docker build -f Dockerfile.serving
+  --target demo -t <tag> .` - deliberately WITH NO `--build-context` flag, proving the demo stage is now
+  genuinely self-contained from committed data alone; (b) after a successful build, run the image with
+  `docker run -d --name <unique-name> -p <some-free-port>:8080 -e FOSS_MCP_FAMILY=pdf -e
+  FOSS_MCP_PLATFORM=net <tag> python /app/infra/serve_http.py`, poll `http://localhost:<port>/readyz`
+  (a short retry loop, a few seconds total, since the container needs a moment to start) until it returns
+  200 or a bounded timeout elapses, assert it returned 200, then `docker rm -f` the container in a
+  `finally:` block alongside the existing image-removal `finally:`. This is the card''s own live-content
+  smoke test (AGENTS.md''s Integration-and-liveness section) - a real container, not just an assertion
+  about committed files.'
+- 'Run `{python} -m pytest tests/infra/test_demo_manifests.py -q -rfE` and confirm all 4 tests pass. Then
+  run `{python} -m pytest tests/test_container_build.py -q -rfE` (the whole file, not just the new test -
+  confirm the pre-existing tests in it still pass too) and confirm it passes, including the new live
+  /readyz check. Then run the full `{python} -m pytest tests/infra -q -rfE` once (toolchain activated in
+  the same command) to confirm zero regressions elsewhere.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Copy the already-produced, 40-pilot local-ingestion output into infra/demo-manifests/, keeping only each
+  scope's active_pointer.json and its one real, matching generation file.
+- Change Dockerfile.serving's demo stage to COPY that committed directory directly, removing the need for
+  a Buildx named build-context at build time, and rewrite its comment to match.
+- Document infra/demo-manifests/ in docs/REPOSITORY_LAYOUT.md.
+- Add an offline per-pilot content-integrity test suite (tests/infra/test_demo_manifests.py) and one real,
+  self-contained --target demo docker-build-and-/readyz smoke test (tests/test_container_build.py).
+checks:
+- command: '{python} -m pytest tests/infra/test_demo_manifests.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 60
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/test_container_build.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 5
+network: true
+requires:
+- docker
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import glob,json;p=glob.glob('infra/demo-manifests/pdf__net__self_extracted/generation__*.json')[0];d=json.load(open(p,encoding='utf-8'));d['payload']['lexical_index']['documents']={};json.dump(d,open(p,'w',encoding='utf-8'))"
+  rationale: Empties pdf/net's own committed generation's lexical_index.documents (the real content a
+    served pilot must carry), making test_demo_manifests.py's non-empty-content assertion fail for that
+    one pilot - a semantic break on the card's own central claim (every committed pilot genuinely carries
+    queryable content), not a textual one on source code.
+evidence:
+- evidence/build/G2/TC-329/receipt.json
+closeout:
+- infra/demo-manifests/ now commits the real, already-produced, content-verified GenerationManifestStore
+  output for all 40 pilots; Dockerfile.serving's demo stage builds self-contained from git alone with no
+  --build-context flag; a real docker build + live /readyz check proves it end to end, closing the owner's
+  "make /data/manifests persistent by committing everything" request.
+recovery: Re-run from a clean tree.
