@@ -27,9 +27,11 @@ depends_on:
 - TC-262
 - TC-272
 - TC-325
+- TC-251
 write_paths:
 - docker-compose.yml
 - tests/infra/test_helm_pilots_match_compose.py
+- tests/infra/test_helm_chart.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -76,6 +78,16 @@ inputs:
   inconsistent with what''s already in docker-compose.yml''s own build_chunks.py call for that same pilot
   (a real cross-file drift, not this card''s own fault to fix) - STOP and report exactly which pilot and what
   you found, rather than guessing a value or silently skipping it.'
+- 'tests/infra/test_helm_chart.py has its own small, synthetic PILOTS fixture (4 hand-written pilots: pdf/net,
+  pdf/typescript, pdf/cpp, cells/rust) used to test the Helm template''s own rendering logic in isolation from
+  docker-compose.yml. It predates manifestPath entirely and will make
+  test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose fail once docker-compose.yml''s own
+  wiring is corrected (both sides were independently missing the install-verification steps before; fixing one
+  side exposes the other''s staleness). Add a top-level `"manifestPath"` key (a sibling of `"library"`, not
+  nested inside it) to each of the 4 PILOTS entries, using each real pilot''s own real value from
+  infra/helm/foss-mcp/values.yaml: pdf/net -> "src/Aspose.Pdf.Foss.csproj", pdf/typescript -> "package.json",
+  pdf/cpp -> "CMakeLists.txt", cells/rust -> "Cargo.toml". Verify this specific test passes afterward alongside
+  everything else.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
 - Read the Helm Job template's own reference shape for the two new steps.
