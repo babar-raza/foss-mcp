@@ -1,0 +1,62 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_demo_manifests.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i6r7i7a9\.junit-0.xml"
+--- stdout ---
+....                                                                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i6r7i7a9\.junit-1.xml"
+--- stdout ---
+....................................                                     [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_demo_manifests.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i6r7i7a9\.junit-0.xml"
+--- stdout ---
+....                                                                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i6r7i7a9\.junit-1.xml"
+--- stdout ---
+....................................                                     [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/demo-manifests/pdf__net__self_extracted/generation__20261010T082511301500Z-009f671d.json, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/infra/test_demo_manifests.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i6r7i7a9\.junit-0.xml"
+--- stdout ---
+...F                                                                     [100%]
+================================== FAILURES ===================================
+__ test_each_scope_directorys_generation_carries_non_empty_lexical_documents __
+
+    def test_each_scope_directorys_generation_carries_non_empty_lexical_documents() -> None:
+        for scope in _expected_scope_dirs():
+            scope_dir = DEMO_MANIFESTS / scope
+            generation_files = sorted(scope_dir.glob("generation__*.json"))
+            assert len(generation_files) == 1, (scope, generation_files)
+            generation = json.loads(generation_files[0].read_text(encoding="utf-8"))
+            documents = generation["payload"]["lexical_index"]["documents"]
+            assert isinstance(documents, dict), (scope, type(documents))
+>           assert len(documents) > 0, (scope, "documents is empty - no queryable content")
+E           AssertionError: ('pdf__net__self_extracted', 'documents is empty - no queryable content')
+E           assert 0 > 0
+E            +  where 0 = len({})
+
+tests\infra\test_demo_manifests.py:71: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_demo_manifests.py::test_each_scope_directorys_generation_carries_non_empty_lexical_documents
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-0e0e2e97bf4b28af\Scripts\python.exe -m pytest tests/mcp/tools/test_retrieval_tools.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i6r7i7a9\.junit-1.xml"
+--- stdout ---
+....................................                                     [100%]
+
+--- stderr ---
+
