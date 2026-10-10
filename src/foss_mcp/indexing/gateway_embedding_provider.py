@@ -122,7 +122,9 @@ class GatewayTransportError(Exception):
 def _required_env(name: str) -> str:
     value = os.environ.get(name, "").strip()
     if not value:
-        raise RuntimeError(f"{name} must be set: GatewayEmbeddingProvider needs its own gateway configuration")
+        raise RuntimeError(
+            f"{name} must be set: GatewayEmbeddingProvider needs its own gateway configuration"
+        )
     return value
 
 
