@@ -1,0 +1,99 @@
+id: TC-337
+gate: G2
+lane: transport-deployment
+purpose: >-
+  The live per-pilot Helm path builds every pilot's stored vector index with the hashing provider
+  (infra/helm/foss-mcp/templates/ingestion-job.yaml hard-codes
+  foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider and passes the Job no gateway
+  environment), while find_examples' vector fallback (TC-331) embeds the QUERY through
+  GatewayEmbeddingProvider (4096-dim Qwen, TC-330). A hashing-built index and a Qwen query vector are not
+  comparable, and the fallback is exception-safe, so in any real chart deployment it silently returns
+  nothing - TC-334 wired the gateway env into the SERVING pods only. This card makes the ingestion Job use
+  GatewayEmbeddingProvider and receive the same two gateway env vars from the same operator-created Secret,
+  but ONLY when embeddingGateway.existingSecret is set; with it unset the Job must render exactly as it
+  does today.
+depends_on:
+- TC-330
+- TC-334
+write_paths:
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
+- tests/infra/test_helm_ingestion_embedding.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — The embedding gateway must reach BOTH ingestion and serving in the live chart (supervisor, pre-TC-337)'
+  sha256: 016b5e50319c08312a0eb004d48127004350991ac620abd105d61921e8a1c8e1
+inputs:
+- >-
+  Read infra/helm/foss-mcp/templates/ingestion-job.yaml in full first, and tests/infra/test_helm_embedding_gateway.py
+  (TC-334's own test for the SERVING side of this same values block) - copy its _render() helper and
+  assertion style. The values block already exists (infra/helm/foss-mcp/values.yaml, top-level
+  `embeddingGateway:` with existingSecret / endpointKey / apiKeyKey); do NOT edit values.yaml, you do not own it.
+- >-
+  In ingestion-job.yaml, the `--embedding-provider` argument (currently the literal
+  foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider inside the folded `args: - >-` block)
+  must become conditional: when `$.Values.embeddingGateway.existingSecret` is non-empty it is
+  foss_mcp.indexing.gateway_embedding_provider:GatewayEmbeddingProvider, otherwise it stays exactly the hashing
+  provider. This file renders inside a range loop, so every values lookup must use the `$.Values...` form (a bare
+  `.Values` reads the wrong scope). Mind folded-scalar whitespace: render with `helm template` and confirm the
+  command line is still one well-formed shell line with no stray blank or doubled tokens in BOTH modes.
+- >-
+  In the container `env:` list (after the existing HOME / CARGO_HOME / GITHUB_TOKEN entries), when
+  `$.Values.embeddingGateway.existingSecret` is non-empty emit FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT and
+  FOSS_MCP_EMBEDDING_GATEWAY_API_KEY as secretKeyRefs naming existingSecret with endpointKey / apiKeyKey.
+  Unlike the serving side (TC-334) these two refs must NOT be `optional: true`: an operator who asked for the
+  gateway must get a loud pod failure (CreateContainerConfigError) on a missing key, never a silently built
+  hashing index. With existingSecret empty, neither env var is rendered.
+- >-
+  Create tests/infra/test_helm_ingestion_embedding.py proving, against the real `helm template` output:
+  (1) default values: every ingestion Job's command contains HashingEmbeddingProvider, contains no
+  GatewayEmbeddingProvider, and no FOSS_MCP_EMBEDDING_GATEWAY_* env anywhere in any Job;
+  (2) with embeddingGateway.existingSecret=some-secret and custom endpointKey/apiKeyKey: every ingestion Job's
+  command contains GatewayEmbeddingProvider and not HashingEmbeddingProvider, and each Job has both env vars as
+  secretKeyRef with the right secret name and key and with `optional` absent or false;
+  (3) the secret name and key names never appear as a literal env `value:`;
+  (4) the rendered Job count is the same in both modes (the switch changes content, never how many Jobs exist).
+  Use the chart's real pilot list; do not hard-code a pilot count, derive it from the render.
+- >-
+  Run `{python} -m pytest tests/infra/test_helm_ingestion_embedding.py -q -rfE`, then once
+  `{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_github_token.py tests/infra/test_helm_embedding_gateway.py -q -rfE`
+  to confirm no regression in the sibling chart suites (the Helm CLI needs the toolchain activated in the same command).
+- Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Make ingestion-job.yaml pick GatewayEmbeddingProvider and inject the two gateway env vars (required, not optional) only when embeddingGateway.existingSecret is set.
+- Leave the default (unset) render identical to today's hashing-provider Job.
+- Add a dedicated test file proving both modes against real helm template output.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_ingestion_embedding.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_github_token.py tests/infra/test_helm_embedding_gateway.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 4
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/ingestion-job.yaml');s=p.read_text(encoding='utf-8');old='gateway_embedding_provider';new='gateway_embedding_providerX';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: >-
+    Renames the last occurrence of gateway_embedding_provider inside ingestion-job.yaml, so a configured
+    deployment renders a provider path that does not exist - the new test's "configured mode renders
+    GatewayEmbeddingProvider for every Job" assertion fails. A real semantic break of this card's central claim.
+evidence:
+- evidence/build/G2/TC-337/receipt.json
+closeout:
+- >-
+  With embeddingGateway.existingSecret set, every ingestion Job now builds its pilot's vector index through the
+  same Qwen gateway the serving pods query with, so stored and query vectors are comparable; unset, the chart
+  renders exactly as before. Closes half of the gap recorded in docs/DECISION_LOG.md's 2026-10-11 entry
+  (TC-338 closes the serving-egress half).
+recovery: Re-run from a clean tree.

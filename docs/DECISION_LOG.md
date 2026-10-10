@@ -2544,3 +2544,54 @@ Fixed at the root and defended in depth, so this is structurally prevented, not 
 All six layers were verified directly (not assumed): the new test file passes (5/5), `.mailmap` resolves every
 bad identity on `main` to zero, and `worker/TC-901` no longer exists. This closes the incident the operator
 raised and the earlier `core.bare` incident as the same root cause.
+
+## 2026-10-11 — The embedding gateway must reach BOTH ingestion and serving in the live chart (supervisor, pre-TC-337)
+
+Found while taking over the delivery loop at G3 (every card ACCEPTED or SUPERSEDED, `gatectl next` = NONE):
+the live per-pilot Helm path cannot actually use the Qwen embedding gateway end to end, for two independent
+reasons, both verified by reading the chart rather than assumed.
+
+1. `infra/helm/foss-mcp/templates/ingestion-job.yaml` builds every pilot's stored vector index with
+   `foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider` and passes the Job no gateway
+   environment at all. `find_examples`' vector fallback (TC-331) embeds the QUERY with `GatewayEmbeddingProvider`
+   (4096-dim Qwen). A hashing-built index and a Qwen query vector are not comparable; the fallback is
+   exception-safe, so it silently returns nothing - the feature would look healthy and never fire. The 4096-dim
+   demo-manifest generations measured in TC-331 were built by hand with the gateway, which no chart path does.
+2. `infra/helm/foss-mcp/templates/networkpolicy.yaml` lets serving pods reach only same-namespace pods and
+   kube-dns. TC-334 wired `FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT/_API_KEY` into the serving Deployment, but a
+   serving pod's query-time call to the gateway is dropped by that policy. The mission plan's own egress table
+   (section 9.2) named exactly this case ("a serving pod that needs to call an external embedding endpoint at
+   query time would be incorrectly blocked by a same-namespace-only egress rule").
+
+Decision: two cards, no overlap in write_paths. TC-337 makes the ingestion Job use `GatewayEmbeddingProvider` and
+receive the two gateway env vars from the operator-created Secret, ONLY when `embeddingGateway.existingSecret`
+is set; with it unset the Job renders byte-identically to today (hashing provider). When it IS set the two
+secretKeyRefs are NOT optional: an operator who asked for the gateway must get a loud pod failure, never a
+silent hashing index. TC-338 adds a separate, additive egress NetworkPolicy document for serving pods (TCP 443
+to `embeddingGateway.egressCidrs`) rendered only when `embeddingGateway.existingSecret` is set; the always-rendered
+base policy is untouched, so isolation is never removed by a values flag.
+
+Deliberately not decided here: docker-compose's `ingest-*` services still use the hashing provider. Compose is the
+developer path; the Helm chart is the production path this entry is about.
+
+## 2026-10-11 — gatectl open-dispatch and source_ref checks read stale signals; both corrected (supervisor)
+
+Two defects in the governance tooling, found while pushing the git-identity fix (commits 932f17f..d3ca10a) and
+recorded here because code comments cite this log.
+
+- `commit-guard` and `worker-tick` decided "a dispatch is open" from `ops/status.jsonl` `committed`/`blocked`
+  lines only. Real acceptance (`gatectl accept`) never writes those lines, so 36 cards back to 2026-10-04 read as
+  permanently open and the guard's path heuristic fired on every supervisor-direct edit outside GLOBAL_DENY. Both
+  now also treat a card as closed when `rebuild_state()` reports it ACCEPTED or SUPERSEDED (the receipt-backed
+  signal `project/state.yaml` is asserted equal to).
+- `_source_ref_problems` hard-failed validate for ~300 done cards because they cite the retired external
+  mission-plan file, and `scripts/ci_check.sh` hard-fails its gatectl step on any validate problem - so `pre-push`
+  refused every push from any commit. source_refs are now skipped for ACCEPTED/SUPERSEDED cards (they justified a
+  card at authoring time; once done they are historical record). A card that is NOT done and cites a missing file
+  is still reported. Recorded as OQ-009 (PROVISIONAL_ACCEPT).
+
+Also recorded: this machine's Windows Application Control policy blocks freshly built Rust `build-script-build`
+executables under pytest's temp directory (`os error 4551`), so three Rust `example_verifier` tests cannot pass
+locally and `pre-push` cannot go green here. Reproduced with trivial crates (`getrandom`, `crc32fast`); a plain
+`cargo build` outside that path succeeds. Unrelated to any code change; the one `--no-verify` push on 2026-10-11
+was operator-approved for exactly this reason and is not a standing permission.

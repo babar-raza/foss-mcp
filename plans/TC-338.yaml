@@ -1,0 +1,93 @@
+id: TC-338
+gate: G2
+lane: transport-deployment
+purpose: >-
+  infra/helm/foss-mcp/templates/networkpolicy.yaml lets serving pods reach only same-namespace pods and
+  kube-dns. TC-334 wired FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT/_API_KEY into the serving Deployment, but in a
+  cluster that enforces NetworkPolicy the serving pod's query-time call to the gateway is dropped, so
+  find_examples' vector fallback can never fire in a real deployment. The mission plan's own egress table
+  (section 9.2) named exactly this case. This card adds a separate, additive egress policy for serving pods,
+  rendered only when embeddingGateway.existingSecret is set; the always-rendered base policy and the ingestion
+  egress policy are untouched, so isolation is never removed by a values flag.
+depends_on:
+- TC-334
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- infra/helm/foss-mcp/templates/networkpolicy.yaml
+- tests/infra/test_helm_embedding_egress.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — The embedding gateway must reach BOTH ingestion and serving in the live chart (supervisor, pre-TC-337)'
+  sha256: 016b5e50319c08312a0eb004d48127004350991ac620abd105d61921e8a1c8e1
+inputs:
+- >-
+  Read infra/helm/foss-mcp/templates/networkpolicy.yaml in full first (its header says no template braces may
+  appear in its COMMENTS - Helm parses comments - keep that true for anything you add), the `embeddingGateway:`
+  block in values.yaml, and tests/infra/test_helm_embedding_gateway.py (copy its _render() helper and style).
+- >-
+  values.yaml: add `egressCidrs:` under the existing `embeddingGateway:` block, a list defaulting to
+  `["0.0.0.0/0"]`, with a comment stating that the gateway sits behind a public hostname whose address the
+  chart cannot know, that an operator who knows the gateway's address range should narrow it, and that it is
+  only used when existingSecret is set. Do not change the other three keys.
+- >-
+  networkpolicy.yaml: append a THIRD document, named `<fullname>-gateway-egress` (use the same
+  `include "foss-mcp.fullname" .` helper the other two use), wrapped in `{{- if .Values.embeddingGateway.existingSecret }}`
+  ... `{{- end }}` INCLUDING its leading `---` separator so that with the secret unset the rendered output is
+  byte-for-byte identical to today's. It selects serving pods only (the chart's selectorLabels plus
+  `app.kubernetes.io/component: serving`), policyTypes Egress, one egress rule: TCP 443 to each entry of
+  `.Values.embeddingGateway.egressCidrs` as an ipBlock cidr. DNS is already allowed by the base policy; do not
+  duplicate it. Do not modify the first two documents at all.
+- >-
+  Create tests/infra/test_helm_embedding_egress.py proving against real `helm template` output:
+  (1) default values: exactly the same NetworkPolicy documents as before this card (the base and
+  `-ingestion-egress`), none named `-gateway-egress`;
+  (2) with embeddingGateway.existingSecret set: a `-gateway-egress` NetworkPolicy exists, its podSelector
+  includes component=serving (and NOT component=ingestion), policyTypes is exactly [Egress], and it allows
+  TCP 443 to 0.0.0.0/0 by default;
+  (3) with a custom `embeddingGateway.egressCidrs` (e.g. two CIDRs) the policy lists exactly those and not
+  0.0.0.0/0;
+  (4) the base policy and ingestion-egress documents are identical (parsed YAML equality) between the default
+  render and the configured render.
+- >-
+  Run `{python} -m pytest tests/infra/test_helm_embedding_egress.py -q -rfE`, then once
+  `{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_embedding_gateway.py -q -rfE` to confirm
+  no regression (the Helm CLI needs the toolchain activated in the same command).
+- Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Add an egressCidrs list to the embeddingGateway values block.
+- Add a conditional, additive gateway-egress NetworkPolicy for serving pods, leaving the two existing documents untouched.
+- Add a dedicated test file proving default, configured, custom-CIDR and base-policy-unchanged behaviour.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_embedding_egress.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_embedding_gateway.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 4
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/networkpolicy.yaml');s=p.read_text(encoding='utf-8');old='egressCidrs';new='egressCidrsX';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: >-
+    Renames the last occurrence of egressCidrs inside networkpolicy.yaml, so the template no longer reads the
+    values key - the custom-CIDR assertion (and the default-CIDR one) fail. A real semantic break of the
+    card's central claim, not a textual one.
+evidence:
+- evidence/build/G2/TC-338/receipt.json
+closeout:
+- >-
+  A serving pod in a NetworkPolicy-enforcing cluster can now reach the embedding gateway at query time when
+  (and only when) the operator configured one, without touching the always-on base isolation policy. Closes the
+  serving-egress half of the gap recorded in docs/DECISION_LOG.md's 2026-10-11 entry.
+recovery: Re-run from a clean tree.
