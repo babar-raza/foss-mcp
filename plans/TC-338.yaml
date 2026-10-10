@@ -11,10 +11,12 @@ purpose: >-
   egress policy are untouched, so isolation is never removed by a values flag.
 depends_on:
 - TC-334
+- TC-335
 write_paths:
 - infra/helm/foss-mcp/values.yaml
 - infra/helm/foss-mcp/templates/networkpolicy.yaml
 - tests/infra/test_helm_embedding_egress.py
+- tests/infra/test_helm_embedding_gateway.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -35,8 +37,10 @@ inputs:
   networkpolicy.yaml: append a THIRD document, named `<fullname>-gateway-egress` (use the same
   `include "foss-mcp.fullname" .` helper the other two use), wrapped in `{{- if .Values.embeddingGateway.existingSecret }}`
   ... `{{- end }}` INCLUDING its leading `---` separator so that with the secret unset the rendered output is
-  byte-for-byte identical to today's. It selects serving pods only (the chart's selectorLabels plus
-  `app.kubernetes.io/component: serving`), policyTypes Egress, one egress rule: TCP 443 to each entry of
+  byte-for-byte identical to today's. It selects the two SERVING-side pod kinds only (the chart's selectorLabels
+  plus a matchExpressions `app.kubernetes.io/component` In [serving, demo-serving]; demo-deployment.yaml labels
+  its pods `demo-serving`, which a plain `component: serving` selector would silently miss - and the demo path is
+  the lean all-40-pilot topology), never ingestion pods; policyTypes Egress, one egress rule: TCP 443 to each entry of
   `.Values.embeddingGateway.egressCidrs` as an ipBlock cidr. DNS is already allowed by the base policy; do not
   duplicate it. Do not modify the first two documents at all.
 - >-
@@ -44,12 +48,23 @@ inputs:
   (1) default values: exactly the same NetworkPolicy documents as before this card (the base and
   `-ingestion-egress`), none named `-gateway-egress`;
   (2) with embeddingGateway.existingSecret set: a `-gateway-egress` NetworkPolicy exists, its podSelector
-  includes component=serving (and NOT component=ingestion), policyTypes is exactly [Egress], and it allows
+  covers component serving AND demo-serving (and NOT ingestion), policyTypes is exactly [Egress], and it allows
   TCP 443 to 0.0.0.0/0 by default;
   (3) with a custom `embeddingGateway.egressCidrs` (e.g. two CIDRs) the policy lists exactly those and not
   0.0.0.0/0;
   (4) the base policy and ingestion-egress documents are identical (parsed YAML equality) between the default
   render and the configured render.
+- >-
+  tests/infra/test_helm_embedding_gateway.py (TC-334's accepted test, now in your write_paths for ONE reason):
+  `test_values_embedding_gateway_block_has_exactly_the_three_documented_keys` pins the block to
+  apiKeyKey / endpointKey / existingSecret, which this card's new `egressCidrs` key legitimately extends. Change
+  ONLY that test: rename it to say four keys and make it assert the four sorted keys
+  ["apiKeyKey", "egressCidrs", "endpointKey", "existingSecret"]. Do not touch any other test or line in that
+  file, do not loosen the assertion to a subset check (it must still catch an accidental fifth key), and say
+  so in your report.
+- >-
+  Guard (good, keep it): with the secret set and egressCidrs an empty list the render fails with a clear message
+  rather than emitting an egress rule with no `to` (which would allow every destination on 443); keep that test.
 - >-
   Run `{python} -m pytest tests/infra/test_helm_embedding_egress.py -q -rfE`, then once
   `{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_embedding_gateway.py -q -rfE` to confirm
