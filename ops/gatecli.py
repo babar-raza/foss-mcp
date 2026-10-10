@@ -136,6 +136,14 @@ def cmd_validate(args) -> int:
     #     A const nothing reads is a lie with a certificate.
     problems.extend(_budget_problems())
 
+    # 11. this checkout's own LOCAL git config must never override user.email/user.name or
+    #     set core.bare=true - a persistent, always-on detector for the exact corruption class
+    #     (a leaked GIT_DIR redirecting a test fixture's own git init/config onto this real
+    #     repo) recorded in docs/DECISION_LOG.md's 2026-10-10 entry. Independent of the
+    #     .githooks/pre-commit and pre-push guards - this catches it even if config changes
+    #     between commits, or hooks are bypassed, with no commit required to notice.
+    problems.extend(_git_identity_problems())
+
     for p in problems:
         print(f"FAIL {p}")
     if problems:
@@ -254,14 +262,29 @@ def _jsonl_problems(path: Path, schema_name: str, label: str):
 
 
 def _source_ref_problems(cards):
+    """A card's source_refs must still resolve to the exact section they were written against.
+
+    The hash-drift check alone is grandfathered once a card holds an accepted receipt - same
+    precedent as cardlint's own `accepted` grandfather clause just above this call site. An
+    append-only log (docs/DECISION_LOG.md) hashes "anchor line to the next heading"
+    (`_section_bytes`), so appending any new entry after what was, at authoring time, the last
+    section in the file changes that section's own captured bytes retroactively - found
+    2026-10-10 appending this very incident's own entry right after TC-336's anchor. An already-
+    accepted card's history is not re-litigated by later, unrelated edits to the log it cited.
+    The file-existence check is NOT grandfathered: a card whose cited file is simply gone is a
+    real problem regardless of acceptance.
+    """
     out = []
     for cid, c in sorted(cards.items()):
+        accepted = bool((V.load_receipt(c["gate"], cid) or {}).get("accepted"))
         for ref in c.get("source_refs", []):
             f = Path(ref["file"])
             if not f.is_absolute():
                 f = G.REPO / f
             if not f.exists():
                 out.append(f"{cid}: source_ref file does not exist: {ref['file']}")
+                continue
+            if accepted:
                 continue
             text = f.read_text(encoding="utf-8", errors="replace")
             if ref["anchor"] not in text:
@@ -314,6 +337,37 @@ def _req_problems(cards):
             out.append(f"{rid} ({r.get('gate')}) is claimed by no card - a missing REQ is a missing card")
         elif rid not in proven:
             out.append(f"{rid} is claimed by {claimed[rid]} but no check names it in `proves`")
+    return out
+
+
+def _git_identity_problems():
+    """This checkout's own LOCAL git config must never override user.email/user.name, or set
+    core.bare=true - see cmd_validate's own section 11 call site for the full rationale.
+    `git config --local --get` exits non-zero when the key is unset at local scope, which is
+    the only state this checkout should ever be in; any success means a local override exists
+    regardless of its value, since this project has no legitimate reason to ever set one.
+    """
+    out = []
+    rc, _, _ = G.run(["git", "config", "--local", "--get", "user.email"])
+    if rc == 0:
+        out.append(
+            "this checkout's LOCAL git config sets user.email - local config overrides the "
+            "global identity and must never be set here (see docs/DECISION_LOG.md's "
+            "2026-10-10 entry); run `git config --unset user.email`"
+        )
+    rc, _, _ = G.run(["git", "config", "--local", "--get", "user.name"])
+    if rc == 0:
+        out.append(
+            "this checkout's LOCAL git config sets user.name - same issue as user.email "
+            "above; run `git config --unset user.name`"
+        )
+    rc, out_bare, _ = G.run(["git", "config", "--get", "core.bare"])
+    if rc == 0 and out_bare.strip() == "true":
+        out.append(
+            "core.bare=true in this checkout's own config - a real working checkout must "
+            "never be bare (see docs/DECISION_LOG.md's 2026-10-10 entry); run "
+            "`git config core.bare false`"
+        )
     return out
 
 
@@ -387,6 +441,20 @@ def _main_checkout() -> Path:
     return common.resolve().parent
 
 
+def _accepted_or_superseded_cards() -> dict:
+    """Card id -> True if gatectl's own rebuilt state already considers it done.
+
+    This is the real, receipt-backed signal (`gateverify.rebuild_state`, the same function
+    `project/state.yaml` is asserted equal to) - not status.jsonl's `committed`/`blocked` phase
+    lines, which real acceptance (`gatectl accept`) never writes. Checking status.jsonl alone
+    was stale: every card ever dispatched read as permanently open regardless of being long
+    since ACCEPTED or SUPERSEDED on main, defeating the open-dispatch check's own purpose
+    (found 2026-10-10 while fixing the git-identity incident - see docs/DECISION_LOG.md).
+    """
+    s = V.rebuild_state()
+    return {c["id"]: c["status"] in ("ACCEPTED", "SUPERSEDED") for c in s["cards"]}
+
+
 def _all_open_dispatches() -> list:
     """Every open dispatch, one per card. The commit guard must see all of them, not only the newest."""
     latest = {}
@@ -398,14 +466,20 @@ def _all_open_dispatches() -> list:
         for st in V.read_jsonl(G.STATUS_JSONL)
         if st.get("phase") in ("committed", "blocked")
     }
-    return [ins for ins in latest.values() if (ins["target_card"], ins["attempt"]) not in closed]
+    done_cards = _accepted_or_superseded_cards()
+    return [
+        ins
+        for ins in latest.values()
+        if (ins["target_card"], ins["attempt"]) not in closed and not done_cards.get(ins["target_card"])
+    ]
 
 
 def _open_dispatch(card: str | None = None):
     """The dispatch the worker still owes work for, if any.
 
     A dispatch is OPEN when the latest dispatch/rework instruction for a card has no matching
-    `committed` or `blocked` status line at that same attempt. With `card`, only that card is
+    `committed` or `blocked` status line at that same attempt, AND the card is not already
+    ACCEPTED or SUPERSEDED (see `_accepted_or_superseded_cards`). With `card`, only that card is
     considered, which is what lets several workers run at once, each in its own worktree. Without
     it, the most recent open dispatch across all cards is returned, as before.
 
@@ -430,7 +504,7 @@ def _open_dispatch(card: str | None = None):
         and st.get("attempt") == ins["attempt"]
         and st.get("phase") in ("committed", "blocked")
         for st in V.read_jsonl(G.STATUS_JSONL)
-    )
+    ) or _accepted_or_superseded_cards().get(ins["target_card"], False)
     return None if done else ins
 
 

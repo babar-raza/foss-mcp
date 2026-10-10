@@ -59,8 +59,9 @@ def _make_synthetic_clone(tmp_path: Path) -> tuple[Path, str]:
     clone = tmp_path / "synthetic_clone"
     clone.mkdir()
     _run_git("init", cwd=clone)
-    _run_git("config", "user.email", "test@example.invalid", cwd=clone)
-    _run_git("config", "user.name", "Test", cwd=clone)
+    # Identity via -c, never `git config` (which writes to .git/config on disk) - a per-
+    # invocation override on the one commit below that actually needs it, never persisted
+    # anywhere a later bug (e.g. a leaked GIT_DIR) could make land somewhere real.
 
     subtree_dir = clone / "content" / "products.aspose.org" / "en" / "widgets" / "python"
     subtree_dir.mkdir(parents=True)
@@ -75,7 +76,10 @@ def _make_synthetic_clone(tmp_path: Path) -> tuple[Path, str]:
     (clone / "content" / "unrelated.md").write_text("not in scope\n", encoding="utf-8")
 
     _run_git("add", "-A", cwd=clone)
-    _run_git("commit", "-m", "synthetic commit", cwd=clone)
+    _run_git(
+        "-c", "user.email=test@example.invalid", "-c", "user.name=Test", "commit", "-m", "synthetic commit",
+        cwd=clone,
+    )
     result = subprocess.run(
         ["git", "-C", str(clone), "rev-parse", "HEAD"], check=True, capture_output=True, text=True
     )

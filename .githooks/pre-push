@@ -14,6 +14,63 @@
 # through.
 set -eu
 
+# Fails closed if this clone's own LOCAL git config overrides user.email/user.name, or sets
+# core.bare=true - see .githooks/pre-commit's own identical check for the full rationale
+# (docs/DECISION_LOG.md's 2026-10-10 entry). Checked here too, independently, since a commit
+# made with this repo's hooks bypassed (--no-verify) locally must still never reach the
+# remote with a misattributed author.
+if git config --local --get user.email >/dev/null 2>&1; then
+  echo "pre-push: BLOCKED - this repo's LOCAL git config sets user.email (must never be set" >&2
+  echo "pre-push: here - see .githooks/pre-commit's identical check). Run:" >&2
+  echo "pre-push:   git config --unset user.email" >&2
+  exit 1
+fi
+if git config --local --get user.name >/dev/null 2>&1; then
+  echo "pre-push: BLOCKED - this repo's LOCAL git config sets user.name (same issue). Run:" >&2
+  echo "pre-push:   git config --unset user.name" >&2
+  exit 1
+fi
+if [ "$(git config --get core.bare 2>/dev/null || true)" = "true" ]; then
+  echo "pre-push: BLOCKED - core.bare=true in this repo's own config (see .githooks/pre-commit)." >&2
+  echo "pre-push:   git config core.bare false" >&2
+  exit 1
+fi
+
+# Scrub repo-discovery env vars before anything below spawns a child process (PowerShell,
+# bash, pytest) - an inherited GIT_DIR/GIT_WORK_TREE here is exactly the mechanism that let a
+# test fixture's own throwaway `git init`/`git config` land in this repo's real, shared
+# .git/config on 2026-10-10 (see docs/DECISION_LOG.md). This hook is the one place that class
+# of leak could reach `scripts/ci_check.sh`'s own pytest run, so it is scrubbed at this exact
+# boundary, in addition to (never instead of) the test suite's own conftest-level fix.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES 2>/dev/null || true
+
+# Refuse to publish any commit, in the range actually being pushed, authored or committed as
+# anything but the one real identity - the last-line defense if a bad-identity commit was
+# ever made with hooks bypassed (--no-verify) rather than caught at commit time above. Reads
+# the ref-update lines git feeds this hook on stdin per its own pre-push protocol:
+# "<local-ref> <local-sha> <remote-ref> <remote-sha>", one per line, one per pushed ref.
+#
+# The range is always "commits not already on some remote-tracking ref" (`--not --remotes`),
+# never remote_sha..local_sha alone: a brand-new branch's update line has no remote_sha (all
+# zeros), and remote_sha..local_sha with an empty remote_sha means "every ancestor of
+# local_sha" - a full-history scan that would re-flag the already-tolerated, already-pushed
+# 2026-10-10 bad-author commits still permanently in main's own history on every such push.
+# `--not --remotes` instead only ever looks at commits genuinely new to the remote, regardless
+# of which ref carries them in.
+allowed_email="$(git config --global --get user.email || true)"
+if [ -n "$allowed_email" ]; then
+  while read -r local_ref local_sha remote_ref remote_sha; do
+    [ -z "$local_sha" ] && continue
+    case "$local_sha" in 0000000000000000000000000000000000000000) continue ;; esac
+    bad="$(git log "$local_sha" --not --remotes --format='%H %ae %ce' 2>/dev/null | awk -v a="$allowed_email" '$2!=a || $3!=a {print}')"
+    if [ -n "$bad" ]; then
+      echo "pre-push: BLOCKED - commit(s) in $local_ref not authored/committed as $allowed_email:" >&2
+      echo "$bad" >&2
+      exit 1
+    fi
+  done
+fi
+
 remote_name="${1:-origin}"
 remote_url="${2:-}"
 

@@ -21,6 +21,39 @@
 # is named.
 set -eu
 
+# Fails closed if this clone's own LOCAL git config overrides user.email/user.name, or sets
+# core.bare=true - this project has no legitimate reason to ever set any of these locally;
+# the only way they get set is exactly the leaked-GIT_DIR class of bug (an ambient GIT_DIR
+# from a linked worktree redirecting a test fixture's own `git init`/`git config` onto the
+# real repo) that corrupted this repo's shared .git/config on 2026-10-10, including making
+# this checkout bare, and misattributed over a dozen real commits (see docs/DECISION_LOG.md).
+# A real identity always comes from the global config alone - checked BEFORE anything else in
+# this hook, including resolving MAIN_ROOT below, so a corrupted config can never slip a
+# misattributed commit through on a technicality.
+if git config --local --get user.email >/dev/null 2>&1; then
+  echo >&2
+  echo "pre-commit: BLOCKED - this repo's LOCAL git config sets user.email. Local config" >&2
+  echo "overrides the global identity and must never be set here. Run:" >&2
+  echo "  git config --unset user.email" >&2
+  echo "then re-check with: git config --list --show-origin" >&2
+  exit 1
+fi
+if git config --local --get user.name >/dev/null 2>&1; then
+  echo >&2
+  echo "pre-commit: BLOCKED - this repo's LOCAL git config sets user.name (same issue as" >&2
+  echo "user.email above - local config must never set an identity here). Run:" >&2
+  echo "  git config --unset user.name" >&2
+  exit 1
+fi
+if [ "$(git config --get core.bare 2>/dev/null || true)" = "true" ]; then
+  echo >&2
+  echo "pre-commit: BLOCKED - core.bare=true in this repo's own config. A real working" >&2
+  echo "checkout must never be bare - this is the same leaked-GIT_DIR corruption recorded" >&2
+  echo "in docs/DECISION_LOG.md's 2026-10-10 entry. Run:" >&2
+  echo "  git config core.bare false" >&2
+  exit 1
+fi
+
 # The venv lives in the main checkout. A worktree has none, so resolve the main root from
 # the common git dir, which is the same from every worktree (TC-184 worker, 2026-10-04).
 MAIN_ROOT="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"

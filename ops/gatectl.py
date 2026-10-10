@@ -96,9 +96,27 @@ def sha256_file(p: Path) -> str:
     return sha256_bytes(p.read_bytes()) if p.exists() else "0" * 64
 
 
+# Repo-discovery environment variables that, if inherited from an ambient process (e.g. a
+# linked worktree's own hook invocation sets GIT_DIR to that worktree's gitdir), silently
+# redirect git's own repo discovery away from `cwd` - the exact mechanism that leaked a
+# worktree's GIT_DIR into a test fixture's synthetic repo and corrupted the real repo's
+# shared .git/config, including setting core.bare=true there (2026-10-10 incident, see
+# docs/DECISION_LOG.md). Every subprocess this module launches must never inherit these -
+# `cwd`/explicit `-C`/`--git-dir` args are always this module's own, deliberate way to target
+# a repo, never an inherited ambient variable.
+_GIT_REPO_DISCOVERY_ENV_VARS = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+)
+
+
 def run(cmd, cwd=None, env=None, timeout=None, text=True):
     """Run a command, capturing both streams. Never raises on non-zero."""
-    e = dict(os.environ)
+    e = {k: v for k, v in os.environ.items() if k not in _GIT_REPO_DISCOVERY_ENV_VARS}
     if env:
         e.update(env)
     try:

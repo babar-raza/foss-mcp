@@ -24,6 +24,35 @@ NETWORK_OPT_IN_ENV = "FOSS_MCP_NETWORK_TESTS"
 
 _DESELECTED = pytest.StashKey[int]()
 
+# Repo-discovery environment variables that, if inherited from an ambient process (e.g. a
+# linked worktree's own hook invocation sets GIT_DIR to that worktree's gitdir), silently
+# redirect a test's own `git` subprocess calls away from the tmp_path repo it actually meant
+# to operate on - the exact mechanism that leaked a worktree's GIT_DIR into a synthetic-repo
+# test fixture and corrupted the real repo's shared .git/config, including core.bare=true
+# there (2026-10-10 incident, see docs/DECISION_LOG.md).
+_GIT_REPO_DISCOVERY_ENV_VARS = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+)
+
+
+@pytest.fixture(autouse=True)
+def _scrub_git_repo_discovery_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Clear GIT_DIR/GIT_WORK_TREE/etc. for every test's own duration.
+
+    `subprocess.run(["git", ...])` with no explicit `env=` inherits `os.environ` at call
+    time, not a snapshot from process start - so this protects every test that shells out to
+    `git` against a tmp_path repo, not only ones that remember to pass `env=` themselves. A
+    test that genuinely needs one of these set must opt back in explicitly via its own
+    `monkeypatch.setenv`, which this fixture never prevents.
+    """
+    for name in _GIT_REPO_DISCOVERY_ENV_VARS:
+        monkeypatch.delenv(name, raising=False)
+
 
 def _opted_in() -> bool:
     return os.environ.get(NETWORK_OPT_IN_ENV) == "1"

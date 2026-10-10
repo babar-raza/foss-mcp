@@ -32,21 +32,22 @@ def repo(tmp_path, monkeypatch):
     r = tmp_path / "r"
     r.mkdir()
     sh(r, "init", "-q", "-b", "main")
-    sh(r, "config", "user.email", "t@example.com")
-    sh(r, "config", "user.name", "t")
+    # Identity via -c on each commit, never `git config` (which writes to .git/config on
+    # disk) - a per-invocation override, never persisted anywhere a later bug (e.g. a leaked
+    # GIT_DIR) could make land somewhere real.
     (r / "src").mkdir()
     (r / "ops").mkdir()
     (r / "src" / "keep.py").write_text("x = 1\n", encoding="utf-8")
     (r / "ops" / "gatectl.py").write_text("# governance\n", encoding="utf-8")
     sh(r, "add", "-A")
-    sh(r, "commit", "-q", "-m", "base")
+    sh(r, "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "-m", "base")
     monkeypatch.setattr(G, "REPO", r)
     return r
 
 
 def commit(r, msg):
     sh(r, "add", "-A")
-    sh(r, "commit", "-q", "-m", msg)
+    sh(r, "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "-m", msg)
     return sh(r, "rev-parse", "HEAD")
 
 
@@ -144,11 +145,9 @@ def test_a_submodule_gitlink_is_flagged(repo, tmp_path):
     other = tmp_path / "other"
     other.mkdir()
     sh(other, "init", "-q", "-b", "main")
-    sh(other, "config", "user.email", "t@example.com")
-    sh(other, "config", "user.name", "t")
     (other / "f.txt").write_text("hi\n", encoding="utf-8")
     sh(other, "add", "-A")
-    sh(other, "commit", "-q", "-m", "x")
+    sh(other, "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "-m", "x")
 
     base = sh(repo, "rev-parse", "HEAD")
     p = subprocess.run(

@@ -28,21 +28,28 @@ def repo(tmp_path, monkeypatch):
     r = tmp_path / "repo"
     r.mkdir()
     _git(r, "init", "-q", "-b", "main")
-    _git(r, "config", "user.email", "test@example.invalid")
-    _git(r, "config", "user.name", "test")
+    # Identity via -c on each commit below, never `git config` (which writes to .git/config
+    # on disk) - a per-invocation override, never persisted anywhere a later bug (e.g. a
+    # leaked GIT_DIR) could make land somewhere real.
     (r / "src").mkdir()
     (r / "src" / "a.py").write_text("x = 1\n", encoding="utf-8")
     (r / "project").mkdir()
     (r / "project" / "state.yaml").write_text("old: true\n", encoding="utf-8")
     _git(r, "add", "-A")
-    _git(r, "commit", "-q", "-m", "base")
+    _git(r, "-c", "user.email=test@example.invalid", "-c", "user.name=test", "commit", "-q", "-m", "base")
     _git(r, "checkout", "-q", "-b", "worker/TC-901")
     (r / "src" / "b.py").write_text("y = 2\n", encoding="utf-8")
     _git(r, "add", "-A")
-    _git(r, "commit", "-q", "-m", "feat: worker change one")
+    _git(
+        r, "-c", "user.email=test@example.invalid", "-c", "user.name=test",
+        "commit", "-q", "-m", "feat: worker change one",
+    )
     (r / "src" / "c.py").write_text("z = 3\n", encoding="utf-8")
     _git(r, "add", "-A")
-    _git(r, "commit", "-q", "-m", "feat: worker change two")
+    _git(
+        r, "-c", "user.email=test@example.invalid", "-c", "user.name=test",
+        "commit", "-q", "-m", "feat: worker change two",
+    )
     head = _git(r, "rev-parse", "HEAD")
     _git(r, "checkout", "-q", "main")
 
@@ -69,10 +76,13 @@ def test_end_to_end_replays_the_reviewed_commits_and_records_evidence(repo):
 def test_a_conflict_rolls_main_back_to_where_it_started(repo, monkeypatch):
     # Main changes the same file the worker changes, so the second cherry-pick must conflict.
     (repo / "src" / "a.py").write_text("x = 999\n", encoding="utf-8")
-    _git(repo, "commit", "-q", "-am", "main diverges")
+    _git(repo, "-c", "user.email=test@example.invalid", "-c", "user.name=test", "commit", "-q", "-am", "main diverges")
     _git(repo, "checkout", "-q", "worker/TC-901")
     (repo / "src" / "a.py").write_text("x = 555\n", encoding="utf-8")
-    _git(repo, "commit", "-q", "-am", "worker edits a.py")
+    _git(
+        repo, "-c", "user.email=test@example.invalid", "-c", "user.name=test",
+        "commit", "-q", "-am", "worker edits a.py",
+    )
     head = _git(repo, "rev-parse", "HEAD")
     _git(repo, "checkout", "-q", "main")
     monkeypatch.setattr(

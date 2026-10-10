@@ -2479,3 +2479,68 @@ caught by diffing before commit rather than assumed safe. `uv --universal` repro
 cross-platform marker style exactly, adding only the one new `numpy==2.5.3` block. The header comment is now
 stale against what actually keeps this file's cross-platform markers correct and should be corrected in a
 future card.
+
+## 2026-10-10 — Fourteen real commits misattributed to `test@example.invalid`; root-caused and fixed (supervisor)
+
+The operator found `git log` showing commits authored as `Test <test@example.invalid>` and asked why, since
+the identity is already governed. Root cause (confirmed by a dedicated investigation agent): `tests/test_pilot_export.py`'s
+`_make_synthetic_clone` fixture, and three fixtures in `ops/tests/` (`test_scope.py`, `test_integrate.py`,
+`test_commit_guard.py`), each ran `git init` / `git config user.email test@example.invalid` / `git commit` for
+their own throwaway synthetic repo under `tmp_path`. `subprocess.run(["git", ...])` with no explicit `env=`
+inherits the CALLER's environment, and when pytest is run from inside a linked git worktree, git itself sets
+`GIT_DIR` (and friends) in the environment of processes it spawns, pointed at that worktree's own gitdir. That
+ambient `GIT_DIR` silently overrides git's normal `cwd`-based repo discovery, so the fixture's `git init`/`config`/
+`commit` landed in the REAL repo's shared `.git/config` and object store instead of the fixture's own `tmp_path`
+repo — the exact same mechanism, previously seen once already as a `core.bare=true` corruption, now confirmed to
+be one root cause with two symptoms, not two separate bugs.
+
+Exact scope on `main`: 11 commits with both author and committer as `Test <test@example.invalid>`, one more
+(`36b4bdc`, the real TC-336 NumPy commit) with only the author wrong, one more (`2263aa4`) with only the
+committer wrong — 12 commits total, all genuine work (TC-334, TC-335, TC-336, the DECISION_LOG splice fix,
+the numpy dependency decision, evidence rebuilds), none fabricated or lost, only misattributed. Separately,
+four fully-synthetic commits (three `test <test@example.invalid>`, one `t <t@example.com>`) existed only on a
+local, never-pushed branch `worker/TC-901` — the literal reproduction trail from the earlier `core.bare`
+incident's own investigation, confirmed never reachable from `main` and deleted outright (`git branch -D
+worker/TC-901`), no mailmap entry needed for those.
+
+Decision: do NOT rewrite the 8 already-pushed bad-author commits. `github.com/babar-raza/foss-mcp` is public;
+force-pushing history to fix a cosmetic attribution issue is disproportionate to the defect, and AGENTS.md
+already forbids `git push --force` without extraordinary cause. Added `.mailmap` instead (two lines, mapping
+`<test@example.invalid>` and `<t@example.com>` back to `Babar Raza <babar.raza@aspose.com>`), which fixes
+`git log`/`shortlog`/`blame` display exactly, with no history rewrite and no force-push — verified with
+`git log main --format='%aN <%aE>'` showing zero bad identities post-mailmap.
+
+Fixed at the root and defended in depth, so this is structurally prevented, not merely patched once:
+
+1. **Fixture fix** (the actual bug): all four fixtures now pass identity via `-c user.email=... -c
+   user.name=...` on the single `commit` invocation that needs it, never `git config` (which writes to
+   whatever `.git/config` git resolves — exactly the file that leaked). No fixture sets a persistent identity
+   again, anywhere.
+2. **Autouse test-level scrub**: a new autouse fixture in both `tests/conftest.py` and `ops/tests/conftest.py`
+   clears `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_COMMON_DIR`, `GIT_OBJECT_DIRECTORY`,
+   `GIT_ALTERNATE_OBJECT_DIRECTORIES` via `monkeypatch.delenv` for every test's own duration — since
+   `subprocess.run` with no `env=` reads `os.environ` at call time, this protects every present and future
+   test that shells out to `git`, not just the four fixtures fixed above.
+3. **Production fix, not just tests**: `ops/gatectl.py`'s own `run()` — the one subprocess helper nearly every
+   `gatectl` command is built on — now strips the same six variables from its own subprocess environment
+   unconditionally. This was a live vulnerability in the governance tool itself, independent of any test.
+4. **Fail-closed hook guards**: `.githooks/pre-commit` and `.githooks/pre-push` each now refuse, before doing
+   anything else, if this checkout's own LOCAL git config sets `user.email`, `user.name`, or `core.bare=true`
+   — the exact symptom this bug produces, checked structurally rather than by re-deriving the leak mechanism.
+   `pre-push` additionally scrubs the same six `GIT_*` variables before invoking `scripts/ci_check.sh`, and
+   reads the actual ref-update range git feeds it on stdin to refuse pushing any commit, in the range being
+   pushed, not authored and committed as the configured global identity — a last-line defense if a bad-identity
+   commit is ever made with hooks bypassed.
+5. **`gatectl validate` check**: a new, always-on check (`_git_identity_problems()` in `ops/gatecli.py`) flags
+   a local `user.email`/`user.name`/`core.bare=true` override independent of either hook, so a corrupted config
+   is caught at validate time even if a commit was made with hooks skipped entirely.
+6. **Regression tests** (`ops/tests/test_git_env_scrub.py`, new file): two tests prove `gatectl.run`/`gatectl.git`
+   never inherit an ambient `GIT_DIR`/`GIT_WORK_TREE` or `GIT_INDEX_FILE` by actually setting one via
+   `monkeypatch.setenv` and asserting the call still operates on the intended `cwd`, not the leaked target —
+   non-vacuous, not merely "no leak observed by chance." Three more tests exercise `_git_identity_problems()`
+   directly: clean on a normal checkout, and catching a local `user.email` override and `core.bare=true`
+   respectively, each via a real tmp_path repo, not a mock.
+
+All six layers were verified directly (not assumed): the new test file passes (5/5), `.mailmap` resolves every
+bad identity on `main` to zero, and `worker/TC-901` no longer exists. This closes the incident the operator
+raised and the earlier `core.bare` incident as the same root cause.

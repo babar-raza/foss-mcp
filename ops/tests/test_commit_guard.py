@@ -43,11 +43,12 @@ def repo(tmp_path, monkeypatch):
     r = tmp_path / "r"
     r.mkdir()
     sh(r, "init", "-q", "-b", "main")
-    sh(r, "config", "user.email", "t@example.com")
-    sh(r, "config", "user.name", "t")
+    # Identity via -c, never `git config` (which writes to .git/config on disk) - a
+    # per-invocation override, never persisted anywhere a later bug (e.g. a leaked GIT_DIR)
+    # could make land somewhere real.
     (r / "README.md").write_text("x\n", encoding="utf-8")
     sh(r, "add", "-A")
-    sh(r, "commit", "-q", "-m", "base")
+    sh(r, "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "-m", "base")
 
     ops = r / "ops"
     ops.mkdir()
