@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "card": "TC-328",
+  "gate": "G2",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-10T04:41:45Z",
+  "base_rev": "389b8979f792431a574e3a3d78912b85db896d41",
+  "head_rev": "795c7d3964cb60390da3c5d5ec9e5fb3cd8b9a7f",
+  "card_sha256": "8bab7d0bfaae2601340d837d03279c64562d95ac669500206f4bb9337ced43d0",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "0e0e2e97bf4b28af7ff4e49563ac6bb6bbbe95e835ddc3b599e7d31d8047f3e0",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "Dockerfile.serving",
+      "docker-compose.yml",
+      "infra/helm/foss-mcp/templates/demo-deployment.yaml",
+      "infra/helm/foss-mcp/templates/demo-ingress.yaml",
+      "infra/helm/foss-mcp/values.yaml",
+      "scripts/release/build_images.py",
+      "tests/infra/test_container_pins.py",
+      "tests/infra/test_helm_chart.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_chart.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 5.908,
+          "stdout_sha256": "c6ce8518a2cc113cc5560b3731e234ed6d559e746221ae903ce01599dfe7e797",
+          "tests": 25,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_container_pins.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.468,
+          "stdout_sha256": "700bc0322b00f8e8db3ce495047983b54ab27ab59ed1fedac05f3aeba47dae24",
+          "tests": 6,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_chart.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 6.159,
+          "stdout_sha256": "c6ce8518a2cc113cc5560b3731e234ed6d559e746221ae903ce01599dfe7e797",
+          "tests": 25,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_container_pins.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.408,
+          "stdout_sha256": "700bc0322b00f8e8db3ce495047983b54ab27ab59ed1fedac05f3aeba47dae24",
+          "tests": 6,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/demo-deployment.yaml');s=p.read_text(encoding='utf-8');old='.Values.demo.enabled';new='.Values.demo.enabledX';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')\"\n",
+    "patch_sha256": "8cae5bef66349d0eb6b11c202622717b51a5a5dfdff2ac7bcdd6c0a761b44d8e",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M infra/helm/foss-mcp/templates/demo-deployment.yaml",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
