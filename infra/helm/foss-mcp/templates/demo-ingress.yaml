@@ -1,0 +1,49 @@
+{{- /*
+One shared Ingress for every demo-deployment.yaml pilot, so the demo exposes a single external
+entry point instead of 40 separate exposed Services (each demo-deployment.yaml Service is a
+plain ClusterIP - internal-only without this). Path-based routing: /demo/<family>-<platform>
+routes to each pilot's own Service. Entirely opt-in via the same .Values.demo.enabled flag as
+demo-deployment.yaml; renders nothing otherwise.
+
+infra/serve_http.py answers fixed paths (/readyz, /healthz, the MCP endpoint itself) with no
+awareness of a path prefix, so a request forwarded as literally /demo/<pilot>/readyz will not
+match anything on the backend - the prefix must be STRIPPED before the request reaches the
+pod. How to strip it is controller-specific (nginx-ingress uses
+`nginx.ingress.kubernetes.io/rewrite-target`; Traefik/Contour/others use their own mechanism),
+so this template does not hardcode one. Set whatever annotation your ingress controller needs
+via .Values.demo.ingress.annotations.
+*/ -}}
+{{- if .Values.demo.enabled }}
+{{- $pilots := .Values.demo.pilots | default .Values.ingestion.pilots }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "foss-mcp.fullname" . }}-demo
+  labels:
+    {{- include "foss-mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: demo-serving
+  {{- with .Values.demo.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.demo.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  rules:
+    - {{- with .Values.demo.ingress.host }}
+      host: {{ . | quote }}
+      {{- end }}
+      http:
+        paths:
+          {{- range $p := $pilots }}
+          {{- $name := printf "%s-demo-%s-%s" (include "foss-mcp.fullname" $) $p.family $p.platform | trunc 63 | trimSuffix "-" }}
+          - path: /demo/{{ $p.family }}-{{ $p.platform }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $name }}
+                port:
+                  number: 80
+          {{- end }}
+{{- end }}

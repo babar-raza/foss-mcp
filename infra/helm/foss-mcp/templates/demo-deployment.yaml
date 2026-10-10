@@ -1,0 +1,117 @@
+{{- /*
+A second, additive serving topology for a self-contained demo image (Dockerfile.serving's
+`demo` stage - built with `docker build --target demo --build-context demo-data=<path>`,
+which bakes pre-built generations for as many pilots as were given into /data/manifests at
+build time). Entirely opt-in via .Values.demo.enabled (default false): when false, this file
+renders nothing, and every existing resource (deployment.yaml, ingestion-job.yaml, pvc.yaml)
+is completely untouched - this is a parallel path, not a replacement, so the single-pilot,
+live-ingestion architecture stays available for whenever it's needed later.
+
+One Deployment + one Service per pilot in .Values.demo.pilots (defaults to the full
+.Values.ingestion.pilots list - the same 40-pilot set the ingestion Jobs already use, so no
+second list to keep in sync by hand), all in ONE release/one `helm install`, instead of the
+single-pilot deployment.yaml's one-release-per-pilot model. Each pod needs no
+PersistentVolumeClaim, no ingestion Job, and no initContainer wait for sidecar files - the
+data is already in the image, so the pod is ready as soon as the process starts answering
+/readyz. Mirrors deployment.yaml's own container shape (env/probes/securityContext) exactly,
+minus the manifests volume (nothing must be mounted over /data/manifests - that would hide
+the image's own baked-in data) and minus the initContainer (nothing to wait for).
+*/ -}}
+{{- if .Values.demo.enabled }}
+{{- $pilots := .Values.demo.pilots | default .Values.ingestion.pilots }}
+{{- range $p := $pilots }}
+{{- $name := printf "%s-demo-%s-%s" (include "foss-mcp.fullname" $) $p.family $p.platform | trunc 63 | trimSuffix "-" }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "foss-mcp.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: demo-serving
+    foss-mcp.aspose.org/demo-family: {{ $p.family }}
+    foss-mcp.aspose.org/demo-platform: {{ $p.platform }}
+spec:
+  replicas: {{ $.Values.demo.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $.Chart.Name }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      app.kubernetes.io/component: demo-serving
+      foss-mcp.aspose.org/demo-family: {{ $p.family }}
+      foss-mcp.aspose.org/demo-platform: {{ $p.platform }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $.Chart.Name }}
+        app.kubernetes.io/instance: {{ $.Release.Name }}
+        app.kubernetes.io/component: demo-serving
+        foss-mcp.aspose.org/demo-family: {{ $p.family }}
+        foss-mcp.aspose.org/demo-platform: {{ $p.platform }}
+    spec:
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: {{ $.Values.terminationGracePeriodSeconds }}
+      containers:
+        - name: serving
+          image: "{{ $.Values.demo.image.repository }}:{{ required "demo.image.tag must be set to a pinned, --target demo build" $.Values.demo.image.tag }}"
+          imagePullPolicy: {{ $.Values.demo.image.pullPolicy | default $.Values.image.pullPolicy }}
+          command: ["python", "/app/infra/serve_http.py"]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: FOSS_MCP_FAMILY
+              value: {{ $p.family | quote }}
+            - name: FOSS_MCP_PLATFORM
+              value: {{ $p.platform | quote }}
+            - name: FOSS_MCP_SOURCE_KIND
+              value: {{ $p.sourceKind | default "self_extracted" | quote }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: {{ $.Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.liveness.periodSeconds }}
+            failureThreshold: {{ $.Values.probes.liveness.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: {{ $.Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.readiness.periodSeconds }}
+            failureThreshold: {{ $.Values.probes.readiness.failureThreshold }}
+          securityContext:
+            {{- toYaml $.Values.containerSecurityContext | nindent 12 }}
+          resources:
+            {{- toYaml ($.Values.demo.resources | default $.Values.resources) | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "foss-mcp.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: demo-serving
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ $.Chart.Name }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/component: demo-serving
+    foss-mcp.aspose.org/demo-family: {{ $p.family }}
+    foss-mcp.aspose.org/demo-platform: {{ $p.platform }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      protocol: TCP
+{{- end }}
+{{- end }}

@@ -29,8 +29,13 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REVISION_LABEL = "org.opencontainers.image.revision"
 IMAGES = (
-    ("foss-mcp-serving", "Dockerfile.serving"),
-    ("foss-mcp-ingestion", "Dockerfile.ingestion"),
+    # Dockerfile.serving gained a second, later stage (`demo`, a self-contained variant with
+    # pre-built manifests baked in) - its own default stage if --target is omitted entirely,
+    # since Docker always builds whichever stage is physically LAST in the file. Pinning
+    # --target explicitly here preserves this script's own exact prior behavior (building the
+    # plain `runtime` stage) regardless of anything added after it in the future.
+    ("foss-mcp-serving", "Dockerfile.serving", "runtime"),
+    ("foss-mcp-ingestion", "Dockerfile.ingestion", None),
 )
 
 
@@ -75,7 +80,7 @@ def export_head(sha: str, dest: Path) -> None:
         tar.extractall(dest, filter="data")
 
 
-def build_image(name: str, dockerfile: str, context: Path, sha: str, tag: str) -> None:
+def build_image(name: str, dockerfile: str, context: Path, sha: str, tag: str, target: str | None) -> None:
     image = f"{name}:{tag}"
     cmd = [
         "docker",
@@ -86,9 +91,11 @@ def build_image(name: str, dockerfile: str, context: Path, sha: str, tag: str) -
         f"{REVISION_LABEL}={sha}",
         "--tag",
         image,
-        str(context),
     ]
-    print(f"build_images: building {image} from {dockerfile}", flush=True)
+    if target is not None:
+        cmd += ["--target", target]
+    cmd.append(str(context))
+    print(f"build_images: building {image} from {dockerfile}" + (f" (target {target})" if target else ""), flush=True)
     proc = subprocess.run(cmd, check=False)
     if proc.returncode != 0:
         fail(f"docker build of {image} failed with exit {proc.returncode}")
@@ -113,8 +120,8 @@ def main(argv: list[str] | None = None) -> int:
     export_dir = Path(tempfile.mkdtemp(prefix="foss-mcp-release-"))
     try:
         export_head(sha, export_dir)
-        for name, dockerfile in IMAGES:
-            build_image(name, dockerfile, export_dir, sha, tag)
+        for name, dockerfile, target in IMAGES:
+            build_image(name, dockerfile, export_dir, sha, tag, target)
     finally:
         shutil.rmtree(export_dir, ignore_errors=True)
 

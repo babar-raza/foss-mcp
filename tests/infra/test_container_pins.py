@@ -50,11 +50,24 @@ def _arg_default(lines: list[str], name: str) -> str | None:
 
 
 def test_every_from_is_pinned_by_digest_and_matches_lock() -> None:
+    """Every FROM that pulls an external image is digest-pinned and matches the lock.
+
+    A multi-stage Dockerfile can also FROM an earlier stage by its `AS <name>` alias
+    (e.g. `FROM runtime AS demo`); that is a local reference, not an image pull, so it
+    carries no digest and is exempt.
+    """
     lock_digest = _lock()["container_pins"]["base_images"]["python:3.13-slim"]["digest"]
     for df in DOCKERFILES:
-        froms = [ln for ln in _logical_lines(df) if re.match(r"FROM\s", ln)]
+        lines = _logical_lines(df)
+        froms = [ln for ln in lines if re.match(r"FROM\s", ln)]
         assert froms, f"{df.name} has no FROM line"
+        stage_names = {
+            m.group(1) for ln in froms if (m := re.search(r"\bAS\s+(\S+)", ln, re.IGNORECASE))
+        }
         for ln in froms:
+            image = ln.split()[1]
+            if image in stage_names:
+                continue
             assert DIGEST_RE.search(ln), f"{df.name}: FROM is not digest-pinned: {ln!r}"
             assert lock_digest in ln, f"{df.name}: FROM digest differs from the lock: {ln!r}"
 

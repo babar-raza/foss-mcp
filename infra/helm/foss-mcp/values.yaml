@@ -624,3 +624,35 @@ ingestion:
         repository: aspose-tex-foss/Aspose.TeX-FOSS-for-Python
         commit: "181015d2eee3e19f8af3d84e4a932ac84ad47c7c"
         platform: python
+
+# A second, additive serving topology (demo-deployment.yaml, demo-ingress.yaml) for a self-
+# contained demo image (Dockerfile.serving's `demo` stage, built with pre-built generations
+# already baked into /data/manifests - no PersistentVolumeClaim, no ingestion Job, and no
+# startup wait needed per pilot). Disabled by default: every existing resource (deployment.yaml,
+# ingestion-job.yaml, pvc.yaml) is completely unaffected either way, and the live-ingestion
+# architecture above remains fully available for whenever it's needed.
+demo:
+  enabled: false
+  replicaCount: 1
+  # Defaults to the same 40-pilot list ingestion.pilots already carries, so there is no second
+  # list to keep in sync by hand. Override with a narrower list to demo fewer pilots.
+  pilots: []
+  image:
+    repository: foss-mcp-serving
+    # REQUIRED when demo.enabled is true: a pinned tag built with `docker build --target demo`
+    # (never the same tag as the live-ingestion image.tag above, which is built --target runtime
+    # and carries no baked-in data at all).
+    tag: ""
+    pullPolicy: IfNotPresent
+  # Deliberately smaller than the live-ingestion `resources` block above: the demo has no
+  # ingestion step to budget for at all (that heavier block above exists only to size
+  # `ingestion.resources`'s own Jobs), and a demo pod's own baseline cost is identical to a
+  # live-ingestion serving pod's (same image, same process) - 100m/256Mi is already the
+  # measured-from-the-image estimate `resources` above documents; this is not reduced further
+  # without real measurement. Left as an explicit override point (defaults to the same
+  # `resources` block above when unset) rather than guessed smaller.
+  resources: {}
+  ingress:
+    className: ""
+    host: ""
+    annotations: {}

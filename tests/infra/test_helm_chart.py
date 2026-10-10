@@ -492,3 +492,103 @@ def test_serving_policy_grants_no_tcp_443() -> None:
         )
     ]
     assert kube_dns_rules, "the policy selecting the serving pods must keep its DNS rule to kube-dns"
+
+
+# --- demo mode (demo-deployment.yaml, demo-ingress.yaml): additive, opt-in, self-contained ---
+
+DEMO_TAG = "tc-demo-test-tag"
+DEMO_IMAGE = f"foss-mcp-serving:{DEMO_TAG}"
+
+
+def _render_demo(*extra: str) -> list[dict[str, Any]]:
+    return _render("--set", "demo.enabled=true", "--set", f"demo.image.tag={DEMO_TAG}", *extra)
+
+
+def test_demo_mode_is_off_by_default_and_changes_nothing() -> None:
+    # Byte-for-byte the same resource set as before demo mode existed: 1 Deployment, 1 Service,
+    # 40 Jobs, 1 PVC, 2 NetworkPolicies, 0 Ingress. Proves the new templates are truly additive.
+    docs = _render()
+    kinds = sorted(doc["kind"] for doc in docs)
+    assert kinds.count("Deployment") == 1
+    assert kinds.count("Service") == 1
+    assert kinds.count("Ingress") == 0
+    assert kinds.count("Job") == 40
+
+
+def test_demo_mode_renders_one_deployment_and_service_per_pilot() -> None:
+    docs = _render_demo()
+    pilots = yaml.safe_load((CHART / "values.yaml").read_text(encoding="utf-8"))["ingestion"]["pilots"]
+    demo_deployments = [
+        d for d in _by_kind(docs, "Deployment") if d["spec"]["template"]["metadata"]["labels"].get(
+            "app.kubernetes.io/component"
+        ) == "demo-serving"
+    ]
+    demo_services = [
+        s for s in _by_kind(docs, "Service") if s["metadata"]["labels"].get("app.kubernetes.io/component")
+        == "demo-serving"
+    ]
+    assert len(demo_deployments) == len(pilots), "expected one demo Deployment per pilot in values.yaml"
+    assert len(demo_services) == len(pilots), "expected one demo Service per pilot in values.yaml"
+    # The original single-pilot Deployment/Service are untouched and still present alongside the new ones.
+    assert len(_by_kind(docs, "Deployment")) == len(pilots) + 1
+    assert len(_by_kind(docs, "Service")) == len(pilots) + 1
+
+
+def test_demo_pods_need_no_manifests_volume_initcontainer_or_pvc_reference() -> None:
+    docs = _render_demo()
+    demo_deployments = [
+        d for d in _by_kind(docs, "Deployment") if d["spec"]["template"]["metadata"]["labels"].get(
+            "app.kubernetes.io/component"
+        ) == "demo-serving"
+    ]
+    assert demo_deployments, "expected at least one demo Deployment"
+    for dep in demo_deployments:
+        spec = dep["spec"]["template"]["spec"]
+        assert "initContainers" not in spec, dep["metadata"]["name"]
+        volume_names = {v["name"] for v in spec.get("volumes", [])}
+        assert "manifests" not in volume_names, dep["metadata"]["name"]
+        container = spec["containers"][0]
+        mount_paths = {m["mountPath"] for m in container["volumeMounts"]}
+        assert "/data/manifests" not in mount_paths, dep["metadata"]["name"]
+        assert "/tmp" in mount_paths, dep["metadata"]["name"]
+        assert container["image"] == DEMO_IMAGE, dep["metadata"]["name"]
+
+
+def test_demo_deployments_each_carry_their_own_real_pilot_identity() -> None:
+    docs = _render_demo()
+    pilots = yaml.safe_load((CHART / "values.yaml").read_text(encoding="utf-8"))["ingestion"]["pilots"]
+    demo_deployments = {
+        d["metadata"]["name"]: d
+        for d in _by_kind(docs, "Deployment")
+        if d["spec"]["template"]["metadata"]["labels"].get("app.kubernetes.io/component") == "demo-serving"
+    }
+    for pilot in pilots:
+        name = f"foss-mcp-pdf-net-demo-{pilot['family']}-{pilot['platform']}"
+        assert name in demo_deployments, name
+        env = {
+            e["name"]: e["value"] for e in demo_deployments[name]["spec"]["template"]["spec"]["containers"][0]["env"]
+        }
+        assert env["FOSS_MCP_FAMILY"] == pilot["family"], name
+        assert env["FOSS_MCP_PLATFORM"] == pilot["platform"], name
+
+
+def test_demo_mode_renders_exactly_one_shared_ingress_routing_to_every_pilot() -> None:
+    docs = _render_demo()
+    pilots = yaml.safe_load((CHART / "values.yaml").read_text(encoding="utf-8"))["ingestion"]["pilots"]
+    ingresses = _by_kind(docs, "Ingress")
+    assert len(ingresses) == 1, "expected exactly one shared Ingress for the whole demo"
+    paths = {
+        rule_path["path"] for rule in ingresses[0]["spec"]["rules"] for rule_path in rule["http"]["paths"]
+    }
+    for pilot in pilots:
+        assert f"/demo/{pilot['family']}-{pilot['platform']}" in paths, pilot
+
+
+def test_demo_mode_can_be_narrowed_to_a_smaller_pilot_list() -> None:
+    docs = _render_demo("--set", "demo.pilots[0].family=pdf", "--set", "demo.pilots[0].platform=net")
+    demo_deployments = [
+        d for d in _by_kind(docs, "Deployment") if d["spec"]["template"]["metadata"]["labels"].get(
+            "app.kubernetes.io/component"
+        ) == "demo-serving"
+    ]
+    assert len(demo_deployments) == 1, "a narrowed demo.pilots list must not fall back to the full 40"
