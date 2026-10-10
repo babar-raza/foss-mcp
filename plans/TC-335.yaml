@@ -1,0 +1,66 @@
+id: TC-335
+gate: G2
+lane: verification
+purpose: 'Bring one file to a clean `ruff check .`. The push gate (scripts/ci_check.sh, step lint) fails
+  at HEAD with 1 error in tests/infra/test_helm_embedding_gateway.py (TC-334): UP033, `@functools.
+  lru_cache(maxsize=None)` should be `@functools.cache`. gatectl review ran ruff format on TC-334''s
+  files but never ruff check (the same gap TC-332 already found and fixed for a different five files),
+  so TC-334 was accepted and the first push after it is blocked. This card removes the lint error and
+  changes no behaviour: no test is added, removed, renamed or weakened.'
+depends_on:
+- TC-334
+write_paths:
+- tests/infra/test_helm_embedding_gateway.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 9.1 Hosting'
+  sha256: 8b5afbf681487772ea2236c90689646bc28ff171cfd767bc64a0a5967f630704
+inputs:
+- 'Run `python -m ruff check tests/infra/test_helm_embedding_gateway.py` to see the one UP033 error. It
+  is auto-fixable: run `python -m ruff check --fix` on exactly this one file (never on the whole
+  repository). Read the diff: it must be only the decorator spelling (`@functools.lru_cache(maxsize=
+  None)` becomes `@functools.cache`) - identical caching behavior, `functools.cache` is the stdlib''s
+  own documented equivalent to unbounded `lru_cache`. If the diff changes anything else, stop and say
+  so.'
+- 'After the fix run `python -m ruff format` on the one file, and confirm `python -m ruff check .` over
+  the whole repository reports no error.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Apply the autofix to the one file.
+- Format the file.
+- Confirm `ruff check .` is clean for the whole repository and the diff changes no behaviour.
+- Run the card checks and report exact counts.
+checks:
+- command: '{python} -m ruff check .'
+  expect: exit 0
+  timeout_seconds: 300
+  proves:
+  - REQ-G2-043
+- command: '{python} -m ruff format --check tests/infra/test_helm_embedding_gateway.py'
+  expect: exit 0
+  timeout_seconds: 60
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/infra/test_helm_embedding_gateway.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 60
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 59
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/infra/test_helm_embedding_gateway.py');p.write_text(p.read_text(encoding='utf-8')+chr(10)+'def _zz():'+chr(10)+'    unused_zz = 1'+chr(10),encoding='utf-8')"
+  rationale: 'Appends a function with an unused local to the one file, so `ruff check .` must fail with
+    F841. Built with plain text and chr(10), no backslashes.'
+evidence:
+- evidence/build/G2/TC-335/receipt.json
+closeout:
+- ruff check . passes for the whole repository again, unblocking the push gate.
+- The 59 tests in tests/infra/test_helm_embedding_gateway.py still pass, none removed or loosened.
+recovery: Re-run from a clean tree.
