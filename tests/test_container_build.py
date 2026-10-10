@@ -12,7 +12,11 @@ from __future__ import annotations
 
 import os
 import re
+import socket
 import subprocess
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -77,6 +81,76 @@ def test_a_real_docker_build_of_the_serving_image_succeeds() -> None:
         )
         assert result.returncode == 0, (result.stdout + result.stderr)[-6000:]
     finally:
+        subprocess.run(["docker", "rmi", "-f", image_tag], capture_output=True, text=True)
+
+
+def _free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def test_a_real_docker_build_of_the_demo_target_is_self_contained_and_serves_real_content() -> None:
+    """TC-329: the `demo` stage now COPYs infra/demo-manifests/ (committed to this repo)
+    instead of reading a Buildx named build-context supplied only at build time - so this
+    build deliberately passes NO --build-context flag, proving it is genuinely self-contained
+    from committed data alone. The live /readyz check (AGENTS.md's Integration-and-liveness
+    live-content smoke test) proves the built container really serves a real, baked-in
+    generation - not just that the image built."""
+    image_tag = f"foss-mcp-serving:test-build-demo-{os.getpid()}"
+    container_name = f"foss-mcp-serving-demo-test-{os.getpid()}"
+    port = _free_port()
+    try:
+        build_result = subprocess.run(
+            ["docker", "build", "-f", "Dockerfile.serving", "--target", "demo", "-t", image_tag, "."],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=900,
+        )
+        assert build_result.returncode == 0, (build_result.stdout + build_result.stderr)[-6000:]
+
+        run_result = subprocess.run(
+            [
+                "docker",
+                "run",
+                "-d",
+                "--name",
+                container_name,
+                "-p",
+                f"{port}:8080",
+                "-e",
+                "FOSS_MCP_FAMILY=pdf",
+                "-e",
+                "FOSS_MCP_PLATFORM=net",
+                image_tag,
+                "python",
+                "/app/infra/serve_http.py",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+        )
+        assert run_result.returncode == 0, (run_result.stdout + run_result.stderr)[-2000:]
+
+        deadline = time.monotonic() + 30
+        status: int | None = None
+        last_error: Exception | None = None
+        while time.monotonic() < deadline:
+            try:
+                with urllib.request.urlopen(f"http://localhost:{port}/readyz", timeout=3) as response:
+                    status = response.status
+                break
+            except (urllib.error.URLError, OSError) as exc:
+                last_error = exc
+                time.sleep(1)
+        assert status == 200, f"/readyz never returned 200 (last error: {last_error})"
+    finally:
+        subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, text=True)
         subprocess.run(["docker", "rmi", "-f", image_tag], capture_output=True, text=True)
 
 

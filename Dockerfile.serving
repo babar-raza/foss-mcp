@@ -56,39 +56,42 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 CMD ["python", "/app/infra/serve_stdio.py"]
 
-# Self-contained demo stage, built only when explicitly selected (`docker build --target demo
-# --build-context demo-data=<path>`). Docker's default `docker build` with no --target always
-# builds whichever stage is declared LAST, textually, in the Dockerfile - and `demo` must be
-# declared as `FROM runtime AS demo` (it builds on top of runtime), which necessarily places
-# it after `runtime`. Left alone, that would silently make `demo` the implicit default for
-# every existing build/compose/Helm/CI path that never names a target - and since none of
-# those callers supply `--build-context demo-data=...`, Docker would then try to pull
-# `demo-data` as a real registry image and fail outright. The trailing `FROM runtime` stage
-# below (declared after `demo`, with no instructions of its own) re-anchors the Dockerfile's
-# own last stage back to byte-identical `runtime` content, so the default `docker build` with
-# no --target still produces exactly the `runtime` stage, and every path that never names a
-# target is genuinely unaffected by this stage's existence.
+# Self-contained demo stage, built only when explicitly selected (`docker build --target
+# demo`) - no `--build-context` flag required. Docker's default `docker build` with no
+# --target always builds whichever stage is declared LAST, textually, in the Dockerfile - and
+# `demo` must be declared as `FROM runtime AS demo` (it builds on top of runtime), which
+# necessarily places it after `runtime`. Left alone, that would silently make `demo` the
+# implicit default for every existing build/compose/Helm/CI path that never names a target.
+# The trailing `FROM runtime` stage below (declared after `demo`, with no instructions of its
+# own) re-anchors the Dockerfile's own last stage back to byte-identical `runtime` content, so
+# the default `docker build` with no --target still produces exactly the `runtime` stage, and
+# every path that never names a target is genuinely unaffected by this stage's existence.
 #
-# `demo-data` is a Buildx named build context (not a path inside this repo's own default
-# context), pointing at a directory shaped like `/data/manifests` itself: the real,
-# already-published output of running build_chunks.py + ingest.py (+ the fetch_product_
-# reference.py/verify_product_reference_install.py/fetch_recent_releases.py sidecar steps)
-# locally, on whatever machine is building this image, for as many pilots as desired - the
-# same real scripts Dockerfile.ingestion runs inside a container, just run directly on the
-# build host instead, since GenerationManifestStore already namespaces every scope into its
-# own subdirectory (src/foss_mcp/indexing/generation_manifest.py's own _scope_dir()), so many
-# pilots' real output can share one tree with no collision. The toolchain those scripts need
-# (dotnet/node/java+maven/go/rust/g++, for the furnished-page pilots' live compile-verified
-# examples) never enters this image at all - it only ever runs on the build host, exactly the
-# same discipline Dockerfile.ingestion's own toolchain installs exist to serve, just without
-# shipping that toolchain in a layer here.
+# `infra/demo-manifests/` is committed to this repository (see docs/REPOSITORY_LAYOUT.md): the
+# real, already-published, curated output of running build_chunks.py + ingest.py (+ the
+# fetch_product_reference.py/verify_product_reference_install.py/fetch_recent_releases.py
+# sidecar steps) locally, on whatever machine was updating it, for all 40 pilots - the same
+# real scripts Dockerfile.ingestion runs inside a container, just run directly on the host
+# instead, since GenerationManifestStore already namespaces every scope into its own
+# subdirectory (src/foss_mcp/indexing/generation_manifest.py's own _scope_dir()), so many
+# pilots' real output can share one tree with no collision. This is now a plain COPY from this
+# repo's own default build context (no Buildx named build-context, no --build-context flag,
+# nothing supplied only at build time): `docker build --target demo -t foss-mcp-serving:demo .`
+# succeeds from git alone. The toolchain those scripts need (dotnet/node/java+maven/go/rust/g++,
+# for the furnished-page pilots' live compile-verified examples) never enters this image at
+# all - it only ever runs on whichever host machine is updating infra/demo-manifests/, exactly
+# the same discipline Dockerfile.ingestion's own toolchain installs exist to serve, just
+# without shipping that toolchain in a layer here. To refresh or add pilots, re-run the local
+# ingestion pipeline and commit the updated infra/demo-manifests/ output through this same
+# governed process (curating each scope down to its active_pointer.json and the one
+# generation__*.json file it names).
 #
 # The result: a single image with every baked-in pilot's real generation already published,
 # needing no PersistentVolumeClaim, no ingestion Job, and no startup wait for either - the
 # existing `runtime` stage above (and everything that builds it, unchanged) is preserved
 # exactly as it was for whatever still needs the live-ingestion architecture later.
 FROM runtime AS demo
-COPY --from=demo-data --chown=foss-mcp:foss-mcp . /data/manifests
+COPY --chown=foss-mcp:foss-mcp infra/demo-manifests/ /data/manifests
 
 # Re-anchors the Dockerfile's own last stage back to runtime's exact content. Docker's
 # default target (no --target) is always the LAST stage declared textually, and demo must

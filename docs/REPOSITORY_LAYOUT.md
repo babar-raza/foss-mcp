@@ -28,6 +28,21 @@ code and are not imported by `src/`; they call `helm`, `kubectl` and the proof
 script `scripts/poc/pilot_workflow_proof.py`. The operator runbook is
 `docs/DEPLOYMENT.md`.
 
+## Demo manifests (`infra/demo-manifests/`)
+
+Committed, already-published `GenerationManifestStore` output (one
+subdirectory per scope, named `<family>__<platform>__<source_kind>`, matching
+`GenerationManifestStore._scope_dir()` in
+`src/foss_mcp/indexing/generation_manifest.py`) that `Dockerfile.serving`'s
+`demo` stage `COPY`s into `/data/manifests`, making the self-contained demo
+image buildable and reproducible from git alone, with no local ingestion run
+and no `--build-context` flag required. It is produced by running the
+ingestion pipeline (`build_chunks.py` + `ingest.py` + the sidecar scripts)
+locally and committing only each scope's `active_pointer.json` and the one
+`generation__*.json` file it names — never `lease_state.json`, and never an
+orphaned/superseded generation file. It is build-time data, not product code,
+and is never imported by `src/`.
+
 ## `foss_mcp.mcp` (`src/foss_mcp/mcp/`)
 
 The MCP (Model Context Protocol) server surface: server construction,
