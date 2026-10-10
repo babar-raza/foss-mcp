@@ -1,0 +1,108 @@
+id: TC-336
+gate: G2
+lane: storage-retrieval
+purpose: 'Measured directly (recorded in docs/DECISION_LOG.md''s 2026-10-10 "NumPy added" entry):
+  `query_vector_index_scored` (src/foss_mcp/indexing/vector_index_writer.py), called from find_examples.py''s
+  vector fallback (TC-331) on every serving query that reaches it, computes cosine similarity as a pure-
+  Python per-point float loop - ~103ms at today''s largest real pilot corpus (pdf/go, 314 points, 4096-dim),
+  scaling linearly to ~308ms at 1,000 points and ~2,964ms at 10,000. The supervisor already added numpy to
+  both requirements-serving.in/.lock and requirements.in/.lock (same decision-log entry; lockfiles are
+  coordinator-owned). This card does the actual code change: vectorize the cosine computation with NumPy,
+  preserving every existing behavior and test exactly, and commits the already-prepared
+  requirements-serving.in/.lock update alongside it (that update could not land as a supervisor-direct
+  commit - commit-guard classifies requirements-serving.* as a worker-owned product path, unlike
+  requirements.in/.lock which are GLOBAL_DENY and were already committed directly).'
+depends_on:
+- TC-331
+- TC-335
+write_paths:
+- requirements-serving.in
+- requirements-serving.lock
+- src/foss_mcp/indexing/vector_index_writer.py
+- tests/indexing/test_index_writers.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-10 — NumPy added to requirements-serving.in/.lock (supervisor, pre-TC-336)'
+  sha256: acc24a49d67ac7d49c63dade08f0d99acbf4c192a9f7b88dfa791d4140c4270b
+inputs:
+- 'requirements-serving.in/.lock are not denied to you (only requirements.in/.lock are GLOBAL_DENY, already
+  committed separately by the supervisor with the matching numpy addition). Add one line, `numpy`, to
+  requirements-serving.in (mirror requirements.in''s own already-committed comment explaining why - read
+  it first, it names this exact card), then regenerate requirements-serving.lock with
+  `.venv\Scripts\uv.exe pip compile --universal --generate-hashes --output-file requirements-serving.lock
+  requirements-serving.in` (the project''s own venv-vendored `uv`, not a system-wide `uv` - confirm with
+  `python -c "import numpy; print(numpy.__version__)"` that it lands on `2.5.3`, matching
+  requirements.in/.lock''s own already-committed pin, since both files must resolve the same transitive
+  closure on this same machine). Confirm via `git diff --stat` that the diff is a single additive
+  `numpy==2.5.3` block (real hashes) and nothing else changed - if anything else in the file differs,
+  STOP and report rather than committing a wider diff than that.'
+- 'In src/foss_mcp/indexing/vector_index_writer.py, replace the pure-Python `_cosine` function''s role: add
+  a new NumPy-based helper, e.g. `_cosine_scores(query_vector: Vector, points: Sequence[dict]) -> list[float]`,
+  that builds one `(n_points, dimension)` NumPy array from every point''s own `"vector"` field, one
+  `(dimension,)` array from `query_vector`, and computes all `n_points` cosine similarities in one
+  vectorized pass (L2-normalize both sides via `numpy.linalg.norm`, then a single matrix-vector dot
+  product) - never a Python-level loop over points. Preserve `_cosine`''s own existing zero-vector
+  tolerance EXACTLY: a point (or the query) with a zero norm must score 0.0 for that pairing, never a
+  division-by-zero warning or a NaN leaking into the returned list (NumPy''s own divide-by-zero produces
+  `inf`/`nan`, not a raised exception - you must explicitly guard this, e.g. `numpy.errstate` plus
+  `numpy.where`, and the simplest way to prove you actually did is a test with a genuine zero vector in the
+  corpus). Update `query_vector_index` and `query_vector_index_scored` to call this new helper instead of
+  the old `_cosine`-in-a-loop pattern, keeping both functions'' own existing signatures, docstrings'' stated
+  contracts, sort order (score descending, point_id ascending as the tiebreak), and `top_k` truncation
+  behavior byte-for-byte identical - only the scoring mechanism''s own internals change. You may keep
+  `_cosine` itself defined (some other caller might reasonably still want a single-pair comparison) or
+  remove it if truly unused - check for other real callers first (grep the whole src/ and tests/ trees, not
+  just this file) before deciding either way, and do not guess.'
+- 'tests/indexing/test_index_writers.py''s existing tests for `query_vector_index`/`query_vector_index_scored`
+  (added originally and by TC-331) must keep passing completely unmodified - this proves the public
+  contract is unchanged. If any existing assertion does exact floating-point equality (`==`) against a
+  score that was computed via the old pure-Python summation order, it may need switching to an approximate
+  comparison (e.g. `pytest.approx` or a small explicit tolerance) ONLY if NumPy''s own summation order
+  produces a genuinely different float at the last few bits - check this for real against the actual
+  numbers rather than assuming it either way, and if you do need to loosen an equality to an approximate
+  one, say exactly which assertion and why in your report, never silently.'
+- 'Add two new tests proving this card''s own real claims, not assumed: (1) a correctness test with a
+  genuine zero vector among the corpus points (and optionally a zero query vector) - confirm that pairing
+  scores exactly 0.0, no exception, no NaN/inf anywhere in the result. (2) a real timing test: build a
+  synthetic corpus of at least 2,000 points at the real 4096 dimension (random floats, deterministic seed),
+  time a single `query_vector_index_scored` call against it, and assert it completes well under 300ms
+  (generous margin - the measured old pure-Python cost at 2,000 points was ~589ms; the measured new,
+  real NumPy cost you should independently reproduce and report in your own response before picking the
+  exact bound, rather than copying the supervisor''s own number blindly).'
+- 'Run `{python} -m pytest tests/indexing/test_index_writers.py -q -rfE` and confirm it passes, then run
+  `{python} -m pytest tests/indexing/test_gateway_embedding_provider.py tests/indexing/test_index_writers.py
+  -q -rfE` once more (TC-330''s own sibling file in the same directory) to confirm zero regressions there.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Commit the already-prepared requirements-serving.in/.lock numpy addition.
+- Vectorize query_vector_index/query_vector_index_scored's cosine computation with NumPy, preserving every
+  existing public contract, sort order, and zero-vector tolerance exactly.
+- Add a correctness test (zero-vector handling) and a real timing test proving the measured latency problem
+  is actually fixed, independently re-measured rather than assumed.
+checks:
+- command: '{python} -m pytest tests/indexing/test_index_writers.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 60
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 6
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/vector_index_writer.py');s=p.read_text(encoding='utf-8');old='_cosine_scores';new='_cosine_scores_disabled';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Renames the last occurrence of the new vectorized helper's own name (its real call site inside
+    query_vector_index_scored), raising a NameError the instant any test calls it - both new tests (the
+    zero-vector correctness test and the timing test) fail immediately, a real semantic break on this
+    card's own central implementation, not a vacuous textual one.
+evidence:
+- evidence/build/G2/TC-336/receipt.json
+closeout:
+- The real, measured ~100ms-to-several-second latency cost in query_vector_index_scored is fixed by
+  vectorizing the cosine computation with NumPy, independently re-measured by the worker to confirm the
+  fix actually works, with every existing public contract and test preserved unmodified.
+recovery: Re-run from a clean tree.
