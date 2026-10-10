@@ -1,0 +1,78 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_embedding_egress.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yrv6vcit\.junit-0.xml"
+--- stdout ---
+...................                                                      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_embedding_gateway.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yrv6vcit\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 85%]
+............                                                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_embedding_egress.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yrv6vcit\.junit-0.xml"
+--- stdout ---
+...................                                                      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_embedding_gateway.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yrv6vcit\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 85%]
+............                                                             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/templates/networkpolicy.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_embedding_egress.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yrv6vcit\.junit-0.xml"
+--- stdout ---
+..........F..F.....                                                      [100%]
+================================== FAILURES ===================================
+________ test_gateway_policy_allows_tcp_443_to_any_address_by_default _________
+
+    def test_gateway_policy_allows_tcp_443_to_any_address_by_default() -> None:
+        spec = _gateway_policy(_render(*_with_secret()))["spec"]
+>       assert spec["egress"] == [
+            {
+                "ports": [{"protocol": "TCP", "port": 443}],
+                "to": [{"ipBlock": {"cidr": "0.0.0.0/0"}}],
+            }
+        ]
+E       AssertionError: assert [{'ports': [{..., 'to': None}] == [{'ports': [{....0.0.0/0'}}]}]
+E         
+E         At index 0 diff: {'ports': [{'protocol': 'TCP', 'port': 443}], 'to': None} != {'ports': [{'protocol': 'TCP', 'port': 443}], 'to': [{'ipBlock': {'cidr': '0.0.0.0/0'}}]}
+E         Use -v to get more diff
+
+tests\infra\test_helm_embedding_egress.py:213: AssertionError
+_______ test_custom_egress_cidrs_are_listed_exactly_and_not_the_default _______
+
+    def test_custom_egress_cidrs_are_listed_exactly_and_not_the_default() -> None:
+        spec = _gateway_policy(_render(*_with_custom_cidrs()))["spec"]
+        assert len(spec["egress"]) == 1
+        rule = spec["egress"][0]
+        assert rule["ports"] == [{"protocol": "TCP", "port": 443}]
+>       assert [peer["ipBlock"]["cidr"] for peer in rule["to"]] == list(CUSTOM_CIDRS)
+                                                    ^^^^^^^^^^
+E       TypeError: 'NoneType' object is not iterable
+
+tests\infra\test_helm_embedding_egress.py:241: TypeError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_embedding_egress.py::test_gateway_policy_allows_tcp_443_to_any_address_by_default
+FAILED tests/infra/test_helm_embedding_egress.py::test_custom_egress_cidrs_are_listed_exactly_and_not_the_default
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_embedding_gateway.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yrv6vcit\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 85%]
+............                                                             [100%]
+
+--- stderr ---
+
