@@ -2397,3 +2397,40 @@ build_chunks.py's own flags are).
 
 This closes the second of C2's two confirmed gaps. OWNER-12 (the live-Kubernetes-Job staleness) remains the
 one piece requiring an authorized owner with real cluster access.
+
+## 2026-10-10 — A real embedding backend exists and is being adopted (pre-TC-330)
+
+`foss_mcp.indexing.embedding_provider`'s own docstring has said since it was written that "no concrete
+provider ships here: a real embedding backend is out of this gate's scope," and
+`HashingEmbeddingProvider` (the production default `infra/ingest.py --embedding-provider` points at) is
+honestly labeled "v1... NOT a semantic embedding model" in its own docstring, anticipating exactly this:
+"a future card may replace this with a real semantic embedding model once one is actually needed." The
+owner identified that need and pointed at a real, already-available resource: an internal
+OpenAI-compatible gateway at `GPT_OSS_ENDPOINT` (resolves to `https://llm.professionalize.com/v1/`,
+authenticated via `GPT_OSS_API_KEY` - both real env vars already present on the dev machine), serving a
+real Qwen embedding model.
+
+Verified directly, not assumed: `GET /models` lists `qwen3-embedding-8b` among other models at this
+gateway. A live `POST /embeddings` call (single input, then a batch of 3) returned real 200 responses,
+4096-dimensional vectors, batch support confirmed. A semantic sanity probe - four short texts: a code
+comment and a natural-language paraphrase of it sharing no rare vocabulary, a related-but-different PDF
+feature, and an unrelated sentence about cooking - measured cosine(paraphrase pair) = 0.852,
+cosine(related-but-different feature) = 0.462, cosine(unrelated) = 0.159-0.173: a cleanly separated,
+genuinely semantic signal, not merely vocabulary overlap (which the paraphrase pair has almost none of).
+
+This is also the scenario the mission plan's own egress table (§9.2) already anticipated and explicitly
+carved out: "a serving pod that needs to call an external embedding endpoint at query time... would be
+incorrectly blocked by" a same-namespace-only egress rule. Adopting a real embedding backend at both
+ingestion and query time is within the architecture's own anticipated scope, not a deviation from it.
+
+**Decision**: build a real `EmbeddingProvider` against this gateway (`TC-330`,
+`src/foss_mcp/indexing/gateway_embedding_provider.py`), with the budget/fallback discipline the mission
+plan's own risk table requires for "Unbounded LLM spend" (a hard per-process request cap, bounded
+retry on transient failures only, never retrying a 4xx, the API key never exposed in any error message).
+TC-330's own worker independently re-confirmed real semantic separation end-to-end through the actual
+provider code (not just the raw gateway): cosine(paraphrase) = 0.627 vs cosine(unrelated) = 0.316/0.263.
+
+Deliberately NOT decided by this entry: how far this gateway is wired INTO the system. TC-330 itself is
+scoped to the provider in isolation only - it does not re-run ingestion for any pilot and does not wire
+any MCP tool to query vectors. Each of those is treated as its own card, each measured rather than
+assumed, following this project's own established discipline for exactly this kind of change.
