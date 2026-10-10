@@ -1,0 +1,147 @@
+id: TC-328
+gate: G2
+lane: transport-deployment
+purpose: 'OWNER-12 (recreating stale live Kubernetes Jobs, the final step of the round-4 C2 investigation)
+  cannot proceed yet: the ops team requires a self-contained Docker image that fully demonstrates the MCP
+  server''s capabilities across all 40 pilots BEFORE cluster access is granted. Two hard constraints from the
+  owner: (1) the repo''s own "no second/third Dockerfile" rule (Dockerfile.serving''s and Dockerfile.ingestion''s
+  own header comments, and mission-plan ''### 9.1 Hosting'' - "One build/deploy path per image - never a
+  second, weaker, unused Dockerfile") means this must EXTEND Dockerfile.serving, never add a new file, and the
+  heavy extraction toolchain (dotnet/node/java+maven/go/rust/g++/tree-sitter) must NEVER enter the shipped
+  image - only already-published, pre-built manifests are baked in, produced by running the existing ingestion
+  pipeline (build_chunks.py + ingest.py + sidecars) on the machine preparing the build, host-level, never as a
+  Docker build stage; (2) the EXISTING live-ingestion architecture (deployment.yaml, ingestion-job.yaml,
+  pvc.yaml, one-Helm-release-per-pilot model) must be left completely untouched and preserved for future
+  production use - this is a parallel, additive, opt-in "demo" path for low-resource-overhead, all-40-pilot
+  demonstration, not a replacement. The owner also asked for the shared Ingress (mission-plan ''### 9.1
+  Hosting'': "one shared Ingress/host, path-routed, prefix stripped before hitting each instance''s /mcp mount")
+  to be added now rather than deferred.'
+depends_on:
+- TC-174
+- TC-192
+- TC-275
+- TC-325
+- TC-327
+write_paths:
+- Dockerfile.serving
+- docker-compose.yml
+- scripts/release/build_images.py
+- infra/helm/foss-mcp/templates/demo-deployment.yaml
+- infra/helm/foss-mcp/templates/demo-ingress.yaml
+- infra/helm/foss-mcp/values.yaml
+- tests/infra/test_helm_chart.py
+- tests/infra/test_container_pins.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 9.1 Hosting'
+  sha256: 8b5afbf681487772ea2236c90689646bc28ff171cfd767bc64a0a5967f630704
+inputs:
+- 'Dockerfile.serving: add a named stage to the existing single-stage image (give the current, only stage
+  `AS runtime` - zero behavior change for any builder not naming a target: the implicit "last stage" default
+  still resolves to the same content as before this card for a plain `docker build .`). Append ONE new final
+  stage: `FROM runtime AS demo` followed by `COPY --from=demo-data --chown=foss-mcp:foss-mcp . /data/manifests`
+  - `demo-data` is a Docker Buildx NAMED BUILD CONTEXT (`docker buildx build --target demo --build-context
+  demo-data=<host-path-to-pre-built-manifests> ...`), supplied at build time from outside the default build
+  context, never committed to git and never requiring the toolchain inside the image. Document in a comment why
+  the toolchain never enters this image and that `runtime` is unchanged.'
+- 'scripts/release/build_images.py is the real production image-build script and must keep building exactly
+  what it builds today (the plain `runtime` stage) regardless of this new stage existing. Change its `IMAGES`
+  tuple entries from 2-tuples `(name, dockerfile)` to 3-tuples `(name, dockerfile, target)` -
+  `("foss-mcp-serving", "Dockerfile.serving", "runtime")` and `("foss-mcp-ingestion", "Dockerfile.ingestion",
+  None)` - and thread `target: str | None` through `build_image()`''s signature, appending `--target {target}`
+  to the docker build command only when target is not None, and through `main()`''s loop.'
+- 'docker-compose.yml''s `x-serving-base: &serving-base` anchor''s `build:` block has no explicit `target:`
+  today, relying on the implicit "last stage" default - which would silently become `demo` once the new stage
+  is appended, breaking every existing compose service. Add `target: runtime` to that one `build:` block so
+  compose''s own behavior stays pinned to exactly what it builds today.'
+- 'infra/helm/foss-mcp/templates/demo-deployment.yaml (NEW FILE): gated entirely by `{{- if .Values.demo.enabled
+  }}` (default false - when false this file renders nothing and every existing resource, deployment.yaml,
+  ingestion-job.yaml, pvc.yaml, is completely untouched). `{{- $pilots := .Values.demo.pilots | default
+  .Values.ingestion.pilots }}`, then `{{- range $p := $pilots }}` over all 40 pilots in ONE release. Per pilot,
+  render a Deployment named `{{ include "foss-mcp.fullname" $ }}-demo-{{ $p.family }}-{{ $p.platform }}`
+  (truncated to 63 chars, trimmed trailing `-`) whose container image is `{{ $.Values.demo.image.repository
+  }}:{{ required "demo.image.tag must be set to a pinned, --target demo build" $.Values.demo.image.tag }}`, env
+  `FOSS_MCP_FAMILY`/`FOSS_MCP_PLATFORM`/`FOSS_MCP_SOURCE_KIND` (the last defaulting to "self_extracted"), the
+  same liveness/readiness probes and securityContext/resources shape as the existing deployment.yaml - but NO
+  initContainer, NO manifests volume or volumeMount (the data is already baked into the image; mounting anything
+  over /data/manifests would hide it), only a `tmp` emptyDir. Plus a matching ClusterIP Service (port 80 ->
+  targetPort 8080) per pilot, named identically to its Deployment.'
+- 'infra/helm/foss-mcp/templates/demo-ingress.yaml (NEW FILE): gated by the SAME `.Values.demo.enabled` flag.
+  ONE shared `networking.k8s.io/v1` Ingress named `{{ include "foss-mcp.fullname" . }}-demo`, looping the same
+  pilot list and emitting one `path: /demo/{{ $p.family }}-{{ $p.platform }}` (`pathType: Prefix`) rule per
+  pilot routing to that pilot''s own Service on port 80. Path-prefix stripping is ingress-controller-specific
+  (nginx-ingress''s `rewrite-target` annotation vs Traefik/Contour''s own mechanisms differ) - do not hardcode
+  one; pass it through via `.Values.demo.ingress.annotations`, documented in a comment.'
+- 'infra/helm/foss-mcp/values.yaml: append (after the existing `ingestion.pilots` list, never inside it) a new
+  top-level `demo:` block: `enabled: false`, `replicaCount: 1`, `pilots: []` (empty means "default to
+  ingestion.pilots" per the template''s own `| default` above), `image: {repository: foss-mcp-serving, tag: "",
+  pullPolicy: IfNotPresent}`, `resources: {}`, `ingress: {className: "", host: "", annotations: {}}`.'
+- 'tests/infra/test_helm_chart.py: add a `DEMO_TAG`/`DEMO_IMAGE` module constant pair and a `_render_demo(*extra)`
+  helper (`_render("--set", "demo.enabled=true", "--set", f"demo.image.tag={DEMO_TAG}", *extra)`), then six new
+  tests: (1) demo mode OFF by default renders EXACTLY the same resource counts as before this card (1
+  Deployment, 1 Service, 0 Ingress, 40 Jobs) - the hard proof the default path is byte-for-byte unchanged; (2)
+  demo mode renders one Deployment and one Service per pilot; (3) demo pods carry no manifests volume,
+  initContainer, or PVC reference; (4) each demo Deployment carries its own real pilot family/platform identity
+  (spot-check a few, not just one); (5) demo mode renders exactly ONE shared Ingress with one path rule per
+  pilot; (6) demo mode can be narrowed via `--set demo.pilots=...` to a smaller explicit list.'
+- 'tests/infra/test_container_pins.py''s `test_every_from_is_pinned_by_digest_and_matches_lock` iterates every
+  FROM line in both Dockerfiles and asserts each is digest-pinned against the lock. It predates multi-stage
+  Dockerfiles and will fail once Dockerfile.serving gains a second FROM line (`FROM runtime AS demo`) that
+  references an earlier stage BY NAME rather than pulling an external image - a stage reference carries no
+  digest by construction. Fix the test''s own logic (do not weaken the real invariant it checks): collect every
+  name introduced by an `AS <name>` on any FROM line in the file, then skip the digest/lock-match assertion for
+  any FROM whose image token matches one of those names - it still requires every FROM that pulls a real
+  external image to be digest-pinned and match the lock exactly as before.'
+- 'Run `{python} -m pytest tests/infra/test_helm_chart.py -q -rfE` and `{python} -m pytest
+  tests/infra/test_container_pins.py -q -rfE` and confirm both pass. Then run the FULL `{python} -m pytest
+  tests/infra -q -rfE` once (with the toolchain activated in the same command: `scripts/toolchain/activate.ps1`
+  on this host) to confirm zero regressions anywhere else in the suite.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Add a named `runtime` stage to Dockerfile.serving's existing single stage and append a `demo` stage that
+  copies a Buildx named build-context (`demo-data`) into /data/manifests - no toolchain, no new Dockerfile.
+- Pin scripts/release/build_images.py and docker-compose.yml to keep building/running exactly the `runtime`
+  target they build today.
+- Add two new, entirely opt-in Helm templates (demo-deployment.yaml, demo-ingress.yaml) plus a `demo:` values
+  block, rendering one lean Deployment+Service per pilot and one shared path-routed Ingress in a single release,
+  gated off by default so every existing resource is untouched when demo.enabled is false.
+- Fix test_container_pins.py's digest-pin test to recognize a multi-stage FROM referencing an earlier stage by
+  name, and add Helm-chart tests proving both the untouched default path and the new demo path's shape.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_chart.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 180
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/infra/test_container_pins.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 60
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 6
+network: false
+requires:
+- docker
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/demo-deployment.yaml');s=p.read_text(encoding='utf-8');old='.Values.demo.enabled';new='.Values.demo.enabledX';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Breaks demo-deployment.yaml's own `{{- if .Values.demo.enabled }}` gate (the LAST occurrence of the
+    literal text, via rindex, since the file's own header comment mentions the same string earlier and mutating
+    that would be vacuous) so `--set demo.enabled=true` no longer activates it - the demo block then renders
+    zero resources instead of 40 Deployments/Services, failing
+    test_demo_mode_renders_one_deployment_and_service_per_pilot. A real falsifier on the card's central claim,
+    not a vacuous one.
+evidence:
+- evidence/build/G2/TC-328/receipt.json
+closeout:
+- Dockerfile.serving gained one additive `demo` build stage (no new Dockerfile, no toolchain in the shipped
+  image); the existing live-ingestion Helm/compose architecture is completely untouched and preserved; a new,
+  entirely opt-in Helm path renders all 40 pilots as lean Deployments/Services plus one shared Ingress in a
+  single release, satisfying the ops team's pre-cluster-access self-contained demo image requirement without
+  weakening or replacing anything OWNER-12 still depends on.
+recovery: Re-run from a clean tree.
