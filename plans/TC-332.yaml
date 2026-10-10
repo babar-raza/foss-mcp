@@ -1,22 +1,25 @@
-id: TC-332
+﻿id: TC-332
 gate: G2
-lane: storage-retrieval
-purpose: 'TC-330 built a real EmbeddingProvider against the confirmed-live Qwen gateway; TC-331 wired it
-  into find_examples'' own fallback. infra/demo-manifests/ (TC-329) still carries the OLD generations -
-  real content, but embedded with HashingEmbeddingProvider''s 64-dim hashing-trick vectors, not the real
-  4096-dim Qwen ones. The two are dimensionally incompatible (cosine similarity cannot compare a 64-dim
-  and a 4096-dim vector), so find_examples'' new vector fallback (and any future search_docs/
-  search_symbols wiring) can never engage against the currently-committed data at all. This session
-  already re-ran the full local-ingestion pipeline for all 40 pilots with the real
-  GatewayEmbeddingProvider (same provenance discipline as TC-329: build_chunks.py + ingest.py + sidecars,
-  run locally, never inside the shipped image) and confirmed every one of the 40 real, non-empty, 4096-
-  dim vector_index payloads directly (point counts 3-314 per pilot, matching TC-329''s own original
-  range almost exactly - same real source content, only the embedding changed). This card replaces
-  infra/demo-manifests/''s old 64-dim data with this new, real 4096-dim data.'
+lane: verification
+purpose: 'Bring five files to a clean `ruff check .`. The push gate (scripts/ci_check.sh, step lint) fails at HEAD with 7 errors in files written by
+  workers under TC-275, TC-309, TC-314 and TC-326: UP035 (Callable from typing) and UP017 (timezone.utc) and UP037 (quoted annotation) in
+  infra/verify_package_registry.py, infra/verify_product_reference_install.py and tests/infra/test_verify_package_registry.py, and two F841 unused
+  locals in tests/extraction/test_jmap_java_extraction.py and tests/extraction/test_slides_net_extraction.py. gatectl review ran ruff format on each card
+  but never ruff check, so every one of them was accepted and the first push after them is blocked. This card removes the lint errors and changes no
+  behaviour: no test is added, removed, renamed or weakened.'
 depends_on:
-- TC-331
+- TC-260
+- TC-275
+- TC-296
+- TC-309
+- TC-314
+- TC-326
 write_paths:
-- infra/demo-manifests/**
+- infra/verify_package_registry.py
+- infra/verify_product_reference_install.py
+- tests/extraction/test_jmap_java_extraction.py
+- tests/extraction/test_slides_net_extraction.py
+- tests/infra/test_verify_package_registry.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -24,90 +27,46 @@ source_refs:
   anchor: '### 9.1 Hosting'
   sha256: 8b5afbf681487772ea2236c90689646bc28ff171cfd767bc64a0a5967f630704
 inputs:
-- 'The real, already-produced new source data sits on this same machine at the absolute path
-  C:\Users\babar\AppData\Local\Temp\claude\e--Users-prora-OneDrive-Documents-GitHub-foss-mcp\7cc50ffe-90e7-4881-a5bf-84f21ce83723\scratchpad\demo-manifests-qwen
-  - 40 subdirectories, one per pilot, each named `<family>__<platform>__self_extracted` (same naming
-  TC-329 already uses). Each directory also has a `lease_state.json` (write-path-only bookkeeping,
-  genuinely stale - TC-329''s own card already established this must never be copied) and, at this
-  path''s own TOP level (siblings of the 40 pilot directories, NOT inside them), a handful of
-  `package_registry_*.json`/`product_reference_*.json`/`recent_releases_*.json` sidecar files from the
-  install-verification/releases steps - these are also NOT part of this card''s scope (infra/demo-
-  manifests/ per TC-329 holds only the 40 scope directories'' own active_pointer.json + generation files;
-  do not copy these top-level sidecars anywhere).'
-- 'For EACH of the 40 pilot directories, REPLACE the corresponding directory already committed under
-  infra/demo-manifests/<same-name>/ with the new one''s content, using TC-329''s own exact curation
-  rule: copy `active_pointer.json` verbatim, copy ONLY the one `generation__*.json` file whose
-  `generation_id` matches what `active_pointer.json` names (read both to confirm - do not assume there
-  is only one present; verify for every pilot, do not assume the earlier hashing-trick run''s own "one
-  pilot had an orphan" finding generalizes here, this is a different run, check fresh), never copy
-  `lease_state.json`. After replacing, every one of the 40 destination directories must still contain
-  EXACTLY 2 files, and every one must now have `payload.vector_index.dimension == 4096` (confirm this
-  directly for all 40, not a sample - a `git diff --stat` after replacing should show every one of the
-  80 committed files as modified, none added, none removed, since the file NAMES are expected to be
-  identical both times only their CONTENT size differs due to the new, larger generation_id''s own
-  timestamp-plus-uuid component, which is why the generation filename itself will differ from the old
-  one - verify this expectation against what you actually observe rather than assuming it).'
-- 'Dockerfile.serving''s `demo` stage already COPYs infra/demo-manifests/ directly (TC-329) - no change
-  needed there. No Helm/test/values.yaml change is in this card''s scope either; tests/infra/test_demo_
-  manifests.py (TC-329) already asserts structure (file-count, active-pointer/generation-id consistency,
-  non-empty lexical_index.documents for all 40) and needs no change since none of those invariants
-  differ for the new data - it should simply keep passing unmodified against the replaced content. Do
-  NOT touch test_demo_manifests.py''s own assertions to special-case the embedding/dimension change;
-  that test deliberately only checks lexical_index content, never vector_index, so it is correctly
-  agnostic to which embedding produced the vectors.'
-- 'Run `{python} -m pytest tests/infra/test_demo_manifests.py -q -rfE` and confirm all 4 tests still
-  pass unmodified against the replaced content. Then run `{python} -m pytest tests/mcp/tools/test_
-  retrieval_tools.py -q -rfE` once more (TC-331''s own tests construct their OWN small, hand-built
-  vector_index payloads rather than reading infra/demo-manifests/ directly, so this run is a sanity
-  check that nothing in this card accidentally regressed it, not a direct dependency).'
-- 'Separately (not part of the formal checks - this needs a real docker build, which the card''s own
-  declared checks deliberately avoid per this project''s established `network`/`requires` discipline for
-  slow, non-deterministic-feeling steps best left to manual confirmation): spot-check that
-  `docker build -f Dockerfile.serving --target demo -t tc332-spotcheck .` still succeeds with the
-  replaced data (same command TC-329''s own test_container_build.py test already runs formally - this
-  manual spot-check is just an extra, quick confirmation given how much larger the new vectors are: 4096
-  floats per point vs 64, meaning the committed data and the resulting image layer are both substantially
-  bigger now). Report the real image size you observe (`docker images`) compared to before, and remove
-  the test image afterward (`docker rmi`).'
+- 'Run `python -m ruff check` on exactly the five write_paths files to see the 7 errors. Five are auto-fixable: run `python -m ruff check --fix` on those five files
+  only (never on the whole repository). Then read the diff: it must be import and annotation spelling only (Callable now from collections.abc; datetime.UTC
+  instead of timezone.utc; the quotes removed from the "_FakeResponse" annotation). If the diff changes the meaning of any line, stop and say so.'
+- 'The two F841 are not auto-fixed and need judgement. In tests/extraction/test_jmap_java_extraction.py the local `by_name` is a dict built from data["types"] and
+  never read: delete that one line. In tests/extraction/test_slides_net_extraction.py the line `pvi_object = by_name["PVIObject"]` is never read after the
+  assignment, but the subscript raises KeyError when PVIObject is absent, so it is an implicit existence check. Do NOT simply delete it. Replace it with
+  `assert "PVIObject" in by_name` so the check stays and is now explicit. Leave every other line in both tests untouched.'
+- 'After the fixes run python -m ruff format on the five files, and confirm `python -m ruff check .` over the whole repository reports no error.'
 - 'Write commit messages as UTF-8 without a byte-order mark.'
 actions:
-- Replace infra/demo-manifests/'s 40 pilot directories with the new, already-produced, real 4096-dim
-  Qwen-embedded generations, using the exact same per-pilot curation rule TC-329 established (only
-  active_pointer.json plus its one matching generation file; never lease_state.json; verify matching
-  fresh for every pilot, not assumed from the prior run).
-- Confirm tests/infra/test_demo_manifests.py still passes unmodified against the new content, and spot-
-  check a real docker build of the demo target still succeeds with the larger committed data.
+- Apply the autofixes to the five files and the two judgement fixes.
+- Format the five files.
+- Confirm `ruff check .` is clean for the whole repository and the diff changes no behaviour.
+- Run the card checks and report exact counts.
 checks:
-- command: '{python} -m pytest tests/infra/test_demo_manifests.py -q -rfE'
+- command: '{python} -m ruff check .'
   expect: exit 0
-  timeout_seconds: 60
+  timeout_seconds: 300
+  proves:
+  - REQ-G2-043
+- command: '{python} -m ruff format --check infra/verify_package_registry.py infra/verify_product_reference_install.py tests/extraction/test_jmap_java_extraction.py tests/extraction/test_slides_net_extraction.py tests/infra/test_verify_package_registry.py'
+  expect: exit 0
+  timeout_seconds: 300
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/extraction/test_jmap_java_extraction.py tests/extraction/test_slides_net_extraction.py tests/infra/test_verify_package_registry.py tests/infra/test_verify_product_reference_install.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
   junitxml: true
   proves:
   - REQ-G2-043
-- command: '{python} -m pytest tests/mcp/tools/test_retrieval_tools.py -q -rfE'
-  expect: exit 0
-  timeout_seconds: 60
-  junitxml: true
-  proves:
-  - REQ-G2-043
-min_tests: 4
-network: false
-requires:
-- python
-- docker
+min_tests: 87
+network: true
 negative_control:
   mutate: |
-    python -X utf8 -c "import json,glob;p=sorted(glob.glob('infra/demo-manifests/pdf__net__self_extracted/generation__*.json'))[0];d=json.load(open(p,encoding='utf-8'));d['payload']['lexical_index']['documents']={};json.dump(d,open(p,'w',encoding='utf-8'))"
-  rationale: Empties pdf/net's own REPLACED generation's lexical_index.documents (the same real,
-    non-empty-content assertion TC-329's own falsifier targeted, now re-applied to this card's new
-    content) - test_demo_manifests.py's per-pilot content-integrity test fails for that one pilot. This
-    is the only one of this card's two declared checks that reads infra/demo-manifests/ content at all
-    (test_retrieval_tools.py builds its own synthetic vector payloads and is unaffected by this card's
-    data replacement either way), so it is the correct, real target for this card's own falsifier.
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/infra/test_verify_package_registry.py');p.write_text(p.read_text(encoding='utf-8')+chr(10)+'def _zz():'+chr(10)+'    unused_zz = 1'+chr(10),encoding='utf-8')"
+  rationale: 'Appends a function with an unused local to one of the five files, so `ruff check .` must fail with F841. Built with plain text and chr(10), no backslashes.'
 evidence:
 - evidence/build/G2/TC-332/receipt.json
 closeout:
-- infra/demo-manifests/ now carries real, content-verified, 4096-dim Qwen-embedded vector data for all
-  40 pilots, dimensionally compatible with TC-331's find_examples wiring and ready for search_docs/
-  search_symbols' own later wiring cards.
+- ruff check . passes for the whole repository.
+- The 87 tests in the four test files still pass, none removed or loosened.
 recovery: Re-run from a clean tree.
