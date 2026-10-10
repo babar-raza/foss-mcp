@@ -41,7 +41,7 @@ def _helm() -> str:
     return helm
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _render_text(*extra: str) -> str:
     result = subprocess.run(
         [_helm(), "template", "foss-mcp", str(CHART), "--set", f"image.tag={TAG}", *extra],
