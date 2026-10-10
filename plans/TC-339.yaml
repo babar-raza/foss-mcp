@@ -36,7 +36,10 @@ inputs:
   tests that pin "no helm uninstall, and delete appears only in job_delete_command".
 - >-
   helm_install_command gains an optional keyword argument `extra_sets` (a sequence of `key=value` strings,
-  default empty) and emits, after the existing `--set image.tag=<tag>` pair, one `--set <pair>` per entry, in order.
+  default empty) and emits, after the existing `--set image.tag=<tag>` pair, one `--set-string <pair>` per entry, in
+  order. It MUST be `--set-string`, never `--set`: Helm's plain `--set` coerces values such as `null`, `true` or
+  `123` into non-strings, and those are all valid Kubernetes names - a Secret named `null` would silently switch the
+  feature off. The existing `--set image.tag=` pair stays exactly as it is.
   With the default it returns exactly today's argv. Thread the same value through install_one, install_all and the
   --dry-run path in main so a dry run prints precisely the commands a real run would execute.
 - >-
@@ -49,11 +52,12 @@ inputs:
   `^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$` (and at most 253 characters) BEFORE building any command; an invalid name must
   make main print a clear error to stderr and return 2 without running anything (same exit-2 convention the
   unknown --only handling already uses). This is a security boundary, not politeness: a comma or equals sign in a
-  name must never be able to inject a second value into a helm --set argument.
+  name must never be able to inject a second value into a helm --set-string argument. Also add a test that a
+  name of `null`, `true` and `123` (all valid) is emitted verbatim after `--set-string`, proving no coercion path.
 - >-
   Tests to add to tests/deploy/test_install_pilots.py (keep every existing test): (1) with neither flag, a
   --dry-run line for a pilot contains no `embeddingGateway` and no `githubToken`; (2) with
-  `--embedding-gateway-secret my-gw`, every pilot's helm line contains `--set embeddingGateway.existingSecret=my-gw`
+  `--embedding-gateway-secret my-gw`, every pilot's helm line contains `--set-string embeddingGateway.existingSecret=my-gw`
   and none contains githubToken, and the same pairing for `--github-token-secret`; with both, both pairs appear and
   the image.tag pair is still present; (3) a real (monkeypatched _run) install passes the pair into the argv
   actually executed for every selected pilot; (4) invalid names (`bad,name`, `a=b`, `UPPER`, an empty-looking
