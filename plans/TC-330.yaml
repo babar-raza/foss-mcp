@@ -1,0 +1,149 @@
+id: TC-330
+gate: G2
+lane: storage-retrieval
+purpose: 'A real, production embedding backend now exists and is confirmed reachable: an internal
+  OpenAI-compatible gateway at the host env var `GPT_OSS_ENDPOINT` (this session confirmed
+  `https://llm.professionalize.com/v1/`), authenticated via `GPT_OSS_API_KEY`, serving a real Qwen
+  embedding model (`qwen3-embedding-8b`, 4096-dim). A live preflight this session (POST /embeddings,
+  single input and a batch of 3) confirmed real semantic structure - cosine(a true paraphrase pair with
+  no shared rare words) = 0.852, cosine(a related-but-different PDF feature) = 0.462,
+  cosine(unrelated content) = 0.159-0.173 - a genuinely different, meaningfully better signal than
+  `HashingEmbeddingProvider` (the current, honestly-labeled-as-v1, non-ML hashing-trick bag-of-words
+  stand-in - see its own docstring: "a future card may replace this with a real semantic embedding
+  model once one is actually needed"). This card is that future card: a new `EmbeddingProvider`
+  implementation calling this real gateway, with the budget/fallback discipline the mission plan''s own
+  risk table requires for unbounded LLM spend. This card does NOT re-run ingestion or wire any MCP tool
+  to query vectors yet - those are separate, later cards once this provider itself is proven correct in
+  isolation.'
+depends_on:
+- TC-329
+write_paths:
+- src/foss_mcp/indexing/gateway_embedding_provider.py
+- tests/indexing/test_gateway_embedding_provider.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 9.1 Hosting'
+  sha256: 8b5afbf681487772ea2236c90689646bc28ff171cfd767bc64a0a5967f630704
+inputs:
+- 'New module `src/foss_mcp/indexing/gateway_embedding_provider.py`, implementing the exact
+  `EmbeddingProvider` protocol (`src/foss_mcp/indexing/embedding_provider.py`: a `dimension: int`
+  attribute plus `embed(self, texts: Sequence[str]) -> list[Vector]`). A ZERO-ARGUMENT constructor is
+  REQUIRED - `infra/ingest.py`''s own `_load_embedding_provider()` calls `getattr(module,
+  class_name)()` with no arguments, so every piece of configuration must come from the environment
+  inside `__init__`, read via new env vars this card defines and documents in the module''s own
+  docstring: `FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT` (required, no default - raise a clear error naming
+  the env var if unset, mirroring this repo''s existing `_required_env` convention e.g.
+  `infra/serve_http.py`), `FOSS_MCP_EMBEDDING_GATEWAY_API_KEY` (required, same), `FOSS_MCP_EMBEDDING_
+  GATEWAY_MODEL` (default `"qwen3-embedding-8b"`), `FOSS_MCP_EMBEDDING_GATEWAY_DIMENSION` (default
+  `4096` - must match the real model''s own output size; this session confirmed 4096 via a live call),
+  `FOSS_MCP_EMBEDDING_GATEWAY_BATCH_SIZE` (default `32`), `FOSS_MCP_EMBEDDING_GATEWAY_TIMEOUT_SECONDS`
+  (default `30`), `FOSS_MCP_EMBEDDING_GATEWAY_MAX_REQUESTS` (default `2000` - a HARD per-process-
+  lifetime request cap; this is the mission plan''s own named risk-mitigation, "Hard per-run
+  token/request budget" for "Unbounded LLM spend" - once exceeded, every further `embed()` call raises
+  `EmbeddingBudgetExceededError` immediately, making NO further HTTP call, rather than continuing to
+  spend).'
+- 'The gateway''s real shape (confirmed live this session, do not guess or invent a different one):
+  `POST {endpoint}/embeddings` with JSON body `{"model": <model>, "input": [<text>, ...]}` (a batch of
+  strings, not one at a time), header `Authorization: Bearer <api_key>`, response JSON
+  `{"data": [{"index": int, "embedding": [float, ...]}, ...], "model": ..., "object": ..., "usage":
+  {...}}` - `data` entries are not guaranteed to arrive in request order (confirm this from the real
+  response structure yourself; if you cannot confirm an order guarantee, sort by each entry''s own
+  `"index"` field before pairing results back with their input texts, rather than assuming positional
+  order - this is the kind of assumption this project''s own culture treats as a thing to verify, not
+  guess).'
+- 'Chunk ``embed()`` into batches of `FOSS_MCP_EMBEDDING_GATEWAY_BATCH_SIZE` texts per HTTP call (never
+  one call per text - at 40 pilots'' real scale, pdf/go alone is over 300 chunks, and one request per
+  chunk would be both slow and wasteful of the request budget). Count ONE request against the budget
+  per HTTP call made (a batch of 32 texts is one request, not 32), check the budget BEFORE making a
+  call (never make a call that would exceed it, then discard the result).'
+- 'A transient failure (HTTP 5xx, or a request timeout/connection error) retries with bounded
+  exponential backoff - at most 3 attempts total per batch, a short base delay (document the exact
+  numbers you choose and why in the module''s own docstring; keep total worst-case added latency for
+  one batch in the low tens of seconds, not minutes). A non-transient failure (HTTP 4xx, e.g. a bad
+  API key or malformed request) must NOT be retried - raise immediately with the real status code and
+  response body in the exception message, EXCLUDING the API key itself (never let the key appear in
+  any exception message, log line, or `repr()` anywhere in this module - verify this with a real test
+  that constructs a provider with a fake key and asserts the key string never appears in any raised
+  exception''s `str()`).'
+- 'Dependency-inject the HTTP transport for testability: `__init__` accepts an optional keyword-only
+  parameter (e.g. `_transport`) defaulting to a real one built from `urllib.request` internally - never
+  a required constructor argument (that would break `infra/ingest.py`''s zero-argument calling
+  convention). Every deterministic test in `tests/indexing/test_gateway_embedding_provider.py` passes
+  a FAKE transport (a plain Python callable or small test double recording calls and returning
+  programmed responses/errors) - these tests make no real network call and need `network: false`.'
+- 'Tests to add (deterministic, offline, no real network call): request batching (N texts split into
+  the right number of batches of the configured size, last batch sized correctly); successful embed
+  returns vectors in the SAME order as the input texts, re-ordered correctly if the fake transport
+  deliberately returns `data` entries out of order; a transient error retries up to the bounded limit
+  then raises; a non-transient error (4xx) raises immediately with NO retry attempted (assert the fake
+  transport was called exactly once); the budget cap: construct a provider with
+  `FOSS_MCP_EMBEDDING_GATEWAY_MAX_REQUESTS` set very low (e.g. 1 via env var in the test), confirm the
+  first embed() call that needs one request succeeds, confirm a SUBSEQUENT call that would need another
+  request raises `EmbeddingBudgetExceededError` with NO further call to the fake transport; the API key
+  never appears in any exception''s `str()` (described above); a missing required env var raises a
+  clear error naming which one.'
+- 'Run `{python} -m pytest tests/indexing/test_gateway_embedding_provider.py -q -rfE` and confirm it
+  passes. tests/indexing/ as a whole also holds several pre-existing, genuinely network-reaching tests
+  (real git clone/fetch against pinned commits, e.g. test_example_verifier.py,
+  test_cpp_verifier_linux.py) unrelated to this card - do NOT run the whole directory as this card''s
+  own check (that would make gatectl''s static network scan flag this `network: false` card
+  incorrectly). Instead also run `{python} -m pytest tests/indexing/test_index_writers.py
+  tests/indexing/test_gateway_embedding_provider.py -q -rfE` once, confirming zero regressions in the
+  sibling index-writer tests specifically.'
+- 'SEPARATELY from this card''s own declared (offline, deterministic) checks - gatectl''s own
+  verification environment deliberately strips every host env var down to a fixed canonical set, so it
+  can never supply the real `GPT_OSS_API_KEY`/a real `FOSS_MCP_EMBEDDING_GATEWAY_API_KEY` for an
+  authenticated live call, and this card''s formal checks must not depend on one being present - your
+  own WORKER SESSION''s real shell DOES have `GPT_OSS_ENDPOINT`/`GPT_OSS_API_KEY` available (confirmed
+  this session). Before reporting done, run one real, manual, live call yourself (a short throwaway
+  script is fine, not part of write_paths, not committed) instantiating your new
+  `GatewayEmbeddingProvider` with `FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT`/`_API_KEY` set FROM
+  `GPT_OSS_ENDPOINT`/`GPT_OSS_API_KEY` in your own session (e.g. `$env:FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT
+  = $env:GPT_OSS_ENDPOINT` in PowerShell, never hardcoding the key as a literal in any file), embedding a
+  real small batch of 2-3 short texts, and report the real dimension/shape you observed in your own
+  report - this is manual evidence for the supervisor''s own decision log, not a `gatectl`-graded check,
+  and must never be faked or assumed.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Add gateway_embedding_provider.py, a real EmbeddingProvider calling the confirmed-live internal
+  gateway, with batching, bounded retry, a hard per-process request budget, and the API key never
+  exposed in any error message.
+- Add deterministic, network-free tests covering batching, ordering, retry/no-retry behavior, the
+  budget cap, and key-never-leaks, via a dependency-injected fake transport.
+- Separately, manually verify one real live call against the actual gateway using your own session's
+  real credentials, and report what you observed.
+checks:
+- command: '{python} -m pytest tests/indexing/test_gateway_embedding_provider.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 60
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/indexing/test_index_writers.py tests/indexing/test_gateway_embedding_provider.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 7
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/gateway_embedding_provider.py');s=p.read_text(encoding='utf-8');old='MAX_REQUESTS';new='MAX_REQUESTS_DISABLED';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Renames the last occurrence of the budget env var's own name inside the module (its real
+    read site), so the budget env var this card's test deliberately sets is never actually read -
+    the budget-cap test's EmbeddingBudgetExceededError assertion then fails (the cap silently never
+    engages), a real semantic break on the card's own central risk-mitigation claim, not a vacuous
+    textual one.
+evidence:
+- evidence/build/G2/TC-330/receipt.json
+closeout:
+- A real, tested, budget-bounded EmbeddingProvider now exists against the confirmed-live internal
+  Qwen gateway, ready for a later card to wire into ingestion and query-time retrieval. Live
+  reachability and real semantic signal were confirmed directly this session before this card was
+  authored, and re-confirmed by the worker's own manual live call.
+recovery: Re-run from a clean tree.
