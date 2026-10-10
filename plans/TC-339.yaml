@@ -1,0 +1,106 @@
+id: TC-339
+gate: G2
+lane: transport-deployment
+purpose: >-
+  TC-337 and TC-338 make the Helm chart use the Qwen embedding gateway end to end once
+  embeddingGateway.existingSecret is set, and ingestion.githubToken.existingSecret already lets ingestion
+  authenticate to GitHub - but scripts/deploy/install_pilots.py writes minimal per-pilot values files and builds
+  its helm command with only image.tag, so there is no way to say "use this Secret" for the forty pilot releases
+  short of hand-building forty helm commands. The repo's own rule is zero manual steps going forward. This card
+  adds --embedding-gateway-secret and --github-token-secret to the installer; each appends exactly one --set pair
+  when given and nothing when not, so the default command stays byte-identical.
+depends_on:
+- TC-223
+- TC-227
+- TC-230
+- TC-231
+- TC-235
+- TC-236
+- TC-337
+write_paths:
+- scripts/deploy/install_pilots.py
+- tests/deploy/test_install_pilots.py
+- docs/DEPLOYMENT.md
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — The pilot installer must pass the operator''s Secret names through to Helm (supervisor, pre-TC-339)'
+  sha256: 64af635d3c1de71416ca8ad356581e33be808afb6b096b3aabc1de65d1067acb
+inputs:
+- >-
+  Read scripts/deploy/install_pilots.py and tests/deploy/test_install_pilots.py in full first, plus
+  tests/deploy/test_runbook.py (it reads docs/DEPLOYMENT.md and proves the runbook and the tools agree - any flag
+  you add must be named in the runbook or that test will say so). Every existing test must keep passing
+  UNMODIFIED, in particular test_helm_command_is_the_exact_upgrade_install, the dry-run tests, and the two source
+  tests that pin "no helm uninstall, and delete appears only in job_delete_command".
+- >-
+  helm_install_command gains an optional keyword argument `extra_sets` (a sequence of `key=value` strings,
+  default empty) and emits, after the existing `--set image.tag=<tag>` pair, one `--set <pair>` per entry, in order.
+  With the default it returns exactly today's argv. Thread the same value through install_one, install_all and the
+  --dry-run path in main so a dry run prints precisely the commands a real run would execute.
+- >-
+  Two new CLI options on parse_args, both defaulting to empty: `--embedding-gateway-secret NAME` yields the pair
+  `embeddingGateway.existingSecret=NAME`, and `--github-token-secret NAME` yields
+  `ingestion.githubToken.existingSecret=NAME`. Nothing else about the values the chart receives changes (key names
+  stay the chart defaults: endpoint/apiKey and token).
+- >-
+  Validate each given NAME against the Kubernetes DNS-1123 subdomain grammar
+  `^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$` (and at most 253 characters) BEFORE building any command; an invalid name must
+  make main print a clear error to stderr and return 2 without running anything (same exit-2 convention the
+  unknown --only handling already uses). This is a security boundary, not politeness: a comma or equals sign in a
+  name must never be able to inject a second value into a helm --set argument.
+- >-
+  Tests to add to tests/deploy/test_install_pilots.py (keep every existing test): (1) with neither flag, a
+  --dry-run line for a pilot contains no `embeddingGateway` and no `githubToken`; (2) with
+  `--embedding-gateway-secret my-gw`, every pilot's helm line contains `--set embeddingGateway.existingSecret=my-gw`
+  and none contains githubToken, and the same pairing for `--github-token-secret`; with both, both pairs appear and
+  the image.tag pair is still present; (3) a real (monkeypatched _run) install passes the pair into the argv
+  actually executed for every selected pilot; (4) invalid names (`bad,name`, `a=b`, `UPPER`, an empty-looking
+  `-x`, a 254-character name) make main return 2 and run no subprocess at all. Derive the pilot count from the
+  chart's real pilot list; never hard-code 40.
+- >-
+  docs/DEPLOYMENT.md: add a short subsection for an operator describing the two flags, that the OPERATOR creates
+  the Secrets (gateway Secret with keys `endpoint` and `apiKey`; GitHub token Secret with key `token`) with an
+  example `kubectl create secret generic NAME -n NAMESPACE --from-literal=...` using obvious placeholders only
+  (no real value, no value read from the environment), that with the gateway Secret set ingestion embeds through
+  the gateway and a pod with a missing key fails loudly, and that without either flag nothing changes.
+- >-
+  Run `{python} -m pytest tests/deploy/test_install_pilots.py tests/deploy/test_runbook.py -q -rfE`, then once
+  `{python} -m pytest tests/deploy -q -rfE` to confirm no regression in the sibling deploy suites.
+- Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Add an extra_sets argument to helm_install_command and thread it through install_one, install_all and the dry-run path.
+- Add --embedding-gateway-secret and --github-token-secret, validated against the DNS-1123 grammar, exit 2 on a bad name.
+- Add tests proving default-identical, flag, real-argv and invalid-name behaviour, and document the flags in the runbook.
+checks:
+- command: '{python} -m pytest tests/deploy/test_install_pilots.py tests/deploy/test_runbook.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/deploy -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 6
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/deploy/install_pilots.py');s=p.read_text(encoding='utf-8');old='embeddingGateway.existingSecret';new='embeddingGateway.existingSecretX';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: >-
+    Renames the last occurrence of embeddingGateway.existingSecret inside install_pilots.py, so the flag no longer
+    produces the chart's real values key - the tests asserting the exact --set pair fail. A real semantic break of
+    the card's central claim.
+evidence:
+- evidence/build/G2/TC-339/receipt.json
+closeout:
+- >-
+  The installer can now point all forty releases at the operator's gateway and GitHub-token Secrets in one command,
+  with the default command unchanged and Secret names validated before they reach Helm.
+recovery: Re-run from a clean tree.

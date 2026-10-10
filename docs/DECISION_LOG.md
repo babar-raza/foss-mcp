@@ -2595,3 +2595,32 @@ executables under pytest's temp directory (`os error 4551`), so three Rust `exam
 locally and `pre-push` cannot go green here. Reproduced with trivial crates (`getrandom`, `crc32fast`); a plain
 `cargo build` outside that path succeeds. Unrelated to any code change; the one `--no-verify` push on 2026-10-11
 was operator-approved for exactly this reason and is not a standing permission.
+
+## 2026-10-11 — The pilot installer must pass the operator's Secret names through to Helm (supervisor, pre-TC-339)
+
+TC-337 and TC-338 made the chart use the Qwen embedding gateway end to end (ingestion embeds with it, serving
+reaches it) once `embeddingGateway.existingSecret` is set - and `ingestion.githubToken.existingSecret` has long
+let ingestion authenticate to GitHub. But `scripts/deploy/install_pilots.py` writes minimal per-pilot values files
+and builds its helm command with only `image.tag`; there is no way to say "use this Secret" short of hand-editing
+forty generated values files or running forty hand-built helm commands. The repo's own rule (2026-10-07: "zero
+manual steps going forward") says that is a defect, not an operator chore.
+
+Decision: TC-339 adds `--embedding-gateway-secret NAME` and `--github-token-secret NAME` to the installer, each
+appending exactly one `--set` pair when given and nothing when not (the default command stays byte-identical, so
+every existing exact-command test keeps passing unmodified). Secret names are validated against the Kubernetes
+DNS-1123 name grammar before being placed in a `--set`, so a comma or equals sign can never smuggle a second
+value into a helm argument. The operator still creates the Secrets themselves: the chart and installer only ever
+name them, never carry a credential value.
+
+## 2026-10-11 — Delivery sequence for the all-40-pilot local deployment (supervisor)
+
+Recorded so the order and the owner-only edges are written down rather than remembered. With every card done
+and `gatectl next` = NONE, delivery is operational: (1) TC-337 to TC-339 integrated; (2) images rebuilt at the
+final HEAD with `scripts/release/build_images.py` and loaded into the kind node; (3) one operator-created
+Secret holding the gateway endpoint and API key, created from the dev machine's existing `GPT_OSS_ENDPOINT` /
+`GPT_OSS_API_KEY` variables without ever printing them; (4) all 40 releases installed into a fresh namespace with
+both Secret flags; (5) the live workflow proof run across all 40 and the vector fallback confirmed to return
+real non-empty matches; (6) `gatectl gate-exit G3`. Owner-only edges: the GitHub-token Secret (OWNER-08) is only
+created if the operator says so - without it the readers wait out the 60-per-hour limit (TC-220) and ingestion is
+slower but still completes; pushing past this machine's Application Control block on Rust build scripts needs the
+operator, not an agent.
