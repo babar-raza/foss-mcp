@@ -15,3 +15,12 @@
 # (tree-sitter*) packages from requirements.in are deliberately NOT here: the serving
 # image never imports them.
 mcp
+
+# TC-336: vectorized cosine similarity in src/foss_mcp/indexing/vector_index_writer.py.
+# query_vector_index_scored() is called from find_examples.py's vector-based fallback
+# stage (TC-331) on every serving query that reaches it - measured directly at
+# ~103ms-to-several-seconds under the old pure-Python per-point loop, at real
+# pilot-corpus scale (docs/DECISION_LOG.md's 2026-10-10 "NumPy added" entry has the
+# full measurement). Needed here, not just in requirements.in's dev/test closure,
+# because this scoring path runs inside the serving image itself in production.
+numpy
