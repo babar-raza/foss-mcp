@@ -399,3 +399,252 @@ def test_results_and_selection_use_the_chart_pilots(tmp_path, monkeypatch):
     results = json.loads((tmp_path / install.RESULTS_FILE).read_text(encoding="utf-8"))
     chart_keys = {pilots.pilot_key(p) for p in pilots.load_pilots(pilots.CHART_VALUES)}
     assert {r["pilot"] for r in results} == chart_keys
+
+
+# --- G2/TC-339: --embedding-gateway-secret and --github-token-secret -------------------------------------
+
+GATEWAY_PAIR = "embeddingGateway.existingSecret=my-gw"
+TOKEN_PAIR = "ingestion.githubToken.existingSecret=my-token"
+ALL_PILOTS = pilots.select_pilots(pilots.load_pilots(pilots.CHART_VALUES), [])
+BASE_ARGS = ["--namespace", "ns", "--image-tag", "t"]
+
+
+def _dry_run_helm_lines(capsys, values_dir, *extra) -> list[str]:
+    rc = install.main([*BASE_ARGS, "--dry-run", "--values-dir", str(values_dir / "values"), *extra])
+    assert rc == 0
+    lines = capsys.readouterr().out.strip().splitlines()
+    return [line for line in lines if line.startswith("helm ")]
+
+
+def _sets(cmd: list[str]) -> list[str]:
+    """The value of every `--set` in an argv, in order."""
+    return [cmd[i + 1] for i, token in enumerate(cmd) if token == "--set"]
+
+
+def test_the_chart_has_the_pilot_list_the_secret_tests_derive_their_count_from():
+    assert len(ALL_PILOTS) > 1
+    assert len({pilots.release_name(p) for p in ALL_PILOTS}) == len(ALL_PILOTS)
+
+
+def test_the_secret_flags_default_to_empty_and_set_nothing():
+    args = install.parse_args(BASE_ARGS)
+    assert args.embedding_gateway_secret == ""
+    assert args.github_token_secret == ""
+    assert install.secret_set_pairs(args) == []
+
+
+def test_each_secret_flag_names_a_real_key_in_the_chart_values():
+    import yaml
+
+    values = yaml.safe_load(pilots.CHART_VALUES.read_text(encoding="utf-8"))
+    for _flag, _dest, key in install.SECRET_FLAGS:
+        node = values
+        for part in key.split("."):
+            assert isinstance(node, dict) and part in node, f"chart values.yaml has no {key}"
+            node = node[part]
+        assert node == "", f"{key} must default to empty so the flag is the only thing that turns it on"
+
+
+def test_helm_command_with_no_extra_sets_is_byte_identical_to_the_one_without_the_argument():
+    args = ("foss-mcp-pdf-net", CHART, "ns1", "rev-abc1234", Path("values/pdf_net.yaml"), "30m")
+    assert install.helm_install_command(*args) == install.helm_install_command(*args, extra_sets=())
+    assert install.helm_install_command(*args) == install.helm_install_command(*args, extra_sets=[])
+
+
+def test_helm_command_appends_each_extra_set_after_image_tag_and_before_the_values_file_in_order():
+    cmd = install.helm_install_command(
+        "foss-mcp-pdf-net",
+        CHART,
+        "ns1",
+        "rev-abc1234",
+        Path("values/pdf_net.yaml"),
+        "30m",
+        extra_sets=["a.b=one", "c.d=two"],
+    )
+    assert cmd == [
+        "helm",
+        "upgrade",
+        "--install",
+        "foss-mcp-pdf-net",
+        str(CHART),
+        "-n",
+        "ns1",
+        "--set",
+        "image.tag=rev-abc1234",
+        "--set",
+        "a.b=one",
+        "--set",
+        "c.d=two",
+        "-f",
+        str(Path("values/pdf_net.yaml")),
+        "--wait",
+        "--timeout",
+        "30m",
+    ]
+
+
+def test_without_either_secret_flag_no_dry_run_line_mentions_a_secret_key(tmp_path, capsys, no_subprocess):
+    lines = _dry_run_helm_lines(capsys, tmp_path)
+    assert len(lines) == len(ALL_PILOTS)
+    for line in lines:
+        assert "embeddingGateway" not in line
+        assert "githubToken" not in line
+        assert line.count("--set") == 1
+        assert "--set image.tag=t" in line
+
+
+def test_embedding_gateway_secret_adds_exactly_its_pair_to_every_pilot_and_no_token_pair(
+    tmp_path, capsys, no_subprocess
+):
+    lines = _dry_run_helm_lines(capsys, tmp_path, "--embedding-gateway-secret", "my-gw")
+    assert len(lines) == len(ALL_PILOTS)
+    for line in lines:
+        assert f"--set {GATEWAY_PAIR}" in line
+        assert "githubToken" not in line
+        assert "--set image.tag=t" in line
+        assert line.count("--set") == 2
+
+
+def test_github_token_secret_adds_exactly_its_pair_to_every_pilot_and_no_gateway_pair(
+    tmp_path, capsys, no_subprocess
+):
+    lines = _dry_run_helm_lines(capsys, tmp_path, "--github-token-secret", "my-token")
+    assert len(lines) == len(ALL_PILOTS)
+    for line in lines:
+        assert f"--set {TOKEN_PAIR}" in line
+        assert "embeddingGateway" not in line
+        assert "--set image.tag=t" in line
+        assert line.count("--set") == 2
+
+
+def test_both_secret_flags_add_both_pairs_to_every_pilot_and_keep_the_image_tag(
+    tmp_path, capsys, no_subprocess
+):
+    lines = _dry_run_helm_lines(
+        capsys, tmp_path, "--embedding-gateway-secret", "my-gw", "--github-token-secret", "my-token"
+    )
+    assert len(lines) == len(ALL_PILOTS)
+    for line in lines:
+        assert f"--set {GATEWAY_PAIR}" in line
+        assert f"--set {TOKEN_PAIR}" in line
+        assert "--set image.tag=t" in line
+        assert line.count("--set") == 3
+
+
+def test_a_real_install_passes_the_secret_pairs_in_the_argv_it_executes_for_every_pilot(
+    tmp_path, monkeypatch
+):
+    fake = _fake(monkeypatch)
+    rc = install.main(
+        [
+            *BASE_ARGS,
+            "--values-dir",
+            str(tmp_path),
+            "--embedding-gateway-secret",
+            "my-gw",
+            "--github-token-secret",
+            "my-token",
+        ]
+    )
+    assert rc == 0
+    helm_calls = fake.helm_calls()
+    assert len(helm_calls) == len(ALL_PILOTS)
+    assert {cmd[3] for cmd in helm_calls} == {pilots.release_name(p) for p in ALL_PILOTS}
+    for cmd in helm_calls:
+        assert _sets(cmd) == ["image.tag=t", GATEWAY_PAIR, TOKEN_PAIR]
+        assert cmd.index("-f") > cmd.index(TOKEN_PAIR)
+    results = json.loads((tmp_path / install.RESULTS_FILE).read_text(encoding="utf-8"))
+    assert [r["command"] for r in results if r["release"] == helm_calls[0][3]] == [helm_calls[0]]
+
+
+def test_a_real_install_with_one_secret_flag_passes_only_that_pair(tmp_path, monkeypatch):
+    fake = _fake(monkeypatch)
+    rc = install.main([*BASE_ARGS, "--values-dir", str(tmp_path), "--embedding-gateway-secret", "my-gw"])
+    assert rc == 0
+    assert len(fake.helm_calls()) == len(ALL_PILOTS)
+    for cmd in fake.helm_calls():
+        assert _sets(cmd) == ["image.tag=t", GATEWAY_PAIR]
+
+
+def test_a_real_install_without_the_flags_runs_the_exact_pre_existing_argv(tmp_path, monkeypatch):
+    fake = _fake(monkeypatch)
+    rc = install.main([*BASE_ARGS, "--only", "pdf_net", "--values-dir", str(tmp_path)])
+    assert rc == 0
+    (cmd,) = fake.helm_calls()
+    assert cmd == [
+        "helm",
+        "upgrade",
+        "--install",
+        "foss-mcp-pdf-net",
+        str(install.DEFAULT_CHART),
+        "-n",
+        "ns",
+        "--set",
+        "image.tag=t",
+        "-f",
+        str(tmp_path / "pdf_net.yaml"),
+        "--wait",
+        "--timeout",
+        "30m",
+    ]
+
+
+INVALID_SECRET_NAMES = [
+    "bad,name",
+    "a=b",
+    "UPPER",
+    "-x",
+    "a" * 254,
+    "a b",
+    "trailing-",
+    ".leading-dot",
+    "under_score",
+    "newline-at-end\n",
+    "x,ingestion.githubToken.existingSecret=evil",
+]
+
+
+@pytest.mark.parametrize("flag", ["--embedding-gateway-secret", "--github-token-secret"])
+@pytest.mark.parametrize("name", INVALID_SECRET_NAMES)
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_an_invalid_secret_name_exits_two_and_runs_no_subprocess_at_all(
+    tmp_path, capsys, no_subprocess, flag, name, dry_run
+):
+    values_dir = tmp_path / "values"
+    argv = [*BASE_ARGS, "--values-dir", str(values_dir), f"{flag}={name}"]
+    if dry_run:
+        argv.append("--dry-run")
+    rc = install.main(argv)
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert captured.out == ""
+    assert flag in captured.err and "not a valid Kubernetes Secret name" in captured.err
+    assert not values_dir.exists()
+
+
+def test_a_secret_name_that_looks_like_an_option_is_refused_before_anything_runs(no_subprocess, tmp_path):
+    with pytest.raises(SystemExit) as excinfo:
+        install.main([*BASE_ARGS, "--values-dir", str(tmp_path), "--github-token-secret", "-x"])
+    assert excinfo.value.code == 2
+
+
+def test_an_invalid_name_is_refused_even_when_the_other_secret_name_is_valid(tmp_path, capsys, no_subprocess):
+    rc = install.main(
+        [
+            *BASE_ARGS,
+            "--values-dir",
+            str(tmp_path),
+            "--embedding-gateway-secret",
+            "my-gw",
+            "--github-token-secret=BAD,NAME",
+        ]
+    )
+    assert rc == 2
+    assert "--github-token-secret" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("name", ["a", "my-gw", "gw.v2", "0abc", "a-b.c-d", "a" * 253])
+def test_valid_dns_1123_secret_names_are_accepted(tmp_path, capsys, no_subprocess, name):
+    lines = _dry_run_helm_lines(capsys, tmp_path, f"--embedding-gateway-secret={name}", "--only", "pdf_net")
+    assert len(lines) == 1
+    assert f"--set embeddingGateway.existingSecret={name}" in lines[0]

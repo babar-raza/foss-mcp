@@ -17,16 +17,23 @@ ingestion Job log.
 This tool never removes a helm release: the only resource it ever removes is that release's own scoped
 ingestion Job, immediately before each upgrade.
 --dry-run prints each pilot's Job removal command and helm command and runs neither, and writes nothing.
+
+Two optional flags name Secrets the operator created (G2/TC-339): --embedding-gateway-secret NAME and
+--github-token-secret NAME. Each appends exactly one `--set <chart key>=NAME` pair to every helm command
+and nothing when absent, so the default command is unchanged. A NAME is checked against the Kubernetes
+DNS-1123 subdomain grammar before any command is built; an invalid one exits 2 without running anything.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -44,6 +51,16 @@ INSTANCE_LABEL = "app.kubernetes.io/instance"
 COMPONENT_LABEL = "app.kubernetes.io/component"
 RESULTS_FILE = "install-results.json"
 
+# Kubernetes DNS-1123 subdomain: the grammar a Secret name must satisfy. Checked before a name is placed in a
+# helm --set argument, so a comma, equals sign or backslash can never smuggle a second value into it.
+SECRET_NAME_PATTERN = re.compile(r"^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$")
+SECRET_NAME_MAX_LENGTH = 253
+# (CLI flag, argparse dest, chart values key it sets). The chart's own key names stay the defaults.
+SECRET_FLAGS = (
+    ("--embedding-gateway-secret", "embedding_gateway_secret", "embeddingGateway.existingSecret"),
+    ("--github-token-secret", "github_token_secret", "ingestion.githubToken.existingSecret"),
+)
+
 
 @dataclass
 class InstallResult:
@@ -57,10 +74,38 @@ class InstallResult:
     error: str = ""
 
 
+def secret_set_pairs(args: argparse.Namespace) -> list[str]:
+    """The `key=NAME` helm --set pairs for the Secret flags that were given, in SECRET_FLAGS order.
+
+    Raises ValueError, naming the flag, if a given NAME is not a valid DNS-1123 subdomain. An empty NAME
+    means the flag was not given and contributes nothing.
+    """
+    pairs: list[str] = []
+    for flag, dest, key in SECRET_FLAGS:
+        name = getattr(args, dest)
+        if not name:
+            continue
+        if len(name) > SECRET_NAME_MAX_LENGTH or SECRET_NAME_PATTERN.fullmatch(name) is None:
+            raise ValueError(
+                f"{flag}: {name[:60]!r} is not a valid Kubernetes Secret name "
+                f"(lowercase letters, digits, '-' and '.', starting and ending alphanumeric, "
+                f"at most {SECRET_NAME_MAX_LENGTH} characters)"
+            )
+        pairs.append(f"{key}={name}")
+    return pairs
+
+
 def helm_install_command(
-    release: str, chart: Path, namespace: str, tag: str, values_file: Path, timeout: str
+    release: str,
+    chart: Path,
+    namespace: str,
+    tag: str,
+    values_file: Path,
+    timeout: str,
+    *,
+    extra_sets: Sequence[str] = (),
 ) -> list[str]:
-    return [
+    cmd = [
         "helm",
         "upgrade",
         "--install",
@@ -70,12 +115,11 @@ def helm_install_command(
         namespace,
         "--set",
         f"image.tag={tag}",
-        "-f",
-        str(values_file),
-        "--wait",
-        "--timeout",
-        timeout,
     ]
+    for pair in extra_sets:
+        cmd += ["--set", pair]
+    cmd += ["-f", str(values_file), "--wait", "--timeout", timeout]
+    return cmd
 
 
 def job_delete_command(namespace: str, release: str) -> list[str]:
@@ -104,7 +148,13 @@ def ensure_namespace(namespace: str) -> None:
 
 
 def install_one(
-    pilot: dict[str, Any], chart: Path, namespace: str, tag: str, values_dir: Path, timeout: str
+    pilot: dict[str, Any],
+    chart: Path,
+    namespace: str,
+    tag: str,
+    values_dir: Path,
+    timeout: str,
+    extra_sets: Sequence[str] = (),
 ) -> InstallResult:
     release = pilots.release_name(pilot)
     values_file = values_dir / f"{pilots.pilot_key(pilot)}.yaml"
@@ -112,7 +162,7 @@ def install_one(
         job_delete_rc = _run(job_delete_command(namespace, release)).returncode
     except OSError:  # kubectl is not installed or not on PATH; never gates the helm step
         job_delete_rc = 127
-    cmd = helm_install_command(release, chart, namespace, tag, values_file, timeout)
+    cmd = helm_install_command(release, chart, namespace, tag, values_file, timeout, extra_sets=extra_sets)
     started = time.monotonic()
     try:
         proc = _run(cmd)
@@ -140,11 +190,13 @@ def install_all(
     values_dir: Path,
     parallel: int,
     timeout: str,
+    extra_sets: Sequence[str] = (),
 ) -> list[InstallResult]:
     """Run the installs, at most parallel at a time. Results keep the order of selected."""
     with ThreadPoolExecutor(max_workers=parallel) as pool:
         futures = [
-            pool.submit(install_one, pilot, chart, namespace, tag, values_dir, timeout) for pilot in selected
+            pool.submit(install_one, pilot, chart, namespace, tag, values_dir, timeout, extra_sets)
+            for pilot in selected
         ]
         return [future.result() for future in futures]
 
@@ -192,6 +244,18 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         metavar="FAMILY_PLATFORM",
         help="install only this pilot, e.g. pdf_net (repeatable)",
     )
+    parser.add_argument(
+        "--embedding-gateway-secret",
+        default="",
+        metavar="NAME",
+        help="name of the operator-created Secret holding the embedding gateway endpoint and apiKey",
+    )
+    parser.add_argument(
+        "--github-token-secret",
+        default="",
+        metavar="NAME",
+        help="name of the operator-created Secret holding the GitHub token (key: token)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="print the helm commands and run nothing")
     args = parser.parse_args(argv)
     if args.parallel < 1:
@@ -202,6 +266,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
+        extra_sets = secret_set_pairs(args)
         selected = pilots.select_pilots(pilots.load_pilots(), args.only)
     except (ValueError, OSError) as exc:
         print(f"install_pilots: {exc}", file=sys.stderr)
@@ -219,6 +284,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.image_tag,
                 values_file,
                 args.timeout,
+                extra_sets=extra_sets,
             )
             print(" ".join(delete_cmd))
             print(" ".join(cmd))
@@ -240,6 +306,7 @@ def main(argv: list[str] | None = None) -> int:
         values_dir=args.values_dir,
         parallel=args.parallel,
         timeout=args.timeout,
+        extra_sets=extra_sets,
     )
     results_path = args.values_dir / RESULTS_FILE
     results_path.write_text(json.dumps([asdict(r) for r in results], indent=2) + "\n", encoding="utf-8")

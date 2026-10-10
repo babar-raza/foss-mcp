@@ -81,6 +81,8 @@ Useful options:
 | `--dry-run` | Print each helm command. Run nothing and write nothing. |
 | `--parallel N` | Installs running at once. Default 2. |
 | `--timeout 45m` | `helm --timeout` for each install. Default 30m. |
+| `--embedding-gateway-secret NAME` | Name of an operator-created Secret holding the embedding gateway. Adds `--set embeddingGateway.existingSecret=NAME` to every install. See the section on passing the Secrets. |
+| `--github-token-secret NAME` | Name of an operator-created Secret holding a GitHub token. Adds `--set ingestion.githubToken.existingSecret=NAME` to every install. |
 
 The tool never removes a release or a resource. It runs no uninstall and no delete.
 
@@ -124,15 +126,60 @@ If the pod stays there, the cause is the Job, not the pod. Read the Job's log fi
 Ingestion Jobs fetch product reference data from GitHub. Unauthenticated requests share a small
 anonymous rate limit, and when it is exhausted GitHub answers HTTP 403. The Job then fails.
 
-Two cards address this, and neither is accepted at this commit:
+Two things address this:
 
-- TC-220 adds a `GITHUB_TOKEN` header to those requests and a bounded wait on a rate-limit answer.
-  Its state is IN_PROGRESS.
-- TC-221 adds an optional `ingestion.githubToken` value that reads `GITHUB_TOKEN` from a Kubernetes
-  Secret the operator creates. Its state is PENDING, and `values.yaml` has no such value yet.
+- The readers send a `GITHUB_TOKEN` header when the variable is set, and wait out a rate-limit answer
+  for a bounded time.
+- The chart's optional `ingestion.githubToken.existingSecret` value makes every ingestion Job read
+  `GITHUB_TOKEN` from a Kubernetes Secret the operator creates.
 
-Until both are accepted, an install has no token and a rate-limited Job fails. Wait for the limit to
-reset, then retry the pilot (see below). Do not put a token in a values file or the repository.
+With no Secret named, an install has no token and a rate-limited Job fails. Wait for the limit to
+reset, then retry the pilot (see below), or name a Secret as described in the next section. Do not put
+a token in a values file or the repository.
+
+## Passing the gateway and GitHub-token Secrets to the installer
+
+Two optional installer flags name Secrets that the **operator** creates. The installer and the chart
+only ever name a Secret; neither creates one or carries a credential value.
+
+- `--embedding-gateway-secret NAME` adds `--set embeddingGateway.existingSecret=NAME` to the helm
+  command of every pilot. The Secret needs the keys `endpoint` and `apiKey`.
+- `--github-token-secret NAME` adds `--set ingestion.githubToken.existingSecret=NAME` to the helm
+  command of every pilot. The Secret needs the key `token`.
+
+Create the namespace and the Secrets first. The values below are placeholders; type your own, and do
+not write them into a file in the repository:
+
+```powershell
+kubectl create namespace foss-mcp
+kubectl create secret generic NAME -n NAMESPACE --from-literal=endpoint=<GATEWAY_ENDPOINT_URL> --from-literal=apiKey=<GATEWAY_API_KEY>
+kubectl create secret generic NAME -n NAMESPACE --from-literal=token=<GITHUB_TOKEN>
+```
+
+Use a different NAME for each Secret and the pilots' namespace for NAMESPACE. Then install, giving the
+same names to the installer:
+
+```powershell
+python scripts/deploy/install_pilots.py --namespace foss-mcp --image-tag rev-1234567 --embedding-gateway-secret foss-mcp-gateway --github-token-secret foss-mcp-github-token
+```
+
+What to expect:
+
+- With the gateway Secret set, ingestion embeds through the gateway, so the stored vectors and the
+  query vectors come from one embedding model. An ingestion pod whose Secret lacks `endpoint` or
+  `apiKey` fails loudly with `CreateContainerConfigError` instead of building a different index. The
+  serving pods read the same two keys as optional: a missing key leaves `find_examples` on lexical
+  matching. Setting the Secret also renders an extra egress NetworkPolicy for TCP 443, to the
+  destinations in `embeddingGateway.egressCidrs` (default: any).
+- With the GitHub-token Secret set, ingestion authenticates to GitHub. A missing `token` key leaves
+  the Job running unauthenticated.
+- Without either flag nothing changes: the helm command is exactly the one in step 3.
+- A NAME must be a valid Kubernetes name: lowercase letters, digits, `-` and `.`, starting and ending
+  with a letter or digit, at most 253 characters. Anything else, a comma or an equals sign included,
+  makes the installer print an error and exit 2 before it builds or runs any command, `--dry-run`
+  included.
+- `--dry-run` prints the helm line each pilot would get, `--set` pairs included, so check it before a
+  real run.
 
 ## Retrying one pilot
 
@@ -170,7 +217,7 @@ uninstall each one. The namespace is left in place.
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | `FileNotFoundError` for `/app/fixtures/<pilot>/api_surface.json` in an ingestion Job log | The image was built before that pilot's fixture was added to the repository. | Commit, rebuild both images with `build_images.py` (step 1), load or push them, and reinstall with the new tag. |
-| `HTTP 403` and `rate limit exceeded` in an ingestion Job log | GitHub's anonymous rate limit is exhausted. There is no token yet (see the GITHUB_TOKEN section). | Wait for the limit to reset, then delete that Job and retry the pilot. |
+| `HTTP 403` and `rate limit exceeded` in an ingestion Job log | GitHub's anonymous rate limit is exhausted. No token is configured (see the GITHUB_TOKEN section and the one on passing the Secrets). | Wait for the limit to reset, then delete that Job and retry the pilot. |
 | A serving pod stuck at `Init:0/1` | Its ingestion Job has not written the product-reference sidecar, usually because the Job failed. | Read that Job's log with `kubectl logs job/<job-name> -n <namespace>`, fix the cause, then retry the pilot. |
 | `port 8201 already in use`, or a port-forward that exits at once | The local port `prove_pilots.py` chose is taken by another process. | Rerun with `--base-port` set to a free range, for example `--base-port 9401`. |
 | `docker is not on PATH`, or `Cannot connect to the Docker daemon` | Docker is not running, or the toolchain is not activated. | Start Docker Desktop, run `. .\scripts\toolchain\activate.ps1`, and rerun `build_images.py`. |
