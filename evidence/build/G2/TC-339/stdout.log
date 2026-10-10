@@ -1,0 +1,923 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_install_pilots.py tests/deploy/test_runbook.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-knssho3q\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 75%]
+........................                                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-knssho3q\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 60%]
+...............................................                          [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_install_pilots.py tests/deploy/test_runbook.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-knssho3q\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 75%]
+........................                                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-knssho3q\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 60%]
+...............................................                          [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/deploy/install_pilots.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_install_pilots.py tests/deploy/test_runbook.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-knssho3q\.junit-0.xml"
+--- stdout ---
+.......................F...F.FFF........................................ [ 75%]
+.......FFFFFFFFFF.......                                                 [100%]
+================================== FAILURES ===================================
+_________ test_each_secret_flag_names_a_real_key_in_the_chart_values __________
+
+    def test_each_secret_flag_names_a_real_key_in_the_chart_values():
+        import yaml
+    
+        values = yaml.safe_load(pilots.CHART_VALUES.read_text(encoding="utf-8"))
+        for _flag, _dest, key in install.SECRET_FLAGS:
+            node = values
+            for part in key.split("."):
+>               assert isinstance(node, dict) and part in node, f"chart values.yaml has no {key}"
+E               AssertionError: chart values.yaml has no embeddingGateway.existingSecretX
+E               assert (True and 'existingSecretX' in {'existingSecret': '', 'endpointKey': 'endpoint', 'apiKeyKey': 'apiKey', 'egressCidrs': ['0.0.0.0/0']})
+E                +  where True = isinstance({'existingSecret': '', 'endpointKey': 'endpoint', 'apiKeyKey': 'apiKey', 'egressCidrs': ['0.0.0.0/0']}, dict)
+
+tests\deploy\test_install_pilots.py:443: AssertionError
+_ test_embedding_gateway_secret_adds_exactly_its_pair_to_every_pilot_and_no_token_pair _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5162/test_embedding_gateway_secret_0')
+capsys = <_pytest.capture.CaptureFixture object at 0x00000238242C0350>
+no_subprocess = None
+
+    def test_embedding_gateway_secret_adds_exactly_its_pair_to_every_pilot_and_no_token_pair(
+        tmp_path, capsys, no_subprocess
+    ):
+        lines = _dry_run_helm_lines(capsys, tmp_path, "--embedding-gateway-secret", "my-gw")
+        assert len(lines) == len(ALL_PILOTS)
+        for line in lines:
+>           assert f"--set-string {GATEWAY_PAIR}" in line
+E           AssertionError: assert '--set-string embeddingGateway.existingSecret=my-gw' in 'helm upgrade --install foss-mcp-pdf-net E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\...\Local\\Temp\\pytest-of-babar\\pytest-5162\\test_embedding_gateway_secret_0\\values\\pdf_net.yaml --wait --timeout 30m'
+
+tests\deploy\test_install_pilots.py:503: AssertionError
+_ test_both_secret_flags_add_both_pairs_to_every_pilot_and_keep_the_image_tag _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5162/test_both_secret_flags_add_bot0')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000023822442E40>
+no_subprocess = None
+
+    def test_both_secret_flags_add_both_pairs_to_every_pilot_and_keep_the_image_tag(
+        tmp_path, capsys, no_subprocess
+    ):
+        lines = _dry_run_helm_lines(
+            capsys, tmp_path, "--embedding-gateway-secret", "my-gw", "--github-token-secret", "my-token"
+        )
+        assert len(lines) == len(ALL_PILOTS)
+        for line in lines:
+>           assert f"--set-string {GATEWAY_PAIR}" in line
+E           AssertionError: assert '--set-string embeddingGateway.existingSecret=my-gw' in 'helm upgrade --install foss-mcp-pdf-net E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\...\Local\\Temp\\pytest-of-babar\\pytest-5162\\test_both_secret_flags_add_bot0\\values\\pdf_net.yaml --wait --timeout 30m'
+
+tests\deploy\test_install_pilots.py:531: AssertionError
+_ test_a_real_install_passes_the_secret_pairs_in_the_argv_it_executes_for_every_pilot _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5162/test_a_real_install_passes_the0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023824263460>
+
+    def test_a_real_install_passes_the_secret_pairs_in_the_argv_it_executes_for_every_pilot(
+        tmp_path, monkeypatch
+    ):
+        fake = _fake(monkeypatch)
+        rc = install.main(
+            [
+                *BASE_ARGS,
+                "--values-dir",
+                str(tmp_path),
+                "--embedding-gateway-secret",
+                "my-gw",
+                "--github-token-secret",
+                "my-token",
+            ]
+        )
+        assert rc == 0
+        helm_calls = fake.helm_calls()
+        assert len(helm_calls) == len(ALL_PILOTS)
+        assert {cmd[3] for cmd in helm_calls} == {pilots.release_name(p) for p in ALL_PILOTS}
+        for cmd in helm_calls:
+>           assert _set_args(cmd) == [
+                ("--set", "image.tag=t"),
+                ("--set-string", GATEWAY_PAIR),
+                ("--set-string", TOKEN_PAIR),
+            ]
+E           AssertionError: assert [('--set', 'i...et=my-token')] == [('--set', 'i...et=my-token')]
+E             
+E             At index 1 diff: ('--set-string', 'embeddingGateway.existingSecretX=my-gw') != ('--set-string', 'embeddingGateway.existingSecret=my-gw')
+E             Use -v to get more diff
+
+tests\deploy\test_install_pilots.py:558: AssertionError
+---------------------------- Captured stdout call -----------------------------
+release                    rc   seconds  status
+foss-mcp-pdf-net           0        0.0  installed
+foss-mcp-slides-python     0        0.0  installed
+foss-mcp-pdf-typescript    0        0.0  installed
+foss-mcp-pdf-go            0        0.0  installed
+foss-mcp-pdf-java          0        0.0  installed
+foss-mcp-cells-rust        0        0.0  installed
+foss-mcp-pdf-cpp           0        0.0  installed
+foss-mcp-words-python      0        0.0  installed
+foss-mcp-words-net         0        0.0  installed
+foss-mcp-slides-java       0        0.0  installed
+foss-mcp-cells-go          0        0.0  installed
+foss-mcp-cells-typescript  0        0.0  installed
+foss-mcp-jmap-rust         0        0.0  installed
+foss-mcp-cells-cpp         0        0.0  installed
+foss-mcp-cells-net         0        0.0  installed
+foss-mcp-cells-python      0        0.0  installed
+foss-mcp-jmap-python       0        0.0  installed
+foss-mcp-pdf-python        0        0.0  installed
+foss-mcp-slides-cpp        0        0.0  installed
+foss-mcp-slides-net        0        0.0  installed
+foss-mcp-email-python      0        0.0  installed
+foss-mcp-email-cpp         0        0.0  installed
+foss-mcp-email-net         0        0.0  installed
+foss-mcp-barcode-python    0        0.0  installed
+foss-mcp-note-python       0        0.0  installed
+foss-mcp-html-python       0        0.0  installed
+foss-mcp-page-python       0        0.0  installed
+foss-mcp-imaging-net       0        0.0  installed
+foss-mcp-cells-java        0        0.0  installed
+foss-mcp-jmap-typescript   0        0.0  installed
+foss-mcp-jmap-go           0        0.0  installed
+foss-mcp-jmap-net          0        0.0  installed
+foss-mcp-jmap-cpp          0        0.0  installed
+foss-mcp-jmap-java         0        0.0  installed
+foss-mcp-jmap-nodejs       0        0.0  installed
+foss-mcp-3d-python         0        0.0  installed
+foss-mcp-3d-typescript     0        0.0  installed
+foss-mcp-3d-net            0        0.0  installed
+foss-mcp-3d-java           0        0.0  installed
+foss-mcp-tex-python        0        0.0  installed
+
+40 of 40 installed; results: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5162\test_a_real_install_passes_the0\install-results.json
+_______ test_a_real_install_with_one_secret_flag_passes_only_that_pair ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5162/test_a_real_install_with_one_s0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023824263BD0>
+
+    def test_a_real_install_with_one_secret_flag_passes_only_that_pair(tmp_path, monkeypatch):
+        fake = _fake(monkeypatch)
+        rc = install.main([*BASE_ARGS, "--values-dir", str(tmp_path), "--embedding-gateway-secret", "my-gw"])
+        assert rc == 0
+        assert len(fake.helm_calls()) == len(ALL_PILOTS)
+        for cmd in fake.helm_calls():
+>           assert _set_args(cmd) == [("--set", "image.tag=t"), ("--set-string", GATEWAY_PAIR)]
+E           AssertionError: assert [('--set', 'i...cretX=my-gw')] == [('--set', 'i...ecret=my-gw')]
+E             
+E             At index 1 diff: ('--set-string', 'embeddingGateway.existingSecretX=my-gw') != ('--set-string', 'embeddingGateway.existingSecret=my-gw')
+E             Use -v to get more diff
+
+tests\deploy\test_install_pilots.py:574: AssertionError
+---------------------------- Captured stdout call -----------------------------
+release                    rc   seconds  status
+foss-mcp-pdf-net           0        0.0  installed
+foss-mcp-slides-python     0        0.0  installed
+foss-mcp-pdf-typescript    0        0.0  installed
+foss-mcp-pdf-go            0        0.0  installed
+foss-mcp-pdf-java          0        0.0  installed
+foss-mcp-cells-rust        0        0.0  installed
+foss-mcp-pdf-cpp           0        0.0  installed
+foss-mcp-words-python      0        0.0  installed
+foss-mcp-words-net         0        0.0  installed
+foss-mcp-slides-java       0        0.0  installed
+foss-mcp-cells-go          0        0.0  installed
+foss-mcp-cells-typescript  0        0.0  installed
+foss-mcp-jmap-rust         0        0.0  installed
+foss-mcp-cells-cpp         0        0.0  installed
+foss-mcp-cells-net         0        0.0  installed
+foss-mcp-cells-python      0        0.0  installed
+foss-mcp-jmap-python       0        0.0  installed
+foss-mcp-pdf-python        0        0.0  installed
+foss-mcp-slides-cpp        0        0.0  installed
+foss-mcp-slides-net        0        0.0  installed
+foss-mcp-email-python      0        0.0  installed
+foss-mcp-email-cpp         0        0.0  installed
+foss-mcp-email-net         0        0.0  installed
+foss-mcp-barcode-python    0        0.0  installed
+foss-mcp-note-python       0        0.0  installed
+foss-mcp-html-python       0        0.0  installed
+foss-mcp-page-python       0        0.0  installed
+foss-mcp-imaging-net       0        0.0  installed
+foss-mcp-cells-java        0        0.0  installed
+foss-mcp-jmap-typescript   0        0.0  installed
+foss-mcp-jmap-go           0        0.0  installed
+foss-mcp-jmap-net          0        0.0  installed
+foss-mcp-jmap-cpp          0        0.0  installed
+foss-mcp-jmap-java         0        0.0  installed
+foss-mcp-jmap-nodejs       0        0.0  installed
+foss-mcp-3d-python         0        0.0  installed
+foss-mcp-3d-typescript     0        0.0  installed
+foss-mcp-3d-net            0        0.0  installed
+foss-mcp-3d-java           0        0.0  installed
+foss-mcp-tex-python        0        0.0  installed
+
+40 of 40 installed; results: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5162\test_a_real_install_with_one_s0\install-results.json
+______________ test_valid_dns_1123_secret_names_are_accepted[a] _______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5162/test_valid_dns_1123_secret_nam0')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002382266AAD0>
+no_subprocess = None, name = 'a'
+
+    @pytest.mark.parametrize("name", ["a", "my-gw", "gw.v2", "0abc", "a-b.c-d", "a" * 253])
+    def test_valid_dns_1123_secret_names_are_accepted(tmp_path, capsys, no_subprocess, name):
+        lines = _dry_run_helm_lines(capsys, tmp_path, f"--embedding-gateway-secret={name}", "--only", "pdf_net")
+        assert len(lines) == 1
+>       assert f"--set-string embeddingGateway.existingSecret={name}" in lines[0]
+E       AssertionError: assert '--set-string embeddingGateway.existingSecret=a' in 'helm upgrade --install foss-mcp-pdf-net E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\...\Local\\Temp\\pytest-of-babar\\pytest-5162\\test_valid_dns_1123_secret_nam0\\values\\pdf_net.yaml --wait --timeout 30m'
+
+tests\deploy\test_install_pilots.py:658: AssertionError
+____________ test_valid_dns_1123_secret_names_are_accepted[my-gw] _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5162/test_valid_dns_1123_secret_nam1')
+capsys = <_pytest.capture.CaptureFixture object at 0x00000238241BF2D0>
+no_subprocess = None, name = 'my-gw'
+
+    @pytest.mark.parametrize("name", ["a", "my-gw", "gw.v2", "0abc", "a-b.c-d", "a" * 253])
+    def test_valid_dns_1123_secret_names_are_accepted(tmp_path, capsys, no_subprocess, name):
+        lines = _dry_run_helm_lines(capsys, tmp_path, f"--embedding-gateway-secret={name}", "--only", "pdf_net")
+        assert len(lines) == 1
+>       assert f"--set-string embeddingGateway.existingSecret={name}" in lines[0]
+E       AssertionError: assert '--set-string embeddingGateway.existingSecret=my-gw' in 'helm upgrade --install foss-mcp-pdf-net E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\...\Local\\Temp\\pytest-of-babar\\pytest-5162\\test_valid_dns_1123_secret_nam1\\values\\pdf_net.yaml --wait --timeout 30m'
+
+tests\deploy\test_install_pilots.py:658: AssertionError
+____________ test_valid_dns_1123_secret_names_are_accepted[gw.v2] _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5162/test_valid_dns_1123_secret_nam2')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000023824235C50>
+no_subprocess = None, name = 'gw.v2'
+
+    @pytest.mark.parametrize("name", ["a", "my-gw", "gw.v2", "0abc", "a-b.c-d", "a" * 253])
+    def test_valid_dns_1123_secret_names_are_accepted(tmp_path, capsys, no_subprocess, name):
+        lines = _dry_run_helm_lines(capsys, tmp_path, f"--embedding-gateway-secret={name}", "--only", "pdf_net")
+        assert len(lines) == 1
+>       assert f"--set-string embeddingGateway.existingSecret={name}" in lines[0]
+E       AssertionError: assert '--set-string embeddingGateway.existingSecret=gw.v2' in 'helm upgrade --install foss-mcp-pdf-net E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\...\Local\\Temp\\pytest-of-babar\\pytest-5162\\test_valid_dns_1123_secret_nam2\\values\\pdf_net.yaml --wait --timeout 30m'
+
+tests\deploy\test_install_pilots.py:658: AssertionError
+_____________ test_valid_dns_1123_secret_names_are_accepted[0abc] _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5162/test_valid_dns_1123_secret_nam3')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000023822668D50>
+no_subprocess = None, name = '0abc'
+
+    @pytest.mark.parametrize("name", ["a", "my-gw", "gw.v2", "0abc", "a-b.c-d", "a" * 253])
+    def test_valid_dns_1123_secret_names_are_accepted(tmp_path, capsys, no_subprocess, name):
+        lines = _dry_run_helm_lines(capsys, tmp_path, f"--embedding-gateway-secret={name}", "--only", "pdf_net")
+        assert len(lines) == 1
+>       assert f"--set-string embeddingGateway.existingSecret={name}" in lines[0]
+E       AssertionError: assert '--set-string embeddingGateway.existingSecret=0abc' in 'helm upgrade --install foss-mcp-pdf-net E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\...\Local\\Temp\\pytest-of-babar\\pytest-5162\\test_valid_dns_1123_secret_nam3\\values\\pdf_net.yaml --wait --timeout 30m'
+
+tests\deploy\test_install_pilots.py:658: AssertionError
+___________ test_valid_dns_1123_secret_names_are_accepted[a-b.c-d] ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5162/test_valid_dns_1123_secret_nam4')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000023824228C50>
+no_subprocess = None, name = 'a-b.c-d'
+
+    @pytest.mark.parametrize("name", ["a", "my-gw", "gw.v2", "0abc", "a-b.c-d", "a" * 253])
+    def test_valid_dns_1123_secret_names_are_accepted(tmp_path, capsys, no_subprocess, name):
+        lines = _dry_run_helm_lines(capsys, tmp_path, f"--embedding-gateway-secret={name}", "--only", "pdf_net")
+        assert len(lines) == 1
+>       assert f"--set-string embeddingGateway.existingSecret={name}" in lines[0]
+E       AssertionError: assert '--set-string embeddingGateway.existingSecret=a-b.c-d' in 'helm upgrade --install foss-mcp-pdf-net E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\...\Local\\Temp\\pytest-of-babar\\pytest-5162\\test_valid_dns_1123_secret_nam4\\values\\pdf_net.yaml --wait --timeout 30m'
+
+tests\deploy\test_install_pilots.py:658: AssertionError
+_ test_valid_dns_1123_secret_names_are_accepted[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5162/test_valid_dns_1123_secret_nam5')
+capsys = <_pytest.capture.CaptureFixture object at 0x00000238241F45D0>
+no_subprocess = None
+name = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+
+    @pytest.mark.parametrize("name", ["a", "my-gw", "gw.v2", "0abc", "a-b.c-d", "a" * 253])
+    def test_valid_dns_1123_secret_names_are_accepted(tmp_path, capsys, no_subprocess, name):
+        lines = _dry_run_helm_lines(capsys, tmp_path, f"--embedding-gateway-secret={name}", "--only", "pdf_net")
+        assert len(lines) == 1
+>       assert f"--set-string embeddingGateway.existingSecret={name}" in lines[0]
+E       AssertionError: assert '--set-string embeddingGateway.existingSecret=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' in 'helm upgrade --install foss-mcp-pdf-net E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\...\Local\\Temp\\pytest-of-babar\\pytest-5162\\test_valid_dns_1123_secret_nam5\\values\\pdf_net.yaml --wait --timeout 30m'
+
+tests\deploy\test_install_pilots.py:658: AssertionError
+_ test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string[null] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5162/test_a_secret_name_helm_would_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023824262C80>
+name = 'null'
+
+    @pytest.mark.parametrize("name", ["null", "true", "false", "123"])
+    def test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string(
+        tmp_path, monkeypatch, name
+    ):
+        fake = _fake(monkeypatch)
+        rc = install.main(
+            [
+                *BASE_ARGS,
+                "--only",
+                "pdf_net",
+                "--values-dir",
+                str(tmp_path),
+                f"--embedding-gateway-secret={name}",
+                f"--github-token-secret={name}",
+            ]
+        )
+        assert rc == 0
+        (cmd,) = fake.helm_calls()
+        for key in ("embeddingGateway.existingSecret", "ingestion.githubToken.existingSecret"):
+            pair = f"{key}={name}"
+>           assert cmd[cmd.index(pair) - 1] == "--set-string"
+                       ^^^^^^^^^^^^^^^
+E           ValueError: 'embeddingGateway.existingSecret=null' is not in list
+
+tests\deploy\test_install_pilots.py:681: ValueError
+---------------------------- Captured stdout call -----------------------------
+release           rc   seconds  status
+foss-mcp-pdf-net  0        0.0  installed
+
+1 of 1 installed; results: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5162\test_a_secret_name_helm_would_0\install-results.json
+_ test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string[true] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5162/test_a_secret_name_helm_would_1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023824352CF0>
+name = 'true'
+
+    @pytest.mark.parametrize("name", ["null", "true", "false", "123"])
+    def test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string(
+        tmp_path, monkeypatch, name
+    ):
+        fake = _fake(monkeypatch)
+        rc = install.main(
+            [
+                *BASE_ARGS,
+                "--only",
+                "pdf_net",
+                "--values-dir",
+                str(tmp_path),
+                f"--embedding-gateway-secret={name}",
+                f"--github-token-secret={name}",
+            ]
+        )
+        assert rc == 0
+        (cmd,) = fake.helm_calls()
+        for key in ("embeddingGateway.existingSecret", "ingestion.githubToken.existingSecret"):
+            pair = f"{key}={name}"
+>           assert cmd[cmd.index(pair) - 1] == "--set-string"
+                       ^^^^^^^^^^^^^^^
+E           ValueError: 'embeddingGateway.existingSecret=true' is not in list
+
+tests\deploy\test_install_pilots.py:681: ValueError
+---------------------------- Captured stdout call -----------------------------
+release           rc   seconds  status
+foss-mcp-pdf-net  0        0.0  installed
+
+1 of 1 installed; results: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5162\test_a_secret_name_helm_would_1\install-results.json
+_ test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string[false] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5162/test_a_secret_name_helm_would_2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023824263930>
+name = 'false'
+
+    @pytest.mark.parametrize("name", ["null", "true", "false", "123"])
+    def test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string(
+        tmp_path, monkeypatch, name
+    ):
+        fake = _fake(monkeypatch)
+        rc = install.main(
+            [
+                *BASE_ARGS,
+                "--only",
+                "pdf_net",
+                "--values-dir",
+                str(tmp_path),
+                f"--embedding-gateway-secret={name}",
+                f"--github-token-secret={name}",
+            ]
+        )
+        assert rc == 0
+        (cmd,) = fake.helm_calls()
+        for key in ("embeddingGateway.existingSecret", "ingestion.githubToken.existingSecret"):
+            pair = f"{key}={name}"
+>           assert cmd[cmd.index(pair) - 1] == "--set-string"
+                       ^^^^^^^^^^^^^^^
+E           ValueError: 'embeddingGateway.existingSecret=false' is not in list
+
+tests\deploy\test_install_pilots.py:681: ValueError
+---------------------------- Captured stdout call -----------------------------
+release           rc   seconds  status
+foss-mcp-pdf-net  0        0.0  installed
+
+1 of 1 installed; results: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5162\test_a_secret_name_helm_would_2\install-results.json
+_ test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string[123] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5162/test_a_secret_name_helm_would_3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023824353460>
+name = '123'
+
+    @pytest.mark.parametrize("name", ["null", "true", "false", "123"])
+    def test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string(
+        tmp_path, monkeypatch, name
+    ):
+        fake = _fake(monkeypatch)
+        rc = install.main(
+            [
+                *BASE_ARGS,
+                "--only",
+                "pdf_net",
+                "--values-dir",
+                str(tmp_path),
+                f"--embedding-gateway-secret={name}",
+                f"--github-token-secret={name}",
+            ]
+        )
+        assert rc == 0
+        (cmd,) = fake.helm_calls()
+        for key in ("embeddingGateway.existingSecret", "ingestion.githubToken.existingSecret"):
+            pair = f"{key}={name}"
+>           assert cmd[cmd.index(pair) - 1] == "--set-string"
+                       ^^^^^^^^^^^^^^^
+E           ValueError: 'embeddingGateway.existingSecret=123' is not in list
+
+tests\deploy\test_install_pilots.py:681: ValueError
+---------------------------- Captured stdout call -----------------------------
+release           rc   seconds  status
+foss-mcp-pdf-net  0        0.0  installed
+
+1 of 1 installed; results: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5162\test_a_secret_name_helm_would_3\install-results.json
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_install_pilots.py::test_each_secret_flag_names_a_real_key_in_the_chart_values
+FAILED tests/deploy/test_install_pilots.py::test_embedding_gateway_secret_adds_exactly_its_pair_to_every_pilot_and_no_token_pair
+FAILED tests/deploy/test_install_pilots.py::test_both_secret_flags_add_both_pairs_to_every_pilot_and_keep_the_image_tag
+FAILED tests/deploy/test_install_pilots.py::test_a_real_install_passes_the_secret_pairs_in_the_argv_it_executes_for_every_pilot
+FAILED tests/deploy/test_install_pilots.py::test_a_real_install_with_one_secret_flag_passes_only_that_pair
+FAILED tests/deploy/test_install_pilots.py::test_valid_dns_1123_secret_names_are_accepted[a]
+FAILED tests/deploy/test_install_pilots.py::test_valid_dns_1123_secret_names_are_accepted[my-gw]
+FAILED tests/deploy/test_install_pilots.py::test_valid_dns_1123_secret_names_are_accepted[gw.v2]
+FAILED tests/deploy/test_install_pilots.py::test_valid_dns_1123_secret_names_are_accepted[0abc]
+FAILED tests/deploy/test_install_pilots.py::test_valid_dns_1123_secret_names_are_accepted[a-b.c-d]
+FAILED tests/deploy/test_install_pilots.py::test_valid_dns_1123_secret_names_are_accepted[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]
+FAILED tests/deploy/test_install_pilots.py::test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string[null]
+FAILED tests/deploy/test_install_pilots.py::test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string[true]
+FAILED tests/deploy/test_install_pilots.py::test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string[false]
+FAILED tests/deploy/test_install_pilots.py::test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string[123]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-knssho3q\.junit-1.xml"
+--- stdout ---
+.......................F...F.FFF........................................ [ 60%]
+.......FFFFFFFFFF..............................                          [100%]
+================================== FAILURES ===================================
+_________ test_each_secret_flag_names_a_real_key_in_the_chart_values __________
+
+    def test_each_secret_flag_names_a_real_key_in_the_chart_values():
+        import yaml
+    
+        values = yaml.safe_load(pilots.CHART_VALUES.read_text(encoding="utf-8"))
+        for _flag, _dest, key in install.SECRET_FLAGS:
+            node = values
+            for part in key.split("."):
+>               assert isinstance(node, dict) and part in node, f"chart values.yaml has no {key}"
+E               AssertionError: chart values.yaml has no embeddingGateway.existingSecretX
+E               assert (True and 'existingSecretX' in {'existingSecret': '', 'endpointKey': 'endpoint', 'apiKeyKey': 'apiKey', 'egressCidrs': ['0.0.0.0/0']})
+E                +  where True = isinstance({'existingSecret': '', 'endpointKey': 'endpoint', 'apiKeyKey': 'apiKey', 'egressCidrs': ['0.0.0.0/0']}, dict)
+
+tests\deploy\test_install_pilots.py:443: AssertionError
+_ test_embedding_gateway_secret_adds_exactly_its_pair_to_every_pilot_and_no_token_pair _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5164/test_embedding_gateway_secret_0')
+capsys = <_pytest.capture.CaptureFixture object at 0x00000203D6A4DB50>
+no_subprocess = None
+
+    def test_embedding_gateway_secret_adds_exactly_its_pair_to_every_pilot_and_no_token_pair(
+        tmp_path, capsys, no_subprocess
+    ):
+        lines = _dry_run_helm_lines(capsys, tmp_path, "--embedding-gateway-secret", "my-gw")
+        assert len(lines) == len(ALL_PILOTS)
+        for line in lines:
+>           assert f"--set-string {GATEWAY_PAIR}" in line
+E           AssertionError: assert '--set-string embeddingGateway.existingSecret=my-gw' in 'helm upgrade --install foss-mcp-pdf-net E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\...\Local\\Temp\\pytest-of-babar\\pytest-5164\\test_embedding_gateway_secret_0\\values\\pdf_net.yaml --wait --timeout 30m'
+
+tests\deploy\test_install_pilots.py:503: AssertionError
+_ test_both_secret_flags_add_both_pairs_to_every_pilot_and_keep_the_image_tag _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5164/test_both_secret_flags_add_bot0')
+capsys = <_pytest.capture.CaptureFixture object at 0x00000203D69426C0>
+no_subprocess = None
+
+    def test_both_secret_flags_add_both_pairs_to_every_pilot_and_keep_the_image_tag(
+        tmp_path, capsys, no_subprocess
+    ):
+        lines = _dry_run_helm_lines(
+            capsys, tmp_path, "--embedding-gateway-secret", "my-gw", "--github-token-secret", "my-token"
+        )
+        assert len(lines) == len(ALL_PILOTS)
+        for line in lines:
+>           assert f"--set-string {GATEWAY_PAIR}" in line
+E           AssertionError: assert '--set-string embeddingGateway.existingSecret=my-gw' in 'helm upgrade --install foss-mcp-pdf-net E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\...\Local\\Temp\\pytest-of-babar\\pytest-5164\\test_both_secret_flags_add_bot0\\values\\pdf_net.yaml --wait --timeout 30m'
+
+tests\deploy\test_install_pilots.py:531: AssertionError
+_ test_a_real_install_passes_the_secret_pairs_in_the_argv_it_executes_for_every_pilot _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5164/test_a_real_install_passes_the0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000203D68332A0>
+
+    def test_a_real_install_passes_the_secret_pairs_in_the_argv_it_executes_for_every_pilot(
+        tmp_path, monkeypatch
+    ):
+        fake = _fake(monkeypatch)
+        rc = install.main(
+            [
+                *BASE_ARGS,
+                "--values-dir",
+                str(tmp_path),
+                "--embedding-gateway-secret",
+                "my-gw",
+                "--github-token-secret",
+                "my-token",
+            ]
+        )
+        assert rc == 0
+        helm_calls = fake.helm_calls()
+        assert len(helm_calls) == len(ALL_PILOTS)
+        assert {cmd[3] for cmd in helm_calls} == {pilots.release_name(p) for p in ALL_PILOTS}
+        for cmd in helm_calls:
+>           assert _set_args(cmd) == [
+                ("--set", "image.tag=t"),
+                ("--set-string", GATEWAY_PAIR),
+                ("--set-string", TOKEN_PAIR),
+            ]
+E           AssertionError: assert [('--set', 'i...et=my-token')] == [('--set', 'i...et=my-token')]
+E             
+E             At index 1 diff: ('--set-string', 'embeddingGateway.existingSecretX=my-gw') != ('--set-string', 'embeddingGateway.existingSecret=my-gw')
+E             Use -v to get more diff
+
+tests\deploy\test_install_pilots.py:558: AssertionError
+---------------------------- Captured stdout call -----------------------------
+release                    rc   seconds  status
+foss-mcp-pdf-net           0        0.0  installed
+foss-mcp-slides-python     0        0.0  installed
+foss-mcp-pdf-typescript    0        0.0  installed
+foss-mcp-pdf-go            0        0.0  installed
+foss-mcp-pdf-java          0        0.0  installed
+foss-mcp-cells-rust        0        0.0  installed
+foss-mcp-pdf-cpp           0        0.0  installed
+foss-mcp-words-python      0        0.0  installed
+foss-mcp-words-net         0        0.0  installed
+foss-mcp-slides-java       0        0.0  installed
+foss-mcp-cells-go          0        0.0  installed
+foss-mcp-cells-typescript  0        0.0  installed
+foss-mcp-jmap-rust         0        0.0  installed
+foss-mcp-cells-cpp         0        0.0  installed
+foss-mcp-cells-net         0        0.0  installed
+foss-mcp-cells-python      0        0.0  installed
+foss-mcp-jmap-python       0        0.0  installed
+foss-mcp-pdf-python        0        0.0  installed
+foss-mcp-slides-cpp        0        0.0  installed
+foss-mcp-slides-net        0        0.0  installed
+foss-mcp-email-python      0        0.0  installed
+foss-mcp-email-cpp         0        0.0  installed
+foss-mcp-email-net         0        0.0  installed
+foss-mcp-barcode-python    0        0.0  installed
+foss-mcp-note-python       0        0.0  installed
+foss-mcp-html-python       0        0.0  installed
+foss-mcp-page-python       0        0.0  installed
+foss-mcp-imaging-net       0        0.0  installed
+foss-mcp-cells-java        0        0.0  installed
+foss-mcp-jmap-typescript   0        0.0  installed
+foss-mcp-jmap-go           0        0.0  installed
+foss-mcp-jmap-net          0        0.0  installed
+foss-mcp-jmap-cpp          0        0.0  installed
+foss-mcp-jmap-java         0        0.0  installed
+foss-mcp-jmap-nodejs       0        0.0  installed
+foss-mcp-3d-python         0        0.0  installed
+foss-mcp-3d-typescript     0        0.0  installed
+foss-mcp-3d-net            0        0.0  installed
+foss-mcp-3d-java           0        0.0  installed
+foss-mcp-tex-python        0        0.0  installed
+
+40 of 40 installed; results: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5164\test_a_real_install_passes_the0\install-results.json
+_______ test_a_real_install_with_one_secret_flag_passes_only_that_pair ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5164/test_a_real_install_with_one_s0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000203D68327B0>
+
+    def test_a_real_install_with_one_secret_flag_passes_only_that_pair(tmp_path, monkeypatch):
+        fake = _fake(monkeypatch)
+        rc = install.main([*BASE_ARGS, "--values-dir", str(tmp_path), "--embedding-gateway-secret", "my-gw"])
+        assert rc == 0
+        assert len(fake.helm_calls()) == len(ALL_PILOTS)
+        for cmd in fake.helm_calls():
+>           assert _set_args(cmd) == [("--set", "image.tag=t"), ("--set-string", GATEWAY_PAIR)]
+E           AssertionError: assert [('--set', 'i...cretX=my-gw')] == [('--set', 'i...ecret=my-gw')]
+E             
+E             At index 1 diff: ('--set-string', 'embeddingGateway.existingSecretX=my-gw') != ('--set-string', 'embeddingGateway.existingSecret=my-gw')
+E             Use -v to get more diff
+
+tests\deploy\test_install_pilots.py:574: AssertionError
+---------------------------- Captured stdout call -----------------------------
+release                    rc   seconds  status
+foss-mcp-pdf-net           0        0.0  installed
+foss-mcp-slides-python     0        0.0  installed
+foss-mcp-pdf-typescript    0        0.0  installed
+foss-mcp-pdf-go            0        0.0  installed
+foss-mcp-pdf-java          0        0.0  installed
+foss-mcp-cells-rust        0        0.0  installed
+foss-mcp-pdf-cpp           0        0.0  installed
+foss-mcp-words-python      0        0.0  installed
+foss-mcp-words-net         0        0.0  installed
+foss-mcp-slides-java       0        0.0  installed
+foss-mcp-cells-go          0        0.0  installed
+foss-mcp-cells-typescript  0        0.0  installed
+foss-mcp-jmap-rust         0        0.0  installed
+foss-mcp-cells-cpp         0        0.0  installed
+foss-mcp-cells-net         0        0.0  installed
+foss-mcp-cells-python      0        0.0  installed
+foss-mcp-jmap-python       0        0.0  installed
+foss-mcp-pdf-python        0        0.0  installed
+foss-mcp-slides-cpp        0        0.0  installed
+foss-mcp-slides-net        0        0.0  installed
+foss-mcp-email-python      0        0.0  installed
+foss-mcp-email-cpp         0        0.0  installed
+foss-mcp-email-net         0        0.0  installed
+foss-mcp-barcode-python    0        0.0  installed
+foss-mcp-note-python       0        0.0  installed
+foss-mcp-html-python       0        0.0  installed
+foss-mcp-page-python       0        0.0  installed
+foss-mcp-imaging-net       0        0.0  installed
+foss-mcp-cells-java        0        0.0  installed
+foss-mcp-jmap-typescript   0        0.0  installed
+foss-mcp-jmap-go           0        0.0  installed
+foss-mcp-jmap-net          0        0.0  installed
+foss-mcp-jmap-cpp          0        0.0  installed
+foss-mcp-jmap-java         0        0.0  installed
+foss-mcp-jmap-nodejs       0        0.0  installed
+foss-mcp-3d-python         0        0.0  installed
+foss-mcp-3d-typescript     0        0.0  installed
+foss-mcp-3d-net            0        0.0  installed
+foss-mcp-3d-java           0        0.0  installed
+foss-mcp-tex-python        0        0.0  installed
+
+40 of 40 installed; results: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5164\test_a_real_install_with_one_s0\install-results.json
+______________ test_valid_dns_1123_secret_names_are_accepted[a] _______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5164/test_valid_dns_1123_secret_nam0')
+capsys = <_pytest.capture.CaptureFixture object at 0x00000203D4D9EF50>
+no_subprocess = None, name = 'a'
+
+    @pytest.mark.parametrize("name", ["a", "my-gw", "gw.v2", "0abc", "a-b.c-d", "a" * 253])
+    def test_valid_dns_1123_secret_names_are_accepted(tmp_path, capsys, no_subprocess, name):
+        lines = _dry_run_helm_lines(capsys, tmp_path, f"--embedding-gateway-secret={name}", "--only", "pdf_net")
+        assert len(lines) == 1
+>       assert f"--set-string embeddingGateway.existingSecret={name}" in lines[0]
+E       AssertionError: assert '--set-string embeddingGateway.existingSecret=a' in 'helm upgrade --install foss-mcp-pdf-net E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\...\Local\\Temp\\pytest-of-babar\\pytest-5164\\test_valid_dns_1123_secret_nam0\\values\\pdf_net.yaml --wait --timeout 30m'
+
+tests\deploy\test_install_pilots.py:658: AssertionError
+____________ test_valid_dns_1123_secret_names_are_accepted[my-gw] _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5164/test_valid_dns_1123_secret_nam1')
+capsys = <_pytest.capture.CaptureFixture object at 0x00000203D6840DD0>
+no_subprocess = None, name = 'my-gw'
+
+    @pytest.mark.parametrize("name", ["a", "my-gw", "gw.v2", "0abc", "a-b.c-d", "a" * 253])
+    def test_valid_dns_1123_secret_names_are_accepted(tmp_path, capsys, no_subprocess, name):
+        lines = _dry_run_helm_lines(capsys, tmp_path, f"--embedding-gateway-secret={name}", "--only", "pdf_net")
+        assert len(lines) == 1
+>       assert f"--set-string embeddingGateway.existingSecret={name}" in lines[0]
+E       AssertionError: assert '--set-string embeddingGateway.existingSecret=my-gw' in 'helm upgrade --install foss-mcp-pdf-net E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\...\Local\\Temp\\pytest-of-babar\\pytest-5164\\test_valid_dns_1123_secret_nam1\\values\\pdf_net.yaml --wait --timeout 30m'
+
+tests\deploy\test_install_pilots.py:658: AssertionError
+____________ test_valid_dns_1123_secret_names_are_accepted[gw.v2] _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5164/test_valid_dns_1123_secret_nam2')
+capsys = <_pytest.capture.CaptureFixture object at 0x00000203D4D99ED0>
+no_subprocess = None, name = 'gw.v2'
+
+    @pytest.mark.parametrize("name", ["a", "my-gw", "gw.v2", "0abc", "a-b.c-d", "a" * 253])
+    def test_valid_dns_1123_secret_names_are_accepted(tmp_path, capsys, no_subprocess, name):
+        lines = _dry_run_helm_lines(capsys, tmp_path, f"--embedding-gateway-secret={name}", "--only", "pdf_net")
+        assert len(lines) == 1
+>       assert f"--set-string embeddingGateway.existingSecret={name}" in lines[0]
+E       AssertionError: assert '--set-string embeddingGateway.existingSecret=gw.v2' in 'helm upgrade --install foss-mcp-pdf-net E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\...\Local\\Temp\\pytest-of-babar\\pytest-5164\\test_valid_dns_1123_secret_nam2\\values\\pdf_net.yaml --wait --timeout 30m'
+
+tests\deploy\test_install_pilots.py:658: AssertionError
+_____________ test_valid_dns_1123_secret_names_are_accepted[0abc] _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5164/test_valid_dns_1123_secret_nam3')
+capsys = <_pytest.capture.CaptureFixture object at 0x00000203D6896050>
+no_subprocess = None, name = '0abc'
+
+    @pytest.mark.parametrize("name", ["a", "my-gw", "gw.v2", "0abc", "a-b.c-d", "a" * 253])
+    def test_valid_dns_1123_secret_names_are_accepted(tmp_path, capsys, no_subprocess, name):
+        lines = _dry_run_helm_lines(capsys, tmp_path, f"--embedding-gateway-secret={name}", "--only", "pdf_net")
+        assert len(lines) == 1
+>       assert f"--set-string embeddingGateway.existingSecret={name}" in lines[0]
+E       AssertionError: assert '--set-string embeddingGateway.existingSecret=0abc' in 'helm upgrade --install foss-mcp-pdf-net E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\...\Local\\Temp\\pytest-of-babar\\pytest-5164\\test_valid_dns_1123_secret_nam3\\values\\pdf_net.yaml --wait --timeout 30m'
+
+tests\deploy\test_install_pilots.py:658: AssertionError
+___________ test_valid_dns_1123_secret_names_are_accepted[a-b.c-d] ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5164/test_valid_dns_1123_secret_nam4')
+capsys = <_pytest.capture.CaptureFixture object at 0x00000203D68439D0>
+no_subprocess = None, name = 'a-b.c-d'
+
+    @pytest.mark.parametrize("name", ["a", "my-gw", "gw.v2", "0abc", "a-b.c-d", "a" * 253])
+    def test_valid_dns_1123_secret_names_are_accepted(tmp_path, capsys, no_subprocess, name):
+        lines = _dry_run_helm_lines(capsys, tmp_path, f"--embedding-gateway-secret={name}", "--only", "pdf_net")
+        assert len(lines) == 1
+>       assert f"--set-string embeddingGateway.existingSecret={name}" in lines[0]
+E       AssertionError: assert '--set-string embeddingGateway.existingSecret=a-b.c-d' in 'helm upgrade --install foss-mcp-pdf-net E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\...\Local\\Temp\\pytest-of-babar\\pytest-5164\\test_valid_dns_1123_secret_nam4\\values\\pdf_net.yaml --wait --timeout 30m'
+
+tests\deploy\test_install_pilots.py:658: AssertionError
+_ test_valid_dns_1123_secret_names_are_accepted[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5164/test_valid_dns_1123_secret_nam5')
+capsys = <_pytest.capture.CaptureFixture object at 0x00000203D4D98ED0>
+no_subprocess = None
+name = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+
+    @pytest.mark.parametrize("name", ["a", "my-gw", "gw.v2", "0abc", "a-b.c-d", "a" * 253])
+    def test_valid_dns_1123_secret_names_are_accepted(tmp_path, capsys, no_subprocess, name):
+        lines = _dry_run_helm_lines(capsys, tmp_path, f"--embedding-gateway-secret={name}", "--only", "pdf_net")
+        assert len(lines) == 1
+>       assert f"--set-string embeddingGateway.existingSecret={name}" in lines[0]
+E       AssertionError: assert '--set-string embeddingGateway.existingSecret=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' in 'helm upgrade --install foss-mcp-pdf-net E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\...\Local\\Temp\\pytest-of-babar\\pytest-5164\\test_valid_dns_1123_secret_nam5\\values\\pdf_net.yaml --wait --timeout 30m'
+
+tests\deploy\test_install_pilots.py:658: AssertionError
+_ test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string[null] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5164/test_a_secret_name_helm_would_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000203D6830DE0>
+name = 'null'
+
+    @pytest.mark.parametrize("name", ["null", "true", "false", "123"])
+    def test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string(
+        tmp_path, monkeypatch, name
+    ):
+        fake = _fake(monkeypatch)
+        rc = install.main(
+            [
+                *BASE_ARGS,
+                "--only",
+                "pdf_net",
+                "--values-dir",
+                str(tmp_path),
+                f"--embedding-gateway-secret={name}",
+                f"--github-token-secret={name}",
+            ]
+        )
+        assert rc == 0
+        (cmd,) = fake.helm_calls()
+        for key in ("embeddingGateway.existingSecret", "ingestion.githubToken.existingSecret"):
+            pair = f"{key}={name}"
+>           assert cmd[cmd.index(pair) - 1] == "--set-string"
+                       ^^^^^^^^^^^^^^^
+E           ValueError: 'embeddingGateway.existingSecret=null' is not in list
+
+tests\deploy\test_install_pilots.py:681: ValueError
+---------------------------- Captured stdout call -----------------------------
+release           rc   seconds  status
+foss-mcp-pdf-net  0        0.0  installed
+
+1 of 1 installed; results: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5164\test_a_secret_name_helm_would_0\install-results.json
+_ test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string[true] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5164/test_a_secret_name_helm_would_1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000203D68314E0>
+name = 'true'
+
+    @pytest.mark.parametrize("name", ["null", "true", "false", "123"])
+    def test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string(
+        tmp_path, monkeypatch, name
+    ):
+        fake = _fake(monkeypatch)
+        rc = install.main(
+            [
+                *BASE_ARGS,
+                "--only",
+                "pdf_net",
+                "--values-dir",
+                str(tmp_path),
+                f"--embedding-gateway-secret={name}",
+                f"--github-token-secret={name}",
+            ]
+        )
+        assert rc == 0
+        (cmd,) = fake.helm_calls()
+        for key in ("embeddingGateway.existingSecret", "ingestion.githubToken.existingSecret"):
+            pair = f"{key}={name}"
+>           assert cmd[cmd.index(pair) - 1] == "--set-string"
+                       ^^^^^^^^^^^^^^^
+E           ValueError: 'embeddingGateway.existingSecret=true' is not in list
+
+tests\deploy\test_install_pilots.py:681: ValueError
+---------------------------- Captured stdout call -----------------------------
+release           rc   seconds  status
+foss-mcp-pdf-net  0        0.0  installed
+
+1 of 1 installed; results: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5164\test_a_secret_name_helm_would_1\install-results.json
+_ test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string[false] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5164/test_a_secret_name_helm_would_2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000203D6831320>
+name = 'false'
+
+    @pytest.mark.parametrize("name", ["null", "true", "false", "123"])
+    def test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string(
+        tmp_path, monkeypatch, name
+    ):
+        fake = _fake(monkeypatch)
+        rc = install.main(
+            [
+                *BASE_ARGS,
+                "--only",
+                "pdf_net",
+                "--values-dir",
+                str(tmp_path),
+                f"--embedding-gateway-secret={name}",
+                f"--github-token-secret={name}",
+            ]
+        )
+        assert rc == 0
+        (cmd,) = fake.helm_calls()
+        for key in ("embeddingGateway.existingSecret", "ingestion.githubToken.existingSecret"):
+            pair = f"{key}={name}"
+>           assert cmd[cmd.index(pair) - 1] == "--set-string"
+                       ^^^^^^^^^^^^^^^
+E           ValueError: 'embeddingGateway.existingSecret=false' is not in list
+
+tests\deploy\test_install_pilots.py:681: ValueError
+---------------------------- Captured stdout call -----------------------------
+release           rc   seconds  status
+foss-mcp-pdf-net  0        0.0  installed
+
+1 of 1 installed; results: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5164\test_a_secret_name_helm_would_2\install-results.json
+_ test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string[123] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5164/test_a_secret_name_helm_would_3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000203D68309F0>
+name = '123'
+
+    @pytest.mark.parametrize("name", ["null", "true", "false", "123"])
+    def test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string(
+        tmp_path, monkeypatch, name
+    ):
+        fake = _fake(monkeypatch)
+        rc = install.main(
+            [
+                *BASE_ARGS,
+                "--only",
+                "pdf_net",
+                "--values-dir",
+                str(tmp_path),
+                f"--embedding-gateway-secret={name}",
+                f"--github-token-secret={name}",
+            ]
+        )
+        assert rc == 0
+        (cmd,) = fake.helm_calls()
+        for key in ("embeddingGateway.existingSecret", "ingestion.githubToken.existingSecret"):
+            pair = f"{key}={name}"
+>           assert cmd[cmd.index(pair) - 1] == "--set-string"
+                       ^^^^^^^^^^^^^^^
+E           ValueError: 'embeddingGateway.existingSecret=123' is not in list
+
+tests\deploy\test_install_pilots.py:681: ValueError
+---------------------------- Captured stdout call -----------------------------
+release           rc   seconds  status
+foss-mcp-pdf-net  0        0.0  installed
+
+1 of 1 installed; results: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5164\test_a_secret_name_helm_would_3\install-results.json
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_install_pilots.py::test_each_secret_flag_names_a_real_key_in_the_chart_values
+FAILED tests/deploy/test_install_pilots.py::test_embedding_gateway_secret_adds_exactly_its_pair_to_every_pilot_and_no_token_pair
+FAILED tests/deploy/test_install_pilots.py::test_both_secret_flags_add_both_pairs_to_every_pilot_and_keep_the_image_tag
+FAILED tests/deploy/test_install_pilots.py::test_a_real_install_passes_the_secret_pairs_in_the_argv_it_executes_for_every_pilot
+FAILED tests/deploy/test_install_pilots.py::test_a_real_install_with_one_secret_flag_passes_only_that_pair
+FAILED tests/deploy/test_install_pilots.py::test_valid_dns_1123_secret_names_are_accepted[a]
+FAILED tests/deploy/test_install_pilots.py::test_valid_dns_1123_secret_names_are_accepted[my-gw]
+FAILED tests/deploy/test_install_pilots.py::test_valid_dns_1123_secret_names_are_accepted[gw.v2]
+FAILED tests/deploy/test_install_pilots.py::test_valid_dns_1123_secret_names_are_accepted[0abc]
+FAILED tests/deploy/test_install_pilots.py::test_valid_dns_1123_secret_names_are_accepted[a-b.c-d]
+FAILED tests/deploy/test_install_pilots.py::test_valid_dns_1123_secret_names_are_accepted[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]
+FAILED tests/deploy/test_install_pilots.py::test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string[null]
+FAILED tests/deploy/test_install_pilots.py::test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string[true]
+FAILED tests/deploy/test_install_pilots.py::test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string[false]
+FAILED tests/deploy/test_install_pilots.py::test_a_secret_name_helm_would_coerce_is_emitted_verbatim_right_after_set_string[123]
+
+--- stderr ---
+
