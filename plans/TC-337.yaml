@@ -13,11 +13,13 @@ purpose: >-
   but ONLY when embeddingGateway.existingSecret is set; with it unset the Job must render exactly as it
   does today.
 depends_on:
+- TC-221
 - TC-330
 - TC-334
 write_paths:
 - infra/helm/foss-mcp/templates/ingestion-job.yaml
 - tests/infra/test_helm_ingestion_embedding.py
+- tests/infra/test_helm_github_token.py
 satisfies:
 - REQ-G2-043
 source_refs:
@@ -55,6 +57,16 @@ inputs:
   (3) the secret name and key names never appear as a literal env `value:`;
   (4) the rendered Job count is the same in both modes (the switch changes content, never how many Jobs exist).
   Use the chart's real pilot list; do not hard-code a pilot count, derive it from the render.
+- >-
+  tests/infra/test_helm_github_token.py (TC-221's accepted test, now in your write_paths for ONE reason):
+  `test_template_names_secret_key_ref_exactly_once` asserts the text `secretKeyRef` occurs exactly once in
+  ingestion-job.yaml, which this card's two required gateway refs legitimately extend to three. Change ONLY that
+  test: rename it to say what it now proves, assert the template contains exactly 3 `secretKeyRef` occurrences
+  (GITHUB_TOKEN plus the two gateway refs) AND that the GITHUB_TOKEN env entry itself (from its `- name: GITHUB_TOKEN`
+  line to the next `- name:` or the closing `{{- end }}`) contains exactly one. Keep both as exact-equality
+  checks, never `>=`. TC-221's own falsifier replaces EVERY `secretKeyRef` with `secretKeyRefOff`, so it still
+  breaks the GITHUB_TOKEN rendering after this change; do not touch any other test or line in that file, and say
+  so in your report.
 - >-
   Run `{python} -m pytest tests/infra/test_helm_ingestion_embedding.py -q -rfE`, then once
   `{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_github_token.py tests/infra/test_helm_embedding_gateway.py -q -rfE`
