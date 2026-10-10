@@ -519,13 +519,14 @@ def test_demo_mode_renders_one_deployment_and_service_per_pilot() -> None:
     docs = _render_demo()
     pilots = yaml.safe_load((CHART / "values.yaml").read_text(encoding="utf-8"))["ingestion"]["pilots"]
     demo_deployments = [
-        d for d in _by_kind(docs, "Deployment") if d["spec"]["template"]["metadata"]["labels"].get(
-            "app.kubernetes.io/component"
-        ) == "demo-serving"
+        d
+        for d in _by_kind(docs, "Deployment")
+        if d["spec"]["template"]["metadata"]["labels"].get("app.kubernetes.io/component") == "demo-serving"
     ]
     demo_services = [
-        s for s in _by_kind(docs, "Service") if s["metadata"]["labels"].get("app.kubernetes.io/component")
-        == "demo-serving"
+        s
+        for s in _by_kind(docs, "Service")
+        if s["metadata"]["labels"].get("app.kubernetes.io/component") == "demo-serving"
     ]
     assert len(demo_deployments) == len(pilots), "expected one demo Deployment per pilot in values.yaml"
     assert len(demo_services) == len(pilots), "expected one demo Service per pilot in values.yaml"
@@ -537,9 +538,9 @@ def test_demo_mode_renders_one_deployment_and_service_per_pilot() -> None:
 def test_demo_pods_need_no_manifests_volume_initcontainer_or_pvc_reference() -> None:
     docs = _render_demo()
     demo_deployments = [
-        d for d in _by_kind(docs, "Deployment") if d["spec"]["template"]["metadata"]["labels"].get(
-            "app.kubernetes.io/component"
-        ) == "demo-serving"
+        d
+        for d in _by_kind(docs, "Deployment")
+        if d["spec"]["template"]["metadata"]["labels"].get("app.kubernetes.io/component") == "demo-serving"
     ]
     assert demo_deployments, "expected at least one demo Deployment"
     for dep in demo_deployments:
@@ -566,7 +567,8 @@ def test_demo_deployments_each_carry_their_own_real_pilot_identity() -> None:
         name = f"foss-mcp-pdf-net-demo-{pilot['family']}-{pilot['platform']}"
         assert name in demo_deployments, name
         env = {
-            e["name"]: e["value"] for e in demo_deployments[name]["spec"]["template"]["spec"]["containers"][0]["env"]
+            e["name"]: e["value"]
+            for e in demo_deployments[name]["spec"]["template"]["spec"]["containers"][0]["env"]
         }
         assert env["FOSS_MCP_FAMILY"] == pilot["family"], name
         assert env["FOSS_MCP_PLATFORM"] == pilot["platform"], name
@@ -587,8 +589,8 @@ def test_demo_mode_renders_exactly_one_shared_ingress_routing_to_every_pilot() -
 def test_demo_mode_can_be_narrowed_to_a_smaller_pilot_list() -> None:
     docs = _render_demo("--set", "demo.pilots[0].family=pdf", "--set", "demo.pilots[0].platform=net")
     demo_deployments = [
-        d for d in _by_kind(docs, "Deployment") if d["spec"]["template"]["metadata"]["labels"].get(
-            "app.kubernetes.io/component"
-        ) == "demo-serving"
+        d
+        for d in _by_kind(docs, "Deployment")
+        if d["spec"]["template"]["metadata"]["labels"].get("app.kubernetes.io/component") == "demo-serving"
     ]
     assert len(demo_deployments) == 1, "a narrowed demo.pilots list must not fall back to the full 40"

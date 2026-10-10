@@ -95,7 +95,10 @@ def build_image(name: str, dockerfile: str, context: Path, sha: str, tag: str, t
     if target is not None:
         cmd += ["--target", target]
     cmd.append(str(context))
-    print(f"build_images: building {image} from {dockerfile}" + (f" (target {target})" if target else ""), flush=True)
+    print(
+        f"build_images: building {image} from {dockerfile}" + (f" (target {target})" if target else ""),
+        flush=True,
+    )
     proc = subprocess.run(cmd, check=False)
     if proc.returncode != 0:
         fail(f"docker build of {image} failed with exit {proc.returncode}")

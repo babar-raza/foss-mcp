@@ -61,9 +61,7 @@ def test_every_from_is_pinned_by_digest_and_matches_lock() -> None:
         lines = _logical_lines(df)
         froms = [ln for ln in lines if re.match(r"FROM\s", ln)]
         assert froms, f"{df.name} has no FROM line"
-        stage_names = {
-            m.group(1) for ln in froms if (m := re.search(r"\bAS\s+(\S+)", ln, re.IGNORECASE))
-        }
+        stage_names = {m.group(1) for ln in froms if (m := re.search(r"\bAS\s+(\S+)", ln, re.IGNORECASE))}
         for ln in froms:
             image = ln.split()[1]
             if image in stage_names:
