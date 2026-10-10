@@ -57,9 +57,17 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 CMD ["python", "/app/infra/serve_stdio.py"]
 
 # Self-contained demo stage, built only when explicitly selected (`docker build --target demo
-# --build-context demo-data=<path>`) - the default `docker build` with no --target still
-# produces exactly the `runtime` stage above, byte-for-byte, so every existing build/compose/
-# Helm/CI path that never names a target is completely unaffected by this stage's existence.
+# --build-context demo-data=<path>`). Docker's default `docker build` with no --target always
+# builds whichever stage is declared LAST, textually, in the Dockerfile - and `demo` must be
+# declared as `FROM runtime AS demo` (it builds on top of runtime), which necessarily places
+# it after `runtime`. Left alone, that would silently make `demo` the implicit default for
+# every existing build/compose/Helm/CI path that never names a target - and since none of
+# those callers supply `--build-context demo-data=...`, Docker would then try to pull
+# `demo-data` as a real registry image and fail outright. The trailing `FROM runtime` stage
+# below (declared after `demo`, with no instructions of its own) re-anchors the Dockerfile's
+# own last stage back to byte-identical `runtime` content, so the default `docker build` with
+# no --target still produces exactly the `runtime` stage, and every path that never names a
+# target is genuinely unaffected by this stage's existence.
 #
 # `demo-data` is a Buildx named build context (not a path inside this repo's own default
 # context), pointing at a directory shaped like `/data/manifests` itself: the real,
@@ -81,3 +89,10 @@ CMD ["python", "/app/infra/serve_stdio.py"]
 # exactly as it was for whatever still needs the live-ingestion architecture later.
 FROM runtime AS demo
 COPY --from=demo-data --chown=foss-mcp:foss-mcp . /data/manifests
+
+# Re-anchors the Dockerfile's own last stage back to runtime's exact content. Docker's
+# default target (no --target) is always the LAST stage declared textually, and demo must
+# be declared after runtime (it builds FROM it) - so without this trailing stage, a plain
+# docker build with no --target would silently build demo instead of runtime. This
+# stage adds no instructions of its own, so it is byte-identical to runtime.
+FROM runtime
