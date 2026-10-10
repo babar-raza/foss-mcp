@@ -133,9 +133,9 @@ def test_values_name_the_embedding_gateway_block_at_the_top_level() -> None:
     assert "embeddingGateway" not in values["demo"]
 
 
-def test_values_embedding_gateway_block_has_exactly_the_three_documented_keys() -> None:
+def test_values_embedding_gateway_block_has_exactly_the_four_documented_keys() -> None:
     block = _values()["embeddingGateway"]
-    assert sorted(block) == ["apiKeyKey", "endpointKey", "existingSecret"]
+    assert sorted(block) == ["apiKeyKey", "egressCidrs", "endpointKey", "existingSecret"]
 
 
 def test_values_default_existing_secret_is_empty() -> None:

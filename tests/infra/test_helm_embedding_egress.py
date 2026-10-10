@@ -160,15 +160,48 @@ def test_configured_render_adds_the_gateway_egress_policy() -> None:
     )
 
 
-def test_gateway_policy_selects_serving_pods_and_not_ingestion() -> None:
-    selector = _gateway_policy(_render(*_with_secret()))["spec"]["podSelector"]["matchLabels"]
-    assert selector[COMPONENT] == "serving"
-    assert selector[COMPONENT] != "ingestion"
-    assert selector == {
+def test_gateway_policy_selector_names_both_serving_components_and_never_ingestion() -> None:
+    selector = _gateway_policy(_render(*_with_secret()))["spec"]["podSelector"]
+    assert selector["matchLabels"] == {
         "app.kubernetes.io/name": "foss-mcp",
         "app.kubernetes.io/instance": "foss-mcp",
-        COMPONENT: "serving",
     }
+    assert selector["matchExpressions"] == [
+        {"key": COMPONENT, "operator": "In", "values": ["serving", "demo-serving"]}
+    ]
+    assert "ingestion" not in yaml.safe_dump(selector)
+
+
+def _pod_labels(docs: list[dict[str, Any]], kind: str, component: str) -> dict[str, str]:
+    found = [
+        d["spec"]["template"]["metadata"]["labels"]
+        for d in docs
+        if d.get("kind") == kind and d["spec"]["template"]["metadata"]["labels"].get(COMPONENT) == component
+    ]
+    assert found, f"expected a {kind} whose pods carry {COMPONENT}={component}"
+    return found[0]
+
+
+def _selects(selector: dict[str, Any], labels: dict[str, str]) -> bool:
+    for key, value in selector.get("matchLabels", {}).items():
+        if labels.get(key) != value:
+            return False
+    for expression in selector.get("matchExpressions", []):
+        assert expression["operator"] == "In", expression
+        if labels.get(expression["key"]) not in expression["values"]:
+            return False
+    return True
+
+
+def test_gateway_policy_selects_real_serving_and_demo_serving_pods_but_not_ingestion_pods() -> None:
+    # Applies the rendered selector to the labels the chart really puts on each kind of pod, so a
+    # selector that silently misses demo-serving pods (the lean demo topology) or catches
+    # ingestion pods fails here rather than in a cluster.
+    docs = _render(*_with_secret(), "--set", "demo.enabled=true", "--set", "demo.image.tag=tc338-demo-tag")
+    selector = _gateway_policy(docs)["spec"]["podSelector"]
+    assert _selects(selector, _pod_labels(docs, "Deployment", "serving"))
+    assert _selects(selector, _pod_labels(docs, "Deployment", "demo-serving"))
+    assert not _selects(selector, _pod_labels(docs, "Job", "ingestion"))
 
 
 def test_gateway_policy_is_egress_only() -> None:
