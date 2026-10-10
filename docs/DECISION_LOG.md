@@ -2377,3 +2377,23 @@ content-hash-suffixed Job name or converting these to proper lifecycle hooks wit
 policy, but either choice has real tradeoffs - e.g. orphaned old Job cleanup, or hooks not being visible the
 same way as managed release resources - that deserve more thought than a one-line fix) - and separately,
 whether/how to add the same fetch/verify steps to docker-compose.yml for parity with the Helm chart.
+
+## 2026-10-10 — TC-327 closed: docker-compose.yml now runs the same install-verification chain as the Helm chart
+TC-327 is integrated (3 commits replayed: the main fix, a pdf/cpp library-block completeness fix the worker
+found while verifying, and a format fix). Added the fetch_product_reference.py/verify_product_reference_install.py
+steps to every one of docker-compose.yml's 40 ingest services (the worker found live that all 40 pilots now
+have manifestPath in values.yaml, not the 25/40 this card's own scoping measured - the fleet moved between
+investigation and dispatch; correctly verified live rather than trusted). Also fixed a real pre-existing bug
+found in scope: ingest-pdf-cpp's own fetch_recent_releases.py call had a bare `--repository` flag with no
+value, silently consuming the following `--output` token.
+
+The worker's own fix correctly exposed a second, independent staleness: tests/infra/test_helm_chart.py's small
+synthetic PILOTS fixture (4 hand-written pilots) predated manifestPath entirely, so its own Helm-vs-compose
+parity test had been passing vacuously (both sides independently missing the wiring). Widened the card's scope
+mid-flight (the same pattern as TC-317 earlier this session) and added the real manifestPath value for all 4
+synthetic pilots, plus a missing `library` block for pdf/cpp specifically (found by the worker during
+verification - the new steps read `$lib.repository`/`$lib.commit` unconditionally, not gated the way
+build_chunks.py's own flags are).
+
+This closes the second of C2's two confirmed gaps. OWNER-12 (the live-Kubernetes-Job staleness) remains the
+one piece requiring an authorized owner with real cluster access.
