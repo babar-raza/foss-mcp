@@ -2325,3 +2325,18 @@ fix (TC-325) and two "genuinely flat, not stale" confirmations (cells_go, imagin
 change at all. 36 taskcards (TC-281-282 through TC-325, counting the TC-282-287 wave) closed this problem
 completely across every language this project extracts from: Python, C++, C#, Java, Go, Rust, TypeScript, and
 JavaScript.
+
+## 2026-10-10 — TC-326 closed: the commit-divergence resolver now covers PyPI too
+TC-326 is integrated: infra/verify_package_registry.py gained pypi_latest_version(), a widened
+resolve_tag_commit() (now treats a 422 the same as a 404 - GitHub's commits-by-ref endpoint uses both for
+"ref not found," confirmed live against cells/python's own real tag-prefix mismatch), and the composing
+pypi_published_commit() (tries bare/v-prefixed/V-prefixed candidates in order). Live-verified against all three
+outcome shapes found during scoping: slides/python (bare match), cells/python (prefixed-fallback match,
+1139a9a9...), words/python (zero tags on the real repo, correctly returns None rather than raising).
+
+This closes 2 of 6 ecosystems (Go via TC-296, PyPI via TC-326) for the round-4 audit's top P0. Remaining,
+deliberately deferred: npm/cargo/maven/nuget generalization, and - more importantly than more ecosystems -
+actually wiring any of this into the live, agent-facing report_index_freshness tool, where current_source_commit
+remains purely caller-supplied with no automatic resolution at all. Next priority shifting to C2 (fake/fabricated
+install coordinates, 8/15 pilots per the round-4 audit's own count) per that audit's own blocker-priority
+ordering, now that C3 is fully closed.
