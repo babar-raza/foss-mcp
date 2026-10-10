@@ -1,0 +1,110 @@
+id: TC-327
+gate: G2
+lane: transport-deployment
+purpose: 'A 2026-10-10 investigation of the round-4 audit''s C2 finding (fake/unverified install coordinates)
+  confirmed a second, separate, fleet-wide gap alongside the live-Kubernetes-Job staleness recorded as
+  OWNER-12: docker-compose.yml never got TC-275''s install-coordinate-verification wiring added at all, for
+  ANY of the 40 pilots - `grep -c "verify_product_reference_install.py" docker-compose.yml` and the same for
+  `fetch_product_reference.py` are both 0. infra/helm/foss-mcp/templates/ingestion-job.yaml''s own Job template
+  (the production path) already runs both scripts, conditioned on a pilot having a `manifestPath` set (25 of
+  the 40 pilots, per values.yaml), appending them between the existing `ingest.py` step and the existing
+  `fetch_recent_releases.py` step every pilot already has in both files. docker-compose.yml is this project''s
+  own local/dev/e2e-test deployment path (used throughout this session''s own e2e test suite), so any agent or
+  developer running the compose stack locally never sees an honest install-coordinate flag for any pilot
+  either - a real, if lower-severity, instance of the same underlying problem the live Helm Job staleness causes
+  in production.'
+depends_on:
+- TC-205
+- TC-207
+- TC-208
+- TC-227
+- TC-231
+- TC-235
+- TC-236
+- TC-238
+- TC-244
+- TC-256
+- TC-262
+- TC-272
+- TC-325
+write_paths:
+- docker-compose.yml
+- tests/infra/test_helm_pilots_match_compose.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 4.7 Redesign: stop depending on `aspose.org`''s private repo for raw
+    knowledge — extract it directly instead'
+  sha256: 69aa477f81977e0fb19037faa34136c67f06e557075f585ea7b727f4a3882f21
+inputs:
+- 'Read infra/helm/foss-mcp/templates/ingestion-job.yaml''s own per-pilot command chain in full (~line 95-120)
+  before touching docker-compose.yml - this is the exact reference shape to mirror. For a pilot with
+  manifestPath set, between the existing ingest.py step and the existing fetch_recent_releases.py step (both
+  already present in docker-compose.yml for every pilot), insert:
+  `&& { python /app/infra/fetch_product_reference.py --repository <repository> --platform <platform>
+  --manifest-path <manifestPath> --ref <commit> --output /data/manifests/product_reference_<family>_<platform>.json
+  || true; } && { python /app/infra/verify_product_reference_install.py --family <family> --platform <platform>
+  --manifests-dir /data/manifests || true; }` - the exact `|| true; }` brace-grouping the Helm template already
+  uses for the identical reason (a transient registry/network failure here must never fail the whole ingestion
+  step).'
+- 'For each of docker-compose.yml''s 40 `ingest-<family>-<platform>` services, determine whether that pilot has
+  a manifestPath by checking infra/helm/foss-mcp/values.yaml''s own per-pilot `manifestPath:` field (25 of 40
+  pilots have one) - do not guess, check each one. For a pilot that has one, every value the new two steps need
+  (`--repository`, `--platform`, `--ref`/commit, `--family`) is ALREADY present verbatim in that exact same
+  docker-compose service''s own existing `build_chunks.py` invocation (`--library-repository`, `--library-commit`,
+  the service''s own `--family`/`--platform` on its `ingest.py` call) - reuse those exact values, never
+  re-derive or guess them. The one new value, the manifest-path itself, is build_chunks.py''s own per-platform
+  flag (read `infra/build_chunks.py`''s `_PLATFORM_DISPATCH`/`_PLATFORM_REQUIRED_FLAGS` dicts, ~line 188-200, to
+  find the exact flag name and its value already present in that same service''s own build_chunks.py call for
+  its platform - e.g. dotnet''s is `--library-csproj`; find the real flag name for every other platform you
+  touch, do not assume they all share one name).'
+- 'Apply this to all 25 manifestPath-bearing pilots. Do NOT add these two steps to any of the 15 pilots that
+  have no manifestPath in values.yaml - mirror the Helm template''s own conditional exactly, do not add it
+  unconditionally.'
+- 'Add or extend a test in tests/infra/test_helm_pilots_match_compose.py (read this file''s own existing
+  per-pilot parity-assertion convention first) asserting that every pilot with a manifestPath in values.yaml
+  has both `fetch_product_reference.py` and `verify_product_reference_install.py` present in its own
+  docker-compose.yml service command, and that a pilot without manifestPath has neither - so this parity can
+  never silently regress again for either direction.'
+- 'Verify your edited docker-compose.yml still parses as valid YAML (`docker compose config --quiet` or
+  equivalent) and that the command strings for at least 2-3 real, spot-checked services are byte-correct
+  against the Helm template''s own argument order/shape. Do NOT actually bring up any docker-compose stack
+  as part of this card - this is a static-file correctness fix, not a live deployment test; the card''s own
+  check command (a pytest file, not a live e2e run) is the only verification required.'
+- 'IF you find any pilot where values.yaml''s own manifestPath/repository/commit data is missing or
+  inconsistent with what''s already in docker-compose.yml''s own build_chunks.py call for that same pilot
+  (a real cross-file drift, not this card''s own fault to fix) - STOP and report exactly which pilot and what
+  you found, rather than guessing a value or silently skipping it.'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Read the Helm Job template's own reference shape for the two new steps.
+- Add the two steps to all 25 manifestPath-bearing pilots' docker-compose.yml services, reusing each
+  service's own existing repository/commit/family/platform/manifest-path values; skip the 15 pilots without
+  manifestPath.
+- Add a parity test proving this can't silently regress in either direction; verify the edited file parses and
+  spot-check 2-3 services against the Helm template's own shape.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_pilots_match_compose.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 1
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('docker-compose.yml');s=p.read_text(encoding='utf-8');q=chr(34);old='verify_product_reference_install.py';new='verify_product_reference_install_DISABLED.py';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Renames the last occurrence of verify_product_reference_install.py in docker-compose.yml (one real
+    pilot's own invocation), so the new parity test's "every manifestPath pilot has this script present" assertion
+    fails for that one pilot. Built with chr() for the embedded quote per this session's falsifier rule, using
+    rindex per this session's established vacuous-falsifier safeguard.
+evidence:
+- evidence/build/G2/TC-327/receipt.json
+closeout:
+- docker-compose.yml now runs the same install-coordinate-verification chain the production Helm Job template
+  already runs, for every pilot that has a manifestPath, closing the second of two gaps found in the round-4
+  audit's C2 investigation (the live-Kubernetes-Job staleness, recorded separately as OWNER-12, is the other and
+  requires owner action this card does not and cannot perform).
+recovery: Re-run from a clean tree.
