@@ -1,0 +1,122 @@
+id: TC-334
+gate: G2
+lane: transport-deployment
+purpose: 'A real, live, hands-on MCP workflow test this session (supervisor, not delegated) against a
+  real running serving container found a real deployment gap: find_examples'' new vector fallback
+  (TC-331) is wired entirely correctly - confirmed by two genuine paraphrase queries (sharing no
+  vocabulary with the real example text) correctly returning the right real example with
+  `source: "vector"` and real cosine scores (0.6792, 0.5025) - but ONLY once
+  `FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT`/`_API_KEY` were manually passed into the container''s
+  environment by hand. Neither `infra/helm/foss-mcp/templates/deployment.yaml` (the live, per-pilot
+  production path) nor `demo-deployment.yaml` (TC-328''s lean all-40-pilot path) nor
+  `docker-compose.yml`''s 7 `serving-*` services pass these two env vars at all today - every real
+  deployment of either kind, right now, would silently (and correctly, per TC-331''s own fail-safe
+  design) fall back to lexical-only find_examples forever, never once engaging the real gateway this
+  session confirmed live and working. This card wires the missing env vars through, mirroring the
+  existing `ingestion.githubToken.existingSecret`/`.key` Secret-reference pattern
+  (`infra/helm/foss-mcp/templates/ingestion-job.yaml`) exactly.'
+depends_on:
+- TC-333
+- TC-251
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- infra/helm/foss-mcp/templates/deployment.yaml
+- infra/helm/foss-mcp/templates/demo-deployment.yaml
+- docker-compose.yml
+- tests/infra/test_helm_embedding_gateway.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: C:\Users\prora\.claude\plans\mission-plan-and-stateful-sprout.md
+  anchor: '### 9.1 Hosting'
+  sha256: 8b5afbf681487772ea2236c90689646bc28ff171cfd767bc64a0a5967f630704
+inputs:
+- 'infra/helm/foss-mcp/values.yaml: add a new top-level `embeddingGateway:` block (a sibling of
+  `ingestion:`, since this is a SERVING-time concern shared by both the regular per-pilot deployment and
+  the demo path - never nested inside `ingestion:` or `demo:`): `existingSecret: ""` (empty by default -
+  optional, per `ingestion.githubToken`''s own established convention: a deployment with no secret
+  configured must serve exactly as it does today, falling back to lexical-only find_examples, never
+  failing to start), `endpointKey: endpoint`, `apiKeyKey: apiKey` (two keys inside the one secret, unlike
+  githubToken''s single `key:` - name them to match whatever the operator''s real Secret happens to use,
+  same `key:` indirection githubToken already establishes).'
+- 'infra/helm/foss-mcp/templates/deployment.yaml: inside the existing `env:` block (after
+  `FOSS_MCP_PLATFORM`), add a `{{- with .Values.embeddingGateway }}{{- if .existingSecret }}` guard
+  (mirroring `ingestion-job.yaml`''s own exact existingSecret/optional pattern - read that file''s own
+  githubToken block first and copy its shape, not reimplement it) emitting TWO env entries,
+  `FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT` and `FOSS_MCP_EMBEDDING_GATEWAY_API_KEY`, each a
+  `secretKeyRef` naming `.existingSecret`/`.endpointKey` and `.existingSecret`/`.apiKeyKey`
+  respectively, each `optional: true` (a missing key must never crash the pod - GatewayEmbeddingProvider
+  itself already degrades find_examples to lexical-only when these env vars are absent, so a missing key
+  here is not a startup failure, just an inactive feature).'
+- 'infra/helm/foss-mcp/templates/demo-deployment.yaml: the exact same two env entries, same guard, added
+  inside the existing per-pilot `env:` block (after `FOSS_MCP_SOURCE_KIND`) - note this file is inside a
+  `{{- range $p := $pilots }}` loop, so the guard must read `$.Values.embeddingGateway`, not
+  `.Values.embeddingGateway` (the loop rebinds `.` to the range variable; every other values lookup in
+  this file already uses the `$.Values...` form for exactly this reason - follow it, don''t introduce a
+  bare `.Values` reference that would silently read the wrong scope).'
+- 'docker-compose.yml: each of the 7 `serving-*` services'' own `environment:` block (identified by
+  `FOSS_MCP_FAMILY`/`FOSS_MCP_PLATFORM`/`FOSS_MCP_SOURCE_KIND` already present there - never the
+  `ingest-*` services, which never read these vars) gains two more lines using docker-compose''s own
+  host-environment passthrough-with-default syntax: `FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT:
+  ${FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT:-}` and `FOSS_MCP_EMBEDDING_GATEWAY_API_KEY:
+  ${FOSS_MCP_EMBEDDING_GATEWAY_API_KEY:-}` - defaults to empty/unset when the host has neither set,
+  preserving today''s exact behavior for anyone running compose without a gateway configured.'
+- 'tests/infra/test_helm_embedding_gateway.py (NEW FILE): mirror tests/infra/test_helm_github_token.py''s
+  own existing structure and helper conventions as closely as possible (read it in full first - same
+  `_render()` helper, same style of assertions) for the NEW `embeddingGateway` block instead of
+  `githubToken`. At minimum: (1) with no `embeddingGateway.existingSecret` set, neither env var is
+  rendered anywhere (deployment.yaml, demo-deployment.yaml with demo.enabled=true); (2) with
+  `embeddingGateway.existingSecret` set to a real secret name (and custom `endpointKey`/`apiKeyKey`),
+  both env vars ARE rendered, in both deployment.yaml and demo-deployment.yaml, each as a
+  `secretKeyRef` naming the right secret and key, each `optional: true`; (3) the literal fake secret
+  name/key values used in the test never appear as a literal env `value:` anywhere in the rendered
+  output (mirroring test_helm_github_token.py''s own "the fake token is not rendered even when the
+  secret is set" test, adapted - these are secretKeyRefs, never literal values, so this test should
+  assert exactly that shape, not a literal string leak).'
+- 'Run `{python} -m pytest tests/infra/test_helm_embedding_gateway.py -q -rfE` and confirm it passes.
+  Then run `{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_github_token.py -q
+  -rfE` once to confirm zero regressions in the sibling Helm-rendering suites (both already real Helm-
+  template-rendering tests, same `helm` CLI dependency this card''s own new file needs - toolchain
+  activation required in the same command).'
+- 'Write commit messages as UTF-8 without a byte-order mark.'
+actions:
+- Add an embeddingGateway values block (existingSecret/endpointKey/apiKeyKey, optional, mirroring
+  ingestion.githubToken's own established Secret-reference convention).
+- Wire the two resulting env vars into deployment.yaml and demo-deployment.yaml via an optional
+  secretKeyRef, so an unconfigured deployment starts and runs exactly as it does today, and into
+  docker-compose.yml's 7 serving-* services via host-environment passthrough with an empty default.
+- Add a dedicated test file mirroring test_helm_github_token.py's own conventions, proving the wiring
+  renders correctly when configured and renders nothing when not.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_embedding_gateway.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 60
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_github_token.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 3
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/deployment.yaml');s=p.read_text(encoding='utf-8');old='embeddingGateway';new='embeddingGatewayDisabled';i=s.rindex(old);s=s[:i]+new+s[i+len(old):];p.write_text(s,encoding='utf-8')"
+  rationale: Renames the last occurrence of embeddingGateway inside deployment.yaml (its real values
+    lookup site), so --set embeddingGateway.existingSecret=... no longer reaches this template at all -
+    the new test's "both env vars ARE rendered when configured" assertion fails for deployment.yaml. A
+    real semantic break on this card's own central wiring claim, not a vacuous textual one.
+evidence:
+- evidence/build/G2/TC-334/receipt.json
+closeout:
+- 'The real embedding gateway''s endpoint/API key are now wired through both serving paths (the live
+  per-pilot deployment and the lean demo path) and docker-compose, via an optional Secret reference that
+  never changes behavior for an unconfigured deployment. Closes the real gap this session''s own live MCP
+  workflow test found - find_examples'' vector fallback existed and worked, but could never actually
+  engage in any real deployment without this wiring.'
+recovery: Re-run from a clean tree.
