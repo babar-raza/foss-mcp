@@ -18,6 +18,7 @@ happens to be missing.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 from dataclasses import dataclass
@@ -288,6 +289,43 @@ def _unresolved_install_text(
     )
 
 
+def _install_pin_notice(
+    ecosystem: str,
+    coordinate: str,
+    source_repository: str,
+    source_ref: str,
+    *,
+    declared_version: str = "",
+) -> str:
+    """G3/TC-470 (REQ-G3-006): the notice that rides alongside a registry install command.
+
+    The index describes the code at ``source_ref``; the command installs whatever release the
+    registry serves today, which can be older or newer. The notice says so, names the exact commit,
+    gives Go users the exact-commit form, and gives Maven users the version the pom at that commit
+    declares (the bare Maven coordinate has none). Plain sentences: no code fence, no markdown. The
+    ``text`` of the answer is never changed by this."""
+    repository_url = (
+        source_repository
+        if source_repository.startswith(("http://", "https://"))
+        else f"https://github.com/{source_repository}"
+    )
+    notice = (
+        f"The API this server describes was extracted from {repository_url} at commit {source_ref}. "
+        f"This command installs the release the {ecosystem} registry serves today, which can be "
+        f"older or newer than that commit, so a type or member shown here may be missing from, or "
+        f"different in, the installed package. "
+        f"To use exactly the indexed API, build the library from that commit."
+    )
+    if ecosystem == "go":
+        notice += f" With Go you can fetch that exact commit: go get {coordinate}@{source_ref}."
+    if ecosystem == "maven" and declared_version:
+        notice += (
+            f" The pom at that commit declares version {declared_version}; check that the registry "
+            f"serves it before adding it to the coordinate."
+        )
+    return notice
+
+
 def install_coordinate_for_verification(inputs: ProductReferenceInputs) -> tuple[str, str] | None:
     """The ``(ecosystem, bare_coordinate)`` pair the "install" section branch below would serve
     right now for *inputs*, or ``None`` exactly where that branch would itself answer
@@ -531,6 +569,26 @@ def get_product_reference(
                     section,
                     f"{coordinate} ({ecosystem}) was checked against its real registry at "
                     f"{inputs.install_verified_checked_at} and does not resolve there",
+                )
+        # G3/TC-470: the command below installs the registry's current release, not the commit the
+        # index describes. Say so in ``notice`` (``text`` stays the bare command) whenever the pin is
+        # known; an input without a pin is served exactly as before.
+        if isinstance(content, ReferenceContent) and inputs.source_repository and inputs.source_ref:
+            pinned = install_coordinate_for_verification(inputs)
+            if pinned is not None:
+                ecosystem, coordinate = pinned
+                declared_version = (
+                    read_java_manifest(inputs.manifest_text).version if ecosystem == "maven" else ""
+                )
+                return dataclasses.replace(
+                    content,
+                    notice=_install_pin_notice(
+                        ecosystem,
+                        coordinate,
+                        inputs.source_repository,
+                        inputs.source_ref,
+                        declared_version=declared_version,
+                    ),
                 )
         return content
 
