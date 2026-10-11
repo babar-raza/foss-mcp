@@ -16,9 +16,11 @@ purpose: >-
 depends_on:
 - TC-331
 - TC-381
+- TC-382
 write_paths:
 - src/foss_mcp/mcp/tools/find_examples.py
 - tests/mcp/tools/test_find_examples_verified_only.py
+- tests/mcp/tools/test_symbol_tools.py
 satisfies:
 - REQ-G3-007
 source_refs:
@@ -60,6 +62,13 @@ inputs:
   Synthetic generation: an authored verified example is returned with `provenance` "authored", a README one with "readme", and an
   authored one without `Verification: passed` is never returned by any branch. At least 14 tests.
 - >-
+  RELATED TESTS THAT ENCODE THE OLD RULE (found by the worker): tests/mcp/tools/test_symbol_tools.py::test_find_examples_prefers_an_exact_match,
+  ::test_find_examples_falls_back_to_semantic_search and ::test_no_snippet_is_ever_executed_at_query_time publish a SYMBOL chunk (FQN: Annotation, Kind: class)
+  with a bare Example: line and expect find_examples to return it. That is exactly the behaviour this card removes. The file is now in your write_paths:
+  change ONLY those fixtures so the published chunk is a real verified example (an FQN line starting with `Example: `, a line `Kind: verified_example`, a line
+  exactly `Example:` then the code), keep what each test asserts (exact match preferred, semantic fallback, no snippet executed), and never delete or skip a test.
+  Check 2 now runs the file. TC-382 (a dependency) also edits this file, so build on its version.
+- >-
   Run `{python} -m pytest tests/mcp/tools/test_find_examples_verified_only.py -q -rfE`, then once the second check command below.
   Write commit messages as UTF-8 without a byte-order mark.
 actions:
@@ -75,7 +84,7 @@ checks:
   junitxml: true
   proves:
   - REQ-G3-007
-- command: '{python} -m pytest tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_relevance_floor.py tests/mcp/test_server_wiring.py tests/indexing/test_vector_scope.py -q -rfE'
+- command: '{python} -m pytest tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_symbol_tools.py tests/mcp/tools/test_relevance_floor.py tests/mcp/test_server_wiring.py tests/indexing/test_vector_scope.py -q -rfE'
   expect: exit 0
   timeout_seconds: 1200
   junitxml: true
