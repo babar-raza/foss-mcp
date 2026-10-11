@@ -1302,64 +1302,282 @@ def prepare_go_library(
 
 
 _GO_PACKAGE_DECLARATION_RE = re.compile(r"(?m)^\s*package\s+\w+")
+_GO_PACKAGE_CLAUSE_LINE_RE = re.compile(r"^[ \t]*package[ \t]+\w+[ \t]*(?://[^\n]*)?$\n?", re.MULTILINE)
+_GO_PACKAGE_NAME_RE = re.compile(r"^[ \t]*package[ \t]+(\w+)", re.MULTILINE)
+_GO_IMPORT_SINGLE_RE = re.compile(
+    r'^[ \t]*import[ \t]+(?:([A-Za-z_]\w*|\.)[ \t]+)?"([^"\n]+)"[ \t]*(?://[^\n]*)?$\n?',
+    re.MULTILINE,
+)
+_GO_IMPORT_GROUP_RE = re.compile(
+    r"^[ \t]*import[ \t]*\((.*?)^[ \t]*\)[ \t]*(?://[^\n]*)?$\n?",
+    re.MULTILINE | re.DOTALL,
+)
+_GO_IMPORT_SPEC_LINE_RE = re.compile(
+    r'^[ \t]*(?:([A-Za-z_]\w*|\.)[ \t]+)?"([^"\n]+)"[ \t]*(?://[^\n]*)?$',
+    re.MULTILINE,
+)
+_GO_MAIN_FUNCTION_RE = re.compile(r"^func\s+main\s*\(", re.MULTILINE)
+
+# The standard-library packages a README fragment commonly uses without importing, by qualifier.
+_GO_STDLIB_QUALIFIERS: dict[str, str] = {
+    "fmt": "fmt",
+    "os": "os",
+    "strings": "strings",
+    "strconv": "strconv",
+    "time": "time",
+    "log": "log",
+    "errors": "errors",
+    "io": "io",
+    "bytes": "bytes",
+    "bufio": "bufio",
+    "math": "math",
+    "sort": "sort",
+    "context": "context",
+    "sync": "sync",
+    "filepath": "path/filepath",
+    "json": "encoding/json",
+    "http": "net/http",
+}
+
+# The legacy qualifier of pdf/go's furnished content: the package is really named ``asposepdf`` but
+# every candidate writes ``pdf.``.
+_GO_LEGACY_LIBRARY_QUALIFIER = "pdf"
+
+# How many times a wrapped fragment is rebuilt after blanking variables the compiler reported unused.
+_GO_BLANK_USE_MAX_RETRIES = 2
+
+# Build output that asks for ``go mod tidy`` (a missing requirement or go.sum entry).
+_GO_TIDY_HINTS = ("go mod tidy", "updates to go.mod needed", "missing go.sum entry")
+
+_GO_MODE_AS_GIVEN = "as-given"
+_GO_MODE_FILE_WITH_MAIN = "file-with-main"
+_GO_MODE_WRAPPED_FRAGMENT = "wrapped-fragment"
+
+_GO_MAIN_ERROR_LINE_RE = re.compile(r"^(?:\.[\\/])?main\.go:\d+:\d+: (.*)$")
+_GO_ANY_ERROR_LINE_RE = re.compile(r"^\S+\.go:\d+:\d+: ")
+_GO_UNUSED_NEW_RE = re.compile(r"^declared and not used: (\w+)$")
+_GO_UNUSED_OLD_RE = re.compile(r"^(\w+) declared and not used$")
+_GO_TOO_MANY_ERRORS = "too many errors"
 
 
-def _wrap_go_fragment_if_needed(code: str, module_path: str) -> str:
-    """Wrap a bare Go statement fragment in a minimal compilable
-    ``package main`` + ``func main()`` shell; compile a complete file
-    exactly as given.
+def _go_import_specs(code: str) -> list[tuple[str | None, str]]:
+    """Return every ``(alias, path)`` of the code's import declarations, in source order.
 
-    Every one of pdf/go's real furnished-content candidates (confirmed by
-    reading ``tests/fixtures/furnished/pdf_go/pages/_index.md``) is a bare
-    statement fragment like ``doc, _ := pdf.Open("input.pdf")`` with no
-    ``package``, ``import``, or ``func main`` of its own - the same shape
-    pdf/java's own furnished content has, which ``verify_java_example``
-    already handles by wrapping only when no ``public class`` is present.
-    This mirrors that pattern for Go: a fragment already containing a
-    top-level ``package`` declaration is a complete file and is compiled
-    as-is, unwrapped; anything else is treated as a bare fragment and
-    wrapped.
-
-    The real published Go package at ``module_path`` is named
-    ``asposepdf``, not ``pdf`` (confirmed by cloning
-    ``aspose-pdf-foss/Aspose-PDF-FOSS-for-Go`` at its pinned commit
-    ``286484d235196d65c9a458c5eff3d3d6539216dc`` and reading its own
-    top-level ``.go`` files' ``package`` declarations directly) - but every
-    real furnished candidate uses the qualifier ``pdf.`` throughout,
-    matching this same repository's own documented install instructions
-    (``tests/fixtures/furnished/pdf_go/pages/_index.md``'s own FAQ:
-    "Import it with an alias in your source files using ``import pdf
-    "github.com/aspose-pdf-foss/aspose-pdf-foss-for-go"``"). The import
-    below therefore always aliases the import as ``pdf`` regardless of the
-    package's own real declared name, which Go's import aliasing supports
-    unconditionally - confirmed by actually compiling a hand-built wrapped
-    example against the real cloned module before this was written.
-
-    Go fails to compile on an unused import, so ``"fmt"`` is included only
-    if the fragment text actually contains ``fmt.`` (a simple substring
-    check, matching this project's own pragmatic style elsewhere - no full
-    Go parse needed - and confirmed real: an unconditional ``"fmt"``
-    import against a fragment that never uses it fails with `"fmt"
-    imported and not used`), and the pdf import only if the fragment
-    contains its ``pdf.`` qualifier (always true for pdf/go's real content
-    today, but kept honest rather than unconditional).
+    Both single-line ``import [alias] "path"`` declarations and grouped ``import ( ... )`` blocks
+    are read. The alias is a name, ``_`` or ``.``, or None when the import has none.
     """
+    code = code.replace("\r\n", "\n")
+    found: list[tuple[int, list[tuple[str | None, str]]]] = []
+    for single in _GO_IMPORT_SINGLE_RE.finditer(code):
+        found.append((single.start(), [(single.group(1), single.group(2))]))
+    for group in _GO_IMPORT_GROUP_RE.finditer(code):
+        specs = [(m.group(1), m.group(2)) for m in _GO_IMPORT_SPEC_LINE_RE.finditer(group.group(1))]
+        found.append((group.start(), specs))
+    found.sort(key=lambda item: item[0])
+    return [spec for _, specs in found for spec in specs]
+
+
+def _trim_blank_edge_lines(text: str) -> str:
+    lines = text.split("\n")
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    return "\n".join(lines)
+
+
+def _strip_go_preamble(code: str) -> str:
+    """Return ``code`` without its package clause and without every import declaration."""
+    code = code.replace("\r\n", "\n")
+    code = _GO_IMPORT_GROUP_RE.sub("", code)
+    code = _GO_IMPORT_SINGLE_RE.sub("", code)
+    code = _GO_PACKAGE_CLAUSE_LINE_RE.sub("", code)
+    return _trim_blank_edge_lines(code)
+
+
+def _go_package_name(library_dir: Path, module_path: str, import_path: str) -> str | None:
+    """Return the package name the library declares for ``import_path``, else None.
+
+    Only an import path equal to ``module_path`` or under it names a directory of the library.
+    The name is the ``package`` clause of the first (sorted) non-test ``.go`` file there.
+    """
+    if import_path == module_path:
+        directory = library_dir
+    elif import_path.startswith(module_path.rstrip("/") + "/"):
+        directory = library_dir / import_path[len(module_path.rstrip("/")) + 1 :]
+    else:
+        return None
+    if not directory.is_dir():
+        return None
+    for go_file in sorted(directory.glob("*.go")):
+        if go_file.name.endswith("_test.go"):
+            continue
+        match = _GO_PACKAGE_NAME_RE.search(go_file.read_text(encoding="utf-8", errors="replace"))
+        if match is not None:
+            return match.group(1)
+    return None
+
+
+@dataclass(frozen=True)
+class _GoPlan:
+    """How one Go candidate is assembled into ``main.go``."""
+
+    mode: str
+    body: str
+    # (qualifier, import path, rendered import line) for every import that is emitted.
+    imports: tuple[tuple[str, str, str], ...]
+
+
+def _is_go_stdlib_path(import_path: str) -> bool:
+    return "." not in import_path.split("/", 1)[0]
+
+
+def _plan_go_assembly(
+    code: str,
+    module_path: str,
+    page_code: tuple[str, ...],
+    library_dir: Path | None,
+) -> _GoPlan:
     if _GO_PACKAGE_DECLARATION_RE.search(code) is not None:
+        return _GoPlan(mode=_GO_MODE_AS_GIVEN, body=code, imports=())
+
+    body = _strip_go_preamble(code)
+    own_specs = _go_import_specs(code)
+
+    def qualifier_of(alias: str | None, import_path: str) -> str:
+        if alias is not None:
+            return alias
+        if library_dir is not None:
+            name = _go_package_name(library_dir, module_path, import_path)
+            if name is not None:
+                return name
+        return import_path.rstrip("/").rsplit("/", 1)[-1]
+
+    # qualifier -> (import path, written with an explicit alias). The first source naming a
+    # qualifier wins.
+    table: dict[str, tuple[str, bool]] = {}
+
+    def register(alias: str | None, import_path: str) -> None:
+        if alias in ("_", "."):
+            return
+        qualifier = qualifier_of(alias, import_path)
+        aliased = alias is not None or not _is_go_stdlib_path(import_path)
+        table.setdefault(qualifier, (import_path, aliased))
+
+    for alias, import_path in own_specs:
+        register(alias, import_path)
+    for block in page_code:
+        for alias, import_path in _go_import_specs(block):
+            register(alias, import_path)
+    if library_dir is not None:
+        root_name = _go_package_name(library_dir, module_path, module_path)
+        if root_name is not None:
+            table.setdefault(root_name, (module_path, True))
+    table.setdefault(_GO_LEGACY_LIBRARY_QUALIFIER, (module_path, True))
+    for qualifier, import_path in _GO_STDLIB_QUALIFIERS.items():
+        table.setdefault(qualifier, (import_path, False))
+
+    stdlib: list[tuple[str, str, str]] = []
+    library: list[tuple[str, str, str]] = []
+    for qualifier, (import_path, aliased) in table.items():
+        if re.search(rf"(?<![\w.]){re.escape(qualifier)}\.", body) is None:
+            continue
+        if aliased:
+            library.append((qualifier, import_path, f'\t{qualifier} "{import_path}"'))
+        else:
+            stdlib.append((qualifier, import_path, f'\t"{import_path}"'))
+    stdlib.sort(key=lambda item: item[1])
+    library.sort(key=lambda item: item[0])
+    special = [
+        (alias, import_path, f'\t{alias} "{import_path}"')
+        for alias, import_path in own_specs
+        if alias in ("_", ".")
+    ]
+
+    mode = (
+        _GO_MODE_FILE_WITH_MAIN
+        if _GO_MAIN_FUNCTION_RE.search(body) is not None
+        else _GO_MODE_WRAPPED_FRAGMENT
+    )
+    return _GoPlan(mode=mode, body=body, imports=(*stdlib, *library, *special))
+
+
+def _wrap_go_fragment_if_needed(
+    code: str,
+    module_path: str,
+    *,
+    page_code: tuple[str, ...] = (),
+    library_dir: Path | None = None,
+    blank_uses: tuple[str, ...] = (),
+) -> str:
+    """Return the ``main.go`` source for a Go candidate.
+
+    A candidate with its own package clause is a complete file and is returned exactly as given.
+    Otherwise the package clause and every import declaration are stripped from the body and the
+    imports are rebuilt: a qualifier the body uses is resolved from the candidate's own import
+    lines, then from every import line of the page (``page_code``), then from the library's root
+    package name, then from the legacy ``pdf`` alias of pdf/go, then from a table of common
+    standard-library packages. An import is emitted only for a qualifier the body uses, because Go
+    rejects an unused import. Library imports are written aliased with the qualifier, so the
+    library's real package name (``cells_foss``, ``jmap``) never has to match the module path.
+
+    A body with its own top-level ``func main(`` is not wrapped again: it becomes
+    ``package main`` + imports + the body. Any other body is indented inside ``func main() {``,
+    followed by one ``_ = <name>`` line per entry of ``blank_uses`` (variables the compiler
+    reported declared and not used in a fragment a reader would continue).
+    """
+    plan = _plan_go_assembly(code, module_path, page_code, library_dir)
+    if plan.mode == _GO_MODE_AS_GIVEN:
         return code
 
-    import_lines = []
-    if "fmt." in code:
-        import_lines.append('\t"fmt"')
-    if "pdf." in code:
-        import_lines.append(f'\tpdf "{module_path}"')
-
     import_block = ""
-    if import_lines:
-        import_block = "import (\n" + "\n".join(import_lines) + "\n)\n\n"
+    if plan.imports:
+        import_block = "import (\n" + "\n".join(line for _, _, line in plan.imports) + "\n)\n\n"
 
-    indented = "\n".join(f"\t{line}" if line.strip() else line for line in code.splitlines())
+    if plan.mode == _GO_MODE_FILE_WITH_MAIN:
+        return f"package main\n\n{import_block}{plan.body}\n"
 
+    lines = [f"\t{line}" if line.strip() else line for line in plan.body.splitlines()]
+    lines.extend(f"\t_ = {name}" for name in blank_uses)
+    indented = "\n".join(lines)
     return f"package main\n\n{import_block}func main() {{\n{indented}\n}}\n"
+
+
+def _go_unused_variable_names(build_output: str) -> list[str]:
+    """Return the variables a failed build reports unused, or [] unless ALL its errors say so.
+
+    Every compile-error line must be a ``./main.go:<line>:<col>: ...`` line reporting an unused
+    variable (``declared and not used: <name>``, or the older ``<name> declared and not used``).
+    One other error (an undefined name, an unused import, an error in another file), or a
+    truncated error list, returns [] so a real error is never retried away.
+    """
+    if _GO_TOO_MANY_ERRORS in build_output:
+        return []
+    names: list[str] = []
+    for raw_line in build_output.splitlines():
+        line = raw_line.strip()
+        if _GO_ANY_ERROR_LINE_RE.match(line) is None:
+            continue
+        main_line = _GO_MAIN_ERROR_LINE_RE.match(line)
+        if main_line is None:
+            return []
+        message = main_line.group(1).strip()
+        unused = _GO_UNUSED_NEW_RE.match(message) or _GO_UNUSED_OLD_RE.match(message)
+        if unused is None:
+            return []
+        if unused.group(1) not in names:
+            names.append(unused.group(1))
+    return names
+
+
+def _go_assembly_line(plan: _GoPlan, blank_uses: list[str], tidy_returncode: int | None) -> str:
+    imports = ",".join(f"{qualifier}={path}" for qualifier, path, _ in plan.imports) or "none"
+    blanks = ",".join(blank_uses) or "none"
+    tidy = "not-run" if tidy_returncode is None else f"rc={tidy_returncode}"
+    return (
+        f"[foss-mcp] assembly: go mode={plan.mode}; imports={imports}; "
+        f"blank-uses={blanks}; go-mod-tidy={tidy}"
+    )
 
 
 def verify_go_example(
@@ -1375,19 +1593,27 @@ def verify_go_example(
     outcome. A candidate is verified only when both return 0; vet does not
     run when the build fails.
 
-    Real furnished pdf/go content is a bare statement fragment with no
-    ``package``/``import``/``func main`` of its own (confirmed by reading
-    the real ``tests/fixtures/furnished/pdf_go/pages/_index.md`` content) -
-    not a full compilable Go file. A candidate with no top-level ``package``
-    declaration of its own is therefore wrapped by
-    ``_wrap_go_fragment_if_needed`` in a minimal ``package main`` +
-    ``func main()`` shell; a candidate that already declares its own
-    ``package`` is compiled as-is.
+    A README Go block is rarely a complete file. ``_wrap_go_fragment_if_needed`` assembles
+    ``main.go`` from the block, the page's own import lines (``candidate.page_code``) and the
+    library's real package names; a block that is only a package clause and imports has no
+    statements, so it is rejected without running anything. When the build asks for
+    ``go mod tidy`` it is run once. When a wrapped fragment fails only because variables are
+    declared and not used (a fragment a reader would continue), those variables are blanked and
+    the build repeated, at most ``_GO_BLANK_USE_MAX_RETRIES`` times; any other compile error is a
+    real failure and is never retried away. The first line of the output records how the file was
+    assembled.
 
     The literal comparison determining ``verified`` is intentionally exact
     (``returncode == 0`` for each of build and vet), matching
     ``verify_dotnet_example``.
     """
+    if not _has_own_statements(_strip_go_preamble(candidate.code), preamble_line=None):
+        return VerificationResult(
+            candidate=candidate,
+            verified=False,
+            output=_NO_STATEMENTS_MESSAGE.format(kind="package and import declarations"),
+        )
+
     project_dir = workdir / "candidate_project"
     project_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1397,24 +1623,69 @@ def verify_go_example(
         library_dir=library_dir.resolve().as_posix(),
     )
     (project_dir / "go.mod").write_text(go_mod_content, encoding="utf-8")
-    wrapped_code = _wrap_go_fragment_if_needed(candidate.code, module_path)
-    (project_dir / "main.go").write_text(wrapped_code, encoding="utf-8")
 
+    plan = _plan_go_assembly(candidate.code, module_path, candidate.page_code, library_dir)
+    blank_uses: list[str] = []
+
+    def write_main_go() -> None:
+        main_go = _wrap_go_fragment_if_needed(
+            candidate.code,
+            module_path,
+            page_code=candidate.page_code,
+            library_dir=library_dir,
+            blank_uses=tuple(blank_uses),
+        )
+        (project_dir / "main.go").write_text(main_go, encoding="utf-8")
+
+    def finish(verified: bool, tidy_returncode: int | None, *outputs: str) -> VerificationResult:
+        assembly = _go_assembly_line(plan, blank_uses, tidy_returncode)
+        joined = "\n".join(outputs)
+        return VerificationResult(
+            candidate=candidate,
+            verified=verified,
+            output=f"{assembly}\n{_truncate(joined)}",
+        )
+
+    write_main_go()
     build_result = _run(["go", "build", "./..."], cwd=project_dir)
+    tidy_returncode: int | None = None
+    tidy_text = ""
+    build_text = f"{build_result.stdout}\n{build_result.stderr}"
+
+    if build_result.returncode != 0 and any(hint in build_text for hint in _GO_TIDY_HINTS):
+        tidy_result = _run(["go", "mod", "tidy"], cwd=project_dir)
+        tidy_returncode = tidy_result.returncode
+        tidy_text = f"{tidy_result.stdout}\n{tidy_result.stderr}"
+        if tidy_result.returncode != 0:
+            return finish(False, tidy_returncode, tidy_text, build_text)
+        build_result = _run(["go", "build", "./..."], cwd=project_dir)
+        build_text = f"{build_result.stdout}\n{build_result.stderr}"
+
+    retries = 0
+    while (
+        build_result.returncode != 0
+        and plan.mode == _GO_MODE_WRAPPED_FRAGMENT
+        and retries < _GO_BLANK_USE_MAX_RETRIES
+    ):
+        new_names = [name for name in _go_unused_variable_names(build_text) if name not in blank_uses]
+        if not new_names:
+            break
+        blank_uses.extend(new_names)
+        write_main_go()
+        build_result = _run(["go", "build", "./..."], cwd=project_dir)
+        build_text = f"{build_result.stdout}\n{build_result.stderr}"
+        retries += 1
+
+    tidy_outputs = (tidy_text,) if tidy_returncode is not None else ()
     if build_result.returncode != 0:
-        output = _truncate(f"{build_result.stdout}\n{build_result.stderr}")
-        return VerificationResult(candidate=candidate, verified=False, output=output)
+        return finish(False, tidy_returncode, *tidy_outputs, build_text)
 
     # A candidate that compiles but is statically wrong (an unreachable print,
     # a misused printf verb) is not verified. Vet runs in the same throwaway
     # module, so it sees the same replace directive the build used.
     vet_result = _run(["go", "vet", "./..."], cwd=project_dir)
-    if vet_result.returncode != 0:
-        output = _truncate(f"{vet_result.stdout}\n{vet_result.stderr}")
-        return VerificationResult(candidate=candidate, verified=False, output=output)
-
-    output = _truncate(f"{build_result.stdout}\n{build_result.stderr}")
-    return VerificationResult(candidate=candidate, verified=True, output=output)
+    vet_text = f"{vet_result.stdout}\n{vet_result.stderr}"
+    return finish(vet_result.returncode == 0, tidy_returncode, *tidy_outputs, build_text, vet_text)
 
 
 # --- pdf/java --------------------------------------------------------------
