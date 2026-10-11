@@ -1,0 +1,97 @@
+id: TC-365
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-006 (adversarial robustness). The first live run of the adversarial suite (TC-355) against the real demo image failed all three
+  pilots, and the supervisor reproduced each failure by hand. Three are defects of the SUITE, not of the server: (1) it stores at most
+  MAX_STORED_BODY bytes of a reply and then parses the stored text, so an honest reply that exceeds the cap (the server echoes a 1 MB query
+  back inside its answer) is called unparseable; (2) the isolation scenario flags the foreign symbol appearing in the answer, but the
+  answer is an honest miss that merely echoes the requested `fqn` back with an empty `suggestions` list; (3) the concurrency scenario
+  demands an absolute p95 under 2 s, which fails on a loaded host that is also slow for a single warm call. A suite that fails a correct
+  server is as useless as one that passes a broken one, so this card fixes the three and pins each with a test, without weakening any
+  detection.
+depends_on:
+- TC-355
+write_paths:
+- scripts/release/adversarial_suite.py
+- tests/deploy/test_adversarial_suite.py
+satisfies:
+- REQ-G3-006
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Peers will try to break the shipped image: an adversarial suite is a requirement, not an extra (operator, supervisor, pre-TC-355)'
+  sha256: d2caef724bdb4ebdd6139a6775d2e46c22527150b512d2f09d15225ba6375268
+inputs:
+- >-
+  Read scripts/release/adversarial_suite.py (`http_request`, `parse_message`, `classify`, the isolation scenario, the concurrency scenario)
+  and tests/deploy/test_adversarial_suite.py. Real evidence from the live run, so you can reproduce the shapes in your fake server: an
+  honest miss for an unknown symbol looks like
+  `{"scope": {"family": "pdf", "platform": "net", "source_kind": "self_extracted"}, "fqn": "<the requested symbol>", "suggestions": []}`
+  and is delivered as a server-sent event (`event: message` then a `data: {...}` line) carrying `result.content[].text` (a JSON string) and
+  `result.structuredContent.result`. A reply to a 1 MB string argument is larger than MAX_STORED_BODY because the request value is echoed
+  back. Never print or log any environment value.
+- >-
+  FIX 1, parse before truncating: `http_request` must keep the full body long enough to parse it. Parse (or classify) the reply from the
+  complete text, and cap only what is STORED as evidence in reports (the existing excerpting). Memory stays bounded: read in chunks as
+  now, but accumulate up to a separate, larger hard ceiling (for example 16 MB) beyond which the reply is classified as a violation
+  ("reply larger than the ceiling") rather than parsed. A reply of about 2.5 MB that is valid JSON-RPC must classify as `ok` or the
+  proper error kind, never `unparseable`; a reply over the ceiling must be a violation; the stored evidence excerpt stays short.
+- >-
+  FIX 2, isolation must not mistake an echo for data: add a module-level function `strip_request_echo(value, arguments)` that returns the
+  answer with every JSON string value that is exactly equal to one of the string values in the request `arguments` (recursively, including
+  inside the `scope`-like objects the request sent) replaced by an empty string, and make the isolation scenario search for the foreign
+  symbol only in what `strip_request_echo` returns. The detection must stay real: a foreign symbol that appears anywhere ELSE in the answer
+  (a different field, inside a longer string such as a definition or signature, in `suggestions`, in a member list) is still a violation.
+  The control (the pilot's own symbol must come back) is unchanged.
+- >-
+  FIX 3, concurrency latency is relative to a measured baseline: keep the zero-errors and memory rules. Replace the absolute p95 under
+  2 s with `p95 <= max(2.0, 8 * baseline_median)` where `baseline_median` is the median latency of the warm-up pass the scenario already
+  makes (single sequential valid calls on the same container), and put both numbers in the violation text. A broken server that is slow
+  even when idle still fails because the floor is 2 s and the baseline is measured on the same container.
+- >-
+  tests/deploy/test_adversarial_suite.py: add tests for each fix against the existing fake endpoint style: (1) a fake server whose valid
+  reply is about 2.5 MB parses and classifies as ok; one over the ceiling is a violation; stored evidence stays under a small bound;
+  (2) a fake server that answers an unknown symbol with the honest echo shape above PASSES isolation, while one that returns the foreign
+  symbol in `suggestions`, in a definition string, or in a member list FAILS it; `strip_request_echo` is unit-tested directly (exact-equal
+  strings removed, longer strings that merely contain the symbol kept, nested structures handled, non-string values untouched); (3) a
+  server that is uniformly slow (every call about the same long latency) passes the relative rule but a server with a few very slow calls
+  among fast ones fails it, and the floor of 2 s is honoured. Keep every existing test passing UNMODIFIED unless it asserts the old
+  absolute 2 s rule or the old truncation behaviour, in which case change only that assertion and say so in your report.
+- >-
+  Run `{python} -m pytest tests/deploy/test_adversarial_suite.py -q -rfE`, then once `{python} -m pytest tests/deploy -q -rfE`. Do NOT
+  start any container or contact any real endpoint: the supervisor repeats the live run. Write commit messages as UTF-8 without a
+  byte-order mark.
+actions:
+- Parse replies in full and cap only the stored evidence, with a hard ceiling that is itself a violation.
+- Ignore a requested value echoed back when searching for a foreign symbol, and keep every real leak detectable.
+- Make the concurrency latency rule relative to a measured baseline with a 2 s floor.
+checks:
+- command: '{python} -m pytest tests/deploy/test_adversarial_suite.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-006
+- command: '{python} -m pytest tests/deploy -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-006
+min_tests: 20
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/release/adversarial_suite.py');s=p.read_text(encoding='utf-8');old='def strip_request_echo(';assert old in s;p.write_text(s.replace(old,'def strip_request_echoX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the definition of the echo-stripping function, so the isolation scenario and its direct unit tests can no longer find it: they
+    fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-365/receipt.json
+closeout:
+- >-
+  The adversarial suite no longer fails a correct server for echoing a request, for replying with more than the evidence cap, or for being
+  slow on a loaded host, and still fails a server that leaks another pilot's data, returns a malformed reply or collapses under load.
+recovery: Re-run from a clean tree.
