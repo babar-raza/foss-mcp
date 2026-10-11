@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "card": "TC-371",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-11T13:15:55Z",
+  "base_rev": "a30ce2f663d09250be0912c1c643a7a4452dad26",
+  "head_rev": "0d58215e6b1867ddd301bcc20ae8b6086886b24c",
+  "card_sha256": "8de08957cac93e5a2b0fa7b0e642ea8e6c5a8fd7d4013ee65c6e02ee857a6802",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "docker-compose.yml",
+      "infra/helm/foss-mcp/values.yaml",
+      "tests/infra/test_wave1_python_wiring.py",
+      "tests/infra/test_wave2_wiring.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_wave2_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 27.895,
+          "stdout_sha256": "9fcce73e834531098154ea2022611027a5c3349e89417dad5925d5d12fc4979e",
+          "tests": 134,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra tests/test_container_build.py -q -rfE -k \"ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker\"",
+          "exit_code": 0,
+          "duration_s": 103.044,
+          "stdout_sha256": "a394d7c07d32263ceb9f1642c55370797e6b927cda2c8740bd2a0765000fb984",
+          "tests": 374,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_wave2_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 25.104,
+          "stdout_sha256": "9fcce73e834531098154ea2022611027a5c3349e89417dad5925d5d12fc4979e",
+          "tests": 134,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra tests/test_container_build.py -q -rfE -k \"ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker\"",
+          "exit_code": 0,
+          "duration_s": 89.311,
+          "stdout_sha256": "a394d7c07d32263ceb9f1642c55370797e6b927cda2c8740bd2a0765000fb984",
+          "tests": 374,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/helm/foss-mcp/values.yaml');s=p.read_text(encoding='utf-8');old='/app/fixtures/furnished/words_net/pages/_index.md';assert old in s;p.write_text(s.replace(old,'/app/fixtures/furnished/words_net/pages/_gone.md',1),encoding='utf-8')\"\n",
+    "patch_sha256": "65696c7018205385d6c17ae51fbf9e50961e5be5a1e1fae7b25ced512fcbeca8",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M infra/helm/foss-mcp/values.yaml",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

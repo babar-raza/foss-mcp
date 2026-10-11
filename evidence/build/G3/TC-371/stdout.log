@@ -1,0 +1,287 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_wave2_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hw0l0gpn\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 53%]
+..............................................................           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hw0l0gpn\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 19%]
+........................................................................ [ 38%]
+........................................................................ [ 57%]
+........................................................................ [ 77%]
+........................................................................ [ 96%]
+..............                                                           [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_wave2_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hw0l0gpn\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 53%]
+..............................................................           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hw0l0gpn\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 19%]
+........................................................................ [ 38%]
+........................................................................ [ 57%]
+........................................................................ [ 77%]
+........................................................................ [ 96%]
+..............                                                           [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/values.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_wave2_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hw0l0gpn\.junit-0.xml"
+--- stdout ---
+F.........F.........F.............................F..................... [ 53%]
+............................F.................................           [100%]
+================================== FAILURES ===================================
+__________ test_chart_names_the_pilots_documentation_page[words/net] __________
+
+family = 'words', platform = 'net'
+
+    @pytest.mark.parametrize(("family", "platform"), WAVE2_PILOTS, ids=IDS)
+    def test_chart_names_the_pilots_documentation_page(family: str, platform: str) -> None:
+        pilot = _pilot(family, platform)
+>       assert pilot.get("furnishedPage") == f"{IMAGE_FIXTURES}furnished/{family}_{platform}/pages/_index.md"
+E       AssertionError: assert '/app/fixture...ages/_gone.md' == '/app/fixture...ges/_index.md'
+E         
+E         - /app/fixtures/furnished/words_net/pages/_index.md
+E         ?                                          ^ - -
+E         + /app/fixtures/furnished/words_net/pages/_gone.md
+E         ?                                          ^^
+
+tests\infra\test_wave2_wiring.py:118: AssertionError
+_______ test_page_exists_and_is_pinned_to_the_library_commit[words/net] _______
+
+family = 'words', platform = 'net'
+
+    @pytest.mark.parametrize(("family", "platform"), WAVE2_PILOTS, ids=IDS)
+    def test_page_exists_and_is_pinned_to_the_library_commit(family: str, platform: str) -> None:
+        pilot = _pilot(family, platform)
+        page = _host_path(pilot["furnishedPage"])
+>       assert page.is_file(), f"{page} does not exist"
+E       AssertionError: E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hw0l0gpn\tests\fixtures\furnished\words_net\pages\_gone.md does not exist
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-hw0l0gpn/tests/fixtures/furnished/words_net/pages/_gone.md').is_file
+
+tests\infra\test_wave2_wiring.py:125: AssertionError
+_ test_compose_passes_the_charts_page_and_library_flags_before_out[words/net] _
+
+family = 'words', platform = 'net'
+
+    @pytest.mark.parametrize(("family", "platform"), WAVE2_PILOTS, ids=IDS)
+    def test_compose_passes_the_charts_page_and_library_flags_before_out(family: str, platform: str) -> None:
+        pilot = _pilot(family, platform)
+        library = pilot["library"]
+        field_key, field_flag = PLATFORM_FIELD[library["platform"]]
+        build = _build_chunks_tokens(family, platform)
+        expected = {
+            "--furnished-page": pilot["furnishedPage"],
+            "--library-repository": library["repository"],
+            "--library-commit": library["commit"],
+            "--library-platform": library["platform"],
+            field_flag: library[field_key],
+        }
+        out_index = _flag_index(build, "--out")
+        for flag, value in expected.items():
+>           assert _flag_value(build, flag) == value, flag
+E           AssertionError: --furnished-page
+E           assert '/app/fixture...ges/_index.md' == '/app/fixture...ages/_gone.md'
+E             
+E             - /app/fixtures/furnished/words_net/pages/_gone.md
+E             ?                                          ^^
+E             + /app/fixtures/furnished/words_net/pages/_index.md
+E             ?                                          ^ + +
+
+tests\infra\test_wave2_wiring.py:146: AssertionError
+________ test_every_furnished_page_exists_and_the_wired_sets_have_one _________
+
+    def test_every_furnished_page_exists_and_the_wired_sets_have_one() -> None:
+        """Forward-compatible: every pilot with a furnishedPage points at an existing file, and the set of
+        pilots with one contains the ten and the earlier ones. Later waves may add more.
+        """
+        with_page: dict[tuple[str, str], str] = {}
+        for pilot in _pilots():
+            if pilot.get("furnishedPage"):
+                with_page[(pilot["family"], pilot["platform"])] = pilot["furnishedPage"]
+        for key, page in with_page.items():
+>           assert _host_path(page).is_file(), f"{key}: furnishedPage {page} has no page file"
+E           AssertionError: ('words', 'net'): furnishedPage /app/fixtures/furnished/words_net/pages/_gone.md has no page file
+E           assert False
+E            +  where False = is_file()
+E            +    where is_file = WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-hw0l0gpn/tests/fixtures/furnished/words_net/pages/_gone.md').is_file
+E            +      where WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-hw0l0gpn/tests/fixtures/furnished/words_net/pages/_gone.md') = _host_path('/app/fixtures/furnished/words_net/pages/_gone.md')
+
+tests\infra\test_wave2_wiring.py:184: AssertionError
+____________________ test_words_net_pilot_matches_compose _____________________
+
+    def test_words_net_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("words", "net")
+
+tests\infra\test_helm_pilots_match_compose.py:483: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+family = 'words', platform = 'net'
+
+    def _assert_pilot_matches_compose(family: str, platform: str) -> None:
+        pilot = _pilot(family, platform)
+        build, ingest = _compose_arguments(family, platform)
+    
+        assert ingest["--family"] == family, family
+        assert ingest["--platform"] == platform, platform
+        assert pilot["family"] == family and pilot["platform"] == platform
+    
+        # A self-extracted pilot has an empty library block and no --library-commit flag: both None.
+        # The FIXTURE_CHECKED_PILOTS pilots have compose services that define no library flags, so their
+        # library is checked against their fixture's source_repository and source_commit instead.
+        if (family, platform) in FIXTURE_CHECKED_PILOTS:
+            fixture = json.loads(
+                (REPO_ROOT / "tests" / "fixtures" / f"{family}_{platform}" / "api_surface.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            assert pilot["library"]["repository"] == fixture["source_repository"], "library repository"
+            assert pilot["library"]["commit"] == fixture["source_commit"], "library commit"
+        else:
+            assert pilot["library"].get("commit") == build.get("--library-commit"), "library commit"
+        assert pilot["apiSurface"] == build["--api-surface"], "apiSurface (build_chunks)"
+        assert pilot["apiSurface"] == ingest["--api-surface"], "apiSurface (ingest)"
+        # A self-extracted pilot has no furnished page: the key is absent in values.yaml and the flag
+        # is absent in compose, so both sides are None and still compare equal.
+>       assert pilot.get("furnishedPage") == build.get("--furnished-page"), "furnished page"
+E       AssertionError: furnished page
+E       assert '/app/fixture...ages/_gone.md' == '/app/fixture...ges/_index.md'
+E         
+E         - /app/fixtures/furnished/words_net/pages/_index.md
+E         ?                                          ^ - -
+E         + /app/fixtures/furnished/words_net/pages/_gone.md
+E         ?                                          ^^
+
+tests\infra\test_helm_pilots_match_compose.py:438: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_wave2_wiring.py::test_chart_names_the_pilots_documentation_page[words/net]
+FAILED tests/infra/test_wave2_wiring.py::test_page_exists_and_is_pinned_to_the_library_commit[words/net]
+FAILED tests/infra/test_wave2_wiring.py::test_compose_passes_the_charts_page_and_library_flags_before_out[words/net]
+FAILED tests/infra/test_wave2_wiring.py::test_every_furnished_page_exists_and_the_wired_sets_have_one
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_words_net_pilot_matches_compose
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hw0l0gpn\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 19%]
+........................................................................ [ 38%]
+.................................................F...................... [ 57%]
+.............................F.......................................... [ 77%]
+........................................................................ [ 96%]
+..............                                                           [100%]
+================================== FAILURES ===================================
+____________________ test_words_net_pilot_matches_compose _____________________
+
+    def test_words_net_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("words", "net")
+
+tests\infra\test_helm_pilots_match_compose.py:483: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+family = 'words', platform = 'net'
+
+    def _assert_pilot_matches_compose(family: str, platform: str) -> None:
+        pilot = _pilot(family, platform)
+        build, ingest = _compose_arguments(family, platform)
+    
+        assert ingest["--family"] == family, family
+        assert ingest["--platform"] == platform, platform
+        assert pilot["family"] == family and pilot["platform"] == platform
+    
+        # A self-extracted pilot has an empty library block and no --library-commit flag: both None.
+        # The FIXTURE_CHECKED_PILOTS pilots have compose services that define no library flags, so their
+        # library is checked against their fixture's source_repository and source_commit instead.
+        if (family, platform) in FIXTURE_CHECKED_PILOTS:
+            fixture = json.loads(
+                (REPO_ROOT / "tests" / "fixtures" / f"{family}_{platform}" / "api_surface.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            assert pilot["library"]["repository"] == fixture["source_repository"], "library repository"
+            assert pilot["library"]["commit"] == fixture["source_commit"], "library commit"
+        else:
+            assert pilot["library"].get("commit") == build.get("--library-commit"), "library commit"
+        assert pilot["apiSurface"] == build["--api-surface"], "apiSurface (build_chunks)"
+        assert pilot["apiSurface"] == ingest["--api-surface"], "apiSurface (ingest)"
+        # A self-extracted pilot has no furnished page: the key is absent in values.yaml and the flag
+        # is absent in compose, so both sides are None and still compare equal.
+>       assert pilot.get("furnishedPage") == build.get("--furnished-page"), "furnished page"
+E       AssertionError: furnished page
+E       assert '/app/fixture...ages/_gone.md' == '/app/fixture...ges/_index.md'
+E         
+E         - /app/fixtures/furnished/words_net/pages/_index.md
+E         ?                                          ^ - -
+E         + /app/fixtures/furnished/words_net/pages/_gone.md
+E         ?                                          ^^
+
+tests\infra\test_helm_pilots_match_compose.py:438: AssertionError
+_______ test_fixture_is_in_the_ingestion_image[words/net-furnishedPage] _______
+
+path = '/app/fixtures/furnished/words_net/pages/_gone.md'
+
+    @pytest.mark.parametrize("path", _cases())
+    def test_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/words_net/pages/_gone.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+>       assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+E       AssertionError: tests/fixtures/furnished/words_net/pages/_gone.md does not exist in the repository
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = (WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-hw0l0gpn') / 'tests/fixtures/furnished/words_net/pages/_gone.md').is_file
+
+tests\infra\test_ingestion_image_fixtures.py:105: AssertionError
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_words_net_pilot_matches_compose
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_fixture_is_in_the_ingestion_image[words/net-furnishedPage]
+
+--- stderr ---
+
