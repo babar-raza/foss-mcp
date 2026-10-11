@@ -149,26 +149,25 @@ COPY infra/fetch_recent_releases.py ./infra/fetch_recent_releases.py
 COPY infra/verify_package_registry.py ./infra/verify_package_registry.py
 COPY infra/verify_product_reference_install.py ./infra/verify_product_reference_install.py
 COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
-# REQ-G2-048 (TC-069): the furnished-content page --furnished-page reads from, real inside
-# the container - the same real, committed fixture TC-068's own host-level test already
-# proved against.
-COPY tests/fixtures/furnished/pdf_net/pages/_index.md ./fixtures/furnished/pdf_net/pages/_index.md
+# REQ-G2-048 (TC-069) / REQ-G3-005 (TC-352): the furnished-content pages --furnished-page reads from,
+# real inside the container - the same real, committed fixtures TC-068's own host-level test already
+# proved against. They are copied as ONE DIRECTORY by convention: a pilot that gains a furnished page
+# under tests/fixtures/furnished/<pilot>/pages/ reaches the image with no edit to this file, so adding a
+# pilot is no longer a serial edit to a shared Dockerfile. (api_surface.json stays one COPY per pilot,
+# below.) tests/infra/test_ingestion_image_fixtures.py still fails if a fixture the chart or compose
+# references is covered by no COPY, or lands at the wrong destination.
+COPY tests/fixtures/furnished/ ./fixtures/furnished/
 
-# REQ-G2-050 (TC-103): the same two fixture files as pdf/net above, for each of the 5
+# REQ-G2-050 (TC-103): the same api_surface.json as pdf/net above, for each of the 5
 # remaining original pilots - TC-098's own worker found that this image only ever COPYed
 # pdf/net's own fixtures, so every other pilot's ingest-<pilot> compose service failed
-# immediately with FileNotFoundError. Purely additive; pdf/net's own lines above are
-# untouched.
+# immediately with FileNotFoundError. Purely additive; pdf/net's own line above is
+# untouched. Their furnished pages arrive through the directory COPY above.
 COPY tests/fixtures/pdf_typescript/api_surface.json ./fixtures/pdf_typescript/api_surface.json
-COPY tests/fixtures/furnished/pdf_typescript/pages/_index.md ./fixtures/furnished/pdf_typescript/pages/_index.md
 COPY tests/fixtures/pdf_java/api_surface.json ./fixtures/pdf_java/api_surface.json
-COPY tests/fixtures/furnished/pdf_java/pages/_index.md ./fixtures/furnished/pdf_java/pages/_index.md
 COPY tests/fixtures/pdf_go/api_surface.json ./fixtures/pdf_go/api_surface.json
-COPY tests/fixtures/furnished/pdf_go/pages/_index.md ./fixtures/furnished/pdf_go/pages/_index.md
 COPY tests/fixtures/slides_python/api_surface.json ./fixtures/slides_python/api_surface.json
-COPY tests/fixtures/furnished/slides_python/pages/_index.md ./fixtures/furnished/slides_python/pages/_index.md
 COPY tests/fixtures/cells_rust/api_surface.json ./fixtures/cells_rust/api_surface.json
-COPY tests/fixtures/furnished/cells_rust/pages/_index.md ./fixtures/furnished/cells_rust/pages/_index.md
 # REQ-G2-044 (TC-172): pdf/cpp's API-surface fixture for the ingest-pdf-cpp compose service.
 # Only api_surface.json: pdf/cpp has no furnished page, since no cpp example path exists.
 COPY tests/fixtures/pdf_cpp/api_surface.json ./fixtures/pdf_cpp/api_surface.json
