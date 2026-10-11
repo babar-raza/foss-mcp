@@ -93,10 +93,32 @@ _CANDIDATE_GO_MOD_TEMPLATE = """module candidate
 
 go 1.24
 
-require {module_path} v0.0.0
+require {module_path} {required_version}
 
 replace {module_path} => {library_dir}
 """
+
+# A Go module path whose last element is ``vN`` (N an integer of at least 2, no leading zero), or
+# that ends in the gopkg.in style ``.vN``, is a major-version-suffixed path.
+_GO_MAJOR_SUFFIX_RE = re.compile(r"(?:/|\.)v([1-9][0-9]*)$")
+
+
+def _go_required_version(module_path: str) -> str:
+    """Return the version the throwaway go.mod must ``require`` ``module_path`` at.
+
+    Go refuses to require a module whose path ends in a major-version suffix at a version of a
+    different major (``.../v26`` at ``v0.0.0`` fails with "should be v26, not v0"). A path ending
+    in ``/vN`` or ``.vN`` with N an integer of at least 2 therefore gets ``vN.0.0``; every other
+    path (no suffix, ``/v1``, ``/v0``, ``/version``, ``/v26x``, an uppercase ``/V26``) keeps
+    ``v0.0.0``. A trailing slash is ignored.
+    """
+    match = _GO_MAJOR_SUFFIX_RE.search(module_path.rstrip("/"))
+    if match is None:
+        return "v0.0.0"
+    major = int(match.group(1))
+    if major < 2:
+        return "v0.0.0"
+    return f"v{major}.0.0"
 
 
 def _run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -1030,6 +1052,7 @@ def verify_go_example(
 
     go_mod_content = _CANDIDATE_GO_MOD_TEMPLATE.format(
         module_path=module_path,
+        required_version=_go_required_version(module_path),
         library_dir=library_dir.resolve().as_posix(),
     )
     (project_dir / "go.mod").write_text(go_mod_content, encoding="utf-8")
