@@ -1,0 +1,330 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_generate_furnished_page.py tests/infra/test_furnished_fixtures_valid.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ktvvctki\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 72%]
+...........................                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra -q -rfE -k "furnished or generate or ingestion_image or pilots_match" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ktvvctki\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 30%]
+........................................................................ [ 61%]
+........................................................................ [ 91%]
+....................                                                     [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_generate_furnished_page.py tests/infra/test_furnished_fixtures_valid.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ktvvctki\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 72%]
+...........................                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra -q -rfE -k "furnished or generate or ingestion_image or pilots_match" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ktvvctki\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 30%]
+........................................................................ [ 61%]
+........................................................................ [ 91%]
+....................                                                     [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/generate_furnished_page.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_generate_furnished_page.py tests/infra/test_furnished_fixtures_valid.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ktvvctki\.junit-0.xml"
+--- stdout ---
+...............................F....F..............F.................... [ 72%]
+........................F..                                              [100%]
+================================== FAILURES ===================================
+________________ test_a_complete_readme_builds_a_complete_page ________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5788/test_a_complete_readme_builds_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001AA1B4D77E0>
+
+    def test_a_complete_readme_builds_a_complete_page(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        page_text, fields = _build(_readme(), monkeypatch)
+        page = _load_page(tmp_path, page_text)
+    
+        assert fields.missing == ()
+        assert page["layout"] == "plugin"
+        assert page["title"] == _README_TITLE
+        assert page["github_url"] == f"https://github.com/{_README_REPOSITORY}"
+        assert page["doc_source"] == "github_readme"  # marks the page as generated by this source
+>       assert page["doc_source_commit"] == _README_COMMIT
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'doc_source_commit'
+
+tests\infra\test_generate_furnished_page.py:560: KeyError
+_ test_a_readme_missing_several_sections_gives_a_partial_page_and_reports_them _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5788/test_a_readme_missing_several_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001AA1B50EE40>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001AA1D2A2CF0>
+
+    def test_a_readme_missing_several_sections_gives_a_partial_page_and_reports_them(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        omitted = ("At a Glance", "Key Capabilities", "API Reference", "Scope and Limitations")
+        root = _readme_project(tmp_path / "project")
+        _patch_readmes(monkeypatch, {_README_REPOSITORY: _readme(omit=omitted)})
+    
+        _run_github(root)
+    
+        output = capsys.readouterr().out
+        page = build_chunks._load_furnished_page(gen._fixture_path(root, _README_PILOT_KEY))
+        assert page["overview"] == {"enable": False}
+>       assert page["doc_source"] == "github_readme" and page["doc_source_commit"] == _README_COMMIT
+                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'doc_source_commit'
+
+tests\infra\test_generate_furnished_page.py:658: KeyError
+_ test_a_page_is_generated_for_a_real_chart_pilot_pinned_to_its_chart_commit __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5788/test_a_page_is_generated_for_a0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001AA1B4C7620>
+
+    def test_a_page_is_generated_for_a_real_chart_pilot_pinned_to_its_chart_commit(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        chart = gen._load_chart_pilots(_REPO_ROOT)
+        assert len(chart) == 40
+        for key, pilot in chart.items():
+            family, platform, repository, commit = gen._pilot_identity(pilot)
+            assert key == f"{family}_{platform}"
+            assert repository and re.fullmatch(r"[0-9a-f]{40}", commit), key
+    
+        pilot = chart["pdf_go"]
+        repository = pilot["library"]["repository"]
+        _patch_readmes(monkeypatch, {repository: _readme()})
+        fields = gen.readme_doc_fields(repository, pilot["library"]["commit"])
+        page = _load_page(tmp_path, gen.build_page_from_readme(pilot, fields))
+    
+>       assert page["doc_source_commit"] == pilot["library"]["commit"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'doc_source_commit'
+
+tests\infra\test_generate_furnished_page.py:895: KeyError
+____________ test_a_generated_page_passes_every_one_of_these_rules ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5788/test_a_generated_page_passes_e0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001AA1D16EF90>
+
+    def test_a_generated_page_passes_every_one_of_these_rules(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The generator's own output is held to the same rules as the committed pages.
+    
+        Built for a real chart entry from an in-memory README (the network is never reached), then
+        checked with the very functions the parametrized tests above use.
+        """
+        chart = _chart_pilots()
+        pilot = chart["pdf_go"]
+        repository, commit = pilot["library"]["repository"], pilot["library"]["commit"]
+        readme = "\n".join(
+            [
+                "# Demo Library for Go",
+                "",
+                "Demo Library for Go is a small pure-Go library used to prove the generator.",
+                "",
+                "## Quick Start",
+                "",
+                "```go",
+                "d := demo.New()",
+                "```",
+                "",
+                *(f"- line {number}" for number in range(40)),
+            ]
+        )
+    
+        def fake_read_repo_document(repo: str, path: str, *, ref: str | None = None, etag: str | None = None):
+            assert (repo, path, ref) == (repository, "README.md", commit)
+            return DocumentPresent(path=path, sha="f" * 40, size=len(readme), content=readme)
+    
+        monkeypatch.setattr(gen, "read_repo_document", fake_read_repo_document)
+        page_path = tmp_path / "pdf_go" / "pages" / "_index.md"
+        page_path.parent.mkdir(parents=True)
+        page_path.write_bytes(
+            gen.build_page_from_readme(pilot, gen.readme_doc_fields(repository, commit)).encode()
+        )
+    
+        page = check_loads(page_path)
+        check_title(page_path, page)
+        check_has_fenced_code(page_path)
+        # The generator marks its pages, so the pin rule binds this one (it is not exempt) ...
+        assert is_generated(page)
+>       assert page["doc_source_commit"] == commit
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'doc_source_commit'
+
+tests\infra\test_furnished_fixtures_valid.py:213: KeyError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_generate_furnished_page.py::test_a_complete_readme_builds_a_complete_page
+FAILED tests/infra/test_generate_furnished_page.py::test_a_readme_missing_several_sections_gives_a_partial_page_and_reports_them
+FAILED tests/infra/test_generate_furnished_page.py::test_a_page_is_generated_for_a_real_chart_pilot_pinned_to_its_chart_commit
+FAILED tests/infra/test_furnished_fixtures_valid.py::test_a_generated_page_passes_every_one_of_these_rules
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra -q -rfE -k "furnished or generate or ingestion_image or pilots_match" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ktvvctki\.junit-1.xml"
+--- stdout ---
+..........................................F............................. [ 30%]
+....F....F..............F............................................... [ 61%]
+........................................................................ [ 91%]
+....................                                                     [100%]
+================================== FAILURES ===================================
+____________ test_a_generated_page_passes_every_one_of_these_rules ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5789/test_a_generated_page_passes_e0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026078BFD860>
+
+    def test_a_generated_page_passes_every_one_of_these_rules(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The generator's own output is held to the same rules as the committed pages.
+    
+        Built for a real chart entry from an in-memory README (the network is never reached), then
+        checked with the very functions the parametrized tests above use.
+        """
+        chart = _chart_pilots()
+        pilot = chart["pdf_go"]
+        repository, commit = pilot["library"]["repository"], pilot["library"]["commit"]
+        readme = "\n".join(
+            [
+                "# Demo Library for Go",
+                "",
+                "Demo Library for Go is a small pure-Go library used to prove the generator.",
+                "",
+                "## Quick Start",
+                "",
+                "```go",
+                "d := demo.New()",
+                "```",
+                "",
+                *(f"- line {number}" for number in range(40)),
+            ]
+        )
+    
+        def fake_read_repo_document(repo: str, path: str, *, ref: str | None = None, etag: str | None = None):
+            assert (repo, path, ref) == (repository, "README.md", commit)
+            return DocumentPresent(path=path, sha="f" * 40, size=len(readme), content=readme)
+    
+        monkeypatch.setattr(gen, "read_repo_document", fake_read_repo_document)
+        page_path = tmp_path / "pdf_go" / "pages" / "_index.md"
+        page_path.parent.mkdir(parents=True)
+        page_path.write_bytes(
+            gen.build_page_from_readme(pilot, gen.readme_doc_fields(repository, commit)).encode()
+        )
+    
+        page = check_loads(page_path)
+        check_title(page_path, page)
+        check_has_fenced_code(page_path)
+        # The generator marks its pages, so the pin rule binds this one (it is not exempt) ...
+        assert is_generated(page)
+>       assert page["doc_source_commit"] == commit
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'doc_source_commit'
+
+tests\infra\test_furnished_fixtures_valid.py:213: KeyError
+________________ test_a_complete_readme_builds_a_complete_page ________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5789/test_a_complete_readme_builds_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000260791B06E0>
+
+    def test_a_complete_readme_builds_a_complete_page(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        page_text, fields = _build(_readme(), monkeypatch)
+        page = _load_page(tmp_path, page_text)
+    
+        assert fields.missing == ()
+        assert page["layout"] == "plugin"
+        assert page["title"] == _README_TITLE
+        assert page["github_url"] == f"https://github.com/{_README_REPOSITORY}"
+        assert page["doc_source"] == "github_readme"  # marks the page as generated by this source
+>       assert page["doc_source_commit"] == _README_COMMIT
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'doc_source_commit'
+
+tests\infra\test_generate_furnished_page.py:560: KeyError
+_ test_a_readme_missing_several_sections_gives_a_partial_page_and_reports_them _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5789/test_a_readme_missing_several_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002607FC48130>
+capsys = <_pytest.capture.CaptureFixture object at 0x000002607F6C2270>
+
+    def test_a_readme_missing_several_sections_gives_a_partial_page_and_reports_them(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        omitted = ("At a Glance", "Key Capabilities", "API Reference", "Scope and Limitations")
+        root = _readme_project(tmp_path / "project")
+        _patch_readmes(monkeypatch, {_README_REPOSITORY: _readme(omit=omitted)})
+    
+        _run_github(root)
+    
+        output = capsys.readouterr().out
+        page = build_chunks._load_furnished_page(gen._fixture_path(root, _README_PILOT_KEY))
+        assert page["overview"] == {"enable": False}
+>       assert page["doc_source"] == "github_readme" and page["doc_source_commit"] == _README_COMMIT
+                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'doc_source_commit'
+
+tests\infra\test_generate_furnished_page.py:658: KeyError
+_ test_a_page_is_generated_for_a_real_chart_pilot_pinned_to_its_chart_commit __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5789/test_a_page_is_generated_for_a0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026078C15860>
+
+    def test_a_page_is_generated_for_a_real_chart_pilot_pinned_to_its_chart_commit(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        chart = gen._load_chart_pilots(_REPO_ROOT)
+        assert len(chart) == 40
+        for key, pilot in chart.items():
+            family, platform, repository, commit = gen._pilot_identity(pilot)
+            assert key == f"{family}_{platform}"
+            assert repository and re.fullmatch(r"[0-9a-f]{40}", commit), key
+    
+        pilot = chart["pdf_go"]
+        repository = pilot["library"]["repository"]
+        _patch_readmes(monkeypatch, {repository: _readme()})
+        fields = gen.readme_doc_fields(repository, pilot["library"]["commit"])
+        page = _load_page(tmp_path, gen.build_page_from_readme(pilot, fields))
+    
+>       assert page["doc_source_commit"] == pilot["library"]["commit"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'doc_source_commit'
+
+tests\infra\test_generate_furnished_page.py:895: KeyError
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/infra/test_furnished_fixtures_valid.py::test_a_generated_page_passes_every_one_of_these_rules
+FAILED tests/infra/test_generate_furnished_page.py::test_a_complete_readme_builds_a_complete_page
+FAILED tests/infra/test_generate_furnished_page.py::test_a_readme_missing_several_sections_gives_a_partial_page_and_reports_them
+FAILED tests/infra/test_generate_furnished_page.py::test_a_page_is_generated_for_a_real_chart_pilot_pinned_to_its_chart_commit
+
+--- stderr ---
+
