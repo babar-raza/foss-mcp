@@ -5,8 +5,8 @@ PyYAML. A missing helm binary FAILS these tests; it never skips them.
 
 The five library keys javaPackages, cppSourceDir, cppTarget, cppWarnings and cppVerifyMode are
 forwarded to infra/build_chunks.py by infra/helm/foss-mcp/templates/ingestion-job.yaml, and only
-inside the furnishedPage guard. No pilot has a furnishedPage for these platforms yet, so the shipped
-chart renders none of them; an override file that wires a page proves the forwarding.
+inside the furnishedPage guard. The shipped chart renders them for each pilot that has a furnishedPage
+and holds the key; an override file proves the forwarding and the guard.
 """
 
 from __future__ import annotations
@@ -235,16 +235,32 @@ def test_the_typescript_and_nodejs_pilots_each_hold_a_package_name() -> None:
 # (2) with the shipped values nothing is forwarded.
 
 
-def test_shipped_values_render_none_of_the_new_flags(
+def test_shipped_values_render_exactly_the_held_verifier_flags_of_wired_pilots(
     shipped_jobs: dict[tuple[str, str], dict[str, Any]],
 ) -> None:
-    assert len(shipped_jobs) == len(_values()["ingestion"]["pilots"])
-    for (family, platform), job in shipped_jobs.items():
-        container = job["spec"]["template"]["spec"]["containers"][0]
-        command = container["args"][0]
-        for flag in VERIFIER_KEYS.values():
-            assert flag not in command, f"{family}/{platform} renders {flag} with the shipped values"
-        assert "--library-platform nodejs" not in command, f"{family}/{platform} renders the nodejs platform"
+    """Forward-compatible: a pilot with a furnishedPage renders exactly the verifier flags its library
+    block holds, each with the key's value; a pilot without one renders none. No pilot ever renders a
+    verifier flag its library block does not hold, and no rendered value begins with a dash (checked
+    by _flags).
+    """
+    pilots = _values()["ingestion"]["pilots"]
+    assert len(shipped_jobs) == len(pilots)
+    for pilot in pilots:
+        family, platform = pilot["family"], pilot["platform"]
+        flags = _flags(_build_chunks_tokens(shipped_jobs[(family, platform)]))
+        library = pilot.get("library") or {}
+        if pilot.get("furnishedPage"):
+            for key, flag in VERIFIER_KEYS.items():
+                if key in library:
+                    assert flags.get(flag) == str(library[key]), f"{family}/{platform} {flag}"
+                else:
+                    assert flag not in flags, f"{family}/{platform} renders {flag} it has no key for"
+        else:
+            for flag in VERIFIER_KEYS.values():
+                assert flag not in flags, f"{family}/{platform} has no furnishedPage yet renders {flag}"
+        for key in ("repository", "commit", "platform"):
+            if pilot.get("furnishedPage") and key in library:
+                assert flags[f"--library-{key}"] == str(library[key]), f"{family}/{platform} --library-{key}"
 
 
 # (3) with a page wired, each pilot renders exactly its flags.
@@ -318,13 +334,29 @@ def test_jmap_nodejs_renders_the_nodejs_platform_with_its_package_name(
     assert "--library-platform nodejs --library-package-name aspose-jmap-foss" in joined
 
 
-def test_an_unwired_pilot_with_verifier_keys_still_renders_none(
-    wired_jobs: dict[tuple[str, str], dict[str, Any]],
-) -> None:
-    # cells/java holds javaPackages but is not wired in this override: the furnishedPage guard holds.
-    command = wired_jobs[("cells", "java")]["spec"]["template"]["spec"]["containers"][0]["args"][0]
-    assert "--library-java-packages" not in command
-    assert "--furnished-page" not in command
+def test_the_furnished_page_guard_withholds_every_verifier_flag(tmp_path: Path) -> None:
+    """Render with an override that strips furnishedPage from wired pilots holding verifier keys: they
+    must render no verifier flag and no --furnished-page, whatever their library block holds.
+    """
+    values = _values()
+    stripped = [
+        (pilot["family"], pilot["platform"])
+        for pilot in values["ingestion"]["pilots"]
+        if pilot.get("furnishedPage") and set(VERIFIER_KEYS) & set(pilot.get("library") or {})
+    ]
+    assert stripped, "no wired pilot holds a verifier key; the guard has nothing to protect"
+    pilots = copy.deepcopy(values["ingestion"]["pilots"])
+    for pilot in pilots:
+        if (pilot["family"], pilot["platform"]) in stripped:
+            del pilot["furnishedPage"]
+    path = tmp_path / "override_stripped.yaml"
+    path.write_text(yaml.safe_dump({"ingestion": {"pilots": pilots}}), encoding="utf-8")
+    jobs = _jobs(_render("-f", str(path)))
+    for key in stripped:
+        command = jobs[key]["spec"]["template"]["spec"]["containers"][0]["args"][0]
+        assert "--furnished-page" not in command, key
+        for flag in VERIFIER_KEYS.values():
+            assert flag not in command, f"{key[0]}/{key[1]} renders {flag} without a furnishedPage"
 
 
 # (4) every rendered value is one build_chunks.py accepts.
