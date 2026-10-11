@@ -6,7 +6,9 @@ purpose: >-
   infra/demo-manifests/ still has zero sidecar files, so a standalone image has no product reference, recent changes or install
   verification, and its generations are older than the ones the 40-pilot cluster was proven on. This card runs the tool against the live,
   healthy cluster (namespace foss-mcp, 40 Ready serving pods) and commits the result, then pins the result with a real-tree test: every
-  pilot has its pointer, one generation, non-empty lexical documents, and all three well-formed sidecars, inside the size budget.
+  pilot has its pointer, one generation, non-empty lexical documents, and its well-formed sidecars, inside the size budget. A C++ pilot
+  has no package-registry sidecar BY DESIGN (there is no registry coordinate to verify, and the cluster never writes one), so that one
+  sidecar is required for every non-cpp pilot and required to be absent for every cpp pilot.
 depends_on:
 - TC-346
 - TC-349
@@ -30,8 +32,12 @@ inputs:
 - >-
   Read scripts/release/snapshot_demo_from_cluster.py and scripts/release/compact_demo_manifests.py (read only), then run
   `python scripts/release/snapshot_demo_from_cluster.py --namespace foss-mcp --dry-run` and report what it would do. Then run it for real
-  (no --allow-missing-sidecars: all three sidecars must exist for all 40 pilots; if any pilot cannot, report exactly which and why and
-  STOP rather than loosening it). Run `python scripts/release/compact_demo_manifests.py --check` and require exit 0. Report the tree size
+  with `--allow-missing-sidecars`. The attempt-2 dry run proved that exactly five pilots (pdf/cpp, cells/cpp, slides/cpp, email/cpp,
+  jmap/cpp) lack ONLY their package_registry sidecar, by design (infra/verify_product_reference_install.py writes nothing when
+  install_coordinate_for_verification() returns None, and it does for cpp). Before the real run, confirm from the dry run output that the
+  missing set is exactly those five package_registry files and nothing else; if ANY other sidecar of any pilot is missing, STOP and
+  report it (the flag must never hide anything but those five). After the run confirm product_reference and recent_releases exist for
+  all 40 pilots. Run `python scripts/release/compact_demo_manifests.py --check` and require exit 0. Report the tree size
   before and after, per-scope min/median/max generation size, the number of vector points kept per scope, and the sidecar sizes.
 - >-
   tests/deploy/test_compact_demo_manifests.py (TC-346's file, in your write_paths for ONE reason): its real-tree size budgets were set
@@ -40,14 +46,17 @@ inputs:
 - >-
   tests/deploy/test_demo_manifests_sidecars.py (NEW; reads the committed tree, no cluster, no network): exactly 40 scope directories,
   matching the chart's pilot list; each has active_pointer.json, exactly one generation file that the pointer names, and non-empty
-  `payload.lexical_index.documents`; each pilot has product_reference_<f>_<p>.json, recent_releases_<f>_<p>.json and
-  package_registry_<f>_<p>.json (file names from the repo's own sidecar-name helpers, never retyped), all valid JSON; the product reference
+  `payload.lexical_index.documents`; each pilot has product_reference_<f>_<p>.json and recent_releases_<f>_<p>.json, and each non-cpp
+  pilot also package_registry_<f>_<p>.json (file names from the repo's own sidecar-name helpers, never retyped), all valid JSON (a
+  recent_releases sidecar may legitimately be a two-byte empty document when a repository has no releases; do not require content); the product reference
   sidecar's `platform` equals the PILOT's platform key as the chart names it (for example `net` for pdf/net, NOT the library's own
   `library.platform` value such as `dotnet`; a live sidecar from the cluster confirms this) and it has a `manifest_text` string, non-empty
   for every pilot whose chart entry sets `manifestPath` (all 40 do today; compare against the real sidecars before pinning, and if a
   real sidecar is legitimately empty report which and why instead of loosening), and a `source_repository`/`source_ref` equal to the
   chart's library.repository and library.commit; the package-registry sidecar has `verified`, `coordinate` and `checked_at` keys; no file in the
-  tree outside the expected names exists (no stray temp files); no credential-shaped value appears anywhere in the tree (call
+  tree outside the expected names exists (no stray temp files); package_registry_<f>_<p>.json exists for every pilot whose chart
+  platform key is not `cpp` and does NOT exist for a pilot whose platform key is `cpp` (a stale file there would claim a verification
+  that never ran); no credential-shaped value appears anywhere in the tree (call
   `secretscan.scan_tree`-equivalent logic by reading the files and checking the same shapes: `ghp_`, `github_pat_`, `AKIA`, `-----BEGIN`
   PRIVATE KEY, `xox`); and the total size is under the budget.
 - >-
