@@ -1,0 +1,71 @@
+id: TC-342
+gate: G2
+lane: storage-retrieval
+purpose: >-
+  TC-336's test_query_vector_index_scored_stays_well_under_the_old_pure_python_cost_at_real_scale asserts one cold
+  call finishes under a hard 500 ms. It is a real, useful claim ("the vectorized scorer really is faster than the old
+  loop") expressed as a brittle absolute number: on a loaded machine it fails intermittently at 505-615 ms (3 of 10
+  isolated runs on unmodified main, measured by the TC-340 worker with the host at ~99% CPU). gatectl gate-exit
+  re-verifies every card from scratch, so a flaky check turns a true result into a random gate failure. This card keeps
+  the claim and removes the flake: it measures the old pure-Python scoring loop in the SAME process under the SAME
+  load and asserts the vectorized scorer's best-of-several time is a clear fraction of it.
+depends_on:
+- TC-336
+write_paths:
+- tests/indexing/test_index_writers.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Embedding every chunk with the 4096-dim gateway made serving pods unreadable; only example chunks need vectors (supervisor, pre-TC-340)'
+  sha256: dae21964bea9369486a1385a17f0c383eb4bccc457922c537cb8b988a9ccdce1
+inputs:
+- >-
+  Read tests/indexing/test_index_writers.py around test_query_vector_index_scored_stays_well_under_the_old_pure_python_cost_at_real_scale
+  and src/foss_mcp/indexing/vector_index_writer.py (the vectorized scorer). Every OTHER test in the file must stay
+  UNMODIFIED; change only that one test (and add module-level helpers it needs, placed immediately above it).
+- >-
+  Replace the single cold absolute-time assertion with a relative one: define a small pure-Python reference scorer in
+  the TEST (the straightforward per-point loop: dot product over zip, divided by the two norms, guarding zero norms - the
+  old algorithm the docstring describes; it lives only in the test, you may not reintroduce it into src). On the same
+  deterministic corpus (seed 20261010, 2,000 points x 4096 dims, keep these numbers), time the reference once, then time
+  query_vector_index_scored three times and take the MINIMUM. Assert the result still has 5 entries, that the vectorized
+  top-5 point ids equal the reference's top-5 ids (so the speed claim is about the same answer), and that
+  `best_vectorized < 0.75 * reference`. Keep an assertion message that prints all measured values in milliseconds.
+- >-
+  Update the docstring to say what is now measured and why it is relative (same process, same load), and remove the
+  stale claims about specific machine timings and the 500 ms bound.
+- >-
+  Prove the flake is gone: run the single test 15 times in a loop (e.g. a `for` loop of
+  `{python} -m pytest tests/indexing/test_index_writers.py -k stays_well_under -q`) while the machine is otherwise busy,
+  and report the pass count in your report. It must pass every time.
+- >-
+  Run `{python} -m pytest tests/indexing/test_index_writers.py -q -rfE` to confirm the whole file passes.
+- Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Replace the absolute 500 ms single-sample assertion with a same-process relative best-of-three comparison and an answer-equality check.
+- Keep every other test in the file untouched.
+checks:
+- command: '{python} -m pytest tests/indexing/test_index_writers.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 8
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/vector_index_writer.py');s=p.read_text(encoding='utf-8');old='def _cosine_scores(';assert old in s;p.write_text(s.replace(old,'def _cosine_scores_disabled(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the vectorized scorer so the module no longer provides it: the relative-speed test (and the existing
+    behaviour tests) fail. A real break of the vectorized path, not a textual no-op.
+evidence:
+- evidence/build/G2/TC-342/receipt.json
+closeout:
+- >-
+  The vectorization speed claim is now measured relative to the old algorithm under the same load instead of a hard
+  number, so it holds on slow or busy hardware and a gate exit no longer fails at random.
+recovery: Re-run from a clean tree.
