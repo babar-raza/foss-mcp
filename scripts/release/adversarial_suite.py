@@ -560,6 +560,11 @@ class OtherPilot:
     symbol: str
 
 
+def elapsed_of(outcome: Outcome) -> float:
+    """The latency the concurrency scenario judges: the measured round trip. Tests replace it with exact numbers."""
+    return outcome.elapsed
+
+
 @dataclass
 class Target:
     """Everything a scenario needs about the one endpoint under attack. ``base_url`` changes after a restart."""
@@ -580,6 +585,9 @@ class Target:
     error_bodies: list[ErrorBody] = field(default_factory=list)
     notes: dict[str, dict[str, Any]] = field(default_factory=dict)
     redact: gate.Redactor = field(default_factory=lambda: gate.Redactor([]))
+    # The seam for the latency rule: maps a finished call to the seconds it is judged by. Production uses the
+    # measured round trip; tests inject a deterministic function so the arithmetic is asserted, never real timing.
+    latency_of: Callable[[Outcome], float] = elapsed_of
 
     @property
     def key(self) -> str:
@@ -1051,6 +1059,14 @@ def percentile_95(values: list[float]) -> float:
     return ordered[max(0, (len(ordered) * 95 + 99) // 100 - 1)]
 
 
+def latency_rule(
+    latencies: list[float], warm_latencies: list[float], floor: float, factor: float
+) -> tuple[float, float, float]:
+    """(p95, allowed, baseline median). The rule: p95 <= max(floor, factor * median of the warm-up calls)."""
+    baseline_median = statistics.median(warm_latencies) if warm_latencies else 0.0
+    return percentile_95(latencies), max(floor, factor * baseline_median), baseline_median
+
+
 def _session_worker(
     target: Target, calls: list[tuple[str, dict[str, Any]]], index: int
 ) -> list[Outcome | str]:
@@ -1075,8 +1091,12 @@ def scenario_concurrency(target: Target) -> list[Violation]:
         ]
     violations: list[Violation] = []
     warm = target.open_session()
-    warm_latencies = [warm.call_tool(tool, arguments).elapsed for tool, arguments in calls]
-    baseline_median = statistics.median(warm_latencies)
+    warm_outcomes = []
+    for tool, arguments in calls:
+        warmed = warm.call_tool(tool, arguments)
+        warmed.detail = f"{tool}: {warmed.detail}" if warmed.detail else tool
+        warm_outcomes.append(warmed)
+    warm_latencies = [target.latency_of(outcome) for outcome in warm_outcomes]
     before = sample_memory_mib(target)
 
     with ThreadPoolExecutor(max_workers=target.limits.sessions) as pool:
@@ -1093,7 +1113,7 @@ def scenario_concurrency(target: Target) -> list[Violation]:
                 errors.append(Violation("concurrency", "session", item))
                 continue
             total += 1
-            latencies.append(item.elapsed)
+            latencies.append(target.latency_of(item))
             if item.kind != "ok":
                 errors.append(
                     Violation("concurrency", item.detail, f"{item.kind}", target.excerpt(item.text))
@@ -1103,9 +1123,8 @@ def scenario_concurrency(target: Target) -> list[Violation]:
         violations.append(
             Violation("concurrency", "errors", f"{len(errors)} errors in all; the first 10 are listed")
         )
-    p95 = percentile_95(latencies)
     floor, factor = target.limits.p95_s, target.limits.baseline_factor
-    allowed = max(floor, factor * baseline_median)
+    p95, allowed, baseline_median = latency_rule(latencies, warm_latencies, floor, factor)
     if p95 > allowed:
         violations.append(
             Violation(

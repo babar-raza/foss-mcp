@@ -128,7 +128,6 @@ class Behavior:
     leak_in_definition: bool = False
     leak_in_members: bool = False
     pad_reply_bytes: int = 0  # get_product_reference echoes this many bytes back (twice: text and structured)
-    slow_all_s: float = 0.0  # every valid tool call sleeps
 
 
 class FakeEndpoint:
@@ -285,8 +284,6 @@ class FakeEndpoint:
             time.sleep(b.slow_redos_s)
         if b.slow_lookup_s and tool == "lookup":
             time.sleep(b.slow_lookup_s)
-        if b.slow_all_s:
-            time.sleep(b.slow_all_s)
         if b.flaky_recent_changes and tool == "list_recent_changes":
             return h._send(503, "unavailable", "text/plain")
         value = self.answer(tool, arguments)
@@ -813,7 +810,10 @@ def test_concurrency_detects_errors_from_valid_calls(endpoint) -> None:
 
 
 def test_concurrency_detects_a_p95_over_the_limit(endpoint) -> None:
-    violations = suite.scenario_concurrency(make_target(endpoint(slow_lookup_s=2.3)))
+    # TC-365: the limit is relative to the warm-up baseline now, so the latencies are exact, not slept for.
+    target = make_target(endpoint())
+    target.latency_of = lambda outcome: 2.3 if outcome.detail.startswith("lookup") else 0.01
+    violations = suite.scenario_concurrency(target)
     assert any(v.case == "latency" and "p95" in v.problem for v in violations), messages(violations)
 
 
@@ -866,7 +866,7 @@ def padded_call(fake: FakeEndpoint) -> tuple[suite.Reply, suite.Outcome]:
             "params": {"name": "get_product_reference", "arguments": {"section": "license"}},
         }
     ).encode("utf-8")
-    reply = session.post(body, timeout=30.0)
+    reply = session.post(body, timeout=120.0)
     return reply, suite.classify(reply)
 
 
@@ -990,7 +990,9 @@ def test_isolation_findings_ignore_the_echo_but_keep_every_real_leak() -> None:
 
 
 def test_isolation_passes_an_honest_miss_that_echoes_the_request(endpoint) -> None:
-    violations = suite.scenario_isolation(make_target(endpoint(honest_miss_shape=True)))
+    target = make_target(endpoint(honest_miss_shape=True))
+    target.limits = suite.Limits(tool_timeout_s=60.0)  # this test is about the echo, not about speed
+    violations = suite.scenario_isolation(target)
     assert violations == [], messages(violations)
 
 
@@ -1019,42 +1021,86 @@ def with_limits(target: suite.Target, **changes: Any) -> suite.Target:
     return target
 
 
+# The latency rule is asserted on exact numbers: the scenario's `latency_of` seam is replaced by a function that
+# returns a fixed latency per tool, so nothing below depends on how fast or loaded the host is.
+
+
+def fixed_latencies(per_tool: dict[str, float], default: float) -> Any:
+    def latency_of(outcome: suite.Outcome) -> float:
+        return per_tool.get(outcome.detail.split(":")[0], default)
+
+    return latency_of
+
+
+def judged(
+    endpoint: Any, per_tool: dict[str, float], default: float, **limits: Any
+) -> tuple[Any, suite.Target]:
+    target = with_limits(make_target(endpoint()), **limits)
+    target.latency_of = fixed_latencies(per_tool, default)
+    return suite.scenario_concurrency(target), target
+
+
+def test_latency_rule_is_exact_arithmetic() -> None:
+    # p95 of the calls, max(floor, factor * median of the warm-up), and that median
+    assert suite.latency_rule([0.1] * 19 + [0.9], [0.01, 0.02, 0.03], 2.0, 8.0) == (0.1, 2.0, 0.02)
+    assert suite.latency_rule([0.5, 0.6, 9.0], [0.5, 1.0, 3.0], 2.0, 8.0) == (9.0, 8.0, 1.0)
+    assert suite.latency_rule([1.0, 2.0], [0.25, 0.25], 0.1, 8.0) == (2.0, 2.0, 0.25)
+    assert suite.latency_rule([1.0], [], 2.0, 8.0) == (1.0, 2.0, 0.0)
+
+
+def test_the_production_latency_is_the_measured_round_trip() -> None:
+    assert suite.elapsed_of(suite.Outcome("ok", 200, 0.321)) == 0.321
+    assert (
+        suite.Target(base_url="x", family=FAMILY, platform=PLATFORM, symbol="S").latency_of
+        is suite.elapsed_of
+    )
+
+
 def test_a_uniformly_slow_server_passes_the_relative_latency_rule(endpoint) -> None:
-    target = with_limits(make_target(endpoint(slow_all_s=0.25)), p95_s=0.1)
-    violations = suite.scenario_concurrency(target)
+    violations, target = judged(endpoint, {}, 0.25, p95_s=0.1)
     assert violations == [], messages(violations)
     note = target.notes["concurrency"]
-    assert note["baseline_median_seconds"] >= 0.2
-    assert note["p95_seconds"] > 0.1, "an absolute limit this small would have failed the same server"
-    assert note["p95_allowed_seconds"] == pytest.approx(8 * note["baseline_median_seconds"], rel=0.01)
+    assert note["baseline_median_seconds"] == 0.25
+    assert note["p95_seconds"] == 0.25 > 0.1, "an absolute limit this small would have failed the same server"
+    assert note["p95_allowed_seconds"] == 2.0 == 8 * 0.25
 
 
 def test_a_few_very_slow_calls_among_fast_ones_fail_the_relative_rule(endpoint) -> None:
-    target = with_limits(make_target(endpoint(slow_lookup_s=0.9)), p95_s=0.2)
-    violations = suite.scenario_concurrency(target)
+    violations, target = judged(endpoint, {"lookup": 0.9}, 0.005, p95_s=0.2)
     latency = [v for v in violations if v.case == "latency"]
-    assert latency, messages(violations)
-    text = latency[0].problem
-    assert "0.2 s floor" in text and "median" in text and "8 times" in text and "p95 latency" in text
+    assert [v.problem for v in latency] == [
+        "p95 latency 0.90 s exceeds 0.20 s, the larger of the 0.2 s floor and "
+        "8 times the 0.005 s median of the sequential warm-up calls"
+    ], messages(violations)
+    assert target.notes["concurrency"]["p95_allowed_seconds"] == 0.2
 
 
-def test_the_two_second_floor_is_honoured_when_the_baseline_is_tiny(endpoint) -> None:
-    fake = endpoint(slow_lookup_s=0.3)
-    target = with_limits(make_target(fake), p95_s=1.0)
-    assert suite.scenario_concurrency(target) == []
+def test_the_floor_is_honoured_when_the_baseline_is_tiny(endpoint) -> None:
+    violations, target = judged(endpoint, {"lookup": 0.3}, 0.005, p95_s=1.0)
+    assert violations == [], messages(violations)
     note = target.notes["concurrency"]
-    assert note["p95_seconds"] > 8 * note["baseline_median_seconds"], "only the floor lets this pass"
+    assert note["p95_seconds"] == 0.3 > 8 * note["baseline_median_seconds"], "only the floor lets this pass"
     assert note["p95_allowed_seconds"] == 1.0
-    # the same server fails once the floor is below what it needs
-    tight = with_limits(make_target(fake), p95_s=0.1)
-    assert any(v.case == "latency" for v in suite.scenario_concurrency(tight))
+    # the same latencies fail once the floor is below what they need
+    tight, _ = judged(endpoint, {"lookup": 0.3}, 0.005, p95_s=0.1)
+    assert [v.case for v in tight] == ["latency"]
 
 
 def test_the_default_floor_is_two_seconds_and_a_slow_server_over_it_still_fails(endpoint) -> None:
-    assert suite.Limits().p95_s == 2.0
-    target = with_limits(make_target(endpoint(slow_lookup_s=2.3)), tool_timeout_s=2.0)
-    violations = suite.scenario_concurrency(target)
-    assert any(v.case == "latency" and "2 s floor" in v.problem for v in violations), messages(violations)
+    assert suite.Limits().p95_s == 2.0 and suite.Limits().baseline_factor == 8.0
+    violations, _ = judged(endpoint, {"lookup": 2.3}, 0.01, p95_s=suite.Limits().p95_s)
+    assert [v.problem for v in violations] == [
+        "p95 latency 2.30 s exceeds 2.00 s, the larger of the 2 s floor and "
+        "8 times the 0.010 s median of the sequential warm-up calls"
+    ]
+    assert judged(endpoint, {"lookup": 2.0}, 0.01, p95_s=2.0)[0] == [], "exactly at the limit passes"
+
+
+def test_the_allowed_p95_scales_with_the_measured_baseline_at_the_exact_boundary(endpoint) -> None:
+    # baseline 0.5 s per call: allowed = max(2, 8 * 0.5) = 4.0 s
+    assert judged(endpoint, {"lookup": 4.0}, 0.5, p95_s=2.0)[0] == []
+    over, _ = judged(endpoint, {"lookup": 4.01}, 0.5, p95_s=2.0)
+    assert [v.case for v in over] == ["latency"] and "exceeds 4.00 s" in over[0].problem
 
 
 # --- end to end through main(), with a fake docker daemon ------------------------------------------------------
