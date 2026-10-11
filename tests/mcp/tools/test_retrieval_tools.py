@@ -1352,7 +1352,7 @@ def test_search_symbols_fix_b_precision_floor_does_not_regress_a_whole_word_true
 #
 # Live-confirmed real facts about this exact fixture (see the worker report for the full
 # measurement): ``Aspose.Pdf.Page.SetRotation`` genuinely exists, with the real rendered method
-# line ``"  - SetRotation(degrees: int) -> void"`` inside ``Aspose.Pdf.Page``'s own chunk.
+# line ``"  - SetRotation(degrees: int)"`` inside ``Aspose.Pdf.Page``'s own chunk.
 # ``Dispose`` is genuinely declared on 9 distinct real types in this fixture (Page, Document,
 # XForm, FileSpecification, Artifact, Facades.Form, Facades.IFacade, Facades.ISaveableFacade,
 # OperatorCollection) - the real multi-declaration ambiguity case, confirmed directly rather than
@@ -1374,7 +1374,7 @@ def test_search_symbols_finds_the_real_setrotation_method_by_its_bare_name(tmp_p
 
     assert isinstance(result, list) and result
     assert any("FQN: Aspose.Pdf.Page\n" in match.text for match in result)
-    assert any("SetRotation(degrees: int) -> void" in match.text for match in result)
+    assert any("SetRotation(degrees: int)" in match.text for match in result)
 
 
 def test_search_symbols_finds_setrotation_qualified_by_its_real_type_name(tmp_path: Path) -> None:

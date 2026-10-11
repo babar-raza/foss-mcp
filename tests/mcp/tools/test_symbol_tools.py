@@ -219,7 +219,7 @@ def test_get_symbol_and_list_members_against_a_real_production_built_chunk(tmp_p
     assert class_result.bases == ("IEnumerable<Cog>", "IDisposable")
     assert class_result.methods == (
         "Spin(speed: int, reverse: bool) -> bool",
-        "Stop() -> void",
+        "Stop()",
     )
     assert class_result.properties == (
         "Radius: double (writable)",

@@ -17,14 +17,74 @@ rather than calling this function. The text below now emits the real convention,
 forward every field the raw extraction fixture already has: base types, each method's full
 parameter list and return type, each property's type and writability, and an enum's member
 values.
+
+TC-382 (REQ-G3-005) made the text honest: it renders only what the extraction stated (no
+invented ``void``, no ``name: `` with an empty type, no ``: : string``), drops what is not public
+API (inherited base-class constructors and destructors, test-file symbols), marks deprecation,
+gives a Python re-export stub the members of its definition, makes colliding FQNs unique, and
+states how much of the API surface is indexed (``API-Coverage:``).
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import re
+from collections.abc import Mapping, Sequence
+from typing import Any, cast
 
 from foss_mcp.normalization.chunker import Chunk, chunk_document
 from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
+
+_REASON_LIMIT = 200
+_TEST_BASENAME_SUFFIXES = ("_test.go", "_test.py", ".test.ts", ".spec.ts", ".test.js", ".spec.js")
+_TEST_DIRECTORIES = frozenset({"test", "tests", "__tests__"})
+_NAME_SEPARATORS = re.compile(r"\.|::")
+
+
+def _is_test_source(file: object) -> bool:
+    """TC-382 (rule 7): True when *file* is a test source, which is not public API and so is never
+    published. An absent or non-string ``file`` is never a test source.
+    """
+    if not isinstance(file, str) or not file:
+        return False
+    parts = file.replace("\\", "/").split("/")
+    base = parts[-1]
+    if base.endswith(_TEST_BASENAME_SUFFIXES):
+        return True
+    if base.startswith("test_") and base.endswith(".py"):
+        return True
+    return any(segment in _TEST_DIRECTORIES for segment in parts[:-1])
+
+
+def _clean_type(value: object) -> str:
+    """A type string as the extraction stated it: surrounding whitespace removed, and the
+    declaration colon some TypeScript extractions leave in front of it (``": string"``) removed.
+    Empty when the extraction recorded no type.
+    """
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if text.startswith(":"):
+        text = text[1:].strip()
+    return text
+
+
+def _reason(entry: Mapping[str, object]) -> str:
+    reason = entry.get("deprecated_reason")
+    if not reason:
+        return ""
+    return " ".join(str(reason).split())[:_REASON_LIMIT]
+
+
+def _is_deprecated(entry: Mapping[str, object]) -> bool:
+    return entry.get("deprecated") is True
+
+
+def _deprecated_suffix(entry: Mapping[str, object]) -> str:
+    """TC-382 (rule 6): `` (deprecated)`` or `` (deprecated: <reason>)``; empty when not deprecated."""
+    if not _is_deprecated(entry):
+        return ""
+    reason = _reason(entry)
+    return f" (deprecated: {reason})" if reason else " (deprecated)"
 
 
 def _inherited_from_suffix(entry: Mapping[str, object]) -> str:
@@ -38,12 +98,36 @@ def _inherited_from_suffix(entry: Mapping[str, object]) -> str:
     return f"  (inherited from {inherited_from})" if inherited_from else ""
 
 
+def _is_inherited_constructor_or_destructor(member: Mapping[str, object]) -> bool:
+    """TC-382 (rule 5): an inherited member that is a constructor or destructor of the base class.
+    A subclass does not have its base class's constructors, so listing them as inherited is wrong.
+    """
+    inherited_from = member.get("inherited_from")
+    if not inherited_from:
+        return False
+    if member.get("is_constructor") is True:
+        return True
+    name = str(member.get("name") or "")
+    if name.startswith("~") or name in ("constructor", "__init__"):
+        return True
+    base_name = _NAME_SEPARATORS.split(str(inherited_from).strip())[-1]
+    return bool(base_name) and name == base_name
+
+
+def _param_text(param: Mapping[str, object]) -> str:
+    name = str(param.get("name") or "")
+    param_type = _clean_type(param.get("type"))
+    return f"{name}: {param_type}" if param_type else name
+
+
 def _method_line(method: Mapping[str, object]) -> str:
-    params = ", ".join(
-        f"{param.get('name', '')}: {param.get('type', '')}" for param in method.get("params") or []
+    params = ", ".join(_param_text(param) for param in _items(method.get("params")))
+    return_type = _clean_type(method.get("return_type"))
+    arrow = f" -> {return_type}" if return_type else ""
+    return (
+        f"  - {method.get('name', '')}({params}){arrow}"
+        f"{_inherited_from_suffix(method)}{_deprecated_suffix(method)}"
     )
-    return_type = method.get("return_type") or "void"
-    return f"  - {method.get('name', '')}({params}) -> {return_type}{_inherited_from_suffix(method)}"
 
 
 def _property_writability(prop: Mapping[str, object]) -> str | None:
@@ -69,26 +153,92 @@ def _property_writability(prop: Mapping[str, object]) -> str | None:
 def _property_line(prop: Mapping[str, object]) -> str:
     writability = _property_writability(prop)
     suffix = f" ({writability})" if writability is not None else ""
-    return f"  - {prop.get('name', '')}: {prop.get('type', '')}{suffix}{_inherited_from_suffix(prop)}"
+    prop_type = _clean_type(prop.get("type"))
+    typed = f": {prop_type}" if prop_type else ""
+    return (
+        f"  - {prop.get('name', '')}{typed}{suffix}{_inherited_from_suffix(prop)}{_deprecated_suffix(prop)}"
+    )
 
 
 def _member_line(member: Mapping[str, object]) -> str:
-    return f"  - {member.get('name', '')} = {member.get('value', '')}"
+    value = member.get("value")
+    if value is None or str(value) == "":
+        return f"  - {member.get('name', '')}"
+    return f"  - {member.get('name', '')} = {value}"
 
 
-def _format_type_text(entry: Mapping[str, object]) -> str:
+def _method_lines(methods: Sequence[Mapping[str, object]]) -> list[str]:
+    """Rules 4 and 5: no inherited constructor or destructor, and an identical line only once."""
+    lines: list[str] = []
+    seen: set[str] = set()
+    for method in methods:
+        if _is_inherited_constructor_or_destructor(method):
+            continue
+        line = _method_line(method)
+        if line in seen:
+            continue
+        seen.add(line)
+        lines.append(line)
+    return lines
+
+
+def _property_lines(properties: Sequence[Mapping[str, object]]) -> list[str]:
+    """Rule 4: a property name is rendered once per type; the first occurrence wins."""
+    lines: list[str] = []
+    seen: set[object] = set()
+    for prop in properties:
+        name = prop.get("name", "")
+        if name in seen:
+            continue
+        seen.add(name)
+        lines.append(_property_line(prop))
+    return lines
+
+
+def _items(value: object) -> list[Any]:
+    """*value* as a list when the extraction recorded a collection there, else an empty list."""
+    return list(value) if isinstance(value, list | tuple) else []
+
+
+def _entry_fqn(entry: Mapping[str, object]) -> str:
+    return str(entry.get("class_import") or entry.get("name", ""))
+
+
+def _has_members(entry: Mapping[str, object]) -> bool:
+    return bool(entry.get("methods") or entry.get("properties") or entry.get("enum_members"))
+
+
+def _format_type_text(
+    entry: Mapping[str, object],
+    *,
+    fqn: str | None = None,
+    members_from: Mapping[str, object] | None = None,
+    defined_in: str | None = None,
+    exported_as: Sequence[str] = (),
+    coverage: str | None = None,
+) -> str:
     """The real ``FQN:``/``Kind:``/``Bases:``/``Methods:``/``Properties:``/``Members:``
     convention ``get_symbol``/``list_members`` parse, built from *entry*'s real fields. Each
     section (including its header) is omitted entirely when its source list is empty -
     ``get_symbol``'s own ``_extract_block`` already handles an absent header correctly by
     returning an empty tuple, so an empty section is never emitted just to be discarded later.
-    """
-    fqn = entry.get("class_import") or entry.get("name", "")
-    lines = [f"FQN: {fqn}", f"Kind: {entry.get('kind', '')}"]
 
-    doc = entry.get("doc") or ""
+    TC-382: *fqn* overrides the entry's own name when it had to be qualified to be unique;
+    *members_from* is the definition a Python re-export stub is rendered with (*defined_in* is
+    that definition's FQN); *exported_as* lists the re-export stubs naming this definition;
+    *coverage* is the ``API-Coverage:`` line's value.
+    """
+    source = entry if members_from is None else members_from
+    lines = [f"FQN: {fqn if fqn is not None else _entry_fqn(entry)}", f"Kind: {entry.get('kind', '')}"]
+    if _is_deprecated(entry):
+        lines.append(f"Deprecated: {_reason(entry) or 'yes'}")
+    if defined_in:
+        lines.append(f"Defined-In: {defined_in}")
+    lines.extend(f"Exported-As: {name}" for name in exported_as)
+
+    doc = entry.get("doc") or (source.get("doc") if members_from is not None else "") or ""
     if doc:
-        lines.append(doc)
+        lines.append(str(doc))
 
     # pdf_typescript's real "constant" entries (e.g. AES_WRAP_OID) carry a real type/value
     # directly on the entry itself - previously silently dropped entirely. Checking for a real
@@ -102,7 +252,7 @@ def _format_type_text(entry: Mapping[str, object]) -> str:
         lines.append("")
         lines.append(f"Value: {entry.get('type', '')} = {raw_value}")
 
-    bases = entry.get("bases") or []
+    bases = _items(source.get("bases"))
     if bases:
         lines.append("")
         lines.append("Bases:")
@@ -112,27 +262,102 @@ def _format_type_text(entry: Mapping[str, object]) -> str:
     # params/return_type directly on the type entry itself (kind == "function", methods == []) -
     # e.g. pdf_go's real AddFontFile. Treat such an entry as its own single method so its real
     # signature is not silently dropped down to a bare "Kind: function" header.
-    methods = entry.get("methods") or []
-    if not methods and ("params" in entry or "return_type" in entry):
-        methods = [entry]
-    if methods:
+    methods = _items(source.get("methods"))
+    if not methods and ("params" in source or "return_type" in source):
+        methods = [source]
+    method_lines = _method_lines(methods)
+    if method_lines:
         lines.append("")
         lines.append("Methods:")
-        lines.extend(_method_line(method) for method in methods)
+        lines.extend(method_lines)
 
-    properties = entry.get("properties") or []
-    if properties:
+    property_lines = _property_lines(_items(source.get("properties")))
+    if property_lines:
         lines.append("")
         lines.append("Properties:")
-        lines.extend(_property_line(prop) for prop in properties)
+        lines.extend(property_lines)
 
-    enum_members = entry.get("enum_members") or []
+    enum_members = _items(source.get("enum_members"))
     if enum_members:
         lines.append("")
         lines.append("Members:")
         lines.extend(_member_line(member) for member in enum_members)
 
+    if coverage is not None:
+        lines.append("")
+        lines.append(f"API-Coverage: {coverage}")
+
     return "\n".join(lines)
+
+
+def _qualifier(entry: Mapping[str, object], fqn: str) -> str:
+    receiver = entry.get("receiver_type")
+    if receiver:
+        return str(receiver)
+    namespace = entry.get("canonical_namespace")
+    if namespace and not fqn.startswith(str(namespace)):
+        return str(namespace)
+    file = str(entry.get("file") or "").replace("\\", "/").rsplit("/", 1)[-1]
+    return file.rsplit(".", 1)[0] if "." in file else file
+
+
+def _unique_fqns(entries: Sequence[Mapping[str, object]]) -> list[str]:
+    """TC-382 (rule 9): the FQN each entry is published under. FQNs that collide are all qualified
+    (receiver type, else namespace, else file base name); a collision that survives that gets
+    ``@<line>``. Entries whose FQN does not collide keep it untouched.
+    """
+    fqns = [_entry_fqn(entry) for entry in entries]
+    counts: dict[str, int] = {}
+    for fqn in fqns:
+        counts[fqn] = counts.get(fqn, 0) + 1
+    qualified = list(fqns)
+    for index, entry in enumerate(entries):
+        if counts[fqns[index]] > 1:
+            name = str(entry.get("name") or fqns[index])
+            qualified[index] = f"{_qualifier(entry, fqns[index])}.{name}"
+    final_counts: dict[str, int] = {}
+    for fqn in qualified:
+        final_counts[fqn] = final_counts.get(fqn, 0) + 1
+    result = list(qualified)
+    for index, entry in enumerate(entries):
+        if final_counts[qualified[index]] > 1:
+            line = entry.get("line")
+            result[index] = f"{qualified[index]}@{line if line is not None else index}"
+    # A last guard so the published FQNs are unique even for entries identical in every field.
+    seen: dict[str, int] = {}
+    for index, fqn in enumerate(result):
+        seen[fqn] = seen.get(fqn, 0) + 1
+        if seen[fqn] > 1:
+            result[index] = f"{fqn}#{seen[fqn]}"
+    return result
+
+
+def _reexport_pairs(entries: Sequence[Mapping[str, object]]) -> dict[int, int]:
+    """TC-382 (rule 8): ``{stub index: definition index}`` for each Python re-export stub - an
+    entry from a package ``__init__.py`` with no members, for which exactly one other entry of the
+    same name, under the stub's package, has members.
+    """
+    pairs: dict[int, int] = {}
+    for index, entry in enumerate(entries):
+        file = str(entry.get("file") or "")
+        class_import = entry.get("class_import")
+        if not file.endswith("__init__.py") or not class_import or _has_members(entry):
+            continue
+        package = str(class_import).rpartition(".")[0]
+        if not package:
+            continue
+        prefix = package + "."
+        candidates = [
+            other_index
+            for other_index, other in enumerate(entries)
+            if other_index != index
+            and other.get("name") == entry.get("name")
+            and str(other.get("class_import") or "").startswith(prefix)
+            and _has_members(other)
+        ]
+        if len(candidates) == 1:
+            pairs[index] = candidates[0]
+    return pairs
 
 
 def build_chunks_from_api_surface(
@@ -141,15 +366,39 @@ def build_chunks_from_api_surface(
     """A real, bounded slice of an ``api_surface.json`` extraction, normalized and chunked
     through TC-014's own pipeline - the first real content a generation publishes for a pilot.
     """
+    entries = [entry for entry in _items(fixture["types"]) if not _is_test_source(entry.get("file"))][
+        :max_types
+    ]
+    fqns = _unique_fqns(entries)
+    pairs = _reexport_pairs(entries)
+    exported_as: dict[int, list[str]] = {}
+    for stub_index, definition_index in pairs.items():
+        exported_as.setdefault(definition_index, []).append(fqns[stub_index])
+    type_count = fixture.get("type_count")
+    coverage = (
+        f"{len(entries)} of {type_count} types"
+        if isinstance(type_count, int) and not isinstance(type_count, bool)
+        else None
+    )
     sections = []
-    for entry in fixture["types"][:max_types]:
-        name = entry.get("class_import") or entry.get("name", "")
-        sections.append(f"## {name}\n\n{_format_type_text(entry)}")
+    for index, entry in enumerate(entries):
+        target = pairs.get(index)
+        text = _format_type_text(
+            entry,
+            fqn=fqns[index],
+            members_from=entries[target] if target is not None else None,
+            defined_in=fqns[target] if target is not None else None,
+            exported_as=exported_as.get(index, ()),
+            coverage=coverage,
+        )
+        sections.append(f"## {fqns[index]}{_deprecated_suffix(entry)}\n\n{text}")
     doc = make_document(
         source_kind=SourceKind.SELF_EXTRACTED,
         content_type="api_surface",
         provenance=Provenance(
-            repository=fixture["source_repository"], commit=fixture["source_commit"], path="api_surface.json"
+            repository=cast(str, fixture["source_repository"]),
+            commit=cast(str, fixture["source_commit"]),
+            path="api_surface.json",
         ),
         evidence_refs=(f"{fixture['source_repository']}@{fixture['source_commit']}:api_surface.json",),
         title=title,

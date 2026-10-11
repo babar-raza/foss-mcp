@@ -85,8 +85,8 @@ def test_body_text_reflects_the_real_synthetic_types_passed_in() -> None:
     assert "FQN: Example.Widgets.WidgetFactory" in all_text
     assert "Kind: class" in all_text
     assert "Methods:" in all_text
-    assert "  - Create() -> void" in all_text
-    assert "  - Destroy() -> void" in all_text
+    assert "  - Create()" in all_text.splitlines()
+    assert "  - Destroy()" in all_text.splitlines()
 
     # a falsy class_import ("") falls back to name.
     assert "FQN: WidgetKind" in all_text
@@ -96,7 +96,7 @@ def test_body_text_reflects_the_real_synthetic_types_passed_in() -> None:
     # an entry with no class_import key at all also falls back to name.
     assert "FQN: Sprocket" in all_text
     assert "Kind: struct" in all_text
-    assert "  - Spin() -> void" in all_text
+    assert "  - Spin()" in all_text.splitlines()
 
     assert "Example.Widgets.WidgetFactory" in all_titles
 
@@ -161,7 +161,7 @@ def test_body_text_carries_bases_properties_and_enum_members_when_present() -> N
     assert "  - IDisposable" in cog_text
     assert "Methods:" in cog_text
     assert "  - Rotate(degrees: int, clockwise: bool) -> bool" in cog_text
-    assert "  - Reset() -> void" in cog_text
+    assert "  - Reset()" in cog_text.splitlines()
     assert "Properties:" in cog_text
     assert "  - ToothCount: int (writable)" in cog_text
     assert "  - Id: string (read-only)" in cog_text
@@ -228,7 +228,7 @@ def test_free_function_entry_is_synthesized_as_its_own_single_method() -> None:
     assert "FQN: AddFontFile" in all_text
     assert "Kind: function" in all_text
     assert "Methods:" in all_text
-    assert "  - AddFontFile(path: string) -> void" in all_text
+    assert "  - AddFontFile(path: string)" in all_text.splitlines()
 
 
 def test_constant_entry_gets_a_value_line() -> None:
@@ -396,9 +396,9 @@ def test_no_inherited_from_key_renders_completely_unchanged() -> None:
     """
     chunks = build_chunks_from_api_surface(SYNTHETIC_FIXTURE, title="widgets/example API surface")
     all_text = "\n".join(chunk.text for chunk in chunks)
-    assert "  - Create() -> void" in all_text
-    assert "  - Destroy() -> void" in all_text
-    assert "  - Spin() -> void" in all_text
+    assert "  - Create()" in all_text.splitlines()
+    assert "  - Destroy()" in all_text.splitlines()
+    assert "  - Spin()" in all_text.splitlines()
     assert "(inherited from" not in all_text
 
     fixture = {
@@ -434,7 +434,7 @@ def test_real_free_functions_get_real_signatures_across_the_three_affected_pilot
         pdf_go_fixture, title="pdf/go API surface", max_types=len(pdf_go_fixture["types"])
     )
     pdf_go_text = "\n".join(chunk.text for chunk in pdf_go_chunks)
-    assert "  - AddFontFile(path: string) -> void" in pdf_go_text
+    assert "  - AddFontFile(path: string)" in pdf_go_text.splitlines()
 
     # cells_rust's real standalone "fmt" free-function entry (receiver_type: CellAddress,
     # trait_impl: std::fmt::Display, methods: [], params/return_type on the entry itself) -
