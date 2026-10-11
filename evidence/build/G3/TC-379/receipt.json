@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-379",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-11T14:00:44Z",
+  "base_rev": "9b48436faeb1d2305ff8eda615af31415be1cb94",
+  "head_rev": "2abe3821f2e8dd6720bcd5dc29000b16ceaba7ed",
+  "card_sha256": "4a95bf0d3e36b502c16d3fd78a479d082568d3507f3f9f5ba4de08264e1c329f",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/build_chunks.py",
+      "tests/infra/test_build_chunks_degradation.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_build_chunks_degradation.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 3.244,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra tests/indexing -q -rfE -k \"build_chunks and not live and not docker\"",
+          "exit_code": 0,
+          "duration_s": 111.774,
+          "stdout_sha256": "d540a86d672ba52ea18ef49e07d8b756ac68afb0f3cffc012a1d2b591b80cf61",
+          "tests": 38,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_build_chunks_degradation.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 2.803,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra tests/indexing -q -rfE -k \"build_chunks and not live and not docker\"",
+          "exit_code": 0,
+          "duration_s": 102.039,
+          "stdout_sha256": "d540a86d672ba52ea18ef49e07d8b756ac68afb0f3cffc012a1d2b591b80cf61",
+          "tests": 38,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/build_chunks.py');s=p.read_text(encoding='utf-8');old='library_unavailable';assert old in s;p.write_text(s.replace(old,'library_unavailableX'),encoding='utf-8')\"\n",
+    "patch_sha256": "f5bbb222f974cd8ad3c15f92e8b9f1b5791c2a78bb0e8c4aad5242f9da200a3b",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M infra/build_chunks.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

@@ -1,0 +1,120 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_build_chunks_degradation.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kedkjkeh\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra tests/indexing -q -rfE -k "build_chunks and not live and not docker" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kedkjkeh\.junit-1.xml"
+--- stdout ---
+......................................                                   [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+5 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_build_chunks_degradation.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kedkjkeh\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra tests/indexing -q -rfE -k "build_chunks and not live and not docker" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kedkjkeh\.junit-1.xml"
+--- stdout ---
+......................................                                   [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+5 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/build_chunks.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_build_chunks_degradation.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kedkjkeh\.junit-0.xml"
+--- stdout ---
+...F..........                                                           [100%]
+================================== FAILURES ===================================
+___ test_failed_preparation_records_exactly_one_library_unavailable_record ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6472/test_failed_preparation_record0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026111927AC0>
+
+    def test_failed_preparation_records_exactly_one_library_unavailable_record(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        message = "failed to build cleanly: boom"
+        _chunks_out, report, _ = _degraded_run(tmp_path, monkeypatch, message)
+        assert len(report) == 1
+        record = report[0]
+>       assert record["kind"] == "library_unavailable"
+E       AssertionError: assert 'library_unavailableX' == 'library_unavailable'
+E         
+E         - library_unavailable
+E         + library_unavailableX
+E         ?                    +
+
+tests\infra\test_build_chunks_degradation.py:161: AssertionError
+---------------------------- Captured stdout call -----------------------------
+built 27 doc chunks from 4 doc candidates
+wrote 327 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-6472\test_failed_preparation_record0\chunks.json
+---------------------------- Captured stderr call -----------------------------
+reference library unavailable: failed to build cleanly: boom; publishing documentation without verified examples
+=========================== short test summary info ===========================
+FAILED tests/infra/test_build_chunks_degradation.py::test_failed_preparation_records_exactly_one_library_unavailable_record
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra tests/indexing -q -rfE -k "build_chunks and not live and not docker" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kedkjkeh\.junit-1.xml"
+--- stdout ---
+..........F...........................                                   [100%]
+================================== FAILURES ===================================
+___ test_failed_preparation_records_exactly_one_library_unavailable_record ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6473/test_failed_preparation_record0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000020C7FA86510>
+
+    def test_failed_preparation_records_exactly_one_library_unavailable_record(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        message = "failed to build cleanly: boom"
+        _chunks_out, report, _ = _degraded_run(tmp_path, monkeypatch, message)
+        assert len(report) == 1
+        record = report[0]
+>       assert record["kind"] == "library_unavailable"
+E       AssertionError: assert 'library_unavailableX' == 'library_unavailable'
+E         
+E         - library_unavailable
+E         + library_unavailableX
+E         ?                    +
+
+tests\infra\test_build_chunks_degradation.py:161: AssertionError
+---------------------------- Captured stdout call -----------------------------
+built 27 doc chunks from 4 doc candidates
+wrote 327 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-6473\test_failed_preparation_record0\chunks.json
+---------------------------- Captured stderr call -----------------------------
+reference library unavailable: failed to build cleanly: boom; publishing documentation without verified examples
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+5 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/infra/test_build_chunks_degradation.py::test_failed_preparation_records_exactly_one_library_unavailable_record
+
+--- stderr ---
+
