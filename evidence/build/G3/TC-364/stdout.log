@@ -1,0 +1,221 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_wave1_python_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-fct03ztf\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 61%]
+.............................................                            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-fct03ztf\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 23%]
+........................................................................ [ 47%]
+........................................................................ [ 71%]
+........................................................................ [ 94%]
+................                                                         [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_wave1_python_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-fct03ztf\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 61%]
+.............................................                            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-fct03ztf\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 23%]
+........................................................................ [ 47%]
+........................................................................ [ 71%]
+........................................................................ [ 94%]
+................                                                         [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/values.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_wave1_python_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-fct03ztf\.junit-0.xml"
+--- stdout ---
+F....................................................................... [ 61%]
+..........F..................................                            [100%]
+================================== FAILURES ===================================
+_______________ test_chart_references_the_furnished_page[words] _______________
+
+family = 'words'
+
+    @pytest.mark.parametrize("family", WAVE1_FAMILIES)
+    def test_chart_references_the_furnished_page(family: str) -> None:
+>       assert _pilot(family).get("furnishedPage") == _expected_page(family), family
+E       AssertionError: words
+E       assert '/app/fixture...ages/_gone.md' == '/app/fixture...ges/_index.md'
+E         
+E         Skipping 34 identical leading characters in diff, use -v to show
+E         - on/pages/_index.md
+E         ?           ^ - -
+E         + on/pages/_gone.md
+E         ?           ^^
+
+tests\infra\test_wave1_python_wiring.py:84: AssertionError
+___________________ test_words_python_pilot_matches_compose ___________________
+
+    def test_words_python_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("words", "python")
+
+tests\infra\test_helm_pilots_match_compose.py:474: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+family = 'words', platform = 'python'
+
+    def _assert_pilot_matches_compose(family: str, platform: str) -> None:
+        pilot = _pilot(family, platform)
+        build, ingest = _compose_arguments(family, platform)
+    
+        assert ingest["--family"] == family, family
+        assert ingest["--platform"] == platform, platform
+        assert pilot["family"] == family and pilot["platform"] == platform
+    
+        # A self-extracted pilot has an empty library block and no --library-commit flag: both None.
+        # The FIXTURE_CHECKED_PILOTS pilots have compose services that define no library flags, so their
+        # library is checked against their fixture's source_repository and source_commit instead.
+        if (family, platform) in FIXTURE_CHECKED_PILOTS:
+            fixture = json.loads(
+                (REPO_ROOT / "tests" / "fixtures" / f"{family}_{platform}" / "api_surface.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            assert pilot["library"]["repository"] == fixture["source_repository"], "library repository"
+            assert pilot["library"]["commit"] == fixture["source_commit"], "library commit"
+        else:
+            assert pilot["library"].get("commit") == build.get("--library-commit"), "library commit"
+        assert pilot["apiSurface"] == build["--api-surface"], "apiSurface (build_chunks)"
+        assert pilot["apiSurface"] == ingest["--api-surface"], "apiSurface (ingest)"
+        # A self-extracted pilot has no furnished page: the key is absent in values.yaml and the flag
+        # is absent in compose, so both sides are None and still compare equal.
+>       assert pilot.get("furnishedPage") == build.get("--furnished-page"), "furnished page"
+E       AssertionError: furnished page
+E       assert '/app/fixture...ages/_gone.md' == '/app/fixture...ges/_index.md'
+E         
+E         Skipping 34 identical leading characters in diff, use -v to show
+E         - on/pages/_index.md
+E         ?           ^ - -
+E         + on/pages/_gone.md
+E         ?           ^^
+
+tests\infra\test_helm_pilots_match_compose.py:433: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_wave1_python_wiring.py::test_chart_references_the_furnished_page[words]
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_words_python_pilot_matches_compose
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-fct03ztf\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 23%]
+......................................................................F. [ 47%]
+.................................................F...................... [ 71%]
+........................................................................ [ 94%]
+................                                                         [100%]
+================================== FAILURES ===================================
+___________________ test_words_python_pilot_matches_compose ___________________
+
+    def test_words_python_pilot_matches_compose() -> None:
+>       _assert_pilot_matches_compose("words", "python")
+
+tests\infra\test_helm_pilots_match_compose.py:474: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+family = 'words', platform = 'python'
+
+    def _assert_pilot_matches_compose(family: str, platform: str) -> None:
+        pilot = _pilot(family, platform)
+        build, ingest = _compose_arguments(family, platform)
+    
+        assert ingest["--family"] == family, family
+        assert ingest["--platform"] == platform, platform
+        assert pilot["family"] == family and pilot["platform"] == platform
+    
+        # A self-extracted pilot has an empty library block and no --library-commit flag: both None.
+        # The FIXTURE_CHECKED_PILOTS pilots have compose services that define no library flags, so their
+        # library is checked against their fixture's source_repository and source_commit instead.
+        if (family, platform) in FIXTURE_CHECKED_PILOTS:
+            fixture = json.loads(
+                (REPO_ROOT / "tests" / "fixtures" / f"{family}_{platform}" / "api_surface.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            assert pilot["library"]["repository"] == fixture["source_repository"], "library repository"
+            assert pilot["library"]["commit"] == fixture["source_commit"], "library commit"
+        else:
+            assert pilot["library"].get("commit") == build.get("--library-commit"), "library commit"
+        assert pilot["apiSurface"] == build["--api-surface"], "apiSurface (build_chunks)"
+        assert pilot["apiSurface"] == ingest["--api-surface"], "apiSurface (ingest)"
+        # A self-extracted pilot has no furnished page: the key is absent in values.yaml and the flag
+        # is absent in compose, so both sides are None and still compare equal.
+>       assert pilot.get("furnishedPage") == build.get("--furnished-page"), "furnished page"
+E       AssertionError: furnished page
+E       assert '/app/fixture...ages/_gone.md' == '/app/fixture...ges/_index.md'
+E         
+E         Skipping 34 identical leading characters in diff, use -v to show
+E         - on/pages/_index.md
+E         ?           ^ - -
+E         + on/pages/_gone.md
+E         ?           ^^
+
+tests\infra\test_helm_pilots_match_compose.py:433: AssertionError
+_____ test_fixture_is_in_the_ingestion_image[words/python-furnishedPage] ______
+
+path = '/app/fixtures/furnished/words_python/pages/_gone.md'
+
+    @pytest.mark.parametrize("path", _cases())
+    def test_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/words_python/pages/_gone.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+>       assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+E       AssertionError: tests/fixtures/furnished/words_python/pages/_gone.md does not exist in the repository
+E       assert False
+E        +  where False = is_file()
+E        +    where is_file = (WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-fct03ztf') / 'tests/fixtures/furnished/words_python/pages/_gone.md').is_file
+
+tests\infra\test_ingestion_image_fixtures.py:105: AssertionError
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_pilots_match_compose.py::test_words_python_pilot_matches_compose
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_fixture_is_in_the_ingestion_image[words/python-furnishedPage]
+
+--- stderr ---
+
