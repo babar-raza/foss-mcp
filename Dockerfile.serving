@@ -99,8 +99,10 @@ CMD ["python", "/app/infra/serve_stdio.py"]
 # prints the usage and the pilots actually baked in, and exits 2: it never invents an identity. The
 # Helm chart is unaffected - a Kubernetes `command:` replaces ENTRYPOINT as well as CMD, and
 # demo-deployment.yaml sets it to serve_http.py itself.
+#
+# The baked data is root-owned (a COPY with no --chown) and therefore read-only to the serving user.
 FROM runtime AS demo
-COPY --chown=foss-mcp:foss-mcp infra/demo-manifests/ /data/manifests
+COPY infra/demo-manifests/ /data/manifests
 COPY infra/demo_entrypoint.py ./infra/demo_entrypoint.py
 EXPOSE 8080
 ENTRYPOINT ["python", "/app/infra/demo_entrypoint.py"]

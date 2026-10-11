@@ -326,7 +326,19 @@ def test_the_last_stage_is_still_the_bare_from_runtime() -> None:
 def test_the_demo_stage_builds_on_runtime_and_keeps_its_baked_data() -> None:
     demo = dockerfile_stages()[1]
     assert demo[0] == "FROM runtime AS demo"
-    assert "COPY --chown=foss-mcp:foss-mcp infra/demo-manifests/ /data/manifests" in demo
+    assert "COPY infra/demo-manifests/ /data/manifests" in demo
+
+
+def test_the_baked_data_is_not_owned_by_the_serving_user() -> None:
+    demo = dockerfile_stages()[1]
+    baked_copies = [i for i in demo if i.startswith("COPY ") and "infra/demo-manifests/" in i]
+    assert baked_copies, "the demo stage must copy infra/demo-manifests/"
+    assert not any("--chown" in i or "--chmod" in i for i in baked_copies), (
+        "the baked data must stay root-owned so the serving user cannot modify it"
+    )
+    assert not any(i.startswith("RUN ") and ("chown" in i or "chmod" in i) for i in demo), (
+        "the demo stage must not re-own or re-mode any file"
+    )
 
 
 def test_the_demo_stage_runs_the_entrypoint_and_exposes_the_http_port() -> None:
