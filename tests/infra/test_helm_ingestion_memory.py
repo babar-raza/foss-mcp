@@ -84,7 +84,9 @@ def _key(pilot: dict[str, Any]) -> tuple[str, str]:
     return (pilot["family"], pilot["platform"])
 
 
-def _jobs_by_pilot(docs: list[dict[str, Any]], pilot_list: list[dict[str, Any]]) -> dict[tuple[str, str], dict[str, Any]]:
+def _jobs_by_pilot(
+    docs: list[dict[str, Any]], pilot_list: list[dict[str, Any]]
+) -> dict[tuple[str, str], dict[str, Any]]:
     jobs = [doc for doc in docs if doc.get("kind") == "Job"]
     by_pilot: dict[tuple[str, str], dict[str, Any]] = {}
     for pilot in pilot_list:
@@ -152,7 +154,11 @@ def test_each_carrier_job_renders_its_own_memory_limit(
 def test_every_other_job_renders_the_default_memory_limit(
     shipped_jobs: dict[tuple[str, str], dict[str, Any]],
 ) -> None:
-    others = {k: _resources(j)["limits"]["memory"] for k, j in shipped_jobs.items() if k not in EXPECTED_MEMORY_LIMITS}
+    others = {
+        k: _resources(j)["limits"]["memory"]
+        for k, j in shipped_jobs.items()
+        if k not in EXPECTED_MEMORY_LIMITS
+    }
     assert others, "no non-carrier pilots rendered"
     assert {k: v for k, v in others.items() if v != "4Gi"} == {}
 
