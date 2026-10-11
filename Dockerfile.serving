@@ -90,8 +90,21 @@ CMD ["python", "/app/infra/serve_stdio.py"]
 # needing no PersistentVolumeClaim, no ingestion Job, and no startup wait for either - the
 # existing `runtime` stage above (and everything that builds it, unchanged) is preserved
 # exactly as it was for whatever still needs the live-ingestion architecture later.
+#
+# Unlike `runtime`, this stage is runnable by a peer with a bare `docker run`: its ENTRYPOINT is
+# infra/demo_entrypoint.py (TC-350), which selects ONE baked pilot (`-e FOSS_MCP_PILOT=pdf/go`,
+# or `family_platform`), sets that pilot's FOSS_MCP_FAMILY / FOSS_MCP_PLATFORM / FOSS_MCP_SOURCE_KIND
+# from the matching scope directory, and replaces itself with infra/serve_http.py (HTTP on 8080,
+# the runtime stage's HEALTHCHECK is inherited and probes /readyz). `docker run IMAGE` with no pilot
+# prints the usage and the pilots actually baked in, and exits 2: it never invents an identity. The
+# Helm chart is unaffected - a Kubernetes `command:` replaces ENTRYPOINT as well as CMD, and
+# demo-deployment.yaml sets it to serve_http.py itself.
 FROM runtime AS demo
 COPY --chown=foss-mcp:foss-mcp infra/demo-manifests/ /data/manifests
+COPY infra/demo_entrypoint.py ./infra/demo_entrypoint.py
+EXPOSE 8080
+ENTRYPOINT ["python", "/app/infra/demo_entrypoint.py"]
+CMD []
 
 # Re-anchors the Dockerfile's own last stage back to runtime's exact content. Docker's
 # default target (no --target) is always the LAST stage declared textually, and demo must
