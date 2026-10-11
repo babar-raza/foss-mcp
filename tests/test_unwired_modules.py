@@ -93,6 +93,10 @@ _KNOWN_UNWIRED = frozenset(
         "foss_mcp.indexing.example_verifier.prepare_cpp_library",
         "foss_mcp.indexing.example_verifier.verify_cpp_example",
         "foss_mcp.indexing.vector_index_writer.query_vector_index",
+        # Superseded by infra/serve_stdio.run_stdio, which serves the same server with the
+        # product-reference and release sidecars that HTTP loads; this dead original is to be
+        # deleted by the card that next edits server.py (G3/TC-390).
+        "foss_mcp.mcp.server.run_stdio",
         "foss_mcp.normalization.document_schema.from_dict",
         "foss_mcp.normalization.document_schema.to_dict",
     }
