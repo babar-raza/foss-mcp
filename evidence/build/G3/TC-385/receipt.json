@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-385",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-11T15:33:55Z",
+  "base_rev": "2067b9ec4f9237159bea224398123cd5a690a763",
+  "head_rev": "5ce18b1b023b5eddf9f63f1ab23c940402d9aa7e",
+  "card_sha256": "9798ded91c199baed6de2a1f864f3e24e2cce95d70a676137451a506f6ba7d70",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/build_chunks.py",
+      "tests/infra/test_build_chunks_sanitize.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_build_chunks_sanitize.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.996,
+          "stdout_sha256": "70bd93f29a65727e5cc0991aac37bb59b433f6d667824853361ad51e262a38ec",
+          "tests": 44,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_build_chunks_sanitize.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_degradation.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 117.985,
+          "stdout_sha256": "55c823246eb78aa7433a1726dc60eafc4b2d57bcf5526ee5a7307de2bfb3651b",
+          "tests": 65,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_build_chunks_sanitize.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.048,
+          "stdout_sha256": "70bd93f29a65727e5cc0991aac37bb59b433f6d667824853361ad51e262a38ec",
+          "tests": 44,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_build_chunks_sanitize.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_degradation.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 105.07,
+          "stdout_sha256": "55c823246eb78aa7433a1726dc60eafc4b2d57bcf5526ee5a7307de2bfb3651b",
+          "tests": 65,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/build_chunks.py');s=p.read_text(encoding='utf-8');old='def _sanitize_chunk_text(';assert old in s;p.write_text(s.replace(old,'def _sanitize_chunk_textX(',1),encoding='utf-8')\"\n",
+    "patch_sha256": "768672171075037fabcf034763a9a8ac122af441c7cc5d6fea7bb79d907ec869",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M infra/build_chunks.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
