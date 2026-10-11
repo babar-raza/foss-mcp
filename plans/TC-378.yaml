@@ -1,0 +1,85 @@
+id: TC-378
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-005 (pilot completeness). The Python example verifier creates the library's virtual environment with the interpreter that is
+  running it (3.13 in the ingestion image), so a library whose pyproject declares `requires-python` below 3.13 (words/python:
+  `<3.13,>=3.10`) can never be installed and none of its examples can be verified. This card makes `prepare_python_library` choose an
+  interpreter that satisfies the library's own `requires-python` from the ones available (the running one first, then `python3.13`,
+  `python3.12`, `python3.11`, `python3.10` on PATH), and fail with a clear message naming the requirement and the interpreters it tried
+  when none satisfies it. A library that declares nothing, or that the running interpreter satisfies, behaves exactly as today.
+depends_on:
+- TC-376
+- TC-362
+- TC-361
+- TC-360
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_python_interpreter_choice.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read src/foss_mcp/indexing/example_verifier.py: `prepare_python_library`, where it creates the venv (`sys.executable -m venv` or
+  similar) and installs the library, and the pyproject reading it may already do; and the existing Python verifier tests (search
+  tests/indexing for `prepare_python_library`), which must keep passing UNMODIFIED. Check whether `packaging` is importable in the
+  environment that runs the verifier (it is a dependency of pip's vendored stack but may not be importable on its own): prefer
+  `packaging.specifiers.SpecifierSet` if the project already depends on `packaging` (look in pyproject.toml and requirements.lock); if
+  not, implement a small, tested parser for the specifier forms real projects use (comma-separated `>=`, `>`, `<=`, `<`, `==` with
+  optional `.*`, `!=`, `~=`) instead of adding a dependency. Never print or log any environment value.
+- >-
+  Add a pure function named exactly `_pick_python_interpreter` (defined as `def _pick_python_interpreter(`) taking the library's
+  `requires-python` string (or None) and a mapping/callable that reports the version of each candidate interpreter, and returning the
+  path of the chosen interpreter or raising RuntimeError with a message that names the requirement and every interpreter tried and its
+  version. Order: `sys.executable` first, then `python3.13`, `python3.12`, `python3.11`, `python3.10` resolved with shutil.which. `None`
+  or empty requires-python gives `sys.executable`. Use it in `prepare_python_library` to create the venv; read `requires-python` from the
+  cloned library's pyproject.toml `[project]` table with tomllib (a missing file, a missing key or unparsable TOML means None). Nothing
+  else about the preparation changes.
+- >-
+  tests/indexing/test_python_interpreter_choice.py (NEW, offline): table tests for `_pick_python_interpreter` with an injected version
+  lookup: no requirement keeps the running interpreter; a requirement the running one satisfies keeps it; `<3.13,>=3.10` with the
+  running 3.13 picks `python3.12` when present, else 3.11, else 3.10; nothing satisfies gives the RuntimeError naming the requirement and
+  all tried interpreters; `>=3.14` fails; `==3.12.*` picks 3.12; `~=3.11` accepts 3.11 and 3.12 but not 3.10; `!=3.13.*,>=3.10` skips
+  3.13. A test that `prepare_python_library` reads requires-python from a pyproject written in a temp directory (use the seams the existing
+  Python verifier tests use) and creates the venv with the chosen interpreter's path; one for a pyproject with no requires-python and for
+  broken TOML (both keep `sys.executable`).
+- >-
+  Run `{python} -m pytest tests/indexing/test_python_interpreter_choice.py -q -rfE`, then once
+  `{python} -m pytest tests/indexing -q -rfE -k "python and not live"`. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Choose a venv interpreter that satisfies the library's requires-python, failing clearly when none does.
+- Pin the choice rules with offline tests.
+checks:
+- command: '{python} -m pytest tests/indexing/test_python_interpreter_choice.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/indexing -q -rfE -k "python and not live"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 12
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');old='def _pick_python_interpreter(';assert old in s;p.write_text(s.replace(old,'def _pick_python_interpreterX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the definition of the interpreter choice, so prepare_python_library can no longer call it and the new tests fail. A real
+    break of the card's central claim.
+closeout:
+- >-
+  A Python library whose requires-python excludes the running interpreter is installed with one that satisfies it, so its examples can
+  be verified.
+evidence:
+- evidence/build/G3/TC-378/receipt.json
+recovery: Re-run from a clean tree.

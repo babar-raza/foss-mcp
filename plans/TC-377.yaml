@@ -1,0 +1,88 @@
+id: TC-377
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-005 (pilot completeness). The first cluster re-ingest of the pilots that now carry documentation pages failed for reasons of
+  the ingestion IMAGE, not of our code: slides/net, email/net and 3d/net target .NET 10 (`NETSDK1045: The current .NET SDK does not
+  support targeting .NET 10.0`; email/net's compile error comes from the same newer language level) while the image installs only SDK
+  8.0; and words/python declares `requires-python <3.13,>=3.10` while the image's only interpreter is 3.13 (`aspose-words-foss requires
+  a different Python: 3.13.16 not in '<3.13,>=3.10'`). This card adds the .NET 10 SDK beside 8.0 and bakes a Python 3.12 interpreter
+  into Dockerfile.ingestion, reachable as `python3.12`, so the verifier can build those libraries. The shipped serving and demo images are
+  untouched.
+depends_on:
+- TC-352
+- TC-341
+- TC-350
+write_paths:
+- Dockerfile.ingestion
+- tests/infra/test_ingestion_toolchain.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read Dockerfile.ingestion (the dotnet-install.sh block with `--channel 8.0`, the ENV block, the Node, Go and Rust blocks and how each
+  pins a version with an ARG), tests/test_container_build.py (read only: it pins parts of the Dockerfiles; keep every assertion passing
+  UNMODIFIED and do not run its docker-build tests) and tests/infra/test_ingestion_image_fixtures.py (read only). Never print or log any
+  environment value.
+- >-
+  Dockerfile.ingestion: (1) keep the existing `--channel 8.0` install exactly as it is and add a second `dotnet-install.sh --channel 10.0
+  --install-dir /usr/share/dotnet` run in the same layer pattern (the same install directory, so one `dotnet` serves both; `dotnet
+  --list-sdks` then shows 8.0.x and 10.0.x and a project's `TargetFramework` picks the right one through the default resolution; if a
+  `global.json` is needed to make the NEWEST SDK the default, do NOT add one to the image, rely on the SDK resolver's default of the
+  highest installed SDK). Pin the 10.0 channel with an ARG like the other tools. (2) Bake a second Python: install `uv` with a pinned
+  version via pip into the image (`pip install --no-cache-dir uv==<pinned>`; pick the newest release you can verify from the lockfile or
+  PyPI index metadata the build can reach, and put the pin in an ARG), then `uv python install 3.12 --install-dir /opt/python-versions`
+  and expose the interpreter as `/usr/local/bin/python3.12` (a symlink to the installed interpreter). Set `UV_PYTHON_INSTALL_DIR` only if
+  needed. Do not change the base image, the user, the entrypoint or any other layer. Image size must grow by well under 1 GB; state the
+  estimate you expect in your report (the supervisor measures it).
+- >-
+  tests/infra/test_ingestion_toolchain.py (NEW, offline, no docker): parse Dockerfile.ingestion text and assert: the 8.0 channel install is
+  still present; a 10.0 channel install is present, uses the same install directory as 8.0, and its channel comes from a pinned ARG or
+  literal that is a real channel string (`10.0`); `uv` is installed with an exact `==` version pin; Python 3.12 is installed with `uv
+  python install 3.12` into a fixed directory and `/usr/local/bin/python3.12` is created by a symlink or copy; the base image line is
+  unchanged (still the pinned `python:3.13-slim@sha256:...`); no `latest` tag or unpinned download is introduced; ordering: the new
+  layers come after the existing dotnet layer and before the COPY of project sources, so a source-only change never rebuilds them (assert
+  the line numbers). If docker is available on the host, a SECOND test, skipped with a clear reason when it is not, may run `docker build`
+  only if an environment variable FOSS_MCP_BUILD_TESTS=1 is set; never run it by default.
+- >-
+  Run `{python} -m pytest tests/infra/test_ingestion_toolchain.py -q -rfE`, then once
+  `{python} -m pytest tests/infra tests/test_container_build.py -q -rfE -k "(ingestion_image or fixtures or pilots_match or container_build or toolchain) and not docker_build and not real_docker"`.
+  Do not start docker builds or containers. Write commit messages as UTF-8 without a byte-order mark. The repository pre-commit hook runs
+  a secret scan on staged changes; if it objects, STOP and report the file:line it names (never paste the value).
+actions:
+- Add the .NET 10 SDK beside 8.0 and a baked Python 3.12 to the ingestion image, pinned, in layers that source changes never rebuild.
+- Pin the toolchain with an offline test of the Dockerfile text.
+checks:
+- command: '{python} -m pytest tests/infra/test_ingestion_toolchain.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/infra tests/test_container_build.py -q -rfE -k "(ingestion_image or fixtures or pilots_match or container_build or toolchain) and not docker_build and not real_docker"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 8
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('Dockerfile.ingestion');s=p.read_text(encoding='utf-8');old='--channel 10.0';assert old in s;p.write_text(s.replace(old,'--channel 9.0',1),encoding='utf-8')"
+  rationale: >-
+    Points the second SDK install at a different channel, so the image would not carry .NET 10 and the toolchain test fails. A real break
+    of the card's central claim.
+closeout:
+- >-
+  The ingestion image carries .NET SDK 10 beside 8 and a baked Python 3.12, pinned, so libraries that need them can be built and
+  verified.
+evidence:
+- evidence/build/G3/TC-377/receipt.json
+recovery: Re-run from a clean tree.

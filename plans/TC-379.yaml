@@ -1,0 +1,89 @@
+id: TC-379
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). When the reference library of a pilot cannot be built (html/python's pyproject names a build backend
+  that does not exist; a library that targets a toolchain we do not carry; a broken upstream commit), `build_chunks.py` raises
+  and the whole ingestion Job fails, so the pilot gets NO new generation: its documentation page is lost together with the examples that
+  could not be verified. A library we cannot build is a reason to publish no verified examples for it, not a reason to publish no
+  documentation. This card makes a failed library preparation degrade honestly: the documentation chunks and the API-surface chunks are
+  still built and published, no example is published as verified, and the reason is recorded in the verification report and printed.
+  An environment failure (`ExampleEnvironmentError`, the registry-unreachable class) stays fatal with its distinct exit code, and a
+  configuration mistake (a missing flag) stays fatal.
+depends_on:
+- TC-362
+- TC-361
+- TC-360
+- TC-363
+write_paths:
+- infra/build_chunks.py
+- tests/infra/test_build_chunks_degradation.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read infra/build_chunks.py: `_build_verified_example_chunks` (the call `platform_dispatch["prepare"](args, library_workdir)`), `main`
+  (the try/except ExampleEnvironmentError block, the `finally` that writes the verification report, and how `_build_doc_chunks` is
+  added), `_write_verification_report`, and the existing tests that cover it (search tests/infra and tests/indexing for
+  `_build_verified_example_chunks`, `verification_report` and `ENVIRONMENT_FAILURE_EXIT`), which must keep passing UNMODIFIED. Find
+  `ExampleEnvironmentError`'s base class and its prepare-time callers. Never print or log any environment value.
+- >-
+  Behaviour: in `_build_verified_example_chunks`, catch a `RuntimeError` that is NOT an `ExampleEnvironmentError` raised by the platform's
+  `prepare` call (nothing else: not ValueError, not argparse errors, not exceptions from `verify`). On that catch: print one line to
+  stderr `reference library unavailable: <the first 600 characters of the message>; publishing documentation without verified examples`,
+  append ONE record to `verification_records` with `verified` false, `index` -1, `title` `(reference library preparation)`, `platform`
+  the library platform, `kind` `library_unavailable` and `output` the full message (the report keeps the evidence in full), and return
+  an empty list of example chunks so `main` continues to add the documentation chunks and write the output file. Candidate-level behaviour
+  is unchanged. Add the record key `kind` as `candidate` to the existing per-candidate records only if no existing test pins the exact
+  key set of those records; if one does, leave the candidate records alone and let consumers treat a missing `kind` as `candidate`.
+  Exit code stays 0 on this path; `ExampleEnvironmentError` still ends the build with `ENVIRONMENT_FAILURE_EXIT` and no chunks written.
+- >-
+  tests/infra/test_build_chunks_degradation.py (NEW, offline, using the seams the existing build_chunks tests use, no network, no
+  docker): (1) a prepare that raises RuntimeError("failed to build cleanly: boom") yields output chunks that include the API-surface
+  chunks and the documentation chunks, zero example chunks, exit 0, the stderr line, and a verification report with exactly one
+  `library_unavailable` record carrying the full message; (2) a prepare that raises ExampleEnvironmentError still exits with
+  ENVIRONMENT_FAILURE_EXIT and writes no chunks; (3) a prepare that raises ValueError propagates (not swallowed); (4) a prepare that
+  succeeds and a verify that raises RuntimeError propagates (the degradation covers preparation only); (5) the happy path is unchanged:
+  with a working prepare and verifier the same chunks and report records as before; (6) the message is truncated to 600 characters on
+  stderr but complete in the report.
+- >-
+  Run `{python} -m pytest tests/infra/test_build_chunks_degradation.py -q -rfE`, then once
+  `{python} -m pytest tests/infra tests/indexing -q -rfE -k "build_chunks and not live and not docker"`. Write commit messages as UTF-8
+  without a byte-order mark.
+actions:
+- Publish documentation and API chunks without verified examples when a pilot's reference library cannot be prepared, and record why.
+- Keep environment and configuration failures fatal, and pin all of it with offline tests.
+checks:
+- command: '{python} -m pytest tests/infra/test_build_chunks_degradation.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/infra tests/indexing -q -rfE -k "build_chunks and not live and not docker"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 12
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/build_chunks.py');s=p.read_text(encoding='utf-8');old='library_unavailable';assert old in s;p.write_text(s.replace(old,'library_unavailableX'),encoding='utf-8')"
+  rationale: >-
+    Renames the record kind everywhere it appears in the module, so the degradation record no longer matches what the tests (and report
+    consumers) look for: the degradation tests fail. A real break of the card's central claim.
+closeout:
+- >-
+  A pilot whose reference library cannot be built still gets its documentation and API chunks published, with the reason recorded and no
+  example claimed as verified.
+evidence:
+- evidence/build/G3/TC-379/receipt.json
+recovery: Re-run from a clean tree.
