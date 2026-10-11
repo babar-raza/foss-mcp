@@ -53,7 +53,8 @@ For a remote cluster, pushing the two images to a registry the cluster can pull 
 action. The chart's `image.repository` value (`foss-mcp-serving`, and `foss-mcp-ingestion` for the
 Jobs) names the image without a registry, and `install_pilots.py` does not yet take a repository
 override. A remote install therefore needs that override set by hand, and the chart's
-`image.pullPolicy` is `IfNotPresent`.
+`image.pullPolicy` is `IfNotPresent`. The standalone demo image has its own push tool; see "Hosting the
+standalone demo image" below.
 
 ## 3. Install the fourteen pilots
 
@@ -110,6 +111,56 @@ if every pilot passed every applicable check. Each pilot's proof report and logs
 `--report-dir`, which defaults to `foss-mcp-pilot-proofs` in the system temporary directory.
 
 To prove one pilot: `python scripts/deploy/prove_pilots.py --namespace foss-mcp --only pdf_net`.
+
+## Hosting the standalone demo image
+
+The `demo` stage of `Dockerfile.serving` builds a self-contained serving image with the pilots' manifests
+baked in. To host it on the internal registry, do these steps in this order. The registry host is the
+operator's to supply; every host below is a placeholder, so substitute your own.
+
+1. Build the demo image from the repository root, with an explicit tag. The tag must not be `latest`:
+
+   ```powershell
+   docker build --target demo -t foss-mcp-serving:<tag> .
+   ```
+
+2. Run the pre-deployment workflow gate (card TC-345) on that exact image. An image with no passing gate
+   report is not pushed.
+3. Log in to the internal registry yourself, in your own terminal:
+   `docker login registry.example.internal:5000`. The push tool never takes, reads or stores a credential,
+   and it has no option for one.
+4. Push the image and capture its digest:
+
+   ```powershell
+   python scripts/release/push_image.py --image foss-mcp-serving:<tag> --registry registry.example.internal:5000/foss-mcp --record push-result.json
+   ```
+
+5. Record the result in the project's state with `gatectl release-record --push-result push-result.json`.
+   Run `python ops/gatectl.py release-record --help` for the other options it takes.
+
+What `push_image.py` does, in order, stopping at the first failure:
+
+- Refuses to run, exit 2 and nothing executed, unless a registry is named and is a plain
+  `HOST[:PORT][/PATH]`: lowercase host labels, an optional port, optional path segments of lowercase
+  letters, digits, `.`, `_` and `-`. A scheme, a space, a `..` segment or a `user:pass@` prefix is refused.
+  A refused value is never printed back.
+- Refuses an `--image` that is not a local `NAME:TAG` with an explicit tag other than `latest`.
+- Confirms the local image exists with `docker image inspect`, then runs `docker tag` and `docker push` for
+  `<registry>/<name>:<tag>`.
+- Reads the `digest: sha256:<64 hex> size: <n>` line from the push output. A push whose output has no digest
+  line is not a success and exits non-zero.
+- Prints, and with `--record` also writes, one JSON object with exactly the keys `image`,
+  `pushed_reference`, `digest`, `local_image_id` and `timestamp` (UTC).
+
+| Option | Meaning |
+| --- | --- |
+| `--image NAME:TAG` | The local image to push. Required. The tag is explicit and is never `latest`. |
+| `--registry HOST[:PORT][/PATH]` | The internal registry, with an optional path prefix. Required unless the environment variable `FOSS_MCP_REGISTRY` holds it; with neither the tool exits 2. |
+| `--dry-run` | Print the `docker tag` and `docker push` commands. Run nothing and write nothing. |
+| `--record FILE` | Also write the JSON result to this file, after a successful push only. |
+
+The tool never runs `docker login`, never reads the Docker client configuration, and never prints an
+environment variable. Check a new registry value with `--dry-run` before the real push.
 
 ## What the init container does, and why a pod waits at Init
 
