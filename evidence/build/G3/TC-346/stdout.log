@@ -1,0 +1,785 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_compact_demo_manifests.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-j8opi1vf\.junit-0.xml"
+--- stdout ---
+.................                                                        [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy tests/mcp/tools/test_retrieval_tools.py tests/test_unwired_modules.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-j8opi1vf\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 40%]
+........................................................................ [ 81%]
+.................................                                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_compact_demo_manifests.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-j8opi1vf\.junit-0.xml"
+--- stdout ---
+.................                                                        [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy tests/mcp/tools/test_retrieval_tools.py tests/test_unwired_modules.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-j8opi1vf\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 40%]
+........................................................................ [ 81%]
+.................................                                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/release/compact_demo_manifests.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_compact_demo_manifests.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-j8opi1vf\.junit-0.xml"
+--- stdout ---
+FFFFFF..FFFF..F..                                                        [100%]
+================================== FAILURES ===================================
+___________________ test_only_the_active_generation_remains ___________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5459/test_only_the_active_generatio0')
+
+    def test_only_the_active_generation_remains(tmp_path: Path) -> None:
+        scope_dir, old_id, active_id = make_scope(tmp_path)
+        assert len(generation_files(scope_dir)) == 2
+    
+>       assert compact.main(["--root", str(tmp_path)]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+___________ test_only_example_points_remain_with_every_field_intact ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5459/test_only_example_points_remai0')
+
+    def test_only_example_points_remain_with_every_field_intact(tmp_path: Path) -> None:
+        scope_dir, _, active_id = make_scope(tmp_path)
+        before = _payload(active_id)["vector_index"]["points"]
+    
+>       assert compact.main(["--root", str(tmp_path)]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:136: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+____ test_lexical_index_is_equal_and_the_file_is_compact_sorted_utf8_json _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5459/test_lexical_index_is_equal_an0')
+
+    def test_lexical_index_is_equal_and_the_file_is_compact_sorted_utf8_json(tmp_path: Path) -> None:
+        scope_dir, _, active_id = make_scope(tmp_path)
+    
+>       assert compact.main(["--root", str(tmp_path)]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:150: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+___________ test_compacted_scope_still_loads_through_the_real_store ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5459/test_compacted_scope_still_loa0')
+
+    def test_compacted_scope_still_loads_through_the_real_store(tmp_path: Path) -> None:
+        scope_dir, _, active_id = make_scope(tmp_path)
+>       assert compact.main(["--root", str(tmp_path)]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:165: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+______________ test_a_second_run_is_a_noop_with_identical_bytes _______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5459/test_a_second_run_is_a_noop_wi0')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002287E272510>
+
+    def test_a_second_run_is_a_noop_with_identical_bytes(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        make_scope(tmp_path)
+>       assert compact.main(["--root", str(tmp_path)]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:181: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+_____________ test_the_report_has_one_line_per_scope_and_a_total ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5459/test_the_report_has_one_line_p0')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002287E31A850>
+
+    def test_the_report_has_one_line_per_scope_and_a_total(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        make_scope(tmp_path)
+        make_scope(tmp_path, "pdf__java__self_extracted")
+    
+>       assert compact.main(["--root", str(tmp_path)]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:198: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+_ test_check_exits_1_on_a_non_compact_scope_and_0_after_compaction_and_changes_nothing _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5459/test_check_exits_1_on_a_non_co0')
+
+    def test_check_exits_1_on_a_non_compact_scope_and_0_after_compaction_and_changes_nothing(
+        tmp_path: Path,
+    ) -> None:
+        make_scope(tmp_path)
+        before = snapshot(tmp_path)
+    
+>       assert compact.main(["--root", str(tmp_path), "--check"]) == 1
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:250: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+_______ test_a_scope_with_a_stale_generation_file_alone_is_not_compact ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5459/test_a_scope_with_a_stale_gene0')
+
+    def test_a_scope_with_a_stale_generation_file_alone_is_not_compact(tmp_path: Path) -> None:
+        scope_dir, old_id, _ = make_scope(tmp_path)
+>       assert compact.main(["--root", str(tmp_path)]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:263: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+____________ test_dry_run_reports_but_changes_nothing_and_exits_0 _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5459/test_dry_run_reports_but_chang0')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002287E3D1480>
+
+    def test_dry_run_reports_but_changes_nothing_and_exits_0(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        make_scope(tmp_path)
+        before = snapshot(tmp_path)
+    
+>       assert compact.main(["--root", str(tmp_path), "--dry-run"]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:278: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+_ test_the_tool_runs_as_a_standalone_script_and_imports_the_marker_instead_of_copying_it _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5459/test_the_tool_runs_as_a_standa0')
+
+    def test_the_tool_runs_as_a_standalone_script_and_imports_the_marker_instead_of_copying_it(
+        tmp_path: Path,
+    ) -> None:
+        make_scope(tmp_path)
+        proc = subprocess.run(
+            [sys.executable, str(TOOL), "--root", str(tmp_path), "--check"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            cwd=tmp_path,
+            timeout=120,
+        )
+        assert proc.returncode == 1, proc.stdout + proc.stderr
+>       assert "total: 1 scopes" in proc.stdout
+E       AssertionError: assert 'total: 1 scopes' in ''
+E        +  where '' = CompletedProcess(args=['E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\venv-7b182948484d...             ^^^^^^^^^^^^^^^\nNameError: name \'EXAMPLE_MARKERX\' is not defined. Did you mean: \'EXAMPLE_MARKER\'?\n').stdout
+
+tests\deploy\test_compact_demo_manifests.py:297: AssertionError
+____ test_real_tree_check_exits_0_so_the_committed_tree_is_already_compact ____
+
+capsys = <_pytest.capture.CaptureFixture object at 0x000002287E2C7770>
+
+    def test_real_tree_check_exits_0_so_the_committed_tree_is_already_compact(
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+>       assert compact.main(["--root", str(DEMO_MANIFESTS), "--check"]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:335: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'bb8dcd69530826a1', 'point_id': '3d::java::self_extracted::20261010T082640620282Z-8b196f67::point::bb8dcd... 0.013080015778541565, -0.008839462883770466, -0.0034790451172739267, 0.011347958818078041, -0.02221810817718506, ...]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_compact_demo_manifests.py::test_only_the_active_generation_remains
+FAILED tests/deploy/test_compact_demo_manifests.py::test_only_example_points_remain_with_every_field_intact
+FAILED tests/deploy/test_compact_demo_manifests.py::test_lexical_index_is_equal_and_the_file_is_compact_sorted_utf8_json
+FAILED tests/deploy/test_compact_demo_manifests.py::test_compacted_scope_still_loads_through_the_real_store
+FAILED tests/deploy/test_compact_demo_manifests.py::test_a_second_run_is_a_noop_with_identical_bytes
+FAILED tests/deploy/test_compact_demo_manifests.py::test_the_report_has_one_line_per_scope_and_a_total
+FAILED tests/deploy/test_compact_demo_manifests.py::test_check_exits_1_on_a_non_compact_scope_and_0_after_compaction_and_changes_nothing
+FAILED tests/deploy/test_compact_demo_manifests.py::test_a_scope_with_a_stale_generation_file_alone_is_not_compact
+FAILED tests/deploy/test_compact_demo_manifests.py::test_dry_run_reports_but_changes_nothing_and_exits_0
+FAILED tests/deploy/test_compact_demo_manifests.py::test_the_tool_runs_as_a_standalone_script_and_imports_the_marker_instead_of_copying_it
+FAILED tests/deploy/test_compact_demo_manifests.py::test_real_tree_check_exits_0_so_the_committed_tree_is_already_compact
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy tests/mcp/tools/test_retrieval_tools.py tests/test_unwired_modules.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-j8opi1vf\.junit-1.xml"
+--- stdout ---
+FFFFFF..FFFF..F......................................................... [ 40%]
+........................................................................ [ 81%]
+.................................                                        [100%]
+================================== FAILURES ===================================
+___________________ test_only_the_active_generation_remains ___________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5460/test_only_the_active_generatio0')
+
+    def test_only_the_active_generation_remains(tmp_path: Path) -> None:
+        scope_dir, old_id, active_id = make_scope(tmp_path)
+        assert len(generation_files(scope_dir)) == 2
+    
+>       assert compact.main(["--root", str(tmp_path)]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+___________ test_only_example_points_remain_with_every_field_intact ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5460/test_only_example_points_remai0')
+
+    def test_only_example_points_remain_with_every_field_intact(tmp_path: Path) -> None:
+        scope_dir, _, active_id = make_scope(tmp_path)
+        before = _payload(active_id)["vector_index"]["points"]
+    
+>       assert compact.main(["--root", str(tmp_path)]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:136: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+____ test_lexical_index_is_equal_and_the_file_is_compact_sorted_utf8_json _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5460/test_lexical_index_is_equal_an0')
+
+    def test_lexical_index_is_equal_and_the_file_is_compact_sorted_utf8_json(tmp_path: Path) -> None:
+        scope_dir, _, active_id = make_scope(tmp_path)
+    
+>       assert compact.main(["--root", str(tmp_path)]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:150: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+___________ test_compacted_scope_still_loads_through_the_real_store ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5460/test_compacted_scope_still_loa0')
+
+    def test_compacted_scope_still_loads_through_the_real_store(tmp_path: Path) -> None:
+        scope_dir, _, active_id = make_scope(tmp_path)
+>       assert compact.main(["--root", str(tmp_path)]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:165: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+______________ test_a_second_run_is_a_noop_with_identical_bytes _______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5460/test_a_second_run_is_a_noop_wi0')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002391FD0C6E0>
+
+    def test_a_second_run_is_a_noop_with_identical_bytes(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        make_scope(tmp_path)
+>       assert compact.main(["--root", str(tmp_path)]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:181: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+_____________ test_the_report_has_one_line_per_scope_and_a_total ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5460/test_the_report_has_one_line_p0')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002391FF716D0>
+
+    def test_the_report_has_one_line_per_scope_and_a_total(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        make_scope(tmp_path)
+        make_scope(tmp_path, "pdf__java__self_extracted")
+    
+>       assert compact.main(["--root", str(tmp_path)]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:198: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+_ test_check_exits_1_on_a_non_compact_scope_and_0_after_compaction_and_changes_nothing _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5460/test_check_exits_1_on_a_non_co0')
+
+    def test_check_exits_1_on_a_non_compact_scope_and_0_after_compaction_and_changes_nothing(
+        tmp_path: Path,
+    ) -> None:
+        make_scope(tmp_path)
+        before = snapshot(tmp_path)
+    
+>       assert compact.main(["--root", str(tmp_path), "--check"]) == 1
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:250: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+_______ test_a_scope_with_a_stale_generation_file_alone_is_not_compact ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5460/test_a_scope_with_a_stale_gene0')
+
+    def test_a_scope_with_a_stale_generation_file_alone_is_not_compact(tmp_path: Path) -> None:
+        scope_dir, old_id, _ = make_scope(tmp_path)
+>       assert compact.main(["--root", str(tmp_path)]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:263: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+____________ test_dry_run_reports_but_changes_nothing_and_exits_0 _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5460/test_dry_run_reports_but_chang0')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002391D90F950>
+
+    def test_dry_run_reports_but_changes_nothing_and_exits_0(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        make_scope(tmp_path)
+        before = snapshot(tmp_path)
+    
+>       assert compact.main(["--root", str(tmp_path), "--dry-run"]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:278: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'chunk0', 'point_id': 'pdf::go::self_extracted::20260202T000000000000Z-bbbb2222::point::chunk0', 'text': 'plain prose with no sample block', 'vector': [0.0, -0.25, 0.3333333333333333, 2.5e-07]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+_ test_the_tool_runs_as_a_standalone_script_and_imports_the_marker_instead_of_copying_it _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5460/test_the_tool_runs_as_a_standa0')
+
+    def test_the_tool_runs_as_a_standalone_script_and_imports_the_marker_instead_of_copying_it(
+        tmp_path: Path,
+    ) -> None:
+        make_scope(tmp_path)
+        proc = subprocess.run(
+            [sys.executable, str(TOOL), "--root", str(tmp_path), "--check"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            cwd=tmp_path,
+            timeout=120,
+        )
+        assert proc.returncode == 1, proc.stdout + proc.stderr
+>       assert "total: 1 scopes" in proc.stdout
+E       AssertionError: assert 'total: 1 scopes' in ''
+E        +  where '' = CompletedProcess(args=['E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\venv-7b182948484d...             ^^^^^^^^^^^^^^^\nNameError: name \'EXAMPLE_MARKERX\' is not defined. Did you mean: \'EXAMPLE_MARKER\'?\n').stdout
+
+tests\deploy\test_compact_demo_manifests.py:297: AssertionError
+____ test_real_tree_check_exits_0_so_the_committed_tree_is_already_compact ____
+
+capsys = <_pytest.capture.CaptureFixture object at 0x000002391D712B10>
+
+    def test_real_tree_check_exits_0_so_the_committed_tree_is_already_compact(
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+>       assert compact.main(["--root", str(DEMO_MANIFESTS), "--check"]) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_compact_demo_manifests.py:335: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\compact_demo_manifests.py:212: in main
+    return run(args.root, check=args.check, dry_run=args.dry_run)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:184: in run
+    result = compact_scope(d, apply=apply)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts\release\compact_demo_manifests.py:144: in compact_scope
+    examples = [p for p in points if is_example_point(p)]
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+point = {'chunk_id': 'bb8dcd69530826a1', 'point_id': '3d::java::self_extracted::20261010T082640620282Z-8b196f67::point::bb8dcd... 0.013080015778541565, -0.008839462883770466, -0.0034790451172739267, 0.011347958818078041, -0.02221810817718506, ...]}
+
+    def is_example_point(point: Any) -> bool:
+        text = point.get("text") if isinstance(point, dict) else None
+>       return isinstance(text, str) and EXAMPLE_MARKERX in text
+                                         ^^^^^^^^^^^^^^^
+E       NameError: name 'EXAMPLE_MARKERX' is not defined
+
+scripts\release\compact_demo_manifests.py:108: NameError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_compact_demo_manifests.py::test_only_the_active_generation_remains
+FAILED tests/deploy/test_compact_demo_manifests.py::test_only_example_points_remain_with_every_field_intact
+FAILED tests/deploy/test_compact_demo_manifests.py::test_lexical_index_is_equal_and_the_file_is_compact_sorted_utf8_json
+FAILED tests/deploy/test_compact_demo_manifests.py::test_compacted_scope_still_loads_through_the_real_store
+FAILED tests/deploy/test_compact_demo_manifests.py::test_a_second_run_is_a_noop_with_identical_bytes
+FAILED tests/deploy/test_compact_demo_manifests.py::test_the_report_has_one_line_per_scope_and_a_total
+FAILED tests/deploy/test_compact_demo_manifests.py::test_check_exits_1_on_a_non_compact_scope_and_0_after_compaction_and_changes_nothing
+FAILED tests/deploy/test_compact_demo_manifests.py::test_a_scope_with_a_stale_generation_file_alone_is_not_compact
+FAILED tests/deploy/test_compact_demo_manifests.py::test_dry_run_reports_but_changes_nothing_and_exits_0
+FAILED tests/deploy/test_compact_demo_manifests.py::test_the_tool_runs_as_a_standalone_script_and_imports_the_marker_instead_of_copying_it
+FAILED tests/deploy/test_compact_demo_manifests.py::test_real_tree_check_exits_0_so_the_committed_tree_is_already_compact
+
+--- stderr ---
+
