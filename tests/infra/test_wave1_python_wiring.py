@@ -111,8 +111,16 @@ def test_compose_passes_the_same_page_and_library_flags_before_out(family: str) 
     assert library["platform"] == "python", family
 
 
-def test_only_wave1_and_previously_furnished_pilots_have_a_furnished_page() -> None:
-    allowed = ALREADY_FURNISHED | {(family, "python") for family in WAVE1_FAMILIES}
-    furnished = {(p["family"], p["platform"]) for p in _pilots() if p.get("furnishedPage")}
-    assert furnished <= allowed, sorted(furnished - allowed)
-    assert {(family, "python") for family in WAVE1_FAMILIES} <= furnished
+def test_every_furnished_page_exists_and_wave1_and_earlier_pilots_have_one() -> None:
+    """Forward-compatible: later waves add pilots, so this never asserts that nobody else has a page."""
+    furnished = {}
+    for pilot in _pilots():
+        page = pilot.get("furnishedPage")
+        if page:
+            furnished[(pilot["family"], pilot["platform"])] = page
+    for key, page in furnished.items():
+        assert page.startswith("/app/fixtures/"), (key, page)
+        host_path = REPO_ROOT / "tests" / "fixtures" / page[len("/app/fixtures/") :]
+        assert host_path.is_file(), f"{key}: furnishedPage {page} has no page file at {host_path}"
+    required = ALREADY_FURNISHED | {(family, "python") for family in WAVE1_FAMILIES}
+    assert required <= set(furnished), sorted(required - set(furnished))

@@ -36,8 +36,8 @@ WAVE2_PILOTS = [
     ("jmap", "rust"),
 ]
 
-# Pilots that had a furnishedPage before this card. With WAVE2_PILOTS this is every pilot allowed to
-# carry one; a pilot outside both sets that gains a furnishedPage must be wired by its own card.
+# Pilots that had a furnishedPage before this card. With WAVE2_PILOTS these must all still carry one;
+# later waves add more, so the test never asserts that no other pilot has one.
 PRE_EXISTING_PAGES = {
     ("pdf", "net"),
     ("slides", "python"),
@@ -172,8 +172,15 @@ def test_platform_field_is_present_and_plausible(family: str, platform: str) -> 
         assert CRATE_NAME.match(value), value
 
 
-def test_no_pilot_outside_the_wired_sets_gained_a_furnished_page() -> None:
-    allowed = PRE_EXISTING_PAGES | set(WAVE2_PILOTS)
-    with_page = {(p["family"], p["platform"]) for p in _pilots() if p.get("furnishedPage")}
-    assert with_page <= allowed, sorted(with_page - allowed)
-    assert set(WAVE2_PILOTS) <= with_page, sorted(set(WAVE2_PILOTS) - with_page)
+def test_every_furnished_page_exists_and_the_wired_sets_have_one() -> None:
+    """Forward-compatible: every pilot with a furnishedPage points at an existing file, and the set of
+    pilots with one contains the ten and the earlier ones. Later waves may add more.
+    """
+    with_page: dict[tuple[str, str], str] = {}
+    for pilot in _pilots():
+        if pilot.get("furnishedPage"):
+            with_page[(pilot["family"], pilot["platform"])] = pilot["furnishedPage"]
+    for key, page in with_page.items():
+        assert _host_path(page).is_file(), f"{key}: furnishedPage {page} has no page file"
+    required = PRE_EXISTING_PAGES | set(WAVE2_PILOTS)
+    assert required <= set(with_page), sorted(required - set(with_page))
