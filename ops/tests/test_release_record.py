@@ -30,6 +30,7 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(G, "REPO", tmp_path)
     monkeypatch.setattr(G, "EVIDENCE", tmp_path / "evidence")
     monkeypatch.setattr(R, "expected_pilot_count", lambda: PILOTS)
+    monkeypatch.setattr(R, "expected_pilot_keys", lambda: {f"p{i}" for i in range(1, PILOTS + 1)})
     monkeypatch.setattr(R, "commit_problem", lambda sha: None)
     monkeypatch.setattr(
         R,
@@ -56,8 +57,12 @@ def report(
         "pilots_passed": passed,
         "budget": {"memory": "256m", "cpus": 0.5},
         "pilots": [
-            {"key": "p1", "status": "pass", "peak_memory_mb": 97.5},
-            {"key": "p2", "status": "pass", "peak_memory_mb": 120.25},
+            {
+                "key": f"p{i}",
+                "status": "pass" if i <= passed else "fail",
+                "peak_memory_mb": [97.5, 120.25, 80.0][i - 1] if i <= 3 else 1.0,
+            }
+            for i in range(1, total + 1)
         ],
     }
     p = tmp_path / name
@@ -81,7 +86,7 @@ def push_result(tmp_path: Path, *, digest=DIGEST, local_id=IMAGE_ID, name="push.
 def test_a_gate_tested_image_is_recorded_local_only_and_validates(env):
     doc, path = R.record(REF, report(env))
     assert doc["status"] == "LOCAL_ONLY" and doc["registry"] is None
-    assert path == env / "evidence" / "release" / "foss-mcp-serving__demo-aaaaaaa.json"
+    assert path == env / "evidence" / "release" / f"{R.stem_for(REF)}.json"
     assert R.problems() == []
     assert G.schema_errors(G.load_schema(R.SCHEMA), json.loads(path.read_text(encoding="utf-8"))) == []
     copied = env / doc["gate_report"]["file"]
@@ -103,7 +108,7 @@ def test_state_rows_carry_the_image_and_validate_against_the_state_schema(env):
             "gate_report": f"PASS {PILOTS}/{PILOTS}",
             "registry_reference": "registry.example.internal/foss-mcp-serving:demo-aaaaaaa",
             "registry_digest": DIGEST,
-            "record": "evidence/release/foss-mcp-serving__demo-aaaaaaa.json",
+            "record": f"evidence/release/{R.stem_for(REF)}.json",
         }
     ]
     sub = G.load_schema("state.schema.json")["properties"]["release_images"]
@@ -141,7 +146,7 @@ def test_a_report_for_a_different_image_id_proves_nothing_and_is_refused(env):
     ],
 )
 def test_a_report_that_is_not_a_full_pass_of_every_pilot_is_refused(env, kwargs):
-    with pytest.raises(R.ReleaseRefused, match="need PASS"):
+    with pytest.raises(R.ReleaseRefused, match="need PASS|contradicts"):
         R.record(REF, report(env, **kwargs))
     assert not (env / "evidence").exists()
 
@@ -271,3 +276,130 @@ def test_commit_problem_against_a_real_repository(tmp_path, monkeypatch):
     assert R.commit_problem(sha) is None
     assert "ancestor" in (R.commit_problem(side) or "")
     assert "not a commit" in (R.commit_problem("f" * 40) or "")
+
+
+# ---- red-team hardening (2026-10-11) -------------------------------------------------------------------------
+
+
+def _rewrite_report(path: Path, **changes) -> None:
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    doc.update(changes)
+    path.write_text(json.dumps(doc), encoding="utf-8")
+
+
+@pytest.mark.parametrize("field", ["pilots_total", "pilots_passed"])
+@pytest.mark.parametrize("value", [True, "3", 3.0, None])
+def test_counts_must_be_real_integers_not_booleans_or_strings(env, field, value):
+    p = report(env)
+    _rewrite_report(p, **{field: value})
+    with pytest.raises(R.ReleaseRefused, match="integer"):
+        R.record(REF, p)
+
+
+def test_a_report_must_cover_exactly_the_charts_pilots(env):
+    p = report(env)
+    doc = json.loads(p.read_text(encoding="utf-8"))
+    doc["pilots"][2]["key"] = "not-a-chart-pilot"
+    p.write_text(json.dumps(doc), encoding="utf-8")
+    with pytest.raises(R.ReleaseRefused, match="chart"):
+        R.record(REF, p)
+
+
+def test_a_report_that_counts_more_passes_than_it_lists_is_refused(env):
+    p = report(env, passed=PILOTS - 1)
+    _rewrite_report(p, pilots_passed=PILOTS)
+    with pytest.raises(R.ReleaseRefused, match="passing pilot"):
+        R.record(REF, p)
+
+
+def test_a_pass_report_with_no_pilot_list_is_refused(env):
+    p = report(env)
+    doc = json.loads(p.read_text(encoding="utf-8"))
+    del doc["pilots"]
+    p.write_text(json.dumps(doc), encoding="utf-8")
+    with pytest.raises(R.ReleaseRefused, match="list its pilots"):
+        R.record(REF, p)
+
+
+def test_a_push_result_without_a_local_image_id_is_not_recorded(env):
+    p = push_result(env)
+    doc = json.loads(p.read_text(encoding="utf-8"))
+    del doc["local_image_id"]
+    p.write_text(json.dumps(doc), encoding="utf-8")
+    with pytest.raises(R.ReleaseRefused, match="local_image_id"):
+        R.record(REF, report(env), p)
+
+
+@pytest.mark.parametrize("ref", ["", "no-slash-or-tag", "reg/Upper:y", "reg/x y:1", None])
+def test_a_push_result_with_an_unusable_pushed_reference_is_not_recorded(env, ref):
+    p = push_result(env)
+    doc = json.loads(p.read_text(encoding="utf-8"))
+    doc["pushed_reference"] = ref
+    p.write_text(json.dumps(doc), encoding="utf-8")
+    with pytest.raises(R.ReleaseRefused, match="pushed_reference"):
+        R.record(REF, report(env), p)
+
+
+def test_a_registry_with_a_port_is_a_usable_pushed_reference(env):
+    p = push_result(env)
+    doc = json.loads(p.read_text(encoding="utf-8"))
+    doc["pushed_reference"] = "registry.example.internal:5000/team/foss-mcp-serving:demo-aaaaaaa"
+    p.write_text(json.dumps(doc), encoding="utf-8")
+    assert R.record(REF, report(env), p)[0]["status"] == "PUSHED"
+
+
+def test_two_references_that_used_to_flatten_to_one_file_name_no_longer_collide():
+    assert R.stem_for("a/b:t") != R.stem_for("a_b:t")
+    assert R.stem_for("a:b__c") != R.stem_for("a:b/c")
+
+
+def test_validate_rederives_the_copied_report_so_a_doctored_copy_with_a_fixed_hash_is_still_caught(env):
+    doc, path = R.record(REF, report(env), push_result(env))
+    copy = env / doc["gate_report"]["file"]
+    forged = json.loads(copy.read_text(encoding="utf-8"))
+    forged["verdict"] = "FAIL"
+    copy.write_text(json.dumps(forged), encoding="utf-8")
+    rec = json.loads(path.read_text(encoding="utf-8"))
+    rec["gate_report"]["sha256"] = hashlib.sha256(copy.read_bytes()).hexdigest()
+    path.write_text(json.dumps(rec), encoding="utf-8")
+    assert any("disagrees with the report itself" in p for p in R.problems())
+    assert R.gate_exit_problems("G3"), "a record that fails validation never satisfies the gate"
+
+
+def test_validate_catches_a_report_copy_for_another_image(env):
+    doc, path = R.record(REF, report(env))
+    copy = env / doc["gate_report"]["file"]
+    _rewrite_report(copy, image_id=OTHER_ID)
+    rec = json.loads(path.read_text(encoding="utf-8"))
+    rec["gate_report"]["sha256"] = hashlib.sha256(copy.read_bytes()).hexdigest()
+    rec["gate_report"]["image_id"] = OTHER_ID
+    path.write_text(json.dumps(rec), encoding="utf-8")
+    assert any("different image id" in p for p in R.problems())
+
+
+def test_validate_catches_a_gate_report_path_that_points_elsewhere(env):
+    _, path = R.record(REF, report(env))
+    other = env / "somewhere.json"
+    other.write_text(report(env).read_text(encoding="utf-8"), encoding="utf-8")
+    rec = json.loads(path.read_text(encoding="utf-8"))
+    rec["gate_report"]["file"] = "somewhere.json"
+    rec["gate_report"]["sha256"] = hashlib.sha256(other.read_bytes()).hexdigest()
+    path.write_text(json.dumps(rec), encoding="utf-8")
+    assert any("not the one derived" in p for p in R.problems())
+
+
+def test_a_schema_invalid_record_is_reported_and_never_crashes_state_or_the_gate(env):
+    _, path = R.record(REF, report(env), push_result(env))
+    rec = json.loads(path.read_text(encoding="utf-8"))
+    del rec["image"]["size_bytes"]
+    path.write_text(json.dumps(rec), encoding="utf-8")
+    assert R.state_rows() == []
+    assert R.problems()
+    assert R.gate_exit_problems("G3")
+
+
+def test_recording_over_an_unreadable_existing_record_is_refused_not_a_traceback(env):
+    _, path = R.record(REF, report(env))
+    path.write_text("{broken", encoding="utf-8")
+    with pytest.raises(R.ReleaseRefused, match="unreadable"):
+        R.record(REF, report(env))

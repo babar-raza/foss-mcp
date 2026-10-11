@@ -1564,9 +1564,12 @@ def build_parser():
     grp = sp.add_mutually_exclusive_group(required=True)
     grp.add_argument("--staged", action="store_true", help="the staged diff (pre-commit)")
     grp.add_argument(
-        "--pushed", metavar="SHA", help="every commit reachable from SHA and not from a remote ref (pre-push)"
+        "--pushed", metavar="SHA", help="every commit reachable from SHA and not already published (pre-push)"
     )
     grp.add_argument("--tree", action="store_true", help="every tracked file at HEAD (CI)")
+    grp.add_argument("--message", metavar="FILE", help="a commit message file (commit-msg hook)")
+    sp.add_argument("--base", help="with --pushed: the remote's recorded tip for the ref (pre-push protocol)")
+    sp.add_argument("--remote", help="with --pushed: the remote's name")
 
     sp = sub.add_parser(
         "release-record",
@@ -1594,7 +1597,11 @@ def cmd_secret_scan(args) -> int:
         if args.staged:
             found = S.scan_staged()
         elif args.pushed:
-            found = S.scan_pushed(args.pushed)
+            found = S.scan_pushed(args.pushed, base=args.base, remote=args.remote)
+        elif args.message:
+            found = S.scan_message(
+                Path(args.message).read_text(encoding="utf-8", errors="ignore"), "commit message"
+            )
         else:
             found = S.scan_tree()
     except RuntimeError as exc:

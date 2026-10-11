@@ -71,24 +71,27 @@ PY="$MAIN_ROOT/.venv/Scripts/python.exe"
 [ -x "$PY" ] || PY="python"
 
 allowed_email="$(git config --global --get user.email || true)"
-if [ -n "$allowed_email" ]; then
-  while read -r local_ref local_sha remote_ref remote_sha; do
-    [ -z "$local_sha" ] && continue
-    case "$local_sha" in 0000000000000000000000000000000000000000) continue ;; esac
-    # Every commit this push would newly publish is scanned patch by patch, so a credential added and
-    # removed again inside the same push is still caught. Fails closed if the scan cannot run.
-    if ! "$PY" ops/gatectl.py secret-scan --pushed "$local_sha"; then
-      echo "pre-push: BLOCKED - a credential-shaped value is in the commits being pushed ($local_ref)." >&2
-      exit 1
-    fi
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "$local_sha" ] && continue
+  case "$local_sha" in 0000000000000000000000000000000000000000) continue ;; esac
+  # The credential scan runs on EVERY push, whether or not a global identity is configured (it used to sit inside
+  # the identity check below and was silently skipped when user.email was unset). It scans the range the remote
+  # itself reports (remote_sha..local_sha; a new ref has an all-zero remote_sha and scans what no remote ref has),
+  # patch by patch, plus commit and tag messages and file names, so a credential added and removed again inside
+  # the same push is still caught. Fails closed if the scan cannot run.
+  if ! "$PY" ops/gatectl.py secret-scan --pushed "$local_sha" --base "$remote_sha" --remote "${1:-origin}"; then
+    echo "pre-push: BLOCKED - a credential-shaped value is in the commits being pushed ($local_ref)." >&2
+    exit 1
+  fi
+  if [ -n "$allowed_email" ]; then
     bad="$(git log "$local_sha" --not --remotes --format='%H %aE %cE' 2>/dev/null | awk -v a="$allowed_email" '$2!=a || $3!=a {print}')"
     if [ -n "$bad" ]; then
       echo "pre-push: BLOCKED - commit(s) in $local_ref not authored/committed as $allowed_email:" >&2
       echo "$bad" >&2
       exit 1
     fi
-  done
-fi
+  fi
+done
 
 remote_name="${1:-origin}"
 remote_url="${2:-}"

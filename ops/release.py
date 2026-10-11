@@ -31,6 +31,10 @@ SCHEMA = "release-image.schema.json"
 REVISION_LABEL = "org.opencontainers.image.revision"
 REF_RE = re.compile(r"^[a-z0-9][a-z0-9._/-]*:[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$")
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+# registry/path[:port]/name:tag - a host may carry a port, so the first colon is not the tag separator
+PUSHED_REF_RE = re.compile(
+    r"^[A-Za-z0-9][A-Za-z0-9._-]*(?::[0-9]{1,5})?(?:/[a-z0-9][a-z0-9._-]*)+:[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$"
+)
 GATE_REPORT_SUFFIX = ".gate-report.json"
 
 
@@ -43,16 +47,62 @@ def release_dir() -> Path:
 
 
 def stem_for(reference: str) -> str:
-    return reference.replace(":", "__").replace("/", "_")
+    """Readable and collision-free: `a/b:t` and `a_b:t` must never share a record file."""
+    readable = reference.replace(":", "__").replace("/", "_")
+    return f"{readable}--{hashlib.sha256(reference.encode('utf-8')).hexdigest()[:8]}"
 
 
 def record_path(reference: str) -> Path:
     return release_dir() / f"{stem_for(reference)}.json"
 
 
-def expected_pilot_count() -> int:
+def gate_report_rel(reference: str) -> str:
+    return (release_dir() / f"{stem_for(reference)}{GATE_REPORT_SUFFIX}").relative_to(G.REPO).as_posix()
+
+
+def _chart_pilots() -> list[dict]:
     data = G.load_yaml(G.REPO / "infra" / "helm" / "foss-mcp" / "values.yaml") or {}
-    return len((data.get("ingestion") or {}).get("pilots") or [])
+    return [p for p in ((data.get("ingestion") or {}).get("pilots") or []) if isinstance(p, dict)]
+
+
+def expected_pilot_count() -> int:
+    return len(_chart_pilots())
+
+
+def expected_pilot_keys() -> set[str]:
+    return {
+        f"{p.get('family')}_{p.get('platform')}" for p in _chart_pilots()
+    }  # scripts/deploy/pilots.py::pilot_key
+
+
+def _strict_int(value: object, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ReleaseRefused(f"gate report `{name}` must be an integer, got {value!r}")
+    return value
+
+
+def report_consistency_problems(rep: dict, raw_report: dict) -> list[str]:
+    """Cross-checks a gate report's own claims against each other and against the chart."""
+    out: list[str] = []
+    if rep["pilots_passed"] > rep["pilots_total"]:
+        out.append("pilots_passed exceeds pilots_total")
+    pilots = raw_report.get("pilots")
+    if isinstance(pilots, list):
+        keys = [p.get("key") for p in pilots if isinstance(p, dict)]
+        passed = sum(1 for p in pilots if isinstance(p, dict) and p.get("status") == "pass")
+        if len(pilots) != rep["pilots_total"]:
+            out.append(f"report lists {len(pilots)} pilot(s) but claims pilots_total {rep['pilots_total']}")
+        if passed != rep["pilots_passed"]:
+            out.append(
+                f"report lists {passed} passing pilot(s) but claims pilots_passed {rep['pilots_passed']}"
+            )
+        if rep["verdict"] == "PASS" and set(keys) != expected_pilot_keys():
+            out.append("the pilots the report covers are not exactly the chart's pilots")
+        if len(set(keys)) != len(keys):
+            out.append("the report lists a pilot more than once")
+    elif rep["verdict"] == "PASS":
+        out.append("a PASS report must list its pilots")
+    return out
 
 
 def inspect_image(reference: str) -> dict:
@@ -93,19 +143,30 @@ def load_gate_report(path: Path) -> tuple[dict, str]:
         rep = json.loads(raw.decode("utf-8-sig"))
     except ValueError as exc:
         raise ReleaseRefused(f"gate report is not JSON: {exc}") from exc
+    if not isinstance(rep, dict):
+        raise ReleaseRefused("gate report is not a JSON object")
     for key in ("image_id", "verdict", "pilots_total", "pilots_passed"):
         if key not in rep:
             raise ReleaseRefused(f"gate report lacks `{key}`")
     peaks: list[float] = []
     for pilot in rep.get("pilots") or []:
-        if isinstance(pilot, dict) and isinstance(pilot.get("peak_memory_mb"), (int, float)):
-            peaks.append(float(pilot["peak_memory_mb"]))
+        if isinstance(pilot, dict):
+            peak = pilot.get("peak_memory_mb")
+            if isinstance(peak, (int, float)) and not isinstance(peak, bool):
+                peaks.append(float(peak))
+    if rep["verdict"] not in ("PASS", "FAIL"):
+        raise ReleaseRefused(f"gate report verdict must be PASS or FAIL, got {rep['verdict']!r}")
+    if not isinstance(rep["image_id"], str):
+        raise ReleaseRefused("gate report `image_id` must be a string")
     out = {
         "verdict": rep["verdict"],
-        "pilots_total": int(rep["pilots_total"]),
-        "pilots_passed": int(rep["pilots_passed"]),
+        "pilots_total": _strict_int(rep["pilots_total"], "pilots_total"),
+        "pilots_passed": _strict_int(rep["pilots_passed"], "pilots_passed"),
         "image_id": rep["image_id"],
     }
+    inconsistent = report_consistency_problems(out, rep)
+    if inconsistent:
+        raise ReleaseRefused("gate report contradicts itself or the chart: " + "; ".join(inconsistent))
     if peaks:
         out["peak_memory_mb"] = max(peaks)
     budget = (rep.get("budget") or {}).get("memory")
@@ -128,13 +189,18 @@ def load_push_result(path: Path) -> dict:
             "push result has no valid sha256 digest - a push with no captured digest is not recorded"
         )
     ref = res.get("pushed_reference", "")
-    if not ref:
-        raise ReleaseRefused("push result has no pushed_reference")
+    if not isinstance(ref, str) or not PUSHED_REF_RE.match(ref):
+        raise ReleaseRefused("push result has no usable pushed_reference")
+    local_id = res.get("local_image_id", "")
+    if not isinstance(local_id, str) or not DIGEST_RE.match(local_id):
+        raise ReleaseRefused(
+            "push result names no local_image_id - a push that cannot be tied to the exact local image is not recorded"
+        )
     return {
         "reference": ref,
         "digest": digest,
         "pushed_at": res.get("timestamp") or G.now_utc(),
-        "local_image_id": res.get("local_image_id", ""),
+        "local_image_id": local_id,
     }
 
 
@@ -171,7 +237,7 @@ def record(reference: str, gate_report: Path, push_result: Path | None = None) -
     registry = None
     if push_result is not None:
         pr = load_push_result(push_result)
-        if pr["local_image_id"] and pr["local_image_id"] != info["image_id"]:
+        if pr["local_image_id"] != info["image_id"]:
             raise ReleaseRefused(
                 "the push result is for a different local image id than the image being recorded"
             )
@@ -179,8 +245,14 @@ def record(reference: str, gate_report: Path, push_result: Path | None = None) -
 
     path = record_path(reference)
     if path.exists():
-        old = json.loads(path.read_text(encoding="utf-8"))
-        if old["image"]["image_id"] != info["image_id"]:
+        try:
+            old = json.loads(path.read_text(encoding="utf-8"))
+            old_id = old["image"]["image_id"]
+        except (ValueError, KeyError, TypeError) as exc:
+            raise ReleaseRefused(
+                f"the existing record {path.name} is unreadable ({exc}); repair it first"
+            ) from exc
+        if old_id != info["image_id"]:
             raise ReleaseRefused(
                 f"{reference} is already recorded for a different image id; tags are immutable here - use a new tag"
             )
@@ -202,7 +274,7 @@ def record(reference: str, gate_report: Path, push_result: Path | None = None) -
             "source_commit": info["source_commit"],
             "created": info["created"],
         },
-        "gate_report": {"file": copied.relative_to(G.REPO).as_posix(), "sha256": rep_sha, **rep},
+        "gate_report": {"file": gate_report_rel(reference), "sha256": rep_sha, **rep},
         "registry": registry,
     }
     errs = G.schema_errors(G.load_schema(SCHEMA), doc)
@@ -229,9 +301,10 @@ def load_records() -> list[tuple[Path, dict]]:
 
 def state_rows() -> list[dict]:
     rows = []
+    schema = G.load_schema(SCHEMA)
     for p, d in load_records():
-        if not d:
-            continue
+        if not d or G.schema_errors(schema, d):
+            continue  # `problems()` names it; the derived state only carries well-formed records
         img, gr, reg = d["image"], d["gate_report"], d.get("registry")
         rows.append(
             {
@@ -259,21 +332,40 @@ def problems() -> list[str]:
         if not d:
             out.append(f"{rel}: not valid JSON")
             continue
-        for e in G.schema_errors(schema, d):
-            out.append(f"{rel}: {e}")
-        if "image" not in d:
-            continue
+        errs = G.schema_errors(schema, d)
+        out += [f"{rel}: {e}" for e in errs]
+        if errs:
+            continue  # nothing below is safe to read from a record that does not match its schema
         if p.stem != stem_for(d["image"]["reference"]):
             out.append(f"{rel}: file name disagrees with the recorded image reference")
         bad = commit_problem(d["image"]["source_commit"])
         if bad:
             out.append(f"{rel}: {bad}")
-        gr = d.get("gate_report") or {}
-        gfile = G.REPO / gr.get("file", "")
-        if not gr.get("file") or not gfile.is_file():
-            out.append(f"{rel}: the copied gate report {gr.get('file')!r} is missing")
-        elif hashlib.sha256(gfile.read_bytes()).hexdigest() != gr.get("sha256"):
+        gr = d["gate_report"]
+        if gr["file"] != gate_report_rel(d["image"]["reference"]):
+            out.append(
+                f"{rel}: the gate report path {gr['file']!r} is not the one derived from the image reference"
+            )
+            continue
+        gfile = G.REPO / gr["file"]
+        if not gfile.is_file():
+            out.append(f"{rel}: the copied gate report {gr['file']!r} is missing")
+        elif hashlib.sha256(gfile.read_bytes()).hexdigest() != gr["sha256"]:
             out.append(f"{rel}: the gate report's sha256 no longer matches the record")
+        else:
+            # the copy must still say what the record claims: re-derive, never trust the record's copy of the numbers
+            try:
+                fresh, _ = load_gate_report(gfile)
+            except ReleaseRefused as exc:
+                out.append(f"{rel}: the copied gate report is not acceptable: {exc}")
+            else:
+                for key in ("verdict", "pilots_total", "pilots_passed", "image_id"):
+                    if fresh[key] != gr[key]:
+                        out.append(
+                            f"{rel}: gate_report.{key} {gr[key]!r} disagrees with the report itself ({fresh[key]!r})"
+                        )
+                if fresh["image_id"] != d["image"]["image_id"]:
+                    out.append(f"{rel}: the gate report is for a different image id than the record")
         if d.get("status") == "PUSHED" and not d.get("registry"):
             out.append(f"{rel}: status PUSHED but no registry digest")
         if d.get("status") == "LOCAL_ONLY" and d.get("registry"):
@@ -286,9 +378,13 @@ def gate_exit_problems(gate: str) -> list[str]:
     if gate != "G3":
         return []
     expected = expected_pilot_count()
-    for _, d in load_records():
-        if not d or d.get("status") != "PUSHED":
+    schema = G.load_schema(SCHEMA)
+    invalid = {line.split(": ", 1)[0] for line in problems()}
+    for p, d in load_records():
+        if not d or d.get("status") != "PUSHED" or G.schema_errors(schema, d):
             continue
+        if p.relative_to(G.REPO).as_posix() in invalid:
+            continue  # a record that fails validation never satisfies the gate
         gr = d["gate_report"]
         if gr["verdict"] == "PASS" and gr["pilots_passed"] == gr["pilots_total"] == expected:
             if commit_problem(d["image"]["source_commit"]) is None:

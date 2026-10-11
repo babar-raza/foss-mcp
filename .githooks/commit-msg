@@ -1,0 +1,16 @@
+#!/bin/sh
+# POSIX sh on purpose (see .githooks/pre-commit for why). Refuses a commit whose MESSAGE carries a credential-shaped value
+# or the exact value of a secret-looking environment variable. The diff is guarded by pre-commit; a message is part of the
+# history that a push publishes and cannot be un-published, so it gets its own gate. Fails closed if the scan cannot run.
+set -eu
+
+MAIN_ROOT="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+PY="$MAIN_ROOT/.venv/Scripts/python.exe"
+[ -x "$PY" ] || PY="$MAIN_ROOT/.venv/bin/python"
+[ -x "$PY" ] || PY="python"
+
+if ! "$PY" ops/gatectl.py secret-scan --message "$1"; then
+  echo >&2
+  echo "commit-msg: BLOCKED - a credential-shaped value is in the commit message (see above)." >&2
+  exit 1
+fi
