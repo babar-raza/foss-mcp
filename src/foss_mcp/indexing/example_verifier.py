@@ -67,12 +67,25 @@ __all__ = [
 ]
 
 _OUTPUT_TRUNCATE_CHARS = 8000
+# The part of a long toolchain output kept from its start; the rest of the budget keeps its end.
+_OUTPUT_HEAD_CHARS = 1500
+
+# Recorded as the output of a block that holds nothing but a preamble (for .NET, using
+# directives). Nothing is compiled or run for such a block, so it can never count as verified.
+_NO_STATEMENTS_MESSAGE = (
+    "[foss-mcp] rejected: the block has no statements of its own "
+    "(only {kind}, comments or blank lines); nothing was compiled or run"
+)
+
+# The target framework used when the library's own project files declare no usable one.
+_DEFAULT_DOTNET_TARGET_FRAMEWORK = "net8.0"
 
 _CANDIDATE_CSPROJ_TEMPLATE = """<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>{target_framework}</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
   <ItemGroup>
@@ -192,9 +205,47 @@ def _run_cargo(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str
 
 
 def _truncate(text: str) -> str:
+    """Keep at most ``_OUTPUT_TRUNCATE_CHARS`` characters of a toolchain output.
+
+    Longer text keeps its first ``_OUTPUT_HEAD_CHARS`` characters, a line stating exactly how many
+    characters were dropped, and its last ``_OUTPUT_TRUNCATE_CHARS - _OUTPUT_HEAD_CHARS``
+    characters. The end of a compiler run carries its real error, so the end must survive the
+    library warnings that precede it.
+    """
     if len(text) <= _OUTPUT_TRUNCATE_CHARS:
         return text
-    return text[:_OUTPUT_TRUNCATE_CHARS] + "\n...[truncated]"
+    tail_chars = _OUTPUT_TRUNCATE_CHARS - _OUTPUT_HEAD_CHARS
+    dropped = len(text) - _OUTPUT_HEAD_CHARS - tail_chars
+    head = text[:_OUTPUT_HEAD_CHARS]
+    tail = text[len(text) - tail_chars :]
+    return f"{head}\n...[truncated {dropped} characters]...\n{tail}"
+
+
+_BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
+
+
+def _has_own_statements(
+    code: str, *, preamble_line: re.Pattern[str] | None, line_comment: str = "//"
+) -> bool:
+    """Return True when ``code`` holds a line that is neither a preamble line nor a comment.
+
+    Block comments (``/* ... */``, across lines) are removed first when ``line_comment`` is ``//``.
+    A line then counts as "not a statement" when, stripped, it is empty, starts with
+    ``line_comment``, or (with any trailing line comment removed) fully matches ``preamble_line``
+    (``None`` means there is no preamble). Any other line is a statement of the block's own.
+    """
+    if line_comment == "//":
+        code = _BLOCK_COMMENT_RE.sub("", code)
+    for raw_line in code.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith(line_comment):
+            continue
+        if preamble_line is not None:
+            without_comment = line.split(line_comment, 1)[0].strip()
+            if preamble_line.fullmatch(without_comment) is not None:
+                continue
+        return True
+    return False
 
 
 # Cargo output that marks a failed run as an infrastructure failure (the
@@ -308,6 +359,102 @@ def prepare_reference_library(
     return csproj_path
 
 
+# A C# using DIRECTIVE line (``using Ns;``, ``using static T;``, ``using Alias = A.B;``). The using
+# STATEMENTS ``using var x = ...;``, ``using (var x = ...)`` and ``using T x = ...;`` do not match.
+_DOTNET_USING_DIRECTIVE_RE = re.compile(
+    r"^[ \t]*using[ \t]+(?:static[ \t]+)?(?:[A-Za-z_]\w*[ \t]*=[ \t]*)?[A-Za-z_][\w.]*[ \t]*;",
+    re.MULTILINE,
+)
+
+_DOTNET_TFM_RE = re.compile(r"^net(\d+)\.(\d+)$")
+_XML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+_DOTNET_TFM_ELEMENT_RE = re.compile(r"<TargetFrameworks?>([^<]*)</TargetFrameworks?>")
+
+
+def _tfms_declared_in(path: Path) -> list[str]:
+    """The ``net<major>.<minor>`` values declared in one csproj or props file; unreadable files
+    declare none. Property references, netstandard, netcoreapp and OS-suffixed values are ignored.
+    """
+    try:
+        text = path.read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeDecodeError):
+        return []
+    text = _XML_COMMENT_RE.sub("", text)
+    found: list[str] = []
+    for element_value in _DOTNET_TFM_ELEMENT_RE.findall(text):
+        for part in element_value.split(";"):
+            value = part.strip()
+            if _DOTNET_TFM_RE.match(value) is not None:
+                found.append(value)
+    return found
+
+
+def _library_target_framework(library_csproj: Path) -> tuple[str, str]:
+    """Return ``(target framework, where it came from)`` for the library project.
+
+    Reads ``<TargetFramework>``/``<TargetFrameworks>`` from the csproj and from every
+    ``Directory.Build.props`` in its directory and parent directories, walking upward and stopping
+    after the first directory that holds a ``.git`` entry (nothing above the clone root is read).
+    The highest ``net<major>.<minor>`` by numeric version wins and is reported as ``"library"``;
+    with none, ``(_DEFAULT_DOTNET_TARGET_FRAMEWORK, "default")``.
+    """
+    found: list[str] = _tfms_declared_in(library_csproj)
+    directory = library_csproj.resolve().parent
+    while True:
+        found.extend(_tfms_declared_in(directory / "Directory.Build.props"))
+        if (directory / ".git").exists() or directory.parent == directory:
+            break
+        directory = directory.parent
+    if not found:
+        return _DEFAULT_DOTNET_TARGET_FRAMEWORK, "default"
+
+    def version(value: str) -> tuple[int, int]:
+        match = _DOTNET_TFM_RE.match(value)
+        assert match is not None
+        return int(match.group(1)), int(match.group(2))
+
+    return max(found, key=version), "library"
+
+
+def _collapse_whitespace(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _dotnet_page_usings(page_code: tuple[str, ...]) -> tuple[str, ...]:
+    """Every using directive of every page block, in document order, de-duplicated.
+
+    A directive is the matched directive text, stripped; a trailing comment is not part of it.
+    """
+    seen: set[str] = set()
+    directives: list[str] = []
+    for block in page_code:
+        for match in _DOTNET_USING_DIRECTIVE_RE.finditer(block):
+            directive = match.group(0).strip()
+            key = _collapse_whitespace(directive)
+            if key in seen:
+                continue
+            seen.add(key)
+            directives.append(directive)
+    return tuple(directives)
+
+
+def _assemble_dotnet_source(code: str, page_code: tuple[str, ...]) -> tuple[str, tuple[str, ...]]:
+    """Put the page's using directives that ``code`` lacks, one per line, in front of ``code``.
+
+    Directives are compared with runs of whitespace collapsed. Returns the source and the
+    directives that were added.
+    """
+    own = {_collapse_whitespace(directive) for directive in _dotnet_page_usings((code,))}
+    added = tuple(
+        directive
+        for directive in _dotnet_page_usings(page_code)
+        if _collapse_whitespace(directive) not in own
+    )
+    if not added:
+        return code, ()
+    return "\n".join(added) + "\n" + code, added
+
+
 def verify_dotnet_example(
     candidate: CandidateExample,
     *,
@@ -318,21 +465,45 @@ def verify_dotnet_example(
     console project referencing ``library_csproj``, and report the real
     compiler outcome.
 
+    The way a reader of the page would compile the block: the project targets the library's own
+    target framework with implicit usings on, and the using directives the page wrote once
+    (``candidate.page_code``) are put in front of a block that lacks them. A block that holds
+    only using directives is rejected without compiling. Every assembly step is written as the
+    first line of the output. The result carries the original ``candidate``.
+
     The literal comparison determining ``verified`` is intentionally exact
     (``verified = result.returncode == 0``) so that forcing it to always be
     true is a detectable, meaningful negative control.
     """
+    if not _has_own_statements(candidate.code, preamble_line=_DOTNET_USING_DIRECTIVE_RE):
+        return VerificationResult(
+            candidate=candidate,
+            verified=False,
+            output=_NO_STATEMENTS_MESSAGE.format(kind="using directives"),
+        )
+
     project_dir = workdir / "candidate_project"
     project_dir.mkdir(parents=True, exist_ok=True)
 
-    csproj_content = _CANDIDATE_CSPROJ_TEMPLATE.format(library_csproj=library_csproj)
+    target_framework, framework_source = _library_target_framework(library_csproj)
+    source, added_usings = _assemble_dotnet_source(candidate.code, candidate.page_code)
+
+    csproj_content = _CANDIDATE_CSPROJ_TEMPLATE.format(
+        library_csproj=library_csproj, target_framework=target_framework
+    )
     (project_dir / "candidate.csproj").write_text(csproj_content, encoding="utf-8")
-    (project_dir / "Program.cs").write_text(candidate.code, encoding="utf-8")
+    (project_dir / "Program.cs").write_text(source, encoding="utf-8")
 
     result = _run(["dotnet", "build"], cwd=project_dir)
 
     verified = result.returncode == 0
-    output = _truncate(f"{result.stdout}\n{result.stderr}")
+    prepended = ", ".join(added_usings) or "none"
+    assembly_line = (
+        f"[foss-mcp] assembly: dotnet target-framework={target_framework} ({framework_source}); "
+        f"implicit-usings=enable; page-usings-prepended={prepended}"
+    )
+    combined = f"{result.stdout}\n{result.stderr}"
+    output = f"{assembly_line}\n{_truncate(combined)}"
 
     return VerificationResult(candidate=candidate, verified=verified, output=output)
 
