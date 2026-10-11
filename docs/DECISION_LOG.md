@@ -2913,3 +2913,29 @@ In flight: TC-350 (demo entrypoint and compose), TC-351 (README-based page gener
 install answer). Authored, not yet dispatched: TC-345 (per-pilot image gate), TC-348 (release-record contract and RELEASE.md),
 TC-354 (apply the snapshot), TC-355 (adversarial suite). Owner-only: the internal registry host and login (OWNER-13), and whether to
 relocate pytest's temporary directory away from the `pytest-of-*` name this host's Application Control blocks.
+
+## 2026-10-11 — C++ pilots have no package-registry sidecar by design; the snapshot flag is used once, with the missing set pinned (supervisor)
+
+The TC-354 dry run against the validated cluster showed 35 of 40 pilots complete and five (pdf, cells, slides, email, jmap on cpp)
+lacking only `package_registry_<f>_cpp.json`. That is the documented behaviour of `verify_product_reference_install.py`: where
+`install_coordinate_for_verification()` returns None (cpp has no registry coordinate) it writes nothing. Decision: run the snapshot with
+`--allow-missing-sidecars` only after confirming the missing set is exactly those five files, and make the real-tree test require the
+sidecar for every non-cpp pilot and require its absence for every cpp pilot, so the flag can never hide a different gap and a stale
+file can never claim a verification that did not run.
+
+## 2026-10-11 — Secret scanner and release record hardened after an independent red-team review (supervisor)
+
+An independent review found the first scanner could be blinded: an added line shaped like a file header, exotic line separators,
+merge commits, binary attributes, and secrets in commit or tag messages and file names all escaped it; the pre-push scan was skipped
+when no global identity was set; and the release record trusted its own copied numbers. Fixed in ops/secretscan.py (diff parser as a
+state machine, split on newline only, first-parent merge diffs, `--text`, message and name scanning, the remote's recorded tip as the
+push range, allow marker honoured only under test paths, base64 and URL-encoded env-value forms), `.githooks/pre-push` (scan always
+runs), a new `.githooks/commit-msg`, and ops/release.py (the copied gate report is re-derived on every validate, strict integers, the
+report's pilots must equal the chart's, a push result must carry the local image id, collision-free record names, schema-invalid
+records never crash state or the gate). Each new canary was mutation-checked.
+
+## 2026-10-11 — Acceptance order is the deterministic next card; dependent cards unblock it (supervisor)
+
+`gatectl accept` requires the card to be the lowest READY id at the moment it would have started. TC-345's acceptance made TC-348
+READY, which correctly blocked accepting TC-353 until TC-348 was done. Rather than use `--force-order` (reserved for canaries), TC-348
+was dispatched immediately. Reviews of higher ids may run in parallel, acceptances happen in id order.
