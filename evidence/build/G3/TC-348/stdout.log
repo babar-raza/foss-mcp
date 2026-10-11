@@ -1,0 +1,864 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_record_contract.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-aikqu1y2\.junit-0.xml"
+--- stdout ---
+....................                                                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest ops/tests/test_release_record.py tests/deploy/test_release_record_contract.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-aikqu1y2\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 98%]
+.                                                                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_record_contract.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-aikqu1y2\.junit-0.xml"
+--- stdout ---
+....................                                                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest ops/tests/test_release_record.py tests/deploy/test_release_record_contract.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-aikqu1y2\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 98%]
+.                                                                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M schemas/release-image.schema.json, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_record_contract.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-aikqu1y2\.junit-0.xml"
+--- stdout ---
+.F..................                                                     [100%]
+================================== FAILURES ===================================
+______ test_a_realistic_local_only_record_with_a_null_registry_validates ______
+
+validator = Draft202012Validator(schema={'$id': 'https://gith...e.schema.json', '$schema': 'https://json...020-12/schema', 'additionalProperties': False, 'description': 'evidence/rel...ver authored.', ...}, format_checker=None)
+
+    def test_a_realistic_local_only_record_with_a_null_registry_validates(validator):
+        doc = local_only_record()
+        assert doc["registry"] is None
+>       assert _errors(validator, doc) == []
+E       assert ["'LOCAL_ONLY...', 'PUSHED']"] == []
+E         
+E         Left contains one more item: "'LOCAL_ONLY' is not one of ['LOCAL_ONLYX', 'PUSHED']"
+E         Use -v to get more diff
+
+tests\deploy\test_release_record_contract.py:137: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_release_record_contract.py::test_a_realistic_local_only_record_with_a_null_registry_validates
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest ops/tests/test_release_record.py tests/deploy/test_release_record_contract.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-aikqu1y2\.junit-1.xml"
+--- stdout ---
+F.F..................FF..F.F.....................FF.F.F................. [ 98%]
+.                                                                        [100%]
+================================== FAILURES ===================================
+________ test_a_gate_tested_image_is_recorded_local_only_and_validates ________
+
+env = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5862/test_a_gate_tested_image_is_re0')
+
+    def test_a_gate_tested_image_is_recorded_local_only_and_validates(env):
+>       doc, path = R.record(REF, report(env))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ops\tests\test_release_record.py:87: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+reference = 'foss-mcp-serving:demo-aaaaaaa'
+gate_report = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5862/test_a_gate_tested_image_is_re0/summary.json')
+push_result = None
+
+    def record(reference: str, gate_report: Path, push_result: Path | None = None) -> tuple[dict, Path]:
+        """Write (or complete) the record for one image. Raises ReleaseRefused before writing anything."""
+        if not REF_RE.match(reference) or reference.endswith(":latest"):
+            raise ReleaseRefused(f"image reference needs an explicit tag other than latest: {reference!r}")
+        info = inspect_image(reference)
+        if not DIGEST_RE.match(info["image_id"]):
+            raise ReleaseRefused(f"docker reported no usable image id for {reference}")
+        if not re.fullmatch(r"[0-9a-f]{40}", info["source_commit"]):
+            raise ReleaseRefused(
+                f"{reference} carries no {REVISION_LABEL} label; build it with scripts/release/build_images.py"
+            )
+        bad = commit_problem(info["source_commit"])
+        if bad:
+            raise ReleaseRefused(bad)
+    
+        rep, rep_sha = load_gate_report(gate_report)
+        if rep["image_id"] != info["image_id"]:
+            raise ReleaseRefused(
+                f"the gate report is for image {rep['image_id'][:19]}, not {info['image_id'][:19]}: a report for another image proves nothing about this one"
+            )
+        expected = expected_pilot_count()
+        if (
+            rep["verdict"] != "PASS"
+            or rep["pilots_passed"] != rep["pilots_total"]
+            or rep["pilots_total"] != expected
+        ):
+            raise ReleaseRefused(
+                f"the gate report is {rep['verdict']} {rep['pilots_passed']}/{rep['pilots_total']}; need PASS {expected}/{expected}"
+            )
+    
+        registry = None
+        if push_result is not None:
+            pr = load_push_result(push_result)
+            if pr["local_image_id"] != info["image_id"]:
+                raise ReleaseRefused(
+                    "the push result is for a different local image id than the image being recorded"
+                )
+            registry = {"reference": pr["reference"], "digest": pr["digest"], "pushed_at": pr["pushed_at"]}
+    
+        path = record_path(reference)
+        if path.exists():
+            try:
+                old = json.loads(path.read_text(encoding="utf-8"))
+                old_id = old["image"]["image_id"]
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ReleaseRefused(
+                    f"the existing record {path.name} is unreadable ({exc}); repair it first"
+                ) from exc
+            if old_id != info["image_id"]:
+                raise ReleaseRefused(
+                    f"{reference} is already recorded for a different image id; tags are immutable here - use a new tag"
+                )
+            if old.get("registry") and registry is None:
+                registry = old["registry"]
+    
+        release_dir().mkdir(parents=True, exist_ok=True)
+        copied = release_dir() / f"{stem_for(reference)}{GATE_REPORT_SUFFIX}"
+        shutil.copyfile(gate_report, copied)
+        doc = {
+            "schema_version": 1,
+            "generated_by": "gatectl",
+            "recorded_at": G.now_utc(),
+            "status": "PUSHED" if registry else "LOCAL_ONLY",
+            "image": {
+                "reference": reference,
+                "image_id": info["image_id"],
+                "size_bytes": info["size_bytes"],
+                "source_commit": info["source_commit"],
+                "created": info["created"],
+            },
+            "gate_report": {"file": gate_report_rel(reference), "sha256": rep_sha, **rep},
+            "registry": registry,
+        }
+        errs = G.schema_errors(G.load_schema(SCHEMA), doc)
+        if errs:
+>           raise ReleaseRefused("record would not validate: " + "; ".join(errs[:3]))
+E           release.ReleaseRefused: record would not validate: status: 'LOCAL_ONLY' is not one of ['LOCAL_ONLYX', 'PUSHED']
+
+ops\release.py:282: ReleaseRefused
+_ test_a_push_result_upgrades_the_record_and_a_later_plain_record_never_downgrades_it _
+
+env = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5862/test_a_push_result_upgrades_th0')
+
+    def test_a_push_result_upgrades_the_record_and_a_later_plain_record_never_downgrades_it(env):
+>       R.record(REF, report(env))
+
+ops\tests\test_release_record.py:119: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+reference = 'foss-mcp-serving:demo-aaaaaaa'
+gate_report = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5862/test_a_push_result_upgrades_th0/summary.json')
+push_result = None
+
+    def record(reference: str, gate_report: Path, push_result: Path | None = None) -> tuple[dict, Path]:
+        """Write (or complete) the record for one image. Raises ReleaseRefused before writing anything."""
+        if not REF_RE.match(reference) or reference.endswith(":latest"):
+            raise ReleaseRefused(f"image reference needs an explicit tag other than latest: {reference!r}")
+        info = inspect_image(reference)
+        if not DIGEST_RE.match(info["image_id"]):
+            raise ReleaseRefused(f"docker reported no usable image id for {reference}")
+        if not re.fullmatch(r"[0-9a-f]{40}", info["source_commit"]):
+            raise ReleaseRefused(
+                f"{reference} carries no {REVISION_LABEL} label; build it with scripts/release/build_images.py"
+            )
+        bad = commit_problem(info["source_commit"])
+        if bad:
+            raise ReleaseRefused(bad)
+    
+        rep, rep_sha = load_gate_report(gate_report)
+        if rep["image_id"] != info["image_id"]:
+            raise ReleaseRefused(
+                f"the gate report is for image {rep['image_id'][:19]}, not {info['image_id'][:19]}: a report for another image proves nothing about this one"
+            )
+        expected = expected_pilot_count()
+        if (
+            rep["verdict"] != "PASS"
+            or rep["pilots_passed"] != rep["pilots_total"]
+            or rep["pilots_total"] != expected
+        ):
+            raise ReleaseRefused(
+                f"the gate report is {rep['verdict']} {rep['pilots_passed']}/{rep['pilots_total']}; need PASS {expected}/{expected}"
+            )
+    
+        registry = None
+        if push_result is not None:
+            pr = load_push_result(push_result)
+            if pr["local_image_id"] != info["image_id"]:
+                raise ReleaseRefused(
+                    "the push result is for a different local image id than the image being recorded"
+                )
+            registry = {"reference": pr["reference"], "digest": pr["digest"], "pushed_at": pr["pushed_at"]}
+    
+        path = record_path(reference)
+        if path.exists():
+            try:
+                old = json.loads(path.read_text(encoding="utf-8"))
+                old_id = old["image"]["image_id"]
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ReleaseRefused(
+                    f"the existing record {path.name} is unreadable ({exc}); repair it first"
+                ) from exc
+            if old_id != info["image_id"]:
+                raise ReleaseRefused(
+                    f"{reference} is already recorded for a different image id; tags are immutable here - use a new tag"
+                )
+            if old.get("registry") and registry is None:
+                registry = old["registry"]
+    
+        release_dir().mkdir(parents=True, exist_ok=True)
+        copied = release_dir() / f"{stem_for(reference)}{GATE_REPORT_SUFFIX}"
+        shutil.copyfile(gate_report, copied)
+        doc = {
+            "schema_version": 1,
+            "generated_by": "gatectl",
+            "recorded_at": G.now_utc(),
+            "status": "PUSHED" if registry else "LOCAL_ONLY",
+            "image": {
+                "reference": reference,
+                "image_id": info["image_id"],
+                "size_bytes": info["size_bytes"],
+                "source_commit": info["source_commit"],
+                "created": info["created"],
+            },
+            "gate_report": {"file": gate_report_rel(reference), "sha256": rep_sha, **rep},
+            "registry": registry,
+        }
+        errs = G.schema_errors(G.load_schema(SCHEMA), doc)
+        if errs:
+>           raise ReleaseRefused("record would not validate: " + "; ".join(errs[:3]))
+E           release.ReleaseRefused: record would not validate: status: 'LOCAL_ONLY' is not one of ['LOCAL_ONLYX', 'PUSHED']
+
+ops\release.py:282: ReleaseRefused
+_ test_a_tag_is_immutable_a_different_image_id_under_the_same_tag_is_refused __
+
+env = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5862/test_a_tag_is_immutable_a_diff0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001BD1E299FD0>
+
+    def test_a_tag_is_immutable_a_different_image_id_under_the_same_tag_is_refused(env, monkeypatch):
+>       R.record(REF, report(env))
+
+ops\tests\test_release_record.py:191: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+reference = 'foss-mcp-serving:demo-aaaaaaa'
+gate_report = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5862/test_a_tag_is_immutable_a_diff0/summary.json')
+push_result = None
+
+    def record(reference: str, gate_report: Path, push_result: Path | None = None) -> tuple[dict, Path]:
+        """Write (or complete) the record for one image. Raises ReleaseRefused before writing anything."""
+        if not REF_RE.match(reference) or reference.endswith(":latest"):
+            raise ReleaseRefused(f"image reference needs an explicit tag other than latest: {reference!r}")
+        info = inspect_image(reference)
+        if not DIGEST_RE.match(info["image_id"]):
+            raise ReleaseRefused(f"docker reported no usable image id for {reference}")
+        if not re.fullmatch(r"[0-9a-f]{40}", info["source_commit"]):
+            raise ReleaseRefused(
+                f"{reference} carries no {REVISION_LABEL} label; build it with scripts/release/build_images.py"
+            )
+        bad = commit_problem(info["source_commit"])
+        if bad:
+            raise ReleaseRefused(bad)
+    
+        rep, rep_sha = load_gate_report(gate_report)
+        if rep["image_id"] != info["image_id"]:
+            raise ReleaseRefused(
+                f"the gate report is for image {rep['image_id'][:19]}, not {info['image_id'][:19]}: a report for another image proves nothing about this one"
+            )
+        expected = expected_pilot_count()
+        if (
+            rep["verdict"] != "PASS"
+            or rep["pilots_passed"] != rep["pilots_total"]
+            or rep["pilots_total"] != expected
+        ):
+            raise ReleaseRefused(
+                f"the gate report is {rep['verdict']} {rep['pilots_passed']}/{rep['pilots_total']}; need PASS {expected}/{expected}"
+            )
+    
+        registry = None
+        if push_result is not None:
+            pr = load_push_result(push_result)
+            if pr["local_image_id"] != info["image_id"]:
+                raise ReleaseRefused(
+                    "the push result is for a different local image id than the image being recorded"
+                )
+            registry = {"reference": pr["reference"], "digest": pr["digest"], "pushed_at": pr["pushed_at"]}
+    
+        path = record_path(reference)
+        if path.exists():
+            try:
+                old = json.loads(path.read_text(encoding="utf-8"))
+                old_id = old["image"]["image_id"]
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ReleaseRefused(
+                    f"the existing record {path.name} is unreadable ({exc}); repair it first"
+                ) from exc
+            if old_id != info["image_id"]:
+                raise ReleaseRefused(
+                    f"{reference} is already recorded for a different image id; tags are immutable here - use a new tag"
+                )
+            if old.get("registry") and registry is None:
+                registry = old["registry"]
+    
+        release_dir().mkdir(parents=True, exist_ok=True)
+        copied = release_dir() / f"{stem_for(reference)}{GATE_REPORT_SUFFIX}"
+        shutil.copyfile(gate_report, copied)
+        doc = {
+            "schema_version": 1,
+            "generated_by": "gatectl",
+            "recorded_at": G.now_utc(),
+            "status": "PUSHED" if registry else "LOCAL_ONLY",
+            "image": {
+                "reference": reference,
+                "image_id": info["image_id"],
+                "size_bytes": info["size_bytes"],
+                "source_commit": info["source_commit"],
+                "created": info["created"],
+            },
+            "gate_report": {"file": gate_report_rel(reference), "sha256": rep_sha, **rep},
+            "registry": registry,
+        }
+        errs = G.schema_errors(G.load_schema(SCHEMA), doc)
+        if errs:
+>           raise ReleaseRefused("record would not validate: " + "; ".join(errs[:3]))
+E           release.ReleaseRefused: record would not validate: status: 'LOCAL_ONLY' is not one of ['LOCAL_ONLYX', 'PUSHED']
+
+ops\release.py:282: ReleaseRefused
+______________ test_validate_catches_a_tampered_gate_report_copy ______________
+
+env = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5862/test_validate_catches_a_tamper0')
+
+    def test_validate_catches_a_tampered_gate_report_copy(env):
+>       doc, _ = R.record(REF, report(env))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ops\tests\test_release_record.py:202: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+reference = 'foss-mcp-serving:demo-aaaaaaa'
+gate_report = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5862/test_validate_catches_a_tamper0/summary.json')
+push_result = None
+
+    def record(reference: str, gate_report: Path, push_result: Path | None = None) -> tuple[dict, Path]:
+        """Write (or complete) the record for one image. Raises ReleaseRefused before writing anything."""
+        if not REF_RE.match(reference) or reference.endswith(":latest"):
+            raise ReleaseRefused(f"image reference needs an explicit tag other than latest: {reference!r}")
+        info = inspect_image(reference)
+        if not DIGEST_RE.match(info["image_id"]):
+            raise ReleaseRefused(f"docker reported no usable image id for {reference}")
+        if not re.fullmatch(r"[0-9a-f]{40}", info["source_commit"]):
+            raise ReleaseRefused(
+                f"{reference} carries no {REVISION_LABEL} label; build it with scripts/release/build_images.py"
+            )
+        bad = commit_problem(info["source_commit"])
+        if bad:
+            raise ReleaseRefused(bad)
+    
+        rep, rep_sha = load_gate_report(gate_report)
+        if rep["image_id"] != info["image_id"]:
+            raise ReleaseRefused(
+                f"the gate report is for image {rep['image_id'][:19]}, not {info['image_id'][:19]}: a report for another image proves nothing about this one"
+            )
+        expected = expected_pilot_count()
+        if (
+            rep["verdict"] != "PASS"
+            or rep["pilots_passed"] != rep["pilots_total"]
+            or rep["pilots_total"] != expected
+        ):
+            raise ReleaseRefused(
+                f"the gate report is {rep['verdict']} {rep['pilots_passed']}/{rep['pilots_total']}; need PASS {expected}/{expected}"
+            )
+    
+        registry = None
+        if push_result is not None:
+            pr = load_push_result(push_result)
+            if pr["local_image_id"] != info["image_id"]:
+                raise ReleaseRefused(
+                    "the push result is for a different local image id than the image being recorded"
+                )
+            registry = {"reference": pr["reference"], "digest": pr["digest"], "pushed_at": pr["pushed_at"]}
+    
+        path = record_path(reference)
+        if path.exists():
+            try:
+                old = json.loads(path.read_text(encoding="utf-8"))
+                old_id = old["image"]["image_id"]
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ReleaseRefused(
+                    f"the existing record {path.name} is unreadable ({exc}); repair it first"
+                ) from exc
+            if old_id != info["image_id"]:
+                raise ReleaseRefused(
+                    f"{reference} is already recorded for a different image id; tags are immutable here - use a new tag"
+                )
+            if old.get("registry") and registry is None:
+                registry = old["registry"]
+    
+        release_dir().mkdir(parents=True, exist_ok=True)
+        copied = release_dir() / f"{stem_for(reference)}{GATE_REPORT_SUFFIX}"
+        shutil.copyfile(gate_report, copied)
+        doc = {
+            "schema_version": 1,
+            "generated_by": "gatectl",
+            "recorded_at": G.now_utc(),
+            "status": "PUSHED" if registry else "LOCAL_ONLY",
+            "image": {
+                "reference": reference,
+                "image_id": info["image_id"],
+                "size_bytes": info["size_bytes"],
+                "source_commit": info["source_commit"],
+                "created": info["created"],
+            },
+            "gate_report": {"file": gate_report_rel(reference), "sha256": rep_sha, **rep},
+            "registry": registry,
+        }
+        errs = G.schema_errors(G.load_schema(SCHEMA), doc)
+        if errs:
+>           raise ReleaseRefused("record would not validate: " + "; ".join(errs[:3]))
+E           release.ReleaseRefused: record would not validate: status: 'LOCAL_ONLY' is not one of ['LOCAL_ONLYX', 'PUSHED']
+
+ops\release.py:282: ReleaseRefused
+___________ test_g3_cannot_exit_without_a_pushed_gate_tested_image ____________
+
+env = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5862/test_g3_cannot_exit_without_a_0')
+
+    def test_g3_cannot_exit_without_a_pushed_gate_tested_image(env):
+        assert R.gate_exit_problems("G3")
+>       R.record(REF, report(env))
+
+ops\tests\test_release_record.py:225: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+reference = 'foss-mcp-serving:demo-aaaaaaa'
+gate_report = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5862/test_g3_cannot_exit_without_a_0/summary.json')
+push_result = None
+
+    def record(reference: str, gate_report: Path, push_result: Path | None = None) -> tuple[dict, Path]:
+        """Write (or complete) the record for one image. Raises ReleaseRefused before writing anything."""
+        if not REF_RE.match(reference) or reference.endswith(":latest"):
+            raise ReleaseRefused(f"image reference needs an explicit tag other than latest: {reference!r}")
+        info = inspect_image(reference)
+        if not DIGEST_RE.match(info["image_id"]):
+            raise ReleaseRefused(f"docker reported no usable image id for {reference}")
+        if not re.fullmatch(r"[0-9a-f]{40}", info["source_commit"]):
+            raise ReleaseRefused(
+                f"{reference} carries no {REVISION_LABEL} label; build it with scripts/release/build_images.py"
+            )
+        bad = commit_problem(info["source_commit"])
+        if bad:
+            raise ReleaseRefused(bad)
+    
+        rep, rep_sha = load_gate_report(gate_report)
+        if rep["image_id"] != info["image_id"]:
+            raise ReleaseRefused(
+                f"the gate report is for image {rep['image_id'][:19]}, not {info['image_id'][:19]}: a report for another image proves nothing about this one"
+            )
+        expected = expected_pilot_count()
+        if (
+            rep["verdict"] != "PASS"
+            or rep["pilots_passed"] != rep["pilots_total"]
+            or rep["pilots_total"] != expected
+        ):
+            raise ReleaseRefused(
+                f"the gate report is {rep['verdict']} {rep['pilots_passed']}/{rep['pilots_total']}; need PASS {expected}/{expected}"
+            )
+    
+        registry = None
+        if push_result is not None:
+            pr = load_push_result(push_result)
+            if pr["local_image_id"] != info["image_id"]:
+                raise ReleaseRefused(
+                    "the push result is for a different local image id than the image being recorded"
+                )
+            registry = {"reference": pr["reference"], "digest": pr["digest"], "pushed_at": pr["pushed_at"]}
+    
+        path = record_path(reference)
+        if path.exists():
+            try:
+                old = json.loads(path.read_text(encoding="utf-8"))
+                old_id = old["image"]["image_id"]
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ReleaseRefused(
+                    f"the existing record {path.name} is unreadable ({exc}); repair it first"
+                ) from exc
+            if old_id != info["image_id"]:
+                raise ReleaseRefused(
+                    f"{reference} is already recorded for a different image id; tags are immutable here - use a new tag"
+                )
+            if old.get("registry") and registry is None:
+                registry = old["registry"]
+    
+        release_dir().mkdir(parents=True, exist_ok=True)
+        copied = release_dir() / f"{stem_for(reference)}{GATE_REPORT_SUFFIX}"
+        shutil.copyfile(gate_report, copied)
+        doc = {
+            "schema_version": 1,
+            "generated_by": "gatectl",
+            "recorded_at": G.now_utc(),
+            "status": "PUSHED" if registry else "LOCAL_ONLY",
+            "image": {
+                "reference": reference,
+                "image_id": info["image_id"],
+                "size_bytes": info["size_bytes"],
+                "source_commit": info["source_commit"],
+                "created": info["created"],
+            },
+            "gate_report": {"file": gate_report_rel(reference), "sha256": rep_sha, **rep},
+            "registry": registry,
+        }
+        errs = G.schema_errors(G.load_schema(SCHEMA), doc)
+        if errs:
+>           raise ReleaseRefused("record would not validate: " + "; ".join(errs[:3]))
+E           release.ReleaseRefused: record would not validate: status: 'LOCAL_ONLY' is not one of ['LOCAL_ONLYX', 'PUSHED']
+
+ops\release.py:282: ReleaseRefused
+____ test_the_cli_prints_refused_and_fails_and_prints_recorded_on_success _____
+
+env = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5862/test_the_cli_prints_refused_an0')
+capsys = <_pytest.capture.CaptureFixture object at 0x000001BD1C836900>
+
+    def test_the_cli_prints_refused_and_fails_and_prints_recorded_on_success(env, capsys):
+        class Args:
+            image = REF
+            gate_report = report(env, verdict="FAIL")
+            push_result = None
+    
+        assert C.cmd_release_record(Args()) == G.EXIT_FAIL
+        assert "REFUSED" in capsys.readouterr().out
+        Args.gate_report = report(env)
+>       assert C.cmd_release_record(Args()) == G.EXIT_OK
+E       AssertionError: assert 1 == 0
+E        +  where 1 = <function cmd_release_record at 0x000001BD1C65DC60>(<test_release_record.test_the_cli_prints_refused_and_fails_and_prints_recorded_on_success.<locals>.Args object at 0x000001BD1C777610>)
+E        +    where <function cmd_release_record at 0x000001BD1C65DC60> = C.cmd_release_record
+E        +    and   <test_release_record.test_the_cli_prints_refused_and_fails_and_prints_recorded_on_success.<locals>.Args object at 0x000001BD1C777610> = <class 'test_release_record.test_the_cli_prints_refused_and_fails_and_prints_recorded_on_success.<locals>.Args'>()
+E        +  and   0 = G.EXIT_OK
+
+ops\tests\test_release_record.py:249: AssertionError
+---------------------------- Captured stdout call -----------------------------
+REFUSED: record would not validate: status: 'LOCAL_ONLY' is not one of ['LOCAL_ONLYX', 'PUSHED']
+____________ test_validate_catches_a_report_copy_for_another_image ____________
+
+env = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5862/test_validate_catches_a_report0')
+
+    def test_validate_catches_a_report_copy_for_another_image(env):
+>       doc, path = R.record(REF, report(env))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ops\tests\test_release_record.py:370: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+reference = 'foss-mcp-serving:demo-aaaaaaa'
+gate_report = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5862/test_validate_catches_a_report0/summary.json')
+push_result = None
+
+    def record(reference: str, gate_report: Path, push_result: Path | None = None) -> tuple[dict, Path]:
+        """Write (or complete) the record for one image. Raises ReleaseRefused before writing anything."""
+        if not REF_RE.match(reference) or reference.endswith(":latest"):
+            raise ReleaseRefused(f"image reference needs an explicit tag other than latest: {reference!r}")
+        info = inspect_image(reference)
+        if not DIGEST_RE.match(info["image_id"]):
+            raise ReleaseRefused(f"docker reported no usable image id for {reference}")
+        if not re.fullmatch(r"[0-9a-f]{40}", info["source_commit"]):
+            raise ReleaseRefused(
+                f"{reference} carries no {REVISION_LABEL} label; build it with scripts/release/build_images.py"
+            )
+        bad = commit_problem(info["source_commit"])
+        if bad:
+            raise ReleaseRefused(bad)
+    
+        rep, rep_sha = load_gate_report(gate_report)
+        if rep["image_id"] != info["image_id"]:
+            raise ReleaseRefused(
+                f"the gate report is for image {rep['image_id'][:19]}, not {info['image_id'][:19]}: a report for another image proves nothing about this one"
+            )
+        expected = expected_pilot_count()
+        if (
+            rep["verdict"] != "PASS"
+            or rep["pilots_passed"] != rep["pilots_total"]
+            or rep["pilots_total"] != expected
+        ):
+            raise ReleaseRefused(
+                f"the gate report is {rep['verdict']} {rep['pilots_passed']}/{rep['pilots_total']}; need PASS {expected}/{expected}"
+            )
+    
+        registry = None
+        if push_result is not None:
+            pr = load_push_result(push_result)
+            if pr["local_image_id"] != info["image_id"]:
+                raise ReleaseRefused(
+                    "the push result is for a different local image id than the image being recorded"
+                )
+            registry = {"reference": pr["reference"], "digest": pr["digest"], "pushed_at": pr["pushed_at"]}
+    
+        path = record_path(reference)
+        if path.exists():
+            try:
+                old = json.loads(path.read_text(encoding="utf-8"))
+                old_id = old["image"]["image_id"]
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ReleaseRefused(
+                    f"the existing record {path.name} is unreadable ({exc}); repair it first"
+                ) from exc
+            if old_id != info["image_id"]:
+                raise ReleaseRefused(
+                    f"{reference} is already recorded for a different image id; tags are immutable here - use a new tag"
+                )
+            if old.get("registry") and registry is None:
+                registry = old["registry"]
+    
+        release_dir().mkdir(parents=True, exist_ok=True)
+        copied = release_dir() / f"{stem_for(reference)}{GATE_REPORT_SUFFIX}"
+        shutil.copyfile(gate_report, copied)
+        doc = {
+            "schema_version": 1,
+            "generated_by": "gatectl",
+            "recorded_at": G.now_utc(),
+            "status": "PUSHED" if registry else "LOCAL_ONLY",
+            "image": {
+                "reference": reference,
+                "image_id": info["image_id"],
+                "size_bytes": info["size_bytes"],
+                "source_commit": info["source_commit"],
+                "created": info["created"],
+            },
+            "gate_report": {"file": gate_report_rel(reference), "sha256": rep_sha, **rep},
+            "registry": registry,
+        }
+        errs = G.schema_errors(G.load_schema(SCHEMA), doc)
+        if errs:
+>           raise ReleaseRefused("record would not validate: " + "; ".join(errs[:3]))
+E           release.ReleaseRefused: record would not validate: status: 'LOCAL_ONLY' is not one of ['LOCAL_ONLYX', 'PUSHED']
+
+ops\release.py:282: ReleaseRefused
+_______ test_validate_catches_a_gate_report_path_that_points_elsewhere ________
+
+env = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5862/test_validate_catches_a_gate_r0')
+
+    def test_validate_catches_a_gate_report_path_that_points_elsewhere(env):
+>       _, path = R.record(REF, report(env))
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ops\tests\test_release_record.py:381: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+reference = 'foss-mcp-serving:demo-aaaaaaa'
+gate_report = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5862/test_validate_catches_a_gate_r0/summary.json')
+push_result = None
+
+    def record(reference: str, gate_report: Path, push_result: Path | None = None) -> tuple[dict, Path]:
+        """Write (or complete) the record for one image. Raises ReleaseRefused before writing anything."""
+        if not REF_RE.match(reference) or reference.endswith(":latest"):
+            raise ReleaseRefused(f"image reference needs an explicit tag other than latest: {reference!r}")
+        info = inspect_image(reference)
+        if not DIGEST_RE.match(info["image_id"]):
+            raise ReleaseRefused(f"docker reported no usable image id for {reference}")
+        if not re.fullmatch(r"[0-9a-f]{40}", info["source_commit"]):
+            raise ReleaseRefused(
+                f"{reference} carries no {REVISION_LABEL} label; build it with scripts/release/build_images.py"
+            )
+        bad = commit_problem(info["source_commit"])
+        if bad:
+            raise ReleaseRefused(bad)
+    
+        rep, rep_sha = load_gate_report(gate_report)
+        if rep["image_id"] != info["image_id"]:
+            raise ReleaseRefused(
+                f"the gate report is for image {rep['image_id'][:19]}, not {info['image_id'][:19]}: a report for another image proves nothing about this one"
+            )
+        expected = expected_pilot_count()
+        if (
+            rep["verdict"] != "PASS"
+            or rep["pilots_passed"] != rep["pilots_total"]
+            or rep["pilots_total"] != expected
+        ):
+            raise ReleaseRefused(
+                f"the gate report is {rep['verdict']} {rep['pilots_passed']}/{rep['pilots_total']}; need PASS {expected}/{expected}"
+            )
+    
+        registry = None
+        if push_result is not None:
+            pr = load_push_result(push_result)
+            if pr["local_image_id"] != info["image_id"]:
+                raise ReleaseRefused(
+                    "the push result is for a different local image id than the image being recorded"
+                )
+            registry = {"reference": pr["reference"], "digest": pr["digest"], "pushed_at": pr["pushed_at"]}
+    
+        path = record_path(reference)
+        if path.exists():
+            try:
+                old = json.loads(path.read_text(encoding="utf-8"))
+                old_id = old["image"]["image_id"]
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ReleaseRefused(
+                    f"the existing record {path.name} is unreadable ({exc}); repair it first"
+                ) from exc
+            if old_id != info["image_id"]:
+                raise ReleaseRefused(
+                    f"{reference} is already recorded for a different image id; tags are immutable here - use a new tag"
+                )
+            if old.get("registry") and registry is None:
+                registry = old["registry"]
+    
+        release_dir().mkdir(parents=True, exist_ok=True)
+        copied = release_dir() / f"{stem_for(reference)}{GATE_REPORT_SUFFIX}"
+        shutil.copyfile(gate_report, copied)
+        doc = {
+            "schema_version": 1,
+            "generated_by": "gatectl",
+            "recorded_at": G.now_utc(),
+            "status": "PUSHED" if registry else "LOCAL_ONLY",
+            "image": {
+                "reference": reference,
+                "image_id": info["image_id"],
+                "size_bytes": info["size_bytes"],
+                "source_commit": info["source_commit"],
+                "created": info["created"],
+            },
+            "gate_report": {"file": gate_report_rel(reference), "sha256": rep_sha, **rep},
+            "registry": registry,
+        }
+        errs = G.schema_errors(G.load_schema(SCHEMA), doc)
+        if errs:
+>           raise ReleaseRefused("record would not validate: " + "; ".join(errs[:3]))
+E           release.ReleaseRefused: record would not validate: status: 'LOCAL_ONLY' is not one of ['LOCAL_ONLYX', 'PUSHED']
+
+ops\release.py:282: ReleaseRefused
+_ test_recording_over_an_unreadable_existing_record_is_refused_not_a_traceback _
+
+env = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5862/test_recording_over_an_unreada0')
+
+    def test_recording_over_an_unreadable_existing_record_is_refused_not_a_traceback(env):
+>       _, path = R.record(REF, report(env))
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ops\tests\test_release_record.py:402: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+reference = 'foss-mcp-serving:demo-aaaaaaa'
+gate_report = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5862/test_recording_over_an_unreada0/summary.json')
+push_result = None
+
+    def record(reference: str, gate_report: Path, push_result: Path | None = None) -> tuple[dict, Path]:
+        """Write (or complete) the record for one image. Raises ReleaseRefused before writing anything."""
+        if not REF_RE.match(reference) or reference.endswith(":latest"):
+            raise ReleaseRefused(f"image reference needs an explicit tag other than latest: {reference!r}")
+        info = inspect_image(reference)
+        if not DIGEST_RE.match(info["image_id"]):
+            raise ReleaseRefused(f"docker reported no usable image id for {reference}")
+        if not re.fullmatch(r"[0-9a-f]{40}", info["source_commit"]):
+            raise ReleaseRefused(
+                f"{reference} carries no {REVISION_LABEL} label; build it with scripts/release/build_images.py"
+            )
+        bad = commit_problem(info["source_commit"])
+        if bad:
+            raise ReleaseRefused(bad)
+    
+        rep, rep_sha = load_gate_report(gate_report)
+        if rep["image_id"] != info["image_id"]:
+            raise ReleaseRefused(
+                f"the gate report is for image {rep['image_id'][:19]}, not {info['image_id'][:19]}: a report for another image proves nothing about this one"
+            )
+        expected = expected_pilot_count()
+        if (
+            rep["verdict"] != "PASS"
+            or rep["pilots_passed"] != rep["pilots_total"]
+            or rep["pilots_total"] != expected
+        ):
+            raise ReleaseRefused(
+                f"the gate report is {rep['verdict']} {rep['pilots_passed']}/{rep['pilots_total']}; need PASS {expected}/{expected}"
+            )
+    
+        registry = None
+        if push_result is not None:
+            pr = load_push_result(push_result)
+            if pr["local_image_id"] != info["image_id"]:
+                raise ReleaseRefused(
+                    "the push result is for a different local image id than the image being recorded"
+                )
+            registry = {"reference": pr["reference"], "digest": pr["digest"], "pushed_at": pr["pushed_at"]}
+    
+        path = record_path(reference)
+        if path.exists():
+            try:
+                old = json.loads(path.read_text(encoding="utf-8"))
+                old_id = old["image"]["image_id"]
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ReleaseRefused(
+                    f"the existing record {path.name} is unreadable ({exc}); repair it first"
+                ) from exc
+            if old_id != info["image_id"]:
+                raise ReleaseRefused(
+                    f"{reference} is already recorded for a different image id; tags are immutable here - use a new tag"
+                )
+            if old.get("registry") and registry is None:
+                registry = old["registry"]
+    
+        release_dir().mkdir(parents=True, exist_ok=True)
+        copied = release_dir() / f"{stem_for(reference)}{GATE_REPORT_SUFFIX}"
+        shutil.copyfile(gate_report, copied)
+        doc = {
+            "schema_version": 1,
+            "generated_by": "gatectl",
+            "recorded_at": G.now_utc(),
+            "status": "PUSHED" if registry else "LOCAL_ONLY",
+            "image": {
+                "reference": reference,
+                "image_id": info["image_id"],
+                "size_bytes": info["size_bytes"],
+                "source_commit": info["source_commit"],
+                "created": info["created"],
+            },
+            "gate_report": {"file": gate_report_rel(reference), "sha256": rep_sha, **rep},
+            "registry": registry,
+        }
+        errs = G.schema_errors(G.load_schema(SCHEMA), doc)
+        if errs:
+>           raise ReleaseRefused("record would not validate: " + "; ".join(errs[:3]))
+E           release.ReleaseRefused: record would not validate: status: 'LOCAL_ONLY' is not one of ['LOCAL_ONLYX', 'PUSHED']
+
+ops\release.py:282: ReleaseRefused
+______ test_a_realistic_local_only_record_with_a_null_registry_validates ______
+
+validator = Draft202012Validator(schema={'$id': 'https://gith...e.schema.json', '$schema': 'https://json...020-12/schema', 'additionalProperties': False, 'description': 'evidence/rel...ver authored.', ...}, format_checker=None)
+
+    def test_a_realistic_local_only_record_with_a_null_registry_validates(validator):
+        doc = local_only_record()
+        assert doc["registry"] is None
+>       assert _errors(validator, doc) == []
+E       assert ["'LOCAL_ONLY...', 'PUSHED']"] == []
+E         
+E         Left contains one more item: "'LOCAL_ONLY' is not one of ['LOCAL_ONLYX', 'PUSHED']"
+E         Use -v to get more diff
+
+tests\deploy\test_release_record_contract.py:137: AssertionError
+=========================== short test summary info ===========================
+FAILED ops/tests/test_release_record.py::test_a_gate_tested_image_is_recorded_local_only_and_validates
+FAILED ops/tests/test_release_record.py::test_a_push_result_upgrades_the_record_and_a_later_plain_record_never_downgrades_it
+FAILED ops/tests/test_release_record.py::test_a_tag_is_immutable_a_different_image_id_under_the_same_tag_is_refused
+FAILED ops/tests/test_release_record.py::test_validate_catches_a_tampered_gate_report_copy
+FAILED ops/tests/test_release_record.py::test_g3_cannot_exit_without_a_pushed_gate_tested_image
+FAILED ops/tests/test_release_record.py::test_the_cli_prints_refused_and_fails_and_prints_recorded_on_success
+FAILED ops/tests/test_release_record.py::test_validate_catches_a_report_copy_for_another_image
+FAILED ops/tests/test_release_record.py::test_validate_catches_a_gate_report_path_that_points_elsewhere
+FAILED ops/tests/test_release_record.py::test_recording_over_an_unreadable_existing_record_is_refused_not_a_traceback
+FAILED tests/deploy/test_release_record_contract.py::test_a_realistic_local_only_record_with_a_null_registry_validates
+
+--- stderr ---
+
