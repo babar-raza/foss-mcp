@@ -1,0 +1,173 @@
+id: TC-453
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-007 (at least two verified examples for every pilot). The 2026-10-11 diagnosis (real build_chunks Jobs in
+  foss-mcp-ingestion:rev-c67650f) found three Python pilots at zero for verifier reasons. html/python - `pip install -e`
+  fails with `BackendUnavailable: Cannot import 'setuptools.backends.legacy'` (the pyproject names a build backend that does
+  not exist), so the library is never installed. page/python - `pip install -e` fails with `FileNotFoundError
+  .../repo/local/Version.txt` (setup.py reads a git-ignored file); and its "Run the MCP Server" block calls `server.run(...)`,
+  which blocks for ever: `_run` has NO timeout, so one README block can hang the whole ingestion Job. note/python - all 12
+  blocks open sample files by bare name (`Document("SimpleTable.one")`) that exist in the pinned repository under
+  `testfiles/`, and two blocks need the library's `pdf` extra (`No module named 'reportlab'`). An in-memory patch measured
+  html/python 0 -> 7, note/python 0 -> 9 (11 with extras), page/python 0 -> 2. This card makes the fixes real: a fallback
+  install (declared dependencies plus a .pth path entry) when `pip install -e` fails, runtime extras installed, repository
+  files a block names staged next to it (never a Python file, never overwriting), import-only blocks rejected, and EVERY
+  subprocess bounded, with a killed command recorded as a timeout and never as a pass.
+depends_on:
+- TC-452
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_python_verifier_install.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read src/foss_mcp/indexing/example_verifier.py: `_run`, `_truncate`, `_has_own_statements` (TC-450),
+  `_venv_python_executable`, `_pick_python_interpreter`, `_read_requires_python`, `prepare_python_library`,
+  `verify_python_example`; infra/build_chunks.py "python" entry of `_PLATFORM_DISPATCH` (read only: one shared candidate
+  workdir per page, TC-190); the real committed pages tests/fixtures/furnished/note_python/pages/_index.md,
+  tests/fixtures/furnished/page_python/pages/_index.md, tests/fixtures/furnished/html_python/pages/_index.md. These must keep
+  passing UNMODIFIED: tests/indexing/test_python_interpreter_choice.py (its fake `_run` returns exit 0 for every argv and
+  checks that the second argv's [1:5] is `-m pip install -e`), tests/indexing/test_build_chunks_page_sandbox.py,
+  tests/indexing/test_build_chunks_verification_report.py, and every other verifier test file listed in check 2 (they
+  replace `_run` or `subprocess.run` with fakes; the new `_run` must keep working under both). Never print or log any
+  environment value.
+- >-
+  HARD CONSTRAINTS. `_run(args, *, cwd)` keeps exactly that signature and every caller keeps calling it with `cwd=` only
+  (fakes depend on it). `_run_cargo_subprocess` is NOT changed by this card (its test fake rejects extra keywords; TC-454
+  bounds cargo). Return the ORIGINAL candidate in every VerificationResult. The verdict stays the interpreter exit code.
+- >-
+  BOUNDED SUBPROCESSES. Module constants written exactly `_RUN_TIMEOUT_SECONDS = 1800`, `_PYTHON_CANDIDATE_TIMEOUT_SECONDS =
+  120`, `_TIMEOUT_EXIT_CODE = 124`, `_KILL_GRACE_SECONDS = 10`. `_run_bounded(args, *, cwd, timeout_seconds, env=None) ->
+  subprocess.CompletedProcess[str]` starts the command with `subprocess.Popen` (stdout and stderr piped, text with
+  encoding utf-8 and errors replace, `start_new_session=True` on POSIX so the command and its children form one process
+  group) and calls `communicate(timeout=timeout_seconds)`. On `subprocess.TimeoutExpired` it kills the WHOLE tree (POSIX
+  `os.killpg(proc.pid, signal.SIGKILL)`, ignoring ProcessLookupError; Windows `taskkill /F /T /PID <pid>` through
+  subprocess.run with capture_output and `timeout=_KILL_GRACE_SECONDS`, then `proc.kill()`), collects what output it can
+  with `communicate(timeout=_KILL_GRACE_SECONDS)` (a second timeout leaves the partial output empty), and returns a
+  CompletedProcess with returncode `_TIMEOUT_EXIT_CODE` whose stderr ends with the line `[foss-mcp] TIMEOUT: <basename of
+  args[0]> was killed after <timeout_seconds> seconds`. `_run(args, *, cwd)` becomes `return _run_bounded(args, cwd=cwd,
+  timeout_seconds=_RUN_TIMEOUT_SECONDS)`. A timeout during prepare therefore surfaces as the existing RuntimeError path
+  (build_chunks records `library_unavailable`), and a timeout during verification as verified=False - never a hang, never
+  a pass.
+- >-
+  `prepare_python_library(repository, commit, workdir)` keeps its signature and return value (the venv python). After the
+  clone, interpreter choice and venv (unchanged): (1) `_python_runtime_extras(repo_dir) -> tuple[str, ...]`: the sorted names
+  of `[project.optional-dependencies]` minus `_NON_RUNTIME_EXTRAS = frozenset({"test", "tests", "testing", "dev", "develop",
+  "development", "docs", "doc", "lint", "linting", "typing", "types", "mypy", "ci", "bench", "benchmark", "benchmarks",
+  "all"})`; a missing, unreadable or invalid pyproject.toml gives no extras and no error (test_python_interpreter_choice.py
+  feeds broken TOML). (2) Run `[venv_python, "-m", "pip", "install", "-e", target]` where target is `<repo>[e1,e2]` when there are
+  runtime extras, else `<repo>`. (3) If that fails and extras were requested, run it once more with plain `<repo>`. (4) If
+  `pip install -e` still fails, FALLBACK: the dependency list is `[project].dependencies` plus the dependencies of the
+  runtime extras (from pyproject.toml), else the requirement lines of requirements.txt (blank, comment, `-r` and `-e` lines
+  dropped); when non-empty run `[venv_python, "-m", "pip", "install", *deps]`, and its failure raises RuntimeError carrying
+  every attempt's output (truncated). Then ask the venv for its purelib with `[venv_python, "-c", "import sysconfig;
+  print(sysconfig.get_paths()['purelib'])"]`; stdout stripped must be an existing directory, else RuntimeError (never write
+  anywhere else); write `<purelib>/_foss_mcp_source.pth` holding the absolute path of `<repo>/src` when that is a directory,
+  else of `<repo>`, followed by a newline; print one stderr line `[foss-mcp] pip install -e failed for <repo>; installed its
+  declared dependencies and put <root> on sys.path through _foss_mcp_source.pth`. Every command goes through `_run`.
+- >-
+  `verify_python_example(candidate, *, venv_python, workdir, repo_dir=None)` (new keyword only; build_chunks passes nothing
+  new). (1) Rejection: parse the code with `ast`; when it parses and every top-level statement is an Import, ImportFrom,
+  Pass or a bare string expression (or there is none), return verified=False with `_NO_STATEMENTS_MESSAGE` formatted with
+  "import statements" WITHOUT running anything (a SyntaxError is not a rejection: the run reports it). (2) repo_dir None
+  means `<venv_python's grandparent's parent>/repo` (the layout prepare_python_library creates: workdir/venv/bin/python or
+  workdir\venv\Scripts\python.exe -> workdir/repo), used only if it is a directory. (3) Staging,
+  `_stage_named_repository_files(code, repo_dir, script_dir) -> list[str]`: the names are the quoted string literals of the
+  form `["']([\w.\- ]+\.\w{1,5})["']` (a bare file name with an extension, no path separator); for each name, the first file
+  (sorted by repo-relative posix path) with exactly that basename that is a regular file, not a symlink, not under `.git`,
+  `venv`, `.venv`, `node_modules` or `__pycache__`, at most 50 MiB, and whose extension is NOT one of py pyc pyd pyi pth so
+  dll exe, is copied into the candidate script directory - unless a file of that name is already there (an earlier block's
+  output or an earlier staging always wins). Returns the repo-relative paths copied. (4) Run the script through
+  `_run_bounded([str(venv_python), str(script_path)], cwd=script_dir, timeout_seconds=_PYTHON_CANDIDATE_TIMEOUT_SECONDS)`.
+  Output = `[foss-mcp] assembly: python staged-files=<comma-separated repo-relative paths, or none>`, a newline, then the
+  truncated run output.
+- >-
+  tests/indexing/test_python_verifier_install.py (NEW; offline, deterministic, no network, no skipped tests, no wall-clock
+  assertions; at least 20 tests). Tests assert LITERAL values (124, 1800, 120), never values read back from the module
+  constants. Prepare cases (fake clone that writes the repo files, fake `_run` with `(args, *, cwd)` scripted per argv,
+  `_candidate_interpreters`/`_interpreter_version` stubbed as test_python_interpreter_choice.py does): optional-dependencies
+  {pdf, test, dev} give a first pip target ending in `[pdf]`; extras failing then plain -e passing gives exactly two pip -e
+  calls and no fallback; the html/python shape (build-backend `setuptools.backends.legacy:build`, pip -e failing with
+  `BackendUnavailable: Cannot import 'setuptools.backends.legacy'`) installs the declared dependencies, queries purelib (the
+  fake answers a tmp directory) and writes `_foss_mcp_source.pth` pointing at `<repo>/src`; the page/python shape (pip -e
+  failing with `FileNotFoundError: [Errno 2] No such file or directory: 'local/Version.txt'`) takes the same fallback;
+  requirements.txt is used when pyproject declares no dependencies; a failing dependency install raises RuntimeError naming
+  both attempts and writes no .pth; an empty purelib answer raises RuntimeError and writes nothing in the working
+  directory. Staging cases on a tmp repo: the REAL note_python "Quick Start" block stages `testfiles/SimpleTable.one`; a named
+  `helper.py` is never staged; a file already in the script directory is not overwritten; a file under `.git` is ignored; a
+  quoted path with a separator is ignored; the assembly line lists what was staged. Run cases using the running interpreter
+  (`sys.executable`) as the venv python and an explicit `repo_dir`: a block that opens a staged file and prints from it is
+  verified; a block raising an exception is not; the import-only block `from aspose.note import Document` is rejected and
+  nothing is run (patch `_run_bounded` to fail if called); with `_PYTHON_CANDIDATE_TIMEOUT_SECONDS` patched to 1, a block that
+  sleeps 30 seconds (standing in for page/python's `server.run`) gives verified False and the TIMEOUT line. `_run_bounded`
+  cases with real child processes: a 30-second sleep with timeout 1 returns returncode 124 and the TIMEOUT line; a child
+  that starts a grandchild holding the same stdout and then sleeps also returns 124 (the pytest timeout of the check, not a
+  clock assertion, catches a hang); a normal command returns its own exit code, stdout and cwd; `_run` passes 1800 (record
+  the keyword through a patched `_run_bounded`). Every verify result carries the original candidate object. WIRING: assert
+  `build_chunks._PLATFORM_DISPATCH["python"]["verify"] is verify_python_example` and that the committed source of
+  verify_python_example contains `_stage_named_repository_files(` and `_PYTHON_CANDIDATE_TIMEOUT_SECONDS`.
+- >-
+  Run `{python} -m pytest tests/indexing/test_python_verifier_install.py -q -rfE`, then once the second check command below.
+  Do NOT run any pilot ingestion yourself. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Install Python libraries whose editable install fails through their declared dependencies plus a path entry, install
+  runtime extras, and stage the repository sample files a block names.
+- >-
+  Bound every verifier subprocess, kill the whole process tree on timeout, and record a timeout as not verified; reject
+  import-only blocks.
+checks:
+- command: '{python} -m pytest tests/indexing/test_python_verifier_install.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/indexing/test_python_verifier_install.py tests/indexing/test_python_interpreter_choice.py tests/indexing/test_build_chunks_page_sandbox.py tests/indexing/test_build_chunks_verification_report.py tests/indexing/test_example_verifier_toolchain.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_cpp_verifier_linux.py tests/indexing/test_cpp_verifier_consumer.py tests/indexing/test_go_vet_verdict.py tests/indexing/test_typescript_verifier_layouts.py tests/indexing/test_nodejs_verifier.py tests/indexing/test_java_page_imports.py tests/indexing/test_java_verifier_pilots.py tests/indexing/test_rust_reference_env_failure.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 20
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');old='_TIMEOUT_EXIT_CODE = 124';assert old in s;p.write_text(s.replace(old,'_TIMEOUT_EXIT_CODE = 0',1),encoding='utf-8')"
+  rationale: >-
+    Makes a killed command look like a successful one, so a README block that never finishes (page/python's server) is
+    reported as verified and `_run_bounded` returns exit 0 after a timeout: the timeout tests fail. A real break of the
+    card's central claim that a hang is bounded and never counts as a pass.
+evidence:
+- evidence/build/G3/TC-453/receipt.json
+closeout:
+- >-
+  Python libraries with a broken editable install are still verified against their real source, runtime extras are
+  present, sample files named by a block are staged and listed, import-only blocks do not count, and no verifier
+  subprocess can hang ingestion (30 minutes for library steps, 2 minutes per Python block, the whole process tree killed).
+- >-
+  Real-toolchain acceptance (supervisor, inside the ingestion image built from this commit; skia-python installs are
+  heavy, so run under the production 4Gi ingestion limit and record the peak): html/python must print `verified K/7
+  candidate examples` with K >= 7 for `python /app/infra/build_chunks.py --api-surface /app/fixtures/html_python/api_surface.json
+  --title 'html/python API surface' --max-types 300 --furnished-page /app/fixtures/furnished/html_python/pages/_index.md
+  --library-repository aspose-html-foss/Aspose.HTML-FOSS-for-Python --library-commit
+  bf0f1e7a6d29ca9e14de576fe3ff1aa49ddbaf11 --library-platform python --out /tmp/out.json --verification-report
+  /tmp/verification.json`; note/python K >= 9 of 12 (11 expected when the `pdf` extra installs) for `python
+  /app/infra/build_chunks.py --api-surface /app/fixtures/note_python/api_surface.json --title 'note/python API surface'
+  --max-types 300 --furnished-page /app/fixtures/furnished/note_python/pages/_index.md --library-repository
+  aspose-note-foss/Aspose.Note-FOSS-for-Python --library-commit 0014dbeef9511af360b936d95d47947d6b1d8a4f --library-platform
+  python --out /tmp/out.json --verification-report /tmp/verification.json`; page/python K >= 2 of 8 for `python
+  /app/infra/build_chunks.py --api-surface /app/fixtures/page_python/api_surface.json --title 'page/python API surface'
+  --max-types 300 --furnished-page /app/fixtures/furnished/page_python/pages/_index.md --library-repository
+  aspose-page-foss/Aspose.Page-FOSS-for-Python --library-commit 43cef367cd0b2cf00cc03064ca9d29d1ff507967 --library-platform
+  python --out /tmp/out.json --verification-report /tmp/verification.json`, with the "Run the MCP Server" record not
+  verified (an ImportError or the TIMEOUT line) and the whole command finishing.
+recovery: Re-run from a clean tree.

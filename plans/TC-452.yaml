@@ -1,0 +1,145 @@
+id: TC-452
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-007 (at least two verified examples for every pilot). The 2026-10-11 diagnosis (real build_chunks Jobs in
+  foss-mcp-ingestion:rev-c67650f) found both TypeScript pilots with no furnished-page README problem at zero for verifier
+  reasons. 3d/typescript - `prepare_typescript_library` raises `did not produce the declared types file
+  .../repo/dist/index.d.ts` (package.json declares `types: dist/index.d.ts`, the build writes `dist/aspose/threed/index.d.ts`),
+  so no candidate is even tried, although every README block imports by relative path (`./dist/aspose/threed`) and never
+  needs the declared entry. cells/typescript - all three blocks fail only because the LIBRARY's own sources do not pass
+  strict tsc (`aspose_cells/chartLoader.ts(210,11): error TS2345`, `aspose_cells/html/htmlDocument.ts(92,54): error
+  TS7006`, `aspose_cells/workbook.ts(482,63): error TS2345`); the candidate file itself has no diagnostic. An in-memory patch
+  measured 3d/typescript 0 -> 3 and cells/typescript 0 -> 3. This card makes both fixes real and stricter than the patch: a
+  missing declared types file is tolerated only when the build produced declaration files, a library-only verdict
+  requires every diagnostic to be parsed and attributed (a file-less or unparsed `error TS` fails), any diagnostic in the
+  candidate file fails, import-only blocks are rejected, and the verdict line says which rule decided.
+depends_on:
+- TC-451
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_typescript_verifier_diagnostics.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read src/foss_mcp/indexing/example_verifier.py: `_run`, `_truncate`, `_has_own_statements` and `_NO_STATEMENTS_MESSAGE`
+  (TC-450), `_TS_TSCONFIG_TEMPLATE`, `_TS_CANDIDATE_FILENAME`, `_STATIC_MODULE_DECLARATION_RE`, `_typescript_types_entry`,
+  `_declared_types_file`, `prepare_typescript_library`, `_has_relative_module_specifier`, `verify_typescript_example`; the real
+  committed pages tests/fixtures/furnished/3d_typescript/pages/_index.md and
+  tests/fixtures/furnished/cells_typescript/pages/_index.md. tests/indexing/test_typescript_verifier_layouts.py and
+  tests/indexing/test_nodejs_verifier.py must keep passing UNMODIFIED. Note on
+  `test_root_mode_removes_both_files_when_tsc_fails`: its fake output `aspose_cells.ts(1,1): error TS2305` has no `:
+  message` part, so under the rules below it is NOT a parsed diagnostic and the run stays not verified - do not loosen the
+  parser to accept it. `test_prepare_raises_when_the_build_leaves_the_declared_types_file_missing` (dist/ holds only
+  `unrelated.js`, no declaration file) must still raise with `declared types file`. Never print or log any environment
+  value.
+- >-
+  HARD CONSTRAINTS. Call `_run(args, cwd=...)` only (fakes have `(args, *, cwd)`). Return the ORIGINAL candidate in every
+  VerificationResult. The argv and cwd of every tsc and npm call stay exactly as today.
+- >-
+  F3a, `prepare_typescript_library`: when package.json declares a `.d.ts` that the build did not produce, look for
+  declaration files under `dist/` (recursive `*.d.ts`). None: raise exactly as today. At least one: do not raise; print ONE
+  line to stderr - `[foss-mcp] the declared types file <path> was not produced; dist/ holds <N> declaration files (first:
+  <posix path relative to the repo>); relative-path imports are checked against them, package-name imports will not
+  resolve` - and return the repo directory. The non-declared branch (non-empty dist/ check) is unchanged.
+- >-
+  F3b, verdict. Add `_TS_CANDIDATE_DIAGNOSTIC_FILES = (_TS_CANDIDATE_FILENAME, "candidate.ts")` (written exactly like that)
+  and `_TS_DIAGNOSTIC_LINE_RE` = a MULTILINE regex for one tsc diagnostic line `^(?P<file>[^\r\n(]+)\((?P<line>\d+),(?P<col>\d+)\):
+  error (?P<code>TS\d+): ` (a message must follow the code). `_typescript_verdict(returncode, output) -> tuple[bool, str]`:
+  exit 0 gives (True, `tsc exit 0`). Otherwise it is (True, note) ONLY when all of these hold - at least one diagnostic
+  line parses; the number of parsed diagnostics equals the number of `error TS<digits>` occurrences anywhere in the output
+  (so a file-less config error such as `error TS5083: Cannot read file` or any unparsed mention fails); and no parsed
+  diagnostic's file has a basename (split on both `/` and backslash) in `_TS_CANDIDATE_DIAGNOSTIC_FILES` - the candidate
+  file is identified ONLY through that constant. Every other case is (False, reason). The note names the exit code, the
+  diagnostic count and the distinct library files, e.g. `tsc exit 2; all 3 diagnostics are in library files
+  (aspose_cells/chartLoader.ts, aspose_cells/html/htmlDocument.ts, aspose_cells/workbook.ts) and none in the candidate; the
+  candidate's own use of the library type-checks`. Apply it in BOTH modes (paths mode compiles `.ts` library sources too).
+- >-
+  `verify_typescript_example` keeps its signature. (1) Before any file is written: remove every static import/export-from
+  declaration with `_STATIC_MODULE_DECLARATION_RE`; when `_has_own_statements(<that>, preamble_line=None)` is False the block
+  is import-only or empty - return verified=False with `_NO_STATEMENTS_MESSAGE` formatted with "import and export-from
+  declarations", WITHOUT calling `_run`. (2) Otherwise run exactly as today and set `verified, note =
+  _typescript_verdict(result.returncode, stdout + "\n" + stderr)`; output = `[foss-mcp] verdict: <note>`, a newline, then the
+  truncated tsc output. The temporary repository-root files are still removed in every case.
+- >-
+  tests/indexing/test_typescript_verifier_diagnostics.py (NEW; offline, deterministic, no network, no real node/tsc, no
+  skipped tests, no wall-clock assertions; at least 14 tests). Reuse the fake-toolchain idea of
+  test_typescript_verifier_layouts.py (a `_run` fake with `(args, *, cwd)` that answers every `git` argv with success,
+  `shutil.which` patched; for prepare, write the repo tree before calling). The test file must not name the clone helper
+  or contain the words git clone or git fetch: cardlint reads those as network use and this card is offline.
+  Cases: 3d layout (`types: dist/index.d.ts`) whose fake build writes only `dist/aspose/threed/index.d.ts` - prepare returns
+  the repo and the captured stderr line names the declared file and `dist/aspose/threed/index.d.ts`; jmap layout with only
+  `dist/unrelated.js` still raises `declared types file`. Verdict table on literal outputs: the EXACT cells/typescript output
+  (the three library diagnostics above, with the indented continuation line `  Type 'null' is not assignable to type
+  'string | undefined'.`) at exit 2 is verified and the note lists the three files; the EXACT 3d/typescript output
+  `__foss_mcp_candidate__.ts(9,54): error TS2339: Property 'controlPoints' does not exist on type 'Entity'.` at exit 2 is
+  not verified; library plus candidate diagnostics together are not verified; `candidate.ts(1,22): error TS2307: Cannot find
+  module` is not verified; a Windows-style library path with backslashes is verified and a Windows-style candidate path is
+  not; `error TS5083: Cannot read file 'tsconfig.json'.` alone, or next to a library diagnostic, is not verified; a non-zero
+  exit with no diagnostics is not verified; exit 0 is verified. End to end through `verify_typescript_example` in
+  repository-root mode with the REAL cells_typescript "Quick Start" block and the fake returning the cells output at exit 2:
+  verified True, the output starts `[foss-mcp] verdict:`, both temporary files are gone, `result.candidate` is the object
+  passed in. An import-only block (`import { Workbook } from "./aspose_cells";`) and a multi-line import-only block are
+  rejected with zero `_run` calls. WIRING: assert `build_chunks._PLATFORM_DISPATCH["typescript"]["verify"] is
+  verify_typescript_example` and `build_chunks._PLATFORM_DISPATCH["typescript"]["prepare"]` calls
+  `prepare_typescript_library` (monkeypatch it by name in build_chunks and call the lambda).
+- >-
+  Run `{python} -m pytest tests/indexing/test_typescript_verifier_diagnostics.py -q -rfE`, then once the second check
+  command below. Do NOT run any pilot ingestion yourself. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Tolerate a missing declared types file only when the build produced declaration files, and judge a TypeScript candidate
+  on its own diagnostics, never passing it when any diagnostic is in the candidate file or cannot be attributed.
+- >-
+  Reject import-only blocks and write which rule decided every TypeScript verdict.
+checks:
+- command: '{python} -m pytest tests/indexing/test_typescript_verifier_diagnostics.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/indexing/test_typescript_verifier_diagnostics.py tests/indexing/test_typescript_verifier_layouts.py tests/indexing/test_nodejs_verifier.py tests/infra/test_build_chunks_platforms.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 14
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');q=chr(34);old='_TS_CANDIDATE_DIAGNOSTIC_FILES = (_TS_CANDIDATE_FILENAME, '+q+'candidate.ts'+q+')';assert old in s;p.write_text(s.replace(old,'_TS_CANDIDATE_DIAGNOSTIC_FILES = ()',1),encoding='utf-8')"
+  rationale: >-
+    Makes the verdict blind to the candidate file, so a candidate's own type error (the 3d/typescript `controlPoints`
+    diagnostic) is treated like a library diagnostic and passes: exactly the masking the operator forbade. The
+    candidate-diagnostic tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-452/receipt.json
+closeout:
+- >-
+  TypeScript libraries whose declared types entry is missing but whose build produced declarations are verified against
+  what was built, and a candidate passes only on its own diagnostics, with the deciding rule written into the output. A
+  library whose own sources fail strict tsc is reported in the verdict line of every candidate that passed despite it.
+- >-
+  Real-toolchain acceptance (supervisor, inside the ingestion image built from this commit): 3d/typescript must print
+  `verified K/4 candidate examples` with K >= 3 for `python /app/infra/build_chunks.py --api-surface
+  /app/fixtures/3d_typescript/api_surface.json --title '3d/typescript API surface' --max-types 300 --furnished-page
+  /app/fixtures/furnished/3d_typescript/pages/_index.md --library-repository aspose-3d-foss/Aspose.3D-FOSS-for-TypeScript
+  --library-commit 66cb26df3b031f0bf6976d4e88dc89721983afa4 --library-platform typescript --library-package-name @aspose/3d
+  --out /tmp/out.json --verification-report /tmp/verification.json` ("Additional Examples" must stay rejected on its own
+  `controlPoints` diagnostic); cells/typescript must print K >= 3 of 3 for `python /app/infra/build_chunks.py
+  --api-surface /app/fixtures/cells_typescript/api_surface.json --title 'cells/typescript API surface' --max-types 300
+  --furnished-page /app/fixtures/furnished/cells_typescript/pages/_index.md --library-repository
+  aspose-cells-foss/Aspose.Cells-FOSS-for-TypeScript --library-commit fc186507e5b7124f4664aa6035f25cfd3112367d
+  --library-platform typescript --library-package-name excel-cells --out /tmp/out.json --verification-report
+  /tmp/verification.json`, each verified record's output starting with the `[foss-mcp] verdict:` line that lists the
+  library files.
+recovery: Re-run from a clean tree.

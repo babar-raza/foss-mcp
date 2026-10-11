@@ -1,0 +1,167 @@
+id: TC-455
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-007 (verified examples for every pilot). The 2026-10-11 example diagnosis (real build_chunks Jobs in
+  foss-mcp-ingestion:rev-c67650f, then the same Jobs with in-memory candidate fixes) found three C++ pilots at zero verified examples
+  for verifier reasons, not example reasons. email/cpp - the library's public header cfb_reader.hpp:28 fails GCC 14 with
+  `declaration of header() const changes meaning of 'header' [-Wchanges-meaning]`, so every candidate fails. cells/cpp - the library
+  itself fails at XlsxWorkbookSerializerCommon.cpp:965 (`'numeric_limits' is not a member of 'std'`, a missing `<limits>` on GCC), so
+  no candidate is even tried. jmap/cpp - `fatal error JmapClient.hpp` (the real header is include/aspose_jmap/JmapClient.hpp) and
+  `'aspose_jmap' was not declared` because the page puts its `#include` line in an earlier block only. With the global compile options
+  `-Wno-changes-meaning` and `-include limits` added to the consumer CMake project (`add_compile_options` before `add_subdirectory`, so
+  the library and the candidate both get them), the page's own `#include` lines put in front of each candidate, and include/<subdir>
+  on the candidate's include path, the same Jobs verified email/cpp 2 of 4 and jmap/cpp 2 of 3, and the cells/cpp library built (its
+  single candidate then fails on a real API mismatch, which needs authored examples, not this card). This card makes those fixes real,
+  opt-in per pilot through ONE new library key `cppCompat` (values.yaml, the ingestion Job template, docker-compose.yml) forwarded as
+  `--library-cpp-compat`, so pdf/cpp and slides/cpp keep their exact behaviour. POLICY DECISION (recorded here, supervisor) - putting
+  include/aspose_jmap on the include path makes the README's `#include "JmapClient.hpp"` compile although a real user who follows the
+  README with the library's documented CMake target would hit it as a failure (diagnosis class E). This is ACCEPTED as a known
+  limitation, on two conditions this card enforces - the candidate must still really compile and link against the real pinned
+  library, and the only text ever added to a candidate is the page's OWN `#include` lines (never a synthesised header or
+  declaration). The published example keeps the candidate's original code. TC-440's review ledger carries this as an ACCEPTED row.
+depends_on:
+- TC-454
+- TC-426
+- TC-457
+- TC-361
+- TC-363
+- TC-375
+- TC-379
+- TC-378
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- infra/build_chunks.py
+- infra/helm/foss-mcp/values.yaml
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
+- docker-compose.yml
+- tests/indexing/test_cpp_compat_and_page_includes.py
+- tests/infra/test_helm_verifier_fields.py
+- tests/infra/test_helm_pilots_match_compose.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read in src/foss_mcp/indexing/example_verifier.py the block from `# TC-361 (REQ-G3-005): opt-in consumer-project mode` to the end of
+  the file (`_wrap_cpp_fragment_if_needed`, `_write_cpp_consumer_project`, `_prepare_cpp_consumer`, `prepare_cpp_library_linux`,
+  `verify_cpp_example_linux`); in infra/build_chunks.py `_prepare_cpp`, the "cpp" entry of `_PLATFORM_DISPATCH`, `_page_java_imports`
+  and its use (the precedent for a page-level preamble passed as a verify keyword), the `--library-cpp-*` arguments and the
+  `parser.error` for flags that need `--library-cpp-target`; infra/helm/foss-mcp/templates/ingestion-job.yaml (the `with $lib.cpp...`
+  lines inside the furnishedPage guard); the ingest-cells-cpp, ingest-email-cpp and ingest-jmap-cpp services in docker-compose.yml;
+  tests/infra/test_helm_verifier_fields.py (`VERIFIER_KEYS`, `EXPECTED_LIBRARY_FIELDS`), tests/infra/test_helm_pilots_match_compose.py
+  (`LIBRARY_FLAGS`) and tests/infra/test_wave3_wiring.py (it requires every `library` key to have a flag in `LIBRARY_FLAGS` and compose to
+  pass it before `--out`; it must keep passing UNMODIFIED). TC-450..TC-454 change this same verifier file before you; build on what
+  they left and do not undo any of it. These must keep passing UNMODIFIED: tests/indexing/test_cpp_verifier_consumer.py,
+  tests/indexing/test_cpp_verifier_linux.py, tests/infra/test_build_chunks_platforms.py, tests/infra/test_wave3_wiring.py,
+  tests/infra/test_helm_chart.py. Never print or log any environment value.
+- >-
+  example_verifier.py, ADDITIVE (every existing call keeps its exact behaviour and its exact CMakeLists.txt bytes) - (1) a module
+  constant `CPP_COMPAT_NAMES` holding exactly `no-changes-meaning`, `include-limits`, `include-subdirs`, `page-includes`, and a
+  function `cpp_compat_compile_options(names)` returning, in the order the names are given, `-Wno-changes-meaning` for
+  `no-changes-meaning` and `SHELL:-include limits` for `include-limits` (the other two names add no compile option); an unknown name
+  raises ValueError naming it. (2) `_write_cpp_consumer_project` gains keyword-only `compile_options=()` and `include_subdirs=False`.
+  Non-empty compile_options write ONE line `add_compile_options(<each option double-quoted, space-separated>)` immediately BEFORE the
+  `add_subdirectory(` line, so the library and the candidate both compile with them. include_subdirs=True writes, after the
+  `add_executable` line, `target_include_directories(foss_mcp_candidate PRIVATE <each double-quoted absolute posix path>)` for every
+  directory directly under `<library_source_dir>/include`, sorted; nothing when that directory is absent or has no subdirectory. With
+  both at their defaults the file is byte-identical to today. (3) `prepare_cpp_library_linux` and `_prepare_cpp_consumer` gain the same
+  two keyword-only parameters and pass them through (consumer mode only). (4) `verify_cpp_example_linux` gains keyword-only
+  `page_includes=()`. Every page include line that does not already occur as a line of the candidate's code is put in front of the
+  code, in the given order, BEFORE `_wrap_cpp_fragment_if_needed` runs (so the wrapper keeps them in the preamble); the returned
+  VerificationResult carries the ORIGINAL candidate (its code unchanged, because that is what is published), and when anything was
+  prefixed the output begins with one line `page includes prefixed: <the lines joined by ' | '>`. With page_includes empty the written
+  candidate.cpp is byte-identical to today.
+- >-
+  build_chunks.py - (1) `--library-cpp-compat` taking a comma-separated list of names from `CPP_COMPAT_NAMES` (an argparse type
+  function; an empty list or an unknown name is a usage error, exit 2); it requires `--library-cpp-target` (extend the existing
+  `parser.error`). (2) `_prepare_cpp` passes `compile_options=cpp_compat_compile_options(names)` and
+  `include_subdirs=("include-subdirs" in names)` ONLY when `--library-cpp-compat` is given; without it the call is exactly today's (no
+  new keyword appears). (3) a function `_page_cpp_includes(path)` returning the `#include` lines of the furnished page's extracted
+  candidates (`extract_candidate_examples(_load_furnished_page(path))`), each line stripped and matching
+  `^#\s*include\s*[<"][^>"]+[>"]$`, in document order, de-duplicated; `None` gives an empty tuple; an inline-code mention in prose is
+  never one of them. (4) the "cpp" `verify_kwargs` adds `page_includes=_page_cpp_includes(furnished_page)` ONLY when `page-includes`
+  is among the compat names; otherwise the dict is exactly today's.
+- >-
+  Wiring - values.yaml gives `library.cppCompat: no-changes-meaning,include-limits,include-subdirs,page-includes` to exactly
+  cells/cpp, email/cpp and jmap/cpp (all four names on all three pilots: that is the configuration the diagnosis measured), and to no
+  other pilot. ingestion-job.yaml forwards it, inside the furnishedPage guard, right after the cppVerifyMode line, as
+  `--library-cpp-compat {{ . }}` under `{{- with $lib.cppCompat }}`. docker-compose.yml's ingest-cells-cpp, ingest-email-cpp and
+  ingest-jmap-cpp build_chunks commands pass `--library-cpp-compat` with the same value at the same position (after their last
+  `--library-cpp-*` flag, before `--out`). The value never begins with a dash (the chart tests and argparse both refuse that), which is
+  why names are forwarded rather than raw compiler flags. In tests/infra/test_helm_verifier_fields.py add `"cppCompat":
+  "--library-cpp-compat"` to `VERIFIER_KEYS` and the cppCompat entry to the three pilots in `EXPECTED_LIBRARY_FIELDS`; in
+  tests/infra/test_helm_pilots_match_compose.py add `"--library-cpp-compat": "cppCompat"` to `LIBRARY_FLAGS`. Only ADD entries in those
+  two files; never delete, weaken or skip an existing assertion.
+- >-
+  tests/indexing/test_cpp_compat_and_page_includes.py (NEW, offline, deterministic, no g++/cmake/network needed - stub
+  `example_verifier._run`, `subprocess.run` and the tool check the way tests/indexing/test_cpp_verifier_consumer.py does; no wall-clock
+  thresholds, no skipped tests). At least 18 tests - `CPP_COMPAT_NAMES` is exactly the four names; `cpp_compat_compile_options` per
+  name, combined order, unknown name raises; the consumer CMakeLists with compile options has the `add_compile_options(...)` line with
+  both options double-quoted, at the index directly before the `add_subdirectory(` line; relaxed warnings plus compile options still
+  put `-Wno-error` after `add_subdirectory`; with no new arguments the text equals today's exactly (assert the full line list);
+  include_subdirs with tmp `include/aspose_jmap` and `include/other` writes one sorted PRIVATE line after `add_executable`;
+  include_subdirs without an include directory, or False with one, writes nothing; verify with page includes - a missing include is
+  prefixed (read the written candidate.cpp), an include already in the candidate is not duplicated, the prefixed lines sit above
+  `int main()` for a fragment, the result's candidate is the original object with unchanged code, the output's first line names the
+  prefixed lines; verify with no page includes writes exactly what it writes today; `_page_cpp_includes` on the REAL committed
+  tests/fixtures/furnished/jmap_cpp/pages/_index.md equals `('#include "JmapClient.hpp"',)`, on email_cpp contains `#include
+  <fstream>`, `#include <iostream>` and `#include "aspose/email/foss/msg/mapi_message.hpp"` in that order with no duplicate, and on
+  `None` is empty; `main`/parse with `--library-cpp-compat` but no target exits 2, with an unknown name exits 2; `_prepare_cpp` with
+  compat passes compile_options and include_subdirs=True to a monkeypatched `prepare_cpp_library_linux`, and without compat passes
+  exactly today's keywords; the cpp verify_kwargs with `page-includes` carry the page's includes and without compat equal today's
+  dict; values.yaml - the three pilots hold exactly the cppCompat value above and pdf/cpp, slides/cpp hold none; docker-compose.yml -
+  the three ingest services pass `--library-cpp-compat` with the values.yaml value before `--out`; committed-source wiring (AGENTS.md
+  integration rule) - infra/build_chunks.py's source contains `compile_options=` and `page_includes`, and the template contains
+  `--library-cpp-compat`.
+- >-
+  Run `{python} -m pytest tests/indexing/test_cpp_compat_and_page_includes.py -q -rfE`, then once the second check command (helm is on
+  PATH only after `scripts/toolchain/activate.ps1`, in the same shell command). Do NOT build images or re-ingest any pilot yourself
+  (that is the supervisor's step). Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Add per-pilot C++ compatibility switches to the verifier - global compile options in the consumer CMake project, the library's
+  include subdirectories on the candidate's path, and the page's own include lines in front of each candidate.
+- >-
+  Forward them as one `cppCompat` library key through values.yaml, the ingestion Job template and docker-compose.yml for cells/cpp,
+  email/cpp and jmap/cpp, and pin all of it with offline tests.
+checks:
+- command: '{python} -m pytest tests/indexing/test_cpp_compat_and_page_includes.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/indexing/test_cpp_compat_and_page_includes.py tests/indexing/test_cpp_verifier_consumer.py tests/indexing/test_cpp_verifier_linux.py tests/infra/test_build_chunks_platforms.py tests/infra/test_helm_verifier_fields.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_wave3_wiring.py tests/infra/test_helm_chart.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 18
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');old='add_compile_options(';assert old in s;p.write_text(s.replace(old,'add_link_options('),encoding='utf-8')"
+  rationale: >-
+    Turns the global compile options into link options, so `-Wno-changes-meaning` and `-include limits` never reach the compiler: the
+    consumer-CMakeLists tests for the compile options fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-455/receipt.json
+closeout:
+- >-
+  email/cpp and jmap/cpp verify their README examples (2 of 4 and 2 of 3 measured in memory) and the cells/cpp library builds, with
+  the switches opt-in per pilot and pdf/cpp, slides/cpp unchanged. The later cluster step builds the image
+  (`python scripts/release/build_images.py`), loads it into kind, and reinstalls with `python scripts/deploy/install_pilots.py
+  --namespace foss-mcp --image-tag rev-<sha7> --embedding-gateway-secret foss-mcp-embedding-gateway --github-token-secret
+  foss-mcp-github-token --parallel 3 --timeout 40m --only email_cpp --only jmap_cpp --only cells_cpp`, then reads each Job log's
+  `verified N/M candidate examples` line (`kubectl -n foss-mcp logs job/foss-mcp-email-cpp-ingest-email-cpp`, likewise for jmap-cpp and
+  cells-cpp). Minimum expected verified counts - email/cpp 2, jmap/cpp 2, cells/cpp 0 (its library must now build, so its log shows a
+  candidate record instead of `reference library unavailable`; reaching 2 needs authored examples). The include-path policy is an
+  ACCEPTED limitation for the TC-440 review ledger.
+recovery: Re-run from a clean tree.

@@ -1,0 +1,201 @@
+id: TC-450
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-007 (at least two verified examples for every pilot). A real build_chunks run of each pilot inside
+  foss-mcp-ingestion:rev-c67650f (diagnosis 2026-10-11) found three .NET pilots at zero verified examples because of the
+  .NET verifier, not the README: (1) the throwaway candidate project hard-codes `<TargetFramework>net8.0</TargetFramework>`,
+  so every 3d/net candidate fails restore with `NU1201 Project Aspose.3D.FOSS is not compatible with net8.0 (supports
+  net10.0)`; (2) it has no implicit usings, so `Console`, `Uri`, `IReadOnlyList` are `CS0103`/`CS0246` errors; (3) README
+  pages put their `using` directives in one block only (slides/net block "Examples" is ONLY three using lines and fails with
+  `CS5001`, while the seven blocks after it fail with `'Presentation' could not be found`). An in-memory patch of exactly
+  these fixes measured slides/net 0 -> 8, 3d/net 0 -> 5, jmap/net 0 -> 1. This card makes the fixes real, does it more honestly
+  than the patch (a using-only block is rejected instead of compiled, and every assembly step is recorded in the
+  verification output), and fixes the shared `_truncate` helper, which keeps the FIRST 8000 characters so library warnings
+  push a candidate's real compiler error out of the record (seen on jmap/rust). The page context reaches the verifier
+  through a new `CandidateExample.page_code` field filled by extraction, so infra/build_chunks.py is not edited.
+depends_on:
+- TC-066
+- TC-067
+- TC-079
+- TC-082
+- TC-090
+- TC-096
+- TC-104
+- TC-175
+- TC-181
+- TC-187
+- TC-189
+- TC-194
+- TC-219
+- TC-222
+- TC-360
+- TC-361
+- TC-362
+- TC-376
+- TC-378
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- src/foss_mcp/indexing/example_candidates.py
+- tests/indexing/test_dotnet_verifier_assembly.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read src/foss_mcp/indexing/example_verifier.py: `_run`, `_truncate`, `_OUTPUT_TRUNCATE_CHARS`,
+  `_CANDIDATE_CSPROJ_TEMPLATE`, `VerificationResult`, `verify_dotnet_example`; src/foss_mcp/indexing/example_candidates.py
+  in full; infra/build_chunks.py `_build_verified_example_chunks` and the "dotnet" entry of `_PLATFORM_DISPATCH` (READ
+  ONLY - do not edit build_chunks.py); the real committed pages tests/fixtures/furnished/slides_net/pages/_index.md,
+  tests/fixtures/furnished/3d_net/pages/_index.md and tests/fixtures/furnished/jmap_net/pages/_index.md (front matter
+  parsed exactly as build_chunks' `_load_furnished_page` does). These must keep passing UNMODIFIED:
+  tests/indexing/test_example_candidates.py, tests/indexing/test_build_chunks_verification_report.py,
+  tests/indexing/test_build_chunks_page_sandbox.py, tests/indexing/test_example_verifier_classification.py,
+  tests/indexing/test_example_verifier_toolchain.py, tests/indexing/test_java_page_imports.py,
+  tests/infra/test_build_chunks_platforms.py. Never print or log any environment value.
+- >-
+  HARD CONSTRAINTS (existing tests depend on them). Existing tests replace `_run` with fakes whose signature is exactly
+  `(args, *, cwd)`: call `_run(args, cwd=...)` only, never with another keyword, and never start a toolchain subprocess
+  any other way. Existing tests assert `result.candidate == candidate`: every VerificationResult must carry the ORIGINAL
+  candidate object passed in, never an assembled copy. The verdict stays the toolchain exit code (`verified =
+  result.returncode == 0`); assembly only changes the source that is compiled, and is always written down.
+- >-
+  example_candidates.py (additive): `CandidateExample` gains a fifth field declared exactly as `page_code: tuple[str, ...] =
+  field(default=(), compare=False, repr=False)` (import `field` from dataclasses) - the code of EVERY candidate on the same
+  page, in document order, including this candidate's own. `extract_candidate_examples` fills it on every candidate it
+  returns (build the list first, then `dataclasses.replace` each with the full tuple). Equality, hashing and repr of a
+  candidate are unchanged (compare=False, repr=False), so every existing comparison still holds. Update the docstrings.
+- >-
+  Shared helpers in example_verifier.py, reused by the later verifier cards TC-451..TC-454. (a) `_truncate(text)`:
+  `_OUTPUT_TRUNCATE_CHARS` stays 8000; add `_OUTPUT_HEAD_CHARS = 1500`. Text of at most 8000 characters is returned
+  unchanged; longer text returns the first 1500 characters, then a line `...[truncated <N> characters]...` where N is the
+  exact number of characters dropped, then the LAST 6500 characters (8000 - 1500). The end of a compiler run carries its
+  real error, so the end is what must survive. (b) `_has_own_statements(code, *, preamble_line, line_comment="//") ->
+  bool`: removes `/* ... */` block comments (non-greedy, across lines) when line_comment is "//"; then a line counts as
+  "not a statement" when, stripped, it is empty, starts with line_comment, or (with any trailing line comment removed)
+  fully matches `preamble_line` (a compiled regex, or None for no preamble); returns True when any other line remains.
+  (c) a module constant `_NO_STATEMENTS_MESSAGE` with the text `[foss-mcp] rejected: the block has no statements of its own
+  (only {kind}, comments or blank lines); nothing was compiled or run` (formatted with the kind of preamble, here "using
+  directives").
+- >-
+  .NET (all in example_verifier.py). (1) `_DOTNET_USING_DIRECTIVE_RE` = a MULTILINE regex for a using DIRECTIVE line:
+  `^[ \t]*using[ \t]+(?:static[ \t]+)?(?:[A-Za-z_]\w*[ \t]*=[ \t]*)?[A-Za-z_][\w.]*[ \t]*;` - it matches `using
+  Aspose.Slides.Foss;`, `using static System.Math;`, `using Alias = A.B;` and the directive part of `using
+  Aspose.Slides.Foss;   // comment`, and must NOT match the using STATEMENTS `using var presentation = new
+  Presentation();`, `using (var p = new Presentation())`, `using FileStream stream = File.OpenRead("photo.png");`.
+  (2) `_library_target_framework(library_csproj: Path) -> tuple[str, str]` returns (target framework, where it came
+  from): read `<TargetFramework>` and `<TargetFrameworks>` (split on `;`) from the csproj and from every
+  `Directory.Build.props` in its parent directories, walking upward and STOPPING after the first directory that contains a
+  `.git` entry (never read above the clone root); keep only values matching `^net(\d+)\.(\d+)$` (MSBuild property
+  references, netstandard, netcoreapp and OS-suffixed values are ignored); return the highest by numeric (major, minor) -
+  net10.0 beats net9.0 - with the source "library", else (`_DEFAULT_DOTNET_TARGET_FRAMEWORK = "net8.0"`, "default").
+  Unreadable files are skipped. (3) `_CANDIDATE_CSPROJ_TEMPLATE` keeps its name and shape but its PropertyGroup now
+  holds the exact lines `<TargetFramework>{target_framework}</TargetFramework>` and
+  `<ImplicitUsings>enable</ImplicitUsings>`, formatted with `library_csproj=` and `target_framework=`. (4)
+  `_dotnet_page_usings(page_code) -> tuple[str, ...]`: every using directive of every page block (the matched directive
+  text, stripped, trailing comment dropped), in document order, de-duplicated. (5) `_assemble_dotnet_source(code,
+  page_code) -> tuple[str, tuple[str, ...]]`: the page directives that are not already directives of `code` (compared with
+  runs of whitespace collapsed) are placed, one per line, in front of `code`; returns (source, the directives added).
+- >-
+  `verify_dotnet_example(candidate, *, library_csproj, workdir)` keeps its signature and reads the page context from
+  `candidate.page_code`. In order: if `_has_own_statements(candidate.code, preamble_line=_DOTNET_USING_DIRECTIVE_RE)` is
+  False, return verified=False with the formatted `_NO_STATEMENTS_MESSAGE` as output WITHOUT calling `_run`; otherwise
+  write candidate.csproj from the template with the target framework from `_library_target_framework(library_csproj)`,
+  write Program.cs with the assembled source, run `_run(["dotnet", "build"], cwd=project_dir)` exactly as today, and set
+  output to one assembly line followed by a newline and `_truncate(stdout + "\n" + stderr)`. The assembly line is exactly
+  `[foss-mcp] assembly: dotnet target-framework=<tfm> (<library|default>); implicit-usings=enable;
+  page-usings-prepended=<comma-separated directives, or none>`. A verdict that relied on page-level usings is therefore
+  visible in the verification report written by build_chunks.
+- >-
+  tests/indexing/test_dotnet_verifier_assembly.py (NEW; offline, deterministic, no network, no real dotnet, no skipped
+  tests, no wall-clock assertions; at least 20 tests). Fake `_run` with `(args, *, cwd)` that records argv and cwd and
+  reads Program.cs and candidate.csproj AT CALL TIME. Cases: `_library_target_framework` for a csproj with net10.0, with
+  `netstandard2.0;net8.0;net10.0`, net9.0 vs net10.0 (numeric), a TFM only in a parent Directory.Build.props below the
+  directory holding `.git`, a Directory.Build.props ABOVE that directory being ignored, and no usable TFM giving
+  ("net8.0", "default"); the directive regex on every positive and negative line listed above; `_has_own_statements` is
+  False for the real slides/net "Examples" block (three using lines with trailing comments), for an empty block and for a
+  comments-only block, True for the slides/net "Quick start" block and for a lone `using var p = new Presentation();`;
+  extraction of the REAL slides_net page gives 9 candidates whose `page_code` equals the tuple of all 9 codes, while
+  equality of a candidate with a copy carrying different `page_code` still holds; `_dotnet_page_usings` on that page is
+  exactly (`using Aspose.Slides.Foss;`, `using Aspose.Slides.Foss.Export;`, `using Aspose.Slides.Foss.Drawing;`);
+  assembling "Text and formatting" adds all three, "Quick start" adds only the Drawing one, the jmap_net block "OAuth 2.0
+  bearer token authentication" gains `using Aspose.Jmap;`; verify of "Text and formatting" against a tmp library csproj
+  declaring net10.0 writes `<TargetFramework>net10.0</TargetFramework>` and `<ImplicitUsings>enable</ImplicitUsings>` and the
+  ProjectReference, writes Program.cs as the three directives followed by the original code, runs exactly ["dotnet",
+  "build"] once, returns verified True for exit 0 with an output whose first line starts `[foss-mcp] assembly:` and names
+  net10.0 and the three directives, and `result.candidate` is the very object passed in; exit 1 with 20,000 characters of
+  warning lines followed by a final `Program.cs(3,1): error CS0246:` line gives verified False and the output still
+  contains that final line; the "Examples" block gives verified False, the "no statements" message, and zero `_run`
+  calls; a candidate built directly with no `page_code` compiles exactly its own code and its assembly line says `none`;
+  `_truncate` returns short text unchanged, keeps the first 1500 and the last 6500 characters of long text and states the
+  exact dropped count. WIRING (AGENTS.md integration rule): run `infra/build_chunks.py` `main()` with argv for
+  `--library-platform dotnet` on the REAL slides_net page (monkeypatch `build_chunks.prepare_reference_library` to
+  return a tmp csproj path and replace `_PLATFORM_DISPATCH["dotnet"]["verify"]` with a recorder) and assert every
+  candidate the dispatch passed to verify carries the full 9-entry `page_code`; and assert on the committed source that
+  `_PLATFORM_DISPATCH["dotnet"]["verify"] is verify_dotnet_example` and infra/build_chunks.py contains
+  `extract_candidate_examples(page)`.
+- >-
+  Run `{python} -m pytest tests/indexing/test_dotnet_verifier_assembly.py -q -rfE`, then once the second check command
+  below. Do NOT run any pilot ingestion yourself (the real-toolchain proof is a supervisor step, see closeout). Write
+  commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Build the .NET candidate against the library's own target framework with implicit usings, put the page's using
+  directives in front of each block, reject using-only blocks, and record every assembly step in the output.
+- >-
+  Carry each page's block code on every candidate through extraction, and keep the end of long toolchain output.
+checks:
+- command: '{python} -m pytest tests/indexing/test_dotnet_verifier_assembly.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_example_candidates.py tests/indexing/test_build_chunks_verification_report.py tests/indexing/test_build_chunks_page_sandbox.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_example_verifier_toolchain.py tests/indexing/test_java_page_imports.py tests/infra/test_build_chunks_platforms.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 20
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');a='<TargetFramework>{target_framework}</TargetFramework>';b='<ImplicitUsings>enable</ImplicitUsings>';assert a in s and b in s;p.write_text(s.replace(a,'<TargetFramework>net8.0</TargetFramework>',1).replace(b,'<ImplicitUsings>disable</ImplicitUsings>',1),encoding='utf-8')"
+  rationale: >-
+    Puts back the two defects that kept 3d/net and slides/net at zero: the candidate project is pinned to net8.0 whatever
+    the library targets, and implicit usings are off. The tests that read the written csproj (net10.0, implicit usings
+    enabled) fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-450/receipt.json
+closeout:
+- >-
+  The .NET verifier compiles README blocks the way a reader of the page would (library target framework, implicit usings,
+  the page's using directives), refuses to count a block that holds only using directives, says in every output how the
+  source was assembled, and keeps the end of long toolchain output. No pilot data changes until each .NET pilot is
+  re-ingested.
+- >-
+  Real-toolchain acceptance (supervisor, inside the ingestion image built from this commit, no kubectl needed in the
+  container itself) - run each and read the `verified K/N candidate examples` line: slides/net K >= 8 with `python
+  /app/infra/build_chunks.py --api-surface /app/fixtures/slides_net/api_surface.json --title 'slides/net API surface'
+  --max-types 300 --furnished-page /app/fixtures/furnished/slides_net/pages/_index.md --library-repository
+  aspose-slides-foss/Aspose.Slides-FOSS-for-.NET --library-commit 86c441b5d81e707f2ea9e01b197dbb6ff7a3859b
+  --library-platform dotnet --library-csproj src/Aspose.Slides.Foss/Aspose.Slides.Foss.csproj --out /tmp/out.json
+  --verification-report /tmp/verification.json`; 3d/net K >= 5 with `python /app/infra/build_chunks.py --api-surface
+  /app/fixtures/3d_net/api_surface.json --title '3d/net API surface' --max-types 300 --furnished-page
+  /app/fixtures/furnished/3d_net/pages/_index.md --library-repository aspose-3d-foss/Aspose.3D-FOSS-for-.NET
+  --library-commit 52b0f00ebf28a0b4173921725ff170685ec2c502 --library-platform dotnet --library-csproj
+  src/main/Aspose.ThreeD/Aspose.ThreeD.csproj --out /tmp/out.json --verification-report /tmp/verification.json`; jmap/net
+  K >= 1 (needs written examples to reach 2) with `python /app/infra/build_chunks.py --api-surface
+  /app/fixtures/jmap_net/api_surface.json --title 'jmap/net API surface' --max-types 300 --furnished-page
+  /app/fixtures/furnished/jmap_net/pages/_index.md --library-repository aspose-email-foss/Aspose.JMAP-FOSS-for-.NET
+  --library-commit 0d5cf17e0e9ee185eea2847f6587b918ac0eb016 --library-platform dotnet --library-csproj
+  src/Aspose.Jmap/Aspose.Jmap.csproj --out /tmp/out.json --verification-report /tmp/verification.json`. In
+  /tmp/verification.json every verified .NET record's output starts with the `[foss-mcp] assembly:` line, and the
+  slides/net "Examples" record carries the no-statements rejection.
+recovery: Re-run from a clean tree.

@@ -1,0 +1,146 @@
+id: TC-454
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-007 (at least two verified examples for every pilot). The 2026-10-11 diagnosis (real build_chunks Jobs in
+  foss-mcp-ingestion:rev-c67650f) found jmap/rust at 0 of 3: every README block is a statement fragment (`let options =
+  ClientOptions { ... }; let session = client.connect()?;`) and `verify_rust_example` writes it verbatim as src/main.rs, so
+  rustc stops at `expected item, found keyword 'let'`; the second block also relies on the `use` line of the first, and the
+  third uses `serde_json`, which the throwaway Cargo.toml does not declare. The real error was hard to even see: the first
+  8000 characters of output were library compile lines (fixed in TC-450's `_truncate`). An in-memory patch measured jmap/rust
+  0 -> 2. This card makes the fix real and tighter than the patch: a complete program (its own `fn main`) is compiled exactly
+  as given; a fragment is wrapped in a `fn main` returning `Result`, so `?` works; only the page's `use` statements whose
+  names the block actually uses are added, at crate level, where the block's own `use` lines (kept inside main) shadow them
+  instead of colliding; `serde_json` is declared only when the source names it, at the library's own version requirement;
+  a use-only block is rejected; every step is recorded. It also bounds the cargo subprocess, the one verifier subprocess
+  TC-453 left unbounded.
+depends_on:
+- TC-453
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_rust_verifier_assembly.py
+- tests/indexing/test_example_verifier_toolchain.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read src/foss_mcp/indexing/example_verifier.py: `_CANDIDATE_CARGO_TOML_TEMPLATE`, `_run_cargo_subprocess`, `_run_cargo`,
+  `_RUSTC_DIAGNOSTIC`, `_match_network_failure_marker`, `verify_rust_example`, `_truncate`, `_has_own_statements` and
+  `_NO_STATEMENTS_MESSAGE` (TC-450), `_RUN_TIMEOUT_SECONDS` and `_TIMEOUT_EXIT_CODE` (TC-453);
+  src/foss_mcp/indexing/example_candidates.py (`CandidateExample.page_code`, TC-450); the real committed page
+  tests/fixtures/furnished/jmap_rust/pages/_index.md. These must keep passing UNMODIFIED:
+  tests/indexing/test_example_verifier_classification.py, tests/indexing/test_rust_reference_env_failure.py,
+  tests/indexing/test_build_chunks_env_failure.py, tests/infra/test_build_chunks_degradation.py,
+  tests/infra/test_build_chunks_sanitize.py (their fakes replace `_run_cargo` with `(args, *, cwd)` or the rust verify with a
+  fixed keyword signature). tests/indexing/test_example_verifier_toolchain.py is in your write_paths for ONE reason only:
+  its `fake_subprocess_run(args, *, cwd, capture_output, text, env=None)` stub must also accept `timeout=None`; change that
+  signature and nothing else in that file (no assertion added, changed or removed). Never print or log any environment
+  value.
+- >-
+  HARD CONSTRAINTS. `_run_cargo(args, *, cwd)` keeps its signature and its offline-retry rule. Return the ORIGINAL
+  candidate in every VerificationResult. The verdict stays `cargo build` exit 0, and `ExampleEnvironmentError` is still
+  raised exactly when a failed build names a network marker and carries no rustc diagnostic.
+- >-
+  BOUND CARGO. `_run_cargo_subprocess` keeps using `subprocess.run` (offline tests replace `subprocess.run` for cargo) and
+  adds `timeout=_RUN_TIMEOUT_SECONDS`; on `subprocess.TimeoutExpired` it returns a CompletedProcess with returncode
+  `_TIMEOUT_EXIT_CODE`, the partial stdout/stderr the exception carries (decoded if bytes, empty if None), and stderr ending
+  with the line `[foss-mcp] TIMEOUT: cargo was killed after <seconds> seconds`. A timed-out build is therefore not verified
+  and never raises the environment error (the TIMEOUT line is not a network marker).
+- >-
+  ASSEMBLY. Module constant written exactly `_RUST_FRAGMENT_MAIN_HEADER = "fn main() -> Result<(), Box<dyn
+  std::error::Error>> {"` (one line in the source). `_rust_has_main(code)`: a line matching `^\s*(?:pub\s+)?(?:async\s+)?fn\s+main\s*\(`
+  (multiline). `_rust_use_statements(code) -> list[str]`: every `use ...;` statement (optionally `pub`), including ones that
+  span lines, in order. `_rust_use_names(statement) -> frozenset[str] | None`: the names it brings into scope - the last
+  segment of each leaf, or its `as` alias, through nested braces; `self` inside braces counts as the parent segment; None for
+  a glob (`*`). `_assemble_rust_source(code, page_code) -> tuple[str, str, tuple[str, ...]]` returns (source, mode, page uses
+  added). A block with its own `fn main` is returned unchanged with mode "as-given" and nothing added. Otherwise mode
+  "wrapped-fragment": the page `use` statements (every block in document order, de-duplicated by whitespace-collapsed
+  text, minus statements textually equal to one of the block's own) are KEPT only when they are globs or when at least one
+  of their names appears as a whole word in the block's code; lines of the block that are inner attributes (`#![...]`) are
+  moved to the top; the source is the inner attributes, the kept page uses (crate level), `_RUST_FRAGMENT_MAIN_HEADER`, the
+  block's remaining code verbatim (its own `use` statements stay inside main, where a block-scoped import shadows a
+  crate-level one instead of colliding), a line `    Ok(())`, and `}`.
+- >-
+  `verify_rust_example(candidate, *, library_crate_name, library_dir, workdir)` keeps its signature. (1) A block without its
+  own `fn main` whose code, with use statements and inner attributes removed, has no statements by `_has_own_statements(...,
+  preamble_line=None)` is rejected with `_NO_STATEMENTS_MESSAGE` formatted with "use declarations" WITHOUT calling cargo. (2)
+  The source is `_assemble_rust_source(candidate.code, candidate.page_code)`. (3) Cargo.toml is the template as today; when
+  the assembled source contains the whole word `serde_json`, one line `serde_json = <requirement>` is appended, where the
+  requirement is the library Cargo.toml's own `[dependencies]` serde_json value (a string, or the `version` of a table; read
+  with tomllib, any error ignored) written as a TOML string, else `"1"`. (4) Build, classify and verdict exactly as today.
+  Output = `[foss-mcp] assembly: rust mode=<as-given|wrapped-fragment>; page-uses-added=<comma-separated statements, or
+  none>; extra-dependencies=<serde_json = "...", or none>`, a newline, then the truncated cargo output.
+- >-
+  tests/indexing/test_rust_verifier_assembly.py (NEW; offline, deterministic, no network, no real cargo, no skipped tests,
+  no wall-clock assertions; at least 14 tests). Fake `_run_cargo` with `(args, *, cwd)` that snapshots src/main.rs and
+  Cargo.toml at call time. Cases from the REAL jmap_rust page (extract, do not retype): "Quick Start" is wrapped - main.rs
+  contains the header `fn main() -> Result<(), Box<dyn std::error::Error>> {` written LITERALLY in the test (never read
+  back from the module constant), the block's own `use aspose_jmap_foss::{JmapClient, ClientOptions};` inside
+  main, ends with `Ok(())`, adds no page use (the third block's `Invocation`, `json`, `HashMap` are not used) and Cargo.toml
+  has no serde_json; "OAuth 2.0 bearer token authentication" (no use line) gets `use aspose_jmap_foss::{JmapClient,
+  ClientOptions};` at crate level, before the header, and no serde_json; "OAuth 2.0 bearer token authentication (2)" gets
+  `serde_json = "1"` with no library Cargo.toml and `serde_json = "1.0.100"` when the tmp library Cargo.toml declares
+  `serde_json = { version = "1.0.100", features = ["std"] }`. `_rust_use_names` on `use a::{B, C as D};`, `use a::{b::{C,
+  D}, E as F};`, `use a::{self, B};`, `use a::B;` and a glob. A complete program `fn main() {}` is written byte-for-byte with
+  no extra dependency; a use-only block is rejected with zero cargo calls; an inner attribute `#![allow(dead_code)]` ends up
+  on the first line; exit 101 with 20,000 characters of `Compiling` lines followed by `error[E0425]: cannot find value
+  'account_id' in this scope` keeps that last line in the output; a network marker without a diagnostic still raises
+  ExampleEnvironmentError; every result carries the original candidate object. Timeout: with `subprocess.run` patched to
+  raise `subprocess.TimeoutExpired(cmd, 1800, output=b"partial", stderr=None)`, `_run_cargo_subprocess` returns returncode
+  124 (literal) and the TIMEOUT line, and the keyword `timeout` it passed equals 1800 (literal). WIRING: assert
+  `build_chunks._PLATFORM_DISPATCH["rust"]["verify"] is verify_rust_example` and that the committed source of
+  verify_rust_example contains `candidate.page_code`.
+- >-
+  Run `{python} -m pytest tests/indexing/test_rust_verifier_assembly.py -q -rfE`, then once the second check command below.
+  Do NOT run any pilot ingestion yourself. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Wrap Rust statement fragments in a Result-returning main, add only the page use statements a block actually needs,
+  declare serde_json at the library's own version when named, compile complete programs as given, and reject use-only
+  blocks.
+- >-
+  Bound the cargo subprocess and record every assembly step in the verification output.
+checks:
+- command: '{python} -m pytest tests/indexing/test_rust_verifier_assembly.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/indexing/test_rust_verifier_assembly.py tests/indexing/test_example_verifier_toolchain.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_rust_reference_env_failure.py tests/indexing/test_build_chunks_env_failure.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_sanitize.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 14
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');old='fn main() -> Result<(), Box<dyn std::error::Error>> {';assert old in s;p.write_text(s.replace(old,'fn main() {'),encoding='utf-8')"
+  rationale: >-
+    Wraps fragments in a main that returns nothing, so the README's `client.connect()?` could never compile and every
+    wrapped-fragment assertion on the header fails. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-454/receipt.json
+closeout:
+- >-
+  Rust README fragments are compiled inside a Result-returning main with only the page imports they use, complete programs
+  are compiled as written, serde_json is declared at the library's own requirement when named, use-only blocks do not
+  count, cargo cannot hang ingestion, and every verdict says how its source was assembled.
+- >-
+  Real-toolchain acceptance (supervisor, inside the ingestion image built from this commit): jmap/rust must print
+  `verified K/3 candidate examples` with K >= 2 for `python /app/infra/build_chunks.py --api-surface
+  /app/fixtures/jmap_rust/api_surface.json --title 'jmap/rust API surface' --max-types 300 --furnished-page
+  /app/fixtures/furnished/jmap_rust/pages/_index.md --library-repository aspose-email-foss/Aspose.JMAP-FOSS-for-Rust
+  --library-commit d7286100735e6d518837fde8639e8de694a08ef6 --library-platform rust --library-crate-name aspose-jmap-foss
+  --out /tmp/out.json --verification-report /tmp/verification.json`, the third record failing on its own undefined
+  `account_id` with that rustc error visible in its output (not pushed out by library compile lines). The serde_json
+  download needs crates.io; an outage reaches the existing offline retry and, failing that, the environment-error path.
+recovery: Re-run from a clean tree.

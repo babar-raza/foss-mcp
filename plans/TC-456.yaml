@@ -1,0 +1,129 @@
+id: TC-456
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-007 (verified examples for every pilot). words/net has zero verified examples because its reference library never builds in
+  the ingestion image - `NETSDK1049 Resolved file has a bad image ... ../../packages/Aspose.JavaAttributes/lib/net2.0/Aspose.JavaAttributes.dll`,
+  then 3,374 errors for the missing CodePorting and JavaAttributes types. The DLLs under the repository's `packages/` directory are Git
+  LFS pointer files (129 bytes), the repository's root .gitattributes declares `filter=lfs`, and the image has no git-lfs (the
+  2026-10-11 diagnosis Job's attempt printed `git: 'lfs' is not a git command`). TC-379 already turns a library that does not build into
+  a `library_unavailable` verification record while the documentation still publishes, but the reason it records today is 3,374
+  compiler errors, which says nothing about the cause. This card installs git-lfs in Dockerfile.ingestion and, in the .NET prepare step
+  (`prepare_reference_library`), fetches exactly the `packages/**` LFS objects after checkout when the repository declares LFS. Any LFS
+  failure (git-lfs missing, the LFS host unreachable, pointer files left behind) becomes one clear reason beginning `not verified (LFS
+  unavailable)` instead of a wall of compiler errors. DECISION - an LFS failure is a `RuntimeError` (library unavailable, documentation
+  still published), not an `ExampleEnvironmentError` (exit 75, which fails the whole ingestion Job): one pilot's missing binary
+  packages must never cost it its documentation. Repositories without LFS run exactly today's commands.
+depends_on:
+- TC-455
+- TC-377
+- TC-379
+write_paths:
+- Dockerfile.ingestion
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_dotnet_lfs_pull.py
+- tests/infra/test_ingestion_git_lfs.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read Dockerfile.ingestion in full (the apt layers - git, openjdk/maven, build-essential, g++/cmake - and the first COPY),
+  tests/infra/test_ingestion_toolchain.py and tests/infra/test_container_pins.py (both must keep passing UNMODIFIED; the latter
+  requires every curl download to carry a lock sha256, which is why git-lfs comes from apt, not from a download), and in
+  src/foss_mcp/indexing/example_verifier.py `_run`, `ExampleEnvironmentError` and `prepare_reference_library`. Read infra/build_chunks.py
+  `_build_verified_example_chunks` (read only - the `except RuntimeError` branch that records `kind` `library_unavailable` with the
+  exception text as `output`) and tests/infra/test_build_chunks_degradation.py (the pattern for driving that branch; must keep passing
+  UNMODIFIED). TC-450..TC-455 change example_verifier.py before you; build on what they left and do not undo any of it. Never print or
+  log any environment value.
+- >-
+  Dockerfile.ingestion - add ONE new layer, placed after the g++/cmake layer and before the first COPY (so a source-only change never
+  rebuilds it and no earlier toolchain layer is invalidated) - `RUN apt-get update && apt-get install -y --no-install-recommends
+  git-lfs && rm -rf /var/lib/apt/lists/* && git lfs version`, with a comment above it stating why (words/net's packages/ are LFS
+  objects; TC-456) and that the package floats with the digest-pinned Debian trixie base exactly as git, g++ and cmake do. Do NOT run
+  `git lfs install` with `--system` or `--global` anywhere in the image - a global smudge filter would make every `git checkout`
+  download every LFS object of every repository, and an LFS outage would then look like a checkout failure. The fetch is done
+  per repository, by the verifier, only for `packages/**`.
+- >-
+  example_verifier.py `prepare_reference_library`, ADDITIVE - module constants `LFS_UNAVAILABLE_REASON = "not verified (LFS
+  unavailable)"` and `_LFS_INCLUDE_PATTERN = "packages/**"`, and a helper (for example `_pull_lfs_packages(workdir)`) called right after
+  a successful `git checkout` and before `dotnet build`, ONLY when `<workdir>/.gitattributes` exists and contains `filter=lfs`. It runs,
+  through `_run` with `cwd=workdir`, exactly `["git", "lfs", "install", "--local"]` then exactly `["git", "lfs", "pull", "--include",
+  _LFS_INCLUDE_PATTERN]`. Failure handling, each raising `RuntimeError` (never `ExampleEnvironmentError`) whose message begins with
+  `LFS_UNAVAILABLE_REASON` followed by `: ` and a plain cause - the install step fails (git-lfs is not installed, for example `git: 'lfs'
+  is not a git command`); the pull step fails (include the last 600 characters of its stdout+stderr, which is where a network error
+  shows); or the pull succeeds but any file under `<workdir>/packages/` still begins with `version https://git-lfs.github.com/spec/v1`
+  (name how many remain). In every failure `dotnet build` is never run. A repository without `filter=lfs` in its root .gitattributes runs
+  exactly today's five commands, in today's order.
+- >-
+  tests/indexing/test_dotnet_lfs_pull.py (NEW, offline, deterministic - stub `example_verifier._run` with a recorder that accepts any keyword arguments, returns
+  CompletedProcess objects and, where a test needs it, writes files into the workdir; no git, no git-lfs, no dotnet, no network; no
+  wall-clock thresholds, no skipped tests). At least 10 tests - with an LFS .gitattributes the recorded argv sequence is init, remote
+  add, `git fetch --depth 1 origin <commit>`, `git checkout <commit>`, `git lfs install --local`, `git lfs pull --include packages/**`,
+  `dotnet build <csproj>`, each with cwd the workdir; without a .gitattributes, and with one that has no `filter=lfs`, the sequence is
+  exactly the five legacy commands; install failure with the `'lfs' is not a git command` text raises RuntimeError starting with
+  `not verified (LFS unavailable)` and no `dotnet` command is recorded; pull failure with a network-error text raises the same prefix,
+  carries the tail of that text, and records no `dotnet`; a pointer file left under packages/ after a zero-exit pull raises the same
+  prefix naming the count; real (non-pointer) files under packages/ proceed to `dotnet build`; the raised error is not an
+  `ExampleEnvironmentError`; the two constants have the stated values; end to end through the REAL `_build_verified_example_chunks`
+  (infra/build_chunks.py, the dotnet dispatch entry calling the real `prepare_reference_library` with the stubbed `_run`, args built
+  the way tests/infra/test_build_chunks_degradation.py builds them) the verification records hold exactly one `library_unavailable`
+  record whose `output` starts with `not verified (LFS unavailable)`, and no exception escapes.
+- >-
+  tests/infra/test_ingestion_git_lfs.py (NEW, offline and static, reads Dockerfile.ingestion as text with the same
+  continuation-joining approach as tests/infra/test_ingestion_toolchain.py; never runs docker; no skipped tests). At least 6 tests -
+  exactly one RUN instruction installs `git-lfs` with `apt-get install -y --no-install-recommends` and removes /var/lib/apt/lists in the
+  same instruction; that instruction runs `git lfs version`; it comes after the instruction that installs g++ and cmake and before the
+  first COPY; no instruction contains `git lfs install --system` or `git lfs install --global` (or `--system`/`--global` on any `git lfs`
+  command); no curl or wget download mentions git-lfs; the single FROM line is unchanged (digest-pinned python:3.13-slim).
+- >-
+  Run `{python} -m pytest tests/indexing/test_dotnet_lfs_pull.py tests/infra/test_ingestion_git_lfs.py -q -rfE`, then once the second
+  check command. Do NOT build the image or re-ingest any pilot yourself (that is the supervisor's step). Write commit messages as
+  UTF-8 without a byte-order mark.
+actions:
+- >-
+  Install git-lfs in the ingestion image and fetch only the `packages/**` LFS objects after checkout in the .NET prepare step, when the
+  repository declares LFS.
+- >-
+  Turn every LFS failure into one clear `not verified (LFS unavailable)` reason while documentation still publishes, and pin the
+  command construction and the image layer with offline tests.
+checks:
+- command: '{python} -m pytest tests/indexing/test_dotnet_lfs_pull.py tests/infra/test_ingestion_git_lfs.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/indexing/test_dotnet_lfs_pull.py tests/infra/test_ingestion_git_lfs.py tests/infra/test_ingestion_toolchain.py tests/infra/test_container_pins.py tests/infra/test_build_chunks_degradation.py tests/indexing/test_build_chunks_env_failure.py tests/indexing/test_build_chunks_verification_report.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 16
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');q=chr(34);old='_LFS_INCLUDE_PATTERN = '+q+'packages/**'+q;assert old in s;p.write_text(s.replace(old,'_LFS_INCLUDE_PATTERN = '+q+'nothing/**'+q,1),encoding='utf-8')"
+  rationale: >-
+    Points the LFS pull at a directory that holds nothing, so the words/net binary packages would stay pointer files: the
+    command-construction test and the constant test fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-456/receipt.json
+closeout:
+- >-
+  The ingestion image carries git-lfs and the .NET prepare step fetches words/net's `packages/**` LFS objects after checkout; an LFS
+  failure is recorded as `not verified (LFS unavailable)` and the documentation still publishes. The later cluster step builds the
+  image (`python scripts/release/build_images.py`), loads it into kind, and reinstalls with `python scripts/deploy/install_pilots.py
+  --namespace foss-mcp --image-tag rev-<sha7> --embedding-gateway-secret foss-mcp-embedding-gateway --github-token-secret
+  foss-mcp-github-token --parallel 3 --timeout 40m --only words_net` (its 8Gi limit comes from TC-457), then reads
+  `kubectl -n foss-mcp logs job/foss-mcp-words-net-ingest-words-net` - it must show `verified N/M candidate examples` and no
+  `reference library unavailable` line. Minimum expected verified count - words/net 2 (NOT measured: the diagnosis could not build the
+  library; blocks 0-3 look compilable, block 4 uses an undefined `doc`, and the .NET verifier fixes of TC-450 may also be needed). If
+  the library builds but fewer than 2 verify, words/net goes to authored examples (diagnosis F8).
+recovery: Re-run from a clean tree.

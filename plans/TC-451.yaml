@@ -1,0 +1,167 @@
+id: TC-451
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-007 (at least two verified examples for every pilot). The 2026-10-11 diagnosis (real build_chunks Jobs in
+  foss-mcp-ingestion:rev-c67650f) found cells/go 0 of 10 and jmap/go 0 of 3 verified, every failure caused by the Go
+  wrapper `_wrap_go_fragment_if_needed`, not by the README: an import line inside the wrapped body (`syntax error:
+  unexpected keyword import, expected }`); seven cells/go blocks that start with `func main() {` wrapped inside a second
+  `func main` (`syntax error: unexpected name main, expected (`); the only qualifier it knows is the hard-coded `pdf.`
+  (`undefined: cells_foss`, `undefined: jmap`), although the page's own import lines name the package; `go: updates to
+  go.mod needed; to update it: go mod tidy` for a complete file; and `declared and not used: session` for a fragment
+  that a reader would continue. An in-memory patch measured cells/go 0 -> 8 and jmap/go 0 -> 2. This card makes the
+  fixes real and more honest than the patch: an import-only block (the cells/go "Installation" block, which the patch
+  counted as verified) is rejected, `go mod tidy` runs only when the build asks for it, the blank-use retry applies only
+  to a wrapped fragment whose every compile error is an unused variable, and every assembly step is written into the
+  verification output.
+depends_on:
+- TC-450
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_go_verifier_assembly.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read src/foss_mcp/indexing/example_verifier.py: `_run`, `_truncate`, `_has_own_statements`, `_NO_STATEMENTS_MESSAGE`
+  (added by TC-450), `_CANDIDATE_GO_MOD_TEMPLATE`, `_go_required_version`, `_GO_PACKAGE_DECLARATION_RE`,
+  `_wrap_go_fragment_if_needed`, `verify_go_example`; src/foss_mcp/indexing/example_candidates.py (`CandidateExample.page_code`
+  holds the code of every block on the page, TC-450); the real committed pages
+  tests/fixtures/furnished/cells_go/pages/_index.md and tests/fixtures/furnished/jmap_go/pages/_index.md. These must keep
+  passing UNMODIFIED: tests/indexing/test_go_vet_verdict.py (its fake `_run` raises on any argv it did not script and
+  asserts the exact call lists [build, vet] and [build]), tests/indexing/test_go_verifier_major_version.py (it calls
+  `_wrap_go_fragment_if_needed(code, module_path)` with two positional arguments and expects `\tpdf "<module path>"` for a
+  `pdf.` fragment against an empty library directory), tests/infra/test_build_chunks_platforms.py. Never print or log any
+  environment value.
+- >-
+  HARD CONSTRAINTS. Call `_run(args, cwd=...)` only (fakes have the signature `(args, *, cwd)`). Return the ORIGINAL
+  candidate in every VerificationResult. The verdict stays `go build` exit 0 followed by `go vet` exit 0; assembly only
+  changes main.go. On a successful first build the calls are exactly [go build ./..., go vet ./...] as today, and on a
+  failed build with no tidy hint and no unused-only errors they are exactly [go build ./...].
+- >-
+  Parsing helpers. `_go_import_specs(code) -> list[tuple[str | None, str]]`: every (alias, path) of single-line `import
+  [alias] "path"` declarations and of grouped `import ( ... )` blocks (alias may be a name, `_` or `.`); `_strip_go_preamble(code)
+  -> str`: the code without its package clause and without every import declaration (single and grouped);
+  `_go_package_name(library_dir, module_path, import_path) -> str | None`: for an import path equal to the module path or
+  under it, the `package` name declared by the first (sorted) non-`_test.go` `.go` file of the matching library directory,
+  else None. `_GO_STDLIB_QUALIFIERS`: a dict of qualifier to import path for fmt, os, strings, strconv, time, log, errors,
+  io, bytes, bufio, math, sort, context, sync, filepath -> path/filepath, json -> encoding/json, http -> net/http.
+- >-
+  `_wrap_go_fragment_if_needed(code, module_path, *, page_code=(), library_dir=None, blank_uses=()) -> str` keeps its two
+  positional parameters (the new ones are keyword-only with defaults) and returns the main.go source. (1) A candidate with
+  its own package clause is returned exactly as given (today's behaviour). (2) Otherwise the body is
+  `_strip_go_preamble(code)`. The qualifier table is built in this priority order, the first source naming a qualifier
+  winning: the candidate's own import specs; the import specs of every page block in document order; the library's root
+  package name mapped to module_path (when `library_dir` is given and the name is found); the legacy alias `pdf` mapped to
+  module_path (keeps pdf/go and the existing tests); `_GO_STDLIB_QUALIFIERS`. The qualifier of a spec is its alias when it
+  has a name alias, else `_go_package_name(...)`, else the last path element. An import is emitted only for a qualifier the
+  body actually uses (regex word boundary, qualifier, dot); `_` and `.` imports of the candidate's own are always kept.
+  Library imports are written aliased (`\t<qualifier> "<path>"`), standard-library imports plain (`\t"<path>"`). (3) If the
+  body has a top-level `func main(` (multiline regex `^func\s+main\s*\(`) it is NOT wrapped: the source is `package main`,
+  the import block, the body. Otherwise the body is indented one tab inside `func main() {` ... `}`, followed by one line
+  `\t_ = <name>` per entry of `blank_uses`.
+- >-
+  `verify_go_example(candidate, *, module_path, library_dir, workdir)` keeps its signature. (1) When
+  `_has_own_statements(_strip_go_preamble(candidate.code), preamble_line=None)` is False (an import-only or empty block),
+  return verified=False with `_NO_STATEMENTS_MESSAGE` formatted with "package and import declarations", WITHOUT calling
+  `_run`. (2) Write go.mod as today and main.go from `_wrap_go_fragment_if_needed(candidate.code, module_path,
+  page_code=candidate.page_code, library_dir=library_dir, blank_uses=...)` - the page context is passed with exactly the text
+  `page_code=candidate.page_code`. (3) Run `go build ./...`. If it fails and its output contains `go mod tidy` or
+  `updates to go.mod needed` or `missing go.sum entry`, run `_run(["go", "mod", "tidy"], cwd=project_dir)` once; a failed
+  tidy ends with verified=False and the tidy output recorded; otherwise build again. (4) If the build still fails, the
+  candidate was WRAPPED (no package clause and no own `func main`), and every compile-error line of the form
+  `./main.go:<line>:<col>: <message>` is an unused-variable error (`declared and not used: <name>`, or the older `<name>
+  declared and not used`), add those names to the blank uses, rewrite main.go and build again - at most
+  `_GO_BLANK_USE_MAX_RETRIES = 2` times. Any other compile error stops the retries: a real error is never retried away. (5)
+  Vet only after a successful build, as today. Output = one assembly line, a newline, then the truncated output of the last
+  build (and of vet when it ran, and of tidy when it ran). The assembly line is exactly `[foss-mcp] assembly: go
+  mode=<as-given|file-with-main|wrapped-fragment>; imports=<comma-separated qualifier=path, or none>;
+  blank-uses=<comma-separated names, or none>; go-mod-tidy=<not-run|rc=N>`.
+- >-
+  tests/indexing/test_go_verifier_assembly.py (NEW; offline, deterministic, no network, no real Go, no skipped tests, no
+  wall-clock assertions; at least 18 tests; no test name may contain the text real_go). Use a scripted fake `_run` with
+  `(args, *, cwd)` that answers per argv in order, records each argv, and snapshots main.go at each build. Fake library
+  directories in tmp_path hold minimal `.go` files with the real package names: `aspose/cells_foss/x.go` declaring `package
+  cells_foss` for module `github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26`, and a root `jmap.go` declaring `package
+  jmap` for `github.com/aspose-email-foss/Aspose.JMAP-FOSS-for-Go`. Cases taken from the REAL pages (extract them, do not
+  retype): cells_go "Installation" (import only) is rejected with zero `_run` calls; cells_go "Quick Start" (complete file
+  with its own package clause) is written byte-for-byte as given; cells_go "Quick Start (2)" (fragment using `cells_foss.`
+  and `fmt.`, no import of its own) gets `package main`, `"fmt"`, the aliased cells_foss import taken from the page's import
+  line, and is wrapped in exactly one `func main`; cells_go "Formulas and the Calculation Engine" (starts with `func main()
+  {`, no package clause) gets `package main` and its imports and contains exactly one `func main(`; jmap_go "Quick Start"
+  (its own unaliased import of the module) has that import line removed from the body and re-emitted as `jmap "<module>"`
+  from the library's package name; jmap_go "OAuth 2.0 bearer token authentication" (no import) gets the jmap import from
+  the page; a qualifier present only in page imports but unused by the block is not imported; stdlib `os.` and `strings.`
+  are imported; the legacy `pdf.` fragment against an empty library still gets `\tpdf "<module>"`. Retry cases: first
+  build fails with exactly `./main.go:14:1: declared and not used: session` and `./main.go:14:10: declared and not used: err`,
+  second build and vet pass - verified, calls [build, build, vet], final main.go contains `_ = session` and `_ = err`
+  inside func main, output names both blank uses; a failure mixing `declared and not used: resp` with `undefined:
+  accountId` (the jmap_go third block) is NOT retried, calls [build], verified False, and the output contains `undefined:
+  accountId`; a file with its own func main and an unused-variable error is not retried. Tidy cases: first build output `go:
+  updates to go.mod needed; to update it:` plus `go mod tidy` gives calls [build, go mod tidy, build, vet] and verified
+  True; tidy exiting 1 gives calls [build, go mod tidy], verified False, and the tidy stderr in the output. Every result
+  carries the original candidate object; `_wrap_go_fragment_if_needed(code, module_path)` still works with two positional
+  arguments. WIRING: assert `build_chunks._PLATFORM_DISPATCH["go"]["verify"] is verify_go_example` and that the committed
+  example_verifier.py source contains `page_code=candidate.page_code` inside verify_go_example.
+- >-
+  Run `{python} -m pytest tests/indexing/test_go_verifier_assembly.py -q -rfE`, then once the second check command below
+  (it deselects the one real-toolchain test of test_go_verifier_major_version.py, which skips without Go). Do NOT run any
+  pilot ingestion yourself. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Assemble Go README blocks from the page's own import lines and the library's real package names, never wrap a block that
+  already has func main, reject import-only blocks, run go mod tidy only when the build asks for it, and retry unused
+  variables only for wrapped fragments.
+- >-
+  Record every assembly step in the verification output so a passing verdict says how it was reached.
+checks:
+- command: '{python} -m pytest tests/indexing/test_go_verifier_assembly.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/indexing/test_go_verifier_assembly.py tests/indexing/test_go_vet_verdict.py tests/indexing/test_go_verifier_major_version.py tests/infra/test_build_chunks_platforms.py -q -rfE -k "(not real_go)"'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 18
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');old='page_code=candidate.page_code';assert old in s;p.write_text(s.replace(old,'page_code=()'),encoding='utf-8')"
+  rationale: >-
+    Cuts the page context off from the verifier, so a block that relies on the page's import line (cells/go "Quick Start
+    (2)" with `cells_foss.`, jmap/go "OAuth 2.0 bearer token authentication" with `jmap.`) is assembled without its
+    package import: the page-import assertions fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-451/receipt.json
+closeout:
+- >-
+  The Go verifier compiles README blocks with the page's imports and the library's real package names, keeps complete
+  files and files with their own func main intact, refuses import-only blocks, and writes every assembly step (mode,
+  imports, blank uses, tidy) into the verification output. No pilot data changes until each Go pilot is re-ingested.
+- >-
+  Real-toolchain acceptance (supervisor, inside the ingestion image built from this commit): cells/go must print
+  `verified K/10 candidate examples` with K >= 8 for `python /app/infra/build_chunks.py --api-surface
+  /app/fixtures/cells_go/api_surface.json --title 'cells/go API surface' --max-types 300 --furnished-page
+  /app/fixtures/furnished/cells_go/pages/_index.md --library-repository aspose-cells-foss/Aspose.Cells-FOSS-for-Go
+  --library-commit fa4e890e46c509efd22d09b97411202c2b0b8a67 --library-platform go --library-module-path
+  github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26 --out /tmp/out.json --verification-report
+  /tmp/verification.json`, with the "Installation" record rejected for having no statements and "Picture Embedding" still
+  failing on `undefined: generateSmallPNG`; jmap/go must print K >= 2 of 3 for `python /app/infra/build_chunks.py
+  --api-surface /app/fixtures/jmap_go/api_surface.json --title 'jmap/go API surface' --max-types 300 --furnished-page
+  /app/fixtures/furnished/jmap_go/pages/_index.md --library-repository aspose-email-foss/Aspose.JMAP-FOSS-for-Go
+  --library-commit 327dda39116ba02657fa49ec6dbeb69965628447 --library-platform go --library-module-path
+  github.com/aspose-email-foss/Aspose.JMAP-FOSS-for-Go --out /tmp/out.json --verification-report /tmp/verification.json`.
+  `go mod tidy` reaches the module proxy: a proxy outage shows as a not-verified record whose output carries the tidy
+  error, never as a pass.
+recovery: Re-run from a clean tree.
