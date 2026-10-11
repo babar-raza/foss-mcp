@@ -46,8 +46,8 @@ inputs:
   python install 3.12` into a fixed directory and `/usr/local/bin/python3.12` is created by a symlink or copy; the base image line is
   unchanged (still the pinned `python:3.13-slim@sha256:...`); no `latest` tag or unpinned download is introduced; ordering: the new
   layers come after the existing dotnet layer and before the COPY of project sources, so a source-only change never rebuilds them (assert
-  the line numbers). If docker is available on the host, a SECOND test, skipped with a clear reason when it is not, may run `docker build`
-  only if an environment variable FOSS_MCP_BUILD_TESTS=1 is set; never run it by default.
+  the line numbers). Do NOT add any test that can be skipped (no docker-build test, no opt-in test): the review's structural gate treats a skipped test as
+  no evidence and refuses the card. Every test in the file must run and assert on the Dockerfile text.
 - >-
   Run `{python} -m pytest tests/infra/test_ingestion_toolchain.py -q -rfE`, then once
   `{python} -m pytest tests/infra tests/test_container_build.py -q -rfE -k "(ingestion_image or fixtures or pilots_match or container_build or toolchain) and not docker_build and not real_docker"`.
