@@ -2,10 +2,14 @@
 
 The always-rendered base NetworkPolicy lets serving pods reach only same-namespace pods and
 kube-dns, so in a policy-enforcing cluster the query-time call to the embedding gateway (wired in
-by TC-334) would be dropped. templates/networkpolicy.yaml therefore carries a THIRD document,
-`<fullname>-gateway-egress`, rendered only when embeddingGateway.existingSecret is set. It grants
-TCP 443 to embeddingGateway.egressCidrs for serving pods only, and the first two documents are
-never touched.
+by TC-334) would be dropped. A third policy, `<fullname>-gateway-egress`, is therefore rendered
+only when embeddingGateway.existingSecret is set. It grants TCP 443 to embeddingGateway.egressCidrs
+for serving pods only, and the two base documents are never touched.
+
+TC-344: that third policy lives in its own template, templates/networkpolicy-gateway-egress.yaml.
+The always-on templates/networkpolicy.yaml must contain no values-driven Helm conditional (the
+reference overlay's defect was a values toggle that removed isolation, and
+tests/test_container_build.py guards it), so the conditional belongs in the separate file.
 
 Offline. Renders the chart with the real helm binary (image.tag set) and parses the output with
 PyYAML. A missing helm binary FAILS these tests; it never skips them.
@@ -14,6 +18,7 @@ PyYAML. A missing helm binary FAILS these tests; it never skips them.
 from __future__ import annotations
 
 import functools
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -26,6 +31,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CHART = REPO_ROOT / "infra" / "helm" / "foss-mcp"
 VALUES = CHART / "values.yaml"
 NETWORKPOLICY_TEMPLATE = CHART / "templates" / "networkpolicy.yaml"
+GATEWAY_EGRESS_TEMPLATE = CHART / "templates" / "networkpolicy-gateway-egress.yaml"
+SECRET_GUARD = "{{- if .Values.embeddingGateway.existingSecret }}"
 TAG = "tc338-test-tag"
 SECRET = "embedding-gateway-creds"
 COMPONENT = "app.kubernetes.io/component"
@@ -114,18 +121,34 @@ def test_values_leave_the_other_three_gateway_keys_unchanged() -> None:
 # --- template text -----------------------------------------------------------------------------
 
 
-def test_template_wraps_the_third_document_including_its_separator_in_the_secret_guard() -> None:
-    text = NETWORKPOLICY_TEMPLATE.read_text(encoding="utf-8")
-    guard = "{{- if .Values.embeddingGateway.existingSecret }}"
-    assert text.count(guard) == 1
-    head, tail = text.split(guard)
-    # Everything before the guard is the two untouched documents; the third document's own
-    # leading separator is inside the guard, so with the secret unset nothing extra is rendered.
-    assert head.count("\n---\n") == 1
-    assert "gateway-egress" not in head
-    assert "\n---\n" in tail
+def test_gateway_egress_template_is_wholly_wrapped_in_the_secret_guard() -> None:
+    text = GATEWAY_EGRESS_TEMPLATE.read_text(encoding="utf-8")
+    assert text.count(SECRET_GUARD) == 1
+    head, tail = text.split(SECRET_GUARD)
+    # The guard is the very first thing in the file and its closing end is the very last, so with
+    # the secret unset the whole file renders nothing. The file is a single document, so it has no
+    # leading separator of its own.
+    assert head.strip() == ""
+    assert "\n---\n" not in text
     assert "gateway-egress" in tail
     assert tail.rstrip().endswith("{{- end }}")
+
+
+def test_the_unconditional_networkpolicy_template_has_no_values_driven_conditional() -> None:
+    # The contract TC-344 restores: the always-on base policy file renders unconditionally. Comment
+    # lines are stripped first, since this file's header comment names the rule it enforces.
+    text = NETWORKPOLICY_TEMPLATE.read_text(encoding="utf-8")
+    code = "\n".join(line for line in text.splitlines() if not line.strip().startswith("#"))
+    assert not re.search(r"\{\{-?\s*if\b", code), "networkpolicy.yaml must render unconditionally"
+    assert "gateway-egress" not in text
+    assert "embeddingGateway" not in text
+
+
+def test_the_secret_guard_lives_in_the_gateway_egress_template() -> None:
+    text = GATEWAY_EGRESS_TEMPLATE.read_text(encoding="utf-8")
+    assert SECRET_GUARD in text
+    assert "kind: NetworkPolicy" in text
+    assert "-gateway-egress" in text
 
 
 # --- (1) default values: exactly today's two NetworkPolicy documents ----------------------------

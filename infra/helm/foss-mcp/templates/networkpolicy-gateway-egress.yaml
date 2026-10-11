@@ -1,0 +1,43 @@
+{{- if .Values.embeddingGateway.existingSecret }}
+{{- if not .Values.embeddingGateway.egressCidrs }}
+{{- fail "embeddingGateway.egressCidrs must list at least one CIDR when embeddingGateway.existingSecret is set" }}
+{{- end }}
+# Embedding gateway egress. Rendered only when the operator names a gateway Secret, because only
+# then do serving pods call the gateway at query time (find_examples' vector fallback). The
+# gateway sits behind a public hostname, so serving pods need TCP 443 to the configured address
+# ranges; the always-rendered policies in networkpolicy.yaml do not grant that. The selector covers
+# both serving pod kinds: the live per-pilot pods (component serving) and the lean demo pods
+# (component demo-serving), which a plain serving label would silently miss. Egress is additive:
+# those pods get these rules together with the rules in networkpolicy.yaml (including DNS, which is
+# not repeated here), and ingestion pods, which carry neither component label, are not selected here
+# at all. Nothing in the policies in networkpolicy.yaml is relaxed by this document. It lives in its
+# own file because networkpolicy.yaml must stay free of any values-driven conditional. (No template
+# braces appear in this comment: Helm parses comments too.)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "foss-mcp.fullname" . }}-gateway-egress
+  labels:
+    {{- include "foss-mcp.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "foss-mcp.selectorLabels" . | nindent 6 }}
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - serving
+          - demo-serving
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 443
+      to:
+        {{- range .Values.embeddingGateway.egressCidrs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+{{- end }}
