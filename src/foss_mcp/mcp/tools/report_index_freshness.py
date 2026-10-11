@@ -22,6 +22,7 @@ from dataclasses import dataclass
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import Scope
+from foss_mcp.mcp.tools.example_search_mode import example_search_mode
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
 from foss_mcp.mcp.tools.search_symbols import scope_key
 
@@ -66,6 +67,8 @@ class FreshnessReport:
     indexed_types: int | None = None
     total_types: int | None = None
     coverage_note: str | None = None
+    example_search: str = "lexical-only"
+    example_search_reason: str = "no active generation"
 
 
 def _commit_matches(indexed_commit: str, current_commit: str) -> bool:
@@ -247,6 +250,7 @@ def report_index_freshness(
     pinned_matches = _pinned_matches_symbols(commits, pinned_library_commit)
 
     coverage_note: str | None = None
+    example_mode, example_reason = example_search_mode(manifest.payload)
     if (
         provenance.indexed_types is not None
         and provenance.total_types is not None
@@ -279,6 +283,8 @@ def report_index_freshness(
             indexed_types=provenance.indexed_types,
             total_types=provenance.total_types,
             coverage_note=coverage_note,
+            example_search=example_mode,
+            example_search_reason=example_reason,
         )
 
     if indexed_commit is None:
