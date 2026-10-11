@@ -96,6 +96,9 @@ ingestion:
   # Ingestion compiles real reference libraries (dotnet build, cargo build, mvn, go build, a
   # Python venv) per candidate example, so its limits are several times the serving pod's.
   # Estimated from the toolchains installed in Dockerfile.ingestion, not measured.
+  # A pilot may carry `ingestionMemoryLimit` (a pilot-level key, not inside `library`), which replaces only
+  # limits.memory for that pilot's Job. html/python, page/python, words/net (8Gi) and slides/cpp (10Gi) carry it
+  # because each needs more than the 4Gi default to finish; the values are the smallest limits seen to finish.
   resources:
     requests:
       cpu: 500m
@@ -227,6 +230,7 @@ ingestion:
       apiSurface: /app/fixtures/words_net/api_surface.json
       title: words/net API surface
       maxTypes: 300
+      ingestionMemoryLimit: 8Gi
       furnishedPage: /app/fixtures/furnished/words_net/pages/_index.md
       manifestPath: Aspose.Words/Aspose.Words.csproj
       library:
@@ -372,6 +376,7 @@ ingestion:
       apiSurface: /app/fixtures/slides_cpp/api_surface.json
       title: slides/cpp API surface
       maxTypes: 300
+      ingestionMemoryLimit: 10Gi
       furnishedPage: /app/fixtures/furnished/slides_cpp/pages/_index.md
       manifestPath: CMakeLists.txt
       library:
@@ -473,6 +478,7 @@ ingestion:
       apiSurface: /app/fixtures/html_python/api_surface.json
       title: html/python API surface
       maxTypes: 300
+      ingestionMemoryLimit: 8Gi
       furnishedPage: /app/fixtures/furnished/html_python/pages/_index.md
       manifestPath: pyproject.toml
       library:
@@ -486,6 +492,7 @@ ingestion:
       apiSurface: /app/fixtures/page_python/api_surface.json
       title: page/python API surface
       maxTypes: 300
+      ingestionMemoryLimit: 8Gi
       furnishedPage: /app/fixtures/furnished/page_python/pages/_index.md
       manifestPath: pyproject.toml
       library:

@@ -176,8 +176,17 @@ spec:
             {{- end }}
           securityContext:
             {{- toYaml $.Values.containerSecurityContext | nindent 12 }}
+          {{- /*
+          G3/TC-457: a copy of the global ingestion.resources block. A pilot with an
+          ingestionMemoryLimit replaces only limits.memory in the copy; the global block itself is
+          never mutated, so one pilot's override cannot leak into the next Job of the same render.
+          */}}
+          {{- $res := deepCopy $.Values.ingestion.resources }}
+          {{- with $p.ingestionMemoryLimit }}
+          {{- $_ := set $res.limits "memory" . }}
+          {{- end }}
           resources:
-            {{- toYaml $.Values.ingestion.resources | nindent 12 }}
+            {{- toYaml $res | nindent 12 }}
           volumeMounts:
             - name: manifests
               mountPath: {{ $.Values.manifests.mountPath }}
