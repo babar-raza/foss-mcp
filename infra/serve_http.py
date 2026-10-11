@@ -37,6 +37,7 @@ import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import NoReturn
 
 from fetch_product_reference import load_manifest_sidecar, sidecar_name
 from fetch_recent_releases import load_recent_releases_sidecar, recent_releases_sidecar_name
@@ -371,11 +372,24 @@ def deployment_config_from_env() -> DeploymentConfig:
     )
 
 
+def _exit_invalid_setting(variable: str, expected: str) -> NoReturn:
+    """One line on stderr naming the variable (never its value), then exit 2 - no traceback."""
+    print(f"serve_http: {variable} is invalid: {expected}", file=sys.stderr)
+    raise SystemExit(2)
+
+
 def main() -> None:
     import uvicorn
 
-    configure_logging()
+    try:
+        configure_logging()
+    except ValueError:
+        _exit_invalid_setting(LOG_LEVEL_ENV, "expected one of CRITICAL, ERROR, WARNING, INFO, DEBUG")
     config = deployment_config_from_env()
+    try:
+        grace = shutdown_grace_seconds()
+    except ValueError:
+        _exit_invalid_setting(SHUTDOWN_GRACE_ENV, "expected a whole number of seconds, 0 or more")
     # log_config=None: uvicorn must not install its own dictConfig over configure_logging(),
     # or its access/error lines would bypass the JSON formatter and go to stderr as plain text.
     uvicorn.run(
@@ -383,7 +397,7 @@ def main() -> None:
         host="0.0.0.0",
         port=DEFAULT_PORT,
         log_config=None,
-        timeout_graceful_shutdown=shutdown_grace_seconds(),
+        timeout_graceful_shutdown=grace,
     )
 
 

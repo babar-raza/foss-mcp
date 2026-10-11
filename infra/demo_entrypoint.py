@@ -16,6 +16,10 @@ A pilot is spelled ``family/platform`` or ``family_platform`` (``--pilot VALUE``
 ``FOSS_MCP_PILOT`` environment variable). An unknown pilot, or one whose scope has no readable active
 generation, exits 2 and names what is baked. Nothing is ever served under an invented identity.
 
+A directory under the manifests root counts as a baked pilot only when it holds at least one
+``generation__*.json`` file (``_is_baked_scope``), so a stray or empty directory left next to a baked scope
+can never make a restart refuse to start.
+
 Standard library only. The only environment values this module reads are ``FOSS_MCP_PILOT`` and
 ``FOSS_MCP_MANIFESTS_DIR``; the only ones it writes are ``FOSS_MCP_FAMILY``, ``FOSS_MCP_PLATFORM`` and
 ``FOSS_MCP_SOURCE_KIND``. It never prints, logs or enumerates any other environment value.
@@ -80,25 +84,48 @@ class Pilot:
         return f"{self.family}/{self.platform}"
 
 
+def _parse_error(value: str) -> str:
+    message = (
+        f"invalid pilot {value!r}: expected family/platform or family_platform (lowercase letters and digits)"
+    )
+    lowered = value.strip().lower()
+    if lowered != value.strip() and _split_pilot(lowered) is not None:
+        message += f"; did you mean '{lowered}'?"
+    return message
+
+
+def _split_pilot(text: str) -> tuple[str, str] | None:
+    parts = text.split("/") if "/" in text else text.split("_")
+    if len(parts) != 2 or not all(_PART.fullmatch(part) for part in parts):
+        return None
+    return parts[0], parts[1]
+
+
 def parse_pilot(value: str) -> tuple[str, str]:
     """``family/platform`` or ``family_platform`` to ``(family, platform)``.
 
     Family and platform are lowercase letters and digits only (the same rule the sidecar names use), so
     an underscore can only be the separator.
     """
-    text = value.strip()
-    parts = text.split("/") if "/" in text else text.split("_")
-    if len(parts) != 2 or not all(_PART.fullmatch(part) for part in parts):
-        raise EntrypointError(
-            f"invalid pilot {value!r}: expected family/platform or family_platform "
-            "(lowercase letters and digits)"
-        )
-    return parts[0], parts[1]
+    parsed = _split_pilot(value.strip())
+    if parsed is None:
+        raise EntrypointError(_parse_error(value))
+    return parsed
 
 
-def discover_pilots(manifests_dir: Path) -> list[Pilot]:
-    """Every scope directory under *manifests_dir*, sorted by directory name. Files at the root (the
-    sidecars) and directories that are not named ``<family>__<platform>__<source_kind>`` are ignored."""
+def _is_baked_scope(scope_dir: Path) -> bool:
+    """True when *scope_dir* holds at least one ``generation__*.json`` file. A directory without one (a
+    stray, possibly empty) is not a baked pilot. A scope that has a generation file but lost its pointer
+    IS baked: it stays listed, as unreadable, rather than disappearing."""
+    try:
+        return any(child.is_file() for child in scope_dir.glob("generation__*.json"))
+    except OSError:
+        return False
+
+
+def _scope_candidates(manifests_dir: Path) -> list[Pilot]:
+    """Every directory under *manifests_dir* named ``<family>__<platform>__<source_kind>``, sorted by
+    name, whether or not it is baked."""
     if not manifests_dir.is_dir():
         return []
     found: list[Pilot] = []
@@ -115,6 +142,18 @@ def discover_pilots(manifests_dir: Path) -> list[Pilot]:
             continue
         found.append(Pilot(family, platform, source_kind, entry))
     return found
+
+
+def discover_pilots(manifests_dir: Path) -> list[Pilot]:
+    """Every baked scope directory under *manifests_dir*, sorted by directory name. Files at the root (the
+    sidecars), directories that are not named ``<family>__<platform>__<source_kind>``, and scope-named
+    directories that hold no ``generation__*.json`` file (strays) are ignored."""
+    return [pilot for pilot in _scope_candidates(manifests_dir) if _is_baked_scope(pilot.scope_dir)]
+
+
+def discover_strays(manifests_dir: Path) -> list[Pilot]:
+    """The scope-named directories ``discover_pilots`` ignored because they hold no generation file."""
+    return [pilot for pilot in _scope_candidates(manifests_dir) if not _is_baked_scope(pilot.scope_dir)]
 
 
 def _load_json_object(path: Path, label: str) -> dict[str, object]:
@@ -172,12 +211,30 @@ def format_pilot_line(manifests_dir: Path, pilot: Pilot) -> str:
     return f"{pilot.name} source_kind={pilot.source_kind} documents={documents} {flags}"
 
 
-def select_pilot(pilots: Sequence[Pilot], family: str, platform: str) -> Pilot:
+def select_pilot(pilots: Sequence[Pilot], family: str, platform: str, ignored: Sequence[Pilot] = ()) -> Pilot:
+    """The one baked pilot for ``family/platform``. When several candidates share them, only those holding
+    an ``active_pointer.json`` count toward ambiguity (a candidate without one is a half-written leftover);
+    exactly one such candidate is selected, and any other count is refused as ambiguous.
+
+    *ignored* are scope-named directories that hold no generation file; they are never selected, only
+    named in the refusal so the operator can see why a directory they expected was passed over.
+    """
     matches = [pilot for pilot in pilots if (pilot.family, pilot.platform) == (family, platform)]
     baked = ", ".join(pilot.name for pilot in pilots) or "none"
     if not matches:
-        raise EntrypointError(f"unknown pilot '{family}/{platform}'; baked pilots: {baked}")
+        message = f"unknown pilot '{family}/{platform}'; baked pilots: {baked}"
+        skipped = [
+            pilot.scope_dir.name for pilot in ignored if (pilot.family, pilot.platform) == (family, platform)
+        ]
+        if skipped:
+            message += f"; ignored (no generation file): {', '.join(skipped)}"
+        raise EntrypointError(message)
     if len(matches) > 1:
+        with_pointer = [pilot for pilot in matches if (pilot.scope_dir / ACTIVE_POINTER).is_file()]
+        if len(with_pointer) == 1:
+            return with_pointer[0]
+        if with_pointer:
+            matches = with_pointer
         kinds = ", ".join(pilot.source_kind for pilot in matches)
         raise EntrypointError(
             f"pilot '{family}/{platform}' is ambiguous: baked under several source kinds ({kinds}); "
@@ -210,6 +267,8 @@ def _print_no_pilot(parser: argparse.ArgumentParser, manifests_dir: Path, pilots
         parser.format_usage().rstrip(),
         f"Select one with {PILOT_ENV}=<family>/<platform> or --pilot, for example:",
         f"  docker run --rm -p 8080:8080 -e {PILOT_ENV}={example} IMAGE",
+        "Browser clients must be allowed with FOSS_MCP_ALLOWED_ORIGINS=<origin>[,<origin>...]; without it a",
+        "request carrying an Origin header is refused with HTTP 400.",
     ]
     if pilots:
         lines.append(f"Baked pilots ({len(pilots)}):")
@@ -244,7 +303,7 @@ def main(argv: Sequence[str] | None = None, environ: MutableMapping[str, str] | 
 
     try:
         family, platform = parse_pilot(requested)
-        pilot = select_pilot(pilots, family, platform)
+        pilot = select_pilot(pilots, family, platform, ignored=discover_strays(manifests_dir))
         read_lexical_document_count(pilot.scope_dir)
     except EntrypointError as exc:
         print(f"demo_entrypoint: {exc}", file=sys.stderr)
