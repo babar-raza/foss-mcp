@@ -538,6 +538,125 @@ def _reexported_methods(definition: _OriginDefinition, symbol: PublicSymbol, nam
     ]
 
 
+def _find_class(
+    module: str, name: str, source_root: Path, seen: frozenset[str] = frozenset()
+) -> tuple[ast.ClassDef, str, bool] | None:
+    """TC-429: the ``ClassDef`` that binds *name* in *module*, with the module that holds its body.
+
+    Returns ``(class node, module holding the body, whether that module is a package
+    __init__)``. A module that only imports the name is followed to its origin with the same
+    rules and cycle guard as ``_origin_definition``; ``None`` when no class definition is
+    reached (absent, not a class, unparsable, or a cycle).
+    """
+    key = f"{module}.{name}"
+    if key in seen:
+        return None
+    package_path = source_root / Path(*module.split("."))
+    for candidate in (package_path.with_suffix(".py"), package_path / "__init__.py"):
+        if not candidate.is_file():
+            continue
+        is_package = candidate.name == "__init__.py"
+        try:
+            tree = ast.parse(candidate.read_text(encoding="utf-8-sig", errors="replace"))
+        except SyntaxError:
+            return None
+        forwarded: str | None = None
+        for item in tree.body:
+            if isinstance(item, ast.ClassDef) and item.name == name:
+                return item, module, is_package
+            if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef) and item.name == name:
+                return None
+            if isinstance(item, ast.ImportFrom) and forwarded is None:
+                forwarded = _forwarded_origin(item, module, is_package, name)
+        if forwarded is None or "." not in forwarded:
+            return None
+        next_module, next_name = forwarded.rsplit(".", 1)
+        return _find_class(next_module, next_name, source_root, seen | {key})
+    return None
+
+
+def _is_non_public_base(written: str, node: ast.ClassDef, module: str) -> bool:
+    """A base is non-public when its name (as written or as defined) starts with an underscore, or
+    its body lives in a module with an underscore path component."""
+    return (
+        written.startswith("_")
+        or node.name.startswith("_")
+        or any(part.startswith("_") for part in module.split("."))
+    )
+
+
+def _inherited_private_base_methods(
+    symbols: dict[str, PublicSymbol], source_root: Path
+) -> list[PublicSymbol]:
+    """TC-429: the public methods a public class inherits from its NON-PUBLIC base classes.
+
+    A public class built from private mixins (``class JmapClient(_CoreClientMixin,
+    _MailClientMixin)``) was served with no methods: the mixins are private, so never a public
+    symbol, and nothing flattened inheritance. For every public class symbol, each ``Name``
+    base is resolved in the module holding the class body (a class in the same module, or an
+    ``import from`` binding followed to its definition). A non-public base (underscore name, or
+    defined in a module with an underscore path component) contributes its public methods, then
+    its own non-public bases recursively: the subclass's own methods first, then bases in
+    declaration order, depth first, the first definition of a name winning. Public,
+    unresolvable and non-class bases contribute nothing, and a base cycle terminates.
+
+    Each contributed method keeps its kind, signature and annotations and is rehomed as
+    ``_reexported_methods`` does (qualified name under the subclass, the subclass symbol's
+    module, source_path and line). Nothing already in *symbols* is replaced.
+    """
+    added: dict[str, PublicSymbol] = {}
+    for symbol in list(symbols.values()):
+        if symbol.kind not in ("class", "enum") or symbol.qualified_name != f"{symbol.module}.{symbol.name}":
+            continue
+        if symbol.reexported_from is not None:
+            if "." not in symbol.reexported_from:
+                continue
+            body_module, body_name = symbol.reexported_from.rsplit(".", 1)
+        else:
+            body_module, body_name = symbol.module, symbol.name
+        located = _find_class(body_module, body_name, source_root)
+        if located is None:
+            continue
+        own, holder, _ = located
+        taken = {item.name for item in own.body if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef)}
+        visited: set[tuple[str, str]] = {(holder, own.name)}
+
+        def visit(
+            node: ast.ClassDef,
+            node_module: str,
+            symbol: PublicSymbol = symbol,
+            taken: set[str] = taken,
+            visited: set[tuple[str, str]] = visited,
+        ) -> None:
+            for base in node.bases:
+                if not isinstance(base, ast.Name):
+                    continue
+                base_located = _find_class(node_module, base.id, source_root)
+                if base_located is None:
+                    continue
+                base_node, base_module, _ = base_located
+                if not _is_non_public_base(base.id, base_node, base_module):
+                    continue
+                if (base_module, base_node.name) in visited:
+                    continue
+                visited.add((base_module, base_node.name))
+                for method in _methods(base_node, base_module, symbol.source_path, symbol.public_by):
+                    name = f"{symbol.qualified_name}.{method.name}"
+                    if method.name in taken or name in symbols or name in added:
+                        continue
+                    added[name] = replace(
+                        method,
+                        qualified_name=name,
+                        module=symbol.module,
+                        source_path=symbol.source_path,
+                        line=symbol.line,
+                    )
+                visit(base_node, base_module)
+
+        visit(own, holder)
+    return list(added.values())
+
+
 def _minimal_roots(package_dirs: Sequence[str]) -> list[str]:
     """Drop package directories that another listed directory already contains."""
     ordered = sorted(set(package_dirs))
@@ -615,6 +734,9 @@ def inspect_public_surface(repository_root: Path, package_dirs: Sequence[str]) -
                     for method_symbol in _reexported_methods(definition, resolved, name):
                         if method_symbol.qualified_name not in symbols:
                             symbols[method_symbol.qualified_name] = method_symbol
+        # TC-429: a public class built from private mixins gains their public methods.
+        for inherited in _inherited_private_base_methods(symbols, source_root):
+            symbols.setdefault(inherited.qualified_name, inherited)
     return PublicSurface(
         symbols=tuple(symbols[name] for name in sorted(symbols)),
         unresolved=tuple(sorted(set(unresolved))),
