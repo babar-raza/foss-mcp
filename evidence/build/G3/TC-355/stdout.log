@@ -1,0 +1,247 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qdv2cu48\.junit-0.xml"
+--- stdout ---
+................................................................         [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qdv2cu48\.junit-1.xml"
+--- stdout ---
+........................................................................ [  9%]
+........................................................................ [ 19%]
+........................................................................ [ 29%]
+........................................................................ [ 38%]
+........................................................................ [ 48%]
+........................................................................ [ 58%]
+........................................................................ [ 68%]
+........................................................................ [ 77%]
+........................................................................ [ 87%]
+........................................................................ [ 97%]
+.....................                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qdv2cu48\.junit-0.xml"
+--- stdout ---
+................................................................         [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qdv2cu48\.junit-1.xml"
+--- stdout ---
+........................................................................ [  9%]
+........................................................................ [ 19%]
+........................................................................ [ 29%]
+........................................................................ [ 38%]
+........................................................................ [ 48%]
+........................................................................ [ 58%]
+........................................................................ [ 68%]
+........................................................................ [ 77%]
+........................................................................ [ 87%]
+........................................................................ [ 97%]
+.....................                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/release/adversarial_suite.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qdv2cu48\.junit-0.xml"
+--- stdout ---
+................F..............F...F....FF......................         [100%]
+================================== FAILURES ===================================
+_ test_unhandled_findings[Traceback (most recent call last):-False-expected1] _
+
+text = 'Traceback (most recent call last):', is_error = False
+expected = ['python stack trace']
+
+    @pytest.mark.parametrize(
+        ("text", "is_error", "expected"),
+        [
+            ("all fine", True, []),
+            ("Traceback (most recent call last):", False, ["python stack trace"]),
+            ('File "/x/y.py", line 3', False, ["python stack frame"]),
+            ("a KeyError happened", True, ["python exception name"]),
+            ("the docs mention a KeyError", False, []),
+        ],
+    )
+    def test_unhandled_findings(text: str, is_error: bool, expected: list[str]) -> None:
+>       assert suite.unhandled_findings(text, is_error=is_error) == expected
+E       AssertionError: assert [] == ['python stack trace']
+E         
+E         Right contains one more item: 'python stack trace'
+E         Use -v to get more diff
+
+tests\deploy\test_adversarial_suite.py:562: AssertionError
+_____________ test_protocol_detects_a_traceback_in_an_error_body ______________
+
+endpoint = <function endpoint.<locals>.make at 0x0000029D5661E160>
+
+    def test_protocol_detects_a_traceback_in_an_error_body(endpoint) -> None:
+        violations = suite.scenario_protocol(make_target(endpoint(traceback_in_errors=True)))
+>       assert any("python stack trace" in v.problem for v in violations), messages(violations)
+E       AssertionError: 
+E       assert False
+E        +  where False = any(<generator object test_protocol_detects_a_traceback_in_an_error_body.<locals>.<genexpr> at 0x0000029D567C8110>)
+
+tests\deploy\test_adversarial_suite.py:669: AssertionError
+____________ test_arguments_detects_exception_text_in_a_tool_error ____________
+
+endpoint = <function endpoint.<locals>.make at 0x0000029D565E0180>
+
+    def test_arguments_detects_exception_text_in_a_tool_error(endpoint) -> None:
+        violations = suite.scenario_arguments(make_target(endpoint(traceback_in_errors=True)))
+>       assert any("python stack trace" in v.problem for v in violations), messages(violations)
+E       AssertionError: 
+E       assert False
+E        +  where False = any(<generator object test_arguments_detects_exception_text_in_a_tool_error.<locals>.<genexpr> at 0x0000029D567A7440>)
+
+tests\deploy\test_adversarial_suite.py:708: AssertionError
+__________________ test_disclosure_detects_each_leak_pattern __________________
+
+    def test_disclosure_detects_each_leak_pattern() -> None:
+        target = suite.Target(base_url="x", family=FAMILY, platform=PLATFORM, symbol="S")
+        cases = {
+            "/app/infra/x.py": "/app/",
+            "see /data/manifests/pdf": "/data/",
+            "C:\\\\Users\\\\x": "Windows drive path",
+            "root:x:0:0:root:/root": "/etc/passwd",
+            "Traceback (most recent call last):": "python stack trace",
+            'File "/x.py", line 4': "python stack frame",
+        }
+        for text, expected in cases.items():
+            found = suite.disclosure_findings(target, suite.ErrorBody("case", 400, text))
+>           assert any(expected in v.problem for v in found), (text, messages(found))
+E           AssertionError: ('Traceback (most recent call last):', '')
+E           assert False
+E            +  where False = any(<generator object test_disclosure_detects_each_leak_pattern.<locals>.<genexpr> at 0x0000029D567A41E0>)
+
+tests\deploy\test_adversarial_suite.py:750: AssertionError
+________________ test_disclosure_detects_a_stack_trace_header _________________
+
+    def test_disclosure_detects_a_stack_trace_header() -> None:
+        target = suite.Target(base_url="x", family=FAMILY, platform=PLATFORM, symbol="S")
+        body = suite.ErrorBody("case", 500, "Internal error. Traceback (most recent call last): boom")
+        found = suite.disclosure_findings(target, body)
+>       assert [v.problem for v in found] == ["error body contains python stack trace"]
+E       AssertionError: assert [] == ['error body ... stack trace']
+E         
+E         Right contains one more item: 'error body contains python stack trace'
+E         Use -v to get more diff
+
+tests\deploy\test_adversarial_suite.py:760: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_adversarial_suite.py::test_unhandled_findings[Traceback (most recent call last):-False-expected1]
+FAILED tests/deploy/test_adversarial_suite.py::test_protocol_detects_a_traceback_in_an_error_body
+FAILED tests/deploy/test_adversarial_suite.py::test_arguments_detects_exception_text_in_a_tool_error
+FAILED tests/deploy/test_adversarial_suite.py::test_disclosure_detects_each_leak_pattern
+FAILED tests/deploy/test_adversarial_suite.py::test_disclosure_detects_a_stack_trace_header
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qdv2cu48\.junit-1.xml"
+--- stdout ---
+................F..............F...F....FF.............................. [  9%]
+........................................................................ [ 19%]
+........................................................................ [ 29%]
+........................................................................ [ 38%]
+........................................................................ [ 48%]
+........................................................................ [ 58%]
+........................................................................ [ 68%]
+........................................................................ [ 77%]
+........................................................................ [ 87%]
+........................................................................ [ 97%]
+.....................                                                    [100%]
+================================== FAILURES ===================================
+_ test_unhandled_findings[Traceback (most recent call last):-False-expected1] _
+
+text = 'Traceback (most recent call last):', is_error = False
+expected = ['python stack trace']
+
+    @pytest.mark.parametrize(
+        ("text", "is_error", "expected"),
+        [
+            ("all fine", True, []),
+            ("Traceback (most recent call last):", False, ["python stack trace"]),
+            ('File "/x/y.py", line 3', False, ["python stack frame"]),
+            ("a KeyError happened", True, ["python exception name"]),
+            ("the docs mention a KeyError", False, []),
+        ],
+    )
+    def test_unhandled_findings(text: str, is_error: bool, expected: list[str]) -> None:
+>       assert suite.unhandled_findings(text, is_error=is_error) == expected
+E       AssertionError: assert [] == ['python stack trace']
+E         
+E         Right contains one more item: 'python stack trace'
+E         Use -v to get more diff
+
+tests\deploy\test_adversarial_suite.py:562: AssertionError
+_____________ test_protocol_detects_a_traceback_in_an_error_body ______________
+
+endpoint = <function endpoint.<locals>.make at 0x0000021E77DF7E20>
+
+    def test_protocol_detects_a_traceback_in_an_error_body(endpoint) -> None:
+        violations = suite.scenario_protocol(make_target(endpoint(traceback_in_errors=True)))
+>       assert any("python stack trace" in v.problem for v in violations), messages(violations)
+E       AssertionError: 
+E       assert False
+E        +  where False = any(<generator object test_protocol_detects_a_traceback_in_an_error_body.<locals>.<genexpr> at 0x0000021E78417850>)
+
+tests\deploy\test_adversarial_suite.py:669: AssertionError
+____________ test_arguments_detects_exception_text_in_a_tool_error ____________
+
+endpoint = <function endpoint.<locals>.make at 0x0000021E77DF5A80>
+
+    def test_arguments_detects_exception_text_in_a_tool_error(endpoint) -> None:
+        violations = suite.scenario_arguments(make_target(endpoint(traceback_in_errors=True)))
+>       assert any("python stack trace" in v.problem for v in violations), messages(violations)
+E       AssertionError: 
+E       assert False
+E        +  where False = any(<generator object test_arguments_detects_exception_text_in_a_tool_error.<locals>.<genexpr> at 0x0000021E784BF510>)
+
+tests\deploy\test_adversarial_suite.py:708: AssertionError
+__________________ test_disclosure_detects_each_leak_pattern __________________
+
+    def test_disclosure_detects_each_leak_pattern() -> None:
+        target = suite.Target(base_url="x", family=FAMILY, platform=PLATFORM, symbol="S")
+        cases = {
+            "/app/infra/x.py": "/app/",
+            "see /data/manifests/pdf": "/data/",
+            "C:\\\\Users\\\\x": "Windows drive path",
+            "root:x:0:0:root:/root": "/etc/passwd",
+            "Traceback (most recent call last):": "python stack trace",
+            'File "/x.py", line 4': "python stack frame",
+        }
+        for text, expected in cases.items():
+            found = suite.disclosure_findings(target, suite.ErrorBody("case", 400, text))
+>           assert any(expected in v.problem for v in found), (text, messages(found))
+E           AssertionError: ('Traceback (most recent call last):', '')
+E           assert False
+E            +  where False = any(<generator object test_disclosure_detects_each_leak_pattern.<locals>.<genexpr> at 0x0000021E783AFED0>)
+
+tests\deploy\test_adversarial_suite.py:750: AssertionError
+________________ test_disclosure_detects_a_stack_trace_header _________________
+
+    def test_disclosure_detects_a_stack_trace_header() -> None:
+        target = suite.Target(base_url="x", family=FAMILY, platform=PLATFORM, symbol="S")
+        body = suite.ErrorBody("case", 500, "Internal error. Traceback (most recent call last): boom")
+        found = suite.disclosure_findings(target, body)
+>       assert [v.problem for v in found] == ["error body contains python stack trace"]
+E       AssertionError: assert [] == ['error body ... stack trace']
+E         
+E         Right contains one more item: 'error body contains python stack trace'
+E         Use -v to get more diff
+
+tests\deploy\test_adversarial_suite.py:760: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_adversarial_suite.py::test_unhandled_findings[Traceback (most recent call last):-False-expected1]
+FAILED tests/deploy/test_adversarial_suite.py::test_protocol_detects_a_traceback_in_an_error_body
+FAILED tests/deploy/test_adversarial_suite.py::test_arguments_detects_exception_text_in_a_tool_error
+FAILED tests/deploy/test_adversarial_suite.py::test_disclosure_detects_each_leak_pattern
+FAILED tests/deploy/test_adversarial_suite.py::test_disclosure_detects_a_stack_trace_header
+
+--- stderr ---
+
