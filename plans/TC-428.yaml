@@ -1,0 +1,92 @@
+id: TC-428
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). The Go extractor publishes a struct field's TAG as its type. Verified in
+  src/foss_mcp/extraction/tree_sitter_engine/api_surface.py `_extract_go_struct_fields`: it takes "the last non-identifier child"
+  of a `field_declaration` as the type, and when the field has a tag that child is the tag. In the committed
+  tests/fixtures/jmap_go/api_surface.json 197 of 225 fields carry a tag as their type (`Mailbox.Id` has type
+  "`json:\"id,omitempty\"`" where upstream mailbox.go at 327dda3 declares `Id string` with that tag). Checked against the
+  real parser: tree-sitter-go labels the children of a field_declaration with the field names `name`, `type` and `tag`
+  (`raw_string_literal` or `interpreted_string_literal`). This card reads the type from the `type` field and records the tag
+  separately. The jmap/go fixture (and every Go fixture with tagged fields) changes only after re-extraction, so this card
+  should land before TC-403 re-extracts the Go fixtures.
+depends_on:
+- TC-001
+- TC-010
+- TC-051
+- TC-092
+- TC-241
+- TC-261
+- TC-293
+- TC-315
+- TC-392
+- TC-396
+- TC-397
+- TC-398
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- tests/extraction/tree_sitter_engine/test_go_struct_field_types.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read `_extract_go_struct_fields` and its caller in src/foss_mcp/extraction/tree_sitter_engine/api_surface.py, and `get_parser`,
+  `find_child_by_type`, `node_text` in tree_helpers.py (read only). Every existing test under tests/extraction/tree_sitter_engine/
+  must keep passing UNMODIFIED. Do not touch any fixture. Never print or log any environment value.
+- >-
+  In `_extract_go_struct_fields`, take each field's type from the node's `type` field (`child_by_field_name("type")`) and its
+  names from the `name` field children; a field's tag is read from the `tag` field. Each property dict keeps today's keys with
+  `type` now the real type text (`string`, `map[string]bool`, `*Mailbox`, `[]string`), plus a new key `tag` holding the tag text
+  without its surrounding quotes or backticks, present only when the field has a tag. The claim text uses the real type. Add a
+  function named exactly `_go_field_type_and_tag` (defined as `def _go_field_type_and_tag(`) that returns (type text, tag text or
+  None) for one field_declaration node, and use it there. Embedded fields (no name) stay skipped, unexported names stay skipped,
+  and a multi-name declaration `A, B int` still yields both with type `int`. Nothing else in the file changes.
+- >-
+  tests/extraction/tree_sitter_engine/test_go_struct_field_types.py (NEW, offline, real tree-sitter-go parser via `get_parser`):
+  struct sources written inline in the test, including the exact upstream lines of jmap/go mailbox.go at 327dda3 (`Id string`
+  with tag `json:"id,omitempty"` and a trailing comment, `Name string` with tag `json:"name"`): type is `string` and tag is
+  `json:"id,omitempty"`; untagged field has no `tag` key; map, pointer, slice, qualified (`time.Time`) and func types are reported
+  exactly; an interpreted-string tag; `A, B int` gives two properties; an embedded field and an unexported field are absent; no
+  property type anywhere contains a backtick; the claim text names the real type; `_go_field_type_and_tag` directly. At least 10
+  tests, none skipped.
+- >-
+  Run `{python} -m pytest tests/extraction/tree_sitter_engine/test_go_struct_field_types.py -q -rfE`, then once the second check
+  command below. Do NOT re-extract any fixture (TC-403 and the supervisor do that). Write commit messages as UTF-8 without a
+  byte-order mark.
+actions:
+- Read a Go struct field's type from the parser's type field and record its tag separately.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_go_struct_field_types.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/ -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 10
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='def _go_field_type_and_tag(';assert old in s;p.write_text(s.replace(old,'def _go_field_type_and_tagX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the field type/tag reader the struct-field extraction calls, so every Go struct with an exported field raises: the new
+    field-type tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-428/receipt.json
+closeout:
+- >-
+  Go struct fields carry their real type and, separately, their tag. Requires re-extracting the Go fixtures (TC-403 if it runs
+  after this card) and re-ingesting them.
+recovery: Re-run from a clean tree.

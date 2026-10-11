@@ -1,0 +1,145 @@
+id: TC-425
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). Ingestion deletes 90-98% of every pilot's authored documentation. Verified offline on the
+  committed fixtures with infra/build_chunks.py's `_build_doc_chunks` and today's `validate_document`/`citable_chunks` (the
+  path infra/ingest.py `select_publishable_chunks` applies to every non-symbol chunk): share of furnished-page doc text
+  published is pdf_net 2%, pdf_java 2%, pdf_python 2%, slides_python 4%, pdf_go 6%, 3d_python 8%, html_python 10%, words_net
+  10%. Three causes, all in src/foss_mcp/normalization/citation.py: (1) `symbol_index_from_api_surface` registers only the
+  simple `name` (`Document`, `Document.Save`), so no qualified anchor such as `Aspose.Pdf.Document` (whose type IS in the
+  fixture, `class_import` "Aspose.Pdf.Document") or namespace such as `Aspose.Pdf.Text` can ever resolve, and the fixture is
+  the 300-type truncated one, so many real types are absent; (2) every backticked token of identifier shape is an anchor,
+  so the package id `Aspose.PDF.FOSS`, the target framework `net8.0` and file names count as unresolved symbols; (3) one
+  unresolved anchor makes `citable_chunks` drop the whole chunk (the 71,643-character pdf_net "Core API" chunk goes for
+  `AcroFormData`), and a per-class member count such as "(4 properties, 2 methods)" earns `insufficient_evidence` (there is
+  never a library-wide methods/properties count to corroborate it), which also drops the chunk (pdf_python 38% and 3d_python
+  74% of their text). Installation and Quick Start sections are among the dropped chunks. TC-384 fixed this for API-symbol
+  chunks only. This card keeps furnished documentation and example chunks (content_type "doc" or "example") unless a stated
+  count CONTRADICTS the extraction, resolves qualified anchors, stops treating package ids, target frameworks, versions and
+  file names as symbols, and neutralises (un-backticks) an anchor that still does not resolve instead of deleting the prose.
+  Offline the same rules publish 99-100% of the text of all eight pilots. It changes what ingestion publishes, so every pilot
+  with a furnished page must be re-ingested afterwards.
+depends_on:
+- TC-001
+- TC-014
+- TC-018
+- TC-060
+- TC-105
+- TC-111
+- TC-129
+- TC-144
+- TC-147
+- TC-242
+- TC-340
+- TC-384
+write_paths:
+- infra/ingest.py
+- src/foss_mcp/normalization/citation.py
+- tests/infra/test_ingest_furnished_survival.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read infra/ingest.py (`select_publishable_chunks`, `SelectionReport`, `_is_api_symbol_chunk`, `main`),
+  src/foss_mcp/normalization/citation.py in full, src/foss_mcp/extraction/claim_id_bridge.py (read only; do not change it),
+  infra/build_chunks.py `_load_furnished_page`, `_build_doc_chunks` and `_build_verified_example_chunks` (read only: doc
+  chunks have content_type "doc", verified example chunks "example", both start with an `FQN: Doc: `/`FQN: Example: ` line),
+  and a fixture type entry in tests/fixtures/pdf_net/api_surface.json (`name`, `class_import`, `canonical_namespace`,
+  `class_package` on Java, `methods`, `properties`, `enum_members`). These must keep passing UNMODIFIED:
+  tests/infra/test_ingest.py, tests/infra/test_ingest_symbol_survival.py (its synthetic `FQN: Doc: `/`FQN: Example: ` chunks have
+  content_type "api_surface" and must keep today's treatment), tests/infra/test_ingest_vector_scope.py,
+  tests/normalization/test_citation.py. The supervisor's TC-014 holdout imports `find_numeric_claims`,
+  `validate_numeric_claim` and `known_counts_from_fixture`: their behaviour must not change. Never print or log any
+  environment value.
+- >-
+  citation.py, ADDITIVE ONLY (every existing function keeps its exact behaviour; `symbol_index_from_api_surface`,
+  `validate_chunk`, `validate_document`, `citable_chunks`, `describe_unresolved_anchors` are not edited): (1)
+  `qualified_symbol_index_from_api_surface(types)` returns a SymbolIndex that registers, once per distinct anchor string per
+  type entry, the simple name, the `class_import` value when present, and `<canonical_namespace or class_package>.<name>`
+  when present, each also with `.<member>` for every method, property and enum member name; plus a function returning the set
+  of namespaces (`canonical_namespace`/`class_package` values). (2) `classify_anchor(anchor, index, namespaces)` returns exactly
+  one of "symbol", "non_symbol", "unresolved": "symbol" when the index has at least one declaration for it (overloads of one
+  member are one symbol), or it equals a namespace or a dotted prefix of one, or it is a bare name accepted by
+  `unambiguous_qualified_anchor_for_bare_member`; otherwise "non_symbol" when it is a target framework (regex
+  `^(net[0-9]+(\.[0-9]+)?(-[a-z]+)?|netstandard[0-9]+(\.[0-9]+)?|netcoreapp[0-9]+(\.[0-9]+)?)$`), a version (`^v?[0-9]+(\.[0-9]+)+`),
+  a file name (ends in a dot plus one of the LOWERCASE extensions cs csproj props sln py toml cfg txt md json yaml yml xml go
+  mod sum rs java gradle ts js mjs cjs h hpp cpp cmake lock ini dll), or a package id whose last dotted segment is `FOSS` in
+  any case (`Aspose.PDF.FOSS`); otherwise "unresolved" (absent, or a bare name shared by several classes). (3) a function
+  named exactly `neutralise_unresolved_anchors` (defined as `def neutralise_unresolved_anchors(`) taking a chunk text, the
+  index and the namespaces, returning the new text plus the number of spans neutralised: every inline code span OUTSIDE
+  fenced code blocks (lines between ``` fences are never touched) whose anchor (as `find_symbol_anchors` derives it) is
+  "unresolved" loses its two backticks and nothing else; "symbol" and "non_symbol" spans are left as they are.
+- >-
+  ingest.py `select_publishable_chunks`: a chunk whose content_type is "doc" or "example" is a FURNISHED chunk. For it, and
+  only for it: if any `find_numeric_claims` claim in its text earns `validate_numeric_claim` verdict "unsupported" (a stated
+  count that contradicts the extraction) the chunk is excluded and `excluded: <section_title> count <number> <unit> -> <detail>`
+  is printed; otherwise it is published - a "doc" chunk with `neutralise_unresolved_anchors` applied, an "example" chunk with its
+  text unchanged (its anchors are already exempt, `_is_real_compile_verified_example`) - and when any claim earned
+  "insufficient_evidence" one line is appended to its text: `Note: counts stated in this section come from the upstream
+  documentation and were not corroborated against the extracted API.` A furnished chunk is never excluded for an anchor.
+  Every other chunk (API-symbol chunks; any other content_type, including "api_surface" chunks with a pseudo-FQN) is handled
+  exactly as today, with today's output lines. Chunk order is preserved. After the existing summary line, print a second one
+  (always, when `--api-surface` is given): `citation: furnished chunks published <K> of <F>; anchors neutralised <A>; counts
+  qualified in <Q> chunks; excluded <X> for contradicted counts`. `SelectionReport` gains these four counts as fields with
+  default 0 (additive; `summary_line()` returns exactly what it returns today). Nothing changes when `--api-surface` is omitted.
+- >-
+  tests/infra/test_ingest_furnished_survival.py (NEW, offline): build doc chunks from the REAL committed page
+  tests/fixtures/furnished/<pilot>/pages/_index.md with build_chunks' `_load_furnished_page` and `_build_doc_chunks` (an
+  argparse.Namespace with library_repository, library_commit and furnished_page, exactly as infra/build_chunks.py passes them;
+  capture its print) and select them with the REAL tests/fixtures/<pilot>/api_surface.json, for the eight pilots pdf_net,
+  pdf_java, pdf_python, slides_python, pdf_go, 3d_python, html_python, words_net: (1) the published doc text, with every
+  backtick removed from both sides, is at least 90% of the input doc text by character count; (2) every chunk whose
+  section_title is "Installation" or "Quick Start", or whose first line is `FQN: Doc: Scope and Limitations`, is published, and
+  its published text with backticks removed equals its input text with backticks removed; assert at least one such chunk exists
+  per pilot, and that "Quick Start" and "Scope and Limitations" chunks exist for every pilot except words_net (whose page has
+  neither); (3) pdf_net: the anchor `Aspose.Pdf.Document` keeps its backticks (it resolves through `class_import`), `net8.0`
+  and `Aspose.PDF.FOSS` keep theirs (non_symbol), and the "Core API" chunk is published. Unit tests for `classify_anchor` (each
+  of the three outcomes, a namespace, a namespace prefix, `SaveFormat.PPTX` not taken for a file name) and
+  `neutralise_unresolved_anchors` (a span inside a ``` fence is untouched; a call span `add_table()` loses only its backticks;
+  the count returned). Synthetic furnished chunks: a contradicted count is excluded with its line printed; an uncorroborated
+  count is published with the Note line; a "doc" chunk with only unresolved anchors is published, never excluded; an
+  "api_surface" chunk with `FQN: Doc: ` and a bad anchor is still excluded. `main` end to end (monkeypatched argv into tmp_path,
+  as tests/infra/test_ingest.py runs it) prints both summary lines. At least 24 tests (parametrize over the eight pilots), none
+  skipped; no wall-clock assertions.
+- >-
+  Run `{python} -m pytest tests/infra/test_ingest_furnished_survival.py -q -rfE`, then once the second check command below. Do
+  NOT re-ingest any pilot yourself (that is the supervisor's step). Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Stop deleting furnished documentation for unresolved or non-symbol inline anchors; resolve qualified anchors; neutralise instead of drop.
+- Exclude a furnished chunk only when a stated count contradicts the extraction, qualify uncorroborated counts, and print what happened.
+checks:
+- command: '{python} -m pytest tests/infra/test_ingest_furnished_survival.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/infra/test_ingest_furnished_survival.py tests/infra/test_ingest_symbol_survival.py tests/infra/test_ingest.py tests/infra/test_ingest_vector_scope.py tests/normalization/test_citation.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 24
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/normalization/citation.py');s=p.read_text(encoding='utf-8');old='def neutralise_unresolved_anchors(';assert old in s;p.write_text(s.replace(old,'def neutralise_unresolved_anchorsX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the neutraliser ingest imports and applies to every furnished chunk, so ingest.py cannot even be imported: the
+    furnished-survival tests and every ingest test fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-425/receipt.json
+closeout:
+- >-
+  Furnished documentation and examples reach the published generation (99-100% of the text offline on eight pilots); a chunk is
+  dropped only for a stated count that contradicts the extraction, uncorroborated counts are qualified, unresolvable anchors are
+  un-backticked rather than deleted, and every run says so. Requires re-ingesting every pilot that has a furnished page.
+recovery: Re-run from a clean tree.

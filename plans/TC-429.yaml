@@ -1,0 +1,100 @@
+id: TC-429
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). A Python public class built from private mixins is served with no methods. Verified: in the
+  committed tests/fixtures/jmap_python/api_surface.json `JmapClient` has bases `_CoreClientMixin`, `_MailClientMixin`,
+  `_SubmissionClientMixin` and 0 methods; upstream at f2137fa defines `list_mailboxes`, `get_mailbox`, `create_mailbox`,
+  `list_messages`, `fetch_message` and more on `class _MailClientMixin` (client_mail.py), imported into the package
+  `__init__.py` where `class JmapClient(...)` is defined. src/foss_mcp/extraction/tree_sitter_engine/python_surface.py never
+  flattens inheritance, and a private class is never a public symbol, so these methods are unreachable by any lookup - the
+  client's whole mail API is missing. This card copies the public methods of NON-PUBLIC base classes (a base whose name starts
+  with an underscore, or that is defined in a module with an underscore path component) into the public subclass, Python
+  method-resolution order approximated as declaration order, depth first. Public bases are NOT flattened (their members are
+  already reachable on the base itself; a general flatten is a separate decision). Requires re-extracting the Python fixtures
+  (land before TC-401) and re-ingesting.
+depends_on:
+- TC-001
+- TC-010
+- TC-265
+- TC-274
+- TC-294
+- TC-393
+- TC-420
+- TC-426
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+- tests/extraction/tree_sitter_engine/test_python_surface_mixins.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read src/foss_mcp/extraction/tree_sitter_engine/python_surface.py in full (`_module_symbols`, `_methods`, `_origin_definition`,
+  `_forwarded_origin`, `_reexport_kind`, `_reexported_methods`, `inspect_public_surface`) and how
+  src/foss_mcp/extraction/run_extraction.py `_python_types_from_surface` attaches a method to its owner by stripping the last
+  segment of its qualified name (read only). These must keep passing UNMODIFIED:
+  tests/extraction/tree_sitter_engine/test_python_surface.py, tests/extraction/tree_sitter_engine/test_python_surface_members.py,
+  and the tests TC-426 added. Do not touch any fixture. Never print or log any environment value.
+- >-
+  Add a function named exactly `_inherited_private_base_methods` (defined as `def _inherited_private_base_methods(`) and call it
+  from `inspect_public_surface` after re-exports are resolved. For every public class symbol, each base name as written in its
+  `bases` is resolved in the module that holds the class body (a ClassDef of that name in the same module, or an `import from`
+  binding followed with `_forwarded_origin`'s rules and the same cycle guard as `_origin_definition`). A base that is non-public
+  (underscore name, or underscore path component) and resolves to a ClassDef contributes its public methods (via `_methods`),
+  then its own non-public bases recursively; the first definition of a name wins (the subclass's own methods first, then bases
+  in declaration order, depth first). Each contributed method is rehomed exactly as `_reexported_methods` does (qualified name
+  `<subclass qualified name>.<method>`, module, source_path and line of the subclass symbol) and never replaces an existing
+  symbol. A base that is public, unresolvable, or not a ClassDef contributes nothing and is left as today. For a class reached
+  through a re-export the module holding its body is the end of the re-export chain; when that cannot be determined the class
+  is left as today.
+- >-
+  tests/extraction/tree_sitter_engine/test_python_surface_mixins.py (NEW, offline, tmp packages): the JMAP shape - package
+  `__init__.py` defining `class JmapClient(_CoreClientMixin, _MailClientMixin, _SubmissionClientMixin)` with the mixins imported
+  from `.client_core`, `.client_mail`, `.client_submission` - yields `pkg.JmapClient.list_mailboxes`, `get_mailbox`,
+  `create_mailbox` and the core and submission methods, with kind and signature taken from the mixin and source_path of
+  `__init__.py`; the subclass's own method of the same name wins; the left base wins over the right; a private mixin's own
+  private base contributes too; a mixin's underscore methods are not copied (`__init__` handling unchanged); a PUBLIC base's
+  methods are NOT copied; a base defined in a private module (`_impl.py`) counts as non-public; an unresolvable base and a
+  base-cycle terminate with no change; a class whose bases are all public produces exactly today's symbols; a class reached
+  through a re-export from a private module gains its private mixin's methods under the public name. At least 12 tests, none
+  skipped.
+- >-
+  Run `{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_mixins.py -q -rfE`, then once the second check
+  command below. Do NOT re-extract any fixture (TC-401 and the supervisor do that). Write commit messages as UTF-8 without a
+  byte-order mark.
+actions:
+- Give a public Python class the public methods of its private mixin bases, so a mixin-built client is not served empty.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_mixins.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_mixins.py tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/tree_sitter_engine/test_python_surface_members.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 12
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/python_surface.py');s=p.read_text(encoding='utf-8');old='def _inherited_private_base_methods(';assert old in s;p.write_text(s.replace(old,'def _inherited_private_base_methodsX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the mixin resolver inspect_public_surface calls, so every Python surface inspection raises: the mixin tests and the
+    existing python-surface tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-429/receipt.json
+closeout:
+- >-
+  A public Python class built from private mixins carries their public methods (jmap/python JmapClient.list_mailboxes). Requires
+  re-extracting the Python fixtures (TC-401 if it runs after this card) and re-ingesting.
+recovery: Re-run from a clean tree.

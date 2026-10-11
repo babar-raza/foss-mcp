@@ -1,0 +1,155 @@
+id: TC-427
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-005 (pilot completeness). get_product_reference answers NotAvailable where the repository states the answer. Verified on
+  the 40 baked sidecars in infra/demo-manifests (after TC-387): license is NotAvailable on 13 pilots (3d/python, cells/cpp,
+  cells/go, cells/typescript, email/cpp, jmap/cpp, jmap/go, page/python, pdf/cpp, pdf/go, slides/cpp, slides/net, words/net)
+  and support on 16 (3d/net, 3d/python, 3d/typescript, cells/cpp, cells/go, cells/typescript, email/cpp, email/net, jmap/cpp,
+  jmap/go, page/python, pdf/cpp, pdf/go, slides/net, tex/python, words/net), although every sidecar records its
+  source_repository. Root LICENSE files with the standard MIT text exist upstream at the pinned commits of at least 3d/python,
+  cells/go, email/cpp, jmap/go, pdf/go, slides/cpp (checked on archives of those commits); cells/cpp keeps its LICENSE.txt
+  inside a root directory named LICENSE; nothing ever fetches any of them (infra/fetch_product_reference.py fetches only the
+  manifest, CONTRIBUTING.md and AGENTS.md). Agent guidance is looked up by the exact, case-sensitive path AGENTS.md, so
+  cells/java (`Agents.md`), cells/typescript (`agents.md`) and slides/python (`agents.md`) answer "not present in this
+  repository" - false (checked against the pinned commits). slides/net states PackageLicenseExpression MIT and
+  PackageProjectUrl in its root Directory.Build.props, which nothing reads. This card fetches a root listing once, resolves the
+  agent-guidance and contributing names case-insensitively, records the LICENSE text and (for .NET) Directory.Build.props in the
+  sidecar, identifies an SPDX id only from an unambiguous standard-text fingerprint, and falls back to the source repository
+  for support with a label. formats and limitations stay NotAvailable (no data source reaches this tool). The sidecars must
+  be refetched afterwards with the new --force flag (network) and the image rebuilt.
+depends_on:
+- TC-001
+- TC-012
+- TC-017c
+- TC-018
+- TC-022
+- TC-145
+- TC-200
+- TC-201
+- TC-203
+- TC-220
+- TC-243
+- TC-254
+- TC-275
+- TC-353
+- TC-387
+write_paths:
+- infra/fetch_product_reference.py
+- src/foss_mcp/extraction/repo_native_reader.py
+- src/foss_mcp/mcp/tools/get_product_reference.py
+- tests/infra/test_fetch_product_reference.py
+- tests/mcp/tools/test_product_reference_license_support.py
+- tests/fixtures/product_reference_upstream/LICENSE_mit.txt
+- tests/fixtures/product_reference_upstream/LICENSE_mit_variant.txt
+- tests/fixtures/product_reference_upstream/LICENSE_apache_excerpt.txt
+- tests/fixtures/product_reference_upstream/LICENSE_dual.txt
+- tests/fixtures/product_reference_upstream/slides_net_Directory.Build.props
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read src/foss_mcp/mcp/tools/get_product_reference.py in full (TC-387 added `_java_license`, the go/cpp reasons and the
+  untrusted labels), infra/fetch_product_reference.py in full (`build_sidecar`, `load_manifest_sidecar`, `main` and its
+  unchanged-pin skip), src/foss_mcp/extraction/repo_native_reader.py, tests/infra/test_fetch_product_reference.py and its
+  `_install_fake_urlopen` (routes by the path after `/contents/`), and the baked sidecars infra/demo-manifests/
+  product_reference_{slides_net,pdf_go,cells_cpp,3d_python}.json (read only; do not refetch or edit them). Must keep passing
+  UNMODIFIED: tests/mcp/tools/test_product_reference_truthful.py, tests/mcp/tools/test_get_product_reference_platforms.py,
+  tests/mcp/tools/test_get_product_reference_unresolved.py, tests/mcp/tools/test_consumer_tools.py,
+  tests/infra/test_serve_manifest_sidecar.py. If one of them pins an answer this card must change, stop and report it; do not
+  edit it. Never print or log any environment value, a token or an Authorization header.
+- >-
+  Fetch side. repo_native_reader.py: add `list_root_entries(repository, *, ref=None)` returning the (name, type) pairs of the
+  Contents API listing of the repository root (`/repos/{repository}/contents/` plus `?ref=` when given; a 404 returns []). An
+  entry is matched case-insensitively, an exact-case match winning. fetch_product_reference.py `build_sidecar`: call
+  `list_root_entries` once, then (1) fetch contributing and agent guidance at the root entry whose name matches the requested
+  path case-insensitively (the requested path when none matches, so absence is reported as today); (2) fetch the first root FILE
+  named, case-insensitively, LICENSE, LICENSE.md, LICENSE.txt, LICENCE or COPYING, or else, when a root DIRECTORY named LICENSE
+  exists, the first of those names inside it (one more listing); record it as key `license_document` in the existing
+  present/not_present shape (not_present with path "LICENSE" when none); (3) for platforms net/dotnet only, when a root file
+  matches Directory.Build.props case-insensitively, record its text as `build_props_text` (else null). `load_manifest_sidecar`
+  reads both keys back into new `ProductReferenceInputs` fields `license_document: DocumentResult | None = None` and
+  `build_props_text: str | None = None`; a sidecar without them loads with None (every baked sidecar loads unchanged). `main`
+  gains `--force`, which skips the unchanged-pin check (the existing skip stays exactly as it is without the flag).
+  tests/infra/test_fetch_product_reference.py may change ONLY as follows: each existing test whose fake serves build_sidecar or
+  main gets explicit fake responses for the new root-listing and document calls, and the two exact call-sequence assertions
+  (`[call[0] for call in calls] == [...]` and `len(calls) == 2`) are extended with the new calls in order; no assertion is
+  removed or loosened and no catch-all route is added.
+- >-
+  Serving side, get_product_reference.py. Add a function named exactly `_spdx_from_license_text` (defined as
+  `def _spdx_from_license_text(`) that lowercases and collapses whitespace and returns "MIT", "Apache-2.0", "BSD-3-Clause" or
+  "BSD-2-Clause" only when EXACTLY ONE of these fingerprints is present, else None: MIT = both "permission is hereby granted, free
+  of charge, to any person obtaining a copy of this software and associated documentation files" and "the above copyright notice
+  and this permission notice shall be included in all copies or substantial portions of the software"; Apache-2.0 = "apache
+  license" and "version 2.0, january 2004"; BSD-3-Clause = "redistribution and use in source and binary forms, with or without
+  modification, are permitted" and "neither the name of"; BSD-2-Clause = the redistribution phrase without "neither the name of".
+  license: when today's branch yields no value (an empty manifest value, or the go/cpp branch), a present `license_document`
+  answers ReferenceContent with the SPDX id and notice "Identified from the repository's <path> file at the pinned commit; the
+  packaging manifest states no license.", or, when no SPDX id is identified, its first non-empty line and notice "First line of
+  the repository's <path> file; the license was not identified from its text."; for net/dotnet the Directory.Build.props
+  PackageLicenseExpression is tried before the license document. support: for net/dotnet the Directory.Build.props
+  PackageProjectUrl is tried after the manifest; then, on every platform where today's answer is NotAvailable and
+  `source_repository` is known, ReferenceContent `https://github.com/<owner/name>` (a full URL kept as given) with notice "The
+  packaging manifest states no project or support url; this is the source repository." Whenever the new fields are None every
+  answer is byte-for-byte today's. formats and limitations are unchanged.
+- >-
+  Recorded fixtures (offline, standard texts written by the worker, not fetched): LICENSE_mit.txt (the standard MIT text headed
+  "MIT License" / "Copyright (c) 2026 Aspose Pty Ltd"), LICENSE_mit_variant.txt (headed "The MIT License (MIT)"),
+  LICENSE_apache_excerpt.txt (the Apache-2.0 title block and first section), LICENSE_dual.txt (MIT plus Apache fingerprints),
+  slides_net_Directory.Build.props (a `<Project><PropertyGroup>` holding exactly
+  `<PackageLicenseExpression>MIT</PackageLicenseExpression>`,
+  `<PackageProjectUrl>https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET</PackageProjectUrl>` and
+  `<RepositoryUrl>https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET.git</RepositoryUrl>`, as upstream states them
+  at 86c441b). tests/mcp/tools/test_product_reference_license_support.py (NEW, offline): fingerprints (each SPDX id, dual is
+  None, unknown text is None, whitespace and case do not matter); license for the baked pdf_go and pdf_cpp sidecars plus a
+  LICENSE_mit document answers "MIT" with the notice; an unidentified license answers its first line; slides_net baked sidecar
+  plus the recorded Directory.Build.props answers license "MIT" and support the PackageProjectUrl; support for the baked pdf_go
+  and tex_python sidecars answers the source repository URL with the notice; with license_document, build_props_text and
+  source_repository all None, every section of pdf_go, pdf_cpp, slides_net and words_net answers exactly as today (the TC-387
+  go/cpp reasons, "manifest does not state a license expression", "manifest does not state a project url"); fetch side through a fake urlopen: case-insensitive
+  `Agents.md` and `agents.md` are fetched for AGENTS.md, the root `LICENSE/` directory case finds LICENSE.txt, a repository with no
+  license records not_present, Directory.Build.props is fetched only for net, `--force` refetches an unchanged pin, an old sidecar
+  without the new keys loads with None. At least 20 tests, none skipped.
+- >-
+  Run `{python} -m pytest tests/mcp/tools/test_product_reference_license_support.py -q -rfE`, then once the second check command
+  below. Do NOT refetch the baked sidecars (network; the supervisor runs fetch_product_reference with --force per pilot, then
+  re-runs the suites in the second check against the refetched sidecars, then rebuilds the image). Write commit messages as
+  UTF-8 without a byte-order mark.
+actions:
+- Fetch LICENSE and Directory.Build.props at the pinned commit and resolve upstream document names case-insensitively.
+- Serve a fingerprinted SPDX license or the license's first line, and the source repository as labelled support, instead of a false absence.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_product_reference_license_support.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/mcp/tools/test_product_reference_license_support.py tests/infra/test_fetch_product_reference.py tests/mcp/tools/test_product_reference_truthful.py tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_get_product_reference_unresolved.py tests/mcp/tools/test_consumer_tools.py tests/infra/test_serve_manifest_sidecar.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 20
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/get_product_reference.py');s=p.read_text(encoding='utf-8');old='def _spdx_from_license_text(';assert old in s;p.write_text(s.replace(old,'def _spdx_from_license_textX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the license-text identifier the license branch calls, so a license request that falls back to the LICENSE document
+    raises: the new license tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-427/receipt.json
+closeout:
+- >-
+  License comes from the manifest, the .NET Directory.Build.props, or the repository's LICENSE text (SPDX only when unambiguous);
+  agent guidance and contributing are found whatever their case; support falls back to the labelled source repository. Requires
+  refetching every product-reference sidecar with --force (network) and rebuilding the image.
+recovery: Re-run from a clean tree.

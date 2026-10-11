@@ -1,0 +1,130 @@
+id: TC-426
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). tex/python serves only its 4 exception classes; TeXJob, TeXOptions, PdfDevice, SvgDevice,
+  DviDevice, OutputDevice, OutputFormat, create_input_source, FileInputSource, InputSource and StringInputSource are NotFound, and
+  nothing tells a client why. Verified: the cause is NOT that the Python reader skips classes defined in a package
+  `__init__.py` (src/foss_mcp/extraction/tree_sitter_engine/python_surface.py `_module_symbols` scans `__init__.py` like any
+  module). The upstream source at the pinned commit 181015d does not parse: in a GitHub archive of that commit 34
+  aspose_tex .py files fail `ast.parse` (indentation collapsed to 0 or 1 space), among them presentation/__init__.py at line 108
+  and _input/reader.py at line 53. The committed tests/fixtures/tex_python/api_surface.json already records
+  `aspose_tex.presentation:108:syntax-error:src/aspose_tex/presentation/__init__.py:...` plus 11 `unresolved-reexport` entries in
+  its `unresolved` list, but that list never reaches the index or a client. Two real gaps: (1) a re-export whose origin is a
+  PRIVATE module that fails to parse (aspose_tex._input.reader) is reported only as "unresolved-reexport", never as a syntax
+  error, because `_origin_definition` swallows the SyntaxError; (2) infra/build_chunks.py publishes nothing about an extraction
+  that could not read the source, so the pilot silently looks like a 4-class library. This card records the private-module
+  syntax error and publishes one explicit, searchable extraction-notice documentation chunk whenever the fixture records a
+  syntax error. Clients then see: get_symbol/lookup for TeXJob still answer NotFound (the symbol genuinely could not be
+  extracted), and documentation search returns the notice naming the unparseable files and the public names that could not be
+  extracted. Re-ingesting tex/python publishes the notice from the CURRENT fixture (no re-extraction needed); the private-module
+  entry appears after the next re-extraction.
+depends_on:
+- TC-001
+- TC-010
+- TC-018
+- TC-064
+- TC-068
+- TC-070
+- TC-091
+- TC-112
+- TC-184
+- TC-190
+- TC-191
+- TC-194
+- TC-222
+- TC-238
+- TC-265
+- TC-274
+- TC-294
+- TC-360
+- TC-361
+- TC-362
+- TC-379
+- TC-385
+- TC-393
+- TC-420
+write_paths:
+- infra/build_chunks.py
+- src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+- tests/infra/test_build_chunks_extraction_notice.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read src/foss_mcp/extraction/tree_sitter_engine/python_surface.py (`_module_symbols`, `_origin_definition`, `_reexport_kind`,
+  `inspect_public_surface`), infra/build_chunks.py (`main`, `_with_source_commit_line`, `_build_doc_chunks` and its `FQN: Doc: `
+  marker convention), and tests/fixtures/tex_python/api_surface.json (`unresolved`, `source_repository`, `source_commit`). These
+  must keep passing UNMODIFIED: tests/extraction/tree_sitter_engine/test_python_surface.py,
+  tests/extraction/tree_sitter_engine/test_python_surface_members.py, tests/infra/test_build_chunks_degradation.py,
+  tests/infra/test_build_chunks_platforms.py. Do not re-pin, patch or re-format the upstream source; do not touch any fixture.
+  Never print or log any environment value.
+- >-
+  python_surface.py: in `inspect_public_surface`, when a re-export resolves to no kind, add a function named exactly
+  `_origin_syntax_error` (defined as `def _origin_syntax_error(`) that finds the origin's candidate file the same way
+  `_origin_definition` does (module `.py` or package `__init__.py`, following forwarded imports with the same cycle guard) and,
+  when that file fails `ast.parse`, returns an entry in the existing format `<module>:<line>:syntax-error:<repository-relative
+  path>:<message>`; append it to `unresolved` in addition to the existing `unresolved-reexport` entry (set semantics: one entry
+  per file). Nothing else changes: symbols, kinds and every existing `unresolved` entry stay exactly as today.
+- >-
+  build_chunks.py: add a function named exactly `_extraction_notice_chunks` (defined as `def _extraction_notice_chunks(`) taking
+  the parsed fixture and returning [] when no `unresolved` entry contains `:syntax-error:`, else exactly one Chunk with
+  content_type "doc", source_kind and provenance as the API-surface chunks have (fixture `source_repository`/`source_commit`),
+  section_title "Extraction notice", text starting `FQN: Doc: Extraction notice` and then stating, in plain sentences with NO
+  backticks: that the source at <repository>@<commit> could not be fully read by the extractor; one line per unparseable file
+  `<path> line <line>: <message>`; the sorted, de-duplicated last segments of every `unresolved-reexport` target as "public
+  names that could not be extracted"; and that lookups for those names will answer not found. `main` appends these chunks to the
+  API-surface chunks before the `Source-Commit:` step, whether or not `--furnished-page` is given. A fixture without a
+  syntax-error entry produces output byte-identical to today.
+- >-
+  tests/infra/test_build_chunks_extraction_notice.py (NEW, offline): on the REAL tests/fixtures/tex_python/api_surface.json the
+  notice is exactly one "doc" chunk whose text names src/aspose_tex/presentation/__init__.py line 108 and each of TeXJob,
+  TeXOptions, PdfDevice, SvgDevice, DviDevice, create_input_source, FileInputSource, and contains no backtick; on the real
+  pdf_python, html_python and words_python fixtures it is []; `main` end to end (monkeypatched argv into tmp_path, as the existing
+  build_chunks tests run it) on tex_python writes a chunks file containing the notice with a `Source-Commit:` line, and on
+  pdf_python writes no "Extraction notice" chunk and exactly as many chunks as `build_chunks_from_api_surface` returns for the
+  same arguments. Python surface
+  on tmp packages: classes and functions defined in a package `__init__.py` are extracted (proves the parse path); a package whose
+  `__init__.py` does not parse yields its syntax-error entry and no symbols from it; a public package re-exporting from a private
+  module that does not parse yields BOTH the unresolved-reexport entry and a syntax-error entry naming the private file and line;
+  a parseable private origin yields no syntax-error entry; a forwarding cycle terminates. At least 12 tests, none skipped.
+- >-
+  Run `{python} -m pytest tests/infra/test_build_chunks_extraction_notice.py -q -rfE`, then once the second check command below. Do
+  NOT re-extract or re-ingest any pilot (the supervisor's step). Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Record a syntax error in a private re-export origin, and publish an explicit extraction notice when the pinned source does not parse.
+checks:
+- command: '{python} -m pytest tests/infra/test_build_chunks_extraction_notice.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/infra/test_build_chunks_extraction_notice.py tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/tree_sitter_engine/test_python_surface_members.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_platforms.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 12
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/build_chunks.py');s=p.read_text(encoding='utf-8');old='def _extraction_notice_chunks(';assert old in s;p.write_text(s.replace(old,'def _extraction_notice_chunksX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the notice builder that main calls, so build_chunks raises on every run and the notice is never produced: the notice
+    tests and the existing build_chunks tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-426/receipt.json
+closeout:
+- >-
+  A pilot whose pinned source does not parse says so in a searchable notice naming the files and the public names it could not
+  extract, and a broken private origin is recorded as a syntax error. Requires re-ingesting tex/python (and a later re-extraction
+  for the private-module entry).
+recovery: Re-run from a clean tree.
