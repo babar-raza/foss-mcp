@@ -24,13 +24,18 @@ service:
 probes:
   # /healthz is liveness (process alive). /readyz is readiness (a real active generation is
   # readable). A pod with an empty manifests claim answers /readyz 503 and receives no traffic.
+  # timeoutSeconds is explicit because the Kubernetes default of 1 second failed healthy pods on a
+  # busy node ("Client.Timeout exceeded while awaiting headers"), which readiness then dropped and
+  # liveness then killed.
   liveness:
     initialDelaySeconds: 10
     periodSeconds: 10
+    timeoutSeconds: 5
     failureThreshold: 3
   readiness:
     initialDelaySeconds: 5
     periodSeconds: 10
+    timeoutSeconds: 3
     failureThreshold: 3
 
 terminationGracePeriodSeconds: 30
