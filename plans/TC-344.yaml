@@ -1,0 +1,86 @@
+id: TC-344
+gate: G2
+lane: transport-deployment
+purpose: >-
+  TC-338 appended its optional, values-guarded gateway-egress NetworkPolicy to infra/helm/foss-mcp/templates/networkpolicy.yaml.
+  That file's header and tests/test_container_build.py::test_the_helm_chart_never_disables_network_policy require the
+  always-on base policy file to contain NO values-driven Helm conditional (the reference overlay's defect was a values toggle
+  that removed isolation). GitHub CI runs that test, so main's CI regresses on it. This card restores networkpolicy.yaml to
+  exactly its two original unconditional documents and moves the optional policy, with identical rendered behaviour, to its
+  own template file where a conditional is allowed.
+depends_on:
+- TC-338
+write_paths:
+- infra/helm/foss-mcp/templates/networkpolicy.yaml
+- infra/helm/foss-mcp/templates/networkpolicy-gateway-egress.yaml
+- tests/infra/test_helm_embedding_egress.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — TC-338 broke a CI guard its own checks could not see; the optional egress policy moves to its own template (supervisor, pre-TC-344)'
+  sha256: 899826e60c531eea5352f78f4cce70b1f50c507c4a929db167b510e236bb1ed8
+inputs:
+- >-
+  Read infra/helm/foss-mcp/templates/networkpolicy.yaml (note the third document added by TC-338, the header comment about
+  braces in comments) and tests/infra/test_helm_embedding_egress.py (note `NETWORKPOLICY_TEMPLATE` and the template-text
+  test `test_template_wraps_the_third_document_including_its_separator_in_the_secret_guard`), and
+  tests/test_container_build.py::test_the_helm_chart_never_disables_network_policy (read only; you do not own it).
+- >-
+  networkpolicy.yaml: remove the third document entirely (its `{{- if .Values.embeddingGateway.existingSecret }}` ... `{{- end }}`
+  block, including the leading `---`), leaving the file exactly as it was before TC-338 touched it. Use
+  `git log -p -- infra/helm/foss-mcp/templates/networkpolicy.yaml` to see the pre-TC-338 content, and verify with `git diff`
+  against that revision that the file differs from it by nothing. Header comments there must keep containing no template braces.
+- >-
+  Create infra/helm/foss-mcp/templates/networkpolicy-gateway-egress.yaml containing the removed document, moved verbatim, as
+  the whole file, wrapped in `{{- if .Values.embeddingGateway.existingSecret }}` ... `{{- end }}`. A new file's first
+  document needs no leading `---` separator but must render the same resource: with the secret set, the full `helm template`
+  output must contain a NetworkPolicy named `<fullname>-gateway-egress` with identical spec to the one TC-338 produced. With
+  the secret unset the output must be byte-identical to today's (compare SHA256 of `helm template` before and after). Keep the
+  empty-`egressCidrs` guard and its message. Comment lines in this file must also contain no template braces.
+- >-
+  tests/infra/test_helm_embedding_egress.py: point the template-text test (and any other test that reads the template file)
+  at the new file, adjusting only what the move changes (the new file has no leading `---`). All rendered-output tests must
+  pass unmodified in meaning. Add one test proving the contract this card exists to restore: parse
+  networkpolicy.yaml's non-comment lines and assert no `{{ if` / `{{- if` appears in it, and a second asserting the new
+  file does contain the secret guard.
+- >-
+  Run `{python} -m pytest tests/infra/test_helm_embedding_egress.py -q -rfE`, then once
+  `{python} -m pytest tests/test_container_build.py -k never_disables_network_policy tests/infra/test_helm_chart.py tests/infra/test_helm_embedding_gateway.py -q -rfE`
+  (the Helm CLI needs the toolchain activated in the same command). Do NOT run the rest of tests/test_container_build.py: it runs
+  real docker builds.
+- Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Restore networkpolicy.yaml to its two unconditional documents.
+- Move the optional gateway-egress policy to networkpolicy-gateway-egress.yaml with identical rendered behaviour.
+- Update and extend tests/infra/test_helm_embedding_egress.py to follow the move and pin the unconditional-file contract.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_embedding_egress.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/test_container_build.py tests/infra/test_helm_chart.py tests/infra/test_helm_embedding_gateway.py -q -rfE -k "never_disables_network_policy or helm_chart or embedding_gateway"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 8
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/networkpolicy-gateway-egress.yaml');s=p.read_text(encoding='utf-8');old='egressCidrs';assert old in s;i=s.rindex(old);p.write_text(s[:i]+'egressCidrsX'+s[i+len(old):],encoding='utf-8')"
+  rationale: >-
+    Renames the last occurrence of egressCidrs inside the new template, so it no longer reads the values key: the custom-CIDR
+    and default-CIDR rendered-output assertions fail. A real semantic break of the moved policy.
+evidence:
+- evidence/build/G2/TC-344/receipt.json
+closeout:
+- >-
+  The always-on base NetworkPolicy file is unconditional again, satisfying the guard GitHub CI runs, while the optional
+  gateway-egress policy renders exactly as before from its own template.
+recovery: Re-run from a clean tree.

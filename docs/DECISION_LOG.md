@@ -2695,3 +2695,35 @@ path set) and the remote CI runs on bare `ubuntu-latest` (no global identity, de
 no hooks path, no MSVC). A check that passes in one is not evidence about the other. The remote run is the
 authority on "green"; when they disagree, reproduce the remote condition locally (for example with
 `GIT_CONFIG_GLOBAL` set to an empty file) and fix the cause, never the symptom.
+
+## 2026-10-11 — TC-338 broke a CI guard its own checks could not see; the optional egress policy moves to its own template (supervisor, pre-TC-344)
+
+Found by running the exact CI scope locally (`PYTEST_ADDOPTS=--ignore=tests/e2e --ignore=tests/infra`, which is what
+`.github/workflows/ci.yml` runs) after TC-338 was integrated:
+`tests/test_container_build.py::test_the_helm_chart_never_disables_network_policy` fails with "networkpolicy.yaml must
+render unconditionally". TC-338 appended its optional `-gateway-egress` NetworkPolicy to
+`templates/networkpolicy.yaml` inside `{{- if .Values.embeddingGateway.existingSecret }}`, but that file's header
+comment and that test say, deliberately, that the always-on base policy has no values-driven conditional, because the
+reference overlay's defect was a values toggle that removed isolation. My additive policy only ever GRANTS access, so it
+does not breach the intent - but the file's contract is "unconditional", and I wrote the card against the wrong file.
+
+Why nothing caught it: TC-338's regression check ran only `tests/infra/*`, and CI excludes `tests/infra` entirely, so
+the guard that lives in `tests/test_container_build.py` was invisible to both. Decision: TC-344 restores
+`networkpolicy.yaml` to exactly its two original unconditional documents and moves the optional policy, unchanged in
+behaviour, to a new `templates/networkpolicy-gateway-egress.yaml` guarded there. The always-on file keeps its contract and
+the optional grant lives where a conditional is allowed.
+
+## 2026-10-11 — Rules for chart-touching cards, and how to simulate CI locally without false alarms (supervisor)
+
+1. A card that edits anything under `infra/helm/` must include `tests/test_container_build.py -k
+   never_disables_network_policy` (and any other non-`tests/infra` guard that reads chart files) in its regression
+   check, because remote CI does not run `tests/infra` at all.
+2. To simulate remote CI locally, run `PYTEST_ADDOPTS="--ignore=tests/e2e --ignore=tests/infra"` with
+   `GIT_CONFIG_GLOBAL` pointing at an empty file (no identity, as on a runner). Emptying the global config also removes
+   `safe.directory`, so git then refuses this checkout as "dubious ownership"; the resulting failures in
+   `tests/test_githooks.py` and `ops/tests/test_cardlint.py` are artifacts of the simulation, not CI findings. Add
+   `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0=*` to the simulation to remove them.
+3. The three Rust `example_verifier` tests cannot run on this host (Application Control blocks executables under a
+   `pytest-of-*` directory name; the same crates build fine in a plain temp directory). They are deselected in the
+   simulation only. Relocating pytest's base temp directory to dodge that rule is a question for the operator, not a
+   supervisor shortcut.
