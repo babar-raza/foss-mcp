@@ -32,6 +32,7 @@ from foss_mcp.indexing.generation_manifest import (  # noqa: F401
     PublishSafetyError,
 )
 from foss_mcp.indexing.publisher import publish_generation
+from foss_mcp.indexing.vector_index_writer import is_example_chunk
 from foss_mcp.normalization.chunker import Chunk
 from foss_mcp.normalization.citation import (
     citable_chunks,
@@ -88,6 +89,18 @@ def main() -> None:
             "self-extracted symbol index to validate against."
         ),
     )
+    parser.add_argument(
+        "--vector-scope",
+        choices=("all", "examples"),
+        default="all",
+        help=(
+            "which chunks get an embedding in the vector index. 'all' (default) embeds every "
+            "chunk. 'examples' embeds and stores only chunks carrying an 'Example:' block - the "
+            "only chunks find_examples' vector fallback can return - which keeps a generation "
+            "file small and makes far fewer embedding-gateway calls. The lexical index always "
+            "holds every chunk either way."
+        ),
+    )
     args = parser.parse_args()
 
     store = GenerationManifestStore(args.manifest_store)
@@ -123,6 +136,7 @@ def main() -> None:
         chunks=chunks,
         embedding_provider=embedding_provider,
         lease=lease,
+        vector_chunk_filter=is_example_chunk if args.vector_scope == "examples" else None,
     )
     print(f"published {generation_id}")
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 
 from foss_mcp.indexing.embedding_provider import EmbeddingProvider
@@ -63,9 +63,15 @@ def publish_generation(
     embedding_provider: EmbeddingProvider,
     lease: Lease,
     version: str | None = None,
+    vector_chunk_filter: Callable[[Chunk], bool] | None = None,
 ) -> str:
     """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
     generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
+
+    ``vector_chunk_filter`` is an opt-in scope for the VECTOR index only, passed straight to
+    ``build_vector_index`` as ``include``: ``None`` (the default) embeds and stores every chunk;
+    a predicate embeds and stores only the chunks it accepts. The lexical index always holds
+    every chunk either way.
     """
     version = version or new_version()
     # The generation_id is needed to build the payload itself (it is folded into every
@@ -76,7 +82,9 @@ def publish_generation(
     generation_id = build_manifest(family, platform, source_kind, version).generation_id
     chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
     payload = {
-        "vector_index": build_vector_index(chunks, chunk_ids, embedding_provider, generation_id),
+        "vector_index": build_vector_index(
+            chunks, chunk_ids, embedding_provider, generation_id, include=vector_chunk_filter
+        ),
         "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
     }
     manifest = build_manifest(family, platform, source_kind, version, payload)
