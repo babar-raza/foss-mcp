@@ -1,0 +1,1547 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_push_image.py tests/deploy/test_runbook.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3exap9f0\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 55%]
+.........................................................                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3exap9f0\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 29%]
+........................................................................ [ 59%]
+........................................................................ [ 89%]
+.........................                                                [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_push_image.py tests/deploy/test_runbook.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3exap9f0\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 55%]
+.........................................................                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3exap9f0\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 29%]
+........................................................................ [ 59%]
+........................................................................ [ 89%]
+.........................                                                [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/release/push_image.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_push_image.py tests/deploy/test_runbook.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3exap9f0\.junit-0.xml"
+--- stdout ---
+...FFFFFFF...FF......................................................... [ 55%]
+.............................................F...........                [100%]
+================================== FAILURES ===================================
+________ test_a_normal_run_executes_exactly_inspect_then_tag_then_push ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F4E51768B0>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001F4E50FFB10>
+
+    def test_a_normal_run_executes_exactly_inspect_then_tag_then_push(monkeypatch, capsys):
+        fake = _fake(monkeypatch)
+>       assert run(args()) == 0
+               ^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:137: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234', '--registry', 'registry.example.internal:5000/foss-mcp']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+push_image: pushing registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+_________ test_the_pushed_reference_is_registry_slash_name_colon_tag __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F4E5176580>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001F4E53FBCE0>
+
+    def test_the_pushed_reference_is_registry_slash_name_colon_tag(monkeypatch, capsys):
+        _fake(monkeypatch)
+>       assert run(args(image="team/foss-mcp-serving:v1.2", registry="registry.example.internal")) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:150: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'team/foss-mcp-serving:v1.2', '--registry', 'registry.example.internal']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging team/foss-mcp-serving:v1.2 as registry.example.internal/team/foss-mcp-serving:v1.2
+push_image: pushing registry.example.internal/team/foss-mcp-serving:v1.2
+___ test_a_normal_run_prints_the_digest_parsed_from_a_realistic_push_output ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F4E5171B50>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001F4E7054510>
+
+    def test_a_normal_run_prints_the_digest_parsed_from_a_realistic_push_output(monkeypatch, capsys):
+        _fake(monkeypatch)
+>       assert run(args()) == 0
+               ^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:161: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234', '--registry', 'registry.example.internal:5000/foss-mcp']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+push_image: pushing registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+_______ test_the_result_has_exactly_the_five_keys_release_record_reads ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F4E5172750>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001F4E7076F90>
+
+    def test_the_result_has_exactly_the_five_keys_release_record_reads(monkeypatch, capsys):
+        _fake(monkeypatch)
+        before = datetime.now(UTC).replace(microsecond=0)
+>       assert run(args()) == 0
+               ^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:172: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234', '--registry', 'registry.example.internal:5000/foss-mcp']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+push_image: pushing registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+__ test_record_writes_the_same_object_as_utf8_json_without_a_byte_order_mark __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F4E701C8C0>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001F4E51778A0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5441/test_record_writes_the_same_ob0')
+
+    def test_record_writes_the_same_object_as_utf8_json_without_a_byte_order_mark(monkeypatch, capsys, tmp_path):
+        _fake(monkeypatch)
+        record = tmp_path / "nested" / "push-result.json"
+>       assert run(args("--record", str(record))) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:187: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234', '--registry', 'registry.example.internal:5000/foss-mcp', '--record', 'C:\\...\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5441\\test_record_writes_the_same_ob0\\nested\\push-result.json']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+push_image: pushing registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+_________ test_the_last_digest_line_wins_when_the_output_has_several __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F4E5405D60>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001F4E5177240>
+
+    def test_the_last_digest_line_wins_when_the_output_has_several(monkeypatch, capsys):
+        other = "sha256:" + "f" * 64
+        output = f"first: digest: {other} size: 10\n{PUSH_OUTPUT}"
+        _fake(monkeypatch, lambda cmd: _done(cmd, stdout=output) if cmd[1] == "push" else _default_handler(cmd))
+>       assert run(args()) == 0
+               ^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:200: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234', '--registry', 'registry.example.internal:5000/foss-mcp']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+push_image: pushing registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+____________________ test_a_digest_on_stderr_is_found_too _____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F4E51B92B0>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001F4E5171850>
+
+    def test_a_digest_on_stderr_is_found_too(monkeypatch, capsys):
+        def handler(cmd):
+            if cmd[1] == "push":
+                return _done(cmd, stdout="Pushed\n", stderr=f"rev-abc1234: digest: {DIGEST} size: 1783\n")
+            return _default_handler(cmd)
+    
+        _fake(monkeypatch, handler)
+>       assert run(args()) == 0
+               ^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:211: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234', '--registry', 'registry.example.internal:5000/foss-mcp']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+push_image: pushing registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+__________ test_the_registry_falls_back_to_the_environment_variable ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F4E510A450>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001F4E701C140>
+
+    def test_the_registry_falls_back_to_the_environment_variable(monkeypatch, capsys):
+        monkeypatch.setenv(push.REGISTRY_ENV, "env-registry.example.internal:5000")
+        fake = _fake(monkeypatch)
+>       assert run(args(registry=None)) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:242: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as env-registry.example.internal:5000/foss-mcp-serving:rev-abc1234
+push_image: pushing env-registry.example.internal:5000/foss-mcp-serving:rev-abc1234
+______________ test_the_flag_wins_over_the_environment_variable _______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F4E7073E30>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001F4E7084910>
+
+    def test_the_flag_wins_over_the_environment_variable(monkeypatch, capsys):
+        monkeypatch.setenv(push.REGISTRY_ENV, "env-registry.example.internal")
+        fake = _fake(monkeypatch)
+>       assert run(args(registry="flag-registry.example.internal")) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:253: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234', '--registry', 'flag-registry.example.internal']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as flag-registry.example.internal/foss-mcp-serving:rev-abc1234
+push_image: pushing flag-registry.example.internal/foss-mcp-serving:rev-abc1234
+__ test_a_credential_planted_in_the_environment_never_appears_in_any_output ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F4E51CF770>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001F4E52728D0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5441/test_a_credential_planted_in_t0')
+
+    def test_a_credential_planted_in_the_environment_never_appears_in_any_output(monkeypatch, capsys, tmp_path):
+        _plant_credentials(monkeypatch)
+        fake = _fake(monkeypatch)
+        seen: list[str] = []
+    
+        def collect() -> None:
+            captured = capsys.readouterr()
+            seen.append(captured.out + captured.err)
+    
+        # dry run, success with a record, refusals, and every failure path
+        assert run(args("--dry-run")) == 0
+        collect()
+        record = tmp_path / "r.json"
+>       assert run(args("--record", str(record))) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:507: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234', '--registry', 'registry.example.internal:5000/foss-mcp', '--record', 'C:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5441\\test_a_credential_planted_in_t0\\r.json']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+push_image: pushing registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_push_image.py::test_a_normal_run_executes_exactly_inspect_then_tag_then_push
+FAILED tests/deploy/test_push_image.py::test_the_pushed_reference_is_registry_slash_name_colon_tag
+FAILED tests/deploy/test_push_image.py::test_a_normal_run_prints_the_digest_parsed_from_a_realistic_push_output
+FAILED tests/deploy/test_push_image.py::test_the_result_has_exactly_the_five_keys_release_record_reads
+FAILED tests/deploy/test_push_image.py::test_record_writes_the_same_object_as_utf8_json_without_a_byte_order_mark
+FAILED tests/deploy/test_push_image.py::test_the_last_digest_line_wins_when_the_output_has_several
+FAILED tests/deploy/test_push_image.py::test_a_digest_on_stderr_is_found_too
+FAILED tests/deploy/test_push_image.py::test_the_registry_falls_back_to_the_environment_variable
+FAILED tests/deploy/test_push_image.py::test_the_flag_wins_over_the_environment_variable
+FAILED tests/deploy/test_push_image.py::test_a_credential_planted_in_the_environment_never_appears_in_any_output
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3exap9f0\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 29%]
+...........................................FFFFFFF...FF................. [ 59%]
+........................................................................ [ 89%]
+.............F...........                                                [100%]
+================================== FAILURES ===================================
+________ test_a_normal_run_executes_exactly_inspect_then_tag_then_push ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001EFE407A900>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001EFE5E21450>
+
+    def test_a_normal_run_executes_exactly_inspect_then_tag_then_push(monkeypatch, capsys):
+        fake = _fake(monkeypatch)
+>       assert run(args()) == 0
+               ^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:137: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234', '--registry', 'registry.example.internal:5000/foss-mcp']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+push_image: pushing registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+_________ test_the_pushed_reference_is_registry_slash_name_colon_tag __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001EFE5D17310>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001EFE5C63550>
+
+    def test_the_pushed_reference_is_registry_slash_name_colon_tag(monkeypatch, capsys):
+        _fake(monkeypatch)
+>       assert run(args(image="team/foss-mcp-serving:v1.2", registry="registry.example.internal")) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:150: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'team/foss-mcp-serving:v1.2', '--registry', 'registry.example.internal']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging team/foss-mcp-serving:v1.2 as registry.example.internal/team/foss-mcp-serving:v1.2
+push_image: pushing registry.example.internal/team/foss-mcp-serving:v1.2
+___ test_a_normal_run_prints_the_digest_parsed_from_a_realistic_push_output ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001EFE3E02820>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001EFE3ECC150>
+
+    def test_a_normal_run_prints_the_digest_parsed_from_a_realistic_push_output(monkeypatch, capsys):
+        _fake(monkeypatch)
+>       assert run(args()) == 0
+               ^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:161: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234', '--registry', 'registry.example.internal:5000/foss-mcp']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+push_image: pushing registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+_______ test_the_result_has_exactly_the_five_keys_release_record_reads ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001EFE6024FA0>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001EFE3ECDDD0>
+
+    def test_the_result_has_exactly_the_five_keys_release_record_reads(monkeypatch, capsys):
+        _fake(monkeypatch)
+        before = datetime.now(UTC).replace(microsecond=0)
+>       assert run(args()) == 0
+               ^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:172: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234', '--registry', 'registry.example.internal:5000/foss-mcp']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+push_image: pushing registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+__ test_record_writes_the_same_object_as_utf8_json_without_a_byte_order_mark __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001EFE3E02040>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001EFE5C61950>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5442/test_record_writes_the_same_ob0')
+
+    def test_record_writes_the_same_object_as_utf8_json_without_a_byte_order_mark(monkeypatch, capsys, tmp_path):
+        _fake(monkeypatch)
+        record = tmp_path / "nested" / "push-result.json"
+>       assert run(args("--record", str(record))) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:187: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234', '--registry', 'registry.example.internal:5000/foss-mcp', '--record', 'C:\\...\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5442\\test_record_writes_the_same_ob0\\nested\\push-result.json']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+push_image: pushing registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+_________ test_the_last_digest_line_wins_when_the_output_has_several __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001EFE6025A90>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001EFE5E22DD0>
+
+    def test_the_last_digest_line_wins_when_the_output_has_several(monkeypatch, capsys):
+        other = "sha256:" + "f" * 64
+        output = f"first: digest: {other} size: 10\n{PUSH_OUTPUT}"
+        _fake(monkeypatch, lambda cmd: _done(cmd, stdout=output) if cmd[1] == "push" else _default_handler(cmd))
+>       assert run(args()) == 0
+               ^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:200: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234', '--registry', 'registry.example.internal:5000/foss-mcp']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+push_image: pushing registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+____________________ test_a_digest_on_stderr_is_found_too _____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001EFE6024A60>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001EFE3F8CBD0>
+
+    def test_a_digest_on_stderr_is_found_too(monkeypatch, capsys):
+        def handler(cmd):
+            if cmd[1] == "push":
+                return _done(cmd, stdout="Pushed\n", stderr=f"rev-abc1234: digest: {DIGEST} size: 1783\n")
+            return _default_handler(cmd)
+    
+        _fake(monkeypatch, handler)
+>       assert run(args()) == 0
+               ^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:211: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234', '--registry', 'registry.example.internal:5000/foss-mcp']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+push_image: pushing registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+__________ test_the_registry_falls_back_to_the_environment_variable ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001EFE4076DD0>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001EFE5E22E50>
+
+    def test_the_registry_falls_back_to_the_environment_variable(monkeypatch, capsys):
+        monkeypatch.setenv(push.REGISTRY_ENV, "env-registry.example.internal:5000")
+        fake = _fake(monkeypatch)
+>       assert run(args(registry=None)) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:242: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as env-registry.example.internal:5000/foss-mcp-serving:rev-abc1234
+push_image: pushing env-registry.example.internal:5000/foss-mcp-serving:rev-abc1234
+______________ test_the_flag_wins_over_the_environment_variable _______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001EFE6026B30>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001EFE3F8CA50>
+
+    def test_the_flag_wins_over_the_environment_variable(monkeypatch, capsys):
+        monkeypatch.setenv(push.REGISTRY_ENV, "env-registry.example.internal")
+        fake = _fake(monkeypatch)
+>       assert run(args(registry="flag-registry.example.internal")) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:253: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234', '--registry', 'flag-registry.example.internal']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as flag-registry.example.internal/foss-mcp-serving:rev-abc1234
+push_image: pushing flag-registry.example.internal/foss-mcp-serving:rev-abc1234
+__ test_a_credential_planted_in_the_environment_never_appears_in_any_output ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001EFE407BD20>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001EFE605F0D0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5442/test_a_credential_planted_in_t0')
+
+    def test_a_credential_planted_in_the_environment_never_appears_in_any_output(monkeypatch, capsys, tmp_path):
+        _plant_credentials(monkeypatch)
+        fake = _fake(monkeypatch)
+        seen: list[str] = []
+    
+        def collect() -> None:
+            captured = capsys.readouterr()
+            seen.append(captured.out + captured.err)
+    
+        # dry run, success with a record, refusals, and every failure path
+        assert run(args("--dry-run")) == 0
+        collect()
+        record = tmp_path / "r.json"
+>       assert run(args("--record", str(record))) == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_push_image.py:507: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\deploy\test_push_image.py:95: in run
+    return push.main(argv)
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+argv = ['--image', 'foss-mcp-serving:rev-abc1234', '--registry', 'registry.example.internal:5000/foss-mcp', '--record', 'C:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5442\\test_a_credential_planted_in_t0\\r.json']
+
+    def main(argv: list[str] | None = None) -> int:
+        args = parse_args(argv)
+        registry = validate_registry(resolve_registry(args.registry))
+        name, tag = validate_image(args.image)
+        reference = f"{registry}/{name}:{tag}"
+    
+        if args.dry_run:
+            print(shlex.join(tag_command(args.image, reference)))
+            print(shlex.join(push_command(reference)))
+            print("push_image: dry run; nothing was run and nothing was written.", file=sys.stderr)
+            return 0
+    
+        inspected = run_docker(inspect_command(args.image))
+        if inspected.returncode != 0:
+            fail(f"local image {args.image} was not found by docker image inspect; build it first.")
+        local_image_id = parse_image_id(output_of(inspected))
+        if local_image_id is None:
+            fail(f"docker image inspect of {args.image} did not return a sha256:<64 hex> image id.")
+        assert local_image_id is not None
+    
+        print(f"push_image: tagging {args.image} as {reference}", file=sys.stderr, flush=True)
+        tagged = run_docker(tag_command(args.image, reference))
+        if tagged.returncode != 0:
+            fail(f"docker tag failed with exit {tagged.returncode}: {tail(output_of(tagged))}")
+    
+        print(f"push_image: pushing {reference}", file=sys.stderr, flush=True)
+        pushed = run_docker(push_command(reference))
+        push_output = output_of(pushed)
+        if pushed.returncode != 0:
+            fail(f"docker push of {reference} failed with exit {pushed.returncode}: {tail(push_output)}")
+        digest = parse_digest(push_output)
+        if digest is None:
+            fail(
+                f"docker push of {reference} exited 0 but its output carries no 'digest: sha256:<64 hex> size: <n>' "
+                "line; a push with no captured digest is not a success."
+            )
+        assert digest is not None
+    
+        result: dict[str, str] = {
+            "image": args.image,
+            "pushed_reference": reference,
+>           "digest": digestX,
+                      ^^^^^^^
+            "local_image_id": local_image_id,
+            "timestamp": utc_timestamp(),
+        }
+E       NameError: name 'digestX' is not defined
+
+scripts\release\push_image.py:244: NameError
+---------------------------- Captured stderr call -----------------------------
+push_image: tagging foss-mcp-serving:rev-abc1234 as registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+push_image: pushing registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_push_image.py::test_a_normal_run_executes_exactly_inspect_then_tag_then_push
+FAILED tests/deploy/test_push_image.py::test_the_pushed_reference_is_registry_slash_name_colon_tag
+FAILED tests/deploy/test_push_image.py::test_a_normal_run_prints_the_digest_parsed_from_a_realistic_push_output
+FAILED tests/deploy/test_push_image.py::test_the_result_has_exactly_the_five_keys_release_record_reads
+FAILED tests/deploy/test_push_image.py::test_record_writes_the_same_object_as_utf8_json_without_a_byte_order_mark
+FAILED tests/deploy/test_push_image.py::test_the_last_digest_line_wins_when_the_output_has_several
+FAILED tests/deploy/test_push_image.py::test_a_digest_on_stderr_is_found_too
+FAILED tests/deploy/test_push_image.py::test_the_registry_falls_back_to_the_environment_variable
+FAILED tests/deploy/test_push_image.py::test_the_flag_wins_over_the_environment_variable
+FAILED tests/deploy/test_push_image.py::test_a_credential_planted_in_the_environment_never_appears_in_any_output
+
+--- stderr ---
+
