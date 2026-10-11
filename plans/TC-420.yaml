@@ -1,0 +1,71 @@
+id: TC-420
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). TC-393 made the Python reader emit `@property` getters as kind `property`, but only when the getter
+  has a return annotation, because tests/extraction/tree_sitter_engine/test_python_surface.py line 76 pins an UNANNOTATED `@property def
+  size(self)` as kind `method`. That pinned expectation is itself the defect the independent reviews reported (a property shown as a
+  zero-argument method, so `msg.subject()` is suggested for something that must be accessed as `msg.subject`). Many real properties in
+  the Python pilots (cells, words, email) carry no annotation. This card removes the annotation condition and changes that one pinned
+  assertion.
+depends_on:
+- TC-393
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+- tests/extraction/tree_sitter_engine/test_python_surface.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read src/foss_mcp/extraction/tree_sitter_engine/python_surface.py (`_methods`, the property handling TC-393 added, with its condition on
+  a return annotation) and tests/extraction/tree_sitter_engine/test_python_surface.py (the test around line 76 that asserts
+  `pkg.widget.Widget.size` is kind `method`), and tests/extraction/tree_sitter_engine/test_python_surface_members.py (TC-393's tests, which
+  must keep passing UNMODIFIED). Never print or log any environment value.
+- >-
+  Remove the return-annotation condition: every getter decorated `@property`, `@cached_property` or `@functools.cached_property` becomes
+  kind `property` (type empty when unannotated), with `writable` True only when a `@<name>.setter` sibling exists, exactly as for
+  annotated getters. Change in tests/extraction/tree_sitter_engine/test_python_surface.py ONLY the one assertion that pins the unannotated
+  `size` getter as `method` so it asserts kind `property` (and, if that test also counts symbols or lists kinds that are affected, fix
+  only what follows directly from it); state in your report that you changed it and why. Add to the TC-393 test module's sibling OR to
+  test_python_surface.py (your choice, both are in your write_paths only for the second) tests for: unannotated getter without setter
+  (property, writable False), unannotated getter with setter (property, writable True, no duplicate symbol), `cached_property`
+  unannotated, and a plain unannotated method that is NOT a property staying a method.
+- >-
+  Run `{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/tree_sitter_engine/test_python_surface_members.py -q -rfE`,
+  then once `{python} -m pytest tests/extraction -q -rfE -k "not live"`. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Treat every property getter as a property, annotated or not.
+- Update the single pinned assertion that encoded the defect and add tests for the unannotated cases.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/tree_sitter_engine/test_python_surface_members.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction -q -rfE -k "not live"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 20
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/python_surface.py');s=p.read_text(encoding='utf-8');old='def _declared_params(';assert old in s;p.write_text(s.replace(old,'def _declared_paramsX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the parameter reader TC-393 introduced, which the property and method handling both call, so the extraction tests fail. A
+    real break of the module the card changes.
+evidence:
+- evidence/build/G3/TC-420/receipt.json
+closeout:
+- >-
+  An unannotated property getter is extracted as a property, not as a zero-argument method.
+recovery: Re-run from a clean tree.
