@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 
 import containerrun
+import release
 from capabilities import missing as capabilities_missing
 from gatectl import (
     EVIDENCE,
@@ -742,6 +743,7 @@ def rebuild_state(as_if_unstarted: str | None = None):
         "cards": rows,
         "owner_items": load_owner_items(),
         "open_questions": {"open": len(open_q), "ids": sorted(open_q)},
+        "release_images": release.state_rows(),
         "execution_limits": {
             "workers_in_flight": MAX_WORKERS_IN_FLIGHT,
             "max_attempts_per_card": 3,

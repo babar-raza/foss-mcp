@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/babar-raza/foss-mcp/schemas/release-image.schema.json",
+  "title": "foss-mcp release image record",
+  "description": "evidence/release/<image>__<tag>.json, written only by `gatectl release-record`. The state machine's durable record of a built (and optionally pushed) standalone image: what it is, which commit built it, the pre-deployment workflow gate report it passed, and where it was pushed. project/state.yaml's release_images section is derived from these files and never authored.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_by", "recorded_at", "status", "image", "gate_report", "registry"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "generated_by": {"const": "gatectl"},
+    "recorded_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+    "status": {"enum": ["LOCAL_ONLY", "PUSHED"]},
+    "image": {
+      "type": "object", "additionalProperties": false,
+      "required": ["reference", "image_id", "size_bytes", "source_commit"],
+      "properties": {
+        "reference": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._/-]*:[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$"},
+        "image_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "created": {"type": "string"}
+      }
+    },
+    "gate_report": {
+      "type": "object", "additionalProperties": false,
+      "required": ["file", "sha256", "verdict", "pilots_total", "pilots_passed", "image_id"],
+      "properties": {
+        "file": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "verdict": {"enum": ["PASS", "FAIL"]},
+        "pilots_total": {"type": "integer", "minimum": 1},
+        "pilots_passed": {"type": "integer", "minimum": 0},
+        "image_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "peak_memory_mb": {"type": "number", "minimum": 0},
+        "memory_budget": {"type": "string"}
+      }
+    },
+    "registry": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["reference", "digest", "pushed_at"],
+          "properties": {
+            "reference": {"type": "string", "minLength": 1},
+            "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+            "pushed_at": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    }
+  }
+}

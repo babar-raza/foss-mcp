@@ -7,9 +7,28 @@
   "additionalProperties": false,
   "required": ["schema_version", "project", "generated_by", "generated_at",
                "current_gate", "gate_exit", "accepted_gates", "cards", "owner_items",
-               "open_questions", "execution_limits"],
+               "open_questions", "release_images", "execution_limits"],
   "properties": {
     "schema_version": {"const": 1},
+    "release_images": {
+      "description": "Every standalone image recorded by `gatectl release-record` (evidence/release/*.json), so a built or pushed image can never be lost. Derived, never authored. LOCAL_ONLY means built and gate-tested but not pushed; PUSHED carries the registry reference and digest.",
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["image", "image_id", "source_commit", "size_mb", "status", "gate_report", "registry_reference", "registry_digest", "record"],
+        "properties": {
+          "image": {"type": "string"},
+          "image_id": {"type": "string"},
+          "source_commit": {"type": "string"},
+          "size_mb": {"type": "number"},
+          "status": {"enum": ["LOCAL_ONLY", "PUSHED"]},
+          "gate_report": {"type": "string", "description": "verdict and pilots passed/total, e.g. PASS 40/40"},
+          "registry_reference": {"type": ["string", "null"]},
+          "registry_digest": {"type": ["string", "null"]},
+          "record": {"type": "string"}
+        }
+      }
+    },
     "project":        {"const": "foss-mcp"},
     "generated_by":   {"const": "gatectl"},
     "generated_at":   {"$ref": "#/$defs/timestamp"},

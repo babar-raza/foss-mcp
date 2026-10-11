@@ -99,6 +99,7 @@ def _state(**over):
         "cards": [{"id": "TC-001", "gate": "G0", "status": "READY", "attempt": 0, "blocker": None}],
         "owner_items": [],
         "open_questions": {"open": 0, "ids": []},
+        "release_images": [],
         "execution_limits": {
             "workers_in_flight": 1,
             "max_attempts_per_card": 3,

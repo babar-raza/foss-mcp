@@ -17,6 +17,7 @@ from pathlib import Path
 import cardlint as CL
 import gatectl as G
 import gateverify as V
+import release as R
 
 SCHEMA_FOR = {
     "taskcard": "taskcard.schema.json",
@@ -143,6 +144,10 @@ def cmd_validate(args) -> int:
     #     .githooks/pre-commit and pre-push guards - this catches it even if config changes
     #     between commits, or hooks are bypassed, with no commit required to notice.
     problems.extend(_git_identity_problems())
+
+    # 12. every standalone-image record (evidence/release/*.json, REQ-G3-004) validates against its
+    #     schema, was built from a commit in this history, and still matches its copied gate report.
+    problems.extend(R.problems())
 
     for p in problems:
         print(f"FAIL {p}")
@@ -1052,6 +1057,10 @@ def cmd_gate_exit(args) -> int:
 
     # D8 live-content smoke (AGENTS.md, Integration and liveness). A real container must
     # answer a real query. Without Docker the result is BLOCKED_ENV, never a silent pass.
+    # REQ-G3-004: the final standalone image must be in the state machine - pushed, gate-tested on every
+    # pilot, and built from this history - or G3 cannot exit.
+    gate_level.extend(R.gate_exit_problems(args.gate))
+
     live_status, live_detail = _live_smoke()
     if live_status == "FAIL":
         gate_level.append(f"live-content smoke test failed: {live_detail}")
@@ -1546,7 +1555,44 @@ def build_parser():
     sp.add_argument(
         "--dry-run", action="store_true", help="check every precondition and print the plan; write nothing"
     )
+
+    sp = sub.add_parser(
+        "release-record",
+        help="REQ-G3-004: record the final standalone image (and its gate report, and push result) in the state machine",
+    )
+    sp.add_argument(
+        "--image",
+        required=True,
+        help="local image reference with an explicit tag, e.g. foss-mcp-serving:demo-ab12cd3",
+    )
+    sp.add_argument(
+        "--gate-report",
+        required=True,
+        type=Path,
+        help="summary.json written by scripts/release/image_workflow_gate.py",
+    )
+    sp.add_argument(
+        "--push-result", type=Path, help="the JSON written by scripts/release/push_image.py --record"
+    )
     return p
+
+
+def cmd_release_record(args) -> int:
+    try:
+        doc, path = R.record(args.image, args.gate_report, args.push_result)
+    except R.ReleaseRefused as exc:
+        print(f"REFUSED: {exc}")
+        return G.EXIT_FAIL
+    gr = doc["gate_report"]
+    reg = doc["registry"]
+    print(
+        f"RECORDED {doc['image']['reference']} {doc['status']}: gate {gr['verdict']} {gr['pilots_passed']}/{gr['pilots_total']}, "
+        f"commit {doc['image']['source_commit'][:12]}, "
+        + (f"registry digest {reg['digest'][:19]}" if reg else "not pushed yet")
+        + f" -> {path.relative_to(G.REPO).as_posix()}"
+    )
+    print("run `gatectl state --write` and commit the evidence and project/state.yaml")
+    return G.EXIT_OK
 
 
 def cmd_integrate(args) -> int:
@@ -1574,6 +1620,7 @@ def cmd_integrate(args) -> int:
 
 
 HANDLERS = {
+    "release-record": cmd_release_record,
     "validate": cmd_validate,
     "state": cmd_state,
     "next": cmd_next,
