@@ -3,9 +3,9 @@ gate: G3
 lane: transport-deployment
 purpose: >-
   REQ-G3-005 (pilot completeness), content wave 3 wiring. TC-372, TC-373 and TC-374 committed a documentation page for each of
-  slides/java, cells/java, jmap/java, 3d/java, pdf/cpp, slides/cpp, email/cpp, jmap/cpp, cells/typescript, jmap/typescript, 3d/typescript, jmap/nodejs, and TC-363 recorded in values.yaml the library fields their verifiers need (javaPackages, cppSourceDir, cppTarget,
+  slides/java, cells/java, jmap/java, 3d/java, pdf/cpp, cells/cpp, slides/cpp, email/cpp, jmap/cpp, cells/typescript, jmap/typescript, 3d/typescript, jmap/nodejs, and TC-363 recorded in values.yaml the library fields their verifiers need (javaPackages, cppSourceDir, cppTarget,
   cppWarnings, cppVerifyMode, packageName) and taught the chart template to forward them. A page nothing references is not served and
-  its examples are never verified. This card wires all twelve: the chart entry gets `furnishedPage`, and the compose ingest service gets
+  its examples are never verified. This card wires all thirteen: the chart entry gets `furnishedPage`, and the compose ingest service gets
   `--furnished-page`, the library repository, commit and platform, and the same verifier flags the chart would pass, so the two
   deployment paths stay in step. An offline parity test pins it.
 depends_on:
@@ -32,28 +32,33 @@ source_refs:
 inputs:
 - >-
   Read the finished shapes: the `pdf`/`java`, `pdf`/`typescript` entries in infra/helm/foss-mcp/values.yaml and their `ingest-pdf-java` and
-  `ingest-pdf-typescript` compose services; the entries for the twelve pilots slides_java, cells_java, jmap_java, 3d_java, pdf_cpp, slides_cpp, email_cpp, jmap_cpp, cells_typescript, jmap_typescript, 3d_typescript, jmap_nodejs (each has a `library` block, now with the
+  `ingest-pdf-typescript` compose services; the entries for the thirteen pilots slides_java, cells_java, jmap_java, 3d_java, pdf_cpp, cells_cpp, slides_cpp, email_cpp, jmap_cpp, cells_typescript, jmap_typescript, 3d_typescript, jmap_nodejs (each has a `library` block, now with the
   TC-363 verifier fields where applicable, and a `manifestPath`); infra/helm/foss-mcp/templates/ingestion-job.yaml for exactly which flag
   each library key becomes; and tests/infra/test_helm_pilots_match_compose.py (read only; keep it green WITHOUT editing it) for its
   `LIBRARY_FLAGS` mapping of library keys to `--library-*` flags.
 - >-
-  infra/helm/foss-mcp/values.yaml: add `furnishedPage: /app/fixtures/furnished/<family>_<platform>/pages/_index.md` after `maxTypes` for each
-  of the twelve. Change nothing else (the library fields are already there from TC-363).
+  cells/cpp is the odd one out and is IN this card: its page tests/fixtures/furnished/cells_cpp/pages/_index.md is an original
+  sealed-candidate page (it has no `doc_source` or `doc_source_commit` front matter and is not regenerated), but the chart gave cells/cpp
+  no `furnishedPage`, so TC-363's cppSourceDir, cppTarget and cppWarnings for it never take effect. Wire it like the others, and for it
+  only, assert in the test that the page exists and has a non-empty top-level `title:` instead of the `doc_source` checks.
 - >-
-  docker-compose.yml: in each of the twelve `ingest-<family>-<platform>` services add, between `--max-types 300` and `--out`, in the order
+  infra/helm/foss-mcp/values.yaml: add `furnishedPage: /app/fixtures/furnished/<family>_<platform>/pages/_index.md` after `maxTypes` for each
+  of the thirteen. Change nothing else (the library fields are already there from TC-363).
+- >-
+  docker-compose.yml: in each of the thirteen `ingest-<family>-<platform>` services add, between `--max-types 300` and `--out`, in the order
   the chart template emits them: `--furnished-page ...`, `--library-repository ...`, `--library-commit ...`, `--library-platform
   <the library block's platform value>` and then one flag for every OTHER key that pilot's library block holds, using the key-to-flag
   mapping from the template (for example `javaPackages` becomes `--library-java-packages`, `cppTarget` becomes `--library-cpp-target`,
   `packageName` becomes `--library-package-name`). Every value is copied programmatically from values.yaml, never retyped. pdf/cpp has no
   verifier-specific keys, so it gets only the first four. Change nothing else.
 - >-
-  tests/infra/test_wave3_wiring.py (NEW, offline, reads repository files only, no helm, no docker): parametrized over the twelve pilots so a
+  tests/infra/test_wave3_wiring.py (NEW, offline, reads repository files only, no helm, no docker): parametrized over the thirteen pilots so a
   failure names the pilot: (1) values.yaml has the exact furnishedPage path; (2) the file exists, its front matter has `doc_source:
-  github_readme` and a `doc_source_commit` equal to the pilot's `library.commit`; (3) the compose service passes the same
+  github_readme` and a `doc_source_commit` equal to the pilot's `library.commit` (cells/cpp excepted, see above); (3) the compose service passes the same
   `--furnished-page`, `--library-repository`, `--library-commit`, `--library-platform` and, for EVERY other key in the library block, the
   corresponding flag with the equal value, all inside the build_chunks.py invocation and before `--out` (derive the key-to-flag mapping
   from `LIBRARY_FLAGS` in tests/infra/test_helm_pilots_match_compose.py by importing it or re-reading the file; do not retype it); (4) no
-  pilot outside the twelve and the ones that already had a page gained a furnishedPage. Read expected values from values.yaml, do not
+  pilot outside the thirteen and the ones that already had a page gained a furnishedPage. Read expected values from values.yaml, do not
   hard-code commits.
 - >-
   Run `{python} -m pytest tests/infra/test_wave3_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE`, then once
@@ -90,6 +95,6 @@ evidence:
 - evidence/build/G3/TC-375/receipt.json
 closeout:
 - >-
-  The twelve wave-3 pilots (Java, C++, TypeScript, Node.js) reference their documentation pages in the chart and in compose, with the
+  The thirteen wave-3 pilots (Java, C++, TypeScript, Node.js) reference their documentation pages in the chart and in compose, with the
   verifier flags recorded for them, pinned by an offline parity test.
 recovery: Re-run from a clean tree.

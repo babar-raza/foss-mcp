@@ -1,0 +1,79 @@
+id: TC-376
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-005 (pilot completeness). The Go example verifier builds a throwaway go.mod that `require`s the library's module path at version
+  `v0.0.0` and `replace`s it with the cloned directory. Go rejects that for a module whose path ends in a major-version suffix: a module
+  named `.../v26` cannot be required at `v0.0.0` ("version v0.0.0 invalid: should be v26, not v0"). cells/go's go.mod declares
+  `github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26`, so once its documentation page is wired, every cells/go example would fail
+  verification for a reason that has nothing to do with the example. This card makes the verifier use a version of the right major
+  (`vN.0.0`) when the module path ends in `/vN` for N of at least 2, leaving every other module path exactly as it is today.
+depends_on:
+- TC-362
+- TC-361
+- TC-360
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_go_verifier_major_version.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read src/foss_mcp/indexing/example_verifier.py around the Go go.mod template (the text that contains `require {module_path} v0.0.0` and
+  `replace {module_path} => {library_dir}`), `_wrap_go_fragment_if_needed`, and `verify_go_example`; read the existing Go verifier tests
+  (search tests/indexing for `verify_go_example` and `go.mod`) and keep them passing unmodified. Never print or log any environment value.
+- >-
+  Add a small pure function named exactly `_go_required_version` (defined as `def _go_required_version(`) taking a module path and
+  returning the version string to require: `v0.0.0` for any path that does not end in `/vN` with N an integer of at least 2, and
+  `vN.0.0` for one that does (`.../v26` gives `v26.0.0`, `.../v2` gives `v2.0.0`, `.../v1` and `.../v0` and `.../version` and
+  `.../v26x` and a path whose last element merely starts with v give `v0.0.0`; gopkg.in style `.v2` suffixes give `v2.0.0` as well). Use it
+  where the go.mod text is built, so the `require` line carries it. Nothing else about the verification changes: the `replace` line, the
+  import path used by `_wrap_go_fragment_if_needed` (the full module path including the suffix, since that is the import path) and the
+  command lines are untouched.
+- >-
+  tests/indexing/test_go_verifier_major_version.py (NEW, offline): unit tests for `_go_required_version` over the cases above including
+  edge cases (trailing slash, uppercase V, `/v1`, `/v0`, `/v10`, `/v26`, `.v2`, an unrelated path); a test that the go.mod text the
+  verifier writes for a `.../v26` module contains `require <path> v26.0.0` and still `replace <path> => <dir>`, and for a plain path still
+  `v0.0.0` (capture the written file through the same seams the existing Go verifier tests use); and a test that the wrapper still imports
+  the full path including `/v26`. If `go` is on PATH, ALSO include one real check (skipped with a clear reason when `go` is absent, never
+  silently) that builds a scratch module named `example.invalid/lib/v3` with a trivial package and a consumer that requires it at the
+  version the function returns with a `replace`, and runs `go build` successfully; this proves the rule against the real toolchain.
+- >-
+  Run `{python} -m pytest tests/indexing/test_go_verifier_major_version.py -q -rfE`, then once
+  `{python} -m pytest tests/indexing -q -rfE -k "go and not live"`. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Require the library at a version matching its module path's major-version suffix.
+- Pin the rule with unit tests and, where Go is available, a real build.
+checks:
+- command: '{python} -m pytest tests/indexing/test_go_verifier_major_version.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/indexing -q -rfE -k "go and not live"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 12
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');old='def _go_required_version(';assert old in s;p.write_text(s.replace(old,'def _go_required_versionX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the definition of the version rule, so the verifier can no longer compute a version and the new tests fail. A real break of
+    the card's central claim.
+evidence:
+- evidence/build/G3/TC-376/receipt.json
+closeout:
+- >-
+  A Go module whose path ends in a major-version suffix is required at a matching version, so its examples can be verified.
+recovery: Re-run from a clean tree.
