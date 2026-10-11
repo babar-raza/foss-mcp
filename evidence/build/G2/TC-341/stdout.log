@@ -1,0 +1,181 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_vector_scope_probes.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-u8yfjf_w\.junit-0.xml"
+--- stdout ---
+.................                                                        [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_github_token.py tests/infra/test_helm_embedding_gateway.py tests/infra/test_helm_ingestion_embedding.py tests/infra/test_helm_embedding_egress.py tests/infra/test_compose_pdf_cpp.py tests/infra/test_docker_compose_multi_instance.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-u8yfjf_w\.junit-1.xml"
+--- stdout ---
+........................................................................ [  8%]
+........................................................................ [ 17%]
+........................................................................ [ 25%]
+........................................................................ [ 34%]
+........................................................................ [ 43%]
+........................................................................ [ 51%]
+........................................................................ [ 60%]
+........................................................................ [ 69%]
+........................................................................ [ 77%]
+........................................................................ [ 86%]
+........................................................................ [ 95%]
+........................................                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_vector_scope_probes.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-u8yfjf_w\.junit-0.xml"
+--- stdout ---
+.................                                                        [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_github_token.py tests/infra/test_helm_embedding_gateway.py tests/infra/test_helm_ingestion_embedding.py tests/infra/test_helm_embedding_egress.py tests/infra/test_compose_pdf_cpp.py tests/infra/test_docker_compose_multi_instance.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-u8yfjf_w\.junit-1.xml"
+--- stdout ---
+........................................................................ [  8%]
+........................................................................ [ 17%]
+........................................................................ [ 25%]
+........................................................................ [ 34%]
+........................................................................ [ 43%]
+........................................................................ [ 51%]
+........................................................................ [ 60%]
+........................................................................ [ 69%]
+........................................................................ [ 77%]
+........................................................................ [ 86%]
+........................................................................ [ 95%]
+........................................                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/templates/ingestion-job.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_vector_scope_probes.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-u8yfjf_w\.junit-0.xml"
+--- stdout ---
+.FFFF............                                                        [100%]
+================================== FAILURES ===================================
+_ test_every_ingestion_command_has_vector_scope_examples_exactly_once[default] _
+
+mode = 'default'
+
+    @pytest.mark.parametrize("mode", ["default", "gateway"])
+    def test_every_ingestion_command_has_vector_scope_examples_exactly_once(mode: str) -> None:
+        jobs = _ingestion_jobs(_render(*GATEWAY) if mode == "gateway" else _render())
+        assert len(jobs) == len(_pilots())
+        for job in jobs:
+            command = _command(job)
+            name = job["metadata"]["name"]
+>           assert command.count("--vector-scope examples") == 1, name
+E           AssertionError: foss-mcp-pdf-net-ingest-pdf-net
+E           assert 0 == 1
+E            +  where 0 = <built-in method count of str object at 0x000002BE4033FFA0>('--vector-scope examples')
+E            +    where <built-in method count of str object at 0x000002BE4033FFA0> = 'python /app/infra/build_chunks.py --api-surface /app/fixtures/pdf_net/api_surface.json --title "pdf/net API surface" ...--repository aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET --output /data/manifests/recent_releases_pdf_net.json || true; }'.count
+
+tests\infra\test_helm_vector_scope_probes.py:153: AssertionError
+_ test_every_ingestion_command_has_vector_scope_examples_exactly_once[gateway] _
+
+mode = 'gateway'
+
+    @pytest.mark.parametrize("mode", ["default", "gateway"])
+    def test_every_ingestion_command_has_vector_scope_examples_exactly_once(mode: str) -> None:
+        jobs = _ingestion_jobs(_render(*GATEWAY) if mode == "gateway" else _render())
+        assert len(jobs) == len(_pilots())
+        for job in jobs:
+            command = _command(job)
+            name = job["metadata"]["name"]
+>           assert command.count("--vector-scope examples") == 1, name
+E           AssertionError: foss-mcp-pdf-net-ingest-pdf-net
+E           assert 0 == 1
+E            +  where 0 = <built-in method count of str object at 0x000002BE405771E0>('--vector-scope examples')
+E            +    where <built-in method count of str object at 0x000002BE405771E0> = 'python /app/infra/build_chunks.py --api-surface /app/fixtures/pdf_net/api_surface.json --title "pdf/net API surface" ...--repository aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET --output /data/manifests/recent_releases_pdf_net.json || true; }'.count
+
+tests\infra\test_helm_vector_scope_probes.py:153: AssertionError
+_ test_vector_scope_sits_in_the_ingest_step_right_after_the_embedding_provider[default] _
+
+mode = 'default'
+
+    @pytest.mark.parametrize("mode", ["default", "gateway"])
+    def test_vector_scope_sits_in_the_ingest_step_right_after_the_embedding_provider(mode: str) -> None:
+        jobs = _ingestion_jobs(_render(*GATEWAY) if mode == "gateway" else _render())
+        assert jobs
+        expected_provider = GATEWAY_PROVIDER if mode == "gateway" else HASHING_PROVIDER
+        for job in jobs:
+            step = _ingest_segment(_command(job))
+            name = job["metadata"]["name"]
+>           assert step.count("--vector-scope") == 1, name
+E           AssertionError: foss-mcp-pdf-net-ingest-pdf-net
+E           assert 0 == 1
+E            +  where 0 = <built-in method count of list object at 0x000002BE407CB680>('--vector-scope')
+E            +    where <built-in method count of list object at 0x000002BE407CB680> = ['/app/infra/ingest.py', '--family', 'pdf', '--platform', 'net', '--source-kind', ...].count
+
+tests\infra\test_helm_vector_scope_probes.py:167: AssertionError
+_ test_vector_scope_sits_in_the_ingest_step_right_after_the_embedding_provider[gateway] _
+
+mode = 'gateway'
+
+    @pytest.mark.parametrize("mode", ["default", "gateway"])
+    def test_vector_scope_sits_in_the_ingest_step_right_after_the_embedding_provider(mode: str) -> None:
+        jobs = _ingestion_jobs(_render(*GATEWAY) if mode == "gateway" else _render())
+        assert jobs
+        expected_provider = GATEWAY_PROVIDER if mode == "gateway" else HASHING_PROVIDER
+        for job in jobs:
+            step = _ingest_segment(_command(job))
+            name = job["metadata"]["name"]
+>           assert step.count("--vector-scope") == 1, name
+E           AssertionError: foss-mcp-pdf-net-ingest-pdf-net
+E           assert 0 == 1
+E            +  where 0 = <built-in method count of list object at 0x000002BE42306E00>('--vector-scope')
+E            +    where <built-in method count of list object at 0x000002BE42306E00> = ['/app/infra/ingest.py', '--family', 'pdf', '--platform', 'net', '--source-kind', ...].count
+
+tests\infra\test_helm_vector_scope_probes.py:167: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_vector_scope_probes.py::test_every_ingestion_command_has_vector_scope_examples_exactly_once[default]
+FAILED tests/infra/test_helm_vector_scope_probes.py::test_every_ingestion_command_has_vector_scope_examples_exactly_once[gateway]
+FAILED tests/infra/test_helm_vector_scope_probes.py::test_vector_scope_sits_in_the_ingest_step_right_after_the_embedding_provider[default]
+FAILED tests/infra/test_helm_vector_scope_probes.py::test_vector_scope_sits_in_the_ingest_step_right_after_the_embedding_provider[gateway]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_github_token.py tests/infra/test_helm_embedding_gateway.py tests/infra/test_helm_ingestion_embedding.py tests/infra/test_helm_embedding_egress.py tests/infra/test_compose_pdf_cpp.py tests/infra/test_docker_compose_multi_instance.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-u8yfjf_w\.junit-1.xml"
+--- stdout ---
+............F........................................................... [  8%]
+........................................................................ [ 17%]
+........................................................................ [ 25%]
+........................................................................ [ 34%]
+........................................................................ [ 43%]
+........................................................................ [ 51%]
+........................................................................ [ 60%]
+........................................................................ [ 69%]
+........................................................................ [ 77%]
+........................................................................ [ 86%]
+........................................................................ [ 95%]
+........................................                                 [100%]
+================================== FAILURES ===================================
+___ test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5381/test_each_ingestion_job_runs_t0')
+
+    def test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose(tmp_path: Path) -> None:
+        compose = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))["services"]
+        jobs = {
+            job["metadata"]["name"]: job for job in _by_kind(_render("-f", str(_pilot_values(tmp_path))), "Job")
+        }
+        for pilot in PILOTS:
+            service = compose[f"ingest-{pilot['family']}-{pilot['platform']}"]
+            job = jobs[_job_name(pilot)]
+            container = job["spec"]["template"]["spec"]["containers"][0]
+            assert container["command"] == service["entrypoint"], pilot
+>           assert shlex.split(container["args"][0]) == shlex.split(service["command"][0]), pilot
+E           AssertionError: {'family': 'pdf', 'platform': 'net', 'sourceKind': 'self_extracted', 'heldBy': 'ingestion-pdf-net', ...}
+E           assert ['python', '/...surface', ...] == ['python', '/...surface', ...]
+E             
+E             At index 35 diff: '--vector-scoped' != '--vector-scope'
+E             Use -v to get more diff
+
+tests\infra\test_helm_chart.py:347: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_chart.py::test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose
+
+--- stderr ---
+
