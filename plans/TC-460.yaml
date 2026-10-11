@@ -1,0 +1,201 @@
+id: TC-460
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-007 (verified examples for every pilot; authored examples allowed only when clearly labelled and verified by the real
+  toolchain). The 2026-10-11 example diagnosis (real build_chunks Jobs in foss-mcp-ingestion:rev-c67650f, then the same Jobs with
+  in-memory verifier fixes) found four pilots that cannot reach two verified examples from their README even after every verifier fix:
+  imaging/net (the README has 1 example), cells/cpp (1 example, and it indexes WorksheetCollection with an int the real API does not
+  accept), jmap/net (3 examples, at most 1 verifies; one calls ListMailboxesAsync without the required accountId) and jmap/python (all 3
+  reach the network or depend on earlier blocks). Today the only source of candidates is the furnished page's `single.block` list
+  (src/foss_mcp/indexing/example_candidates.py `extract_candidate_examples`), which infra/generate_furnished_page.py regenerates from
+  the README, so there is nowhere for a reviewed, worker-written example to live. This card adds that place and nothing else: a
+  committed, schema-validated SIDECAR tests/fixtures/furnished/<pilot>/authored_examples.yaml (the single source of authored example
+  code, per the supervisor's 2026-10-11 decision; the verification cache of TC-441 holds verdicts only), a loader and validator, an
+  opt-in merge into the candidate list, wiring in infra/build_chunks.py, and an explicit label on every published authored example. An
+  authored example is published only when the SAME verifier that judges README examples verifies it in the ingestion image; nothing
+  the author claims is trusted. README-derived page bytes and README example chunks are unchanged.
+depends_on:
+- TC-001
+- TC-066
+- TC-090
+- TC-191
+- TC-379
+- TC-425
+- TC-441
+- TC-450
+- TC-455
+- TC-458
+write_paths:
+- schemas/product/authored-examples.schema.json
+- src/foss_mcp/indexing/authored_examples.py
+- src/foss_mcp/indexing/example_candidates.py
+- infra/build_chunks.py
+- tests/indexing/test_authored_examples.py
+- tests/infra/test_authored_examples_fixtures.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read src/foss_mcp/indexing/example_candidates.py in full as TC-450 and TC-458 left it (`CandidateExample` with `page_code`,
+  `code_sha256`, `source`, `starts_example`, `imports_only`, `import_prefix`; `normalised_code_sha256`; `extract_candidate_supply`,
+  `CandidateSupply`, `effective_candidate`; keep every behaviour they added), infra/build_chunks.py as TC-441 and TC-458 left it
+  (`_load_furnished_page`, `_build_verified_example_chunks` with the supply line, the verification cache keyed by
+  `getattr(candidate, "provenance", "readme")`, `_PLATFORM_DISPATCH`, `main`), src/foss_mcp/normalization/citation.py
+  (`qualified_symbol_index_from_api_surface`; the SymbolIndex method `declarations_for`; read only), infra/generate_furnished_page.py
+  (`_fixture_path`, `_run_github`, `main`, `parse_readme`, `readme_doc_fields`; read only - it writes only pages/_index.md),
+  schemas/product/*.schema.json and tests/schemas/test_product_schemas.py (the product-schema convention: JSON Schema validated with
+  jsonschema), tests/infra/test_furnished_fixtures_valid.py (how the committed furnished directories and the chart pilots are
+  enumerated) and tests/indexing/test_build_chunks_verification_report.py (how a test drives build_chunks `main` with monkeypatched argv
+  and fake prepare/verify functions). These must keep passing UNMODIFIED: tests/indexing/test_example_candidates.py,
+  tests/indexing/test_build_chunks_verification_report.py, tests/infra/test_build_chunks_degradation.py,
+  tests/infra/test_build_chunks_platforms.py, tests/infra/test_build_chunks_verification_cache.py (TC-441),
+  tests/indexing/test_example_candidates_supply.py and tests/infra/test_build_chunks_candidate_chains.py (TC-458),
+  tests/infra/test_furnished_fixtures_valid.py, tests/infra/test_generate_furnished_page.py,
+  tests/infra/test_ingestion_image_fixtures.py, tests/schemas/test_product_schemas.py. Never print or log any environment value.
+- >-
+  SIDECAR FORMAT (YAML, UTF-8, LF): a mapping with exactly the keys `schema_version` (integer 1), `pilot` (the directory name, for
+  example imaging_net), `library_repository`, `library_commit` (40 lowercase hex), `language` and `examples` (a list of 1 to 5 items).
+  An example has exactly `title` (1 to 120 characters, unique within the file), `description` (non-empty plain text), `symbols` (a
+  non-empty list of unique strings), `code` (non-empty) and `code_sha256` (64 lowercase hex). Write
+  schemas/product/authored-examples.schema.json (JSON Schema draft 2020-12, `additionalProperties: false` at both levels) for exactly
+  this shape. The schema file is the documented contract and is used by the tests; the runtime loader enforces the same structural rules
+  in plain Python (the schema file is not copied into the image), and a test proves the two agree.
+- >-
+  src/foss_mcp/indexing/authored_examples.py (NEW). Public names: `SIDECAR_NAME = "authored_examples.yaml"`; `AUTHORED_LABEL` (the
+  exact sentence `Authored example: written for foss-mcp against the pinned library, not taken from the upstream README; published only
+  after the ingestion verifier compiled or ran it against that commit.`); `LANGUAGE_BY_PLATFORM` mapping the build_chunks
+  `--library-platform` values to the one accepted language tag (dotnet csharp, cpp cpp, python python, java java, go go, rust rust,
+  typescript typescript, nodejs javascript); `FORBIDDEN_CODE_PATTERNS` (compiled regexes with word boundaries, one module constant, so
+  tests and authoring cards import it rather than retyping it) covering environment and credential access (os.environ, getenv,
+  GetEnvironmentVariable, System.getenv, process.env, env::var), process spawning (subprocess, os.system, Process.Start, popen,
+  exec.Command, Runtime.getRuntime), raw network clients (socket, urlopen, urllib.request, requests, http.client, HttpClient,
+  WebClient, TcpClient, net.Dial, http.Get, fetch(, reqwest) and interactive input (input(, Console.ReadLine, std::cin) - each written
+  to match a USAGE form (an import of the module, a qualified call, a type name), never the bare English word, so a comment such as
+  "build two requests" or "the socket stays closed" is not rejected (a test pins that); any http or
+  https URL literal whose host is not reserved (allowed only - example.com, example.org, example.net and their subdomains, and hosts
+  ending in .example, .test or .invalid). The code hash is TC-458's `normalised_code_sha256` from example_candidates - import it,
+  never define a second copy, so a sidecar's `code_sha256`, the candidate's `code_sha256` and TC-441's cache key are one value.
+  `class AuthoredExamplesError(ValueError)`. A function defined exactly as
+  `def load_authored_examples(` taking the sidecar path and keyword-only `pilot`, `library_platform`, `library_commit` and `api_types`
+  (the api_surface `types` list), returning a tuple of CandidateExample with provenance "authored" in file order, raising
+  AuthoredExamplesError whose message lists every problem found by `validate_authored_examples(document, *, pilot, library_platform,
+  library_commit, api_types)` (public, returns a list of problem strings, empty means valid). VALIDATION RULES - (1) the structural
+  shape above; (2) `pilot` equals the expected pilot; (3) `library_commit` equals the expected commit; (4) `language` equals
+  LANGUAGE_BY_PLATFORM[library_platform]; (5) `code_sha256` equals normalised_code_sha256(code); (6) every symbol has at least one
+  declaration in `qualified_symbol_index_from_api_surface(api_types)` (a namespace alone does not count) and its last dotted segment
+  appears in the code as a whole word; (7) the first non-blank line of the code is a comment (`#` for python, `//` for every other
+  language) containing the words `Authored example`; (8) no FORBIDDEN_CODE_PATTERNS match. The loader never imports, compiles or runs
+  the code.
+- >-
+  example_candidates.py, ADDITIVE: `CandidateExample` gains `provenance: str = "readme"` as its LAST field, declared with
+  `field(default="readme", compare=False)` like TC-458's fields (every existing constructor call and equality still holds). A
+  public `merge_authored_candidates(candidates, authored)` returns the README candidates first, unchanged and in order (their
+  `page_code` never includes authored code), then each authored candidate whose title is not already a candidate title, plus the
+  list of skipped titles (never two candidates with one title). An authored candidate has `provenance` "authored", `source`
+  "sidecar", `starts_example` True, `imports_only` False, `import_prefix` empty (so `effective_candidate` returns it unchanged and no
+  chain prefix is ever added), `page_code` a tuple holding ONLY its own code (no verifier can borrow README using/include/import
+  lines for it - an authored example must stand alone) and `code_sha256` equal to the sidecar's. `extract_candidate_examples` and
+  `extract_candidate_supply` keep their signatures and outputs and each gain a keyword-only `authored=()` that applies
+  `merge_authored_candidates` after everything else; the supply's counters and its printed line never count authored candidates.
+  With `authored` empty every result is identical to before.
+- >-
+  infra/build_chunks.py WIRING (AGENTS.md integration rule; prove it on committed source). In `_build_verified_example_chunks`: when
+  the furnished page's parent directory is named `pages` and `<page>.parent.parent / SIDECAR_NAME` exists, load it with
+  `load_authored_examples` (pilot = that directory's name, library_platform and library_commit from the args, api_types from the
+  `--api-surface` file's `types`) and pass the result as `authored=` to the supply call build_chunks makes (TC-458's
+  `extract_candidate_supply`, or `extract_candidate_examples` on its legacy path). An invalid or stale sidecar never
+  stops the build and never publishes any authored example: print one line `authored examples ignored: <problems, first 600
+  characters>` and continue with the README candidates only. Authored candidates are verified with exactly the same platform verify
+  function, arguments and workdir rules as README candidates (no special path, no flag that skips verification). Their verification
+  record has `kind` "authored" (README candidates keep "candidate"), `index` continuing the page numbering. A VERIFIED authored
+  candidate is published with the README body plus three lines directly after `Kind: verified_example` - `Provenance: authored`,
+  `Verification: passed`, then AUTHORED_LABEL - before its description; a README example's body is byte-for-byte unchanged (no new
+  line, so its chunk id does not move). An unverified authored candidate is never published. Print one extra line after the existing
+  `verified V/N` line - `authored examples: <verified> of <loaded> verified` - only when a sidecar was loaded. No helm or Dockerfile
+  change is needed - the ingestion image already copies tests/fixtures/furnished/ whole (`COPY tests/fixtures/furnished/
+  ./fixtures/furnished/`), so a sidecar reaches /app/fixtures/furnished/<pilot>/ beside its page; assert that COPY line in a test rather
+  than editing the Dockerfile.
+- >-
+  DETERMINISM RULES (pinned by tests) - the README-generated page is never edited by this mechanism; regenerating a page never touches
+  a sidecar; a README example's chunk text and id are identical with and without a sidecar; the same sidecar bytes give the same
+  candidates in the same order. Prove the regeneration rule by running the REAL `infra.generate_furnished_page.main(["--source",
+  "github", "--project-root", <tmp>, "--pilot", <pilot>])` in a tmp project root holding a copy of infra/helm/foss-mcp/values.yaml and a
+  sidecar beside the page, with `readme_doc_fields` monkeypatched to return `parse_readme(...)` of a canned README string (no network):
+  the sidecar bytes are unchanged afterwards and the page bytes equal those of the same run without a sidecar.
+- >-
+  tests/indexing/test_authored_examples.py (NEW, offline, deterministic, no skipped tests, no wall-clock assertions; synthetic
+  sidecars in tmp_path and a small synthetic api_types list): the hash normalisation (CRLF vs LF, trailing spaces, surrounding blank
+  lines give one hash; a changed statement another); a valid sidecar loads in order with provenance "authored"; each validation rule
+  (1)-(8) rejected by its own parametrized case with a message naming the rule; every FORBIDDEN_CODE_PATTERNS entry rejected (iterate
+  the constant); a reserved-host URL accepted and a real-looking host rejected; the jsonschema validation of the schema file and
+  `validate_authored_examples` agree on the valid document and on every structural negative case; `extract_candidate_examples` with
+  `authored=()` equals the call without it (legacy and platform mode), README candidates stay a prefix with unchanged `page_code`, an
+  authored candidate has only its own code as `page_code`, an empty `import_prefix`, is returned unchanged by `effective_candidate`
+  and is not counted by the supply counters, a title clash is skipped; with TC-441's cache, an authored verdict is written with
+  `provenance: authored` and the sidecar's `code_sha256`, and a cached and a fresh authored verdict publish identical text; build_chunks `main` end to end
+  (tmp pages directory with a sidecar, fake prepare and verify as test_build_chunks_verification_report.py does) publishes a verified
+  authored example with the three lines in that order and records kind "authored", does not publish an unverified one, ignores an
+  invalid sidecar with the printed line while still publishing the README examples and doc chunks, and leaves every README example
+  chunk text identical to a run without a sidecar; the committed infra/build_chunks.py source contains `load_authored_examples(` and
+  `authored=`; Dockerfile.ingestion still contains the furnished directory COPY; the generator regeneration test above. At least 30
+  tests.
+- >-
+  tests/infra/test_authored_examples_fixtures.py (NEW, offline): discovers every committed tests/fixtures/furnished/*/authored_examples.yaml
+  (zero is allowed today; the authoring cards TC-461..TC-464 add four) and, in ONE test function that loops (never parametrized over a
+  possibly empty list, so nothing is ever skipped) and names the failing pilot in its message, requires for each: the directory is a
+  pilot in infra/helm/foss-mcp/values.yaml `ingestion.pilots`; the file validates against schemas/product/authored-examples.schema.json
+  with jsonschema; `validate_authored_examples` returns no problem with pilot, library platform, library repository and commit taken
+  from that pilot's values.yaml entry and api_types from tests/fixtures/<pilot>/api_surface.json; `library_repository` equals the
+  values.yaml repository; no example title equals a README candidate title of that pilot's committed page. Plus a test that a synthetic
+  stale copy (commit changed) in tmp_path is reported, and a test that the schema file itself is valid JSON Schema
+  (`Draft202012Validator.check_schema`). Keep this file free of literal network-client strings (import FORBIDDEN_CODE_PATTERNS instead),
+  so the authoring cards that run it stay offline. At least 3 tests.
+- >-
+  Run `{python} -m pytest tests/indexing/test_authored_examples.py tests/infra/test_authored_examples_fixtures.py -q -rfE`, then once the
+  second check command below. Do NOT write any sidecar for a real pilot (that is TC-461..TC-464) and do NOT run any ingestion. Write
+  commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Add the authored-example sidecar (schema, loader, validator) as the single source of authored example code.
+- >-
+  Merge authored candidates after the README candidates, verify them with the same verifier, and publish only verified ones with an
+  explicit label, leaving README pages and README example chunks byte-identical.
+checks:
+- command: '{python} -m pytest tests/indexing/test_authored_examples.py tests/infra/test_authored_examples_fixtures.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/indexing/test_authored_examples.py tests/infra/test_authored_examples_fixtures.py tests/indexing/test_example_candidates.py tests/indexing/test_build_chunks_verification_report.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_verification_cache.py tests/indexing/test_example_candidates_supply.py tests/infra/test_build_chunks_candidate_chains.py tests/infra/test_furnished_fixtures_valid.py tests/infra/test_generate_furnished_page.py tests/infra/test_ingestion_image_fixtures.py tests/schemas/test_product_schemas.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 33
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/authored_examples.py');s=p.read_text(encoding='utf-8');old='def load_authored_examples(';assert old in s;p.write_text(s.replace(old,'def load_authored_examplesX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the loader build_chunks imports and the tests call, so infra/build_chunks.py cannot be imported and no sidecar can be
+    loaded: the loader, end-to-end and wiring tests fail, and so do the build_chunks regression files. A real break of the card's
+    central claim.
+evidence:
+- evidence/build/G3/TC-460/receipt.json
+closeout:
+- >-
+  Authored examples have one reviewed, schema-validated home per pilot (tests/fixtures/furnished/<pilot>/authored_examples.yaml); the
+  ingestion verifier judges them exactly like README examples, and only verified ones are published, labelled `Provenance: authored`,
+  `Verification: passed` and with an explicit sentence saying they are not from the upstream README. README pages and README example
+  chunks are byte-identical. network is true only because the unit test file carries sample forbidden network-client strings as data;
+  no test reaches the network. Takes effect on the next ingestion image build; the sidecars themselves arrive with TC-461..TC-464.
+recovery: Re-run from a clean tree.

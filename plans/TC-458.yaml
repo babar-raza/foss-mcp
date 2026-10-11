@@ -1,0 +1,235 @@
+id: TC-458
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-007 (verified examples for every pilot). The candidate supply is too narrow, and the published example is not the program
+  that was verified. Verified in code: src/foss_mcp/indexing/example_candidates.py `extract_candidate_examples` reads only
+  `single.block[*].content`, keeps only the FIRST fence of each block, never filters by language; infra/build_chunks.py
+  `_build_verified_example_chunks` publishes `candidate.code` although, after TC-450, TC-454 and TC-455, the .NET, Rust and C++
+  verifiers compile an ASSEMBLED source (the page's using directives, the page's `use` statements plus a `fn main` wrapper, the page's
+  `#include` lines plus an `int main` wrapper) and record that only in the verification output. Measured offline on the 40 committed
+  pages (tests/fixtures/furnished/<pilot>/pages/_index.md, the files the image ships): every example block holds exactly one fence
+  today; the README Quick Start lives in `content.block[*].content_left` (infra/generate_furnished_page.py merges Installation,
+  Dependencies and Quick Start there) and 6 same-language fences there are copies of no example block (pdf/net 1, slides/python 1,
+  pdf/go 2, pdf/java 1, slides/cpp 1); 3d/java has a kotlin block among its java candidates; import-only blocks exist on pdf/cpp
+  (`#include <aspose.pdf.foss.hpp>` alone, which a C++ verifier with no rejection compiles and counts) and cells/go. Tutorial chains -
+  a block that continues an earlier one without repeating its imports - are the diagnosed blocker on jmap/python, jmap/typescript and
+  jmap/nodejs, whose verifiers (unlike .NET, Go, Rust and C++ after TC-450..TC-455) borrow no page imports. This card widens and
+  cleans the supply (every fence of every block, the content blocks, language filtering, de-duplication by a normalised sha256
+  recorded on the candidate), marks example-starting, continuation and import-only blocks, gives a continuation the import lines of its
+  chain where no verifier does, and makes build_chunks publish exactly the program that was compiled, with a `Harness:` line naming
+  what was added (including the input files TC-459's verifiers supply), and key the verification cache (TC-441) on that program.
+depends_on:
+- TC-066
+- TC-090
+- TC-426
+- TC-441
+- TC-450
+- TC-455
+- TC-459
+write_paths:
+- src/foss_mcp/indexing/example_candidates.py
+- infra/build_chunks.py
+- tests/indexing/test_example_candidates_supply.py
+- tests/infra/test_build_chunks_candidate_chains.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read src/foss_mcp/indexing/example_candidates.py in full as TC-450 left it (`CandidateExample.page_code`); in
+  src/foss_mcp/indexing/example_verifier.py (read only) `_assemble_dotnet_source` (TC-450), `_assemble_rust_source` (TC-454),
+  `_wrap_cpp_fragment_if_needed`, `verify_cpp_example_linux` and its `page_includes` rule (TC-455), the import-only rejections that use
+  `_NO_STATEMENTS_MESSAGE`, `VerificationResult` with `status` and `fixtures` (TC-459); src/foss_mcp/indexing/example_fixtures.py (read
+  only, TC-459: `input_literals`); infra/build_chunks.py in full as TC-426, TC-441 and TC-455 left it (`_load_furnished_page`,
+  `_page_java_imports`, `_page_cpp_includes`, the `--library-cpp-compat` names, `_PLATFORM_DISPATCH`, `normalised_code_sha256`,
+  `verification_cache_key`, `toolchain_id`, `_build_verified_example_chunks`, `main`); infra/generate_furnished_page.py (read only,
+  the page shape - `single.block[*]` has `title`/`content`, `content.block[*]` has `title_left`/`content_left`/`title_right`/
+  `content_right`); src/foss_mcp/mcp/tools/find_examples.py `_EXAMPLE_MARKER` (read only). These must keep passing UNMODIFIED:
+  tests/indexing/test_example_candidates.py, tests/indexing/test_build_chunks_page_sandbox.py,
+  tests/indexing/test_build_chunks_verification_report.py, tests/infra/test_build_chunks_degradation.py and
+  tests/indexing/test_build_chunks_env_failure.py (both drive the C# pdf_net page with `--library-platform rust` and need one verify
+  call per legacy candidate), tests/indexing/test_java_page_imports.py, tests/infra/test_build_chunks_sanitize.py,
+  tests/infra/test_build_chunks_extraction_notice.py (TC-426), tests/infra/test_build_chunks_verification_cache.py (TC-441),
+  tests/indexing/test_dotnet_verifier_assembly.py (TC-450; it asserts the committed build_chunks source contains
+  `extract_candidate_examples(page)` and that every candidate the dotnet dispatch receives on the real slides_net page carries the full
+  9-entry `page_code`), tests/indexing/test_go_verifier_assembly.py (TC-451), tests/indexing/test_rust_verifier_assembly.py (TC-454),
+  tests/indexing/test_cpp_compat_and_page_includes.py (TC-455), tests/indexing/test_example_fixtures.py (TC-459). If one of them
+  cannot pass without an edit, STOP and report which assertion and why; never edit, skip or weaken it. Never print or log any
+  environment value.
+- >-
+  CandidateExample (ADDITIVE; the existing fields, `page_code` included, keep their order and meaning). New fields, each declared
+  with `dataclasses.field(default=..., compare=False)` so existing equality is unchanged - `code_sha256: str = ""`, `source: str =
+  "single"` ("single" or "content"), `starts_example: bool = False`, `imports_only: bool = False`, `import_prefix: tuple[str, ...] =
+  ()`. A public `normalised_code_sha256(code)` - CRLF and CR become LF, trailing whitespace is stripped from every line, leading and
+  trailing blank lines are dropped, then sha256 of the UTF-8 bytes, lowercase hex (TC-441's rule). In infra/build_chunks.py keep the
+  function defined as `def normalised_code_sha256(` but make it return example_candidates' result, so there is one rule. In BOTH modes
+  below every returned candidate has `code_sha256 == normalised_code_sha256(code)` and `page_code` equal to the codes of all returned
+  candidates in order (TC-450's meaning).
+- >-
+  LEGACY MODE, unchanged. `extract_candidate_examples(page, *, platform=None)` with `platform` None returns exactly today's list
+  (first fence of each single block, no content blocks, no filter, no de-duplication, same titles and descriptions); besides
+  `page_code` and `code_sha256` every new field keeps its default. TC-455's `_page_cpp_includes` and every existing caller use it.
+- >-
+  PLATFORM MODE. `extract_candidate_supply(page, platform)` returns a frozen `CandidateSupply` with `candidates` (tuple),
+  `from_single_blocks`, `from_content_blocks`, `duplicates_dropped`, `other_language_dropped`, `imports_only` (ints) and `fallback`
+  (bool); `extract_candidate_examples(page, platform=X)` returns its candidates as a list. `platform` is a `--library-platform` value;
+  an unknown one raises ValueError. A module constant `PLATFORM_FENCE_TAGS` - dotnet csharp, cs, c#; python python, py, python3; rust
+  rust, rs; go go, golang; java java; typescript typescript, ts; nodejs javascript, js, mjs, cjs, node; cpp cpp, c++, cxx, cc. A tag is
+  normalised by lowercasing the fence info string, dropping a leading `{` or `.`, and keeping the first run of `[A-Za-z0-9_#+.-]`; an
+  untagged fence matches no platform. (a) Every fence of every single block, with the fence regex the module already uses; the first
+  accepted fence of a block keeps the block title, a later accepted fence is `<title> (part <n>)` (n its 1-based ordinal among the
+  block's accepted fences) with the prose between the previous fence (any language) and it as description. (b) Then each entry of
+  `page["content"]["block"]`, `content_left` then `content_right`, titled from `title_left`/`title_right` the same way, `source`
+  "content". (c) Fences with another tag are dropped and counted. (d) A candidate whose `code_sha256` equals an earlier one's is
+  dropped and counted (single blocks then content blocks, first wins); a title already used gets ` (<k>)` with the smallest free k
+  from 2. FALLBACK - when no fence of the page has an accepted tag, the supply is the legacy result with `fallback` True.
+- >-
+  CHAINS (platform mode; a sequence is the single-block candidates in page order, or the candidates of one content field). A public
+  function defined as `def import_like_lines(` taking code and platform returns the import units of the code in order, each stripped,
+  a multi-line unit (a Python `from x import (` through `)`, a Rust `use` through `;`, a TypeScript or JavaScript `import {` through its
+  `from '...'` line, each spec of a Go `import ( ... )` block as `import <spec>`) joined with LF. Units - python `import M[ as A][,
+  ...]` and `from M import ...` (never `from __future__`); dotnet `[global ]using [static ]Name;` and `using Alias = Type;` with an
+  optional trailing `//` comment (never `using var ...` or `using (`); rust `use ...;`, `extern crate x;`; go `import "p"`, `import alias
+  "p"`, grouped specs; java `import ...;`; typescript and nodejs `import ... from '...'`, `import '...'`, `const|let|var x = require('...')`;
+  cpp `#include <...>`, `#include "..."`, `using namespace X;`, `using a::b;`. The IMPORT KEY of a unit is its module (python),
+  namespace or alias (dotnet), path before the first `{` (rust), quoted path (go), imported name (java), module specifier (typescript,
+  nodejs) or header (cpp). `starts_example` is True when the first line that is neither blank nor a comment (`#` for python; `//`, `/*`,
+  `*` for the C family; a cpp preprocessor line other than `#include` is skipped) begins an import unit or is a `package` line (go,
+  java); `imports_only` when every such line belongs to an import unit or is a `package` line. A continuation's `import_prefix` is the
+  units of the nearest earlier candidate of its sequence that starts an example plus those of the candidates between (all earlier
+  candidates when none starts one), in order, without a unit whose key repeats an earlier unit or matches a unit of its own code; a
+  Python candidate with a `from __future__` line gets none; a starting candidate's prefix is empty.
+- >-
+  EFFECTIVE CANDIDATE. `CHAIN_PREFIX_PLATFORMS = frozenset({"python", "typescript", "nodejs"})` - the platforms whose verifier borrows
+  no page imports (dotnet, go, rust and cpp verifiers assemble page imports from `page_code` or `page_includes` since TC-450..TC-455,
+  and java receives every page import line through `_page_java_imports`, so prefixing them again would duplicate imports, which is a
+  compile error in Go and Rust). `effective_candidate(candidate, platform)` returns the candidate unchanged when the platform is not in
+  the set or the prefix is empty; otherwise a copy whose `code` is the prefix units joined with LF, one LF, then the original code,
+  with `code_sha256` recomputed and `import_prefix` empty. `IMPORT_ONLY_GUARD_PLATFORMS = frozenset({"cpp", "java", "nodejs"})` - the
+  platforms whose committed verifier does NOT reject a block without statements (dotnet, go, typescript, python and rust do, with
+  `_NO_STATEMENTS_MESSAGE`); confirm this against the committed verify functions and, if one of the three now rejects, leave it out
+  and say so in the report.
+- >-
+  build_chunks `_build_verified_example_chunks` (keep every TC-426, TC-441 and TC-455 behaviour). (1) `supply =
+  extract_candidate_supply(page, args.library_platform)`; the candidate list is `extract_candidate_examples(page)` when
+  `supply.fallback` (keep that exact call text; TC-450's wiring test reads it) and `list(supply.candidates)` otherwise. Print
+  `candidate supply: <N> candidates for <platform> (<S> from example blocks, <C> from content blocks; dropped <D> duplicates and <L>
+  fences in other languages; <I> import-only blocks)`, or on fallback `candidate supply: no <platform> code fences on the page; using
+  the first fence of every example block unfiltered`. (2) On a platform in `IMPORT_ONLY_GUARD_PLATFORMS` an `imports_only` candidate
+  is not verified or published; it is recorded with `kind` "imports_only", `verified` false, `output` `import-only block: not an
+  example by itself` and `cached` false, is never a cache entry and is left out of the `<N>` of `verified <V>/<N> ...`. (3) Every
+  other candidate becomes `effective = effective_candidate(candidate, args.library_platform)`, and verify receives `effective`. (4) A
+  function `_published_program(effective, args) -> tuple[str, list[str]]` returns the program the toolchain compiled and the Harness
+  parts - python, typescript, nodejs - `effective.code`, plus `import lines prepended from earlier examples on this page: <units joined
+  by ' | '>` when a prefix was applied; dotnet - `_assemble_dotnet_source(code, page_code)` source, plus `using directives from other
+  blocks on this page added by the verifier: <directives joined by ' | '>` when any; rust - `_assemble_rust_source(code, page_code)`
+  source, plus `wrapped by the verifier in fn main() -> Result<(), Box<dyn std::error::Error>>` when the mode is "wrapped-fragment"
+  and `use statements from other blocks on this page added by the verifier: ...` when any; cpp - the page includes exactly as the cpp
+  verify_kwargs pass them (only when `page-includes` is among the `--library-cpp-compat` names) that are not already lines of the
+  code, put in front, then `_wrap_cpp_fragment_if_needed`, with parts `#include lines from other blocks on this page added by the
+  verifier: ...` and `wrapped by the verifier in int main()` as they apply; go and java - `effective.code` and no part (their
+  assembly needs the built library; it stays in the verification report). For python, and for cpp unless `--library-cpp-verify-mode`
+  is compile, add `input files named in the code are placed in the working directory by the verifier when it can (kept if already
+  there, otherwise copied by name from the pinned repository or generated as a minimal file): <names joined by ', '>` when
+  `example_fixtures.input_literals(program, platform)` is non-empty. Each LF inside a listed unit is shown as a space.
+- >-
+  (5) The chunk body's `Example:` section holds the published program; when there are parts, one line `Harness: <parts joined by '; '>`
+  goes directly before the description, after `Kind: verified_example` and after any label lines a later card adds; any `Example:`
+  inside it is written `Example :`. With no parts and an unchanged program the body is byte-identical to today's. (6) The
+  verification cache key uses a key candidate `dataclasses.replace(effective, code=<key text>, code_sha256=normalised_code_sha256(<key
+  text>))` passed to `verification_cache_key`, where the key text is the published program, except for go and java, where it is
+  `effective.code`, one LF, and the page's import units (`import_like_lines` over every `page_code` entry, de-duplicated, sorted) joined
+  with LF, so a changed import elsewhere on the page invalidates a recorded verdict. (7) Every record gains `source`, `starts_example`,
+  `harness` (the Harness text without `Harness: `, or ""), `status` (`getattr(result, "status", "")`) and `fixtures` (the
+  `as_dict()` of each `getattr(result, "fixtures", ())` entry). The Harness line and the program depend only on the page and the
+  arguments, so a cached and a fresh verdict publish identical text.
+- >-
+  tests/indexing/test_example_candidates_supply.py (NEW, offline, deterministic, no network, no toolchain, no skipped tests, no
+  wall-clock assertions). Legacy - on every committed page named by infra/helm/foss-mcp/values.yaml (parametrize over the 40 pilots,
+  never retyped) `extract_candidate_examples(page)` equals the first-fence-per-single-block list re-derived in the test, with
+  `code_sha256` and `page_code` as defined. Platform mode on every committed page with its `library.platform` - every tag accepted,
+  titles and hashes unique, and the `source` "single" candidates equal the legacy candidates whose tag is accepted, in order, with equal
+  title, description, language and code (no title churn). Real pages - pdf_net (dotnet) gains exactly one content candidate whose code
+  starts `using Aspose.Pdf;` and no bash fence; 3d_java has no kotlin candidate; slides_net candidate 1 (`Examples`) is `imports_only`
+  and candidates 2 to 8 do not start an example, each with the three `using Aspose.Slides.Foss...` units of candidate 1 as prefix;
+  jmap_python candidate 1 has prefix `('from aspose_jmap_foss import JmapClient, JmapClientOptions',)`; cells_go candidate 0 is
+  `imports_only`; pdf_net with platform rust is a fallback equal to the legacy list. Synthetic - python, bash, python fences in one
+  block give `T` and `T (part 2)` with their descriptions; CRLF and trailing-space variants de-duplicate and are counted; a content fence
+  equal to an example block is dropped; untagged fences; unknown platform; tag normalisation (`C#`, `{.python}`, `ts title=x`);
+  `import_like_lines` per platform including multi-line units, `using var x = ...` and `using (` never being units, Go import blocks; a
+  prefix unit whose key the block already imports is skipped; `from __future__` gets no prefix; `effective_candidate` prepends for
+  python, typescript and nodejs and returns every other platform's candidate unchanged; the hash rule (CRLF, trailing spaces,
+  surrounding blank lines; a changed statement changes it).
+- >-
+  tests/infra/test_build_chunks_candidate_chains.py (NEW, offline; fake prepare and verify as
+  tests/indexing/test_build_chunks_verification_report.py does, `toolchain_id` monkeypatched, a fake VerificationResult carrying
+  `status` and `fixtures` where needed). The fake verify receives the prefixed code for a python continuation and the original code for
+  a starter; the published python continuation shows the prefixed program after `Example:` and the exact Harness line; a starter with
+  nothing added keeps today's body byte for byte; on the REAL slides_net page (dotnet) the published program of `Text and formatting`
+  equals `_assemble_dotnet_source(code, page_code)[0]` and its Harness names the added directives, while the verify fake still receives
+  the original candidate with the full `page_code`; on the REAL jmap_rust page candidate 1 is published as `_assemble_rust_source(...)[0]`
+  with the wrapping part; a cpp fragment is published wrapped with the `int main()` part; a go and a java candidate are published
+  unchanged without a Harness line; a python program naming `input.ps` gets the input-files part and a cpp compile-only run does not;
+  on cpp an import-only block is never passed to verify, is recorded with `kind` "imports_only" and is left out of `<N>`, while on
+  dotnet it IS passed to verify (the verifier rejects it); the supply line; the cache entry for a dotnet continuation has `code_sha256`
+  equal to `normalised_code_sha256` of the published program, and a changed using directive in another block makes the next run miss;
+  a cached and a fresh verdict publish identical chunk text; records carry `status` and `fixtures`; `build_chunks.normalised_code_sha256`
+  agrees with example_candidates'; on the pdf_net page with `--library-platform rust` verify is called once per legacy candidate in
+  legacy order. Wiring (AGENTS.md integration rule) - `inspect.getsource(build_chunks._build_verified_example_chunks)` contains
+  `extract_candidate_supply(`, `effective_candidate(` and `_published_program(`. At least 30 tests across the two files, none skipped.
+- >-
+  Run `{python} -m pytest tests/indexing/test_example_candidates_supply.py tests/infra/test_build_chunks_candidate_chains.py -q -rfE`,
+  then once the second check command below. Do NOT build images or re-ingest any pilot (the supervisor's step). Write commit messages
+  as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Widen the candidate supply to every fence of every example block and the content blocks, filter by the pilot's language,
+  de-duplicate by a normalised sha256 recorded on each candidate, and keep a foreign-language page on today's behaviour.
+- >-
+  Mark example-starting, continuation and import-only blocks, prefix chain imports where no verifier borrows page imports, and make
+  build_chunks publish and cache exactly the program the toolchain compiled, with a Harness line naming what was added.
+checks:
+- command: '{python} -m pytest tests/indexing/test_example_candidates_supply.py tests/infra/test_build_chunks_candidate_chains.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/indexing/test_example_candidates_supply.py tests/infra/test_build_chunks_candidate_chains.py tests/indexing/test_example_candidates.py tests/indexing/test_build_chunks_page_sandbox.py tests/indexing/test_build_chunks_verification_report.py tests/infra/test_build_chunks_degradation.py tests/indexing/test_build_chunks_env_failure.py tests/indexing/test_java_page_imports.py tests/infra/test_build_chunks_sanitize.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_verification_cache.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_go_verifier_assembly.py tests/indexing/test_rust_verifier_assembly.py tests/indexing/test_cpp_compat_and_page_includes.py tests/indexing/test_example_fixtures.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 30
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_candidates.py');s=p.read_text(encoding='utf-8');old='def import_like_lines(';assert old in s;p.write_text(s.replace(old,'def import_like_linesX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the import-unit recogniser that the chain, import-only and cache-key logic all call, so platform-mode extraction raises a
+    NameError: the supply tests on the real pages and every build_chunks chain test fail, while legacy extraction is untouched. A real
+    break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-458/receipt.json
+closeout:
+- >-
+  Each pilot's candidates are every same-language fence of its page (example blocks and the README Quick Start), de-duplicated by a
+  normalised sha256; every published example is the program the toolchain compiled, with a Harness line when anything was added, and
+  the cache is keyed on it; import-only blocks no longer count on C++, Java and Node.js. Expected minimum effect per pilot after the
+  image rebuild and re-ingest (offline supply measurement on the committed pages; verdict numbers are the 2026-10-11 diagnosis, which
+  this card does not re-measure) - no pilot loses a candidate that exercises the library; pdf/net, pdf/go, pdf/java and slides/python gain their README
+  Quick Start as one or two new candidates (pdf/net is at 1 on the committed data, so this is its likeliest second example; .NET is
+  build-only, so no input file is needed; unmeasured); the continuations of jmap/python, jmap/typescript, jmap/nodejs and pdf/python
+  get their chain imports (jmap/python still reaches the network and needs TC-464's authored examples); deliberate honest decreases -
+  pdf/cpp loses its import-only Installation block, 3d/java its kotlin block. slides/net, 3d/net, jmap/net, jmap/rust, email/cpp and
+  jmap/cpp keep exactly the verdicts TC-450, TC-454 and TC-455 measured; only their published text changes to the assembled program.
+  After re-ingest read each Job log's `candidate supply:` and `verified N/M` lines and check one published dotnet continuation (slides/net
+  `Text and formatting`) shows the using directives and the Harness line.
+recovery: Re-run from a clean tree.

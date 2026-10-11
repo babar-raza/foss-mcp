@@ -1,0 +1,163 @@
+id: TC-459
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-007 (verified examples for every pilot). README examples that open an input file fail for a reason that is not the README's.
+  The 2026-10-11 diagnosis (real build_chunks Jobs in foss-mcp-ingestion:rev-c67650f) found page/python blocks failing with
+  `FileNotFoundError: [Errno 2] No such file or directory: 'input.ps'` (two blocks), `'input.eps'` and `'input.xps'` (two blocks), and
+  note/python's twelve blocks failing on sample `.one` files that exist in the pinned repository under `testfiles/`. TC-453 now copies a
+  bare file name a Python block names from the clone into the block's directory, but nothing records WHAT was supplied (no sha256),
+  nothing supplies an input the repository lacks, a failure for a missing input is reported exactly like a broken README, and the C++
+  run step (verify_cpp_example_linux, which RUNS the program unless `--library-cpp-verify-mode compile`) supplies nothing at all.
+  Measured offline on the committed pages, the Python and C++ example blocks name input files on 11 pilots, for example page/python
+  input.ps, input.eps, input.xps; 3d/python model.obj, model.gltf, model.dae; email/python note.txt, sample.msg, message.eml; pdf/python
+  and pdf/cpp input.pdf; slides/cpp input.pptx; words/python notes.md (email/cpp and jmap/cpp are compile-only, so nothing runs there). This card adds src/foss_mcp/indexing/example_fixtures.py - input
+  file names found in the code, deterministic minimal fixtures generated in code for text-like formats, a record (path, origin,
+  sha256) of every file supplied - and a `fixture_unavailable` verdict status for a run that failed because an input could not be
+  supplied, which is never a pass. It is wired into verify_python_example and the C++ run step only.
+depends_on:
+- TC-453
+- TC-455
+- TC-456
+write_paths:
+- src/foss_mcp/indexing/example_fixtures.py
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_example_fixtures.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read in src/foss_mcp/indexing/example_verifier.py `VerificationResult`, `_run`, `_run_bounded`, `_truncate`, `_stage_named_repository_files`,
+  `prepare_python_library`, `verify_python_example` (as TC-453 left it - its default repo_dir rule, its `[foss-mcp] assembly: python
+  staged-files=...` first output line, `_PYTHON_CANDIDATE_TIMEOUT_SECONDS`), `prepare_cpp_library_linux`, `_prepare_cpp_consumer`,
+  `_wrap_cpp_fragment_if_needed` and `verify_cpp_example_linux` (as TC-455 left it - `page_includes`, the run under
+  `_CPP_LINUX_RUN_TIMEOUT_SECONDS` with cwd `project_dir`). Read tests/indexing/test_python_verifier_install.py (TC-453) and
+  tests/indexing/test_cpp_verifier_linux.py (how `_run` and `subprocess.run` are stubbed). These must keep passing UNMODIFIED:
+  tests/indexing/test_python_verifier_install.py, tests/indexing/test_cpp_verifier_linux.py, tests/indexing/test_cpp_verifier_consumer.py,
+  tests/indexing/test_cpp_compat_and_page_includes.py, tests/indexing/test_example_verifier_classification.py,
+  tests/indexing/test_build_chunks_page_sandbox.py, tests/indexing/test_build_chunks_verification_report.py. If one cannot pass without
+  an edit, STOP and report which assertion and why; never edit, skip or weaken it. Never print or log any environment value.
+- >-
+  HARD CONSTRAINTS. Every VerificationResult carries the ORIGINAL candidate. The verdict stays the exit code of the run (`verified` is
+  True only when the program exits 0); a supplied fixture never turns a failure into a pass and a fixture problem never turns a pass
+  into a failure. TC-453's staging function, its selection rule and its assembly line are NOT changed. Call `_run(args, cwd=...)` only.
+  With no input file named in the code, a verify call writes exactly the files it writes today and returns exactly today's output.
+- >-
+  example_fixtures.py (NEW; standard library only; it never imports example_verifier). (1) `FIXTURE_UNAVAILABLE = "fixture_unavailable"`.
+  (2) `DOCUMENT_EXTENSIONS`, a frozenset - one pdf docx doc rtf odt xlsx xls ods csv pptx ppt odp txt md json html htm xml eml msg mbox pst
+  ics vcf obj stl fbx gltf glb dae 3ds ply ps eps xps png jpg jpeg bmp gif tif tiff svg emf wmf tex epub zip. (3) `input_literals(code,
+  platform) -> tuple[str, ...]`: the string literals of the code (python - single or double quoted, an optional r, b or u prefix, never an
+  f-string or a literal holding `{`; cpp - double quoted only, raw strings ignored) whose text is a RELATIVE file name - optional
+  directory segments of `[A-Za-z0-9_.-]`, a basename of `[A-Za-z0-9_][A-Za-z0-9_. -]*`, a dot and an extension in DOCUMENT_EXTENSIONS
+  (any case); never absolute, never a `..` segment, never a backslash, `~` or `://`. A literal is an OUTPUT, and left out, when its
+  lowercased basename starts with `output`, `out.`, `out_`, `out-`, `result` or `converted`, or when every code line holding it matches
+  `(?i)save|write|export|to_file|dump|ofstream` or holds a quoted `w`, `wb` or `w+` mode; the rest are inputs, in first-appearance
+  order, de-duplicated. (4) `generated_fixture(extension) -> tuple[str, bytes] | None`: (`minimal-<ext>`, the bytes) for txt, md, json,
+  csv, html, htm, eml, obj, stl, ps, eps, png and pdf, else None. Each is a fixed, deterministic, at most 1024-byte value built in code
+  (no file is committed) - text lines; a JSON object; a header row plus one row of CSV; an HTML5 page with a title and a paragraph; an
+  RFC 5322 message with From, To, Subject, a FIXED Date, Message-ID, MIME-Version and a text/plain Content-Type, CRLF line ends, a blank
+  line and a body (example.com addresses); a one-triangle OBJ (three `v` lines, one `f`); an ASCII STL of one facet; a PostScript page
+  starting `%!PS-Adobe-3.0` that draws one string and ends `showpage`; an EPS starting `%!PS-Adobe-3.0 EPSF-3.0` with a `%%BoundingBox:`
+  line; a 1x1 RGBA PNG built with `struct`, `zlib.crc32` and `zlib.compress(raw, 0)`; a one-blank-page PDF 1.4 whose xref offsets and
+  `startxref` are computed from the bytes it writes. (5) a frozen dataclass `FixtureRecord(literal, destination, origin, source,
+  sha256)` - destination is the posix path relative to the run directory, origin is "repository", "generated" or "present" (a file that
+  was already there - an earlier block's output), source is the repo-relative posix path, the generator name, or "" - with `as_dict()`.
+  (6) a frozen dataclass `FixturePlan(records: tuple[FixtureRecord, ...], missing: tuple[str, ...])`. (7) a function defined as `def
+  provide_fixtures(` with signature `(code, platform, *, run_dir, repo_dir, staged=())` - `staged` are the repo-relative paths TC-453's
+  staging copied. For each input literal, in order: when `run_dir/<literal>` exists, a "repository" record if a path in `staged` has its
+  basename (that path as source) else a "present" record, never touching the file; else when the literal has a directory part and
+  `repo_dir/<literal>` is a regular file, not a symlink, at most 50 MiB, not under `.git`, and not of extension py pyc pyd pyi pth so dll
+  exe, copy it there (parents created) as a "repository" record; else when `generated_fixture` knows the extension, write it as a
+  "generated" record; else add the literal to `missing`. sha256 is always of the bytes now at the destination, lowercase hex.
+  `repo_dir` None skips the repository step. (8) `fixture_unavailable(output, missing, platform) -> bool`: True when some missing
+  literal's basename occurs in the output AND, for python, `FileNotFoundError` or `No such file or directory` occurs, or, for cpp, one
+  of (case-insensitive) `no such file`, `cannot open`, `can't open`, `could not open`, `failed to open`, `not found`, `does not exist`.
+- >-
+  example_verifier.py. (1) `VerificationResult` gains, after `output`, `status: str = ""` and `fixtures: tuple[FixtureRecord, ...] =
+  field(default=(), compare=False)`; status is "" except FIXTURE_UNAVAILABLE. (2) verify_python_example - after TC-453's staging and
+  before the run, `plan = provide_fixtures(candidate.code, "python", run_dir=script_dir, repo_dir=<TC-453's resolved repo_dir or None>,
+  staged=<what TC-453 staged>)`; the import-only rejection path stays as it is (nothing is supplied there). After the run, when it is
+  not verified and `fixture_unavailable(...)` holds, status is FIXTURE_UNAVAILABLE and one final line `[foss-mcp] fixture unavailable:
+  <missing joined by ', '>` is appended AFTER truncation (so it always survives). `fixtures` is `plan.records`. (3)
+  verify_cpp_example_linux - only on the run path (`run` True and the compile succeeded), before the run: the clone root is the first
+  directory, from `library_dir` upward (inclusive), that contains a `.git` entry (None when there is none); with a clone root call
+  `_stage_named_repository_files(candidate.code, clone_root, project_dir)`, then `provide_fixtures(candidate.code, "cpp",
+  run_dir=project_dir, repo_dir=clone_root, staged=...)`; the run itself is unchanged; status and the final line as for python, with
+  "cpp". A compile failure or `run=False` supplies nothing and returns exactly today's result.
+- >-
+  tests/indexing/test_example_fixtures.py (NEW; offline, deterministic, no network, no g++ or cmake, no skipped tests, no wall-clock
+  assertions; at least 26 tests). input_literals - the REAL note_python `Quick Start` block gives `('SimpleTable.one',)`; the REAL
+  page_python blocks give `input.ps`, `input.eps` and `input.xps` and never `output.pdf`; a literal only on save lines is an output;
+  `out.pdf` is an output; `testfiles/x.one` is kept; `../x.pdf`, `/abs/x.pdf`, `https://h/x.pdf`, an f-string and a C++ single-quoted
+  literal are ignored; `INPUT.PDF` is recognised; order and de-duplication. generated_fixture - every listed extension returns at most
+  1024 bytes and identical bytes on two calls; the PNG has the signature, a 1x1 IHDR, an IDAT that decompresses and valid CRCs; the PDF
+  starts `%PDF-1.4`, its `startxref` number is the byte offset of `xref`, and each xref entry points at `<n> 0 obj`; the EML has CRLF
+  line ends, the headers and a blank line; JSON parses; the STL, OBJ, PS and EPS markers; an unknown extension gives None.
+  provide_fixtures (tmp dirs) - an existing file is kept with origin "present" and unchanged bytes; a TC-453-staged basename is a
+  "repository" record whose sha256 equals hashlib's; a path literal is copied from the exact repo path; a `.py` file and a file under
+  `.git` are never copied; `input.ps` is generated; `input.xps` is missing; `repo_dir` None still generates. fixture_unavailable - the
+  python and cpp markers, and False when the missing name is absent. verify_python_example with `_run_bounded` replaced by a fake that
+  inspects the script directory AT CALL TIME - a block opening `input.ps` sees the generated file and is verified with a "generated"
+  record and status ""; a block whose run fails with `FileNotFoundError: [Errno 2] No such file or directory: 'input.xps'` is not
+  verified, has status `fixture_unavailable` and the final `[foss-mcp] fixture unavailable: input.xps` line; a NameError failure with an
+  unmentioned missing name keeps status ""; with the venv layout TC-453 resolves (tmp `workdir/venv/...` plus `workdir/repo` holding
+  `.git` and `testfiles/SimpleTable.one`) the note_python block gets a "repository" record with source `testfiles/SimpleTable.one`; a
+  block naming no file has `fixtures == ()` and no `[foss-mcp] fixture` line; one real run with the running interpreter as the venv
+  python prints the generated `notes.txt` and is verified; every result carries the original candidate. verify_cpp_example_linux with
+  `_run` and `subprocess.run` stubbed as tests/indexing/test_cpp_verifier_linux.py does, the run fake inspecting `project_dir` at call
+  time - a generated `hello.txt` is present at run time; with `library_dir` inside a tmp clone root holding `.git` and `testdata/sample.msg`,
+  `sample.msg` is staged and recorded with its sha256; a run failing with `cannot open sample2.msg` gives status `fixture_unavailable`;
+  `run=False` and a compile failure supply nothing. `VerificationResult(c, True, "x") == VerificationResult(c, True, "x",
+  fixtures=(record,))`. Wiring (AGENTS.md integration rule) - `inspect.getsource` of verify_python_example and of
+  verify_cpp_example_linux contains `provide_fixtures(`, and `build_chunks._PLATFORM_DISPATCH["python"]["verify"] is
+  verify_python_example` and the "cpp" entry's verify is verify_cpp_example_linux.
+- >-
+  Run `{python} -m pytest tests/indexing/test_example_fixtures.py -q -rfE`, then once the second check command below. Do NOT build
+  images or re-ingest any pilot (the supervisor's step). Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Add deterministic input-file supply for README examples - names found in the code, files from the pinned clone, minimal generated
+  fixtures for text-like formats - with a path, origin and sha256 record for every file supplied.
+- >-
+  Classify a run that failed for an input that could not be supplied as `fixture_unavailable`, never a pass, in the Python verifier and
+  the C++ run step only.
+checks:
+- command: '{python} -m pytest tests/indexing/test_example_fixtures.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/indexing/test_example_fixtures.py tests/indexing/test_python_verifier_install.py tests/indexing/test_cpp_verifier_linux.py tests/indexing/test_cpp_verifier_consumer.py tests/indexing/test_cpp_compat_and_page_includes.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_build_chunks_page_sandbox.py tests/indexing/test_build_chunks_verification_report.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 26
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_fixtures.py');s=p.read_text(encoding='utf-8');old='def provide_fixtures(';assert old in s;p.write_text(s.replace(old,'def provide_fixturesX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the fixture supplier that both verifiers import and call, so example_verifier can no longer be imported: every fixture,
+    staging-record, classification and wiring test fails. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-459/receipt.json
+closeout:
+- >-
+  Python and C++ README examples that open input files run with the file supplied - from the pinned clone, or a deterministic minimal
+  fixture generated in code - every supplied file is recorded with its origin and sha256, and a run that failed because an input could
+  not be supplied is labelled `fixture_unavailable` instead of being charged to the README; it never passes. Expected minimum effect per
+  pilot after the image rebuild and re-ingest - page/python keeps TC-453's at least 2 and can reach 5 (its two input.ps blocks and its
+  input.eps block now get generated PostScript; the diagnosis did not measure this), and its two input.xps blocks become
+  `fixture_unavailable`; note/python keeps TC-453's at least 9 with each staged `.one` file now recorded with its sha256; 3d/python
+  (model.obj), email/python (note.txt, message.eml), pdf/python and pdf/cpp (input.pdf) and words/python (notes.md) get generated
+  inputs - unmeasured, no guaranteed gain; a supplied file can only change a verdict that depended on that file. The per-candidate `fixtures` and `status` reach the verification report through TC-458.
+recovery: Re-run from a clean tree.
