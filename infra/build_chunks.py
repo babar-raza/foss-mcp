@@ -88,6 +88,26 @@ from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_
 # defect produces.
 ENVIRONMENT_FAILURE_EXIT = 75
 
+
+def _prepare_cpp(args: argparse.Namespace, workdir: Path) -> Path:
+    """TC-361: prepare the C++ library. With no ``--library-cpp-*`` flag this is the exact
+    three-positional-argument call pdf/cpp has always made; the keywords are added only when a
+    consumer-project flag is set."""
+    source_dir = getattr(args, "library_cpp_source_dir", None)
+    target = getattr(args, "library_cpp_target", None)
+    warnings = getattr(args, "library_cpp_warnings", None)
+    if source_dir is None and target is None and warnings is None:
+        return prepare_cpp_library_linux(args.library_repository, args.library_commit, workdir)
+    return prepare_cpp_library_linux(
+        args.library_repository,
+        args.library_commit,
+        workdir,
+        source_subdir=source_dir,
+        target=target,
+        relax_warnings=warnings == "relaxed",
+    )
+
+
 # REQ-G2-048 (TC-091): the single, centrally-readable mapping from --library-platform to how
 # to prepare and verify a candidate example for that pilot. Each entry is
 # (prepare, verify, verify_kwargs) where:
@@ -178,13 +198,15 @@ _PLATFORM_DISPATCH = {
     # build directory (holding libaspose_pdf_foss.a); the header root is its sibling include/.
     # verifier_name labels the Linux verifier pair; the test suite checks it by name.
     "cpp": {
-        "prepare": lambda args, workdir: prepare_cpp_library_linux(
-            args.library_repository, args.library_commit, workdir
-        ),
+        "prepare": lambda args, workdir: _prepare_cpp(args, workdir),
         "verify": verify_cpp_example_linux,
         "verify_kwargs": lambda prepared, args: {
             "library_dir": prepared,
             "include_dir": prepared.parent / "include",
+            # TC-361: the consumer-project mode and the compile-only verdict are opt-in; with no
+            # cpp flag the dict is exactly pdf/cpp's.
+            **({"consumer": True} if getattr(args, "library_cpp_target", None) else {}),
+            **({"run": False} if getattr(args, "library_cpp_verify_mode", None) == "compile" else {}),
         },
         "shared_page_workdir": False,
         "verifier_name": "cpp_verifier_linux",
@@ -457,6 +479,29 @@ def main() -> None:
         "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
     )
     parser.add_argument(
+        "--library-cpp-source-dir",
+        default=None,
+        help="repository-relative directory holding the C++ library's CMake project "
+        "(cpp only; needs --library-cpp-target, TC-361)",
+    )
+    parser.add_argument(
+        "--library-cpp-target",
+        default=None,
+        help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+    )
+    parser.add_argument(
+        "--library-cpp-warnings",
+        choices=("strict", "relaxed"),
+        default=None,
+        help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+    )
+    parser.add_argument(
+        "--library-cpp-verify-mode",
+        choices=("run", "compile"),
+        default=None,
+        help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+    )
+    parser.add_argument(
         "--verification-report",
         type=Path,
         default=None,
@@ -464,6 +509,11 @@ def main() -> None:
         "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
     )
     args = parser.parse_args()
+
+    if args.library_cpp_target is None and (
+        args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+    ):
+        parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
 
     furnished_args = (
         args.furnished_page,

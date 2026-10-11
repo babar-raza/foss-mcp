@@ -1518,7 +1518,154 @@ def _require_linux_tool(tool: str) -> None:
         )
 
 
-def prepare_cpp_library_linux(repository: str, commit: str, workdir: Path) -> Path:
+# TC-361 (REQ-G3-005): opt-in consumer-project mode. cells/cpp, slides/cpp, email/cpp and
+# jmap/cpp are not one archive named like pdf/cpp's: their CMake targets differ, one is
+# header-only (INTERFACE, no archive), and slides/cpp pulls its own dependencies in with
+# FetchContent. A tiny CMake project that add_subdirectory()s the library and links a
+# candidate executable to the library's target lets CMake supply includes, dependencies and
+# the language level. pdf/cpp does not opt in and keeps its exact command lines.
+_CPP_CONSUMER_DIRNAME = "_foss_mcp_consumer"
+_CPP_CONSUMER_TARGET = "foss_mcp_candidate"
+_CPP_TARGET_RE = re.compile(r"^[A-Za-z0-9_.+-]+$")
+_CPP_MAIN_RE = re.compile(r"\bmain\s*\(")
+_CPP_PREAMBLE_LINE_RE = re.compile(r"^\s*(?:#\s*include\b|using\b)")
+
+
+def _validate_cpp_source_subdir(source_subdir: str) -> None:
+    """Raise ``ValueError`` unless ``source_subdir`` is a relative path without ``..``."""
+    parts = source_subdir.replace("\\", "/").split("/")
+    if (
+        not source_subdir
+        or Path(source_subdir).is_absolute()
+        or source_subdir.startswith(("/", "\\"))
+        or re.match(r"^[A-Za-z]:", source_subdir)
+        or ".." in parts
+    ):
+        raise ValueError(
+            f"C++ library source directory must be a relative path without '..', got {source_subdir!r}"
+        )
+
+
+def _validate_cpp_target(target: str) -> None:
+    if not _CPP_TARGET_RE.fullmatch(target):
+        raise ValueError(f"C++ library target {target!r} does not match {_CPP_TARGET_RE.pattern}")
+
+
+def _wrap_cpp_fragment_if_needed(code: str) -> str:
+    """Wrap a C++ README fragment that has no ``main`` in ``int main() { ... return 0; }``.
+
+    Code that matches ``\\bmain\\s*\\(`` is returned unchanged, byte for byte. Otherwise
+    the leading ``#include`` and ``using`` lines (and the blank lines among them) stay at the
+    top of the file, and everything after them is placed inside ``main``.
+    """
+    if _CPP_MAIN_RE.search(code) is not None:
+        return code
+
+    lines = code.splitlines()
+    split = 0
+    for index, line in enumerate(lines):
+        if _CPP_PREAMBLE_LINE_RE.match(line):
+            split = index + 1
+        elif line.strip():
+            break
+    parts = [*lines[:split], "int main() {", *lines[split:], "    return 0;", "}"]
+    return "\n".join(parts) + "\n"
+
+
+def _write_cpp_consumer_project(
+    consumer_dir: Path, library_source_dir: Path, target: str, relax_warnings: bool
+) -> None:
+    """Write the consumer ``CMakeLists.txt`` and a placeholder ``candidate.cpp`` into ``consumer_dir``.
+
+    The project adds ``library_source_dir`` as a subdirectory and links the candidate
+    executable to ``target``. ``relax_warnings`` appends ``-Wno-error`` to the target's
+    private compile options after the library's own ``-Werror``, so it wins.
+    Raises ``ValueError`` for a malformed target or a library source directory that
+    does not exist.
+    """
+    _validate_cpp_target(target)
+    if not library_source_dir.is_dir():
+        raise ValueError(f"C++ library source directory {library_source_dir} does not exist")
+
+    consumer_dir.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "cmake_minimum_required(VERSION 3.16)",
+        "project(foss_mcp_consumer CXX)",
+        "set(CMAKE_CXX_STANDARD 20)",
+        "set(CMAKE_CXX_STANDARD_REQUIRED ON)",
+        f'add_subdirectory("{library_source_dir.as_posix()}" foss_mcp_library EXCLUDE_FROM_ALL)',
+    ]
+    if relax_warnings:
+        lines.append(f"target_compile_options({target} PRIVATE -Wno-error)")
+    lines += [
+        f"add_executable({_CPP_CONSUMER_TARGET} candidate.cpp)",
+        f"target_link_libraries({_CPP_CONSUMER_TARGET} PRIVATE {target})",
+    ]
+    (consumer_dir / "CMakeLists.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (consumer_dir / "candidate.cpp").write_text("int main() { return 0; }\n", encoding="utf-8")
+
+
+def _prepare_cpp_consumer(
+    repository: str,
+    commit: str,
+    workdir: Path,
+    source_subdir: str | None,
+    target: str,
+    relax_warnings: bool,
+) -> Path:
+    """Write, configure and build the consumer project; return its build directory."""
+    library_source_dir = workdir / source_subdir if source_subdir else workdir
+    consumer_dir = workdir / _CPP_CONSUMER_DIRNAME
+    _write_cpp_consumer_project(consumer_dir, library_source_dir, target, relax_warnings)
+    build_dir = consumer_dir / _CPP_LINUX_BUILD_DIRNAME
+    build_dir.mkdir(parents=True, exist_ok=True)
+
+    configure_result = subprocess.run(
+        [
+            _CPP_LINUX_CMAKE,
+            "-S",
+            str(consumer_dir),
+            "-B",
+            str(build_dir),
+            "-G",
+            "Unix Makefiles",
+            "-DCMAKE_BUILD_TYPE=Release",
+            f"-DCMAKE_CXX_COMPILER={_CPP_LINUX_COMPILER}",
+            "-DBUILD_TESTING=OFF",
+        ],
+        cwd=workdir,
+        capture_output=True,
+        text=True,
+    )
+    if configure_result.returncode != 0:
+        raise RuntimeError(
+            f"cmake configure of the consumer project for {repository}@{commit} failed:\n"
+            f"{configure_result.stdout}\n{configure_result.stderr}"
+        )
+
+    build_result = subprocess.run(
+        [_CPP_LINUX_CMAKE, "--build", str(build_dir), "--target", _CPP_CONSUMER_TARGET, "--parallel"],
+        cwd=workdir,
+        capture_output=True,
+        text=True,
+    )
+    if build_result.returncode != 0:
+        raise RuntimeError(
+            f"build of {target} (through {_CPP_CONSUMER_TARGET}) for {repository}@{commit} failed:\n"
+            f"{build_result.stdout}\n{build_result.stderr}"
+        )
+    return build_dir
+
+
+def prepare_cpp_library_linux(
+    repository: str,
+    commit: str,
+    workdir: Path,
+    *,
+    source_subdir: str | None = None,
+    target: str | None = None,
+    relax_warnings: bool = False,
+) -> Path:
     """Shallow-fetch ``repository`` at exactly ``commit`` into ``workdir``,
     configure it with CMake (Release, g++ as the C++ compiler), and build the
     ``aspose_pdf_foss`` static library. Returns the build directory, which
@@ -1530,7 +1677,21 @@ def prepare_cpp_library_linux(repository: str, commit: str, workdir: Path) -> Pa
     the pinned commit cannot be fetched. Raises ``RuntimeError`` when the
     library itself fails to configure or build, because the reference library
     must always build clean.
+
+    TC-361: when ``target`` is given, the library is instead built through a
+    generated consumer CMake project (see ``_write_cpp_consumer_project``) that
+    add_subdirectory()s ``source_subdir`` (default: the repository root) and links a
+    candidate executable to ``target``. The return value is then the consumer's
+    build directory, ``workdir/_foss_mcp_consumer/_build``. ``relax_warnings``
+    appends ``-Wno-error`` to ``target``. Raises ``ValueError`` for a malformed
+    ``target``, or a ``source_subdir`` that is absolute, holds ``..``, or does not
+    exist after the clone.
     """
+    if target is not None:
+        _validate_cpp_target(target)
+        if source_subdir:
+            _validate_cpp_source_subdir(source_subdir)
+
     _require_linux_tool(_CPP_LINUX_COMPILER)
     _require_linux_tool(_CPP_LINUX_CMAKE)
 
@@ -1538,6 +1699,9 @@ def prepare_cpp_library_linux(repository: str, commit: str, workdir: Path) -> Pa
         _clone_pinned_commit(repository, commit, workdir)
     except RuntimeError as exc:
         raise ExampleEnvironmentError("git", "fetch of the pinned commit failed", str(exc)) from exc
+
+    if target is not None:
+        return _prepare_cpp_consumer(repository, commit, workdir, source_subdir, target, relax_warnings)
 
     build_dir = workdir / _CPP_LINUX_BUILD_DIRNAME
     build_dir.mkdir(parents=True, exist_ok=True)
@@ -1590,6 +1754,9 @@ def verify_cpp_example_linux(
     workdir: Path,
     library_dir: Path,
     include_dir: Path,
+    *,
+    consumer: bool = False,
+    run: bool = True,
 ) -> VerificationResult:
     """Compile and link ``candidate.code`` as a throwaway ``candidate.cpp``
     against ``library_dir/libaspose_pdf_foss.a`` (``library_dir`` is the
@@ -1600,31 +1767,47 @@ def verify_cpp_example_linux(
     compile or link error, a non-zero exit, or a run that exceeds the timeout
     is a candidate failure and is returned as not verified. A missing g++ is
     an environment failure and raises ``ExampleEnvironmentError``.
+
+    A candidate without ``main`` is first wrapped by ``_wrap_cpp_fragment_if_needed``.
+    TC-361: with ``consumer=True`` ``library_dir`` is the consumer project's build
+    directory; the wrapped code is written to the consumer's ``candidate.cpp`` and built
+    through CMake as the ``foss_mcp_candidate`` target. With ``run=False`` a successful
+    compile-and-link is the verdict and the executable is not run.
     """
     _require_linux_tool(_CPP_LINUX_COMPILER)
+    if consumer:
+        _require_linux_tool(_CPP_LINUX_CMAKE)
 
     project_dir = workdir / "candidate_project"
     project_dir.mkdir(parents=True, exist_ok=True)
-    source_path = project_dir / "candidate.cpp"
-    source_path.write_text(candidate.code, encoding="utf-8")
-    library_artifact = library_dir / _CPP_LINUX_ARTIFACT_NAME
-    output_exe = project_dir / "candidate"
+    code = _wrap_cpp_fragment_if_needed(candidate.code)
 
-    compile_result = _run(
-        [
+    if consumer:
+        source_path = library_dir.parent / "candidate.cpp"
+        output_exe = library_dir / _CPP_CONSUMER_TARGET
+        compile_argv = [_CPP_LINUX_CMAKE, "--build", str(library_dir), "--target", _CPP_CONSUMER_TARGET]
+    else:
+        source_path = project_dir / "candidate.cpp"
+        output_exe = project_dir / "candidate"
+        compile_argv = [
             _CPP_LINUX_COMPILER,
             "-std=c++20",
             f"-I{include_dir}",
             str(source_path),
-            str(library_artifact),
+            str(library_dir / _CPP_LINUX_ARTIFACT_NAME),
             "-o",
             str(output_exe),
-        ],
-        cwd=project_dir,
-    )
+        ]
+    source_path.write_text(code, encoding="utf-8")
+
+    compile_result = _run(compile_argv, cwd=project_dir)
     if compile_result.returncode != 0:
         output = _truncate(f"{compile_result.stdout}\n{compile_result.stderr}")
         return VerificationResult(candidate=candidate, verified=False, output=output)
+
+    if not run:
+        output = _truncate(f"{compile_result.stdout}\n{compile_result.stderr}")
+        return VerificationResult(candidate=candidate, verified=True, output=output)
 
     try:
         run_result = subprocess.run(
