@@ -680,6 +680,39 @@ def _is_non_public_path(p: Path, root: Path) -> bool:
     return any(part.lower() in _NON_PUBLIC_DIRS for part in parts)
 
 
+_TEST_FILE_SUFFIXES: tuple[str, ...] = (
+    "_test.go",
+    "_test.py",
+    ".test.ts",
+    ".spec.ts",
+    ".test.tsx",
+    ".spec.tsx",
+    ".test.js",
+    ".spec.js",
+    ".test.mjs",
+)
+
+
+def _is_test_source_file(p: Path) -> bool:
+    """Return True if *p* is a test source file by naming convention (TC-392).
+
+    Go keeps ``*_test.go`` next to the code it tests, so excluding test DIRECTORIES
+    (``_NON_PUBLIC_DIRS``) alone still walks them and fabricates API from
+    ``ExampleXxx`` functions and test helpers. Matches the base name only, so an
+    ordinary file that merely contains "test" (``attestation.go``, ``latest.ts``)
+    is still walked.
+    """
+    name = p.name.lower()
+    if name.endswith(_TEST_FILE_SUFFIXES):
+        return True
+    return name.startswith("test_") and name.endswith(".py")
+
+
+def _is_excluded_source_path(p: Path, root: Path) -> bool:
+    """Return True if *p* must not contribute to the API surface (directory or test file)."""
+    return _is_non_public_path(p, root) or _is_test_source_file(p)
+
+
 _FORMAT_STEM_RE = re.compile(r"(format|exporter|importer|loader|saver|reader|writer)", re.IGNORECASE)
 
 
@@ -715,7 +748,7 @@ def _collect_source_files(
         return (2, rel)
 
     candidates = sorted(
-        (f for f in root.rglob(f"*{ext}") if not _is_non_public_path(f, root)),
+        (f for f in root.rglob(f"*{ext}") if not _is_excluded_source_path(f, root)),
         key=_priority,
     )
     total_candidates = len(candidates)
@@ -725,7 +758,7 @@ def _collect_source_files(
         for he in exts:
             remaining = MAX_FILES - len(files)
             he_candidates = sorted(
-                (f for f in root.rglob(f"*{he}") if not _is_non_public_path(f, root)),
+                (f for f in root.rglob(f"*{he}") if not _is_excluded_source_path(f, root)),
                 key=_priority,
             )
             total_candidates += len(he_candidates)

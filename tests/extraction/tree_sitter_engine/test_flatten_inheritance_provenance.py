@@ -123,17 +123,21 @@ def test_a_method_copied_transitively_from_the_grandparent_is_rooted_to_the_gran
     assert get_is_in_line.get("inherited_from") != PARENT_IMPORT
 
 
-def test_a_transitively_copied_constructor_is_rooted_to_the_grandparent() -> None:
-    """BaseParagraph's own constructor (name == return_type == "BaseParagraph") must be
-    rooted to BaseParagraph once it reaches the grandchild, exactly like any other
-    transitively-copied member - this is the specific shape the audit's own correction
-    paragraph called out as a real, genuinely-declared member, not a C1-style fabrication."""
+def test_a_base_constructor_is_never_copied_into_a_subclass() -> None:
+    """TC-392: constructors are not inherited (C#, Java, C++, TypeScript). BaseParagraph's own
+    constructor must never reach the grandchild, while the grandparent still carries its own
+    constructor entry, unmodified."""
     classes = _three_level_chain()
     _flatten_inheritance(classes)
     child = next(c for c in classes if c["name"] == "PopupAnnotation")
+    grandparent = next(c for c in classes if c["name"] == "BaseParagraph")
 
-    ctor = _by_name(child["methods"], "BaseParagraph")
-    assert ctor.get("inherited_from") == GRANDPARENT_IMPORT
+    assert [m for m in child["methods"] if m["name"] == "BaseParagraph"] == []
+    assert _by_name(grandparent["methods"], "BaseParagraph") == {
+        "name": "BaseParagraph",
+        "params": [],
+        "return_type": "BaseParagraph",
+    }
 
 
 def test_properties_behave_the_same_way_as_methods() -> None:

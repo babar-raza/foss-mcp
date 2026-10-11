@@ -2453,6 +2453,27 @@ def _prefers_structured_data(existing: dict, candidate: dict) -> bool:
     return candidate_has_data and not existing_has_data
 
 
+def _is_constructor_like(method: dict, class_short_name: str) -> bool:
+    """True if *method* is a constructor or destructor of the class named *class_short_name*.
+
+    TC-392: constructors and destructors are not inherited in C#, Java, C++ or TypeScript
+    (nor is Python's ``__init__`` a member a caller sees on the subclass as the base's), so
+    ``_flatten_inheritance`` must not copy them from a parent into a subclass. A parent's
+    ``BaseParagraph()`` / ``~BaseParagraph()`` listed on ``PopupAnnotation`` is fabricated
+    API. Recognised shapes: an explicit ``is_constructor`` flag, a name equal to the class's
+    short name, ``~`` plus the short name, or the language keywords ``constructor`` /
+    ``__init__``. An ordinary method that merely RETURNS the class type is not matched.
+    """
+    if method.get("is_constructor"):
+        return True
+    name = method.get("name", "")
+    if name in ("constructor", "__init__"):
+        return True
+    if not class_short_name:
+        return False
+    return name == class_short_name or name == "~" + class_short_name
+
+
 def _flatten_inheritance(classes: list[dict]) -> None:
     """Copy inherited methods/properties into child classes (in-place).
 
@@ -2548,7 +2569,11 @@ def _flatten_inheritance(classes: list[dict]) -> None:
             parent_identity = parent.get("class_import") or parent.get("name", "")
 
             child_method_keys = {_method_key(m) for m in cls.get("methods", [])}
+            parent_short_name = parent.get("name", "")
             for m in parent.get("methods", []):
+                # TC-392: constructors/destructors are never inherited.
+                if _is_constructor_like(m, parent_short_name):
+                    continue
                 key = _method_key(m)
                 if key not in child_method_keys:
                     copied_method = copy.deepcopy(m)
