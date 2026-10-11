@@ -52,6 +52,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -153,6 +154,12 @@ _PLATFORM_DISPATCH = {
         "verify_kwargs": lambda prepared, args: {
             "library_jar": prepared,
             "page_imports": _page_java_imports(getattr(args, "furnished_page", None)),
+            # TC-360: pilot mode is opt-in; without --library-java-packages the dict is unchanged.
+            **(
+                {"java_packages": _java_packages_tuple(args.library_java_packages)}
+                if getattr(args, "library_java_packages", None)
+                else {}
+            ),
         },
         "shared_page_workdir": False,
     },
@@ -195,6 +202,31 @@ _PLATFORM_REQUIRED_FLAGS: dict[str, tuple[str, str]] = {
     "go": ("library_module_path", "--library-module-path"),
     "typescript": ("library_package_name", "--library-package-name"),
 }
+
+
+_JAVA_PACKAGE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
+
+
+def _java_packages_tuple(value: str | tuple[str, ...] | list[str]) -> tuple[str, ...]:
+    """The Java package names of ``--library-java-packages``, as a tuple. Accepts the parsed tuple
+    or the raw comma-separated string.
+    """
+    if isinstance(value, str):
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+    return tuple(value)
+
+
+def _java_packages_argument(text: str) -> tuple[str, ...]:
+    """argparse type for ``--library-java-packages``: comma-separated Java package names, each of
+    which must be a valid dotted identifier; anything else is a usage error (exit 2).
+    """
+    packages = _java_packages_tuple(text)
+    if not packages:
+        raise argparse.ArgumentTypeError("expected at least one Java package name")
+    for package in packages:
+        if _JAVA_PACKAGE_RE.match(package) is None:
+            raise argparse.ArgumentTypeError(f"{package!r} is not a valid Java package name")
+    return packages
 
 
 def _with_source_commit_line(chunk: Chunk) -> Chunk:
@@ -416,6 +448,13 @@ def main() -> None:
         "--library-package-name",
         default=None,
         help="pinned reference package's npm package name (typescript only)",
+    )
+    parser.add_argument(
+        "--library-java-packages",
+        type=_java_packages_argument,
+        default=None,
+        help="comma-separated Java packages whose classes the README examples use "
+        "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
     )
     parser.add_argument(
         "--verification-report",

@@ -33,6 +33,7 @@ import shutil
 import subprocess
 import sys
 import urllib.request
+import xml.etree.ElementTree as ElementTree
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -1057,23 +1058,82 @@ _MAVEN_DOWNLOAD_URL = (
 )
 
 _JAVA_PUBLIC_CLASS_RE = re.compile(r"public\s+(?:final\s+|abstract\s+)?class\s+(\w+)")
+_JAVA_DEPENDENCY_DIR = "foss-mcp-deps"
+_JAVA_IMPORT_LINE_RE = re.compile(
+    r"^import\s+(?:static\s+)?[A-Za-z_]\w*(?:\s*\.\s*(?:[A-Za-z_]\w*|\*))*\s*;$"
+)
+
+
+def _hoist_java_imports(code: str) -> tuple[tuple[str, ...], str]:
+    """Split a Java statement block into its top-of-block imports and the remaining body.
+
+    The imports are the ``import ...;`` and ``import static ...;`` lines at the top of ``code``, in
+    order, stripped. Blank lines and comments between them are allowed; the first line that is
+    anything else ends the import block, so an ``import`` word later in the code is never hoisted.
+    The body is ``code`` minus the hoisted lines, with leading blank lines removed. A README code
+    block often starts with its own imports, and Java accepts an import only above a class, never
+    inside ``main``.
+    """
+    lines = code.splitlines()
+    hoisted_indexes: set[int] = set()
+    imports: list[str] = []
+    in_block_comment = False
+    for index, raw_line in enumerate(lines):
+        line = raw_line.strip()
+        if in_block_comment:
+            if "*/" in line:
+                in_block_comment = False
+            continue
+        if not line or line.startswith("//"):
+            continue
+        if line.startswith("/*"):
+            in_block_comment = "*/" not in line
+            continue
+        if _JAVA_IMPORT_LINE_RE.match(line):
+            hoisted_indexes.add(index)
+            imports.append(line)
+            continue
+        break
+    body_lines = [line for index, line in enumerate(lines) if index not in hoisted_indexes]
+    while body_lines and not body_lines[0].strip():
+        body_lines.pop(0)
+    return tuple(imports), "\n".join(body_lines)
 
 
 def _java_wrapper_source(
     candidate_code: str,
     class_name: str,
     page_imports: tuple[str, ...],
+    base_packages: tuple[str, ...] | None = None,
 ) -> str:
     """Return the full Java source that wraps a candidate with no public class of its own.
 
-    The source begins with the wildcard import ``org.aspose.pdf.*``, then each of
-    ``page_imports`` in order (the import lines the furnished page itself carries, so classes
-    in subpackages such as ``annotations`` or ``forms`` resolve), then a minimal ``class_name``
-    class whose ``main`` method holds the candidate's statements. With no page imports the text
-    is identical to the wrapper used before page imports were honoured.
+    With ``base_packages`` left as ``None`` the source begins with the wildcard import
+    ``org.aspose.pdf.*``, then each of ``page_imports`` in order (the import lines the furnished
+    page itself carries, so classes in subpackages such as ``annotations`` or ``forms`` resolve),
+    then a minimal ``class_name`` class whose ``main`` method holds the candidate's statements.
+    With no page imports the text is identical to the wrapper used before page imports were
+    honoured.
+
+    A tuple for ``base_packages`` selects pilot mode (slides, cells, jmap, 3d): the header is
+    ``import <package>.*;`` for each package in order, ``import java.io.*;``, ``import java.util.*;``,
+    then the imports hoisted from the top of the candidate itself (de-duplicated, order kept). The
+    page's imports are not added in this mode: a README page collects the imports of every code
+    block, and two single-type imports of one simple name do not compile. The body is the candidate
+    minus its hoisted import lines.
     """
-    header = "\n".join(["import org.aspose.pdf.*;", *page_imports])
-    indented = "\n".join(f"        {line}" if line.strip() else line for line in candidate_code.splitlines())
+    if base_packages is None:
+        header = "\n".join(["import org.aspose.pdf.*;", *page_imports])
+        body = candidate_code
+    else:
+        candidate_imports, body = _hoist_java_imports(candidate_code)
+        header_lines = [f"import {package}.*;" for package in base_packages]
+        header_lines += ["import java.io.*;", "import java.util.*;"]
+        for import_line in candidate_imports:
+            if import_line not in header_lines:
+                header_lines.append(import_line)
+        header = "\n".join(header_lines)
+    indented = "\n".join(f"        {line}" if line.strip() else line for line in body.splitlines())
     return (
         f"{header}\n\n"
         f"public class {class_name} {{\n"
@@ -1160,11 +1220,22 @@ def prepare_java_library(
     directly as a classpath entry was found to fail from Git Bash on this
     machine even with a correct path.
 
-    Raises ``RuntimeError`` on any real failure (clone, checkout, Maven
-    acquisition, or build).
+    When the project's own ``<dependencies>`` carry a compile or runtime
+    dependency, the dependency jars are copied to ``target/foss-mcp-deps``
+    so ``verify_java_example`` can put them on the classpath. Only a Maven
+    project with ``pom.xml`` at the repository root is supported.
+
+    Raises ``RuntimeError`` on any real failure (clone, checkout, missing
+    pom.xml, Maven acquisition, build, or dependency copy).
     """
     repo_dir = workdir / "repo"
     _clone_pinned_commit(repository, commit, repo_dir)
+
+    pom_path = repo_dir / "pom.xml"
+    if not pom_path.exists():
+        raise RuntimeError(
+            f"{repository}@{commit} has no pom.xml at its root: only root Maven projects are supported"
+        )
 
     mvn_executable = _find_or_download_maven(workdir / "maven")
 
@@ -1178,7 +1249,52 @@ def prepare_java_library(
             f"{build_result.stdout}\n{build_result.stderr}"
         )
 
+    if _pom_has_runtime_dependencies(pom_path):
+        copy_result = _run(
+            [
+                str(mvn_executable),
+                "dependency:copy-dependencies",
+                "-DincludeScope=runtime",
+                f"-DoutputDirectory=target/{_JAVA_DEPENDENCY_DIR}",
+            ],
+            cwd=repo_dir,
+        )
+        if copy_result.returncode != 0:
+            raise RuntimeError(
+                f"runtime dependencies of {repository}@{commit} could not be copied:\n"
+                f"{copy_result.stdout}\n{copy_result.stderr}"
+            )
+
     return _select_built_jar(repo_dir / "target")
+
+
+def _pom_has_runtime_dependencies(pom_path: Path) -> bool:
+    """True when the project-level ``<dependencies>`` of ``pom_path`` holds a dependency the
+    compiled library needs at run time: scope absent, ``compile`` or ``runtime``, and not optional.
+    ``<dependencyManagement>`` only pins versions and is not read.
+    """
+    root = ElementTree.parse(pom_path).getroot()
+    namespace = root.tag[: root.tag.index("}") + 1] if root.tag.startswith("{") else ""
+    dependencies = root.find(f"{namespace}dependencies")
+    if dependencies is None:
+        return False
+    for dependency in dependencies.findall(f"{namespace}dependency"):
+        scope = (dependency.findtext(f"{namespace}scope") or "").strip()
+        optional = (dependency.findtext(f"{namespace}optional") or "").strip().lower()
+        if scope in ("", "compile", "runtime") and optional != "true":
+            return True
+    return False
+
+
+def _java_classpath(library_jar: Path) -> str:
+    """The ``javac -cp`` value: ``library_jar`` alone when no dependency directory sits beside it,
+    else the jar followed by every dependency jar there, in sorted order.
+    """
+    dependency_dir = library_jar.parent / _JAVA_DEPENDENCY_DIR
+    if not dependency_dir.exists():
+        return str(library_jar)
+    dependency_jars = sorted(dependency_dir.glob("*.jar"))
+    return os.pathsep.join([str(library_jar), *(str(jar) for jar in dependency_jars)])
 
 
 def verify_java_example(
@@ -1187,6 +1303,7 @@ def verify_java_example(
     library_jar: Path,
     workdir: Path,
     page_imports: tuple[str, ...] = (),
+    java_packages: tuple[str, ...] | None = None,
 ) -> VerificationResult:
     """Compile ``candidate.code`` against ``library_jar`` (the real
     packaged reference jar) with ``javac``, and report the real compiler
@@ -1204,6 +1321,11 @@ def verify_java_example(
     public class is compiled as-is, named after that class, with no page
     imports added.
 
+    ``java_packages`` selects the opt-in pilot mode (slides, cells, jmap, 3d): the wrapper imports
+    those packages instead of ``org.aspose.pdf``, hoists the candidate's own import lines above the
+    class, and ignores ``page_imports``. The classpath is ``library_jar`` plus any dependency jars
+    ``prepare_java_library`` copied beside it.
+
     The literal comparison determining ``verified`` is intentionally
     exact (``verified = result.returncode == 0``), matching
     ``verify_dotnet_example``.
@@ -1217,13 +1339,13 @@ def verify_java_example(
         source = candidate.code
     else:
         class_name = "Candidate"
-        source = _java_wrapper_source(candidate.code, class_name, page_imports)
+        source = _java_wrapper_source(candidate.code, class_name, page_imports, base_packages=java_packages)
 
     source_path = project_dir / f"{class_name}.java"
     source_path.write_text(source, encoding="utf-8")
 
     result = _run(
-        ["javac", "-cp", str(library_jar), source_path.name],
+        ["javac", "-cp", _java_classpath(library_jar), source_path.name],
         cwd=project_dir,
     )
 
