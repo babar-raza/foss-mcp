@@ -122,12 +122,8 @@ def test_a_real_docker_build_of_the_demo_target_is_self_contained_and_serves_rea
                 "-p",
                 f"{port}:8080",
                 "-e",
-                "FOSS_MCP_FAMILY=pdf",
-                "-e",
-                "FOSS_MCP_PLATFORM=net",
+                "FOSS_MCP_PILOT=pdf/net",
                 image_tag,
-                "python",
-                "/app/infra/serve_http.py",
             ],
             capture_output=True,
             text=True,
@@ -151,6 +147,40 @@ def test_a_real_docker_build_of_the_demo_target_is_self_contained_and_serves_rea
         assert status == 200, f"/readyz never returned 200 (last error: {last_error})"
     finally:
         subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, text=True)
+        subprocess.run(["docker", "rmi", "-f", image_tag], capture_output=True, text=True)
+
+
+def test_a_real_docker_build_of_the_demo_target_with_no_pilot_lists_the_baked_pilots_and_exits_two() -> None:
+    """TC-350: the demo stage's ENTRYPOINT is infra/demo_entrypoint.py with an empty CMD, so a bare
+    `docker run IMAGE` must not exit 0 silently (the defect the first real run exposed) and must not
+    guess an identity: it prints the usage and the pilots actually baked in, and exits 2."""
+    image_tag = f"foss-mcp-serving:test-build-demo-nopilot-{os.getpid()}"
+    try:
+        build_result = subprocess.run(
+            ["docker", "build", "-f", "Dockerfile.serving", "--target", "demo", "-t", image_tag, "."],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=900,
+        )
+        assert build_result.returncode == 0, (build_result.stdout + build_result.stderr)[-6000:]
+
+        run_result = subprocess.run(
+            ["docker", "run", "--rm", image_tag],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+        )
+        output = run_result.stdout + run_result.stderr
+        assert run_result.returncode == 2, f"exit {run_result.returncode}: {output[-2000:]}"
+        listed = set(re.findall(r"^\s*(\S+/\S+) source_kind=", output, re.MULTILINE))
+        assert "pdf/net" in listed, output[-2000:]
+        assert len(listed - {"pdf/net"}) >= 39, f"only {len(listed)} pilots listed: {sorted(listed)}"
+    finally:
         subprocess.run(["docker", "rmi", "-f", image_tag], capture_output=True, text=True)
 
 
