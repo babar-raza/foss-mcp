@@ -18,6 +18,7 @@ write_paths:
 - scripts/release/generate_demo_compose.py
 - tests/deploy/test_demo_entrypoint.py
 - tests/deploy/test_demo_compose.py
+- tests/test_container_build.py
 satisfies:
 - REQ-G3-002
 source_refs:
@@ -64,6 +65,16 @@ inputs:
   ports, every service carries the limits and hardening above, every profile set includes the family and `all`, and the generator's
   `--check` passes; plus Dockerfile.serving assertions: the demo stage has the ENTRYPOINT/EXPOSE, the runtime stage is unchanged, and
   the last stage is still `FROM runtime`.
+- >-
+  tests/test_container_build.py (now in your write_paths, for ONE reason; GitHub CI runs this file on a Docker-capable runner):
+  `test_a_real_docker_build_of_the_demo_target_is_self_contained_and_serves_real_content` starts the demo image with
+  `-e FOSS_MCP_FAMILY=pdf -e FOSS_MCP_PLATFORM=net` and a trailing `python /app/infra/serve_http.py`. With the new ENTRYPOINT that
+  trailing command is passed as stray arguments and the container exits 2. Change ONLY that test's `docker run` argument list to
+  the new contract: `-e FOSS_MCP_PILOT=pdf/net` and no trailing command, keeping every later assertion (the /readyz wait and the
+  live-content checks) as they are. Add one further test in the same file (same style, same build) that runs the demo image with no
+  pilot and no command and asserts exit code 2 and that the output lists pdf/net and 39 other pilots. You cannot run these two tests
+  (the build needs Docker and this checkout is under OneDrive); the supervisor runs them on an exported copy. Do not edit any other
+  test in that file.
 - >-
   Run `{python} -m pytest tests/deploy/test_demo_entrypoint.py tests/deploy/test_demo_compose.py -q -rfE`, then once
   `{python} -m pytest tests/deploy tests/test_container_build.py -q -rfE -k "not docker_build and not real_docker"` (do not run any
