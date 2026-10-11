@@ -24,7 +24,7 @@ qualified) are available to a caller.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 
 from foss_mcp.extraction.claim_id_bridge import (
     Declaration,
@@ -241,3 +241,151 @@ def describe_unresolved_anchors(
                 continue
             described.append((chunk.section_title, resolve_anchor(anchor, symbol_index)))
     return described
+
+
+# --- TC-425: furnished documentation must survive ingestion --------------------------------
+#
+# Everything below is ADDITIVE. ``symbol_index_from_api_surface``, ``validate_chunk``,
+# ``validate_document``, ``citable_chunks`` and ``describe_unresolved_anchors`` above keep their
+# exact behaviour (API-symbol chunks and every non-furnished chunk are still judged by them).
+# These helpers let ``infra/ingest.py`` keep furnished documentation and example chunks, resolve
+# qualified anchors, stop treating package ids / target frameworks / versions / file names as
+# symbols, and un-backtick (rather than delete) prose whose anchor still does not resolve.
+
+ANCHOR_SYMBOL = "symbol"
+ANCHOR_NON_SYMBOL = "non_symbol"
+ANCHOR_UNRESOLVED = "unresolved"
+
+_TARGET_FRAMEWORK = re.compile(
+    r"^(net[0-9]+(\.[0-9]+)?(-[a-z]+)?|netstandard[0-9]+(\.[0-9]+)?|netcoreapp[0-9]+(\.[0-9]+)?)$"
+)
+_VERSION = re.compile(r"^v?[0-9]+(\.[0-9]+)+")
+_FILE_EXTENSIONS = (
+    "cs csproj props sln py toml cfg txt md json yaml yml xml go mod sum rs java gradle ts js mjs cjs "
+    "h hpp cpp cmake lock ini dll"
+).split()
+_FILE_NAME = re.compile(r"\.(?:" + "|".join(_FILE_EXTENSIONS) + r")$")
+_CODE_FENCE = re.compile(r"^\s*```")
+
+
+def _member_names(entry: Mapping[str, object]) -> list[str]:
+    """Distinct method, property and enum-member names of one type entry, in order."""
+    names: dict[str, None] = {}
+    for key in ("methods", "properties", "enum_members"):
+        for member in entry.get(key) or []:
+            if isinstance(member, Mapping):
+                member_name = member.get("name")
+            elif isinstance(member, str):
+                member_name = member
+            else:
+                member_name = None
+            if member_name:
+                names[str(member_name)] = None
+    return list(names)
+
+
+def _entry_namespace(entry: Mapping[str, object]) -> str:
+    return str(entry.get("canonical_namespace") or entry.get("class_package") or "")
+
+
+def qualified_symbol_index_from_api_surface(types: Sequence[Mapping[str, object]]) -> SymbolIndex:
+    """A SymbolIndex that also knows each type by its qualified names.
+
+    Per type entry, once per distinct anchor string: the simple ``name``, the ``class_import``
+    value when present, and ``<canonical_namespace or class_package>.<name>`` when present -
+    each also with ``.<member>`` for every method, property and enum member. Overloads of one
+    member therefore register once per type entry.
+    """
+    declarations: list[Declaration] = []
+    for entry in types:
+        name = str(entry.get("name") or "")
+        if not name:
+            continue
+        prefixes: dict[str, None] = {name: None}
+        class_import = entry.get("class_import")
+        if class_import:
+            prefixes[str(class_import)] = None
+        namespace = _entry_namespace(entry)
+        if namespace:
+            prefixes[f"{namespace}.{name}"] = None
+        members = _member_names(entry)
+        for prefix in prefixes:
+            declarations.append(Declaration(anchor=prefix))
+            for member in members:
+                declarations.append(Declaration(anchor=f"{prefix}.{member}"))
+    return SymbolIndex(declarations)
+
+
+def namespaces_from_api_surface(types: Sequence[Mapping[str, object]]) -> frozenset[str]:
+    """Every ``canonical_namespace`` / ``class_package`` value the extraction carries."""
+    found: set[str] = set()
+    for entry in types:
+        for key in ("canonical_namespace", "class_package"):
+            value = entry.get(key)
+            if value:
+                found.add(str(value))
+    return frozenset(found)
+
+
+def _is_non_symbol_anchor(anchor: str) -> bool:
+    if _TARGET_FRAMEWORK.match(anchor) or _VERSION.match(anchor):
+        return True
+    if _FILE_NAME.search(anchor):
+        return True
+    return anchor.rsplit(".", 1)[-1].upper() == "FOSS"
+
+
+def classify_anchor(anchor: str, index: SymbolIndex, namespaces: Iterable[str]) -> str:
+    """Exactly one of ``"symbol"``, ``"non_symbol"``, ``"unresolved"``.
+
+    ``symbol``: the index has at least one declaration for it (overloads are one symbol), or it
+    is a namespace or a dotted prefix of one, or it is a bare name
+    ``unambiguous_qualified_anchor_for_bare_member`` accepts. ``non_symbol``: a target
+    framework, a version, a file name or a ``...FOSS`` package id. Everything else (absent, or a
+    bare name shared by several classes) is ``unresolved``.
+    """
+    if index.declarations_for(anchor):
+        return ANCHOR_SYMBOL
+    for namespace in namespaces:
+        if namespace == anchor or namespace.startswith(anchor + "."):
+            return ANCHOR_SYMBOL
+    if "." not in anchor and index.unambiguous_qualified_anchor_for_bare_member(anchor):
+        return ANCHOR_SYMBOL
+    if _is_non_symbol_anchor(anchor):
+        return ANCHOR_NON_SYMBOL
+    return ANCHOR_UNRESOLVED
+
+
+def neutralise_unresolved_anchors(
+    text: str, index: SymbolIndex, namespaces: Iterable[str]
+) -> tuple[str, int]:
+    """*text* with every unresolved inline code span un-backticked, plus how many were.
+
+    Only spans OUTSIDE fenced code blocks are considered; a span whose anchor (as
+    ``find_symbol_anchors`` derives it) classifies ``unresolved`` loses its two backticks and
+    nothing else. ``symbol`` and ``non_symbol`` spans, and spans that are not anchor-shaped, are
+    left exactly as they are.
+    """
+    namespace_set = frozenset(namespaces)
+    neutralised = 0
+
+    def _replace(match: re.Match[str]) -> str:
+        nonlocal neutralised
+        span = match.group(1)
+        candidate = _CALL_SUFFIX.sub("", span).strip()
+        if not _ANCHOR_SHAPE.match(candidate):
+            return match.group(0)
+        if classify_anchor(candidate, index, namespace_set) != ANCHOR_UNRESOLVED:
+            return match.group(0)
+        neutralised += 1
+        return span
+
+    lines = text.split("\n")
+    in_fence = False
+    for position, line in enumerate(lines):
+        if _CODE_FENCE.match(line):
+            in_fence = not in_fence
+            continue
+        if not in_fence:
+            lines[position] = _INLINE_CODE_SPAN.sub(_replace, line)
+    return "\n".join(lines), neutralised
