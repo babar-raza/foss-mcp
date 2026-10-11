@@ -253,8 +253,29 @@ def suggest_similar_fqns(known_fqns: Iterable[str], target: str, *, limit: int =
     standard library's own ``difflib.get_close_matches``, never a new dependency or a network
     call. Purely additive - callers attach the result to a Miss/NotFound's own ``suggestions``
     field; it never changes whether a query is a miss or a real match.
+
+    The full-FQN comparison (cutoff 0.6) is tried first and its result is returned whenever it is
+    non-empty. Only when it is empty (TC-386) is *target*'s final segment (split on ``.`` and
+    ``::``) compared against each known FQN's final segment at cutoff 0.75, so a misspelt bare
+    type name such as ``Workbok`` still finds ``Workbook`` although every known FQN is
+    namespaced; the matching full FQNs are returned deduplicated, at most *limit* of them.
     """
-    return tuple(get_close_matches(target, known_fqns, n=limit, cutoff=0.6))
+    known = list(known_fqns)
+    by_full = tuple(get_close_matches(target, known, n=limit, cutoff=0.6))
+    if by_full:
+        return by_full
+    target_segment = _FINAL_SEGMENT.split(target.strip())[-1]
+    if not target_segment:
+        return ()
+    by_segment: dict[str, list[str]] = {}
+    for fqn in known:
+        by_segment.setdefault(_FINAL_SEGMENT.split(fqn.strip())[-1], []).append(fqn)
+    suggestions: list[str] = []
+    for segment in get_close_matches(target_segment, sorted(by_segment), n=limit, cutoff=0.75):
+        for fqn in sorted(set(by_segment[segment])):
+            if fqn not in suggestions:
+                suggestions.append(fqn)
+    return tuple(suggestions[:limit])
 
 
 def scope_key(scope: Scope, source_kind: str) -> str:

@@ -1,7 +1,9 @@
 """list_members: the class graph - every method, property, and enum value a symbol declares.
 
 Reuses ``get_symbol``'s exact-FQN lookup rather than a second parallel one, so an absent FQN
-is the identical explicit ``NotFound`` in both tools, never a near match invented here.
+is the identical explicit ``NotFound`` in both tools, never a near match invented here. An
+``Example: ...`` or ``Doc: ...`` pseudo-FQN is not a symbol, so it is a ``NotFound`` here too
+(TC-386) rather than an empty member list.
 """
 
 from __future__ import annotations

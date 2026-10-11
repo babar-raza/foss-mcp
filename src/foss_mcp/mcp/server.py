@@ -23,6 +23,7 @@ import json
 import logging
 import re
 import time
+import types
 import typing
 from collections.abc import Callable, Sequence
 from contextlib import asynccontextmanager
@@ -32,7 +33,14 @@ from typing import Any
 
 from mcp.server.lowlevel import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import CallToolRequestParams, CallToolResult, ListToolsResult, TextContent, Tool
+from mcp.types import (
+    CallToolRequestParams,
+    CallToolResult,
+    ListToolsResult,
+    TextContent,
+    Tool,
+    ToolAnnotations,
+)
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from foss_mcp.extraction.github_release_reader import Release
@@ -128,11 +136,19 @@ def _wrap_list_recent_changes(releases: Sequence[Release]) -> Callable[..., Any]
     return list_recent_changes_tool
 
 
-def _wrap_report_index_freshness(store: GenerationManifestStore, scope: Scope) -> Callable[..., Any]:
+def _wrap_report_index_freshness(
+    store: GenerationManifestStore, scope: Scope, inputs: ProductReferenceInputs
+) -> Callable[..., Any]:
     def report_index_freshness_tool(
         *, source_kind: str = "self_extracted", current_source_commit: str | None = None
     ) -> Any:
-        return report_index_freshness(store, scope, source_kind, current_source_commit)
+        return report_index_freshness(
+            store,
+            scope,
+            source_kind,
+            current_source_commit,
+            pinned_library_commit=inputs.source_ref,
+        )
 
     return report_index_freshness_tool
 
@@ -152,13 +168,13 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "PDF' or query='why does saving fail with a font error' - it tries documentation first "
         "and composes it with any verified code example find_examples has for the same query, "
         "falling back to a symbol search only if nothing matches. For a bare, identifier-like "
-        "query (e.g. query='AFRelationship'), it tries search_symbols first instead - no need "
-        "to call search_symbols yourself first in that case. Pass content_type explicitly "
-        "(one of 'getting_started', 'developer_guide', 'troubleshooting', 'faq') only if you "
-        "already know which documentation category you want; that delegates entirely to "
-        "search_docs. If you already know the exact FQN, call get_symbol directly instead - "
-        "it is exact where this tool ranks and can miss. Returns an honest miss, never a "
-        "fabricated answer, when nothing genuinely matches."
+        "query (a type name such as 'Document' in the pdf/net index), it tries search_symbols "
+        "first instead - no need to call search_symbols yourself first in that case. Pass "
+        "content_type explicitly (one of 'getting_started', 'developer_guide', "
+        "'troubleshooting', 'faq') only if you already know which documentation category you "
+        "want; that delegates entirely to search_docs. If you already know the exact type FQN, "
+        "call get_symbol directly instead - it is exact where this tool ranks and can miss. "
+        "Returns an honest miss, never a fabricated answer, when nothing genuinely matches."
     ),
     "search_docs": (
         "Search ONLY documentation already classified under one specific content_type - "
@@ -172,54 +188,68 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "with a different content_type if you are unsure which one applies."
     ),
     "search_symbols": (
-        "Search this deployment's self-extracted API surface by symbol name or fragment, e.g. "
-        "query='Document' or query='AddWatermarkAnnotation'. PREFERRED over lookup when you "
-        "already know you want a symbol/class/method rather than documentation prose. Returns "
-        "an explicit miss (never a fuzzy near-match) when nothing matches this scope's "
-        "currently active index; it never falls back to a different product or platform. Once "
-        "you know the exact FQN, call get_symbol instead for the single exact, deterministic "
-        "signature - this tool ranks and can return several partial matches."
+        "Search this deployment's self-extracted API surface by type name or fragment, e.g. "
+        "query='Document' (a pdf/net example), or by the exact name of a method or property, "
+        "which finds the type that declares it - a member has no FQN of its own, so this is "
+        "how you find one. PREFERRED over lookup when you already know you want a "
+        "symbol/class/method rather than documentation prose. Returns an explicit miss (never a "
+        "fuzzy near-match, though a miss may carry did-you-mean suggestions) when nothing "
+        "matches this scope's currently active index; it never falls back to a different "
+        "product or platform. Once you know the exact type FQN, call get_symbol instead for the "
+        "single exact, deterministic signature - this tool ranks and can return several partial "
+        "matches. Caveat: the API index may hold only part of a library's types, so a miss does "
+        "not prove a type is absent upstream; report_index_freshness says how many types the "
+        "index holds when that is known."
     ),
     "get_symbol": (
         "Return the exact signature - kind, bases, methods, properties, members - for ONE "
-        "fully-qualified symbol name, e.g. fqn='Aspose.Pdf.Document' or "
-        "fqn='aspose.pdf.Document.save'. Matching is exact string equality against the "
-        "indexed FQN, never a substring or fuzzy match. Verify the exact FQN via search_symbols "
-        "first if you are not certain of it - do not guess it, since a near-miss returns an "
-        "explicit NotFound rather than the closest thing this index happens to contain. "
-        "PREFERRED one-shot call once you know the exact FQN - no need to chain search_symbols "
-        "first in that case."
+        "fully-qualified TYPE name, e.g. fqn='Aspose.Pdf.Document' (a pdf/net example). Only a "
+        "type has an FQN: a method or property has none of its own, so find one with "
+        "search_symbols by its member name and read it in the owning type's signature. Matching "
+        "is exact string equality against the indexed FQN, never a substring or fuzzy match, "
+        "and example or documentation entries are never symbols. Verify the exact FQN via "
+        "search_symbols first if you are not certain of it - do not guess it, since a "
+        "near-miss returns an explicit NotFound (found false, with a reason and any "
+        "did-you-mean suggestions) rather than the closest thing this index happens to "
+        "contain. PREFERRED one-shot call once you know the exact FQN - no need to chain "
+        "search_symbols first in that case. Caveat: a Go, Rust or TypeScript symbol name is not "
+        "an import path - use get_product_reference with section='install' and the product "
+        "README for imports."
     ),
     "list_members": (
-        "List every method, property, and enum member a symbol declares, in declaration order "
-        "(methods first, then properties, then enum members) - the same exact-FQN lookup "
-        "get_symbol uses under the hood, e.g. fqn='Aspose.Pdf.Document'. Call this instead of "
-        "get_symbol when you only want the member names for a known type, not its full "
-        "signature block. Base types are NOT included - a base class is not a member of its "
-        "subclass; call get_symbol and read its own bases field for that. Returns the identical "
-        "NotFound get_symbol would for an FQN that does not exist - verify the exact FQN via "
-        "search_symbols first if unsure, do not guess it."
+        "List every method, property, and enum member a TYPE declares, in declaration order "
+        "(methods first, then properties, then enum members) - the same exact type-FQN lookup "
+        "get_symbol uses under the hood, e.g. fqn='Aspose.Pdf.Document' (a pdf/net example). "
+        "Call this instead of get_symbol when you only want the member names for a known type, "
+        "not its full signature block. A method or property has no FQN of its own, so it "
+        "cannot be passed here. Base types are NOT included - a base class is not a member of "
+        "its subclass; call get_symbol and read its own bases field for that. Returns the "
+        "identical NotFound get_symbol would for an FQN that does not exist - verify the exact "
+        "FQN via search_symbols first if unsure, do not guess it."
     ),
     "find_examples": (
-        "Return a verified code snippet for a query - an exact FQN match first, e.g. "
-        "fqn='Aspose.Pdf.Facades.PdfFileSignature', a lexical/semantic search over every other "
-        "example-bearing chunk otherwise, e.g. query='add a digital signature to a PDF'. Never "
-        "executes any snippet itself - it only returns text a human or another process may "
-        "choose to run. Returns an explicit NoExampleFound miss when nothing verified exists; "
-        "never fabricates or improvises an example. Prefer lookup instead when you also want "
+        "Return a verified code snippet for a natural-language query. It takes only query and "
+        "top_k. A query equal to an example's title prefixed with the literal text Example: "
+        "(the title exactly as an example is listed) is an exact match and is answered first; "
+        "any other query is a lexical/semantic search over every example-bearing chunk, e.g. "
+        "query='add a digital signature to a PDF'. Never executes any snippet itself - it only "
+        "returns text a human or another process may choose to run. Returns an explicit "
+        "NoExampleFound miss (found false, with a reason) when nothing verified exists; never "
+        "fabricates or improvises an example. Prefer lookup instead when you also want "
         "documentation guidance for the same task question - lookup composes both into one "
         "answer."
     ),
     "get_product_reference": (
-        "Fetch one specific reference section for this deployment's product: 'install' (e.g. "
-        "'pip install aspose-pdf'), 'formats', 'limitations', 'compatibility' (the real value "
-        "from the repo's own packaging manifest, e.g. an exact .NET TargetFramework string - "
-        "never a flattened generic claim), 'license', 'support', 'contributing', or "
-        "'agent_guidance'. Each section returns either its real content or an explicit "
-        "NotAvailable with a reason - 'formats' and 'limitations' are currently NotAvailable "
-        "for every product, and 'contributing'/'agent_guidance' are NotAvailable whenever the "
-        "source repository genuinely lacks that file. Treat NotAvailable as authoritative "
-        "absence, never a transient failure - do not retry expecting different content."
+        "Fetch one specific reference section for this deployment's product: 'install' (the "
+        "package coordinate, or the source repository and exact commit when no registry package "
+        "resolves), 'formats', 'limitations', 'compatibility' (the real value from the repo's "
+        "own packaging manifest, e.g. an exact .NET TargetFramework string - never a flattened "
+        "generic claim), 'license', 'support', 'contributing', or 'agent_guidance'. Each "
+        "section returns either its real content or an explicit NotAvailable with a reason - "
+        "'formats' and 'limitations' are currently NotAvailable for every product, and "
+        "'contributing'/'agent_guidance' are NotAvailable whenever the source repository "
+        "genuinely lacks that file. Treat NotAvailable as authoritative absence, never a "
+        "transient failure - do not retry expecting different content."
     ),
     "list_recent_changes": (
         "Return the most recent releases (newest first) for this deployment's product, each "
@@ -231,7 +261,9 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     ),
     "report_index_freshness": (
         "Compare the indexed generation's recorded source commit against a "
-        "current_source_commit you supply, for this deployment's active scope. Pass "
+        "current_source_commit you supply, for this deployment's active scope; the report also "
+        "carries the product's pinned library commit when it is known, and how many of the "
+        "library's types the API index holds when the index states it. Pass "
         "source_kind='self_extracted' (the default, and currently the only source kind "
         "self-extracted symbols use) unless you specifically need a different index. If "
         "current_source_commit is omitted, staleness cannot be ruled out and the report says "
@@ -254,9 +286,9 @@ def tool_description(name: str) -> str:
 # rather than hand-written once per tool.
 _FIELD_DESCRIPTIONS: dict[str, str] = {
     "query": (
-        "The search text. Use a natural-language task question (e.g. 'how do I add a "
-        "watermark to a PDF') for lookup/find_examples, or a bare symbol name/fragment (e.g. "
-        "'AFRelationship') for search_symbols. Must be non-empty."
+        "The search text: a natural-language task question (e.g. 'how do I add a watermark "
+        "to a PDF') or, where the tool searches symbols, a type name or fragment. Must be "
+        "non-empty. The advertised input schema carries a description specific to each tool."
     ),
     "content_type": (
         "One of the four documentation categories: 'getting_started', 'developer_guide', "
@@ -269,10 +301,10 @@ _FIELD_DESCRIPTIONS: dict[str, str] = {
         "non-positive or absurdly large value is rejected rather than silently truncated."
     ),
     "fqn": (
-        "The exact, fully-qualified symbol name to match verbatim, e.g. 'Aspose.Pdf.Document' "
-        "or 'aspose.pdf.Document.save' - case-sensitive exact match only, never a substring or "
-        "fuzzy match. Verify the exact FQN via search_symbols first if you are not certain of "
-        "it - do not guess it."
+        "The exact, fully-qualified TYPE name to match verbatim, e.g. 'Aspose.Pdf.Document' "
+        "(a pdf/net example) - case-sensitive exact match only, never a substring or fuzzy "
+        "match. A method or property has no FQN of its own. Verify the exact FQN via "
+        "search_symbols first if you are not certain of it - do not guess it."
     ),
     "section": (
         "Which product-reference section to fetch: one of 'install', 'formats', "
@@ -501,6 +533,146 @@ def schema_for(func: Callable[..., Any]) -> dict[str, Any]:
     return schema
 
 
+# One description per (tool, field): each talks only about its own tool. The advertised schemas
+# use these, never the shared per-field-name text above (which stays for ``schema_for``).
+_TOOL_FIELD_DESCRIPTIONS: dict[str, dict[str, str]] = {
+    "lookup": {
+        "query": (
+            "What you want to know, as a natural-language task question (e.g. 'how do I add a "
+            "watermark to a PDF') or a bare type name; lookup chooses the index to search. "
+            "Must be non-empty."
+        ),
+        "content_type": (
+            "Optional documentation category. Supplying one delegates the whole call to "
+            "search_docs for that category; omit it to let lookup infer the right source."
+        ),
+        "top_k": "Maximum number of matches to return, from 1 to 100 (default 10).",
+    },
+    "search_docs": {
+        "query": (
+            "Documentation search text (e.g. 'save fails with a font error'), matched only "
+            "within the chosen content_type. Must be non-empty."
+        ),
+        "content_type": (
+            "Required documentation category to search; a query that matches only under a "
+            "different category is a miss, not a widened result."
+        ),
+        "top_k": "Maximum number of documentation matches to return, from 1 to 100 (default 10).",
+    },
+    "search_symbols": {
+        "query": (
+            "A type name or fragment (e.g. 'Document' in the pdf/net index), or the exact name "
+            "of a method or property to find the type that declares it. Must be non-empty."
+        ),
+        "top_k": "Maximum number of symbol matches to return, from 1 to 100 (default 10).",
+    },
+    "get_symbol": {
+        "fqn": (
+            "The exact, fully-qualified TYPE name, e.g. 'Aspose.Pdf.Document' (a pdf/net "
+            "example). Case-sensitive; a method or property has no FQN of its own. Verify it "
+            "with search_symbols if unsure."
+        ),
+    },
+    "list_members": {
+        "fqn": (
+            "The exact, fully-qualified TYPE name whose members to list, e.g. "
+            "'Aspose.Pdf.Document' (a pdf/net example). Case-sensitive; a method or property "
+            "has no FQN of its own. Verify it with search_symbols if unsure."
+        ),
+    },
+    "find_examples": {
+        "query": (
+            "What the example should do, as a natural-language request (e.g. 'add a digital "
+            "signature to a PDF'), or an example's exact title prefixed with the literal text "
+            "Example: for an exact match. Must be non-empty."
+        ),
+        "top_k": "Maximum number of examples to return, from 1 to 100 (default 5).",
+    },
+    "get_product_reference": {
+        "section": "The product-reference section to fetch; each is answered with its content or an explicit NotAvailable.",
+    },
+    "list_recent_changes": {
+        "limit": "Maximum number of recent releases to return, newest first, from 1 to 100 (default 10).",
+    },
+    "report_index_freshness": {
+        "source_kind": "Which indexed source to check freshness for; 'self_extracted' is this project's own API-surface index.",
+        "current_source_commit": (
+            "The current upstream source commit as 7 to 64 hexadecimal characters, if known; "
+            "omit it if unknown - staleness then cannot be ruled out and the report says so."
+        ),
+    },
+}
+
+# Constraints the models enforce in validators rather than in field metadata, stated here so the
+# advertised schema carries them too.
+_FIELD_SCHEMA_EXTRAS: dict[str, dict[str, Any]] = {
+    "query": {"minLength": 1},
+    "fqn": {"minLength": 1},
+    "current_source_commit": {"pattern": "^\\s*[0-9a-fA-F]{7,64}\\s*$"},
+}
+
+_TOOL_ANNOTATIONS = ToolAnnotations(
+    read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
+)
+
+
+def _strip_none(annotation: object) -> object:
+    origin = typing.get_origin(annotation)
+    if origin is typing.Union or origin is types.UnionType:
+        remaining = [arg for arg in typing.get_args(annotation) if arg is not type(None)]
+        if len(remaining) == 1:
+            return remaining[0]
+    return annotation
+
+
+def _advertised_property(tool_name: str, field_name: str, field: Any) -> dict[str, Any]:
+    annotation = _strip_none(field.annotation)
+    prop: dict[str, Any]
+    if typing.get_origin(annotation) is typing.Literal:
+        prop = {"type": "string", "enum": list(typing.get_args(annotation))}
+    else:
+        prop = dict(_json_type(annotation))
+    prop["description"] = _TOOL_FIELD_DESCRIPTIONS[tool_name][field_name]
+    for constraint in field.metadata:
+        max_length = getattr(constraint, "max_length", None)
+        if max_length is not None:
+            prop["maxLength"] = max_length
+        minimum = getattr(constraint, "ge", None)
+        if minimum is None and getattr(constraint, "gt", None) is not None:
+            minimum = constraint.gt + 1
+        if minimum is not None:
+            prop["minimum"] = minimum
+        maximum = getattr(constraint, "le", None)
+        if maximum is None and getattr(constraint, "lt", None) is not None:
+            maximum = constraint.lt - 1
+        if maximum is not None:
+            prop["maximum"] = maximum
+    prop.update(_FIELD_SCHEMA_EXTRAS.get(field_name, {}))
+    if not field.is_required():
+        default = field.get_default(call_default_factory=True)
+        if default is not None:
+            prop["default"] = default
+    return prop
+
+
+def tool_input_schema(tool_name: str) -> dict[str, Any]:
+    """The JSON Schema advertised in ``tools/list`` for *tool_name*, built from its Pydantic
+    input model in ``_INPUT_MODELS`` - the model the call is validated against, so the two cannot
+    drift. Flat on purpose (clients build calls from it): ``type`` on every property, no
+    ``anyOf``/``$ref``, an optional field simply absent from ``required``. Wherever the model
+    states them: ``enum``, ``default``, ``minimum``, ``maximum``, ``maxLength``, ``pattern``.
+    """
+    model = _INPUT_MODELS[tool_name]
+    properties = {
+        name: _advertised_property(tool_name, name, field) for name, field in model.model_fields.items()
+    }
+    schema: dict[str, Any] = {"type": "object", "properties": properties, "additionalProperties": False}
+    required = [name for name, field in model.model_fields.items() if field.is_required()]
+    if required:
+        schema["required"] = required
+    return schema
+
+
 def _to_jsonable(value: Any) -> Any:
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
         return {field.name: _to_jsonable(getattr(value, field.name)) for field in dataclasses.fields(value)}
@@ -622,6 +794,9 @@ def _error_location(error: Any) -> str:
     return ".".join(str(part) for part in error["loc"])
 
 
+# An unknown tool name is client-chosen: never echo more than this many characters of it.
+_UNKNOWN_TOOL_ECHO_MAX = 64
+
 _GENERIC_ERROR_FALLBACK = "An internal error occurred while handling this tool call."
 
 
@@ -738,7 +913,7 @@ def _build_tool_registry(
         "find_examples": _wrap_find_examples(store, scope),
         "get_product_reference": _wrap_get_product_reference(product_reference_inputs),
         "list_recent_changes": _wrap_list_recent_changes(recent_releases),
-        "report_index_freshness": _wrap_report_index_freshness(store, scope),
+        "report_index_freshness": _wrap_report_index_freshness(store, scope, product_reference_inputs),
     }
 
 
@@ -772,12 +947,17 @@ def create_server(
     usage_recorder = usage_recorder if usage_recorder is not None else UsageRecorder()
     deployment_id = f"{scope.family}::{scope.platform}"
     registry = _build_tool_registry(store, scope, inputs, recent_releases)
-    schemas = {name: schema_for(handler) for name, handler in registry.items()}
+    schemas = {name: tool_input_schema(name) for name in registry}
 
     async def _list_tools(context: Any, params: Any) -> ListToolsResult:
         return ListToolsResult(
             tools=[
-                Tool(name=name, description=tool_description(name), input_schema=schemas[name])
+                Tool(
+                    name=name,
+                    description=tool_description(name),
+                    input_schema=schemas[name],
+                    annotations=_TOOL_ANNOTATIONS,
+                )
                 for name in registry
             ]
         )
@@ -811,9 +991,12 @@ def create_server(
                 arguments=params.arguments or {},
             )
             return CallToolResult(
-                content=[TextContent(type="text", text=f"unknown tool: {params.name}")],
+                content=[
+                    TextContent(type="text", text=f"unknown tool: {params.name[:_UNKNOWN_TOOL_ECHO_MAX]}")
+                ],
                 structured_content={
                     "code": ToolErrorCode.NOT_FOUND.value,
+                    "message": "unknown tool",
                     "correlation_id": correlation_id,
                 },
                 is_error=True,
