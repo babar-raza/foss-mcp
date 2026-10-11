@@ -27,6 +27,7 @@ their non-MSVC compile flags), confirmed real and not a preference.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -55,6 +56,8 @@ __all__ = [
     "verify_java_example",
     "prepare_typescript_library",
     "verify_typescript_example",
+    "prepare_nodejs_library",
+    "verify_nodejs_example",
     "prepare_cpp_library",
     "verify_cpp_example",
     "prepare_cpp_library_linux",
@@ -1376,18 +1379,78 @@ _TS_TSCONFIG_TEMPLATE = """{{
 """
 
 
+_TS_ENTRY_SUFFIXES = (".d.ts", ".ts", ".js", ".mjs", ".cjs")
+_TS_CANDIDATE_FILENAME = "__foss_mcp_candidate__.ts"
+_TS_ROOT_TSCONFIG_FILENAME = "__foss_mcp_tsconfig__.json"
+
+# A static import or export-from declaration's module specifier. A declaration starts at a line
+# start or after a semicolon; the optional middle part spans the (possibly multi-line) binding
+# list up to ``from``. A dynamic ``import("x")`` has a parenthesis before its quote, so it never
+# matches.
+_STATIC_MODULE_DECLARATION_RE = re.compile(
+    r"""(?:^|(?<=;))[ \t\r\n]*(?P<decl>(?P<kw>import|export)\b(?:[^'"`;]*?\bfrom)?\s*(?P<q>['"])(?P<spec>[^'"\n]+)(?P=q)[ \t]*;?)""",
+    re.MULTILINE,
+)
+
+
+def _read_package_json(library_dir: Path) -> dict:
+    """``library_dir/package.json`` as a dict; ``{}`` when it is absent, unreadable or not an object."""
+    try:
+        data = json.loads((library_dir / "package.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _typescript_types_entry(library_dir: Path) -> Path:
+    """The path (without extension) a candidate's package import resolves to.
+
+    Taken from ``library_dir/package.json``: ``types``, else ``typings``, else ``main``, with a
+    trailing ``.d.ts``, ``.ts``, ``.js``, ``.mjs`` or ``.cjs`` stripped. With no package.json, or
+    none of those keys, it is ``library_dir/dist/index`` (the pdf/typescript value).
+    """
+    package = _read_package_json(library_dir)
+    for key in ("types", "typings", "main"):
+        value = package.get(key)
+        if isinstance(value, str) and value.strip():
+            relative = value.strip()
+            for suffix in _TS_ENTRY_SUFFIXES:
+                if relative.endswith(suffix):
+                    relative = relative[: -len(suffix)]
+                    break
+            return library_dir / relative
+    return library_dir / "dist" / "index"
+
+
+def _declared_types_file(library_dir: Path) -> Path | None:
+    """The ``.d.ts`` file package.json declares in ``types``/``typings``, else None."""
+    package = _read_package_json(library_dir)
+    for key in ("types", "typings"):
+        value = package.get(key)
+        if isinstance(value, str) and value.strip().endswith(".d.ts"):
+            return library_dir / value.strip()
+    return None
+
+
 def prepare_typescript_library(
     repository: str,
     commit: str,
     workdir: Path,
 ) -> Path:
     """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``,
-    ``npm install`` its own dependencies, and build it once with
-    ``npx tsc -p tsconfig.build.json`` (confirmed working today), producing
-    real ``dist/*.js`` + ``*.d.ts`` output. Returns the cloned repo's own
-    root - where ``dist/`` and its already-installed
+    ``npm install`` its own dependencies, and build it once, producing real
+    ``dist/*.js`` + ``*.d.ts`` output where the library has a build. Returns the
+    cloned repo's own root - where its output and its already-installed
     ``node_modules/typescript`` live - for ``verify_typescript_example`` to
     depend on and type-check against.
+
+    The build comes from the library's own files (TC-362): ``npx tsc -p
+    tsconfig.build.json`` when that file exists (pdf/typescript, unchanged); else no
+    build at all when the package entry (``_typescript_types_entry``) is an existing
+    ``.ts`` source file (cells/typescript, ``main`` is ``index.ts``); else ``npx tsc
+    -p tsconfig.json`` when that exists (jmap/typescript, 3d/typescript). After a
+    build, the ``.d.ts`` file package.json declares must exist, else ``dist/`` must be
+    non-empty.
 
     ``npm``/``npx`` are resolved via ``shutil.which`` rather than invoked
     by bare name: on this machine they are ``.CMD`` wrapper scripts, not
@@ -1396,7 +1459,7 @@ def prepare_typescript_library(
     PATH is - confirmed by a real, hands-on reproduction.
 
     Raises ``RuntimeError`` on any real failure (clone, checkout, install,
-    or build).
+    build, or a library with no way to build it).
     """
     repo_dir = workdir / "repo"
     _clone_pinned_commit(repository, commit, repo_dir)
@@ -1414,18 +1477,46 @@ def prepare_typescript_library(
             f"npm install for {repository}@{commit} failed:\n{install_result.stdout}\n{install_result.stderr}"
         )
 
-    build_result = _run([npx_executable, "tsc", "-p", "tsconfig.build.json"], cwd=repo_dir)
+    entry_source = Path(f"{_typescript_types_entry(repo_dir)}.ts")
+    if (repo_dir / "tsconfig.build.json").is_file():
+        build_config = "tsconfig.build.json"
+    elif entry_source.is_file():
+        return repo_dir
+    elif (repo_dir / "tsconfig.json").is_file():
+        build_config = "tsconfig.json"
+    else:
+        raise RuntimeError(
+            f"{repository}@{commit} has no tsconfig.build.json, no tsconfig.json and no TypeScript "
+            "source entry in package.json: there is no way to build or type-check it"
+        )
+
+    build_result = _run([npx_executable, "tsc", "-p", build_config], cwd=repo_dir)
     if build_result.returncode != 0:
         raise RuntimeError(
             f"reference library at {repository}@{commit} failed to build cleanly:\n"
             f"{build_result.stdout}\n{build_result.stderr}"
         )
 
-    dist_dir = repo_dir / "dist"
-    if not dist_dir.is_dir() or not any(dist_dir.iterdir()):
-        raise RuntimeError(f"npm run build did not produce dist/ output in {dist_dir}")
+    declared_types = _declared_types_file(repo_dir)
+    if declared_types is not None:
+        if not declared_types.is_file():
+            raise RuntimeError(
+                f"the build of {repository}@{commit} did not produce the declared types file {declared_types}"
+            )
+    else:
+        dist_dir = repo_dir / "dist"
+        if not dist_dir.is_dir() or not any(dist_dir.iterdir()):
+            raise RuntimeError(f"npm run build did not produce dist/ output in {dist_dir}")
 
     return repo_dir
+
+
+def _has_relative_module_specifier(code: str) -> bool:
+    """True when a static import or export-from in ``code`` names a ``./`` or ``../`` module."""
+    return any(
+        match.group("spec").startswith(("./", "../"))
+        for match in _STATIC_MODULE_DECLARATION_RE.finditer(code)
+    )
 
 
 def verify_typescript_example(
@@ -1436,17 +1527,25 @@ def verify_typescript_example(
     workdir: Path,
 ) -> VerificationResult:
     """Type-check ``candidate.code`` as a real ``.ts`` file importing
-    ``package_name`` from ``library_dir``'s built ``dist/`` output, and
+    ``package_name`` from ``library_dir``'s built output (or source), and
     report the real outcome.
 
     A minimal throwaway ``tsconfig.json`` maps ``package_name`` straight
-    at ``dist/index`` via ``paths`` (``moduleResolution: "bundler"``), so
-    no second ``npm install`` is needed per candidate. Compiling is done
-    with the reference library's own already-installed TypeScript
-    compiler (``library_dir/node_modules/typescript``), invoked via
-    ``node`` directly rather than through the ``.CMD`` wrapper, run with
-    ``--noEmit`` so this is real type-checking against the real built
-    ``.d.ts`` output, not code generation.
+    at the package entry (``_typescript_types_entry``: ``dist/index`` for
+    pdf/typescript, ``dist/src/index`` for jmap, ``index`` for cells) via ``paths``
+    (``moduleResolution: "bundler"``), so no second ``npm install`` is needed per
+    candidate. Compiling is done with the reference library's own
+    already-installed TypeScript compiler (``library_dir/node_modules/typescript``),
+    invoked via ``node`` directly rather than through the ``.CMD`` wrapper, run
+    with ``--noEmit`` so this is real type-checking, not code generation.
+
+    Repository-root mode (TC-362): a candidate with a static import or export-from
+    whose specifier starts with ``./`` or ``../`` (cells and 3d README blocks import
+    by path from the repository root, which a ``paths`` mapping can never resolve)
+    is written inside ``library_dir`` as ``__foss_mcp_candidate__.ts`` with a
+    ``__foss_mcp_tsconfig__.json`` that extends the library's own tsconfig.json,
+    and type-checked with ``library_dir`` as the working directory. Both temporary
+    files are removed afterwards.
 
     The literal comparison determining ``verified`` is intentionally
     exact (``verified = result.returncode == 0``), matching
@@ -1456,25 +1555,198 @@ def verify_typescript_example(
     project_dir.mkdir(parents=True, exist_ok=True)
 
     (project_dir / "candidate.ts").write_text(candidate.code, encoding="utf-8")
-
-    dist_index = (library_dir / "dist" / "index").resolve().as_posix()
-    tsconfig_content = _TS_TSCONFIG_TEMPLATE.format(
-        package_name=package_name,
-        dist_index=dist_index,
-    )
-    (project_dir / "tsconfig.json").write_text(tsconfig_content, encoding="utf-8")
-
     tsc_entrypoint = library_dir / "node_modules" / "typescript" / "lib" / "tsc.js"
 
-    result = _run(
-        ["node", str(tsc_entrypoint), "-p", "tsconfig.json"],
-        cwd=project_dir,
-    )
+    if _has_relative_module_specifier(candidate.code):
+        candidate_file = library_dir / _TS_CANDIDATE_FILENAME
+        tsconfig_file = library_dir / _TS_ROOT_TSCONFIG_FILENAME
+        config: dict = {}
+        if (library_dir / "tsconfig.json").is_file():
+            config["extends"] = "./tsconfig.json"
+        config["compilerOptions"] = {
+            "noEmit": True,
+            "rootDir": ".",
+            "noUnusedLocals": False,
+            "noUnusedParameters": False,
+            "skipLibCheck": True,
+        }
+        if "extends" not in config:
+            config["compilerOptions"].update(
+                {
+                    "target": "ES2022",
+                    "module": "ESNext",
+                    "moduleResolution": "bundler",
+                    "strict": True,
+                    "esModuleInterop": True,
+                }
+            )
+        config["files"] = [_TS_CANDIDATE_FILENAME]
+        # The library's own tsconfig may include its whole tree; only the candidate is checked.
+        config["include"] = []
+        try:
+            candidate_file.write_text(candidate.code, encoding="utf-8")
+            tsconfig_file.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+            result = _run(
+                ["node", str(tsc_entrypoint), "-p", _TS_ROOT_TSCONFIG_FILENAME],
+                cwd=library_dir,
+            )
+        finally:
+            candidate_file.unlink(missing_ok=True)
+            tsconfig_file.unlink(missing_ok=True)
+    else:
+        dist_index = _typescript_types_entry(library_dir).resolve().as_posix()
+        tsconfig_content = _TS_TSCONFIG_TEMPLATE.format(
+            package_name=package_name,
+            dist_index=dist_index,
+        )
+        (project_dir / "tsconfig.json").write_text(tsconfig_content, encoding="utf-8")
+
+        result = _run(
+            ["node", str(tsc_entrypoint), "-p", "tsconfig.json"],
+            cwd=project_dir,
+        )
 
     verified = result.returncode == 0
     output = _truncate(f"{result.stdout}\n{result.stderr}")
 
     return VerificationResult(candidate=candidate, verified=verified, output=output)
+
+
+# --- jmap/nodejs (TC-362) ----------------------------------------------------
+
+_NODEJS_CANDIDATE_FILENAME = "candidate.mjs"
+_NODEJS_LINK_CHECK_FILENAME = "__foss_mcp_link_check__.mjs"
+
+
+def prepare_nodejs_library(repository: str, commit: str, workdir: Path) -> Path:
+    """Shallow-clone ``repository`` at exactly ``commit`` into ``workdir/repo`` and return it.
+
+    ``node`` must be on PATH (``ExampleEnvironmentError`` otherwise: a missing runtime is an
+    environment failure, never a verdict). ``npm install --omit=dev`` runs only when package.json
+    has a non-empty ``dependencies`` object, so a dependency-free library (jmap/nodejs) runs no npm
+    at all. Raises ``RuntimeError`` on a clone or install failure.
+    """
+    _require_linux_tool("node")
+    repo_dir = workdir / "repo"
+    _clone_pinned_commit(repository, commit, repo_dir)
+
+    dependencies = _read_package_json(repo_dir).get("dependencies")
+    if isinstance(dependencies, dict) and dependencies:
+        npm_executable = shutil.which("npm")
+        if npm_executable is None:
+            raise RuntimeError("npm is not available on PATH")
+        install_result = _run([npm_executable, "install", "--omit=dev"], cwd=repo_dir)
+        if install_result.returncode != 0:
+            raise RuntimeError(
+                f"npm install for {repository}@{commit} failed:\n"
+                f"{install_result.stdout}\n{install_result.stderr}"
+            )
+    return repo_dir
+
+
+def _nodejs_package_entry(library_dir: Path) -> Path:
+    """The library's entry file: package.json ``exports["."]`` (string, or the import/default
+    condition, nested), else ``main``, else ``index.js``."""
+    package = _read_package_json(library_dir)
+
+    def resolve_target(target: object) -> str | None:
+        if isinstance(target, str):
+            return target
+        if isinstance(target, dict):
+            for key in ("import", "default", "node", "require"):
+                found = resolve_target(target.get(key))
+                if found:
+                    return found
+        return None
+
+    exports = package.get("exports")
+    entry = None
+    if isinstance(exports, dict):
+        entry = resolve_target(exports.get(".")) if "." in exports else resolve_target(exports)
+    elif isinstance(exports, str):
+        entry = exports
+    if not entry and isinstance(package.get("main"), str):
+        entry = package["main"]
+    return library_dir / (entry or "index.js")
+
+
+def _link_package_into_project(project_dir: Path, library_dir: Path, package_name: str) -> None:
+    """Make ``project_dir/node_modules/<package_name>`` resolve to ``library_dir``.
+
+    A directory symlink when the OS allows one; otherwise (``OSError``, e.g. Windows without
+    symlink privilege) a shim package whose ``index.js`` re-exports the library's entry file.
+    """
+    link = project_dir / "node_modules" / package_name
+    link.parent.mkdir(parents=True, exist_ok=True)
+    if link.is_symlink():
+        link.unlink()
+    elif link.exists():
+        shutil.rmtree(link)
+    try:
+        os.symlink(library_dir.resolve(), link, target_is_directory=True)
+    except OSError:
+        link.mkdir(parents=True, exist_ok=True)
+        (link / "package.json").write_text(json.dumps({"type": "module"}) + "\n", encoding="utf-8")
+        entry_url = _nodejs_package_entry(library_dir).resolve().as_uri()
+        (link / "index.js").write_text(f"export * from {json.dumps(entry_url)};\n", encoding="utf-8")
+
+
+def _package_import_declarations(code: str, package_name: str) -> list[str]:
+    """The candidate's static ``import`` declarations whose specifier is ``package_name`` or
+    starts with ``package_name + "/"``, each as source text ending in a semicolon."""
+    declarations = []
+    for match in _STATIC_MODULE_DECLARATION_RE.finditer(code):
+        spec = match.group("spec")
+        if match.group("kw") == "import" and (spec == package_name or spec.startswith(package_name + "/")):
+            declaration = match.group("decl").strip()
+            declarations.append(declaration if declaration.endswith(";") else declaration + ";")
+    return declarations
+
+
+def verify_nodejs_example(
+    candidate: CandidateExample,
+    *,
+    library_dir: Path,
+    package_name: str,
+    workdir: Path,
+) -> VerificationResult:
+    """Check ``candidate.code`` as plain ESM JavaScript against the library at ``library_dir``.
+
+    This is a WEAKER bar than compilation: nothing is type-checked and the candidate is never
+    executed. Two steps, both of which must exit 0 for ``verified``: (a) ``node --check`` on
+    ``candidate.mjs`` (syntax), and (b) a link check - a generated module holding only the
+    candidate's static imports of ``package_name`` (or ``package_name/...``), run with ``node``,
+    so a named import the library does not export fails at module link time without running the
+    candidate. A candidate with no such import is not verified (a fragment that uses names it
+    never imports proves nothing) and its output says so.
+
+    ``node_modules/<package_name>`` in ``workdir/candidate_project`` resolves to ``library_dir``
+    (a symlink, or a re-exporting shim when symlinks are refused).
+    """
+    project_dir = workdir / "candidate_project"
+    project_dir.mkdir(parents=True, exist_ok=True)
+    candidate_file = project_dir / _NODEJS_CANDIDATE_FILENAME
+    candidate_file.write_text(candidate.code, encoding="utf-8")
+    _link_package_into_project(project_dir, library_dir, package_name)
+
+    syntax = _run(["node", "--check", _NODEJS_CANDIDATE_FILENAME], cwd=project_dir)
+    output = f"{syntax.stdout}\n{syntax.stderr}"
+    if syntax.returncode != 0:
+        return VerificationResult(candidate=candidate, verified=False, output=_truncate(output))
+
+    declarations = _package_import_declarations(candidate.code, package_name)
+    if not declarations:
+        output += (
+            f"\nnot verified: the candidate has no static import of {package_name!r}, so there is "
+            "nothing to check against the library"
+        )
+        return VerificationResult(candidate=candidate, verified=False, output=_truncate(output))
+
+    (project_dir / _NODEJS_LINK_CHECK_FILENAME).write_text("\n".join(declarations) + "\n", encoding="utf-8")
+    link = _run(["node", _NODEJS_LINK_CHECK_FILENAME], cwd=project_dir)
+    output += f"\n{link.stdout}\n{link.stderr}"
+    verified = syntax.returncode == 0 and link.returncode == 0
+    return VerificationResult(candidate=candidate, verified=verified, output=_truncate(output))
 
 
 # --- pdf/cpp on Linux (TC-222) -----------------------------------------------

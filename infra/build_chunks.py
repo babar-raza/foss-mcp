@@ -67,6 +67,7 @@ from foss_mcp.indexing.example_verifier import (
     prepare_cpp_library_linux,
     prepare_go_library,
     prepare_java_library,
+    prepare_nodejs_library,
     prepare_python_library,
     prepare_reference_library,
     prepare_rust_library,
@@ -75,6 +76,7 @@ from foss_mcp.indexing.example_verifier import (
     verify_dotnet_example,
     verify_go_example,
     verify_java_example,
+    verify_nodejs_example,
     verify_python_example,
     verify_rust_example,
     verify_typescript_example,
@@ -194,6 +196,18 @@ _PLATFORM_DISPATCH = {
         },
         "shared_page_workdir": False,
     },
+    # TC-362: jmap/nodejs is plain ESM JavaScript; the verifier checks syntax and export bindings.
+    "nodejs": {
+        "prepare": lambda args, workdir: prepare_nodejs_library(
+            args.library_repository, args.library_commit, workdir
+        ),
+        "verify": verify_nodejs_example,
+        "verify_kwargs": lambda prepared, args: {
+            "library_dir": prepared,
+            "package_name": args.library_package_name,
+        },
+        "shared_page_workdir": False,
+    },
     # TC-222: pdf/cpp is compiled with g++ and CMake in the Linux ingestion image. prepared is the
     # build directory (holding libaspose_pdf_foss.a); the header root is its sibling include/.
     # verifier_name labels the Linux verifier pair; the test suite checks it by name.
@@ -223,6 +237,7 @@ _PLATFORM_REQUIRED_FLAGS: dict[str, tuple[str, str]] = {
     "rust": ("library_crate_name", "--library-crate-name"),
     "go": ("library_module_path", "--library-module-path"),
     "typescript": ("library_package_name", "--library-package-name"),
+    "nodejs": ("library_package_name", "--library-package-name"),
 }
 
 
@@ -469,7 +484,7 @@ def main() -> None:
     parser.add_argument(
         "--library-package-name",
         default=None,
-        help="pinned reference package's npm package name (typescript only)",
+        help="pinned reference package's npm package name (typescript and nodejs only)",
     )
     parser.add_argument(
         "--library-java-packages",
