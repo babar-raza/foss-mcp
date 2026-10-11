@@ -1,0 +1,91 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/test_unwired_modules.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vj16swu6\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/test_unwired_modules.py tests/indexing/test_index_writers.py tests/indexing/test_lookup_doc_fallback_query_safety.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vj16swu6\.junit-1.xml"
+--- stdout ---
+...........................                                              [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/test_unwired_modules.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vj16swu6\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/test_unwired_modules.py tests/indexing/test_index_writers.py tests/indexing/test_lookup_doc_fallback_query_safety.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vj16swu6\.junit-1.xml"
+--- stdout ---
+...........................                                              [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/test_unwired_modules.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/test_unwired_modules.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vj16swu6\.junit-0.xml"
+--- stdout ---
+F....                                                                    [100%]
+================================== FAILURES ===================================
+___ test_the_real_import_graph_walk_finds_exactly_the_known_unwired_symbols ___
+
+    def test_the_real_import_graph_walk_finds_exactly_the_known_unwired_symbols() -> None:
+        computed = set(_compute_unwired_from_production_reachable_files())
+    
+>       assert computed == _KNOWN_UNWIRED, (
+            f"the real import-graph walk's computed unwired set no longer matches the pinned "
+            f"_KNOWN_UNWIRED. New in the walk (needs a decision - wire it, delete it, or add it "
+            f"with a reason): {computed - _KNOWN_UNWIRED!r}. No longer unwired (the pin is now "
+            f"stale and must shrink): {_KNOWN_UNWIRED - computed!r}."
+        )
+E       AssertionError: the real import-graph walk's computed unwired set no longer matches the pinned _KNOWN_UNWIRED. New in the walk (needs a decision - wire it, delete it, or add it with a reason): {'foss_mcp.indexing.lexical_index_writer.query_lexical_index'}. No longer unwired (the pin is now stale and must shrink): frozenset({'foss_mcp.indexing.lexical_index_writer.query_lexical_index_x'}).
+E       assert {'foss_mcp.in...om_dict', ...} == frozenset({'f...m_dict', ...})
+E         
+E         Extra items in the left set:
+E         'foss_mcp.indexing.lexical_index_writer.query_lexical_index'
+E         Extra items in the right set:
+E         'foss_mcp.indexing.lexical_index_writer.query_lexical_index_x'
+E         Use -v to get more diff
+
+tests\test_unwired_modules.py:359: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_unwired_modules.py::test_the_real_import_graph_walk_finds_exactly_the_known_unwired_symbols
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/test_unwired_modules.py tests/indexing/test_index_writers.py tests/indexing/test_lookup_doc_fallback_query_safety.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vj16swu6\.junit-1.xml"
+--- stdout ---
+F..........................                                              [100%]
+================================== FAILURES ===================================
+___ test_the_real_import_graph_walk_finds_exactly_the_known_unwired_symbols ___
+
+    def test_the_real_import_graph_walk_finds_exactly_the_known_unwired_symbols() -> None:
+        computed = set(_compute_unwired_from_production_reachable_files())
+    
+>       assert computed == _KNOWN_UNWIRED, (
+            f"the real import-graph walk's computed unwired set no longer matches the pinned "
+            f"_KNOWN_UNWIRED. New in the walk (needs a decision - wire it, delete it, or add it "
+            f"with a reason): {computed - _KNOWN_UNWIRED!r}. No longer unwired (the pin is now "
+            f"stale and must shrink): {_KNOWN_UNWIRED - computed!r}."
+        )
+E       AssertionError: the real import-graph walk's computed unwired set no longer matches the pinned _KNOWN_UNWIRED. New in the walk (needs a decision - wire it, delete it, or add it with a reason): {'foss_mcp.indexing.lexical_index_writer.query_lexical_index'}. No longer unwired (the pin is now stale and must shrink): frozenset({'foss_mcp.indexing.lexical_index_writer.query_lexical_index_x'}).
+E       assert {'foss_mcp.in...om_dict', ...} == frozenset({'f...m_dict', ...})
+E         
+E         Extra items in the left set:
+E         'foss_mcp.indexing.lexical_index_writer.query_lexical_index'
+E         Extra items in the right set:
+E         'foss_mcp.indexing.lexical_index_writer.query_lexical_index_x'
+E         Use -v to get more diff
+
+tests\test_unwired_modules.py:359: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_unwired_modules.py::test_the_real_import_graph_walk_finds_exactly_the_known_unwired_symbols
+
+--- stderr ---
+
