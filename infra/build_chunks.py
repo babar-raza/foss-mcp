@@ -266,6 +266,74 @@ def _java_packages_argument(text: str) -> tuple[str, ...]:
     return packages
 
 
+# TC-385 (REQ-G3-006): the invisible and bidirectional control characters stripped from every chunk.
+# Built from code points, never typed literally: U+00AD, U+200B..U+200F, U+202A..U+202E,
+# U+2060..U+2064, U+2066..U+2069 and U+FEFF.
+_INVISIBLE_CODE_POINT_RANGES = (
+    (0x00AD, 0x00AD),
+    (0x200B, 0x200F),
+    (0x202A, 0x202E),
+    (0x2060, 0x2064),
+    (0x2066, 0x2069),
+    (0xFEFF, 0xFEFF),
+)
+_INVISIBLE_RE = re.compile(
+    "[" + "".join(f"{chr(low)}-{chr(high)}" for low, high in _INVISIBLE_CODE_POINT_RANGES) + "]"
+)
+# A Hugo shortcode on one line, non-greedy, with the single space (if any) on each side captured so
+# that removing it leaves one space where it would otherwise leave two.
+_SHORTCODE_RE = re.compile(r"( ?)(?:\{\{<.*?>\}\}|\{\{%.*?%\}\})( ?)")
+_EXAMPLE_MARKER_LINE = "Example:"
+MAX_CHUNK_TEXT_CHARS = 24_000
+_TRUNCATION_LINE_RE = re.compile(r"Truncated: \d+ characters omitted")
+
+
+def _shortcode_replacement(match: re.Match[str]) -> str:
+    before, after = match.group(1), match.group(2)
+    return " " if before and after else before + after
+
+
+def _strip_shortcodes_from_prose(prose_lines: list[str]) -> list[str]:
+    kept: list[str] = []
+    for line in prose_lines:
+        stripped = _SHORTCODE_RE.sub(_shortcode_replacement, line)
+        if stripped != line and not stripped.strip():
+            continue  # the removal emptied the line, so the line goes with it
+        kept.append(stripped)
+    return kept
+
+
+def _sanitize_chunk_text(text: str) -> str:
+    """TC-385 (REQ-G3-006): the one clean-up step every chunk's text passes before it is written.
+
+    In order: (1) remove invisible and bidirectional control characters everywhere; (2) remove
+    Hugo shortcodes (``{{< ... >}}`` and ``{{% ... %}}``) from the prose only - the part before a
+    line that is exactly ``Example:`` - never from the verified code after it; (3) cap the text at
+    ``MAX_CHUNK_TEXT_CHARS`` by cutting at the last newline at or before that length and appending
+    an explicit ``Truncated: <N> characters omitted`` line. A text with none of these is returned
+    unchanged, and sanitising an already sanitised text changes nothing.
+    """
+    text = _INVISIBLE_RE.sub("", text)
+
+    if "{{" in text:
+        lines = text.split("\n")
+        try:
+            boundary = lines.index(_EXAMPLE_MARKER_LINE)
+        except ValueError:
+            boundary = len(lines)
+        text = "\n".join(_strip_shortcodes_from_prose(lines[:boundary]) + lines[boundary:])
+
+    if len(text) > MAX_CHUNK_TEXT_CHARS:
+        head, _, last_line = text.rpartition("\n")
+        if _TRUNCATION_LINE_RE.fullmatch(last_line) and len(head) <= MAX_CHUNK_TEXT_CHARS:
+            return text  # already capped by this function: the cap is never applied twice
+        cut = text.rfind("\n", 0, MAX_CHUNK_TEXT_CHARS + 1)
+        if cut <= 0:
+            cut = MAX_CHUNK_TEXT_CHARS  # no usable line break: cut at the limit itself
+        text = f"{text[:cut]}\nTruncated: {len(text) - cut} characters omitted"
+    return text
+
+
 def _with_source_commit_line(chunk: Chunk) -> Chunk:
     return dataclasses.replace(chunk, text=f"{chunk.text}\nSource-Commit: {chunk.provenance.commit}")
 
@@ -613,7 +681,11 @@ def main() -> None:
             # failure, or any other error), so the verdicts already reached are never lost.
             _write_verification_report(report_path, verification_records)
 
-    chunks = [_with_source_commit_line(chunk) for chunk in chunks]
+    # TC-385: sanitise first, so the Source-Commit line is always the last line and is never cut.
+    chunks = [
+        _with_source_commit_line(dataclasses.replace(chunk, text=_sanitize_chunk_text(chunk.text)))
+        for chunk in chunks
+    ]
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(
