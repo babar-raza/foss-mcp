@@ -1,0 +1,74 @@
+id: TC-421
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-006 (adversarial robustness). An independent reviewer opened MCP sessions (initialize plus one call, never closed) against the
+  standalone image under the demo limits (memory 192m, cpu 0.25, read-only): each session costs about 100 KB, the container was
+  OOM-killed after roughly 1,300 sessions in under two minutes (exit 137), twice. Without limits, 2,000 sessions grew memory from 64 MiB
+  to 263 MiB with no reclaim. infra/serve_http.py builds the transport with the SDK defaults (idle timeout 30 minutes, 10,000 sessions),
+  so this is a trivial denial of service for any peer, and ordinary client churn can cause it. This card bounds sessions.
+depends_on:
+- TC-390
+write_paths:
+- infra/serve_http.py
+- tests/infra/test_serve_http_session_limits.py
+satisfies:
+- REQ-G3-006
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Peers will try to break the shipped image: an adversarial suite is a requirement, not an extra (operator, supervisor, pre-TC-355)'
+  sha256: d2caef724bdb4ebdd6139a6775d2e46c22527150b512d2f09d15225ba6375268
+inputs:
+- >-
+  Read infra/serve_http.py around the call that builds the app (`server.streamable_http_app(...)`, near line 351), the installed MCP SDK's
+  `streamable_http_app` signature (look in the venv's `mcp` package for `session_idle_timeout` and `max_sessions`, or the stateless
+  option) and tests/infra/test_serve_http.py (must keep passing UNMODIFIED). Never print or log any environment value.
+- >-
+  Pass explicit limits: `session_idle_timeout=300` seconds and `max_sessions=200` (a session costs about 100 KB, so 200 sessions is about
+  20 MB, far under the 192 MiB demo budget), as module-level constants `SESSION_IDLE_TIMEOUT_SECONDS` and `MAX_SESSIONS` that tests can
+  read; allow an override through two environment variables FOSS_MCP_SESSION_IDLE_SECONDS and FOSS_MCP_MAX_SESSIONS parsed with the same
+  one-line-error-and-exit-2 handling the file already uses for other settings (a non-integer or non-positive value is a clear startup
+  error, never a traceback). If the SDK version in the venv does NOT accept these arguments, STOP and report exactly what it offers (do
+  not monkeypatch the SDK).
+- >-
+  tests/infra/test_serve_http_session_limits.py (NEW, offline, deterministic, no wall-clock thresholds, no skipped tests): the constants
+  have the stated values; the app is built with exactly those arguments (assert on the call through the same seam existing tests use for
+  the app factory, or inspect the session manager's configured values); the environment overrides are honoured and bad values give the
+  one-line startup error with exit code 2; a defect-shaped negative: building the app with the SDK defaults (idle 1800, max 10000) is
+  detected as a violation by an assertion on the limits.
+- >-
+  Run `{python} -m pytest tests/infra/test_serve_http_session_limits.py -q -rfE`, then once
+  `{python} -m pytest tests/infra/test_serve_http.py tests/infra/test_serve_http_session_limits.py -q -rfE`. Write commit messages as UTF-8
+  without a byte-order mark.
+actions:
+- Bound the MCP session count and idle lifetime so abandoned sessions cannot exhaust memory.
+- Pin the limits with offline tests.
+checks:
+- command: '{python} -m pytest tests/infra/test_serve_http_session_limits.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-006
+- command: '{python} -m pytest tests/infra/test_serve_http.py tests/infra/test_serve_http_session_limits.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-006
+min_tests: 6
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/serve_http.py');s=p.read_text(encoding='utf-8');old='MAX_SESSIONS';assert old in s;p.write_text(s.replace(old,'MAX_SESSIONSX'),encoding='utf-8')"
+  rationale: >-
+    Renames the session-limit constant everywhere in the module, so the tests that read it and the construction that uses it no longer
+    agree: the session-limit tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-421/receipt.json
+closeout:
+- >-
+  The HTTP transport bounds sessions (200 live, 5 minutes idle), so abandoned sessions cannot exhaust a peer-run container's memory.
+recovery: Re-run from a clean tree.

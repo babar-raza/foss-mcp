@@ -14,6 +14,7 @@ purpose: >-
 depends_on:
 - TC-389
 - TC-390
+- TC-421
 write_paths:
 - src/foss_mcp/mcp/server.py
 - infra/serve_http.py
@@ -59,6 +60,10 @@ inputs:
   wrong `jsonrpc` value each get a 400 whose message is one of the two fixed strings and contains no `pydantic`, no `http`, no
   newline; a valid initialize still succeeds; `/healthz` is untouched; the session manager received 600 and 500 (inspect it or stub
   `streamable_http_app` to capture the keyword arguments). At least 14 tests across both files, none skipped.
+- >-
+  Coordination: card TC-421 (serve_http session limits) lands first and already passes `session_idle_timeout` and `max_sessions` to
+  `streamable_http_app`. If those arguments are already present when you start, keep TC-421's values and only add what this card still
+  needs (assertions that pin them); do not duplicate or change them.
 - >-
   Run `{python} -m pytest tests/mcp/test_server_identity.py tests/infra/test_transport_error_sanitising.py -q -rfE`, then once the
   second check command below. Write commit messages as UTF-8 without a byte-order mark.

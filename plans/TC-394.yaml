@@ -65,6 +65,16 @@ inputs:
   monkeypatched to the local path) extracts the OLDER commit and records it as `source_commit`; a mismatched commit is refused.
   At least 14 tests, none skipped (git is required, declared below).
 - >-
+  Two more defects in the same selection code, found by an independent reviewer who ran the extractor on a scratch clone (VERIFY each in
+  code and fix both here): (a) the centrality score that decides which types survive the cap excludes a type's references to ITSELF, so
+  an empty re-export shell gains +1 from the real class's own self-references and OUTRANKS the real class: for pdf/python the real
+  `aspose_pdf.document.Document` (82 methods) is dropped while two empty shells are kept; same family for slides/python Presentation and
+  cells/python Workbook. Make the real definition (the one that owns members) win over a member-less alias of the same name, and make an
+  alias never outrank its definition; add a test with a synthetic package of one real class plus two re-export shells and a cap that
+  forces a choice. (b) `run_extraction.py` sets `enum_members = []` for Python and never fills it, so all Python enums (141 across the
+  pilots) have zero members: fill them from the class body for `Enum`/`IntEnum`/`Flag` subclasses (name and literal value when it is a
+  simple literal), with a test.
+- >-
   Run `{python} -m pytest tests/extraction/test_run_extraction_selection.py -q -rfE`, then once the second check command below. Do
   not run the extraction against GitHub and do not edit committed fixtures or tests/extraction/test_slides_python_extraction.py (its
   `"Presentation" not in` assertion is changed by the later fixture-refresh card that re-extracts slides/python). Write commit
