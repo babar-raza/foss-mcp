@@ -1,0 +1,79 @@
+id: TC-372
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness), content wave 2 (Java), batch D. These pilots have symbol data but no documentation page, so
+  search_docs has nothing to answer and no example can ever be verified. TC-351 added a generator that builds a furnished page from the
+  library README at the pinned commit. This card runs it for slides/java, cells/java, jmap/java, 3d/java, reviews each generated page, and commits ONLY the pages
+  under tests/fixtures/furnished/. Pages are fixtures, so every later build is offline and deterministic. A pilot whose README is too
+  thin to be documentation is reported and left out, never padded.
+depends_on:
+- TC-351
+- TC-369
+write_paths:
+- tests/fixtures/furnished/slides_java/**
+- tests/fixtures/furnished/cells_java/**
+- tests/fixtures/furnished/jmap_java/**
+- tests/fixtures/furnished/3d_java/**
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read infra/generate_furnished_page.py's module docstring and `--help` (TC-351 added `--source github`), and one existing complete page
+  for shape, tests/fixtures/furnished/pdf_go/pages/_index.md. Do not edit any file outside write_paths. The generator reads the library
+  repository and pinned commit from infra/helm/foss-mcp/values.yaml (ingestion.pilots) and fetches the README through the authenticated
+  GitHub reader, which uses GITHUB_TOKEN from the environment; that variable exists in this shell. NEVER echo, print, log or write it, and
+  never put it in a command line, a file or your report.
+- >-
+  For each of slides/java, cells/java, jmap/java, 3d/java run, from the toolchain-activated shell: `python infra/generate_furnished_page.py --source github --pilot
+  <family_platform> --project-root .` (slides_java; cells_java; jmap_java; 3d_java). The generator (TC-369) maps alternative README headings and keeps unrecognised sections; its report prints which headings were mapped or kept, include those lines in your report. Then READ each generated page in full and check it as an editor would: the `title:`
+  is the product's H1, `doc_source: github_readme` and `doc_source_commit` equal to the chart's library.commit are present, the sections
+  that exist read as real documentation (no placeholder text, no truncated code, no leftover HTML comments or badge markup that breaks the
+  page), there is at least one fenced example in the pilot's language (java), and no credential-shaped text appears anywhere. Re-run the
+  generator once more for the first pilot and confirm `git status`/`git diff` show the page byte-identical (determinism).
+- >-
+  If the generator exits 3 for a pilot (README too thin) or fails for any other reason, do not hand-write a page and do not weaken the
+  generator: leave that pilot out and record it, with the exact message and exit code, in your status summary and report. If a generated
+  page has a real defect you believe is in the generator, STOP and report it with the page excerpt rather than editing the page by hand.
+- >-
+  Run `{python} -m pytest tests/infra/test_furnished_fixtures_valid.py -q -rfE` (it validates every furnished page, including the new
+  ones), then `{python} -m pytest tests/infra/test_furnished_fixtures_valid.py tests/infra/test_generate_furnished_page.py -q -rfE`.
+  Write commit messages as UTF-8 without a byte-order mark. The repository pre-commit hook runs a secret scan on staged changes; if it
+  objects, STOP and report the file:line it names (never paste the value).
+actions:
+- Generate the documentation page for each listed pilot from its README at the pinned commit and review each one.
+- Commit only those fixtures; report any pilot the generator honestly refuses.
+checks:
+- command: '{python} -m pytest tests/infra/test_furnished_fixtures_valid.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/infra/test_furnished_fixtures_valid.py tests/infra/test_generate_furnished_page.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 12
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/furnished/slides_java/pages/_index.md');s=p.read_text(encoding='utf-8');old=chr(10)+'title:';assert old in s;p.write_text(s.replace(old,chr(10)+'titlex:',1),encoding='utf-8')"
+  rationale: >-
+    Breaks the first generated page's top-level title key, so the page no longer has the title the documentation check keys on: the
+    fixture-validity test fails for that page. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-372/receipt.json
+closeout:
+- >-
+  slides/java, cells/java, jmap/java, 3d/java now have a documentation page generated from their README at the pinned commit, committed as a deterministic fixture
+  and validated by the generic fixture test.
+recovery: Re-run from a clean tree.
