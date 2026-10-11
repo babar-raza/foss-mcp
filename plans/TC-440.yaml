@@ -1,0 +1,82 @@
+id: TC-440
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-007 (verified examples for every pilot; the definition of done). This is the ACCEPTANCE card. It lands LAST, after the final cluster
+  re-ingest and demo-manifest snapshot, and it fails until the shipped data is complete: a committed test reads the baked generation of every
+  one of the 40 pilots in infra/demo-manifests and requires at least two `Kind: verified_example` chunks each (authored examples count only
+  when they carry the authored label), and a second committed assertion requires docs/REVIEW_LEDGER.md (the ledger of every finding of the four
+  raw adversarial review rounds) to exist with no row left OPEN. Measured on 2026-10-11 before the fixes, 23 of 40 pilots had at least one and
+  17 had none, so this card cannot be satisfied by documentation work alone.
+depends_on:
+- TC-354
+- TC-346
+write_paths:
+- tests/deploy/test_verified_examples_coverage.py
+- docs/REVIEW_LEDGER.md
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 05a5cdf0f1d029c0e2b88d213decaf174231714498d203645d67bcfe0629b0bc
+inputs:
+- >-
+  Read infra/demo-manifests/ (one directory per pilot named <family>__<platform>__self_extracted with active_pointer.json and one
+  generation__*.json; the documents are under `payload.lexical_index.documents`), tests/deploy/test_demo_manifests_sidecars.py (the pattern for
+  reading the committed tree and for deriving the 40 pilots from infra/helm/foss-mcp/values.yaml, never retyping them), and the scratchpad
+  census script that produced the numbers in the purpose (a verified example chunk is a document whose text contains the line
+  `Kind: verified_example`). Never print or log any environment value.
+- >-
+  tests/deploy/test_verified_examples_coverage.py (NEW, offline, deterministic, no network, no skipped tests): define a module-level constant
+  `MIN_VERIFIED_EXAMPLES = 2`; derive the pilots from values.yaml; for each pilot (parametrized so a failure names the pilot) load its active
+  generation exactly as the serving code does (follow active_pointer.json to the generation file) and count the documents that are verified
+  example chunks; assert the count is at least the constant; report the actual count in the assertion message. Count an AUTHORED example (a
+  chunk whose text carries the line `Provenance: authored` in addition to `Kind: verified_example`) toward the minimum only if it also carries
+  `Verification: passed`; examples without the verified kind never count. Add a test that the number of pilots found is exactly 40 and a test
+  that no chunk is both kinds of provenance. Add tests of the counting helper itself on synthetic generations (zero, one, two, an authored chunk
+  without `Verification: passed`, a documentation chunk that merely mentions the word verified).
+- >-
+  docs/REVIEW_LEDGER.md: the ledger of every finding of the four raw adversarial review rounds in review/raw-adversral-review.md plus the later
+  independent re-reviews (regression audits A, B, C and the four prompt re-runs, and the peer-style QA). One markdown table with the columns
+  `ID | Finding | Severity | Status | Evidence` where Status is exactly one of FIXED, ACCEPTED, OPEN; FIXED rows name the card (TC-NNN) and the
+  harness or test that pins it, ACCEPTED rows carry the reason and are repeated in docs/RELEASE.md's known-limitations section. The supervisor
+  supplies the finding list in the dispatch instruction (a file path under the scratchpad) and the statuses as of dispatch; the worker
+  formats and validates it. The test file also asserts: the ledger exists, has the header row, every Status is one of the three, no row is OPEN,
+  and every FIXED row contains a `TC-` card id.
+- >-
+  Run `{python} -m pytest tests/deploy/test_verified_examples_coverage.py -q -rfE`, then once `{python} -m pytest tests/deploy -q -rfE -k
+  "verified_examples or demo_manifests"`. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Enforce at least two verified examples per pilot on the final baked data, and an empty OPEN column in the review ledger.
+checks:
+- command: '{python} -m pytest tests/deploy/test_verified_examples_coverage.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/deploy -q -rfE -k "verified_examples or demo_manifests"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 40
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/deploy/test_verified_examples_coverage.py');s=p.read_text(encoding='utf-8');old='MIN_VERIFIED_EXAMPLES = 2';assert old in s;p.write_text(s.replace(old,'MIN_VERIFIED_EXAMPLES = 200',1),encoding='utf-8')"
+  rationale: >-
+    Raises the required number of verified examples per pilot far above what any pilot has, so every per-pilot assertion fails. A real break of
+    the card's central claim.
+evidence:
+- evidence/build/G3/TC-440/receipt.json
+closeout:
+- >-
+  Every pilot serves at least two verified examples on the shipped data, and every finding of the independent review rounds is fixed or
+  explicitly accepted in the ledger.
+recovery: Re-run from a clean tree.

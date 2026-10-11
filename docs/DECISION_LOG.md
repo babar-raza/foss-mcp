@@ -2939,3 +2939,27 @@ records never crash state or the gate). Each new canary was mutation-checked.
 `gatectl accept` requires the card to be the lowest READY id at the moment it would have started. TC-345's acceptance made TC-348
 READY, which correctly blocked accepting TC-353 until TC-348 was done. Rather than use `--force-order` (reserved for canaries), TC-348
 was dispatched immediately. Reviews of higher ids may run in parallel, acceptances happen in id order.
+
+## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)
+
+The operator restated, on 2026-10-11 and 2026-10-12 (the night before the Monday-evening push), that verified examples are part of
+every pilot, not an extra: "we need verified examples as part of the pilot", and that when the MCP is declared done it must not only
+have the review items done but "also output verified examples in the same way as other things". Measured on the cluster after the first
+re-ingest of the pilots that now carry README documentation pages: 23 of 40 pilots had at least one verified example (73 in total) and
+17 had none. Decisions: (1) REQ-G3-007 makes at least two verified examples per pilot a requirement, measured on the baked data of the
+final image by a committed acceptance test (TC-440), not by a report; (2) causes are fixed in the verifier, toolchain and ingestion
+(diagnosis per pilot by running build_chunks inside the ingestion image; lessons from the read-only aspose.org example verifier); (3)
+where a README cannot yield verified examples, a worker authors two or three minimal examples against the real API, verifies them with
+the same toolchain, and they are labelled as authored in the page so provenance is never hidden; (4) the definition of done is
+recorded in docs/REVIEW_LEDGER.md (every finding of the four raw adversarial review rounds is fixed or explicitly accepted, with the
+card or reason) plus REQ-G3-007; no gate is declared passed while either is open.
+
+On 2026-10-12 the operator added two conditions: everything, including the verified examples, must be part of the vector index so that
+the standalone image contains it once the work is done locally; and everything must be kept persistent and reusable so effort is not
+lost. Consequences recorded: (a) every verified example (README-derived or authored) keeps its vector point in the baked data (vector
+scope `examples` stays; symbols and documentation stay lexical-only because embedding them multiplied the generation size seven-fold
+and no tool consumes those vectors); (b) query-side embedding for find_examples needs the embedding gateway at run time, so a peer's
+container without the gateway falls back to lexical matching: this is documented in docs/RELEASE.md and an offline fallback (vectors
+from the deterministic hashing provider baked beside the gateway vectors) is a decision point, not a silent gap; (c) verification
+verdicts are persisted in a committed cache keyed by the example code hash, the library commit and the toolchain, so re-ingestion
+reuses them, and authored examples live in the committed furnished pages with explicit provenance.
