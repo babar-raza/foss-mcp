@@ -1,0 +1,104 @@
+id: TC-350
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-002 (standalone, lean). A first real run of the demo image showed `docker run foss-mcp-serving:demo-...` exits
+  immediately with code 0: Dockerfile.serving's default CMD is the stdio server (the Helm chart overrides it with
+  serve_http.py), and the HTTP server also requires FOSS_MCP_FAMILY and FOSS_MCP_PLATFORM, which a peer cannot know from a bare
+  image holding 40 pilots. This card makes the `demo` stage self-explanatory and runnable: an entrypoint that selects a pilot
+  (FOSS_MCP_PILOT=pdf/go), lists the pilots actually baked in, refuses to guess an identity, then starts the HTTP server; and a
+  generated docker-compose.demo.yml so a peer starts only the pilots they want, each under small memory and CPU limits.
+depends_on:
+- TC-329
+- TC-346
+write_paths:
+- infra/demo_entrypoint.py
+- Dockerfile.serving
+- docker-compose.demo.yml
+- scripts/release/generate_demo_compose.py
+- tests/deploy/test_demo_entrypoint.py
+- tests/deploy/test_demo_compose.py
+satisfies:
+- REQ-G3-002
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — First real run of the standalone demo image: it is lean, but it does not start by default and it drops the sidecars (supervisor, pre-TC-349)'
+  sha256: 2566428383d4896bec18c3220f2050c76f6e58606489655d571ed83cab05d93e
+inputs:
+- >-
+  Read Dockerfile.serving in full (the `runtime` stage, the `demo` stage and the trailing `FROM runtime` re-anchor stage, which
+  MUST stay last and unchanged), infra/serve_http.py (identity env vars FOSS_MCP_FAMILY / FOSS_MCP_PLATFORM /
+  FOSS_MCP_SOURCE_KIND / FOSS_MCP_MANIFESTS_DIR, port 8080, how the manifests directory is laid out: one directory per scope named
+  `<family>__<platform>__<source_kind>`, each with active_pointer.json and one generation file), infra/helm/foss-mcp/templates/
+  demo-deployment.yaml (it sets `command: ["python","/app/infra/serve_http.py"]`; that must keep working unchanged), the 40-pilot
+  list in infra/helm/foss-mcp/values.yaml (ingestion.pilots; scripts/deploy/pilots.py has load_pilots/pilot_key), and
+  tests/test_container_build.py (it pins parts of Dockerfile.serving; keep every existing assertion passing UNMODIFIED, do not run
+  its docker-build tests).
+- >-
+  infra/demo_entrypoint.py (NEW, standard library only): pilot selection from `--pilot VALUE` or env FOSS_MCP_PILOT, accepting
+  `family/platform` or `family_platform`; `--list` prints one line per baked pilot (family/platform, source kind, number of
+  lexical documents, whether the three sidecars product_reference_<f>_<p>.json, recent_releases_<f>_<p>.json and
+  package_registry_<f>_<p>.json exist) by scanning FOSS_MCP_MANIFESTS_DIR (default /data/manifests) and exits 0; with no pilot
+  given it prints usage plus that list to stderr and exits 2 and never starts a server or invents an identity; an unknown pilot
+  exits 2 naming the baked ones; a pilot whose scope directory has no readable active generation exits 2. On success it sets
+  FOSS_MCP_FAMILY, FOSS_MCP_PLATFORM and FOSS_MCP_SOURCE_KIND from the matched scope directory and replaces itself with
+  `python /app/infra/serve_http.py` via os.execv (so signals reach the server and the container's PID 1 is the server). It must
+  not read or print any environment value other than the three it sets and FOSS_MCP_PILOT/FOSS_MCP_MANIFESTS_DIR.
+- >-
+  Dockerfile.serving, `demo` stage ONLY: COPY infra/demo_entrypoint.py into /app/infra with the same ownership as the other infra
+  files, `EXPOSE 8080`, `ENTRYPOINT ["python", "/app/infra/demo_entrypoint.py"]`, and an empty `CMD []` so `docker run IMAGE`
+  prints the usage and pilot list and `docker run -e FOSS_MCP_PILOT=pdf/go IMAGE` serves. Do not change the `runtime` stage or
+  the trailing `FROM runtime` stage. Keep the existing HEALTHCHECK behaviour working for the demo stage.
+- >-
+  scripts/release/generate_demo_compose.py (NEW) writes docker-compose.demo.yml from the chart's pilot list: one service per pilot,
+  named `<family>-<platform>`, `image: ${FOSS_MCP_DEMO_IMAGE:?set FOSS_MCP_DEMO_IMAGE to the demo image reference}`,
+  `environment: FOSS_MCP_PILOT: <family>/<platform>`, a distinct host port `127.0.0.1:${...}` per pilot starting at 8101 in
+  chart order (documented), `profiles: [<family>, all]`, `mem_limit: 192m`, `cpus: 0.25`, `pids_limit: 256`, `read_only: true`,
+  `tmpfs: [/tmp]`, `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]`, `restart: unless-stopped`, and a healthcheck on
+  /readyz. `--check` exits 1 if the committed file differs from the generated one. The generated file is committed.
+- >-
+  tests/deploy/test_demo_entrypoint.py (NEW; no docker): selection by both spellings, `--list` output and exit 0, no pilot gives
+  exit 2 and the list on stderr, unknown pilot exits 2, a scope with no active generation exits 2, the env set for the exec and the
+  exec target (monkeypatch os.execv), and that no other environment value ever appears in any output. tests/deploy/test_demo_compose.py
+  (NEW): the committed docker-compose.demo.yml parses, has exactly one service per chart pilot with unique names and unique host
+  ports, every service carries the limits and hardening above, every profile set includes the family and `all`, and the generator's
+  `--check` passes; plus Dockerfile.serving assertions: the demo stage has the ENTRYPOINT/EXPOSE, the runtime stage is unchanged, and
+  the last stage is still `FROM runtime`.
+- >-
+  Run `{python} -m pytest tests/deploy/test_demo_entrypoint.py tests/deploy/test_demo_compose.py -q -rfE`, then once
+  `{python} -m pytest tests/deploy tests/test_container_build.py -q -rfE -k "not docker_build and not real_docker"` (do not run any
+  test that needs a Docker daemon). Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Add the demo entrypoint and switch the demo stage to it, leaving runtime and the re-anchor stage untouched.
+- Add the generated, drift-checked docker-compose.demo.yml with per-pilot limits and hardening.
+- Add tests for the entrypoint, the compose file and the Dockerfile stage structure.
+checks:
+- command: '{python} -m pytest tests/deploy/test_demo_entrypoint.py tests/deploy/test_demo_compose.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-002
+- command: '{python} -m pytest tests/deploy tests/test_container_build.py -q -rfE -k "not docker_build and not real_docker"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-002
+min_tests: 14
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/demo_entrypoint.py');s=p.read_text(encoding='utf-8');old='serve_http';assert old in s;i=s.rindex(old);p.write_text(s[:i]+'serve_httpx'+s[i+len(old):],encoding='utf-8')"
+  rationale: >-
+    Renames the last reference to the HTTP server the entrypoint execs, so a selected pilot would start a program that does not
+    exist: the exec-target test fails. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-350/receipt.json
+closeout:
+- >-
+  `docker run IMAGE` lists the baked pilots, `docker run -e FOSS_MCP_PILOT=<family>/<platform> IMAGE` serves one over HTTP, and a
+  generated compose file starts only the pilots a peer chooses, each inside small memory and CPU limits.
+recovery: Re-run from a clean tree.

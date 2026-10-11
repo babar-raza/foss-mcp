@@ -2772,3 +2772,46 @@ size and the gate report it passed. A deployment of an image with no passing gat
 shortcut. "Actual workflows" means real MCP client sessions over Streamable HTTP, not unit calls: tool discovery, and for
 each pilot the task-oriented path a developer takes (lookup, then symbol detail, then a verified example), plus the
 honest-miss and scope-isolation checks the existing eleven-check proof already makes.
+
+## 2026-10-11 — First real run of the standalone demo image: it is lean, but it does not start by default and it drops the sidecars (supervisor, pre-TC-349)
+
+Measured after TC-346 compacted the demo data (967.6 MiB to 16.7 MiB; largest generation file 45 MB to 2.3 MB; 40 scopes
+intact) and the `demo` target was built from a `git archive` export of the exact commit: the image is 355.7 MB, of which
+about 19 MB is pilot data; the runtime base without data is 336.5 MB. Started for pdf/go under `--memory 256m --cpus 0.5
+--read-only`, the container exited at once with code 0 and no output. Two defects, both invisible to every unit test:
+
+1. **The image's default command is the stdio server.** `Dockerfile.serving` ends the runtime stage with
+   `CMD ["python", "/app/infra/serve_stdio.py"]`; the Helm chart overrides it with `serve_http.py`, so the chart works while a
+   peer's `docker run` exits immediately. The server also needs `FOSS_MCP_FAMILY`/`FOSS_MCP_PLATFORM`, and a bare run of a
+   40-pilot image gives a peer no way to know which pilots exist. TC-350 adds a demo entrypoint that selects a pilot
+   (`FOSS_MCP_PILOT=pdf/go`), lists the baked pilots, refuses to guess an identity, and then runs the HTTP server; it also adds
+   a generated `docker-compose.demo.yml` so a peer starts only the pilots they want, each with a small memory and CPU limit.
+2. **The baked data has no sidecar files.** `infra/demo-manifests/` has 0 root-level files; the live chart serves, per pilot,
+   `product_reference_<f>_<p>.json`, `recent_releases_<f>_<p>.json` and `package_registry_<f>_<p>.json` from the manifests root.
+   Without them the standalone demo silently loses `get_product_reference`, `list_recent_changes` and the install-verification
+   facts. TC-349 adds a snapshot tool that exports each pilot's active generation AND its sidecars from the running, healthy
+   cluster (so the demo ships exactly what the validated live path serves), refuses a pod that is not Ready or whose lexical
+   index is empty, and compacts the result.
+
+Content completeness, measured the same day from the compacted manifests and a GitHub README census at each pinned commit:
+all 40 pilots have symbol data (3 to 313 chunks; imaging/net has 3 and tex/python has 4, which is thin), but only 6 have a
+furnished documentation page and only 7 have any verified `Example:` chunk. Every pilot has a README at its pinned commit and
+39 of 40 have three or more code blocks in the pilot's language, so the gap is closable. The operator's bar, "peers will test
+it to fail; if not 40, at least 10 to 20 pilots complete in all aspects", is therefore a content project (docs plus verified
+examples per pilot) as much as a packaging one, and it gets its own lane.
+
+## 2026-10-11 — Supervisor execution plan: lanes, priorities and the 'no idle waiting' rule (supervisor)
+
+Lanes run in parallel and at most four workers are in flight (execution limit). A tick never waits on one thing.
+Lane A, packaging (blocks the deliverable): demo entrypoint and compose (TC-350), cluster snapshot with sidecars (TC-349),
+the per-pilot image workflow gate (TC-345), the release-record contract and RELEASE.md (TC-348). Lane B, content (decides how many
+pilots are complete): generalize furnished pages and verified examples to every pilot, in dependency-ordered waves so cards that
+edit shared files never overlap. Lane C, robustness (peers will try to break it): an adversarial suite against a running
+container, malformed and oversized arguments, concurrent sessions, scope-crossing attempts, repository content treated as data
+never as instructions, and a restart persistence check. Lane D, health: CI green on origin (the 43 local commits are still
+unpushed; the only local blocker is the Windows Application Control rule on `pytest-of-*` directories, a decision for the
+operator), the 40-release cluster, memory notes. Lane E, owner-only: the internal registry host and login (OWNER-13): the
+operator runs `docker login` themselves so no agent or tool ever sees a registry credential; only the non-secret host name is
+shared. A secret scanner in the commit and push hooks is added so a token pasted anywhere is blocked before it reaches git.
+Completeness bar: report per pilot, not per fleet; a pilot is 'complete' only when its docs, examples, product reference, recent
+releases and install verification all exist and its eleven-check proof passes on the shipped image.

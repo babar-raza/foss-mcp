@@ -14,6 +14,7 @@ depends_on:
 - TC-339
 - TC-346
 - TC-347
+- TC-350
 write_paths:
 - scripts/release/image_workflow_gate.py
 - tests/deploy/test_image_workflow_gate.py
@@ -41,7 +42,9 @@ inputs:
   `--fixtures` (default tests/fixtures), `--report-dir`, `--memory` (default 256m), `--cpus` (default 0.5),
   `--ready-timeout` seconds (default 120), `--parallel` (default 2, at least 1), `--dry-run` (print the docker commands,
   run nothing). Per pilot: `docker run -d --rm --read-only --tmpfs /tmp --memory M --cpus C --pids-limit 256 --publish
-  127.0.0.1::8080` with the three identity env vars from the pilot entry, a unique container name, and no volume mounts;
+  127.0.0.1::8080` with exactly one identity env var, `-e FOSS_MCP_PILOT=<family>/<platform>`, a unique container name, and
+  no volume mounts and NO command override: the gate runs the image exactly as a peer will, through the demo entrypoint TC-350
+  adds (`infra/demo_entrypoint.py` selects the pilot and starts the HTTP server);
   find the host port with `docker port`; poll `/readyz` until 200 or the timeout; run the proof; run the task workflow
   below; sample `docker stats --no-stream` memory before and after and keep the larger; ALWAYS `docker rm -f` the container
   in a `finally` (also on timeout, failure or Ctrl-C). If FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT and _API_KEY are set in the

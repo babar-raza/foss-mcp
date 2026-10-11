@@ -1,0 +1,89 @@
+id: TC-349
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-002 (the standalone image must serve what the validated live path serves, completely). infra/demo-manifests/ holds, per
+  pilot, only the active generation and its pointer: the three sidecar files the live chart serves from the manifests root
+  (product_reference_<f>_<p>.json, recent_releases_<f>_<p>.json, package_registry_<f>_<p>.json) are absent, so a standalone image
+  silently loses get_product_reference, list_recent_changes and the install-verification facts. This card adds a snapshot tool that
+  copies each pilot's active generation AND its sidecars out of the running, healthy cluster into infra/demo-manifests/, then
+  compacts it, so the demo ships exactly what the live path was proven to serve.
+depends_on:
+- TC-236
+- TC-346
+write_paths:
+- scripts/release/snapshot_demo_from_cluster.py
+- tests/deploy/test_snapshot_demo_from_cluster.py
+satisfies:
+- REQ-G3-002
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — First real run of the standalone demo image: it is lean, but it does not start by default and it drops the sidecars (supervisor, pre-TC-349)'
+  sha256: 2566428383d4896bec18c3220f2050c76f6e58606489655d571ed83cab05d93e
+inputs:
+- >-
+  Read scripts/release/compact_demo_manifests.py (TC-346; reuse its compaction function by import, do not copy it),
+  scripts/deploy/pilots.py (load_pilots, pilot_key, select_pilots, release_name), scripts/deploy/install_pilots.py (how it labels and
+  finds a release's resources: label selector `app.kubernetes.io/instance=<release>,app.kubernetes.io/component=serving`), and the
+  sidecar name helpers the server uses (`sidecar_name` in infra/fetch_product_reference.py, `recent_releases_sidecar_name` in
+  infra/fetch_recent_releases.py, `verify_package_registry_sidecar_name` in infra/verify_package_registry.py) so the tool derives
+  the file names from the same functions the server reads them with, never by re-typing the pattern.
+- >-
+  scripts/release/snapshot_demo_from_cluster.py: arguments `--namespace` (required), `--root` (default infra/demo-manifests),
+  `--only FAMILY_PLATFORM` (repeatable, via select_pilots; unknown name exits 2), `--allow-missing-sidecars` (off by default),
+  `--dry-run`. For each selected pilot: find its serving pod by the label selector and require phase Running and the Ready
+  condition True (otherwise that pilot FAILS, nothing is written for it); stream `kubectl exec -n NS POD -c serving -- tar cf - -C
+  /data/manifests .` as BYTES (no text decoding) and unpack it in memory with tarfile using filter="data", refusing any absolute
+  path, `..` component or link member; require the pilot's scope directory with active_pointer.json and the generation file it
+  names, and require that generation's lexical_index.documents is a non-empty mapping (real content, not a well-formed empty file);
+  require all three sidecars unless --allow-missing-sidecars (a missing one FAILS that pilot and is named in the output). Then write
+  into --root atomically per pilot: replace the scope directory with ONLY the pointer and the active generation, and write the
+  sidecars at the root; finally run the TC-346 compaction over --root. All-or-nothing per pilot: a failed pilot leaves its existing
+  files untouched. Exit 0 only if every selected pilot succeeded; print one line per pilot (chunks, vector points kept, sidecar sizes)
+  and a total tree size. It must never print environment values and never run kubectl commands other than `get pods` and `exec ... tar`.
+- >-
+  tests/deploy/test_snapshot_demo_from_cluster.py (NEW), with subprocess monkeypatched so no kubectl ever runs, using in-memory tar
+  bytes that include a scope directory, the pointer, a generation, and the three sidecars: a good pilot is written (scope holds only
+  the pointer and the active generation; sidecars land at the root with the right names; compaction ran); a non-Ready pod fails and
+  writes nothing; a pod missing from the selector fails; an empty lexical index fails; each missing sidecar fails and is named, and
+  passes with --allow-missing-sidecars; a tar with an absolute path, a `..` member or a symlink is refused and writes nothing; a
+  failed pilot leaves its previous files byte-identical while other pilots still succeed and the exit code is non-zero; a second run
+  changes nothing (idempotent); `--only` and the unknown-name exit 2; the sidecar file names equal what the repo's own sidecar-name
+  helpers return for a pilot; no environment value appears in output. Derive the pilot count from the chart.
+- >-
+  Run `{python} -m pytest tests/deploy/test_snapshot_demo_from_cluster.py -q -rfE`, then once
+  `{python} -m pytest tests/deploy -q -rfE`. Do NOT run the tool against the real cluster in this card; a later card applies it.
+  Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Add the cluster snapshot tool that exports each pilot's active generation and its three sidecars, validates real content, and compacts.
+- Add mocked tests for every refusal and success path, including tar safety and per-pilot atomicity.
+checks:
+- command: '{python} -m pytest tests/deploy/test_snapshot_demo_from_cluster.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-002
+- command: '{python} -m pytest tests/deploy -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-002
+min_tests: 12
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/release/snapshot_demo_from_cluster.py');s=p.read_text(encoding='utf-8');old='documents';assert old in s;i=s.rindex(old);p.write_text(s[:i]+'documentsX'+s[i+len(old):],encoding='utf-8')"
+  rationale: >-
+    Renames the last use of `documents` in the tool, so the real-content check no longer finds the lexical documents it requires:
+    the empty-index and good-pilot tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-349/receipt.json
+closeout:
+- >-
+  A pilot's baked demo data can be refreshed from the validated live cluster with its sidecars included, refusing unhealthy pods,
+  empty content and unsafe archives, so the standalone image serves everything the live chart serves.
+recovery: Re-run from a clean tree.
