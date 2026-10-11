@@ -1,0 +1,161 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_go_verifier_assembly.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kdpbpxdy\.junit-0.xml"
+--- stdout ---
+............................                                             [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_go_verifier_assembly.py tests/indexing/test_go_vet_verdict.py tests/indexing/test_go_verifier_major_version.py tests/infra/test_build_chunks_platforms.py -q -rfE -k "(not real_go)" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kdpbpxdy\.junit-1.xml"
+--- stdout ---
+............................................................             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_go_verifier_assembly.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kdpbpxdy\.junit-0.xml"
+--- stdout ---
+............................                                             [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_go_verifier_assembly.py tests/indexing/test_go_vet_verdict.py tests/indexing/test_go_verifier_major_version.py tests/infra/test_build_chunks_platforms.py -q -rfE -k "(not real_go)" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kdpbpxdy\.junit-1.xml"
+--- stdout ---
+............................................................             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/example_verifier.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_go_verifier_assembly.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kdpbpxdy\.junit-0.xml"
+--- stdout ---
+...FF......................F                                             [100%]
+================================== FAILURES ===================================
+_______ test_fragment_gets_the_page_import_and_stdlib_and_one_func_main _______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000021416694D10>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7255/test_fragment_gets_the_page_im0')
+
+    def test_fragment_gets_the_page_import_and_stdlib_and_one_func_main(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        fake = _install(monkeypatch)
+        candidate = _cells("Quick Start (2)")
+        assert "import" not in candidate.code
+    
+        result = _verify(candidate, CELLS_MODULE, _cells_library(tmp_path), tmp_path)
+    
+        assert result.verified is True, result.output
+        (main_go,) = fake.main_go_at_build
+        assert main_go.startswith("package main\n\nimport (\n")
+        assert '\t"fmt"\n' in main_go
+>       assert f'\tcells_foss "{CELLS_IMPORT}"\n' in main_go
+E       assert '\tcells_foss "github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26/aspose/cells_foss"\n' in 'package main\n\nimport (\n\t"fmt"\n)\n\nfunc main() {\n\twb, _ := cells_foss.LoadWorkbook("input.xlsx")\n\tws := wb.W...n\tfmt.Println("Current value:", cell.Value)\n\n\tws.Cells().Set("A1", "Updated value")\n\twb.Save("output.xlsx")\n}\n'
+
+tests\indexing\test_go_verifier_assembly.py:186: AssertionError
+_________ test_block_that_starts_with_func_main_is_not_wrapped_again __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000021416694C00>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7255/test_block_that_starts_with_fu0')
+
+    def test_block_that_starts_with_func_main_is_not_wrapped_again(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        fake = _install(monkeypatch)
+        candidate = _cells("Formulas and the Calculation Engine")
+        assert candidate.code.startswith("func main() {")
+    
+        result = _verify(candidate, CELLS_MODULE, _cells_library(tmp_path), tmp_path)
+    
+        assert result.verified is True, result.output
+        (main_go,) = fake.main_go_at_build
+        assert main_go.startswith("package main\n\nimport (\n")
+        assert '\t"fmt"\n' in main_go
+>       assert f'\tcells_foss "{CELLS_IMPORT}"\n' in main_go
+E       assert '\tcells_foss "github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26/aspose/cells_foss"\n' in 'package main\n\nimport (\n\t"fmt"\n)\n\nfunc main() {\n\twb := cells_foss.NewWorkbook()\n\tws := wb.Worksheets[0]\n\n...t} else {\n\t\t\tfmt.Printf("  %s = %v\\n", formula, result)\n\t\t}\n\t}\n\n\twb.Save("outputfiles/formula.xlsx")\n}\n'
+
+tests\indexing\test_go_verifier_assembly.py:208: AssertionError
+_______ test_verify_go_example_passes_the_page_context_to_the_assembler _______
+
+    def test_verify_go_example_passes_the_page_context_to_the_assembler() -> None:
+        source = Path(ev.__file__).read_text(encoding="utf-8")
+        start = source.index("def verify_go_example(")
+        end = source.index("\n# --- pdf/java", start)
+>       assert "page_code=candidate.page_code" in source[start:end]
+E       assert 'page_code=candidate.page_code' in 'def verify_go_example(\n    candidate: CandidateExample,\n    *,\n    module_path: str,\n    library_dir: Path,\n    ...sult.stderr}"\n    return finish(vet_result.returncode == 0, tidy_returncode, *tidy_outputs, build_text, vet_text)\n\n'
+
+tests\indexing\test_go_verifier_assembly.py:548: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_go_verifier_assembly.py::test_fragment_gets_the_page_import_and_stdlib_and_one_func_main
+FAILED tests/indexing/test_go_verifier_assembly.py::test_block_that_starts_with_func_main_is_not_wrapped_again
+FAILED tests/indexing/test_go_verifier_assembly.py::test_verify_go_example_passes_the_page_context_to_the_assembler
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_go_verifier_assembly.py tests/indexing/test_go_vet_verdict.py tests/indexing/test_go_verifier_major_version.py tests/infra/test_build_chunks_platforms.py -q -rfE -k "(not real_go)" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kdpbpxdy\.junit-1.xml"
+--- stdout ---
+...FF......................F................................             [100%]
+================================== FAILURES ===================================
+_______ test_fragment_gets_the_page_import_and_stdlib_and_one_func_main _______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001E31DBF9260>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7256/test_fragment_gets_the_page_im0')
+
+    def test_fragment_gets_the_page_import_and_stdlib_and_one_func_main(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        fake = _install(monkeypatch)
+        candidate = _cells("Quick Start (2)")
+        assert "import" not in candidate.code
+    
+        result = _verify(candidate, CELLS_MODULE, _cells_library(tmp_path), tmp_path)
+    
+        assert result.verified is True, result.output
+        (main_go,) = fake.main_go_at_build
+        assert main_go.startswith("package main\n\nimport (\n")
+        assert '\t"fmt"\n' in main_go
+>       assert f'\tcells_foss "{CELLS_IMPORT}"\n' in main_go
+E       assert '\tcells_foss "github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26/aspose/cells_foss"\n' in 'package main\n\nimport (\n\t"fmt"\n)\n\nfunc main() {\n\twb, _ := cells_foss.LoadWorkbook("input.xlsx")\n\tws := wb.W...n\tfmt.Println("Current value:", cell.Value)\n\n\tws.Cells().Set("A1", "Updated value")\n\twb.Save("output.xlsx")\n}\n'
+
+tests\indexing\test_go_verifier_assembly.py:186: AssertionError
+_________ test_block_that_starts_with_func_main_is_not_wrapped_again __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001E31DBF9150>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7256/test_block_that_starts_with_fu0')
+
+    def test_block_that_starts_with_func_main_is_not_wrapped_again(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        fake = _install(monkeypatch)
+        candidate = _cells("Formulas and the Calculation Engine")
+        assert candidate.code.startswith("func main() {")
+    
+        result = _verify(candidate, CELLS_MODULE, _cells_library(tmp_path), tmp_path)
+    
+        assert result.verified is True, result.output
+        (main_go,) = fake.main_go_at_build
+        assert main_go.startswith("package main\n\nimport (\n")
+        assert '\t"fmt"\n' in main_go
+>       assert f'\tcells_foss "{CELLS_IMPORT}"\n' in main_go
+E       assert '\tcells_foss "github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26/aspose/cells_foss"\n' in 'package main\n\nimport (\n\t"fmt"\n)\n\nfunc main() {\n\twb := cells_foss.NewWorkbook()\n\tws := wb.Worksheets[0]\n\n...t} else {\n\t\t\tfmt.Printf("  %s = %v\\n", formula, result)\n\t\t}\n\t}\n\n\twb.Save("outputfiles/formula.xlsx")\n}\n'
+
+tests\indexing\test_go_verifier_assembly.py:208: AssertionError
+_______ test_verify_go_example_passes_the_page_context_to_the_assembler _______
+
+    def test_verify_go_example_passes_the_page_context_to_the_assembler() -> None:
+        source = Path(ev.__file__).read_text(encoding="utf-8")
+        start = source.index("def verify_go_example(")
+        end = source.index("\n# --- pdf/java", start)
+>       assert "page_code=candidate.page_code" in source[start:end]
+E       assert 'page_code=candidate.page_code' in 'def verify_go_example(\n    candidate: CandidateExample,\n    *,\n    module_path: str,\n    library_dir: Path,\n    ...sult.stderr}"\n    return finish(vet_result.returncode == 0, tidy_returncode, *tidy_outputs, build_text, vet_text)\n\n'
+
+tests\indexing\test_go_verifier_assembly.py:548: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_go_verifier_assembly.py::test_fragment_gets_the_page_import_and_stdlib_and_one_func_main
+FAILED tests/indexing/test_go_verifier_assembly.py::test_block_that_starts_with_func_main_is_not_wrapped_again
+FAILED tests/indexing/test_go_verifier_assembly.py::test_verify_go_example_passes_the_page_context_to_the_assembler
+
+--- stderr ---
+
