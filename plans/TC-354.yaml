@@ -42,8 +42,11 @@ inputs:
   matching the chart's pilot list; each has active_pointer.json, exactly one generation file that the pointer names, and non-empty
   `payload.lexical_index.documents`; each pilot has product_reference_<f>_<p>.json, recent_releases_<f>_<p>.json and
   package_registry_<f>_<p>.json (file names from the repo's own sidecar-name helpers, never retyped), all valid JSON; the product reference
-  sidecar's `platform` matches the pilot and it has a non-empty `manifest_text` and a `source_repository`/`source_ref` equal to the chart's
-  library.repository and library.commit; the package-registry sidecar has `verified`, `coordinate` and `checked_at` keys; no file in the
+  sidecar's `platform` equals the PILOT's platform key as the chart names it (for example `net` for pdf/net, NOT the library's own
+  `library.platform` value such as `dotnet`; a live sidecar from the cluster confirms this) and it has a `manifest_text` string, non-empty
+  for every pilot whose chart entry sets `manifestPath` (all 40 do today; compare against the real sidecars before pinning, and if a
+  real sidecar is legitimately empty report which and why instead of loosening), and a `source_repository`/`source_ref` equal to the
+  chart's library.repository and library.commit; the package-registry sidecar has `verified`, `coordinate` and `checked_at` keys; no file in the
   tree outside the expected names exists (no stray temp files); no credential-shaped value appears anywhere in the tree (call
   `secretscan.scan_tree`-equivalent logic by reading the files and checking the same shapes: `ghp_`, `github_pat_`, `AKIA`, `-----BEGIN`
   PRIVATE KEY, `xox`); and the total size is under the budget.
