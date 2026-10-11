@@ -1,0 +1,117 @@
+id: TC-345
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-001 (test the MCP with actual workflows before deployment) and the measuring half of REQ-G3-002 (lean, must not
+  overwhelm the cluster). Today pilot_workflow_proof.py proves one running pilot at a time against a live URL, and
+  prove_pilots.py does it through a Kubernetes port-forward, but nothing runs the EXACT Docker image that would ship, one
+  container per pilot, under an explicit memory and CPU budget, and keeps a per-pilot report. This card adds
+  scripts/release/image_workflow_gate.py: for each pilot it starts a container from the image, waits for /readyz, runs the
+  existing eleven-check proof over a real MCP session plus a task-oriented workflow, samples the container's memory,
+  removes the container, and writes a report. It exits non-zero unless every selected pilot passes inside the budget.
+depends_on:
+- TC-238
+- TC-339
+- TC-346
+- TC-347
+write_paths:
+- scripts/release/image_workflow_gate.py
+- tests/deploy/test_image_workflow_gate.py
+- docs/DEPLOYMENT.md
+satisfies:
+- REQ-G3-001
+- REQ-G3-002
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Operator delivery requirements: a lean standalone 40-pilot image, hosted internally, recorded in the state machine, tested with real workflows first (operator, supervisor, pre-TC-345)'
+  sha256: 355bbca64e8652c4d4c844c4b9b34fcd67980c42d553b0d16074308c5904ac30
+inputs:
+- >-
+  Read scripts/poc/pilot_workflow_proof.py in full (read only; you do not own it): reuse its public functions
+  `load_pilot(name, fixtures)`, `open_live_client(url)` and `run_checks(client, pilot)` by importing the module (add
+  scripts/poc to sys.path or import by file path, whichever tests/poc already does), and its result shape (each check is
+  pass / fail / not_applicable, and not_applicable is never counted as a pass). Read scripts/deploy/pilots.py
+  (`load_pilots`, `pilot_key`, `select_pilots` - reuse them for the 40-pilot list and --only handling),
+  scripts/deploy/prove_pilots.py (how it reports), infra/serve_http.py (the container reads FOSS_MCP_FAMILY,
+  FOSS_MCP_PLATFORM, FOSS_MCP_SOURCE_KIND and FOSS_MCP_MANIFESTS_DIR, listens on 8080, /healthz and /readyz) and
+  Dockerfile.serving's `demo` stage (data baked at /data/manifests, user foss-mcp).
+- >-
+  scripts/release/image_workflow_gate.py: arguments `--image NAME:TAG` (required, an explicit tag, never `latest`),
+  `--only FAMILY_PLATFORM` (repeatable, validated through select_pilots; unknown name exits 2 and runs nothing),
+  `--fixtures` (default tests/fixtures), `--report-dir`, `--memory` (default 256m), `--cpus` (default 0.5),
+  `--ready-timeout` seconds (default 120), `--parallel` (default 2, at least 1), `--dry-run` (print the docker commands,
+  run nothing). Per pilot: `docker run -d --rm --read-only --tmpfs /tmp --memory M --cpus C --pids-limit 256 --publish
+  127.0.0.1::8080` with the three identity env vars from the pilot entry, a unique container name, and no volume mounts;
+  find the host port with `docker port`; poll `/readyz` until 200 or the timeout; run the proof; run the task workflow
+  below; sample `docker stats --no-stream` memory before and after and keep the larger; ALWAYS `docker rm -f` the container
+  in a `finally` (also on timeout, failure or Ctrl-C). If FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT and _API_KEY are set in the
+  host environment AND the flag `--with-embedding-gateway` is given, pass those two variable NAMES through with `-e NAME`
+  (docker reads the value itself) so a value never appears in an argv, a log or a report; without the flag they are never
+  passed.
+- >-
+  Task-oriented workflow, added on top of the eleven checks and recorded as its own entries in the per-pilot report: (1)
+  tools/list returns a non-empty tool registry that includes lookup, search_symbols, get_symbol, list_members and
+  find_examples; (2) for a probe symbol the pilot's own fixture offers (`choose_probe`), `lookup` with a natural question
+  built from the symbol's short name returns a non-empty answer that names the symbol; (3) when the pilot has at least one
+  verified example (the proof already knows whether it does), `find_examples` with that example's title returns a match whose
+  snippet is non-empty, otherwise record not_applicable with the reason. Every entry shows the evidence (a short excerpt),
+  never just a boolean.
+- >-
+  Report: one `<pilot_key>.json` per pilot in --report-dir plus `summary.json` with the image reference, the image id
+  (`docker image inspect --format {{.Id}}`), the image size in MB, the budget used, a UTC timestamp, per-pilot status
+  (pass, fail, not_applicable counts), peak memory MB, startup seconds, and the overall verdict. A pilot fails if any
+  applicable check or workflow entry fails, if its container never became ready, if it was OOM-killed or exceeded the memory
+  budget, or if `docker run` itself failed. Exit 0 only if every selected pilot passes; print one table line per pilot and the
+  verdict. Never print any environment variable value.
+- >-
+  tests/deploy/test_image_workflow_gate.py (NEW), with subprocess and the MCP client replaced by fakes so no docker command
+  ever runs: exact `docker run` argv (memory, cpus, read-only, tmpfs, loopback-only publish, env vars, no mounts, unique
+  names); readiness polling success, and a timeout that fails the pilot AND still removes the container; a failing proof check
+  fails the pilot; not_applicable is not counted as a pass; memory over budget fails; an OOM-killed container fails; --only
+  and the unknown-name exit 2; `latest`/untagged image refused; the dry run runs nothing; the embedding-gateway variable
+  values never appear in any argv, report or output while their NAMES are passed only with the flag; summary.json fields; the
+  exit code is 0 only when all pass; cleanup runs on KeyboardInterrupt. Derive the pilot count from the chart, never hard-code 40.
+- >-
+  docs/DEPLOYMENT.md: extend the "Hosting the standalone demo image" subsection (added by TC-347) with the gate step, its
+  flags and the report location, and the rule that an image without a passing 40-of-40 summary is not tagged for hosting.
+  test_runbook.py proves the docs name every flag.
+- >-
+  Run `{python} -m pytest tests/deploy/test_image_workflow_gate.py tests/deploy/test_runbook.py -q -rfE`, then once
+  `{python} -m pytest tests/deploy tests/poc -q -rfE`. Do NOT run the gate against a real image or start any container: the
+  supervisor performs the live run as the acceptance evidence. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Add the per-pilot, resource-budgeted, image-level workflow gate that reuses the existing proof and adds a task-oriented workflow.
+- Add fully mocked tests, including guaranteed container cleanup and secret hygiene.
+- Document the gate in the runbook.
+checks:
+- command: '{python} -m pytest tests/deploy/test_image_workflow_gate.py tests/deploy/test_runbook.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-001
+  - REQ-G3-002
+- command: '{python} -m pytest tests/deploy tests/poc -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-001
+  - REQ-G3-002
+min_tests: 12
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/release/image_workflow_gate.py');s=p.read_text(encoding='utf-8');old='readyz';assert old in s;i=s.rindex(old);p.write_text(s[:i]+'readyzX'+s[i+len(old):],encoding='utf-8')"
+  rationale: >-
+    Renames the last use of the readiness path in the tool, so the readiness poll asks for a path the server does not serve:
+    the readiness-success and the exact-command tests fail. A real semantic break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-345/receipt.json
+closeout:
+- >-
+  The exact image that would ship can be run one container per pilot under an explicit memory and CPU budget, driven through a
+  real MCP session with the eleven-check proof plus a task-oriented workflow, with a per-pilot report kept as evidence.
+recovery: Re-run from a clean tree.

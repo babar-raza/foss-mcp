@@ -268,3 +268,12 @@ owner_items:
     cluster access can perform) rather than guessed at with a code change that would not actually address the
     real cause. The loop continues on everything else in the meantime.'
   last_checked_at: '2026-10-10T05:30:00Z'
+- id: OWNER-13
+  status: OPEN
+  summary: 'The operator wants the final standalone 40-pilot demo image hosted on an INTERNAL container registry (REQ-G3-003). The registry host (and path), and a login for it, are known only to the operator. Nothing in this repository names one, and an agent must not invent a host or reuse a credential for a service the operator did not name.'
+  resume_predicate: 'The operator provides the internal registry host (for example registry.internal.example:5000/foss-mcp) and has run `docker login` for it on this machine, then `python scripts/release/push_image.py --image foss-mcp-serving:<tag> --registry <host>` exits 0 and prints a sha256 digest, and `gatectl release-record` records that digest.'
+  consumed_by:
+  - G3
+  recorded_at: '2026-10-11T10:30:00Z'
+  note: 'Owner-only credential/endpoint. Blocks gate exit G3 only (REQ-G3-003), no card: the tool, the lean image, the pre-deployment workflow gate and the state-machine record are all built and verified without it.'
+  last_checked_at: '2026-10-11T10:30:00Z'

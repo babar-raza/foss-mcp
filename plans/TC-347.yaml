@@ -1,0 +1,87 @@
+id: TC-347
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-003 (hosted on the internal server). There is no tool that publishes a built image anywhere. This card adds
+  scripts/release/push_image.py: it tags a locally built image for the operator's internal registry, pushes it, and
+  captures the pushed digest, but it refuses to run without an explicit registry, never reads or stores a credential
+  (the operator runs `docker login` themselves), and supports --dry-run. The registry host is the operator's to supply
+  (OWNER-13); this card is verified entirely with a mocked docker so nothing is pushed anywhere during verification.
+depends_on:
+- TC-192
+- TC-339
+write_paths:
+- scripts/release/push_image.py
+- tests/deploy/test_push_image.py
+- docs/DEPLOYMENT.md
+satisfies:
+- REQ-G3-003
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Operator delivery requirements: a lean standalone 40-pilot image, hosted internally, recorded in the state machine, tested with real workflows first (operator, supervisor, pre-TC-345)'
+  sha256: 355bbca64e8652c4d4c844c4b9b34fcd67980c42d553b0d16074308c5904ac30
+inputs:
+- >-
+  Read scripts/release/build_images.py (its style, `fail()` helper and argparse shape), scripts/deploy/install_pilots.py's
+  secret-name validation (TC-339) and tests/deploy/test_install_pilots.py (how it mocks subprocess), and docs/DEPLOYMENT.md
+  plus tests/deploy/test_runbook.py (the runbook test proves docs and tools agree: every flag you add must be named in the
+  runbook).
+- >-
+  scripts/release/push_image.py: arguments `--image NAME:TAG` (required, must be a local image reference with an explicit
+  tag, never `latest`), `--registry HOST[:PORT][/PATH]` (required; falls back to env FOSS_MCP_REGISTRY; if neither is set
+  exit 2 with a clear message and run nothing), `--dry-run`, and `--record FILE` (optional path to write the JSON result).
+  Validate the registry string against a strict grammar (lowercase host labels, optional :port, optional path segments of
+  `[a-z0-9._-]`, no scheme, no spaces, no credentials such as user:pass@) and exit 2 on a bad one. Steps: confirm the local
+  image exists (`docker image inspect`), `docker tag <image> <registry>/<name>:<tag>`, `docker push <registry>/<name>:<tag>`,
+  parse the `digest: sha256:<64 hex> size: <n>` line from the push output, then print and optionally record a JSON object
+  with image, pushed_reference, digest, local_image_id and a UTC timestamp. Exit non-zero if the push fails or no digest can be
+  parsed - a push with no captured digest is not a success. It must not call `docker login`, must not read
+  ~/.docker/config.json, and must never print environment variables.
+- >-
+  tests/deploy/test_push_image.py (NEW), with `subprocess.run` monkeypatched so no docker command ever runs: the dry run
+  prints the tag and push commands and runs nothing; the exact argv for tag and push; a normal run records the digest parsed
+  from a realistic push output; no registry anywhere gives exit 2 and runs nothing; each bad registry (`http://r`, `u:p@r`,
+  `Reg Istry`, `r/..`, empty) gives exit 2; `latest` and a missing tag are refused; a failed push exits non-zero; push output
+  with no digest line exits non-zero; the source text contains no `docker login`; a credential-looking value planted in the
+  environment never appears in any output.
+- >-
+  docs/DEPLOYMENT.md: a short "Hosting the standalone demo image" subsection: build the demo image
+  (`docker build --target demo -t foss-mcp-serving:<tag> .`), run the pre-deployment workflow gate on it (TC-345), `docker
+  login` to the internal registry yourself, then run the push tool, then record the result with `gatectl release-record`.
+  Use placeholders only for the registry host.
+- >-
+  Run `{python} -m pytest tests/deploy/test_push_image.py tests/deploy/test_runbook.py -q -rfE`, then once
+  `{python} -m pytest tests/deploy -q -rfE`. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Add the registry push tool with strict validation, digest capture and a dry run, and never any credential handling.
+- Add mocked tests for every refusal and success path, and document the hosting steps in the runbook.
+checks:
+- command: '{python} -m pytest tests/deploy/test_push_image.py tests/deploy/test_runbook.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-003
+- command: '{python} -m pytest tests/deploy -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1500
+  junitxml: true
+  proves:
+  - REQ-G3-003
+min_tests: 10
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/release/push_image.py');s=p.read_text(encoding='utf-8');old='digest';assert old in s;i=s.rindex(old);p.write_text(s[:i]+'digestX'+s[i+len(old):],encoding='utf-8')"
+  rationale: >-
+    Renames the last use of `digest` in the tool, so the digest is no longer captured or reported under its name: the
+    recorded-digest and no-digest-fails tests fail. A real semantic break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-347/receipt.json
+closeout:
+- >-
+  A built image can be tagged for and pushed to the operator's internal registry with its digest captured, with no
+  credential handled by the tool and nothing pushed unless a registry is named explicitly.
+recovery: Re-run from a clean tree.

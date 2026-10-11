@@ -1,10 +1,10 @@
 schema_version: 1
 project: foss-mcp
 generated_by: gatectl
-generated_at: '2026-10-11T05:15:32Z'
+generated_at: '2026-10-11T05:39:37Z'
 current_gate:
   id: G3
-  status: EXIT_PENDING
+  status: READY
 gate_exit: null
 accepted_gates:
 - G0
@@ -2357,6 +2357,21 @@ cards:
   blocker: null
   commit: 3d3d08359a76d8a45b8a0a1e571ef824f2113ee7
   receipt: G2/TC-344/receipt.json
+- id: TC-345
+  gate: G3
+  status: PENDING
+  attempt: 0
+  blocker: null
+- id: TC-346
+  gate: G3
+  status: READY
+  attempt: 0
+  blocker: null
+- id: TC-347
+  gate: G3
+  status: READY
+  attempt: 0
+  blocker: null
 owner_items:
 - id: OWNER-01
   status: SATISFIED
@@ -2675,6 +2690,25 @@ owner_items:
     at with a code change that would not actually address the real cause. The loop
     continues on everything else in the meantime.
   last_checked_at: '2026-10-10T05:30:00Z'
+- id: OWNER-13
+  status: OPEN
+  summary: The operator wants the final standalone 40-pilot demo image hosted on an
+    INTERNAL container registry (REQ-G3-003). The registry host (and path), and a
+    login for it, are known only to the operator. Nothing in this repository names
+    one, and an agent must not invent a host or reuse a credential for a service the
+    operator did not name.
+  resume_predicate: The operator provides the internal registry host (for example
+    registry.internal.example:5000/foss-mcp) and has run `docker login` for it on
+    this machine, then `python scripts/release/push_image.py --image foss-mcp-serving:<tag>
+    --registry <host>` exits 0 and prints a sha256 digest, and `gatectl release-record`
+    records that digest.
+  consumed_by:
+  - G3
+  recorded_at: '2026-10-11T10:30:00Z'
+  note: 'Owner-only credential/endpoint. Blocks gate exit G3 only (REQ-G3-003), no
+    card: the tool, the lean image, the pre-deployment workflow gate and the state-machine
+    record are all built and verified without it.'
+  last_checked_at: '2026-10-11T10:30:00Z'
 open_questions:
   open: 3
   ids:

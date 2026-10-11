@@ -619,3 +619,27 @@ requirements:
     that composes both for a genuine task query (REQ-G2-049). Only once pdf/net proves
     this completely does the pattern replicate to the other six pilots, one per platform,
     before any further gate-exit work.'
+- id: REQ-G3-001
+  gate: G3
+  anchor: 'docs/DECISION_LOG.md: 2026-10-11 - Operator delivery requirements (pre-TC-345)'
+  text: >-
+    Pre-deployment workflow gate. Before any deployment or release of the MCP, the exact Docker image that would ship is
+    exercised with real MCP client sessions over Streamable HTTP - tool discovery plus, for each of the 40 pilots, the
+    task-oriented path a developer takes (lookup, symbol detail, a verified example) and the honest-miss and
+    scope-isolation checks - with a per-pilot report recorded as evidence. No image is tagged for hosting without a
+    passing 40-of-40 report for that image.
+- id: REQ-G3-002
+  gate: G3
+  anchor: 'docs/DECISION_LOG.md: 2026-10-11 - Operator delivery requirements (pre-TC-345)'
+  text: >-
+    Lean standalone demo image. One Docker image contains the ingested data for all 40 pilots and runs without ingestion,
+    a PersistentVolume or network access. It is lean and must not overwhelm the cluster: the baked data holds only the
+    active generation per pilot with vectors only for example chunks, in compact JSON, with an enforced total-size
+    budget, and each pilot container is measured under an explicit memory and CPU budget.
+- id: REQ-G3-003
+  gate: G3
+  anchor: 'docs/DECISION_LOG.md: 2026-10-11 - Operator delivery requirements (pre-TC-345)'
+  text: >-
+    Hosted on the internal server. The final image is tagged for and pushed to the operator's internal container registry
+    by a tool that refuses to run without an explicit registry, never handles credentials itself, and captures the pushed
+    digest. The registry host and credentials are supplied by the operator (OWNER-13).

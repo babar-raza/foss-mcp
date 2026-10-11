@@ -2727,3 +2727,48 @@ the optional grant lives where a conditional is allowed.
    `pytest-of-*` directory name; the same crates build fine in a plain temp directory). They are deselected in the
    simulation only. Relocating pytest's base temp directory to dodge that rule is a question for the operator, not a
    supervisor shortcut.
+
+## 2026-10-11 — Operator delivery requirements: a lean standalone 40-pilot image, hosted internally, recorded in the state machine, tested with real workflows first (operator, supervisor, pre-TC-345)
+
+Stated by the operator during the delivery loop and recorded here so they cannot be lost. Intent, near-verbatim:
+
+1. "We also need to host the docker image at an internal server. The docker image will be standalone, containing the
+   ingested data for the 40-pilot MCP demo. The docker must be lean and must not overwhelm the cluster."
+2. "Add the final docker image to the state machine so it is not lost."
+3. "What about testing the MCP with actual workflows. We will need to test the MCP before deployment."
+4. "Remember and log these requirements." (This entry, ops/requirements.yaml REQ-G3-001..004 and project memory.)
+5. Earlier, same session: "Pytest CI is failing. It should be your job to keep CI green." and "use GITHUB_TOKEN" for
+   ingestion (done: Secret `foss-mcp-github-token`, key `token`, in namespace `foss-mcp`).
+
+Findings that shape the work, measured not assumed:
+
+- `infra/demo-manifests/` (the data the existing `Dockerfile.serving` `demo` stage bakes in, TC-328) is 967 MB across
+  40 scopes, up to 44 MB per generation file, because every chunk carries a 4096-dim Qwen vector. Baked as-is, the image
+  is ~1 GB and each demo pod would parse a 44 MB file under a 512 MiB limit - the same probe starvation seen on the live
+  chart. It is not lean.
+- The only consumer of the vector index is `find_examples`' fallback, which keeps just `Example:`-bearing chunks (TC-340
+  made that an ingestion option). An existing manifest can be compacted OFFLINE - keep the active generation, drop vector
+  points that are not example chunks, write compact JSON - with no new embedding calls.
+- Cluster impact is a per-pod cost times 40: one serving pod per pilot is a core isolation invariant (scope identity,
+  cross-instance leakage tests), so the lever is a small, explicit request/limit per demo pod and a small data footprint,
+  not a shared multi-scope process. Measured with `docker stats` per pilot in the pre-deployment gate, not guessed.
+- Hosting needs an internal registry host and credentials that only the operator can supply: owner item OWNER-13. Every
+  other step (build, size/lean budget, tag, push script, digest capture, state record) is built and tested without it.
+
+Decisions: REQ-G3-001 (pre-deployment workflow gate on the exact shipped image), REQ-G3-002 (lean standalone image
+holding all 40 pilots' data), REQ-G3-003 (push to the internal registry, digest recorded), REQ-G3-004 (the final image is
+a gatectl-derived record in the state machine and required by gate exit). Cards: TC-345 (workflow gate), TC-346 (compact
+the demo data), TC-347 (registry push tool). REQ-G3-004 is implemented by the supervisor in the governance tooling
+(`gatectl release-record`, a `release_images` section of `project/state.yaml`, a schema) with canary tests, because
+workers may not write `ops/**` or `schemas/**`; its card follows.
+
+## 2026-10-11 — Order of work for the standalone image, and what counts as "tested before deployment" (supervisor)
+
+Order: (1) compact the demo data (TC-346) so the image is lean at all; (2) build the demo image from that tree and
+record its size; (3) run the workflow gate (TC-345) against THAT image, one container per pilot with a fixed memory and
+CPU budget, and keep its report as evidence; (4) only then tag and push (TC-347), capturing the registry digest; (5)
+`gatectl release-record` writes the evidence and the state machine shows the image, its digest, its source commit, its
+size and the gate report it passed. A deployment of an image with no passing gate report is a process failure, not a
+shortcut. "Actual workflows" means real MCP client sessions over Streamable HTTP, not unit calls: tool discovery, and for
+each pilot the task-oriented path a developer takes (lookup, then symbol detail, then a verified example), plus the
+honest-miss and scope-isolation checks the existing eleven-check proof already makes.

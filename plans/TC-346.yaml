@@ -1,0 +1,98 @@
+id: TC-346
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-002 (lean standalone demo image). The data the Dockerfile.serving `demo` stage bakes in, infra/demo-manifests/, is
+  967 MB across 40 scopes (up to 44 MB per generation file) because every chunk carries a 4096-dim Qwen vector. The only
+  consumer of the vector index, find_examples' fallback, can return only chunks containing the "Example:" marker (pdf/go
+  keeps 4 of 314 points). Baked as-is the image is ~1 GB and each demo pod parses a 44 MB file under a 512 MiB limit. This
+  card adds an offline, deterministic, idempotent compaction tool and applies it to the committed tree: keep exactly the
+  active generation per scope, keep vector points only for example chunks, write compact JSON. No embedding call is made.
+depends_on:
+- TC-333
+- TC-340
+write_paths:
+- scripts/release/compact_demo_manifests.py
+- tests/deploy/test_compact_demo_manifests.py
+- infra/demo-manifests/**
+satisfies:
+- REQ-G3-002
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Operator delivery requirements: a lean standalone 40-pilot image, hosted internally, recorded in the state machine, tested with real workflows first (operator, supervisor, pre-TC-345)'
+  sha256: 355bbca64e8652c4d4c844c4b9b34fcd67980c42d553b0d16074308c5904ac30
+inputs:
+- >-
+  Read src/foss_mcp/indexing/generation_manifest.py (GenerationManifest, GenerationManifestStore, validate_manifest,
+  to_json_dict, the active_pointer.json layout), src/foss_mcp/indexing/vector_index_writer.py (EXAMPLE_MARKER and
+  is_example_chunk, added by TC-340), one scope under infra/demo-manifests/ (an `active_pointer.json` plus one
+  `generation__<ts>.json` whose top-level keys are family, generation_id, payload{lexical_index,vector_index}, platform,
+  source_kind, version), docs/REPOSITORY_LAYOUT.md's "Demo manifests" section, and Dockerfile.serving's `demo` stage
+  (read only; you do not own it). There is no integrity hash over the payload, so compaction does not have to re-sign
+  anything; it must still produce files the real store can load.
+- >-
+  Create scripts/release/compact_demo_manifests.py: `--root` (default infra/demo-manifests), `--check` (report only,
+  exit 1 if any scope is not already compact, change nothing), `--dry-run`. For every scope directory: (1) resolve the
+  active generation id from active_pointer.json and keep ONLY that generation file, deleting any other
+  `generation__*.json` in the scope; if the pointer names a missing file, fail loudly (exit 2) naming the scope; (2) in
+  the kept generation's payload.vector_index.points keep only points whose `text` contains
+  `vector_index_writer.EXAMPLE_MARKER` (import it; do not copy the literal), preserving order and every field of the kept
+  points, and leave `dimension` and `generation_id` as they are; (3) leave payload.lexical_index byte-for-byte equal in
+  content; (4) rewrite the file as compact JSON (`separators=(",", ":")`, `sort_keys=True`, UTF-8, one trailing newline),
+  atomically (temp file in the same directory then os.replace). Idempotent: a second run changes nothing and `--check` then
+  exits 0. Print one line per scope (old bytes, new bytes, points kept/dropped) and a total.
+- >-
+  Run it on the committed tree and commit the result under infra/demo-manifests/. Verify and report: total tree size before
+  and after (MB), the largest generation file after, scope count (must still be 40), and that every scope has exactly one
+  generation file plus its pointer. Then add the budget as a test (below) using bounds with about 25% headroom over what
+  you measured.
+- >-
+  tests/deploy/test_compact_demo_manifests.py (NEW): (a) on a synthetic scope in tmp_path with two generations, a mix of
+  example and non-example vector points and a lexical index: after compaction only the active generation remains, only
+  example points remain with all their fields intact, the lexical index is equal, the file is compact JSON, and a second
+  run is a no-op (bytes identical); (b) a pointer naming a missing generation exits 2; (c) `--check` exits 1 on a
+  non-compact scope and 0 after compaction and changes nothing; (d) on the REAL committed tree: 40 scopes, one generation
+  file each, total size and largest-file size under your measured budgets, `--check` exits 0, every scope loads through
+  `GenerationManifestStore.read_generation` and its lexical index has a non-empty `documents` mapping (real, non-empty
+  content - not merely a well-formed file), and every kept vector point's text contains the example marker.
+- >-
+  Also find and run every OTHER test that reads infra/demo-manifests (for example
+  `grep -rl demo-manifests tests`) so nothing that depended on the old full vector set breaks; list them in your report.
+  If an existing accepted test needs the dropped non-example vector points, STOP and report instead of editing it.
+- >-
+  Run `{python} -m pytest tests/deploy/test_compact_demo_manifests.py -q -rfE`, then the other demo-manifest-reading tests
+  you found, in one second check. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Add the compaction tool and its tests.
+- Apply it to the committed infra/demo-manifests tree and record the measured sizes.
+- Pin the lean budget and the real-tree loadability as tests.
+checks:
+- command: '{python} -m pytest tests/deploy/test_compact_demo_manifests.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-002
+- command: '{python} -m pytest tests/deploy tests/mcp/tools/test_retrieval_tools.py tests/test_unwired_modules.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1500
+  junitxml: true
+  proves:
+  - REQ-G3-002
+min_tests: 8
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/release/compact_demo_manifests.py');s=p.read_text(encoding='utf-8');old='EXAMPLE_MARKER';assert old in s;i=s.rindex(old);p.write_text(s[:i]+'EXAMPLE_MARKERX'+s[i+len(old):],encoding='utf-8')"
+  rationale: >-
+    Renames the last use of EXAMPLE_MARKER inside the tool, so it no longer filters vector points on the real marker (the
+    name no longer resolves): the compaction tests fail. A real semantic break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-346/receipt.json
+closeout:
+- >-
+  infra/demo-manifests/ holds one compact generation per pilot with vectors only for example chunks, so the standalone demo
+  image is lean and a demo pod parses megabytes, not tens of megabytes, at start.
+recovery: Re-run from a clean tree.
