@@ -366,6 +366,9 @@ def _extract_method_params(node, language: str) -> list[dict[str, str]]:
     if param_list is None:
         return params
 
+    if language == "csharp":
+        return _extract_csharp_params(param_list)
+
     for ch in param_list.children:
         if ch.type in (
             "formal_parameter",
@@ -445,6 +448,75 @@ def _extract_method_params(node, language: str) -> list[dict[str, str]]:
     return params
 
 
+# C# parameter modifiers kept as a prefix of the parameter's type (TC-396).
+_CSHARP_PARAM_MODIFIERS = ("ref", "out", "in", "this", "params")
+
+# C# member modifiers recorded in the additive ``modifiers`` list (TC-396); access modifiers are
+# deliberately absent.
+_CSHARP_MEMBER_MODIFIERS = (
+    "static",
+    "abstract",
+    "virtual",
+    "override",
+    "async",
+    "sealed",
+    "extern",
+    "new",
+    "readonly",
+)
+
+
+def _extract_csharp_params(param_list) -> list[dict[str, str]]:
+    """Extract C# parameters from a ``parameter_list`` / ``bracketed_parameter_list`` node.
+
+    ``parameter`` nodes carry ``type``/``name`` fields, optional ``modifier`` children
+    (``ref``/``out``/``in``/``this``) and an optional default after ``=``. A ``params`` array
+    parameter is NOT a ``parameter`` node: tree-sitter-c-sharp emits ``params``, the type and the
+    name as loose children of the list, so it is reassembled here. Modifiers are kept as a prefix
+    of the type (``"params Document[]"``); a default becomes the additive key ``"default"``.
+    """
+    params: list[dict[str, str]] = []
+    in_params = False
+    params_type = ""
+    for i, ch in enumerate(param_list.children):
+        field = param_list.field_name_for_child(i)
+        if ch.type == "params":
+            in_params = True
+            params_type = ""
+            continue
+        if in_params:
+            if field == "type":
+                params_type = node_text(ch).strip()
+            elif field == "name":
+                params.append({"name": node_text(ch), "type": f"params {params_type}".strip()})
+                in_params = False
+            continue
+        if ch.type != "parameter":
+            continue
+        name_node = child_by_field(ch, "name")
+        if name_node is None:
+            continue
+        type_node = child_by_field(ch, "type")
+        ptype = node_text(type_node).lstrip(":").strip() if type_node is not None else ""
+        prefix = [
+            node_text(sub).strip()
+            for sub in ch.children
+            if sub.type == "modifier" and node_text(sub).strip() in _CSHARP_PARAM_MODIFIERS
+        ]
+        if prefix:
+            ptype = " ".join([*prefix, ptype]).strip()
+        entry: dict[str, str] = {"name": node_text(name_node), "type": ptype}
+        seen_equals = False
+        for sub in ch.children:
+            if sub.type == "=":
+                seen_equals = True
+            elif seen_equals:
+                entry["default"] = node_text(sub).strip()
+                break
+        params.append(entry)
+    return params
+
+
 # ---------------------------------------------------------------------------
 # Return type extraction
 # ---------------------------------------------------------------------------
@@ -452,6 +524,12 @@ def _extract_method_params(node, language: str) -> list[dict[str, str]]:
 
 def _extract_return_type(node, language: str) -> str:
     """Extract the return type from a method/function node."""
+    if language == "csharp":
+        # tree-sitter-c-sharp names a method's return type field ``returns`` (TC-396); a
+        # constructor/destructor has none and keeps "".
+        returns = child_by_field(node, "returns")
+        if returns is not None:
+            return node_text(returns).strip()
     rt = child_by_field(node, "return_type")
     if rt:
         txt = node_text(rt).lstrip(":").strip()
@@ -476,6 +554,92 @@ def _extract_return_type(node, language: str) -> str:
         if result:
             return node_text(result)
     return ""
+
+
+def _csharp_modifiers(node) -> list[str]:
+    """The C# member modifiers worth recording, in source order (TC-396).
+
+    Only ``static``, ``abstract``, ``virtual``, ``override``, ``async``, ``sealed``, ``extern``,
+    ``new`` and ``readonly``; access modifiers are never included.
+    """
+    found: list[str] = []
+    for ch in node.children:
+        if ch.type == "modifier":
+            text = node_text(ch).strip()
+            if text in _CSHARP_MEMBER_MODIFIERS:
+                found.append(text)
+    return found
+
+
+def _csharp_indexer_is_public(inode) -> bool:
+    """True for a ``public`` indexer, or any indexer declared directly inside an interface."""
+    for ch in inode.children:
+        if ch.type == "modifier" and node_text(ch).strip() == "public":
+            return True
+    parent = inode.parent
+    return (
+        parent is not None
+        and parent.type == "declaration_list"
+        and parent.parent is not None
+        and parent.parent.type == "interface_declaration"
+    )
+
+
+def _extract_csharp_indexers(
+    cnode, class_types: set[str], cname: str, rel: str, family: str
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Extract the public ``indexer_declaration`` members of a C# type as PROPERTY entries (TC-396).
+
+    An indexer is named ``this[<parameter types, comma-separated>]``; it is writable when it has a
+    ``set``/``init`` accessor; its bracketed parameters are kept under the additive ``"params"`` key.
+    """
+    props: list[dict[str, Any]] = []
+    claims: list[dict[str, Any]] = []
+    for inode in collect_nodes(cnode, {"indexer_declaration"}):
+        if _in_excluded_preproc_branch(inode, "csharp") or not _csharp_indexer_is_public(inode):
+            continue
+        parent = inode.parent
+        nested = False
+        while parent is not None and parent != cnode:
+            if parent.type in class_types:
+                nested = True
+                break
+            parent = parent.parent
+        if nested:
+            continue
+        params = _extract_method_params(inode, "csharp")
+        name = f"this[{', '.join(p.get('type', '') for p in params)}]"
+        type_node = child_by_field(inode, "type")
+        ptype = node_text(type_node).strip() if type_node is not None else ""
+        writable = False
+        acc_list = find_child_by_type(inode, "accessor_list")
+        if acc_list is not None:
+            for acc in acc_list.children:
+                if acc.type == "accessor_declaration" and node_text(acc).lstrip().startswith(("set", "init")):
+                    writable = True
+                    break
+        entry: dict[str, Any] = {
+            "name": name,
+            "type": ptype,
+            "doc": _extract_doc_comment(inode, "csharp"),
+            "line": inode.start_point[0] + 1,
+            "writable": writable,
+            "params": params,
+        }
+        modifiers = _csharp_modifiers(inode)
+        if modifiers:
+            entry["modifiers"] = modifiers
+        props.append(entry)
+        claims.append(
+            _make_claim(
+                family,
+                "api_method",
+                f"{cname}.{name} property of type {ptype}",
+                rel,
+                inode.start_point[0] + 1,
+            )
+        )
+    return props, claims
 
 
 def _extract_go_receiver_type(fnode) -> str:
@@ -3556,6 +3720,11 @@ def extract_api_surface(
                             if _ts_value_node is not None:
                                 prop_entry["value"] = node_text(_ts_value_node)[:80]
 
+                    if language == "csharp":
+                        prop_modifiers = _csharp_modifiers(mnode)
+                        if prop_modifiers:
+                            prop_entry["modifiers"] = prop_modifiers
+
                     properties.append(prop_entry)
                     claims.append(
                         _make_claim(
@@ -3590,6 +3759,10 @@ def extract_api_surface(
                     "deprecated": m_deprecated,
                     "deprecated_reason": m_deprecated_reason,
                 }
+                if language == "csharp":
+                    method_modifiers = _csharp_modifiers(mnode)
+                    if method_modifiers:
+                        method_entry["modifiers"] = method_modifiers
                 if language == "python" and _is_python_stub_any(mnode):
                     method_entry["stub"] = True
                 elif language == "csharp" and _is_csharp_stub(mnode):
@@ -3614,6 +3787,12 @@ def extract_api_surface(
                         mnode.start_point[0] + 1,
                     )
                 )
+
+            # C# indexers (`this[...]`) are PROPERTY entries (TC-396)
+            if language == "csharp":
+                extra_props, extra_claims = _extract_csharp_indexers(cnode, class_types, cname, rel, family)
+                properties.extend(extra_props)
+                claims.extend(extra_claims)
 
             # Python properties via decorators
             if language == "python":

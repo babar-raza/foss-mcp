@@ -117,7 +117,21 @@ def _is_inherited_constructor_or_destructor(member: Mapping[str, object]) -> boo
 def _param_text(param: Mapping[str, object]) -> str:
     name = str(param.get("name") or "")
     param_type = _clean_type(param.get("type"))
-    return f"{name}: {param_type}" if param_type else name
+    text = f"{name}: {param_type}" if param_type else name
+    default = param.get("default")
+    if default is None or not str(default).strip():
+        return text
+    return f"{text} = {str(default).strip()}"
+
+
+def _modifiers_suffix(entry: Mapping[str, object]) -> str:
+    """TC-396: `` [static]`` / `` [static, async]`` from the extraction's additive ``modifiers`` list.
+
+    Empty when the key is absent or empty, so every member without it renders exactly as before.
+    The suffix is only ever placed after a member's name and type, never before the name.
+    """
+    modifiers = [str(item).strip() for item in _items(entry.get("modifiers")) if str(item).strip()]
+    return f" [{', '.join(modifiers)}]" if modifiers else ""
 
 
 def _method_line(method: Mapping[str, object]) -> str:
@@ -126,7 +140,7 @@ def _method_line(method: Mapping[str, object]) -> str:
     arrow = f" -> {return_type}" if return_type else ""
     return (
         f"  - {method.get('name', '')}({params}){arrow}"
-        f"{_inherited_from_suffix(method)}{_deprecated_suffix(method)}"
+        f"{_modifiers_suffix(method)}{_inherited_from_suffix(method)}{_deprecated_suffix(method)}"
     )
 
 
@@ -156,7 +170,8 @@ def _property_line(prop: Mapping[str, object]) -> str:
     prop_type = _clean_type(prop.get("type"))
     typed = f": {prop_type}" if prop_type else ""
     return (
-        f"  - {prop.get('name', '')}{typed}{suffix}{_inherited_from_suffix(prop)}{_deprecated_suffix(prop)}"
+        f"  - {prop.get('name', '')}{typed}{_modifiers_suffix(prop)}{suffix}"
+        f"{_inherited_from_suffix(prop)}{_deprecated_suffix(prop)}"
     )
 
 
