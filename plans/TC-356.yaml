@@ -65,9 +65,9 @@ requires:
 - python
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/furnished/words_python/pages/_index.md');s=p.read_text(encoding='utf-8');old='title:';assert old in s;p.write_text(s.replace(old,'titlex:',1),encoding='utf-8')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/furnished/words_python/pages/_index.md');s=p.read_text(encoding='utf-8');old=chr(10)+'title:';assert old in s;p.write_text(s.replace(old,chr(10)+'titlex:',1),encoding='utf-8')"
   rationale: >-
-    Breaks the first generated page's top-level title key, so the page no longer has the title the documentation check keys on: the
+    Breaks the first generated page's top-level title key (anchored at the start of a line, so head_title is untouched), so the page no longer has the title the documentation check keys on: the
     fixture-validity test fails for that page. A real break of the card's central claim.
 evidence:
 - evidence/build/G3/TC-356/receipt.json
