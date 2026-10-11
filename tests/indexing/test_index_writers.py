@@ -198,19 +198,40 @@ def test_a_zero_vector_point_or_query_scores_exactly_zero_with_no_nan_or_inf() -
     assert query_vector_index(payload, zero_query, top_k=3) == [pid for pid, _ in scored_zero_query]
 
 
+def _pure_python_reference_scores(query_vector: Sequence[float], points: Sequence[dict]) -> list[float]:
+    """The straightforward per-point loop this project used before TC-336 vectorized it: a dot
+    product over ``zip`` divided by the two L2 norms, a zero norm scoring exactly ``0.0``. It
+    lives ONLY in this test, as the timing reference; it is never reintroduced into ``src/``.
+    """
+    query_norm = math.sqrt(sum(q * q for q in query_vector))
+    scores = []
+    for point in points:
+        vector = point["vector"]
+        point_norm = math.sqrt(sum(v * v for v in vector))
+        if point_norm == 0.0 or query_norm == 0.0:
+            scores.append(0.0)
+            continue
+        scores.append(
+            sum(q * v for q, v in zip(query_vector, vector, strict=True)) / (point_norm * query_norm)
+        )
+    return scores
+
+
 def test_query_vector_index_scored_stays_well_under_the_old_pure_python_cost_at_real_scale() -> None:
-    """A real timing proof, not an assumption: at 2,000 points x 4096 dimensions (the real
-    embedding width this project uses), the old pure-Python per-point loop measured ~589ms
-    (docs/DECISION_LOG.md). Independently re-measured on this machine, a single real
-    ``query_vector_index_scored()`` call against this NumPy-vectorized implementation
-    consistently completes in roughly 200-300ms fresh-process, with occasional repeated-call
-    variance up to ~400ms under load - comfortably below the old ~589ms baseline every time,
-    but not by the dramatic margin a naive guess might assume (the real bottleneck turns out to
-    be converting the payload's plain Python float lists into a NumPy matrix, not the matmul
-    itself, which alone takes low-single-digit milliseconds). 500ms is used here as a real,
-    independently-chosen bound: comfortably above every real measurement taken on this machine
-    (max observed ~400ms) to avoid flakiness on slower hardware, while still clearly below the
-    old baseline, so this test only passes for a genuinely vectorized implementation.
+    """A real timing proof, measured RELATIVE to the old algorithm rather than against a hard
+    number. At 2,000 points x 4096 dimensions (the real embedding width this project uses), the
+    old pure-Python per-point loop (``_pure_python_reference_scores`` above) is timed once, in
+    this same process under this same machine load, and ``query_vector_index_scored()`` is then
+    timed three times; the fastest of those three must be under 75% of the reference time, and
+    its top-5 point ids must equal the reference's top-5 ids, so the speed claim is about the
+    same answer rather than a faster wrong one.
+
+    The comparison is relative (same process, same load) because an absolute millisecond bound
+    is a property of the host, not of the code: a busy or slow machine slows the vectorized
+    scorer and the pure-Python loop alike, so their ratio stays meaningful where a fixed bound
+    fails at random. Taking the minimum of three vectorized calls discards scheduler noise from
+    any one call; a genuinely non-vectorized implementation costs about as much as the
+    reference on every call and so still fails.
     """
     rng = random.Random(20261010)
     dimension = 4096
@@ -223,11 +244,31 @@ def test_query_vector_index_scored_stays_well_under_the_old_pure_python_cost_at_
     query_vector = tuple(rng.random() for _ in range(dimension))
 
     start = time.perf_counter()
-    result = query_vector_index_scored(payload, query_vector, top_k=5)
-    elapsed_seconds = time.perf_counter() - start
+    reference_scores = _pure_python_reference_scores(query_vector, points)
+    reference_seconds = time.perf_counter() - start
+    reference_ranked = sorted(
+        zip(reference_scores, (p["point_id"] for p in points), strict=True),
+        key=lambda pair: (-pair[0], pair[1]),
+    )
+    reference_top_ids = [pid for _, pid in reference_ranked[:5]]
+
+    vectorized_seconds = []
+    result: list[tuple[str, float]] = []
+    for _ in range(3):
+        start = time.perf_counter()
+        result = query_vector_index_scored(payload, query_vector, top_k=5)
+        vectorized_seconds.append(time.perf_counter() - start)
+    best_vectorized_seconds = min(vectorized_seconds)
 
     assert len(result) == 5
-    assert elapsed_seconds < 0.5, f"query_vector_index_scored took {elapsed_seconds * 1000:.1f}ms"
+    assert [pid for pid, _ in result] == reference_top_ids
+    assert best_vectorized_seconds < 0.75 * reference_seconds, (
+        f"vectorized scorer is not clearly faster than the pure-Python reference: "
+        f"reference={reference_seconds * 1000:.1f}ms, "
+        f"vectorized runs={[round(s * 1000, 1) for s in vectorized_seconds]}ms, "
+        f"best vectorized={best_vectorized_seconds * 1000:.1f}ms "
+        f"(must be < 75% of reference = {0.75 * reference_seconds * 1000:.1f}ms)"
+    )
 
 
 def test_build_lexical_index_produces_one_document_per_chunk() -> None:
