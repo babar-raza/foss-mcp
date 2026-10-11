@@ -1,0 +1,100 @@
+id: TC-371
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-005 (pilot completeness), content wave 2 wiring. TC-366, TC-367, TC-368 and TC-370 committed a documentation page for each of
+  words/net, cells/net, slides/net, email/net, imaging/net, jmap/net, 3d/net, cells/go, jmap/go, jmap/rust. A page nothing references is not served and its examples are never verified: the chart's ingestion.pilots entry needs
+  `furnishedPage` and the compose ingest service needs `--furnished-page` plus the library flags the verifier requires for its platform
+  (a .NET project file, a Go module path, a Rust crate name). This card wires all ten the way pdf/net, pdf/go and cells/rust are already
+  wired and pins the wiring with an offline parity test, so the next re-ingest publishes real documentation and verified examples.
+depends_on:
+- TC-363
+- TC-364
+- TC-366
+- TC-367
+- TC-368
+- TC-370
+- TC-352
+- TC-327
+- TC-338
+- TC-341
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- docker-compose.yml
+- tests/infra/test_wave2_wiring.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read the finished shapes: the `pdf`/`net` (.NET: `library.csproj`, compose `--library-csproj`, `--library-platform dotnet`), `pdf`/`go`
+  (Go: `library.modulePath`, compose `--library-module-path`) and `cells`/`rust` (Rust: `library.crateName`, compose
+  `--library-crate-name`) entries in infra/helm/foss-mcp/values.yaml and the matching `ingest-*` services in docker-compose.yml; and the
+  entries for the ten pilots ['words_net', 'cells_net', 'slides_net', 'email_net', 'imaging_net', 'jmap_net', '3d_net', 'cells_go', 'jmap_go', 'jmap_rust']. Each already has a `library` block (repository, commit, platform) and a `manifestPath`, but no
+  `furnishedPage`; its compose service has `--api-surface`, `--title`, `--max-types`, `--out` for build_chunks.py and none of the
+  furnished or library flags. Read tests/infra/test_helm_pilots_match_compose.py (read only; keep it green WITHOUT editing it) to see
+  exactly what it compares.
+- >-
+  Where each value comes from (never from memory): `furnishedPage` is `/app/fixtures/furnished/<family>_<platform>/pages/_index.md`. For the
+  seven .NET pilots `library.csproj` is the project file path: take the pilot's own `manifestPath` when it ends in `.csproj` (it does for
+  all seven today; if one does not, STOP and report which). For the two Go pilots `library.modulePath` is the `module` line of the pilot's
+  go.mod: read it from the manifest_text of infra/demo-manifests/<scope>/product_reference_<family>_<platform>.json (a committed sidecar
+  with the real go.mod text; if that is empty, STOP and report). For jmap/rust `library.crateName` is the `name` under `[package]` in
+  Cargo.toml, from the same kind of sidecar. Repository and commit flags in compose are copied from values.yaml's library block
+  programmatically. Report each derived value (csproj, modulePath, crateName) in your report so the supervisor can eyeball them.
+- >-
+  infra/helm/foss-mcp/values.yaml: add `furnishedPage` after `maxTypes` (as slides/python has it) and the platform field to each library
+  block. Change nothing else. docker-compose.yml: in each of the ten `ingest-<family>-<platform>` services add, between `--max-types 300`
+  and `--out`, in the same order as the finished example of that platform: `--furnished-page ...`, `--library-repository ...`,
+  `--library-commit ...`, `--library-platform <dotnet|go|rust>` (the library block's own `platform` value) and the platform flag
+  (`--library-csproj` / `--library-module-path` / `--library-crate-name`). Change nothing else.
+- >-
+  tests/infra/test_wave2_wiring.py (NEW, offline, reads repository files only, no helm, no docker): parametrized over the ten pilots so a
+  failure names the pilot: (1) values.yaml has the exact furnishedPage path; (2) the file exists, its front matter has
+  `doc_source: github_readme` and a `doc_source_commit` equal to the pilot's `library.commit`; (3) the compose service passes the same
+  `--furnished-page`, `--library-repository`, `--library-commit`, `--library-platform` and the platform flag, all equal to values.yaml's
+  library block, all inside the build_chunks.py invocation and before `--out`; (4) the platform field is present and non-empty for its
+  platform (`csproj` ends in `.csproj`; `modulePath` looks like a Go module path; `crateName` is a plausible crate name); (5) no pilot
+  outside the ten and the ones that already had a page gained a furnishedPage. Read expected values from values.yaml, do not hard-code
+  commits.
+- >-
+  Run `{python} -m pytest tests/infra/test_wave2_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE`, then once
+  `{python} -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker"`.
+  Do not render the chart or start containers. Write commit messages as UTF-8 without a byte-order mark. The repository pre-commit hook
+  runs a secret scan on staged changes; if it objects, STOP and report the file:line it names (never paste the value).
+actions:
+- Reference each wave-2 page from the chart and from compose, with the library flags its platform's verifier needs.
+- Pin the wiring with an offline test.
+checks:
+- command: '{python} -m pytest tests/infra/test_wave2_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 40
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/values.yaml');s=p.read_text(encoding='utf-8');old='/app/fixtures/furnished/words_net/pages/_index.md';assert old in s;p.write_text(s.replace(old,'/app/fixtures/furnished/words_net/pages/_gone.md',1),encoding='utf-8')"
+  rationale: >-
+    Points one wave-2 pilot's furnishedPage at a file that does not exist, and away from what compose passes: the wiring test and the
+    chart-compose parity test both fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-371/receipt.json
+closeout:
+- >-
+  The ten wave-2 pilots (.NET, Go, Rust) reference their documentation pages in the chart and in compose, with the library flags their
+  verifiers need, pinned by an offline parity test.
+recovery: Re-run from a clean tree.
