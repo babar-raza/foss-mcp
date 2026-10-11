@@ -2815,3 +2815,69 @@ operator runs `docker login` themselves so no agent or tool ever sees a registry
 shared. A secret scanner in the commit and push hooks is added so a token pasted anywhere is blocked before it reaches git.
 Completeness bar: report per pilot, not per fleet; a pilot is 'complete' only when its docs, examples, product reference, recent
 releases and install verification all exist and its eleven-check proof passes on the shipped image.
+
+## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002's 'sealed candidates only' (supervisor, pre-TC-351)
+
+Operator bar: peers will try to break the shipped image and at least 10 to 20 pilots (target all) must be complete in all
+aspects. Measured: all 40 pilots have symbols, 6 have a documentation page, 7 have a verified example. A design investigation
+(read-only, 2026-10-11) found the existing generator `infra/generate_furnished_page.py` builds a page only for five pilots from
+repository-presenter's local SEALED candidate READMEs (OQ-002, resolved: never a live upstream fetch, for network independence
+and because the first pages were unreviewed marketing copy). A census fetched every pilot's README at its pinned library commit:
+all 40 exist, 39 have three or more language-tagged code blocks, and 35 contain all seven sections the generator requires.
+
+Decision (PROVISIONAL_ACCEPT, OQ-010): for pilots outside the sealed five, generate the page ONCE from the library's README at
+`library.repository@library.commit` through the authenticated GitHub reader (`repo_native_reader.read_repo_document`, which uses
+`GITHUB_TOKEN` and the bounded backoff), and COMMIT the result as a fixture under `tests/fixtures/furnished/<pilot>/pages/`.
+Why this honours OQ-002's intent: the README is pinned to the same commit as the extracted symbols, a rebuild never touches the
+network (the fixture is the input), and the owner has stated that these READMEs were themselves produced by repository-presenter.
+Guard rails: the generator refuses a README that is too thin to be documentation (it must not fabricate), omits sections a README
+does not have instead of inventing them, reports exactly which are missing, and a generic fixture-validity test pins every page
+(loadable, has a `title:`, `doc_source_commit` equals the chart's pinned commit, at least one code block).
+
+Expected outcome, stated now so it can be checked later: about 28 to 33 of 40 pilots complete. Likely to stay incomplete, for
+stated reasons: imaging/net (README is 83 lines with one code block), words/net and slides/net (several required sections
+absent, so documentation is partial), jmap/nodejs (no JavaScript verifier yet) and some C++ pilots (README fragments without a
+`main`). A pilot is reported as complete only when its own proof says so; the fleet number is a consequence, not a target.
+
+## 2026-10-11 — Content lane order: churn removed first, then waves by verifier maturity (supervisor)
+
+Per-pilot cost today is five scattered edits (a Dockerfile.ingestion COPY, `furnishedPage` and library flags in values.yaml, the
+same in docker-compose.yml, and the parity test's checked-pilot list), which serialises every pilot. Order: (1) the generator
+(TC-351) and, in parallel, one directory COPY of `tests/fixtures/furnished/` with the image-fixture test accepting it (TC-352);
+(2) content cards that write ONLY `tests/fixtures/furnished/<pilot>/**`, several in parallel because their paths never overlap;
+(3) one wiring card per wave editing values.yaml, docker-compose.yml and the parity test once for the whole wave; (4) re-ingest
+the wave's pilots on the cluster, run the eleven-check proof, snapshot the data into the demo manifests. Waves by risk: W1 Python
+(11 pilots, low), W2 .NET (4, low to medium), W3 Go/Rust/TypeScript (6, medium: crate, module path and package name fields), W4 Java
+(4, high: the Java wrapper imports `org.aspose.pdf.*` and the jar lookup assumes `target/`), W5 C++ (5, high: fixed CMake target
+name), W6 Node.js (needs a new verifier). W1 plus the six existing pilots is 17; W2 makes 21, which clears the operator's floor of
+10 to 20 before any high-risk work starts. Proof strictness gap to close: check 6 currently also passes on an honest 'no example'
+answer, so the completeness report must separately assert at least one verified `Example:` chunk per pilot.
+
+## 2026-10-11 — When a package coordinate does not resolve on its registry, the install answer must still be useful and true (supervisor, pre-TC-353)
+
+Measured on the first full live proof of the 40-pilot cluster (all 40 releases deployed, all 40 serving pods Ready): 25 pilots
+pass every applicable check and 15 fail exactly one, the same one, check 7 (`get_product_reference`, section `install`). The
+reason is identical for all 15: ingestion-time verification (TC-260/TC-275) looked the package coordinate up on its real
+registry (for example `@aspose/3d` on npm) and it does not resolve, so the tool returns an explicit absence: "<coordinate> was
+checked against its real registry at <time> and does not resolve there". That behaviour is correct and stays: a model must never
+be handed a confident install command that does not work, and "false information is more dangerous than missing information".
+
+But the user-facing result is an empty answer on 15 pilots, which is exactly what peers will find first. A truthful answer exists
+and is cheap: the library is published, just not under that registry name. The sidecar and the pinned library already give the
+repository URL and the exact commit the symbols were extracted from. Decision (TC-353): when `install_verified is False` for the
+current coordinate, the install section returns real content that (1) states plainly that the registry package was not found and
+names the registry and time checked, (2) never presents the unresolved coordinate as an install command, and (3) gives the
+repository, the pinned commit and the instruction to build and install from source following the repository's README. The reference
+is still honest, it is no longer empty, and check 7 passes because it asks for non-empty product information. Cases where the
+repository URL is unknown keep today's explicit absence.
+
+## 2026-10-11 — Live baseline of the 40-pilot cluster, and the state of the lanes (supervisor)
+
+Cluster `foss-mcp` (kind): 40 of 40 releases `deployed`, 40 of 40 serving pods Ready, on images `rev-64b47ff` (ingestion with the
+Qwen gateway and the authenticated GitHub token; vectors only for example chunks). Ingestion time dropped from hours to minutes
+per pilot once the vector payload stopped being 4096 floats per chunk. Eleven-check proof: 25 pass, 15 fail check 7 only (see the
+entry above); 14 of the 40 also record check 5 (documentation) as not applicable because the pilot has no furnished page, which is
+the content lane's target. Standalone demo image `foss-mcp-serving:demo-<sha7>` builds from a `git archive` export in 7 s and is
+355.7 MB (19 MB of it pilot data); it does not start by default (TC-350). Recovery notes worth keeping: a restart left five Helm
+releases in `pending-upgrade`; deleting only each dead revision's secret (`sh.helm.release.v1.<release>.v<N>` after confirming its
+`status` label) let the next upgrade proceed. Docker Desktop must be started by hand after a machine restart.

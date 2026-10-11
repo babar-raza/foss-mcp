@@ -1,0 +1,76 @@
+id: TC-352
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-005 (pilot completeness) without a serial bottleneck. Each pilot with documentation needs its own exact COPY line in
+  Dockerfile.ingestion, and tests/infra/test_ingestion_image_fixtures.py demands an exact source/destination pair per file, so adding
+  34 pilots means 34 serial edits to a shared file. This card replaces the per-pilot furnished-page COPY lines with one directory
+  COPY of tests/fixtures/furnished/ and teaches the fixture test to accept a covering ancestor-directory COPY while still asserting
+  that every fixture the chart and compose reference exists and is covered by some COPY.
+depends_on:
+- TC-275
+- TC-236
+write_paths:
+- Dockerfile.ingestion
+- tests/infra/test_ingestion_image_fixtures.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Content lane order: churn removed first, then waves by verifier maturity (supervisor)'
+  sha256: 3a6f52f7a3e9ea69a8155707c3d37880b103cf4008c8662f9ad8e5dd5451eec5
+inputs:
+- >-
+  Read Dockerfile.ingestion (all the `COPY tests/fixtures/furnished/<pilot>/pages/_index.md ./fixtures/furnished/<pilot>/pages/_index.md`
+  lines and the `api_surface.json` lines, which stay as they are), tests/infra/test_ingestion_image_fixtures.py (`_copy_pairs` and the
+  tests that use it), tests/test_container_build.py (read only: it pins parts of the Dockerfiles; keep every assertion passing UNMODIFIED
+  and do not run its docker-build tests), and .dockerignore (it must not exclude tests/fixtures/furnished; if it does, STOP and report).
+- >-
+  Dockerfile.ingestion: replace every per-pilot furnished-page COPY line with the single line
+  `COPY tests/fixtures/furnished/ ./fixtures/furnished/` placed where the first such line was, preserving the surrounding comments'
+  meaning (update the comment to say fixtures are copied as a directory by convention). Measure and report the size of
+  tests/fixtures/furnished/ (MB) and the number of files copied; if `sealed_current` or anything else makes it unreasonably large (over
+  15 MB), STOP and report instead of copying it.
+- >-
+  tests/infra/test_ingestion_image_fixtures.py: make the exact-pair requirement accept a COPY whose source is an ANCESTOR DIRECTORY of the
+  fixture (with the destination mapped correspondingly), while still asserting for every fixture path the chart (`apiSurface`,
+  `furnishedPage`) and docker-compose reference that the file exists in the repository and is covered by at least one COPY. The check must
+  stay strict in the way that matters: a referenced fixture that no COPY covers, or a COPY that maps to the wrong destination, must still
+  FAIL. Add tests proving both failures with synthetic Dockerfile text, and one proving a directory COPY is accepted.
+- >-
+  Run `{python} -m pytest tests/infra/test_ingestion_image_fixtures.py -q -rfE`, then once
+  `{python} -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker"`.
+  Do not run any test that needs a Docker daemon. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Collapse the per-pilot furnished-page COPY lines into one directory COPY.
+- Make the image-fixture test accept covering directory COPYs while still failing on uncovered or mis-mapped fixtures.
+checks:
+- command: '{python} -m pytest tests/infra/test_ingestion_image_fixtures.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 8
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('Dockerfile.ingestion');s=p.read_text(encoding='utf-8');old='COPY tests/fixtures/furnished/ ./fixtures/furnished/';assert old in s;p.write_text(s.replace(old,'COPY tests/fixtures/furnished_missing/ ./fixtures/furnished/',1),encoding='utf-8')"
+  rationale: >-
+    Points the directory COPY at a path that does not exist, so no fixture the chart references is covered: the coverage assertions fail.
+    A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-352/receipt.json
+closeout:
+- >-
+  New furnished pages reach the ingestion image by convention, with no per-pilot Dockerfile edit, and the fixture test still fails when a
+  referenced fixture is not covered.
+recovery: Re-run from a clean tree.

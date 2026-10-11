@@ -1,0 +1,101 @@
+id: TC-351
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). Only six pilots have a documentation page and seven a verified example, because
+  infra/generate_furnished_page.py can build a page for just five pilots from repository-presenter's sealed candidate READMEs.
+  A census shows every pilot has a README at its pinned library commit and 39 of 40 have three or more language-tagged code blocks.
+  This card generalizes the generator (decision OQ-010): for any pilot it fetches the README at library.repository@library.commit
+  through the authenticated GitHub reader, builds a complete furnished page, and writes it as a committed, deterministic fixture.
+  It refuses a README too thin to be documentation instead of fabricating one, and a generic fixture-validity test pins every page.
+depends_on:
+- TC-119
+- TC-123
+- TC-217
+write_paths:
+- infra/generate_furnished_page.py
+- tests/infra/test_generate_furnished_page.py
+- tests/infra/test_furnished_fixtures_valid.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read infra/generate_furnished_page.py in full (its docstring explains why the original five pilots use sealed candidates; that
+  path, `_PILOTS` and every existing test of it stay unchanged), its helpers `_parse_readme_sections`, `_sanitize_section_text`,
+  `_merge_sections` and `_REQUIRED_SECTIONS`, `_apply_fields_to_fixture`; src/foss_mcp/extraction/repo_native_reader.py
+  (`read_repo_document(repository, path, ref=...)`, which already uses GITHUB_TOKEN through github_http and bounded backoff); the loader
+  that consumes a furnished page (`_load_furnished_page` / `extract_doc_sections` / `extract_candidate_examples` in infra/build_chunks.py
+  and src/foss_mcp/**, find them with Grep; read only) and one real fixture, tests/fixtures/furnished/pdf_go/pages/_index.md, so the page
+  you generate has exactly the front-matter keys and the `overview` / `content` / `faq` / `single` shapes those functions accept. Read
+  scripts/poc/pilot_workflow_proof.py's `furnished_title` and `chart_furnishes_page` (read only): check 5 needs a top-level `title:`.
+- >-
+  Add `readme_doc_fields(repository, commit)` (fetch README.md at the commit through read_repo_document; return the parsed sections and
+  fenced code blocks) and `build_page_from_readme(pilot, fields)` (the whole page text). Rules: `title:` is the README's first H1;
+  `github_url` is the repository URL; `doc_source_commit` is `library.commit` from the chart entry; `family_name`, `plugin_platform`,
+  `head_title`, `head_description`, `description` come from the pilot identity and the README's first paragraph; every fenced block with
+  a language tag becomes one `single.block` entry (one fenced block per entry, because only the first fence of an entry is taken as an
+  example), with fence tags normalised (ts to typescript, cs to csharp, js to javascript, c++ to cpp); `bash`, `shell`, `mermaid`, `xml`,
+  `toml`, `cmake`, `powershell` and `groovy` blocks are kept in the prose but never turned into example entries. Sections the README lacks
+  are omitted and reported, never invented; `Dependencies` is optional. A literal line of `---` inside any section or code block must be
+  neutralised so the page parser cannot split on it (see `_sanitize_section_text`). Output is deterministic: the same README bytes give a
+  byte-identical page.
+- >-
+  CLI: extend the existing argparse with `--source {sealed,github}` (default `sealed`, today's behaviour unchanged) and, for `github`,
+  `--pilot FAMILY_PLATFORM` (repeatable, validated against the chart's ingestion.pilots in infra/helm/foss-mcp/values.yaml, which supplies
+  repository and commit), `--project-root`, `--dry-run`, `--strict` (require all seven sections). Exit 3 with a clear message and write
+  nothing when the README has no H1, fewer than one language-tagged code block, or under 40 non-blank lines (too thin to be documentation;
+  imaging/net is the known case). Print, per pilot, the sections found and missing, the number of example entries and the byte size. It
+  must never print GITHUB_TOKEN or any environment value, and must not touch the network unless `--source github` is given.
+- >-
+  tests/infra/test_generate_furnished_page.py (EXISTING, owned earlier by TC-217: keep every existing test UNMODIFIED and APPEND the new
+  ones; offline; patch read_repo_document with in-memory README text): a complete README, one
+  missing Dependencies, one missing several sections (partial page, missing list reported), a thin README refused with exit 3 and no file
+  written, a README with `---` lines, tagged fences of every language above, determinism (two runs byte-identical), the generated page
+  loads through the real furnished-page loader and yields the expected doc sections and candidate examples, `furnished_title` finds the
+  title, `--source sealed` default behaves as before, an unknown pilot exits 2, and no token or env value ever appears in output.
+  tests/infra/test_furnished_fixtures_valid.py (NEW): parametrized over EVERY directory under tests/fixtures/furnished that holds
+  pages/_index.md (skip `sealed_current`): the page loads through the real loader, has a non-empty top-level `title:`, contains at least
+  one fenced code block, and when the pilot appears in the chart its `doc_source_commit` equals the chart's pinned library.commit
+  (a stale page fails). Existing fixtures must pass it; if one legitimately does not, STOP and report which and why.
+- >-
+  Run `{python} -m pytest tests/infra/test_generate_furnished_page.py tests/infra/test_furnished_fixtures_valid.py -q -rfE`, then once
+  `{python} -m pytest tests/infra -q -rfE -k "furnished or generate or ingestion_image or pilots_match"` (the Helm CLI needs the toolchain
+  activated in the same command). Do NOT call the real GitHub API in any test or check; the supervisor's content cards run it. Write
+  commit messages as UTF-8 without a byte-order mark.
+actions:
+- Add a README-at-pinned-commit source to the furnished-page generator with deterministic output and honest refusal of thin READMEs.
+- Add offline generator tests and a generic validity test over every committed furnished page.
+checks:
+- command: '{python} -m pytest tests/infra/test_generate_furnished_page.py tests/infra/test_furnished_fixtures_valid.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/infra -q -rfE -k "furnished or generate or ingestion_image or pilots_match"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 16
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/generate_furnished_page.py');s=p.read_text(encoding='utf-8');old='doc_source_commit';assert old in s;i=s.rindex(old);p.write_text(s[:i]+'doc_source_commitX'+s[i+len(old):],encoding='utf-8')"
+  rationale: >-
+    Renames the last use of the commit-pinning key in the generator, so generated pages no longer carry doc_source_commit: the
+    commit-pinning assertions and the fixture-validity test fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-351/receipt.json
+closeout:
+- >-
+  A documentation page can be generated deterministically for any pilot from its README at the pinned commit, a too-thin README is refused
+  honestly, and every committed page is pinned by a generic validity test.
+recovery: Re-run from a clean tree.
