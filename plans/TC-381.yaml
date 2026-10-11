@@ -35,6 +35,9 @@ depends_on:
 - TC-278
 - TC-279
 - TC-331
+- TC-280
+- TC-285
+- TC-317
 write_paths:
 - src/foss_mcp/mcp/tools/relevance.py
 - src/foss_mcp/mcp/tools/search_docs.py
@@ -42,6 +45,12 @@ write_paths:
 - src/foss_mcp/mcp/tools/find_examples.py
 - tests/mcp/tools/test_relevance_floor.py
 - tests/mcp/tools/test_retrieval_tools.py
+- tests/e2e/test_pdf_go_live_content.py
+- tests/e2e/test_cells_rust_live_content.py
+- tests/e2e/test_pdf_net_live_content.py
+- tests/e2e/test_pdf_java_live_content.py
+- tests/e2e/test_slides_python_live_content.py
+- tests/e2e/test_pdf_typescript_live_content.py
 satisfies:
 - REQ-G3-005
 source_refs:
@@ -113,6 +122,20 @@ inputs:
   fixes (an example pseudo-symbol counted as developer_guide documentation). Change only that assertion to
   `assert result.doc_matches == ()`, leave its docstring and every other assertion alone, and say in your report that you did so.
   If any other existing test fails, stop and report it; do not weaken it.
+- >-
+  LIVE-CONTENT E2E TESTS (found by the first review: the review gate runs the related tests of every file a card touches, and this card's
+  behaviour change legitimately breaks assertions that pin the OLD behaviour; the first worker counted nine). They are now in your write_paths and
+  you must update them, changing ONLY the assertions that encode the old behaviour and keeping the tests' purpose: (a) tests that assert the
+  source-commit hash appears INSIDE a returned example snippet (`test_lookup_composes_the_real_task_answer*` in the pdf_go, cells_rust, pdf_net
+  and pdf_java live-content files; `test_find_examples_returns_the_real_compile_verified_shape_example` in the slides_python one): snippets are
+  now the code alone, so assert instead that the snippet is exactly the verified code (no `Kind:`, no `Source-Commit:`, no `FQN:` lines) and
+  that the example is still the compile-verified one; if the test wanted to prove provenance, assert it on a field the response really
+  carries (the chunk/provenance fields), not in the snippet text; (b) `test_lookup_returns_real_doc_matches_for_an_api_naive_query` in the
+  cells_rust, pdf_net and slides_python files: a query that reduces to two meaningful terms no longer reaches the 0.6 floor; change the QUERY
+  text to a natural question with at least three meaningful terms that the page really answers, keep the assertions about what comes back.
+  These tests start the real compose stack and a real container, so run each failing file ONCE ALONE (never in parallel with another docker job)
+  and report the results; run the whole `tests/e2e/*_live_content.py` set once at the end. If a file fails for a reason unrelated to this
+  card (an environment or port problem), say so with the error text instead of changing it. Do not delete or skip any test.
 - >-
   Run `{python} -m pytest tests/mcp/tools/test_relevance_floor.py -q -rfE`, then once the second check command below. Write commit
   messages as UTF-8 without a byte-order mark.
