@@ -1,0 +1,68 @@
+id: TC-466
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-001 (a green, trustworthy suite). TC-381 moved find_examples onto `query_lexical_index_scored`, so
+  `foss_mcp.indexing.lexical_index_writer.query_lexical_index` (the plain-id BM25 query) no longer has a production caller. It is still the
+  reference implementation that tests/indexing/test_index_writers.py, tests/indexing/test_lookup_doc_fallback_query_safety.py and
+  tests/mcp/tools/test_retrieval_tools.py compare the scored sibling and the old relevance bar against. The import-graph walk in
+  tests/test_unwired_modules.py therefore reports it as newly unwired and
+  `test_the_real_import_graph_walk_finds_exactly_the_known_unwired_symbols` FAILS on main, which turns the local pytest step and the pre-push gate red.
+  Decision recorded here (the test itself asks for one of wire, delete or pin with a reason): PIN it. Deleting it would remove the reference
+  the nonsense-query and relevance-bar tests measure against; wiring it would add a second, unscored query path to production for no reader.
+  This card adds the symbol to `_KNOWN_UNWIRED` with the reason, and nothing else.
+depends_on:
+- TC-381
+- TC-390
+write_paths:
+- tests/test_unwired_modules.py
+satisfies:
+- REQ-G3-001
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Peers will try to break the shipped image: an adversarial suite is a requirement, not an extra (operator, supervisor, pre-TC-355)'
+  sha256: d2caef724bdb4ebdd6139a6775d2e46c22527150b512d2f09d15225ba6375268
+inputs:
+- >-
+  Read tests/test_unwired_modules.py in full: the module docstring, `_KNOWN_UNWIRED` (a frozenset of dotted symbol names), the comments that explain
+  each pinned entry, and the test that compares the real walk with the pin. Never print or log any environment value.
+- >-
+  Add the string "foss_mcp.indexing.lexical_index_writer.query_lexical_index" to `_KNOWN_UNWIRED`, with a comment line above it in the style of the
+  neighbouring entries that says this is the plain BM25 reference query kept for the tests that compare the scored sibling `query_lexical_index_scored`
+  and the old relevance bar against it (TC-381 moved find_examples to the scored function). Change nothing else in the file, except: if the module
+  docstring lists the pinned symbols or their count, update that sentence to match. Do not weaken the walk, do not delete or skip a test.
+- >-
+  Run `{python} -m pytest tests/test_unwired_modules.py -q -rfE`, then once `{python} -m pytest tests/test_unwired_modules.py tests/indexing/test_index_writers.py tests/indexing/test_lookup_doc_fallback_query_safety.py -q -rfE`.
+  Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Pin the now test-only BM25 reference query in the unwired-symbol registry with its reason, so the real import-graph walk matches again.
+checks:
+- command: '{python} -m pytest tests/test_unwired_modules.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-001
+- command: '{python} -m pytest tests/test_unwired_modules.py tests/indexing/test_index_writers.py tests/indexing/test_lookup_doc_fallback_query_safety.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-001
+min_tests: 20
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/test_unwired_modules.py');s=p.read_text(encoding='utf-8');old='foss_mcp.indexing.lexical_index_writer.query_lexical_index';assert old in s;p.write_text(s.replace(old,'foss_mcp.indexing.lexical_index_writer.query_lexical_index_x'),encoding='utf-8')"
+  rationale: >-
+    Renames the pinned symbol, so the real walk again finds `query_lexical_index` unpinned and the registry comparison fails. A real break of the
+    card's central claim (the registry must contain the symbol).
+evidence:
+- evidence/build/G3/TC-466/receipt.json
+closeout:
+- >-
+  The unwired-symbol registry matches the real import graph again, so the local pytest step and the pre-push gate are green.
+recovery: Re-run from a clean tree.
