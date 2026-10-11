@@ -1,0 +1,95 @@
+id: TC-375
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-005 (pilot completeness), content wave 3 wiring. TC-372, TC-373 and TC-374 committed a documentation page for each of
+  slides/java, cells/java, jmap/java, 3d/java, pdf/cpp, slides/cpp, email/cpp, jmap/cpp, cells/typescript, jmap/typescript, 3d/typescript, jmap/nodejs, and TC-363 recorded in values.yaml the library fields their verifiers need (javaPackages, cppSourceDir, cppTarget,
+  cppWarnings, cppVerifyMode, packageName) and taught the chart template to forward them. A page nothing references is not served and
+  its examples are never verified. This card wires all twelve: the chart entry gets `furnishedPage`, and the compose ingest service gets
+  `--furnished-page`, the library repository, commit and platform, and the same verifier flags the chart would pass, so the two
+  deployment paths stay in step. An offline parity test pins it.
+depends_on:
+- TC-363
+- TC-371
+- TC-372
+- TC-373
+- TC-374
+- TC-364
+- TC-352
+- TC-327
+- TC-338
+- TC-341
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- docker-compose.yml
+- tests/infra/test_wave3_wiring.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read the finished shapes: the `pdf`/`java`, `pdf`/`typescript` entries in infra/helm/foss-mcp/values.yaml and their `ingest-pdf-java` and
+  `ingest-pdf-typescript` compose services; the entries for the twelve pilots slides_java, cells_java, jmap_java, 3d_java, pdf_cpp, slides_cpp, email_cpp, jmap_cpp, cells_typescript, jmap_typescript, 3d_typescript, jmap_nodejs (each has a `library` block, now with the
+  TC-363 verifier fields where applicable, and a `manifestPath`); infra/helm/foss-mcp/templates/ingestion-job.yaml for exactly which flag
+  each library key becomes; and tests/infra/test_helm_pilots_match_compose.py (read only; keep it green WITHOUT editing it) for its
+  `LIBRARY_FLAGS` mapping of library keys to `--library-*` flags.
+- >-
+  infra/helm/foss-mcp/values.yaml: add `furnishedPage: /app/fixtures/furnished/<family>_<platform>/pages/_index.md` after `maxTypes` for each
+  of the twelve. Change nothing else (the library fields are already there from TC-363).
+- >-
+  docker-compose.yml: in each of the twelve `ingest-<family>-<platform>` services add, between `--max-types 300` and `--out`, in the order
+  the chart template emits them: `--furnished-page ...`, `--library-repository ...`, `--library-commit ...`, `--library-platform
+  <the library block's platform value>` and then one flag for every OTHER key that pilot's library block holds, using the key-to-flag
+  mapping from the template (for example `javaPackages` becomes `--library-java-packages`, `cppTarget` becomes `--library-cpp-target`,
+  `packageName` becomes `--library-package-name`). Every value is copied programmatically from values.yaml, never retyped. pdf/cpp has no
+  verifier-specific keys, so it gets only the first four. Change nothing else.
+- >-
+  tests/infra/test_wave3_wiring.py (NEW, offline, reads repository files only, no helm, no docker): parametrized over the twelve pilots so a
+  failure names the pilot: (1) values.yaml has the exact furnishedPage path; (2) the file exists, its front matter has `doc_source:
+  github_readme` and a `doc_source_commit` equal to the pilot's `library.commit`; (3) the compose service passes the same
+  `--furnished-page`, `--library-repository`, `--library-commit`, `--library-platform` and, for EVERY other key in the library block, the
+  corresponding flag with the equal value, all inside the build_chunks.py invocation and before `--out` (derive the key-to-flag mapping
+  from `LIBRARY_FLAGS` in tests/infra/test_helm_pilots_match_compose.py by importing it or re-reading the file; do not retype it); (4) no
+  pilot outside the twelve and the ones that already had a page gained a furnishedPage. Read expected values from values.yaml, do not
+  hard-code commits.
+- >-
+  Run `{python} -m pytest tests/infra/test_wave3_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE`, then once
+  `{python} -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker"`.
+  Do not render the chart or start containers. Write commit messages as UTF-8 without a byte-order mark. The repository pre-commit hook
+  runs a secret scan on staged changes; if it objects, STOP and report the file:line it names (never paste the value).
+actions:
+- Reference each wave-3 page from the chart and from compose, with the verifier flags TC-363 recorded for the pilot.
+- Pin the wiring with an offline test.
+checks:
+- command: '{python} -m pytest tests/infra/test_wave3_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 40
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/values.yaml');s=p.read_text(encoding='utf-8');old='/app/fixtures/furnished/cells_java/pages/_index.md';assert old in s;p.write_text(s.replace(old,'/app/fixtures/furnished/cells_java/pages/_gone.md',1),encoding='utf-8')"
+  rationale: >-
+    Points one wave-3 pilot's furnishedPage at a file that does not exist, and away from what compose passes: the wiring test and the
+    chart-compose parity test both fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-375/receipt.json
+closeout:
+- >-
+  The twelve wave-3 pilots (Java, C++, TypeScript, Node.js) reference their documentation pages in the chart and in compose, with the
+  verifier flags recorded for them, pinned by an offline parity test.
+recovery: Re-run from a clean tree.
