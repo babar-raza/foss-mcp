@@ -99,8 +99,11 @@ def _python_types_from_surface(surface: python_surface.PublicSurface) -> list[di
     read straight from the ``ast.ClassDef``/``ast.FunctionDef`` nodes the pure-``ast`` reader
     already walks (``python_surface._structured_fields``) - so ``bases``, ``methods[].
     return_type``, and ``methods[].params[].type`` are real for a python-sourced entry too,
-    the same fields ``_centrality_scores()`` reads for every other language. ``properties``
-    and ``enum_members`` stay empty - the ``ast`` reader was never asked to extract either.
+    the same fields ``_centrality_scores()`` reads for every other language. TC-393: a method's
+    ``params`` come from ``PublicSymbol.params`` (every declared parameter, ``type`` empty when
+    unannotated, ``self``/``cls`` excluded), ``__init__`` is the constructor, and a ``property``
+    symbol lands in its owner's ``properties`` with its annotated type and writability.
+    ``enum_members`` stays empty - the ``ast`` reader was never asked to extract it.
     """
     entries: dict[str, dict[str, Any]] = {}
     order: list[str] = []
@@ -128,14 +131,28 @@ def _python_types_from_surface(surface: python_surface.PublicSurface) -> list[di
         order.append(symbol.qualified_name)
 
     for symbol in surface.symbols:
-        if symbol.kind != "method":
+        if symbol.kind not in ("method", "property"):
             continue
         owner = entries.get(symbol.qualified_name.rsplit(".", 1)[0])
         if owner is None:
             continue  # the owning class was itself unresolved/excluded; never guess one up
-        # Only the annotated params symbol.param_types carries are listed - an unannotated arg
-        # is simply absent, never a false "type": "" that would pollute _reference_strings().
-        params = [{"name": arg_name, "type": arg_type} for arg_name, arg_type in symbol.param_types]
+        if symbol.kind == "property":
+            owner["properties"].append(
+                {
+                    "name": symbol.name,
+                    "type": symbol.return_type or "",
+                    "writable": bool(symbol.writable),
+                    "doc": symbol.docstring or "",
+                    "file": symbol.source_path,
+                    "line": symbol.line,
+                }
+            )
+            continue
+        # Every declared parameter (TC-393), an unannotated one with type "" - _reference_strings()
+        # reads `or ""`, so an empty type never pollutes centrality. A symbol built without
+        # `params` falls back to its annotated `param_types`, as before.
+        declared = symbol.params or symbol.param_types
+        params = [{"name": arg_name, "type": arg_type} for arg_name, arg_type in declared]
         owner["methods"].append(
             {
                 "name": symbol.name,

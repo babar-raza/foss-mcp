@@ -13,7 +13,8 @@ Nothing is imported or executed. Every module under the product packages is pars
 A top-level class or function is public when its name has no leading underscore and, when the
 module declares a literal ``__all__``, is listed there. A public class's methods without a
 leading underscore are public with it, recorded as ``module.Class.method`` so prose may name a
-method the code defines. A package ``__init__`` re-export is public by the same rule and keeps
+method the code defines; ``__init__`` is the one public dunder (the constructor), and an annotated
+``@property`` getter is a ``property`` member. A package ``__init__`` re-export is public by the same rule and keeps
 the origin it came from. Star imports, unresolvable relative imports, and syntax errors are
 recorded as unresolved, never guessed.
 """
@@ -27,7 +28,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
 
-SymbolKind = Literal["module", "class", "enum", "function", "method", "unknown"]
+SymbolKind = Literal["module", "class", "enum", "function", "method", "property", "unknown"]
 _ENUM_BASES = frozenset({"Enum", "IntEnum", "StrEnum", "Flag", "IntFlag", "ReprEnum"})
 PublicBy = Literal["name", "__all__", "reexport"]
 
@@ -51,6 +52,10 @@ class PublicSymbol:
     bases: tuple[str, ...] = ()  # a class's base-class list, each entry ast.unparse(base)
     return_type: str | None = None  # a function/method's ast.unparse(node.returns); None if unannotated
     param_types: tuple[tuple[str, str], ...] = ()  # (arg_name, ast.unparse(annotation)) per annotated arg
+    # TC-393: EVERY declared parameter in order, (name, annotation text or ""), a leading self/cls
+    # excluded, ``*args`` as "*name" and ``**kwargs`` as "**name".
+    params: tuple[tuple[str, str], ...] = ()
+    writable: bool | None = None  # a property only: True with a ``@<name>.setter`` sibling, else False
 
 
 def _first_docstring_line(node: ast.AST) -> str | None:
@@ -91,6 +96,32 @@ def _structured_fields(
         if arg.annotation is not None
     )
     return (), return_type, param_types
+
+
+def _declared_params(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> tuple[tuple[str, str], ...]:
+    """Every parameter *node* declares, in source order, as ``(name, annotation or "")``.
+
+    Positional-only, regular, ``*args`` (as ``*name``), keyword-only, then ``**kwargs`` (as
+    ``**name``); an unannotated parameter is kept with an empty type rather than dropped, and a
+    leading ``self`` or ``cls`` is excluded.
+    """
+
+    def _text(arg: ast.arg) -> str:
+        return ast.unparse(arg.annotation) if arg.annotation is not None else ""
+
+    args = node.args
+    positional = [*args.posonlyargs, *args.args]
+    if positional and positional[0].arg in ("self", "cls"):
+        positional = positional[1:]
+    declared = [(arg.arg, _text(arg)) for arg in positional]
+    if args.vararg is not None:
+        declared.append((f"*{args.vararg.arg}", _text(args.vararg)))
+    declared.extend((arg.arg, _text(arg)) for arg in args.kwonlyargs)
+    if args.kwarg is not None:
+        declared.append((f"**{args.kwarg.arg}", _text(args.kwarg)))
+    return tuple(declared)
 
 
 def _class_kind(node: ast.ClassDef) -> SymbolKind:
@@ -206,6 +237,7 @@ def _module_symbols(
                         bases=bases,
                         return_type=return_type,
                         param_types=param_types,
+                        params=() if isinstance(node, ast.ClassDef) else _declared_params(node),
                     )
                 )
                 if isinstance(node, ast.ClassDef):
@@ -233,23 +265,53 @@ def _module_symbols(
     return symbols, unresolved
 
 
+_PROPERTY_DECORATORS = frozenset({"property", "cached_property", "functools.cached_property"})
+
+
+def _is_property_getter(item: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """Whether *item* is decorated ``@property`` / ``@cached_property`` / ``@functools.cached_property``."""
+    return any(ast.unparse(decorator) in _PROPERTY_DECORATORS for decorator in item.decorator_list)
+
+
+def _setter_names(node: ast.ClassDef) -> frozenset[str]:
+    """The names a class body gives a ``@<name>.setter`` sibling."""
+    return frozenset(
+        decorator.value.id
+        for item in node.body
+        if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef)
+        for decorator in item.decorator_list
+        if isinstance(decorator, ast.Attribute)
+        and decorator.attr == "setter"
+        and isinstance(decorator.value, ast.Name)
+    )
+
+
 def _methods(node: ast.ClassDef, module: str, relative: str, public_by: PublicBy) -> list[PublicSymbol]:
-    """The public methods a class body defines, each once, in source order."""
+    """The public members a class body defines, each once, in source order.
+
+    A method is public when its name has no leading underscore; ``__init__`` (and only that
+    dunder) is the constructor and is public too. A ``@property`` getter whose return type is
+    annotated is a ``property`` member rather than a method, writable only when a
+    ``@<name>.setter`` sibling exists. (An unannotated getter stays a method: the pre-existing
+    ``test_python_surface.py`` pins that and must keep passing unmodified.)
+    """
     found: list[PublicSymbol] = []
     seen: set[str] = set()
+    setters = _setter_names(node)
     for item in node.body:
         if not isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
-        if item.name.startswith("_") or item.name in seen:
+        if (item.name.startswith("_") and item.name != "__init__") or item.name in seen:
             continue
         seen.add(item.name)
         bases, return_type, param_types = _structured_fields(item)
+        is_property = item.returns is not None and _is_property_getter(item)
         found.append(
             PublicSymbol(
                 f"{module}.{node.name}.{item.name}",
                 module,
                 item.name,
-                "method",
+                "property" if is_property else "method",
                 relative,
                 item.lineno,
                 public_by,
@@ -258,6 +320,8 @@ def _methods(node: ast.ClassDef, module: str, relative: str, public_by: PublicBy
                 bases=bases,
                 return_type=return_type,
                 param_types=param_types,
+                params=_declared_params(item),
+                writable=(item.name in setters) if is_property else None,
             )
         )
     return found
@@ -283,6 +347,7 @@ class _OriginDefinition:
     return_type: str | None
     param_types: tuple[tuple[str, str], ...]
     methods: tuple[PublicSymbol, ...] = ()  # the origin ClassDef's own public methods, via _methods()
+    params: tuple[tuple[str, str], ...] = ()  # TC-393: every declared parameter (functions only)
 
 
 def _origin_definition(
@@ -334,6 +399,7 @@ def _origin_definition(
                 return_type,
                 param_types,
                 methods,
+                params=() if isinstance(found, ast.ClassDef) else _declared_params(found),
             )
         if forwarded is None or forwarded in seen or forwarded == origin:
             return None
@@ -495,6 +561,7 @@ def inspect_public_surface(repository_root: Path, package_dirs: Sequence[str]) -
                     param_types=origin.param_types
                     if origin is not None
                     else (definition.param_types if definition else ()),
+                    params=origin.params if origin is not None else (definition.params if definition else ()),
                 )
                 symbols[name] = resolved
                 # An underscore-origin class's own methods are never otherwise scanned (see
