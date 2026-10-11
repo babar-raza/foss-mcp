@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-472",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-11T19:29:48Z",
+  "base_rev": "158368fbf0b84ad5cf5d2a699a484eda664a4bfb",
+  "head_rev": "de0467e94a549ec00466aaed8f0ba813cf4cdbf9",
+  "card_sha256": "501dcd6f9bb7c7bbb6dadb3d05656ac7b3b6e4d029ec19b33d44a13d6c05751a",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "Dockerfile.serving",
+      "tests/deploy/test_demo_compose.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_demo_compose.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.725,
+          "stdout_sha256": "cb27fd7f42b6d224dfa05db3fc71777af0a383bcb32d6cfe1be44ebfcab22739",
+          "tests": 33,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/deploy/test_demo_compose.py tests/deploy/test_demo_entrypoint.py tests/infra/test_container_pins.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 3.823,
+          "stdout_sha256": "650187a4ae2a868d13be275796a0d28ad4257a5afeea46b9e46fc9082e9ae4f9",
+          "tests": 96,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_demo_compose.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.564,
+          "stdout_sha256": "cb27fd7f42b6d224dfa05db3fc71777af0a383bcb32d6cfe1be44ebfcab22739",
+          "tests": 33,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/deploy/test_demo_compose.py tests/deploy/test_demo_entrypoint.py tests/infra/test_container_pins.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 3.571,
+          "stdout_sha256": "650187a4ae2a868d13be275796a0d28ad4257a5afeea46b9e46fc9082e9ae4f9",
+          "tests": 96,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('Dockerfile.serving');s=p.read_text(encoding='utf-8');old='COPY infra/demo-manifests/ /data/manifests';assert old in s;p.write_text(s.replace(old,'COPY --chown=foss-mcp:foss-mcp infra/demo-manifests/ /data/manifests',1),encoding='utf-8')\"\n",
+    "patch_sha256": "0c05e983169e3f052eed101f1b62b9bbf67fa7e4f992d5cce940e6798bf3c3d7",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M Dockerfile.serving",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

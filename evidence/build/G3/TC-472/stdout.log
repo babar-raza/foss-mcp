@@ -1,0 +1,100 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_demo_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cjiiw4o4\.junit-0.xml"
+--- stdout ---
+.................................                                        [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_demo_compose.py tests/deploy/test_demo_entrypoint.py tests/infra/test_container_pins.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cjiiw4o4\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 75%]
+........................                                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_demo_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cjiiw4o4\.junit-0.xml"
+--- stdout ---
+.................................                                        [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_demo_compose.py tests/deploy/test_demo_entrypoint.py tests/infra/test_container_pins.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cjiiw4o4\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 75%]
+........................                                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M Dockerfile.serving, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_demo_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cjiiw4o4\.junit-0.xml"
+--- stdout ---
+...........................FF....                                        [100%]
+================================== FAILURES ===================================
+_______ test_the_demo_stage_builds_on_runtime_and_keeps_its_baked_data ________
+
+    def test_the_demo_stage_builds_on_runtime_and_keeps_its_baked_data() -> None:
+        demo = dockerfile_stages()[1]
+        assert demo[0] == "FROM runtime AS demo"
+>       assert "COPY infra/demo-manifests/ /data/manifests" in demo
+E       assert 'COPY infra/demo-manifests/ /data/manifests' in ['FROM runtime AS demo', 'COPY --chown=foss-mcp:foss-mcp infra/demo-manifests/ /data/manifests', 'COPY infra/demo_entrypoint.py ./infra/demo_entrypoint.py', 'EXPOSE 8080', 'ENTRYPOINT ["python", "/app/infra/demo_entrypoint.py"]', 'CMD []']
+
+tests\deploy\test_demo_compose.py:329: AssertionError
+____________ test_the_baked_data_is_not_owned_by_the_serving_user _____________
+
+    def test_the_baked_data_is_not_owned_by_the_serving_user() -> None:
+        demo = dockerfile_stages()[1]
+        baked_copies = [i for i in demo if i.startswith("COPY ") and "infra/demo-manifests/" in i]
+        assert baked_copies, "the demo stage must copy infra/demo-manifests/"
+>       assert not any("--chown" in i or "--chmod" in i for i in baked_copies), (
+            "the baked data must stay root-owned so the serving user cannot modify it"
+        )
+E       AssertionError: the baked data must stay root-owned so the serving user cannot modify it
+E       assert not True
+E        +  where True = any(<generator object test_the_baked_data_is_not_owned_by_the_serving_user.<locals>.<genexpr> at 0x00000240A0BBFED0>)
+
+tests\deploy\test_demo_compose.py:336: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_demo_compose.py::test_the_demo_stage_builds_on_runtime_and_keeps_its_baked_data
+FAILED tests/deploy/test_demo_compose.py::test_the_baked_data_is_not_owned_by_the_serving_user
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_demo_compose.py tests/deploy/test_demo_entrypoint.py tests/infra/test_container_pins.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cjiiw4o4\.junit-1.xml"
+--- stdout ---
+...........................FF........................................... [ 75%]
+........................                                                 [100%]
+================================== FAILURES ===================================
+_______ test_the_demo_stage_builds_on_runtime_and_keeps_its_baked_data ________
+
+    def test_the_demo_stage_builds_on_runtime_and_keeps_its_baked_data() -> None:
+        demo = dockerfile_stages()[1]
+        assert demo[0] == "FROM runtime AS demo"
+>       assert "COPY infra/demo-manifests/ /data/manifests" in demo
+E       assert 'COPY infra/demo-manifests/ /data/manifests' in ['FROM runtime AS demo', 'COPY --chown=foss-mcp:foss-mcp infra/demo-manifests/ /data/manifests', 'COPY infra/demo_entrypoint.py ./infra/demo_entrypoint.py', 'EXPOSE 8080', 'ENTRYPOINT ["python", "/app/infra/demo_entrypoint.py"]', 'CMD []']
+
+tests\deploy\test_demo_compose.py:329: AssertionError
+____________ test_the_baked_data_is_not_owned_by_the_serving_user _____________
+
+    def test_the_baked_data_is_not_owned_by_the_serving_user() -> None:
+        demo = dockerfile_stages()[1]
+        baked_copies = [i for i in demo if i.startswith("COPY ") and "infra/demo-manifests/" in i]
+        assert baked_copies, "the demo stage must copy infra/demo-manifests/"
+>       assert not any("--chown" in i or "--chmod" in i for i in baked_copies), (
+            "the baked data must stay root-owned so the serving user cannot modify it"
+        )
+E       AssertionError: the baked data must stay root-owned so the serving user cannot modify it
+E       assert not True
+E        +  where True = any(<generator object test_the_baked_data_is_not_owned_by_the_serving_user.<locals>.<genexpr> at 0x000001A23517D8A0>)
+
+tests\deploy\test_demo_compose.py:336: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_demo_compose.py::test_the_demo_stage_builds_on_runtime_and_keeps_its_baked_data
+FAILED tests/deploy/test_demo_compose.py::test_the_baked_data_is_not_owned_by_the_serving_user
+
+--- stderr ---
+
