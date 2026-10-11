@@ -28,11 +28,21 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
+      # Full history, not the default depth-1 clone: ops/tests/test_cardlint.py replays a real
+      # historical card against the commit it was authored at (e607ceff), which a shallow clone
+      # does not contain ("fatal: invalid object name").
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+
+      # AGENTS.md: "Run git config core.hooksPath .githooks once per clone. Versioned hooks are
+      # inert without it." tests/test_githooks.py asserts it, and a CI clone has not run it.
+      - name: Point git at the versioned hooks
+        run: git config core.hooksPath .githooks
 
       - name: Install dependencies (hash-verified)
         run: pip install --no-cache-dir --require-hashes -r requirements.lock

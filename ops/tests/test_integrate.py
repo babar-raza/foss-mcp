@@ -28,9 +28,14 @@ def repo(tmp_path, monkeypatch):
     r = tmp_path / "repo"
     r.mkdir()
     _git(r, "init", "-q", "-b", "main")
-    # Identity via -c on each commit below, never `git config` (which writes to .git/config
-    # on disk) - a per-invocation override, never persisted anywhere a later bug (e.g. a
-    # leaked GIT_DIR) could make land somewhere real.
+    # Identity via process environment, never `git config` (which writes to .git/config on
+    # disk): nothing is persisted anywhere a later bug (e.g. a leaked GIT_DIR) could make land
+    # somewhere real, yet it also reaches the cherry-pick that `gatectl integrate` itself runs
+    # inside this repo - a runner with no global identity (GitHub Actions) fails that commit
+    # otherwise. These are not repo-discovery variables, so the conftest scrub leaves them alone.
+    for name in ("AUTHOR", "COMMITTER"):
+        monkeypatch.setenv(f"GIT_{name}_NAME", "test")
+        monkeypatch.setenv(f"GIT_{name}_EMAIL", "test@example.invalid")
     (r / "src").mkdir()
     (r / "src" / "a.py").write_text("x = 1\n", encoding="utf-8")
     (r / "project").mkdir()

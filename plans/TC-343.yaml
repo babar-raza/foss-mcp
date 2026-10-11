@@ -1,0 +1,74 @@
+id: TC-343
+gate: G2
+lane: verification
+purpose: >-
+  GitHub CI (ubuntu-latest) has been red since at least Oct 8, and three of its pytest failures are the C++ example
+  verifier tests in tests/indexing/test_example_verifier.py: they drive a real MSVC + ninja build (prepare_cpp_library
+  and verify_cpp_example are Windows-only by design) and ERROR at fixture setup with "RuntimeError: ninja (ninja.exe)
+  not found" instead of being skipped on a platform that cannot run them. The other language fixtures in the same
+  file run on Linux. This card makes the C++ fixture skip off Windows, with a clear reason, and proves the guard with
+  tests; on Windows the tests behave exactly as before.
+depends_on:
+- TC-219
+write_paths:
+- tests/indexing/test_example_verifier.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — GitHub CI has been red since at least Oct 8; four causes found and fixed (supervisor, pre-TC-343)'
+  sha256: 9f51a7937a1a7949abc9d6d864673e93f0614bd65591e0ca7904dea4b674efdb
+inputs:
+- >-
+  Read tests/indexing/test_example_verifier.py around the `cpp_library` and `cpp_include_dir` module-scoped fixtures
+  (the section headed "C++ fixtures/tests") and src/foss_mcp/indexing/example_verifier.py's prepare_cpp_library /
+  _resolve_ninja (read only; you do not own it). Every existing test must stay unmodified in behaviour on Windows.
+- >-
+  In the `cpp_library` fixture, before calling prepare_cpp_library, add a guard: when `sys.platform != "win32"`, call
+  `pytest.skip(...)` with a reason saying the C++ verifier is an MSVC + ninja build and is Windows-only (the Linux
+  g++/CMake verifier has its own live test). Do not catch RuntimeError generally and do not skip on other conditions:
+  on Windows with a missing toolchain the fixture must still ERROR loudly, because that is a real environment fault.
+  Import `sys` at the top if it is not already imported.
+- >-
+  Add two small tests (they must not clone or build anything): (1) with `sys.platform` monkeypatched to "linux", calling
+  the fixture's underlying function (`cpp_library.__wrapped__`, or the equivalent for this pytest version) raises
+  `pytest.skip.Exception` and never calls prepare_cpp_library (monkeypatch it to a function that fails the test if
+  called); (2) with `sys.platform` monkeypatched to "win32" and prepare_cpp_library monkeypatched to a stub returning a
+  tmp path, the fixture returns that path - proving the guard does not block Windows. The module under test imports
+  prepare_cpp_library by name, so patch it where the test module looks it up.
+- >-
+  Run `{python} -m pytest tests/indexing/test_example_verifier.py -q -rfE -k cpp_fixture_guard`, then
+  `{python} -m pytest tests/indexing/test_example_verifier.py --collect-only -q` to prove the module still imports and
+  collects every test. Do NOT run the whole file: it clones and builds real libraries over the network.
+- Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Skip the C++ fixture off Windows with an explicit reason and add two fixture-guard tests (skips on linux, passes through on win32).
+checks:
+- command: '{python} -m pytest tests/indexing/test_example_verifier.py -q -rfE -k cpp_fixture_guard'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/indexing/test_example_verifier.py --collect-only -q'
+  expect: exit 0
+  timeout_seconds: 300
+  proves:
+  - REQ-G2-043
+min_tests: 2
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/indexing/test_example_verifier.py');s=p.read_text(encoding='utf-8');old='sys.platform != '+chr(34)+'win32'+chr(34);assert old in s;p.write_text(s.replace(old,'sys.platform == '+chr(34)+'never'+chr(34),1),encoding='utf-8')"
+  rationale: >-
+    Replaces the platform guard's condition with one that is never true, so on a simulated Linux the fixture no longer
+    skips and tries to prepare the library - the skip test fails. A real break of the guard, not a textual no-op.
+evidence:
+- evidence/build/G2/TC-343/receipt.json
+closeout:
+- >-
+  The C++ example-verifier fixture skips off Windows instead of erroring, removing three of the pytest failures that
+  have kept GitHub CI red; on Windows it is unchanged.
+recovery: Re-run from a clean tree.

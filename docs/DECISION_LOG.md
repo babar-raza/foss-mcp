@@ -2658,3 +2658,40 @@ re-install in batches sized to the remaining quota (`curl https://api.github.com
 `--parallel 1`, and let the loop wait for the window to reset. OWNER-08 stays OPEN: creating a GitHub-token Secret
 from the operator's own `GITHUB_TOKEN` is the operator's call, and with it every re-roll drops from hours to
 minutes (`install_pilots.py --github-token-secret NAME`, TC-339).
+
+## 2026-10-11 — GitHub CI has been red since at least Oct 8; four causes found and fixed (supervisor, pre-TC-343)
+
+Operator: "pytest CI is failing; it should be your job to keep CI green." Read from the real runs
+(`gh run view --log-failed`, runner `ubuntu-latest`, `scripts/ci_check.sh` via `.github/workflows/ci.yml`), not
+guessed. Run 38086062979 on d3ca10a: lint, format, typecheck and gatectl all green; pytest failed on six items.
+
+1. `ops/tests/test_cardlint.py::test_the_original_tc168_card_would_have_been_caught_before_dispatch` - "fatal:
+   invalid object name 'e607ceff'": `actions/checkout` defaults to depth 1 and the test replays a real historical
+   card. The commit is on origin/main. Fix: `fetch-depth: 0` in the workflow.
+2. `tests/test_githooks.py::test_core_hooks_path_is_configured` - a CI clone never ran
+   `git config core.hooksPath .githooks` (AGENTS.md: once per clone). Fix: a workflow step that runs it.
+3. `tests/indexing/test_example_verifier.py` C++ tests (3 ERRORs at fixture setup) - they drive a real MSVC +
+   ninja build (`prepare_cpp_library`, Windows-only by design) and raise `RuntimeError: ninja not found` instead of
+   skipping on Linux. Fix: TC-343, a platform guard on the fixture; Windows behaviour unchanged.
+4. `ops/tests/test_integrate.py::test_end_to_end_replays_the_reviewed_commits_and_records_evidence` - NEW in the
+   latest run and caused by the 2026-10-10 identity fix: moving fixtures from `git config user.email` to per-commit
+   `-c` flags removed the identity that `gatectl integrate`'s own cherry-pick inside the throwaway repo relied on,
+   and a GitHub runner has no global identity. Reproduced locally with `GIT_CONFIG_GLOBAL` pointing at an empty
+   file. Fix: the fixture exports GIT_AUTHOR_/GIT_COMMITTER_ NAME/EMAIL through the process environment
+   (monkeypatch), which writes nothing to any `.git/config` and is not a repo-discovery variable.
+
+Lesson recorded: a hardening change to shared test fixtures must be run once with no global git identity before
+it is called done; the local machine always has one, CI never does.
+
+Standing rule from the operator: keeping CI green is the supervisor's job. Every loop tick runs `gh run list
+--repo babar-raza/foss-mcp --limit 3`; a red run on main is treated as a failing card, diagnosed from its log, and
+fixed through the normal path before new feature work.
+
+## 2026-10-11 — The supervisor owns CI health; local pre-push and remote CI are different environments (supervisor)
+
+Recorded because the two disagreed for days without anyone noticing: the pre-push hook runs on this Windows host
+(toolchain activated, Application Control blocking Rust build scripts, a global git identity, a full clone, hooks
+path set) and the remote CI runs on bare `ubuntu-latest` (no global identity, depth-1 clone unless told otherwise,
+no hooks path, no MSVC). A check that passes in one is not evidence about the other. The remote run is the
+authority on "green"; when they disagree, reproduce the remote condition locally (for example with
+`GIT_CONFIG_GLOBAL` set to an empty file) and fix the cause, never the symptom.
