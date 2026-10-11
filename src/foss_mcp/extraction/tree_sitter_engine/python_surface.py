@@ -407,6 +407,45 @@ def _origin_definition(
     return None
 
 
+def _origin_syntax_error(
+    origin: str, source_root: Path, repository_root: Path, seen: frozenset[str] = frozenset()
+) -> str | None:
+    """TC-426: the ``syntax-error`` entry for the file a re-export's origin lives in, if that file
+    does not parse; ``None`` otherwise.
+
+    ``_origin_definition`` swallows the ``SyntaxError`` of the origin's file and reports only that
+    the name could not be found, so a re-export from a private module (``_input/reader.py``) that
+    fails to parse showed up as ``unresolved-reexport`` alone and the real cause never surfaced.
+    This finds the same candidate file ``_origin_definition`` reads (the module ``.py``, else the
+    package ``__init__.py``), follows a forwarded import the same way with the same cycle guard, and
+    returns the entry in the format ``_module_symbols`` already uses:
+    ``<module>:<line>:syntax-error:<repository-relative path>:<message>``.
+    """
+    origin_path = source_root / Path(*origin.split("."))
+    if origin_path.is_dir() or origin_path.with_suffix(".py").is_file():
+        return None
+    module, name = origin.rsplit(".", 1)
+    package_path = source_root / Path(*module.split("."))
+    for candidate in (package_path.with_suffix(".py"), package_path / "__init__.py"):
+        if not candidate.is_file():
+            continue
+        try:
+            tree = ast.parse(candidate.read_text(encoding="utf-8-sig", errors="replace"))
+        except SyntaxError as exc:
+            relative = candidate.relative_to(repository_root).as_posix()
+            return f"{module}:{exc.lineno or 0}:syntax-error:{relative}:{exc.msg}"
+        forwarded: str | None = None
+        for item in tree.body:
+            if isinstance(item, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef) and item.name == name:
+                return None
+            if isinstance(item, ast.ImportFrom) and forwarded is None:
+                forwarded = _forwarded_origin(item, module, candidate.name == "__init__.py", name)
+        if forwarded is None or forwarded in seen or forwarded == origin:
+            return None
+        return _origin_syntax_error(forwarded, source_root, repository_root, seen | {origin})
+    return None
+
+
 def _origin_kind(origin: str, source_root: Path, seen: frozenset[str] = frozenset()) -> SymbolKind | None:
     """The kind of one re-exported definition, read from its own file; ``None`` if absent.
 
@@ -540,6 +579,11 @@ def inspect_public_surface(repository_root: Path, package_dirs: Sequence[str]) -
                 unresolved.append(
                     f"{symbol.module}:{symbol.line}:unresolved-reexport:{symbol.reexported_from}"
                 )
+                origin_error = _origin_syntax_error(
+                    symbol.reexported_from, source_root, repository_root, frozenset({symbol.reexported_from})
+                )
+                if origin_error is not None:
+                    unresolved.append(origin_error)
             else:
                 # A re-export carries its origin's own docstring, signature, and structured
                 # base-class/return-type/param-annotation data as evidence - from the origin

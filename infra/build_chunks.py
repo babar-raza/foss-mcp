@@ -548,6 +548,62 @@ def _build_doc_chunks(page: dict, args: argparse.Namespace) -> list[Chunk]:
     return doc_chunks
 
 
+def _extraction_notice_chunks(fixture: dict) -> list[Chunk]:
+    """TC-426 (REQ-G3-005): one explicit, searchable notice when the extractor could not read the source.
+
+    A pilot whose pinned source does not parse silently looks like a small library: the symbols
+    the extractor could not reach are simply absent. When the fixture's ``unresolved`` list holds
+    a ``:syntax-error:`` entry, this returns exactly one ``doc`` chunk that names each unparseable
+    file with its line and message and every public name that could not be extracted (the last
+    segment of each ``unresolved-reexport`` target), and says that lookups for those names will
+    answer not found. A fixture with no syntax-error entry yields ``[]``. The text carries no
+    backticks and no blank line, so the chunker keeps it as one chunk and no renderer rewrites it.
+    """
+    unresolved = [entry for entry in fixture.get("unresolved", []) if isinstance(entry, str)]
+    syntax_errors = sorted({entry for entry in unresolved if ":syntax-error:" in entry})
+    if not syntax_errors:
+        return []
+    files: list[str] = []
+    for entry in syntax_errors:
+        before, _, after = entry.partition(":syntax-error:")
+        line = before.rpartition(":")[2]
+        path, _, message = after.partition(":")
+        files.append(f"{path} line {line}: {message}")
+    names = sorted(
+        {
+            entry.partition(":unresolved-reexport:")[2].rsplit(".", 1)[-1]
+            for entry in unresolved
+            if ":unresolved-reexport:" in entry
+        }
+        - {""}
+    )
+    repository, commit = fixture["source_repository"], fixture["source_commit"]
+    lines = [
+        f"The source at {repository}@{commit} could not be fully read by the extractor.",
+        "These files do not parse as valid source and were skipped:",
+        *files,
+    ]
+    if names:
+        lines.append("Public names that could not be extracted: " + ", ".join(names) + ".")
+        lines.append("Lookups for these names will answer not found.")
+    doc = make_document(
+        source_kind=SourceKind.SELF_EXTRACTED,
+        content_type="doc",
+        provenance=Provenance(repository=repository, commit=commit, path="api_surface.json"),
+        evidence_refs=(f"{repository}@{commit}:api_surface.json",),
+        title="Extraction notice",
+        body="\n".join(lines),
+    )
+    return [
+        dataclasses.replace(
+            chunk,
+            section_title="Extraction notice",
+            text=f"FQN: Doc: Extraction notice\n{chunk.text}",
+        )
+        for chunk in chunk_document(doc)
+    ]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
@@ -651,6 +707,7 @@ def main() -> None:
 
     fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
     chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+    chunks = chunks + _extraction_notice_chunks(fixture)
 
     verification_records: list[dict] = []
     if args.furnished_page is not None:
