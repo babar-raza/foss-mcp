@@ -78,6 +78,11 @@ LIBRARY_FLAGS = {
     "--library-package-name": "packageName",
     "--library-module-path": "modulePath",
     "--library-crate-name": "crateName",
+    "--library-java-packages": "javaPackages",
+    "--library-cpp-source-dir": "cppSourceDir",
+    "--library-cpp-target": "cppTarget",
+    "--library-cpp-warnings": "cppWarnings",
+    "--library-cpp-verify-mode": "cppVerifyMode",
 }
 
 # Self-extracted pilots whose compose services pass no library flags. Their library block is checked
