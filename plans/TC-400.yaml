@@ -1,0 +1,117 @@
+id: TC-400
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). The extractor fixes for .NET (the C# return-type, params-array, modifier and indexer fixes (TC-396) and the constructor/test-file fixes (TC-392)) change nothing a peer sees until the committed
+  fixtures the ingestion reads are re-extracted: today's tests/fixtures/<pilot>/api_surface.json files were cut by the old selection
+  from the default-branch HEAD (not the pinned library commit) with the old extractor. This card re-extracts exactly these
+  7 .NET fixtures at their PINNED library commits with the corrected extractor and selection: 3d_net, cells_net, email_net, imaging_net, jmap_net, pdf_net, slides_net. It writes
+  disjoint fixture directories from the other refresh cards (TC-395 slides_python/words_net, TC-400 .NET, TC-401 Python, TC-402 C++,
+  TC-403 Go/Rust/TypeScript), so those can run in parallel once their extractor cards are accepted. It needs the network (git clones
+  from GitHub) and must be followed by re-ingesting these pilots.
+depends_on:
+- TC-392
+- TC-394
+- TC-396
+- TC-382
+- TC-395
+- TC-158
+- TC-159
+- TC-163
+- TC-169
+- TC-299
+- TC-305
+- TC-307
+- TC-310
+- TC-314
+- TC-332
+write_paths:
+- tests/fixtures/3d_net/api_surface.json
+- tests/fixtures/cells_net/api_surface.json
+- tests/fixtures/email_net/api_surface.json
+- tests/fixtures/imaging_net/api_surface.json
+- tests/fixtures/jmap_net/api_surface.json
+- tests/fixtures/pdf_net/api_surface.json
+- tests/fixtures/slides_net/api_surface.json
+- tests/extraction/test_3d_net_extraction.py
+- tests/extraction/test_cells_net_extraction.py
+- tests/extraction/test_email_net_extraction.py
+- tests/extraction/test_imaging_net_extraction.py
+- tests/extraction/test_jmap_net_extraction.py
+- tests/extraction/test_pdf_net_extraction.py
+- tests/extraction/test_slides_net_extraction.py
+- tests/extraction/test_central_classes_dotnet.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read src/foss_mcp/extraction/run_extraction.py (`main` with `--commit` and `--keep-names-from`, `names_used_in_examples`,
+  `reduce_fixture`), tests/extraction/test_central_classes_indexed.py (TC-395's pattern; read only, reuse its helpers by import
+  where they fit), and for each pilot its product manifest config/products/<family>/<platform>.yaml, its pinned library block in
+  infra/helm/foss-mcp/values.yaml (the `pilots` entry with that family and platform: `library.repository` and `library.commit`; read
+  only), its furnished page tests/fixtures/furnished/<pilot>/pages/_index.md, and its per-pilot test
+  tests/extraction/test_<pilot>_extraction.py. If a pilot's `library.repository` differs from its manifest's `repository`, or it
+  has no pinned commit or no furnished page, skip that pilot, leave its files untouched and say so in your report. Never print or log
+  any environment value or token.
+- >-
+  Regenerate each fixture with exactly: `{python} -m foss_mcp.extraction.run_extraction config/products/<family>/<platform>.yaml
+  tests/fixtures/<pilot>/api_surface.json --commit <library.commit> --keep-names-from
+  tests/fixtures/furnished/<pilot>/pages/_index.md` (default `--max-types 300`). This only clones with git; it does not call the
+  GitHub REST API. If a clone or fetch fails (network, rate limit, an unreachable commit), do not retry in a loop: record
+  `gatectl status-append` with BLOCKED_EXTERNAL and the exact resume predicate ("git fetch of <repo>@<sha> succeeds"), keep every
+  fixture you already regenerated, and stop. Check each regenerated file: its `source_commit` equals the pinned commit.
+- >-
+  tests/extraction/test_central_classes_dotnet.py (NEW, offline, reads committed files only): parametrized over a module-level list `PILOTS` with the pilots refreshed
+  here, assert per pilot (1) `source_commit` equals the pinned commit read from values.yaml, (2) every name in this expected set is
+  present among the fixture's type names: pdf_net: Document, Page; cells_net: Workbook; slides_net: Presentation; 3d_net: Scene; jmap_net: JmapClient, Session (if the upstream extraction at the pinned commit genuinely has no such type,
+  remove it from the expected set and report it - never invent one), (3) every CamelCase class name `names_used_in_examples` returns
+  for the pilot's furnished page that the full extraction contains is present in the fixture (no example class silently cut), (4) no
+  entry comes from a test file, and (5) every C# method that declares a return type has a non-empty `return_type` in the refreshed pdf_net and cells_net fixtures (constructors excepted), and at least one indexer property `this[...]` exists in cells_net. At least 21 tests, none skipped.
+- >-
+  Per-pilot tests tests/extraction/test_<pilot>_extraction.py may change ONLY where an assertion pins a fact of the old fixture that
+  the refresh legitimately changes: the old `source_commit`, an exact old type count or first type, an old member list, or one of
+  the defects the extractor cards fixed. Update such an assertion to the re-extracted fact (never delete or skip it) and list each
+  changed line with its reason in your report. If any test OUTSIDE write_paths fails because it pins a fact of an old fixture (for
+  example tests/mcp/tools/test_retrieval_tools.py or tests/indexing/test_chunk_builder.py reading pdf_net, pdf_go, pdf_typescript
+  or cells_rust), stop and report the test and the fact; do not edit it.
+- >-
+  Run `{python} -m pytest tests/extraction/test_central_classes_dotnet.py -q -rfE`, then once the second check command below. Write commit messages as UTF-8 without a
+  byte-order mark.
+actions:
+- Re-extract the .NET fixtures at their pinned commits with the corrected extractor and selection.
+- Pin, at fixture level, the pinned commit, the central classes and the fixed extractor facts.
+checks:
+- command: '{python} -m pytest tests/extraction/test_central_classes_dotnet.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/infra/test_ingest_symbol_survival.py tests/mcp -q -rfE -k "not live and not github_http and not repo_native"'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 21
+network: true
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "import json,pathlib;p=pathlib.Path('tests/fixtures/3d_net/api_surface.json');d=json.loads(p.read_text(encoding='utf-8'));d['source_commit']='0'*40;p.write_text(json.dumps(d),encoding='utf-8')"
+  rationale: >-
+    Replaces the refreshed 3d_net fixture's source commit with one that is not the pinned commit, so the pinned-commit test fails:
+    proves the test reads the committed fixture and that the refresh is what makes it pass.
+evidence:
+- evidence/build/G3/TC-400/receipt.json
+closeout:
+- >-
+  The .NET fixtures are extracted at the pinned commits with the corrected extractor, hold the classes their examples use, and are
+  guarded at fixture level. Requires re-ingesting these pilots; re-run harness checks C11, C17 and C25 on the rebuilt image.
+recovery: Re-run from a clean tree.
