@@ -23,6 +23,7 @@ write_paths:
 - infra/helm/foss-mcp/values.yaml
 - docker-compose.yml
 - tests/infra/test_wave3_wiring.py
+- tests/infra/test_helm_verifier_fields.py
 satisfies:
 - REQ-G3-005
 source_refs:
@@ -52,6 +53,16 @@ inputs:
   `packageName` becomes `--library-package-name`). Every value is copied programmatically from values.yaml, never retyped. pdf/cpp has no
   verifier-specific keys, so it gets only the first four. Change nothing else.
 - >-
+  tests/infra/test_helm_verifier_fields.py (TC-363's file, in your write_paths for ONE reason): two of its tests assert that the SHIPPED
+  values render none of the verifier flags, which was only true while no pilot had a furnishedPage:
+  `test_shipped_values_render_none_of_the_new_flags` and `test_an_unwired_pilot_with_verifier_keys_still_renders_none`. Wiring the pages
+  makes them fail (the worker's first attempt found it). Make them forward-compatible and keep what they were protecting: (a) the
+  shipped render now carries, for every pilot that holds a verifier key AND a furnishedPage, exactly the flag the key maps to with the
+  key's value; no pilot renders a verifier flag its library block does not hold; and no rendered flag has a dash-led value; (b) the guard
+  still works: render with an override that gives a wired pilot NO furnishedPage and assert it renders none of the verifier flags (replace
+  the second test with this, since no unwired pilot with verifier keys exists any more). Keep every other test in the file unchanged and
+  say in your report that you changed these two. Check 1 below now includes this file, so the review runs it.
+- >-
   tests/infra/test_wave3_wiring.py (NEW, offline, reads repository files only, no helm, no docker): parametrized over the thirteen pilots so a
   failure names the pilot: (1) values.yaml has the exact furnishedPage path; (2) the file exists, its front matter has `doc_source:
   github_readme` and a `doc_source_commit` equal to the pilot's `library.commit` (cells/cpp excepted, see above); (3) the compose service passes the same
@@ -60,7 +71,7 @@ inputs:
   from `LIBRARY_FLAGS` in tests/infra/test_helm_pilots_match_compose.py by importing it or re-reading the file; do not retype it); (4) FORWARD-COMPATIBLE coverage, never a closed set: every pilot whose chart entry has a `furnishedPage` points at a page file that exists, and the set of pilots with a furnishedPage CONTAINS the thirteen. Read expected values from values.yaml, do not
   hard-code commits.
 - >-
-  Run `{python} -m pytest tests/infra/test_wave3_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE`, then once
+  Run `{python} -m pytest tests/infra/test_wave3_wiring.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_verifier_fields.py -q -rfE`, then once
   `{python} -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker"`.
   Do not render the chart or start containers. Write commit messages as UTF-8 without a byte-order mark. The repository pre-commit hook
   runs a secret scan on staged changes; if it objects, STOP and report the file:line it names (never paste the value).
@@ -68,7 +79,7 @@ actions:
 - Reference each wave-3 page from the chart and from compose, with the verifier flags TC-363 recorded for the pilot.
 - Pin the wiring with an offline test.
 checks:
-- command: '{python} -m pytest tests/infra/test_wave3_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE'
+- command: '{python} -m pytest tests/infra/test_wave3_wiring.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_verifier_fields.py -q -rfE'
   expect: exit 0
   timeout_seconds: 900
   junitxml: true
