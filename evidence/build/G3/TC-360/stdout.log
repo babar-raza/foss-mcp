@@ -1,0 +1,468 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_java_verifier_pilots.py tests/indexing/test_java_page_imports.py tests/infra/test_build_chunks_platforms.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v4f768pq\.junit-0.xml"
+--- stdout ---
+.................................................                        [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_build_chunks_page_sandbox.py tests/indexing/test_build_chunks_env_failure.py tests/indexing/test_build_chunks_verification_report.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_go_vet_verdict.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v4f768pq\.junit-1.xml"
+--- stdout ---
+..........................                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_java_verifier_pilots.py tests/indexing/test_java_page_imports.py tests/infra/test_build_chunks_platforms.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v4f768pq\.junit-0.xml"
+--- stdout ---
+.................................................                        [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_build_chunks_page_sandbox.py tests/indexing/test_build_chunks_env_failure.py tests/indexing/test_build_chunks_verification_report.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_go_vet_verdict.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v4f768pq\.junit-1.xml"
+--- stdout ---
+..........................                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/example_verifier.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_java_verifier_pilots.py tests/indexing/test_java_page_imports.py tests/infra/test_build_chunks_platforms.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v4f768pq\.junit-0.xml"
+--- stdout ---
+FFFF..FFFFF..F.....F.............................                        [100%]
+================================== FAILURES ===================================
+________ test_hoist_returns_the_leading_imports_and_the_remaining_body ________
+
+    def test_hoist_returns_the_leading_imports_and_the_remaining_body() -> None:
+>       imports, body = ev._hoist_java_imports(SLIDES_README_BLOCK)
+                        ^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.indexing.example_verifier' has no attribute '_hoist_java_imports'. Did you mean: '_hoist_java_importsX'?
+
+tests\indexing\test_java_verifier_pilots.py:200: AttributeError
+__ test_hoist_allows_blank_lines_comments_and_import_static_between_imports ___
+
+    def test_hoist_allows_blank_lines_comments_and_import_static_between_imports() -> None:
+        code = (
+            "\n"
+            "// scene setup\n"
+            "import com.aspose.threed.Scene;\n"
+            "\n"
+            "/* block\n"
+            "   comment import fake.Thing; */\n"
+            "import static java.lang.Math.PI;\n"
+            "\n"
+            "Scene scene = new Scene();\n"
+        )
+    
+>       imports, body = ev._hoist_java_imports(code)
+                        ^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.indexing.example_verifier' has no attribute '_hoist_java_imports'. Did you mean: '_hoist_java_importsX'?
+
+tests\indexing\test_java_verifier_pilots.py:223: AttributeError
+______ test_hoist_leaves_an_import_word_after_the_first_statement_alone _______
+
+    def test_hoist_leaves_an_import_word_after_the_first_statement_alone() -> None:
+        code = "int x = 1;\nimport late.Thing;\n"
+    
+>       imports, body = ev._hoist_java_imports(code)
+                        ^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.indexing.example_verifier' has no attribute '_hoist_java_imports'. Did you mean: '_hoist_java_importsX'?
+
+tests\indexing\test_java_verifier_pilots.py:235: AttributeError
+________ test_hoist_of_code_without_imports_returns_the_code_unchanged ________
+
+    def test_hoist_of_code_without_imports_returns_the_code_unchanged() -> None:
+>       imports, body = ev._hoist_java_imports("Foo foo = new Foo();\nfoo.run();")
+                        ^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.indexing.example_verifier' has no attribute '_hoist_java_imports'. Did you mean: '_hoist_java_importsX'?
+
+tests\indexing\test_java_verifier_pilots.py:242: AttributeError
+_ test_slides_shape_gets_the_package_wildcard_java_imports_and_hoisted_imports_above_the_class _
+
+    def test_slides_shape_gets_the_package_wildcard_java_imports_and_hoisted_imports_above_the_class() -> None:
+>       source = ev._java_wrapper_source(SLIDES_README_BLOCK, "Candidate", (), base_packages=(SLIDES_PACKAGE,))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_java_verifier_pilots.py:281: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate_code = 'import org.aspose.slides.foss.Presentation;\nimport org.aspose.slides.foss.SaveFormat;\n\ntry (Presentation presentation = new Presentation()) {\n    presentation.save("out.pptx", SaveFormat.Pptx);\n}\n'
+class_name = 'Candidate', page_imports = ()
+base_packages = ('org.aspose.slides.foss',)
+
+    def _java_wrapper_source(
+        candidate_code: str,
+        class_name: str,
+        page_imports: tuple[str, ...],
+        base_packages: tuple[str, ...] | None = None,
+    ) -> str:
+        """Return the full Java source that wraps a candidate with no public class of its own.
+    
+        With ``base_packages`` left as ``None`` the source begins with the wildcard import
+        ``org.aspose.pdf.*``, then each of ``page_imports`` in order (the import lines the furnished
+        page itself carries, so classes in subpackages such as ``annotations`` or ``forms`` resolve),
+        then a minimal ``class_name`` class whose ``main`` method holds the candidate's statements.
+        With no page imports the text is identical to the wrapper used before page imports were
+        honoured.
+    
+        A tuple for ``base_packages`` selects pilot mode (slides, cells, jmap, 3d): the header is
+        ``import <package>.*;`` for each package in order, ``import java.io.*;``, ``import java.util.*;``,
+        then the imports hoisted from the top of the candidate itself (de-duplicated, order kept). The
+        page's imports are not added in this mode: a README page collects the imports of every code
+        block, and two single-type imports of one simple name do not compile. The body is the candidate
+        minus its hoisted import lines.
+        """
+        if base_packages is None:
+            header = "\n".join(["import org.aspose.pdf.*;", *page_imports])
+            body = candidate_code
+        else:
+>           candidate_imports, body = _hoist_java_imports(candidate_code)
+                                      ^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_hoist_java_imports' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:1129: NameError
+______________ test_jmap_shape_is_wrapped_with_the_jmap_package _______________
+
+    def test_jmap_shape_is_wrapped_with_the_jmap_package() -> None:
+>       source = ev._java_wrapper_source(JMAP_README_BLOCK, "Candidate", (), base_packages=(JMAP_PACKAGE,))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_java_verifier_pilots.py:297: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate_code = 'import com.aspose.jmap.Mapper;\n\nMapper mapper = new Mapper();\nSystem.out.println(mapper);\n'
+class_name = 'Candidate', page_imports = ()
+base_packages = ('com.aspose.jmap',)
+
+    def _java_wrapper_source(
+        candidate_code: str,
+        class_name: str,
+        page_imports: tuple[str, ...],
+        base_packages: tuple[str, ...] | None = None,
+    ) -> str:
+        """Return the full Java source that wraps a candidate with no public class of its own.
+    
+        With ``base_packages`` left as ``None`` the source begins with the wildcard import
+        ``org.aspose.pdf.*``, then each of ``page_imports`` in order (the import lines the furnished
+        page itself carries, so classes in subpackages such as ``annotations`` or ``forms`` resolve),
+        then a minimal ``class_name`` class whose ``main`` method holds the candidate's statements.
+        With no page imports the text is identical to the wrapper used before page imports were
+        honoured.
+    
+        A tuple for ``base_packages`` selects pilot mode (slides, cells, jmap, 3d): the header is
+        ``import <package>.*;`` for each package in order, ``import java.io.*;``, ``import java.util.*;``,
+        then the imports hoisted from the top of the candidate itself (de-duplicated, order kept). The
+        page's imports are not added in this mode: a README page collects the imports of every code
+        block, and two single-type imports of one simple name do not compile. The body is the candidate
+        minus its hoisted import lines.
+        """
+        if base_packages is None:
+            header = "\n".join(["import org.aspose.pdf.*;", *page_imports])
+            body = candidate_code
+        else:
+>           candidate_imports, body = _hoist_java_imports(candidate_code)
+                                      ^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_hoist_java_imports' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:1129: NameError
+_ test_threed_shape_keeps_import_static_and_drops_the_comment_above_the_imports_from_the_header _
+
+    def test_threed_shape_keeps_import_static_and_drops_the_comment_above_the_imports_from_the_header() -> None:
+>       source = ev._java_wrapper_source(THREED_README_BLOCK, "Candidate", (), base_packages=(THREED_PACKAGE,))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_java_verifier_pilots.py:310: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate_code = '// scene setup\nimport com.aspose.threed.Scene;\nimport static java.lang.Math.PI;\n\nScene scene = new Scene();\nscene.save("out.stl");\n'
+class_name = 'Candidate', page_imports = ()
+base_packages = ('com.aspose.threed',)
+
+    def _java_wrapper_source(
+        candidate_code: str,
+        class_name: str,
+        page_imports: tuple[str, ...],
+        base_packages: tuple[str, ...] | None = None,
+    ) -> str:
+        """Return the full Java source that wraps a candidate with no public class of its own.
+    
+        With ``base_packages`` left as ``None`` the source begins with the wildcard import
+        ``org.aspose.pdf.*``, then each of ``page_imports`` in order (the import lines the furnished
+        page itself carries, so classes in subpackages such as ``annotations`` or ``forms`` resolve),
+        then a minimal ``class_name`` class whose ``main`` method holds the candidate's statements.
+        With no page imports the text is identical to the wrapper used before page imports were
+        honoured.
+    
+        A tuple for ``base_packages`` selects pilot mode (slides, cells, jmap, 3d): the header is
+        ``import <package>.*;`` for each package in order, ``import java.io.*;``, ``import java.util.*;``,
+        then the imports hoisted from the top of the candidate itself (de-duplicated, order kept). The
+        page's imports are not added in this mode: a README page collects the imports of every code
+        block, and two single-type imports of one simple name do not compile. The body is the candidate
+        minus its hoisted import lines.
+        """
+        if base_packages is None:
+            header = "\n".join(["import org.aspose.pdf.*;", *page_imports])
+            body = candidate_code
+        else:
+>           candidate_imports, body = _hoist_java_imports(candidate_code)
+                                      ^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_hoist_java_imports' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:1129: NameError
+____ test_pilot_mode_ignores_page_imports_and_deduplicates_hoisted_imports ____
+
+    def test_pilot_mode_ignores_page_imports_and_deduplicates_hoisted_imports() -> None:
+        code = "import java.util.*;\nimport com.aspose.jmap.Mapper;\nimport com.aspose.jmap.Mapper;\nint x = 1;\n"
+    
+>       source = ev._java_wrapper_source(
+            code,
+            "Candidate",
+            ("import other.pkg.Mapper;",),
+            base_packages=(JMAP_PACKAGE, "com.aspose.extra"),
+        )
+
+tests\indexing\test_java_verifier_pilots.py:326: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate_code = 'import java.util.*;\nimport com.aspose.jmap.Mapper;\nimport com.aspose.jmap.Mapper;\nint x = 1;\n'
+class_name = 'Candidate', page_imports = ('import other.pkg.Mapper;',)
+base_packages = ('com.aspose.jmap', 'com.aspose.extra')
+
+    def _java_wrapper_source(
+        candidate_code: str,
+        class_name: str,
+        page_imports: tuple[str, ...],
+        base_packages: tuple[str, ...] | None = None,
+    ) -> str:
+        """Return the full Java source that wraps a candidate with no public class of its own.
+    
+        With ``base_packages`` left as ``None`` the source begins with the wildcard import
+        ``org.aspose.pdf.*``, then each of ``page_imports`` in order (the import lines the furnished
+        page itself carries, so classes in subpackages such as ``annotations`` or ``forms`` resolve),
+        then a minimal ``class_name`` class whose ``main`` method holds the candidate's statements.
+        With no page imports the text is identical to the wrapper used before page imports were
+        honoured.
+    
+        A tuple for ``base_packages`` selects pilot mode (slides, cells, jmap, 3d): the header is
+        ``import <package>.*;`` for each package in order, ``import java.io.*;``, ``import java.util.*;``,
+        then the imports hoisted from the top of the candidate itself (de-duplicated, order kept). The
+        page's imports are not added in this mode: a README page collects the imports of every code
+        block, and two single-type imports of one simple name do not compile. The body is the candidate
+        minus its hoisted import lines.
+        """
+        if base_packages is None:
+            header = "\n".join(["import org.aspose.pdf.*;", *page_imports])
+            body = candidate_code
+        else:
+>           candidate_imports, body = _hoist_java_imports(candidate_code)
+                                      ^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_hoist_java_imports' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:1129: NameError
+______ test_pilot_mode_verify_writes_the_wrapped_source_and_calls_javac _______
+
+toolchain = <tests.indexing.test_java_verifier_pilots._FakeToolchain object at 0x0000021C6B121550>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5836/test_pilot_mode_verify_writes_0')
+
+    def test_pilot_mode_verify_writes_the_wrapped_source_and_calls_javac(
+        toolchain: _FakeToolchain, tmp_path: Path
+    ) -> None:
+        jar = tmp_path / "lib.jar"
+    
+>       result = ev.verify_java_example(
+            _candidate(SLIDES_README_BLOCK),
+            library_jar=jar,
+            workdir=tmp_path,
+            page_imports=("import wrong.page.Import;",),
+            java_packages=(SLIDES_PACKAGE,),
+        )
+
+tests\indexing\test_java_verifier_pilots.py:353: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\indexing\example_verifier.py:1342: in verify_java_example
+    source = _java_wrapper_source(candidate.code, class_name, page_imports, base_packages=java_packages)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate_code = 'import org.aspose.slides.foss.Presentation;\nimport org.aspose.slides.foss.SaveFormat;\n\ntry (Presentation presentation = new Presentation()) {\n    presentation.save("out.pptx", SaveFormat.Pptx);\n}\n'
+class_name = 'Candidate', page_imports = ('import wrong.page.Import;',)
+base_packages = ('org.aspose.slides.foss',)
+
+    def _java_wrapper_source(
+        candidate_code: str,
+        class_name: str,
+        page_imports: tuple[str, ...],
+        base_packages: tuple[str, ...] | None = None,
+    ) -> str:
+        """Return the full Java source that wraps a candidate with no public class of its own.
+    
+        With ``base_packages`` left as ``None`` the source begins with the wildcard import
+        ``org.aspose.pdf.*``, then each of ``page_imports`` in order (the import lines the furnished
+        page itself carries, so classes in subpackages such as ``annotations`` or ``forms`` resolve),
+        then a minimal ``class_name`` class whose ``main`` method holds the candidate's statements.
+        With no page imports the text is identical to the wrapper used before page imports were
+        honoured.
+    
+        A tuple for ``base_packages`` selects pilot mode (slides, cells, jmap, 3d): the header is
+        ``import <package>.*;`` for each package in order, ``import java.io.*;``, ``import java.util.*;``,
+        then the imports hoisted from the top of the candidate itself (de-duplicated, order kept). The
+        page's imports are not added in this mode: a README page collects the imports of every code
+        block, and two single-type imports of one simple name do not compile. The body is the candidate
+        minus its hoisted import lines.
+        """
+        if base_packages is None:
+            header = "\n".join(["import org.aspose.pdf.*;", *page_imports])
+            body = candidate_code
+        else:
+>           candidate_imports, body = _hoist_java_imports(candidate_code)
+                                      ^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_hoist_java_imports' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:1129: NameError
+_____________ test_a_failing_compile_is_reported_as_not_verified ______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000021C6CEC74D0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5836/test_a_failing_compile_is_repo0')
+
+    def test_a_failing_compile_is_reported_as_not_verified(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        def failing_run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(args, 1, stdout="", stderr="error: cannot find symbol")
+    
+        monkeypatch.setattr(ev, "_run", failing_run)
+    
+>       result = ev.verify_java_example(
+            _candidate(JMAP_README_BLOCK),
+            library_jar=tmp_path / "lib.jar",
+            workdir=tmp_path,
+            java_packages=(JMAP_PACKAGE,),
+        )
+
+tests\indexing\test_java_verifier_pilots.py:399: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\indexing\example_verifier.py:1342: in verify_java_example
+    source = _java_wrapper_source(candidate.code, class_name, page_imports, base_packages=java_packages)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate_code = 'import com.aspose.jmap.Mapper;\n\nMapper mapper = new Mapper();\nSystem.out.println(mapper);\n'
+class_name = 'Candidate', page_imports = ()
+base_packages = ('com.aspose.jmap',)
+
+    def _java_wrapper_source(
+        candidate_code: str,
+        class_name: str,
+        page_imports: tuple[str, ...],
+        base_packages: tuple[str, ...] | None = None,
+    ) -> str:
+        """Return the full Java source that wraps a candidate with no public class of its own.
+    
+        With ``base_packages`` left as ``None`` the source begins with the wildcard import
+        ``org.aspose.pdf.*``, then each of ``page_imports`` in order (the import lines the furnished
+        page itself carries, so classes in subpackages such as ``annotations`` or ``forms`` resolve),
+        then a minimal ``class_name`` class whose ``main`` method holds the candidate's statements.
+        With no page imports the text is identical to the wrapper used before page imports were
+        honoured.
+    
+        A tuple for ``base_packages`` selects pilot mode (slides, cells, jmap, 3d): the header is
+        ``import <package>.*;`` for each package in order, ``import java.io.*;``, ``import java.util.*;``,
+        then the imports hoisted from the top of the candidate itself (de-duplicated, order kept). The
+        page's imports are not added in this mode: a README page collects the imports of every code
+        block, and two single-type imports of one simple name do not compile. The body is the candidate
+        minus its hoisted import lines.
+        """
+        if base_packages is None:
+            header = "\n".join(["import org.aspose.pdf.*;", *page_imports])
+            body = candidate_code
+        else:
+>           candidate_imports, body = _hoist_java_imports(candidate_code)
+                                      ^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_hoist_java_imports' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:1129: NameError
+___ test_javac_gets_the_jar_plus_the_copied_dependency_jars_in_sorted_order ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000021C6B2CC150>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5836/test_javac_gets_the_jar_plus_t0')
+
+    def test_javac_gets_the_jar_plus_the_copied_dependency_jars_in_sorted_order(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        fake = _FakeToolchain(pom_text=COMPILE_POM)
+        monkeypatch.setattr(ev, "_run", fake)
+        monkeypatch.setattr(ev, "_find_or_download_maven", lambda workdir: Path("fake-mvn"))
+        jar = ev.prepare_java_library(REPOSITORY, COMMIT, tmp_path / "work")
+    
+>       ev.verify_java_example(
+            _candidate(JMAP_README_BLOCK),
+            library_jar=jar,
+            workdir=tmp_path / "candidate",
+            java_packages=(JMAP_PACKAGE,),
+        )
+
+tests\indexing\test_java_verifier_pilots.py:505: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\indexing\example_verifier.py:1342: in verify_java_example
+    source = _java_wrapper_source(candidate.code, class_name, page_imports, base_packages=java_packages)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate_code = 'import com.aspose.jmap.Mapper;\n\nMapper mapper = new Mapper();\nSystem.out.println(mapper);\n'
+class_name = 'Candidate', page_imports = ()
+base_packages = ('com.aspose.jmap',)
+
+    def _java_wrapper_source(
+        candidate_code: str,
+        class_name: str,
+        page_imports: tuple[str, ...],
+        base_packages: tuple[str, ...] | None = None,
+    ) -> str:
+        """Return the full Java source that wraps a candidate with no public class of its own.
+    
+        With ``base_packages`` left as ``None`` the source begins with the wildcard import
+        ``org.aspose.pdf.*``, then each of ``page_imports`` in order (the import lines the furnished
+        page itself carries, so classes in subpackages such as ``annotations`` or ``forms`` resolve),
+        then a minimal ``class_name`` class whose ``main`` method holds the candidate's statements.
+        With no page imports the text is identical to the wrapper used before page imports were
+        honoured.
+    
+        A tuple for ``base_packages`` selects pilot mode (slides, cells, jmap, 3d): the header is
+        ``import <package>.*;`` for each package in order, ``import java.io.*;``, ``import java.util.*;``,
+        then the imports hoisted from the top of the candidate itself (de-duplicated, order kept). The
+        page's imports are not added in this mode: a README page collects the imports of every code
+        block, and two single-type imports of one simple name do not compile. The body is the candidate
+        minus its hoisted import lines.
+        """
+        if base_packages is None:
+            header = "\n".join(["import org.aspose.pdf.*;", *page_imports])
+            body = candidate_code
+        else:
+>           candidate_imports, body = _hoist_java_imports(candidate_code)
+                                      ^^^^^^^^^^^^^^^^^^^
+E           NameError: name '_hoist_java_imports' is not defined
+
+src\foss_mcp\indexing\example_verifier.py:1129: NameError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_java_verifier_pilots.py::test_hoist_returns_the_leading_imports_and_the_remaining_body
+FAILED tests/indexing/test_java_verifier_pilots.py::test_hoist_allows_blank_lines_comments_and_import_static_between_imports
+FAILED tests/indexing/test_java_verifier_pilots.py::test_hoist_leaves_an_import_word_after_the_first_statement_alone
+FAILED tests/indexing/test_java_verifier_pilots.py::test_hoist_of_code_without_imports_returns_the_code_unchanged
+FAILED tests/indexing/test_java_verifier_pilots.py::test_slides_shape_gets_the_package_wildcard_java_imports_and_hoisted_imports_above_the_class
+FAILED tests/indexing/test_java_verifier_pilots.py::test_jmap_shape_is_wrapped_with_the_jmap_package
+FAILED tests/indexing/test_java_verifier_pilots.py::test_threed_shape_keeps_import_static_and_drops_the_comment_above_the_imports_from_the_header
+FAILED tests/indexing/test_java_verifier_pilots.py::test_pilot_mode_ignores_page_imports_and_deduplicates_hoisted_imports
+FAILED tests/indexing/test_java_verifier_pilots.py::test_pilot_mode_verify_writes_the_wrapped_source_and_calls_javac
+FAILED tests/indexing/test_java_verifier_pilots.py::test_a_failing_compile_is_reported_as_not_verified
+FAILED tests/indexing/test_java_verifier_pilots.py::test_javac_gets_the_jar_plus_the_copied_dependency_jars_in_sorted_order
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_build_chunks_page_sandbox.py tests/indexing/test_build_chunks_env_failure.py tests/indexing/test_build_chunks_verification_report.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_go_vet_verdict.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v4f768pq\.junit-1.xml"
+--- stdout ---
+..........................                                               [100%]
+
+--- stderr ---
+
