@@ -1,0 +1,101 @@
+id: TC-444
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-007 (verified examples served in the same trustworthy way as everything else). A peer cannot tell how find_examples will
+  search. Verified in src/foss_mcp/mcp/tools/find_examples.py: the lexical path runs first; only when it finds nothing does
+  `_vector_fallback` construct `GatewayEmbeddingProvider()` to embed the QUERY, and any failure (no gateway configuration, an
+  unreachable gateway, no example vectors in the generation, a dimension mismatch) is swallowed and returns nothing, so a standalone
+  container without the embedding gateway silently searches lexically only. The baked example vectors were built by the 4096-dimension
+  Qwen gateway, so no offline provider can embed a query comparable to them. This card makes the mode visible: a small helper decides
+  the example-search mode of a generation from its payload and the gateway configuration (presence only, never a value), and
+  report_index_freshness states it as `example_search` (`lexical+vector(gateway)` or `lexical-only`) with a short reason.
+depends_on:
+- TC-001
+- TC-017c
+- TC-331
+- TC-383
+write_paths:
+- src/foss_mcp/mcp/tools/example_search_mode.py
+- src/foss_mcp/mcp/tools/report_index_freshness.py
+- tests/mcp/tools/test_example_search_mode.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read src/foss_mcp/mcp/tools/find_examples.py (`find_examples`, `_vector_fallback`, `_EXAMPLE_MARKER`; read only, another card owns
+  it), src/foss_mcp/indexing/gateway_embedding_provider.py (`_ENDPOINT_ENV`, `_API_KEY_ENV`, `_DIMENSION_ENV`, `_DEFAULT_DIMENSION`,
+  `_required_env`; read only), src/foss_mcp/indexing/vector_index_writer.py (`EXAMPLE_MARKER`; read only),
+  src/foss_mcp/mcp/tools/report_index_freshness.py in full, src/foss_mcp/mcp/server.py `_to_jsonable` and the report_index_freshness
+  wrapper (read only: a new dataclass field reaches the tool output with no server change), and tests/mcp/tools/test_freshness_provenance.py
+  (how a generation is published into a tmp store). These must keep passing UNMODIFIED: tests/mcp/tools/test_freshness_provenance.py,
+  tests/mcp/tools/test_consumer_tools.py, tests/mcp/test_server_wiring.py, tests/test_unwired_modules.py. Never print or log any
+  environment value; no reason string may contain one.
+- >-
+  src/foss_mcp/mcp/tools/example_search_mode.py (NEW): constants `EXAMPLE_SEARCH_GATEWAY = "lexical+vector(gateway)"` and
+  `EXAMPLE_SEARCH_LEXICAL_ONLY = "lexical-only"`, and a function defined exactly as `def example_search_mode(` taking a generation
+  payload and an optional environment mapping (default os.environ) and returning `(mode, reason)`. It returns the gateway mode only
+  when all three hold: the payload's `vector_index.points` has at least one point whose text contains `EXAMPLE_MARKER`; the endpoint
+  and API key variables (the names imported from gateway_embedding_provider, never retyped) are both non-empty after strip; the
+  configured dimension (the dimension variable, default `_DEFAULT_DIMENSION`) parses as a positive integer equal to the payload's
+  `vector_index.dimension`. Otherwise `lexical-only` with exactly one of the reasons `no example vectors in this generation`,
+  `embedding gateway not configured`, `configured embedding dimension does not match the stored vectors` (checked in that order). The
+  gateway mode means CONFIGURED, not reachable: say so in the module docstring.
+- >-
+  report_index_freshness.py, ADDITIVE: `FreshnessReport` gains `example_search: str = "lexical-only"` and `example_search_reason: str =
+  "no active generation"`; when an active generation is read, both are set from `example_search_mode(manifest.payload)`. Every other
+  field and the existing `reason` text are unchanged.
+- >-
+  tests/mcp/tools/test_example_search_mode.py (NEW, offline, deterministic, no skipped tests, no wall-clock assertions): each branch of
+  the helper on synthetic payloads (both modes and all three reasons, a blank-but-set endpoint counts as not configured, a
+  non-integer dimension is lexical-only); a canary value placed in the endpoint, key and dimension variables never appears in any
+  reason or in the JSON of a report; report_index_freshness on a tmp store returns `lexical-only` with the gateway variables unset and
+  `lexical+vector(gateway)` with them set (monkeypatch.setenv/delenv), so both outcomes are reachable; CONSISTENCY with the real
+  behaviour: on a generation with one example point and a query the lexical stage misses, with the variables unset find_examples
+  returns NoExampleFound and the report says lexical-only, and with the variables set and
+  `foss_mcp.mcp.tools.find_examples.GatewayEmbeddingProvider` monkeypatched to a fake returning the point's own vector, find_examples
+  returns a match with source "vector" and the report says the gateway mode; through the real MCP server construction used by
+  tests/mcp/test_server_wiring.py, the report_index_freshness tool result contains `example_search`; wiring on committed source:
+  report_index_freshness.py imports `example_search_mode`; parametrized over the 40 pilots of infra/helm/foss-mcp/values.yaml, the
+  committed infra/demo-manifests generation reports `lexical-only` when the gateway variables are unset (the standalone default) and,
+  for a pilot whose generation has example points, the gateway mode when they are set. At least 50 tests.
+- >-
+  Run `{python} -m pytest tests/mcp/tools/test_example_search_mode.py -q -rfE`, then once the second check command below. Write
+  commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Decide a generation's example-search mode from its payload and the gateway configuration, and report it in report_index_freshness.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_example_search_mode.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/mcp/tools/test_example_search_mode.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_consumer_tools.py tests/mcp/test_server_wiring.py tests/test_unwired_modules.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 50
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/example_search_mode.py');s=p.read_text(encoding='utf-8');old='def example_search_mode(';assert old in s;p.write_text(s.replace(old,'def example_search_modeX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the helper report_index_freshness imports, so report_index_freshness (and the server that imports it) cannot be
+    imported: the example-search tests and the freshness and wiring tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-444/receipt.json
+closeout:
+- >-
+  report_index_freshness tells a peer whether find_examples can use example vectors (`lexical+vector(gateway)`) or searches lexically
+  only (`lexical-only`), with the reason, and never reveals a configuration value.
+recovery: Re-run from a clean tree.

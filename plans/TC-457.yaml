@@ -1,0 +1,117 @@
+id: TC-457
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-007 (verified examples for every pilot). Every ingestion Job gets the one memory limit in
+  infra/helm/foss-mcp/values.yaml `ingestion.resources` (limits memory 4Gi, cpu "2"; requests 1Gi, 500m), which the values comment
+  itself calls "estimated, not measured". Measured facts: slides/cpp was OOM-killed at 4Gi on the cluster and needed a manual
+  `--set ingestion.resources.limits.memory=10Gi` helm upgrade to finish (operator run notes, 2026-10-11); the 2026-10-11 example
+  diagnosis ran html/python, page/python and words/net at 8Gi and they finished (html/python and page/python install skia-python
+  into a venv, words/net builds a 600-type .NET library), but none of the three was ever run at 4Gi. The chart has NO per-pilot
+  resource override today: infra/helm/foss-mcp/templates/ingestion-job.yaml renders `toYaml $.Values.ingestion.resources` for
+  every Job. scripts/deploy/pilots.py copies each pilot entry WHOLE into its release values file (`pilot_values`), so a key on the
+  pilot entry reaches the release without any change to the install tool. This card adds one optional pilot-level key,
+  `ingestionMemoryLimit`, that replaces only `limits.memory` for that pilot's Job, and sets it for exactly four pilots, so a
+  re-ingest that verifies their examples is not killed before it publishes them. Without it the manual helm upgrade is a step
+  nobody but the operator knows about.
+depends_on:
+- TC-341
+- TC-363
+- TC-375
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
+- tests/infra/test_helm_ingestion_memory.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read infra/helm/foss-mcp/values.yaml (the `ingestion.resources` block and its comment, and the `ingestion.pilots` entries for
+  html/python, page/python, words/net and slides/cpp), infra/helm/foss-mcp/templates/ingestion-job.yaml (the `resources:` line near
+  the end of the container spec, and how `$p` is bound for each pilot), scripts/deploy/pilots.py (`pilot_values`, read only),
+  tests/infra/test_helm_chart.py (the `_render` helper and `test_every_container_declares_resource_requests_and_limits`, which must
+  keep passing UNMODIFIED) and tests/infra/test_helm_verifier_fields.py (the helm-rendering pattern: a missing helm binary FAILS,
+  never skips). These must keep passing UNMODIFIED: tests/infra/test_helm_chart.py, tests/deploy/test_pilots.py,
+  tests/deploy/test_install_pilots.py, tests/infra/test_helm_verifier_fields.py, tests/infra/test_helm_pilots_match_compose.py.
+  Never print or log any environment value.
+- >-
+  ingestion-job.yaml: replace the single `toYaml $.Values.ingestion.resources` with a copy of the global block whose
+  `limits.memory` is replaced by the pilot's `ingestionMemoryLimit` when that key is present and non-empty, for example
+  `{{- $res := deepCopy $.Values.ingestion.resources }}{{- with $p.ingestionMemoryLimit }}{{- $_ := set $res.limits "memory" . }}{{- end }}`
+  followed by `{{- toYaml $res | nindent 12 }}`. The template must reference the key literally as `$p.ingestionMemoryLimit`. Never
+  mutate `$.Values.ingestion.resources` itself (deepCopy first), so one pilot's override can never leak into the next Job of the same
+  render. requests, limits.cpu and every other field stay exactly the global values. A pilot without the key renders exactly what it
+  renders today.
+- >-
+  values.yaml: add `ingestionMemoryLimit` at the PILOT level (beside `family`, `platform`, `maxTypes`; NEVER inside `library`, whose
+  keys are all forwarded as build_chunks flags and checked by the wiring tests) with exactly these values - html/python `8Gi`,
+  page/python `8Gi`, words/net `8Gi`, slides/cpp `10Gi`. Each is the smallest limit at which that pilot has been seen to finish
+  (8Gi measured by the diagnosis Jobs, 10Gi by the slides/cpp cluster run); none is a measured peak. Leave the global
+  `ingestion.resources` block exactly as it is, and extend its comment with one sentence naming the per-pilot key and why the four
+  pilots carry it. No other pilot gets the key.
+- >-
+  tests/infra/test_helm_ingestion_memory.py (NEW, offline, deterministic, no network, no wall-clock thresholds, no skipped tests;
+  helm missing is `pytest.fail`, as in test_helm_verifier_fields.py): a module constant `EXPECTED_MEMORY_LIMITS` mapping
+  (family, platform) to the four values above, and `DEFAULT_LIMITS` holding the global block's values. Tests - (1) values.yaml - exactly
+  those four pilots carry `ingestionMemoryLimit`, with exactly those values, each matching `^[1-9][0-9]*Gi$`, none inside `library`;
+  (2) the global `ingestion.resources` block still equals requests cpu 500m / memory 1Gi and limits cpu "2" / memory 4Gi; (3) render
+  the shipped chart (`helm template ... --set image.tag=<tag>`) - parametrized over the four pilots, each pilot's Job has
+  `limits.memory` equal to its value; (4) every other pilot's Job has `limits.memory` 4Gi; (5) every Job keeps requests cpu 500m and
+  memory 1Gi and limits cpu "2"; (6) the real install path - write the release values file for slides/cpp with
+  `scripts/deploy/pilots.py`'s `write_values` (import it the way tests/deploy/test_pilots.py does) into tmp_path, render with `-f` that
+  file, and assert the single Job has 10Gi; (7) an override file that deletes the key from slides/cpp renders 4Gi for it (the default
+  fallback); (8) an override file that gives pdf/net `ingestionMemoryLimit` 6Gi renders 6Gi for pdf/net only, and every other
+  pilot's Job keeps its own value (no leak between Jobs of one render); (9) wiring on committed source - the text of
+  infra/helm/foss-mcp/templates/ingestion-job.yaml contains `$p.ingestionMemoryLimit` and `deepCopy $.Values.ingestion.resources`.
+  At least 12 tests in this file.
+- >-
+  Run `{python} -m pytest tests/infra/test_helm_ingestion_memory.py -q -rfE`, then once the second check command. helm is on PATH
+  only after `scripts/toolchain/activate.ps1`, in the same shell command. Do NOT install or upgrade anything on the cluster (that is
+  the supervisor's step). Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Add an optional per-pilot `ingestionMemoryLimit` that replaces only the Job's memory limit, and set it for html/python, page/python,
+  words/net (8Gi) and slides/cpp (10Gi).
+- >-
+  Pin the values, the render, the real per-release install path and the template wiring with offline helm tests.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_ingestion_memory.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/infra/test_helm_ingestion_memory.py tests/infra/test_helm_chart.py tests/infra/test_helm_verifier_fields.py tests/infra/test_helm_pilots_match_compose.py tests/deploy/test_pilots.py tests/deploy/test_install_pilots.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 12
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/ingestion-job.yaml');s=p.read_text(encoding='utf-8');old='p.ingestionMemoryLimit';assert old in s;p.write_text(s.replace(old,'p.ingestionMemoryLimitX'),encoding='utf-8')"
+  rationale: >-
+    Makes the template read a key no pilot has, so every Job renders the global 4Gi again: the per-pilot render tests, the real
+    install-path test and the pdf/net override test all fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-457/receipt.json
+closeout:
+- >-
+  The four pilots whose example verification needs more than the 4Gi default (html/python, page/python, words/net at 8Gi, slides/cpp
+  at 10Gi) get it from the chart and from the per-release values file, with no manual helm upgrade. The later cluster step reinstalls
+  them with `python scripts/deploy/install_pilots.py --namespace foss-mcp --image-tag rev-<sha7> --embedding-gateway-secret
+  foss-mcp-embedding-gateway --github-token-secret foss-mcp-github-token --parallel 3 --timeout 40m --only html_python --only
+  page_python --only words_net --only slides_cpp`, then confirms with `kubectl -n foss-mcp get pod -l job-name=<job> -o
+  jsonpath={.items[0].status.containerStatuses[0].state}` that no Job ended OOMKilled, and reads each Job log's `verified N/M
+  candidate examples` line. Minimum expected verified counts from the diagnosis table (they also need the verifier fixes in
+  TC-450..TC-454 and TC-456; this card only removes the OOM) are html/python 7, page/python 2, words/net 2 (not measured; the
+  diagnosis could not build the library), slides/cpp at least 1 (its count in the 2026-10-11 census, which it must not lose).
+recovery: Re-run from a clean tree.
