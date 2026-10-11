@@ -122,6 +122,13 @@ class Behavior:
     empty_index: bool = False  # answers "nothing" to everything
     generation_after_restart: str | None = None
     forget_symbol_after_restart: bool = False
+    # TC-365: an honest miss echoes the request back; each leak flag puts another pilot's symbol somewhere else.
+    honest_miss_shape: bool = False
+    leak_in_suggestions: bool = False
+    leak_in_definition: bool = False
+    leak_in_members: bool = False
+    pad_reply_bytes: int = 0  # get_product_reference echoes this many bytes back (twice: text and structured)
+    slow_all_s: float = 0.0  # every valid tool call sleeps
 
 
 class FakeEndpoint:
@@ -278,9 +285,14 @@ class FakeEndpoint:
             time.sleep(b.slow_redos_s)
         if b.slow_lookup_s and tool == "lookup":
             time.sleep(b.slow_lookup_s)
+        if b.slow_all_s:
+            time.sleep(b.slow_all_s)
         if b.flaky_recent_changes and tool == "list_recent_changes":
             return h._send(503, "unavailable", "text/plain")
-        return self.sse(h, request_id, self.wrap(self.answer(tool, arguments)))
+        value = self.answer(tool, arguments)
+        if b.pad_reply_bytes and tool == "get_product_reference":
+            value = dict(value, echo="A" * b.pad_reply_bytes)
+        return self.sse(h, request_id, self.wrap(value))
 
     def validate(self, tool: str, arguments: Any) -> str | None:
         if not isinstance(arguments, dict):
@@ -309,6 +321,24 @@ class FakeEndpoint:
         b = self.behavior
         scope = {"family": FAMILY, "platform": PLATFORM, "source_kind": "self_extracted"}
         query = arguments.get("query") or arguments.get("fqn") or ""
+        if (
+            b.honest_miss_shape
+            and tool in ("search_symbols", "lookup", "search_docs", "find_examples")
+            and query != SYMBOL
+        ):
+            return {"scope": scope, "query": query, "results": [], "suggestions": []}
+        if tool in ("get_symbol", "list_members") and (
+            b.honest_miss_shape or b.leak_in_suggestions or b.leak_in_definition or b.leak_in_members
+        ):
+            miss: dict[str, Any] = {"scope": scope, "fqn": query, "suggestions": []}
+            if query == OTHER.symbol:
+                if b.leak_in_suggestions:
+                    miss["suggestions"] = [f"Other.{OTHER.symbol}"]
+                if b.leak_in_definition:
+                    miss["definition"] = f"public class {OTHER.symbol} : Base"
+                if b.leak_in_members:
+                    miss["members"] = [{"name": f"{OTHER.symbol}.Open"}]
+            return miss
         if tool in ("search_symbols", "lookup"):
             if b.empty_index or not self.knows_symbol:
                 return []
@@ -821,6 +851,210 @@ def test_a_crashing_scenario_is_a_failure_not_a_pass(endpoint) -> None:
     result = suite.run_scenario(make_target(endpoint()), "protocol", boom)
     assert result.status == "fail"
     assert result.violations[0].case == "crash"
+
+
+# --- TC-365 fix 1: parse the whole reply, cap only what is stored ----------------------------------------------
+
+
+def padded_call(fake: FakeEndpoint) -> tuple[suite.Reply, suite.Outcome]:
+    session = make_target(fake).open_session()
+    body = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": 9,
+            "method": "tools/call",
+            "params": {"name": "get_product_reference", "arguments": {"section": "license"}},
+        }
+    ).encode("utf-8")
+    reply = session.post(body, timeout=30.0)
+    return reply, suite.classify(reply)
+
+
+def test_the_reply_ceiling_is_far_above_the_evidence_cap() -> None:
+    assert suite.MAX_REPLY_BYTES >= 8 << 20
+    assert suite.MAX_REPLY_BYTES > 3 * suite.MAX_STORED_BODY
+    assert suite.Limits().baseline_factor == 8.0
+
+
+def test_a_valid_reply_of_about_two_and_a_half_megabytes_is_ok_not_unparseable(endpoint) -> None:
+    reply, outcome = padded_call(endpoint(pad_reply_bytes=1_250_000))
+    assert 2_400_000 < len(reply.body) < 2_700_000
+    assert len(reply.body) > suite.MAX_STORED_BODY, "the reply really is bigger than the evidence cap"
+    assert reply.error is None and not reply.oversize
+    assert outcome.kind == "ok", (outcome.kind, outcome.detail)
+    assert isinstance(outcome.value, dict) and len(outcome.value["echo"]) == 1_250_000
+
+
+def test_a_big_reply_is_judged_and_its_stored_evidence_stays_small(endpoint) -> None:
+    fake = endpoint(pad_reply_bytes=1_250_000)
+    target = make_target(fake)
+    target.limits = suite.Limits(tool_timeout_s=60.0)  # this test is about size, not speed
+    _, outcome = padded_call(fake)
+    assert len(outcome.text) <= suite.MAX_STORED_BODY
+    assert suite.judge_call(target, "arguments", "big", outcome) == []
+    assert len(target.excerpt(outcome.text)) <= suite.EXCERPT_WIDTH
+    # a big reply that is also an error is stored capped, and still parses to the proper error kind
+    error_text = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {"isError": True, "content": [{"type": "text", "text": "x" * 2_500_000}]},
+        }
+    )
+    big_error = suite.classify(suite.Reply(200, {}, f"event: message\ndata: {error_text}\n\n", 0.1))
+    assert big_error.kind == "tool_error" and len(big_error.text) <= suite.MAX_STORED_BODY
+    target.record_error("big error", big_error)
+    assert len(target.error_bodies[-1].text) <= suite.MAX_STORED_BODY
+
+
+def test_a_reply_over_the_ceiling_is_a_violation_and_is_not_parsed(endpoint) -> None:
+    fake = endpoint(pad_reply_bytes=8_600_000)  # about 17 MB with the structured copy
+    reply, outcome = padded_call(fake)
+    assert reply.oversize and reply.error and "larger than" in reply.error and "ceiling" in reply.error
+    assert reply.body == "", "an oversized reply is dropped, not kept"
+    assert outcome.kind == "transport" and "larger than" in outcome.detail
+    target = make_target(fake)
+    violations = suite.judge_call(target, "arguments", "huge", outcome)
+    assert violations and "larger than" in violations[0].problem
+
+
+def test_an_oversized_protocol_reply_is_reported_as_larger_than_the_ceiling() -> None:
+    target = suite.Target(base_url="x", family=FAMILY, platform=PLATFORM, symbol="S", limits=FAST)
+    case = suite.ProtocolCase("huge", b"", {})
+    reply = suite.Reply(200, {}, "", 0.5, "reply larger than the 16 MB ceiling", oversize=True)
+    (violation,) = suite.judge_protocol(target, case, reply)
+    assert "larger than the 16 MB ceiling" in violation.problem and "no usable reply" not in violation.problem
+
+
+def test_a_truncated_reply_is_still_unparseable() -> None:
+    cut = suite.Reply(200, {}, 'event: message\ndata: {"jsonrpc": "2.0", "id": 1, "result": {"a": "', 0.1)
+    assert suite.classify(cut).kind == "unparseable"
+
+
+# --- TC-365 fix 2: an echoed request is not another pilot's data --------------------------------------------------
+
+
+def test_strip_request_echo_removes_exact_equal_strings_only() -> None:
+    stripped = suite.strip_request_echo(
+        {"fqn": "Ns.Widget", "definition": "class Ns.Widget : Base", "n": 3, "ok": True, "none": None},
+        {"fqn": "Ns.Widget"},
+    )
+    assert stripped == {"fqn": "", "definition": "class Ns.Widget : Base", "n": 3, "ok": True, "none": None}
+
+
+def test_strip_request_echo_handles_nested_structures_and_request_objects() -> None:
+    arguments = {"query": "Widget", "scope": {"family": "pdf", "platform": "net"}, "tags": ["a", ["b"]]}
+    value = {
+        "scope": {"family": "pdf", "platform": "net", "extra": "Widget helper"},
+        "items": [{"name": "Widget"}, {"name": "WidgetFactory"}, ["a", "b", "c"]],
+        "count": 3,
+    }
+    assert suite.strip_request_echo(value, arguments) == {
+        "scope": {"family": "", "platform": "", "extra": "Widget helper"},
+        "items": [{"name": ""}, {"name": "WidgetFactory"}, ["", "", "c"]],
+        "count": 3,
+    }
+
+
+def test_strip_request_echo_does_not_mutate_its_inputs_or_touch_non_string_arguments() -> None:
+    value = {"a": ["x", {"b": "x"}]}
+    arguments = {"top_k": 5, "flag": True, "nothing": None, "q": "x"}
+    snapshot = json.dumps(value)
+    assert suite.strip_request_echo(value, arguments) == {"a": ["", {"b": ""}]}
+    assert json.dumps(value) == snapshot
+    assert suite.strip_request_echo({"n": 5, "t": True, "s": "5"}, {"top_k": 5, "flag": True}) == {
+        "n": 5,
+        "t": True,
+        "s": "5",
+    }
+    assert suite.strip_request_echo("plain", {"q": "plain"}) == ""
+    assert suite.strip_request_echo(["plain"], {}) == ["plain"]
+
+
+def test_isolation_findings_ignore_the_echo_but_keep_every_real_leak() -> None:
+    target = suite.Target(base_url="x", family=FAMILY, platform=PLATFORM, symbol=SYMBOL, other=OTHER)
+    asked = {"fqn": OTHER.symbol}
+    echo = {"scope": {"family": FAMILY, "platform": PLATFORM}, "fqn": OTHER.symbol, "suggestions": []}
+    assert suite.isolation_findings(target, OTHER, echo, asked) == []
+    leaks = {
+        "suggestions": {"fqn": OTHER.symbol, "suggestions": [f"Lib.{OTHER.symbol}"]},
+        "definition": {"fqn": OTHER.symbol, "definition": f"class {OTHER.symbol} : Base"},
+        "members": {"fqn": OTHER.symbol, "members": [f"{OTHER.symbol}.Open"]},
+        "another field": {"fqn": OTHER.symbol, "summary": f"See {OTHER.symbol} for details"},
+    }
+    for name, answer in leaks.items():
+        found = suite.isolation_findings(target, OTHER, answer, asked)
+        assert any(OTHER.symbol in problem for problem in found), (name, found)
+    # without the request there is nothing to strip: the old behaviour on a bare answer is unchanged
+    assert suite.isolation_findings(target, OTHER, echo)
+
+
+def test_isolation_passes_an_honest_miss_that_echoes_the_request(endpoint) -> None:
+    violations = suite.scenario_isolation(make_target(endpoint(honest_miss_shape=True)))
+    assert violations == [], messages(violations)
+
+
+@pytest.mark.parametrize("flag", ["leak_in_suggestions", "leak_in_definition", "leak_in_members"])
+def test_isolation_fails_a_symbol_leaked_beyond_the_echo(endpoint, flag: str) -> None:
+    violations = suite.scenario_isolation(make_target(endpoint(honest_miss_shape=True, **{flag: True})))
+    assert any(OTHER.symbol in v.problem and "appears in the answer" in v.problem for v in violations), (
+        messages(violations)
+    )
+
+
+# --- TC-365 fix 3: the latency rule is relative to a measured baseline --------------------------------------------
+
+
+def with_limits(target: suite.Target, **changes: Any) -> suite.Target:
+    values = {
+        "protocol_timeout_s": 3.0,
+        "tool_timeout_s": 2.0,
+        "p95_s": 2.0,
+        "ready_recheck_s": 0.6,
+        "sessions": 4,
+        "calls_per_session": 3,
+    }
+    values.update(changes)
+    target.limits = suite.Limits(**values)
+    return target
+
+
+def test_a_uniformly_slow_server_passes_the_relative_latency_rule(endpoint) -> None:
+    target = with_limits(make_target(endpoint(slow_all_s=0.25)), p95_s=0.1)
+    violations = suite.scenario_concurrency(target)
+    assert violations == [], messages(violations)
+    note = target.notes["concurrency"]
+    assert note["baseline_median_seconds"] >= 0.2
+    assert note["p95_seconds"] > 0.1, "an absolute limit this small would have failed the same server"
+    assert note["p95_allowed_seconds"] == pytest.approx(8 * note["baseline_median_seconds"], rel=0.01)
+
+
+def test_a_few_very_slow_calls_among_fast_ones_fail_the_relative_rule(endpoint) -> None:
+    target = with_limits(make_target(endpoint(slow_lookup_s=0.9)), p95_s=0.2)
+    violations = suite.scenario_concurrency(target)
+    latency = [v for v in violations if v.case == "latency"]
+    assert latency, messages(violations)
+    text = latency[0].problem
+    assert "0.2 s floor" in text and "median" in text and "8 times" in text and "p95 latency" in text
+
+
+def test_the_two_second_floor_is_honoured_when_the_baseline_is_tiny(endpoint) -> None:
+    fake = endpoint(slow_lookup_s=0.3)
+    target = with_limits(make_target(fake), p95_s=1.0)
+    assert suite.scenario_concurrency(target) == []
+    note = target.notes["concurrency"]
+    assert note["p95_seconds"] > 8 * note["baseline_median_seconds"], "only the floor lets this pass"
+    assert note["p95_allowed_seconds"] == 1.0
+    # the same server fails once the floor is below what it needs
+    tight = with_limits(make_target(fake), p95_s=0.1)
+    assert any(v.case == "latency" for v in suite.scenario_concurrency(tight))
+
+
+def test_the_default_floor_is_two_seconds_and_a_slow_server_over_it_still_fails(endpoint) -> None:
+    assert suite.Limits().p95_s == 2.0
+    target = with_limits(make_target(endpoint(slow_lookup_s=2.3)), tool_timeout_s=2.0)
+    violations = suite.scenario_concurrency(target)
+    assert any(v.case == "latency" and "2 s floor" in v.problem for v in violations), messages(violations)
 
 
 # --- end to end through main(), with a fake docker daemon ------------------------------------------------------

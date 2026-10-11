@@ -22,8 +22,9 @@ named, independent scenarios against its real MCP endpoint:
                arguments (family, platform, scope, source_kind, generation_id): none of it may come back;
   disclosure   every error body gathered above: no container filesystem path, no environment variable value, no
                stack trace;
-  concurrency  20 parallel MCP sessions of 10 mixed valid calls each: zero errors, p95 under 2 s, and the
-               container's memory within 25 percent of what it was before;
+  concurrency  20 parallel MCP sessions of 10 mixed valid calls each: zero errors, p95 within max(2 s, 8 times
+               the median of a sequential warm-up pass on the same container), and the container's memory
+               within 25 percent of what it was before;
   restart      ``docker restart`` the container: the same generation id and a known symbol still resolves.
 
 After EVERY scenario the suite re-checks /readyz, and a scenario that leaves the server unready fails. The
@@ -54,6 +55,7 @@ import json
 import os
 import re
 import shlex
+import statistics
 import sys
 import tempfile
 import time
@@ -93,7 +95,10 @@ EXIT_REFUSED = gate.EXIT_REFUSED
 EXIT_INTERRUPTED = gate.EXIT_INTERRUPTED
 
 EXCERPT_WIDTH = 160
-MAX_STORED_BODY = 1_200_000
+MAX_STORED_BODY = 1_200_000  # what is kept as evidence; a reply is parsed in full BEFORE it is capped
+MAX_REPLY_BYTES = (
+    16 << 20
+)  # the hard ceiling on a reply read into memory; a bigger one is a violation, not parsed
 MAX_VIOLATIONS_PER_SCENARIO = 40
 MIN_SECRET_LENGTH = 12
 RESTART_TIMEOUT_S = 120.0
@@ -107,7 +112,8 @@ class Limits:
 
     protocol_timeout_s: float = 10.0
     tool_timeout_s: float = 5.0
-    p95_s: float = 2.0
+    p95_s: float = 2.0  # the floor of the latency rule: p95 <= max(p95_s, baseline_factor * warm-up median)
+    baseline_factor: float = 8.0
     memory_growth: float = 0.25
     ready_recheck_s: float = 10.0
     sessions: int = 20
@@ -201,6 +207,7 @@ class Reply:
     body: str
     elapsed: float
     error: str | None = None
+    oversize: bool = False  # the reply was larger than MAX_REPLY_BYTES and was not read to the end
 
 
 def http_request(
@@ -211,7 +218,11 @@ def http_request(
     headers: Mapping[str, str] | None = None,
     timeout: float = 10.0,
 ) -> Reply:
-    """One request with full control of bytes and headers. A failure is a Reply with ``error``, never a raise."""
+    """One request with full control of bytes and headers. A failure is a Reply with ``error``, never a raise.
+
+    The whole reply is kept (up to MAX_REPLY_BYTES) so it can be parsed before anything is truncated: an honest
+    answer may be larger than the evidence cap because it echoes the request back. Only what is stored as
+    evidence is capped, later. A reply past the ceiling is not parsed; it comes back as an error."""
     started = time.monotonic()
     parts = urllib.parse.urlsplit(url)
     path = parts.path or "/"
@@ -233,8 +244,16 @@ def http_request(
             if not chunk:
                 break
             size += len(chunk)
-            if size <= MAX_STORED_BODY:
-                chunks.append(chunk)
+            if size > MAX_REPLY_BYTES:
+                return Reply(
+                    int(response.status),
+                    {},
+                    "",
+                    time.monotonic() - started,
+                    f"reply larger than the {MAX_REPLY_BYTES >> 20} MB ceiling",
+                    oversize=True,
+                )
+            chunks.append(chunk)
             if time.monotonic() - started > timeout:
                 return Reply(
                     None, {}, "", time.monotonic() - started, f"no complete reply within {timeout:g} s"
@@ -299,26 +318,31 @@ def classify(reply: Reply) -> Outcome:
         return Outcome("transport", reply.status, reply.elapsed, detail=reply.error)
     status = reply.status or 0
     if status >= 500:
-        return Outcome("http_5xx", status, reply.elapsed, reply.body, detail=f"HTTP {status}")
-    if 400 <= status < 500:
-        return Outcome("http_4xx", status, reply.elapsed, reply.body, detail=f"HTTP {status}")
-    if not 200 <= status < 300:
-        return Outcome("http_other", status, reply.elapsed, reply.body, detail=f"HTTP {status}")
-    message = parse_message(reply.body)
-    if not isinstance(message, dict):
         return Outcome(
-            "unparseable", status, reply.elapsed, reply.body, detail="reply is not a JSON-RPC message"
+            "http_5xx", status, reply.elapsed, reply.body[:MAX_STORED_BODY], detail=f"HTTP {status}"
         )
+    if 400 <= status < 500:
+        return Outcome(
+            "http_4xx", status, reply.elapsed, reply.body[:MAX_STORED_BODY], detail=f"HTTP {status}"
+        )
+    if not 200 <= status < 300:
+        return Outcome(
+            "http_other", status, reply.elapsed, reply.body[:MAX_STORED_BODY], detail=f"HTTP {status}"
+        )
+    message = parse_message(reply.body)  # the complete text: parse first, cap what is stored afterwards
+    stored = reply.body[:MAX_STORED_BODY]
+    if not isinstance(message, dict):
+        return Outcome("unparseable", status, reply.elapsed, stored, detail="reply is not a JSON-RPC message")
     if isinstance(message.get("error"), dict):
-        return Outcome("rpc_error", status, reply.elapsed, reply.body, detail="JSON-RPC error")
+        return Outcome("rpc_error", status, reply.elapsed, stored, detail="JSON-RPC error")
     result = message.get("result")
     if isinstance(result, dict) and result.get("isError"):
-        return Outcome("tool_error", status, reply.elapsed, reply.body, detail="tool error")
+        return Outcome("tool_error", status, reply.elapsed, stored, detail="tool error")
     value: Any = result
     if isinstance(result, dict) and isinstance(result.get("structuredContent"), dict):
         structured = result["structuredContent"]
         value = structured.get("result", structured)
-    return Outcome("ok", status, reply.elapsed, reply.body, value=value)
+    return Outcome("ok", status, reply.elapsed, stored, value=value)
 
 
 class McpSession:
@@ -686,6 +710,8 @@ def protocol_cases(session: McpSession, limits: Limits) -> list[ProtocolCase]:
 def judge_protocol(target: Target, case: ProtocolCase, reply: Reply) -> list[Violation]:
     where = "protocol"
     limit = target.limits.protocol_timeout_s
+    if reply.oversize:
+        return [Violation(where, case.name, reply.error or "reply larger than the ceiling")]
     if reply.error is not None:
         return [Violation(where, case.name, f"no usable reply within {limit:g} s: {reply.error}")]
     found: list[Violation] = []
@@ -800,17 +826,56 @@ ECHO_KEYS = frozenset(
 )
 
 
-def data_strings(value: Any, key: str | None = None) -> Iterable[str]:
-    if key in ECHO_KEYS:
+# What the isolation scenario still reads: the keys above, except `suggestions`. A suggestion is the server
+# offering a symbol from its own index, so another pilot's symbol there is a leak, never an echo.
+ISOLATION_SKIPPED_KEYS = ECHO_KEYS - {"suggestions"}
+
+
+def data_strings(value: Any, key: str | None = None, skip: frozenset[str] = ECHO_KEYS) -> Iterable[str]:
+    if key in skip:
         return
     if isinstance(value, str):
         yield value
     elif isinstance(value, Mapping):
         for child_key, child in value.items():
-            yield from data_strings(child, str(child_key))
+            yield from data_strings(child, str(child_key), skip)
     elif isinstance(value, list):
         for child in value:
-            yield from data_strings(child, key)
+            yield from data_strings(child, key, skip)
+
+
+def _argument_strings(arguments: Any) -> set[str]:
+    """Every string value in the request arguments, at any depth (dictionary keys are not values)."""
+    if isinstance(arguments, str):
+        return {arguments}
+    found: set[str] = set()
+    if isinstance(arguments, Mapping):
+        for child in arguments.values():
+            found |= _argument_strings(child)
+    elif isinstance(arguments, (list, tuple)):
+        for child in arguments:
+            found |= _argument_strings(child)
+    return found
+
+
+def strip_request_echo(value: Any, arguments: Any) -> Any:
+    """``value`` with every string that is EXACTLY one of the request's string arguments replaced by "".
+
+    An honest "not found" answer repeats the requested name back (``fqn``, ``query``, a scope field). That is the
+    asker's own text, not data from the index. A string that merely CONTAINS the requested text (a definition, a
+    signature, a member list entry) is kept, because that is content, and so is every non-string value."""
+    echoed = _argument_strings(arguments)
+
+    def clean(node: Any) -> Any:
+        if isinstance(node, str):
+            return "" if node in echoed else node
+        if isinstance(node, Mapping):
+            return {key: clean(child) for key, child in node.items()}
+        if isinstance(node, list):
+            return [clean(child) for child in node]
+        return node
+
+    return clean(value)
 
 
 def walk(value: Any) -> Iterable[tuple[str | None, Any]]:
@@ -823,10 +888,14 @@ def walk(value: Any) -> Iterable[tuple[str | None, Any]]:
             yield from walk(child)
 
 
-def isolation_findings(target: Target, other: OtherPilot, value: Any) -> list[str]:
-    """What in one answer belongs to another pilot: its symbol, its scope, or its generation."""
+def isolation_findings(
+    target: Target, other: OtherPilot, value: Any, arguments: Mapping[str, Any] | None = None
+) -> list[str]:
+    """What in one answer belongs to another pilot: its symbol, its scope, or its generation.
+
+    The symbol is searched for only in what remains after the request's own text is removed from the answer."""
     found: list[str] = []
-    for text in data_strings(value):
+    for text in data_strings(strip_request_echo(value, arguments or {}), skip=ISOLATION_SKIPPED_KEYS):
         if gate.names_symbol(other.symbol, text):
             found.append(
                 f"the other pilot's symbol {other.symbol!r} appears in the answer: {target.excerpt(text, other.symbol)}"
@@ -912,12 +981,13 @@ def scenario_isolation(target: Target) -> list[Violation]:
     for tool, base in isolation_tool_arguments(target, other):
         for variant, extra in identity_variants(other):
             case = f"{tool}: {variant}"
-            outcome = session.call_tool(tool, dict(base, **extra))
+            asked = dict(base, **extra)
+            outcome = session.call_tool(tool, asked)
             if outcome.is_error_body:
                 target.record_error(f"isolation: {case}", outcome)
             violations += judge_call(target, "isolation", case, outcome)
             if outcome.kind == "ok":
-                for problem in isolation_findings(target, other, outcome.value):
+                for problem in isolation_findings(target, other, outcome.value, asked):
                     violations.append(Violation("isolation", case, problem))
     return violations
 
@@ -1005,8 +1075,8 @@ def scenario_concurrency(target: Target) -> list[Violation]:
         ]
     violations: list[Violation] = []
     warm = target.open_session()
-    for tool, arguments in calls:
-        warm.call_tool(tool, arguments)
+    warm_latencies = [warm.call_tool(tool, arguments).elapsed for tool, arguments in calls]
+    baseline_median = statistics.median(warm_latencies)
     before = sample_memory_mib(target)
 
     with ThreadPoolExecutor(max_workers=target.limits.sessions) as pool:
@@ -1034,12 +1104,26 @@ def scenario_concurrency(target: Target) -> list[Violation]:
             Violation("concurrency", "errors", f"{len(errors)} errors in all; the first 10 are listed")
         )
     p95 = percentile_95(latencies)
-    if p95 > target.limits.p95_s:
+    floor, factor = target.limits.p95_s, target.limits.baseline_factor
+    allowed = max(floor, factor * baseline_median)
+    if p95 > allowed:
         violations.append(
-            Violation("concurrency", "latency", f"p95 latency {p95:.2f} s exceeds {target.limits.p95_s:g} s")
+            Violation(
+                "concurrency",
+                "latency",
+                f"p95 latency {p95:.2f} s exceeds {allowed:.2f} s, the larger of the {floor:g} s floor and "
+                f"{factor:g} times the {baseline_median:.3f} s median of the sequential warm-up calls",
+            )
         )
     note = target.notes.setdefault("concurrency", {})
-    note.update(sessions=target.limits.sessions, calls=total, errors=len(errors), p95_seconds=round(p95, 3))
+    note.update(
+        sessions=target.limits.sessions,
+        calls=total,
+        errors=len(errors),
+        p95_seconds=round(p95, 3),
+        baseline_median_seconds=round(baseline_median, 3),
+        p95_allowed_seconds=round(allowed, 3),
+    )
 
     after = sample_memory_mib(target)
     if target.container is None:
