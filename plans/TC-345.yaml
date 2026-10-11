@@ -57,9 +57,14 @@ inputs:
   snippet is non-empty, otherwise record not_applicable with the reason. Every entry shows the evidence (a short excerpt),
   never just a boolean.
 - >-
-  Report: one `<pilot_key>.json` per pilot in --report-dir plus `summary.json` with the image reference, the image id
-  (`docker image inspect --format {{.Id}}`), the image size in MB, the budget used, a UTC timestamp, per-pilot status
-  (pass, fail, not_applicable counts), peak memory MB, startup seconds, and the overall verdict. A pilot fails if any
+  Report: one `<pilot_key>.json` per pilot in --report-dir plus `summary.json`. The supervisor's `gatectl release-record`
+  reads summary.json, so it MUST have exactly these top-level keys and meanings: `schema_version` (1); `image` (the
+  reference given); `image_id` (`docker image inspect --format {{.Id}}`, the full `sha256:<64 hex>`); `image_size_bytes`
+  (integer); `budget` (`{"memory": "<value of --memory>", "cpus": <number>}`); `generated_at` (UTC ISO, ending Z);
+  `verdict` (exactly `"PASS"` or `"FAIL"`); `pilots_total` (integer, the number of selected pilots); `pilots_passed`
+  (integer); and `pilots`, a list with one object per pilot holding `key`, `status` ("pass" or "fail"), `checks`
+  (`{"pass": n, "fail": n, "not_applicable": n}`), `peak_memory_mb` (number), `startup_seconds` (number) and `reasons`
+  (list of strings, empty on a pass). `verdict` is PASS only if every selected pilot passed. A pilot fails if any
   applicable check or workflow entry fails, if its container never became ready, if it was OOM-killed or exceeded the memory
   budget, or if `docker run` itself failed. Exit 0 only if every selected pilot passes; print one table line per pilot and the
   verdict. Never print any environment variable value.

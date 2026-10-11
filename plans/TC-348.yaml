@@ -1,0 +1,87 @@
+id: TC-348
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-004 (the final image is in the state machine so it is not lost). The mechanism lives in the governance tooling
+  the supervisor owns (ops/release.py, `gatectl release-record`, the derived release_images section of project/state.yaml,
+  schemas/release-image.schema.json) and has its own canary tests under ops/tests. This card is the worker-side proof and
+  operator documentation: it pins the record's schema as a public contract with product-side tests that run in CI, and it
+  writes docs/RELEASE.md, the one page that says how a built image becomes a recorded, hosted release.
+depends_on:
+- TC-345
+- TC-346
+- TC-347
+write_paths:
+- tests/deploy/test_release_record_contract.py
+- docs/RELEASE.md
+satisfies:
+- REQ-G3-004
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Operator delivery requirements: a lean standalone 40-pilot image, hosted internally, recorded in the state machine, tested with real workflows first (operator, supervisor, pre-TC-345)'
+  sha256: 355bbca64e8652c4d4c844c4b9b34fcd67980c42d553b0d16074308c5904ac30
+inputs:
+- >-
+  Read schemas/release-image.schema.json, the `release_images` property of schemas/state.schema.json, ops/release.py and
+  ops/tests/test_release_record.py (all read only; you do not own them), plus scripts/release/image_workflow_gate.py,
+  scripts/release/push_image.py and docs/DEPLOYMENT.md's "Hosting the standalone demo image" section, so docs/RELEASE.md
+  describes what the tools really do and not what the cards intended.
+- >-
+  tests/deploy/test_release_record_contract.py (NEW), using the `jsonschema` package already in the dev lockfile and no
+  import from ops/: (1) the schema is itself a valid Draft 2020-12 schema; (2) a realistic record (LOCAL_ONLY with
+  `registry: null`) and a realistic PUSHED record both validate; (3) each of these mutations of a valid record is REJECTED:
+  `latest` tag, an image id that is not `sha256:<64 hex>`, a 39-character source commit, status other than LOCAL_ONLY or
+  PUSHED, a registry object without a digest, a registry digest that is not sha256, an extra unknown top-level key, a missing
+  gate_report, a negative `pilots_passed`; (4) state.schema.json lists `release_images` as required and its row schema
+  requires image, image_id, source_commit, size_mb, status, gate_report, registry_reference, registry_digest and record;
+  (5) the REAL evidence/release/*.json files in this repository (there may be none yet) all validate, and each has a copied
+  gate report whose sha256 matches the record; (6) docs/RELEASE.md exists and names `gatectl release-record`,
+  `image_workflow_gate.py`, `push_image.py`, `compact_demo_manifests.py`, `evidence/release`, `OWNER-13` and the rule
+  that an image without a passing gate report for that exact image id is not hosted.
+- >-
+  docs/RELEASE.md (NEW), for an operator, in this order: what the standalone demo image is (all 40 pilots' ingested data,
+  one container per pilot from the same image, why per-pilot isolation is kept); how it is built (compact_demo_manifests.py
+  then `build_images.py` / `docker build --target demo`); the pre-deployment gate (what the eleven checks and the task
+  workflow prove, the memory and CPU budget, where the report goes, that it is run against the exact image); hosting (you run
+  `docker login` yourself - no tool in this repository reads or stores a registry credential - then push_image.py with an
+  explicit registry); recording (`gatectl release-record --image ... --gate-report ... --push-result ...`, then
+  `gatectl state --write` and commit evidence/release and project/state.yaml); what `gatectl validate` and
+  `gatectl gate-exit G3` check about it; and how a peer pulls and runs the image. No real registry host, token or password
+  anywhere in the file; placeholders only.
+- >-
+  Run `{python} -m pytest tests/deploy/test_release_record_contract.py -q -rfE`, then once
+  `{python} -m pytest ops/tests/test_release_record.py tests/deploy/test_release_record_contract.py -q -rfE`. Write commit
+  messages as UTF-8 without a byte-order mark.
+actions:
+- Pin the release-record schema as a public, CI-run contract with positive and negative tests.
+- Write docs/RELEASE.md, the operator's page from built image to recorded, hosted release.
+checks:
+- command: '{python} -m pytest tests/deploy/test_release_record_contract.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-004
+- command: '{python} -m pytest ops/tests/test_release_record.py tests/deploy/test_release_record_contract.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-004
+min_tests: 12
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('schemas/release-image.schema.json');s=p.read_text(encoding='utf-8');old='LOCAL_ONLY';assert old in s;p.write_text(s.replace(old,'LOCAL_ONLYX',1),encoding='utf-8')"
+  rationale: >-
+    Renames the first LOCAL_ONLY status in the schema, so a realistic LOCAL_ONLY record no longer validates: the contract
+    tests fail. A real break of the schema the state machine depends on.
+evidence:
+- evidence/build/G3/TC-348/receipt.json
+closeout:
+- >-
+  The release-image record schema is a tested public contract and docs/RELEASE.md tells an operator exactly how a built
+  image becomes a recorded, hosted release.
+recovery: Re-run from a clean tree.

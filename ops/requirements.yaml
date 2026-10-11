@@ -643,3 +643,12 @@ requirements:
     Hosted on the internal server. The final image is tagged for and pushed to the operator's internal container registry
     by a tool that refuses to run without an explicit registry, never handles credentials itself, and captures the pushed
     digest. The registry host and credentials are supplied by the operator (OWNER-13).
+- id: REQ-G3-004
+  gate: G3
+  anchor: 'docs/DECISION_LOG.md: 2026-10-11 - Operator delivery requirements (pre-TC-345)'
+  text: >-
+    The final standalone image is recorded in the state machine so it cannot be lost. gatectl release-record writes a
+    schema-validated evidence/release record (image id, size, source commit, the pre-deployment workflow gate report for
+    that exact image, and the registry digest once pushed); project/state.yaml carries a derived release_images section;
+    gatectl validate asserts every record; and gatectl gate-exit G3 requires at least one image that is PUSHED, passed
+    the gate on every pilot, and was built from a commit in this history.
