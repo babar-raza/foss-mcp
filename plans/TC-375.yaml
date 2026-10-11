@@ -24,6 +24,8 @@ write_paths:
 - docker-compose.yml
 - tests/infra/test_wave3_wiring.py
 - tests/infra/test_helm_verifier_fields.py
+- tests/infra/test_compose_pdf_cpp.py
+- tests/infra/test_helm_chart.py
 satisfies:
 - REQ-G3-005
 source_refs:
@@ -62,6 +64,19 @@ inputs:
   still works: render with an override that gives a wired pilot NO furnishedPage and assert it renders none of the verifier flags (replace
   the second test with this, since no unwired pilot with verifier keys exists any more). Keep every other test in the file unchanged and
   say in your report that you changed these two. Check 1 below now includes this file, so the review runs it.
+- >-
+  Two more older tests pin pdf/cpp as a pilot WITHOUT a documentation page, a G2-era fact that this card makes false (the review of the
+  first attempt failed them in the broader check 2). They are in your write_paths for that reason only, and you change only these:
+  (a) tests/infra/test_compose_pdf_cpp.py::test_ingest_pdf_cpp_service_publishes_pdf_cpp_held_by_its_own_ingestion asserts
+  `--library-platform` and `--furnished-page` are NOT in the ingest-pdf-cpp command; flip those two assertions to require
+  `--furnished-page /app/fixtures/furnished/pdf_cpp/pages/_index.md` and `--library-platform cpp` (and, if another test in that file
+  asserts the same absence, flip it the same way; the test that RUNS build_chunks without library flags stays as it is, it tests the
+  tool, not the wiring). (b) tests/infra/test_helm_chart.py has a hand-copied synthetic PILOTS list; its pdf/cpp entry says it has no
+  furnishedPage, so the rendered chart Job no longer equals the compose command that now has one
+  (`test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose`). Give that synthetic pdf/cpp entry the same
+  `furnishedPage` the real values.yaml entry now has, and update its explanatory comment; touch no other entry. If any OTHER synthetic
+  entry in that file diverges from the wired compose service in the same way, fix it the same way and list it in your report. Say in
+  your report that you changed these tests.
 - >-
   tests/infra/test_wave3_wiring.py (NEW, offline, reads repository files only, no helm, no docker): parametrized over the thirteen pilots so a
   failure names the pilot: (1) values.yaml has the exact furnishedPage path; (2) the file exists, its front matter has `doc_source:
