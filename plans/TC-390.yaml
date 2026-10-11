@@ -1,0 +1,117 @@
+id: TC-390
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-002 (lean standalone demo image). Three ways the shipped image misbehaves at start-up, verified in code. (1) Restart
+  lockout: infra/demo_entrypoint.py `discover_pilots` treats ANY `<family>__<platform>__<kind>` directory under the manifests root as
+  a baked pilot, so one stray directory (as the report_index_freshness traversal created, `pdf__net__oops`) makes `select_pilot` stop
+  the next `docker restart` with exit 2 "pilot pdf/net is ambiguous". TC-380 stops the creation; this card makes the entrypoint
+  immune to strays that already exist. (2) The entrypoint rejects `FOSS_MCP_PILOT=PDF/NET` without suggesting the lowercase spelling, and its usage
+  text never mentions `FOSS_MCP_ALLOWED_ORIGINS`, so a browser client gets HTTP 400 with no hint. (3) A bad `FOSS_MCP_LOG_LEVEL` or
+  `FOSS_MCP_SHUTDOWN_GRACE_SECONDS` ends infra/serve_http.py with a raw Python traceback (`configure_logging` passes the name to
+  `setLevel`, `shutdown_grace_seconds` calls `int()`), and over stdio (infra/serve_stdio.py -> `run_stdio`) the server is created
+  WITHOUT the product-reference and release sidecars, so get_product_reference answers "no packaging manifest was provided" and
+  list_recent_changes answers [] where HTTP answers with real content. This card fixes all three in the entry scripts only.
+depends_on: []
+depends_on:
+- TC-001
+- TC-018
+- TC-019a
+- TC-061
+- TC-079
+- TC-137
+- TC-141
+- TC-142
+- TC-178
+- TC-200
+- TC-203
+- TC-223
+- TC-244
+- TC-245
+- TC-275
+- TC-350
+write_paths:
+- infra/demo_entrypoint.py
+- infra/serve_http.py
+- infra/serve_stdio.py
+- tests/deploy/test_demo_entrypoint_strays.py
+- tests/infra/test_serve_startup_errors.py
+- tests/infra/test_serve_stdio_parity.py
+satisfies:
+- REQ-G3-002
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Peers will try to break the shipped image: an adversarial suite is a requirement, not an extra (operator, supervisor, pre-TC-355)'
+  sha256: d2caef724bdb4ebdd6139a6775d2e46c22527150b512d2f09d15225ba6375268
+inputs:
+- >-
+  Read infra/demo_entrypoint.py (`parse_pilot`, `discover_pilots`, `select_pilot`, `read_lexical_document_count`, `_print_no_pilot`,
+  `main`), infra/serve_http.py (`configure_logging`, `shutdown_grace_seconds`, `allowed_origins_from_env`,
+  `_serving_product_reference_inputs`, `_serving_recent_releases`, `build_app`, `main`), infra/serve_stdio.py, and `run_stdio` in
+  src/foss_mcp/mcp/server.py (read only; this card does not change server.py). Existing tests that must keep passing UNMODIFIED:
+  tests/deploy/test_demo_entrypoint.py (note `test_list_marks_an_unreadable_scope_instead_of_hiding_it`: a scope directory that
+  still holds a generation file but lost its pointer must stay LISTED as unreadable), tests/infra/test_serve_http.py,
+  tests/infra/test_serve_logging.py, tests/infra/test_serve_manifest_sidecar.py, tests/infra/test_serve_stdio.py. Never print or log
+  any environment value (error messages name the variable, never its value).
+- >-
+  demo_entrypoint.py: (1) add a function named exactly `_is_baked_scope` (defined as `def _is_baked_scope(`): a scope directory is a
+  pilot candidate only when it contains at least one `generation__*.json` file; a directory without one (a stray, possibly empty) is
+  ignored by `discover_pilots`, by `--list` and by `select_pilot`. (2) `select_pilot`: when several candidates share family and
+  platform, only those holding an `active_pointer.json` file count toward ambiguity; exactly one such candidate is selected. (3)
+  Case is NOT normalised: tests/deploy/test_demo_entrypoint.py pins `PDF/Go` as refused, and that stays. Instead, when a refused
+  value would be valid in lowercase, the error message adds `did you mean '<lowercased value>'?` (still exit 2). (4) The no-pilot usage text adds one line: browser clients must be allowed with
+  `FOSS_MCP_ALLOWED_ORIGINS=<origin>[,<origin>...]` (no value from the environment printed). serve_http.py: (5) `main` catches the
+  ValueError from an invalid `FOSS_MCP_LOG_LEVEL` (any name `logging` does not know) or `FOSS_MCP_SHUTDOWN_GRACE_SECONDS` (not an
+  integer, or negative) and prints one line `serve_http: <VARIABLE> is invalid: <what is expected>` to stderr and exits 2, with no
+  traceback; valid values behave exactly as today. serve_stdio.py: (6) builds its server with `create_server` passing the same
+  product-reference inputs and recent releases the HTTP path loads (reuse serve_http's `_serving_product_reference_inputs` and
+  `_serving_recent_releases` with the same manifests directory resolution) and serves it over `stdio_server`, so stdio and HTTP give
+  identical answers.
+- >-
+  tests/deploy/test_demo_entrypoint_strays.py (NEW, offline, tmp manifests roots): a baked pdf/net plus an empty stray
+  `pdf__net__oops` directory selects pdf/net and would exec (execv stubbed the way the existing tests stub it); the same after
+  simulating the QA sequence (a stray created next to a baked scope, then `main` run again as on restart); a stray is not listed;
+  two genuinely baked kinds both with pointers stay ambiguous; `PDF/NET` exits 2 with `did you mean 'pdf/net'?`; `pdf/net/x` exits 2
+  with no such hint; the usage text names FOSS_MCP_ALLOWED_ORIGINS. tests/infra/test_serve_startup_errors.py (NEW): invalid log level and
+  invalid or negative grace seconds exit 2 with the one-line message and no "Traceback" in stderr (run `main` in-process with
+  monkeypatched env and uvicorn stubbed so nothing listens); valid values still reach uvicorn with the same arguments.
+  tests/infra/test_serve_stdio_parity.py (NEW): with a tmp manifests directory holding a published generation plus
+  product_reference and recent_releases sidecars, the server serve_stdio builds and the app build_app builds answer
+  get_product_reference('install'), get_product_reference('license') and list_recent_changes identically (call through the
+  servers' tool registries / call path, no real stdio streams needed). At least 18 tests across the three files, none skipped.
+- >-
+  Run `{python} -m pytest tests/deploy/test_demo_entrypoint_strays.py tests/infra/test_serve_startup_errors.py tests/infra/test_serve_stdio_parity.py -q -rfE`,
+  then once the second check command below. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Make the entrypoint ignore stray scope directories, hint the lowercase pilot name, and mention the browser-origin variable.
+- Turn bad start-up settings into one-line errors, and give stdio the same sidecars as HTTP.
+checks:
+- command: '{python} -m pytest tests/deploy/test_demo_entrypoint_strays.py tests/infra/test_serve_startup_errors.py tests/infra/test_serve_stdio_parity.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-002
+- command: '{python} -m pytest tests/deploy/test_demo_entrypoint.py tests/deploy/test_demo_entrypoint_strays.py tests/infra/test_serve_http.py tests/infra/test_serve_logging.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_serve_stdio.py tests/infra/test_serve_startup_errors.py tests/infra/test_serve_stdio_parity.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-002
+min_tests: 18
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/demo_entrypoint.py');s=p.read_text(encoding='utf-8');old='def _is_baked_scope(';assert old in s;p.write_text(s.replace(old,'def _is_baked_scopeX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the baked-scope test discover_pilots relies on, so no pilot can be discovered: the stray tests and the existing
+    entrypoint tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-390/receipt.json
+closeout:
+- >-
+  A stray directory can no longer stop the image from restarting, a wrongly-cased pilot name gets a hint, bad settings fail with one clear
+  line, and stdio answers exactly like HTTP. Re-run harness checks C16 (stdio parity) and the restart probe on the rebuilt image.
+recovery: Re-run from a clean tree.

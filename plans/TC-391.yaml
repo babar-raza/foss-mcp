@@ -1,0 +1,98 @@
+id: TC-391
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-006 (adversarial robustness). Three small things a peer sees in the first minute, verified in code. (1) `initialize` reports
+  `serverInfo.version` "0.0.0" (server.py `SERVER_VERSION`) and no `instructions`, so a client cannot tell which build it talks to
+  or where to start. The release build (scripts/release/build_images.py) already knows the exact commit (it labels the image with
+  org.opencontainers.image.revision) but nothing inside the container can read a label. (2) A malformed JSON-RPC body (`[]`,
+  `"params": "str"`) gets HTTP 400 whose message is the SDK's `f"Validation error: {str(e)}"` / `f"Parse error: {str(e)}"`
+  (mcp/server/streamable_http.py), i.e. a multi-line pydantic dump with union internals and an errors.pydantic.dev URL. (3) The
+  Streamable HTTP session manager runs with the SDK defaults (idle timeout 30 minutes, up to 10,000 sessions): an independent run
+  added ~14 MB for 600 idle sessions. This card stamps the build revision into the image through the build
+  context, reports it with real instructions, sanitises the transport's 400 bodies, and bounds sessions. Serving-side only.
+depends_on:
+- TC-389
+- TC-390
+write_paths:
+- src/foss_mcp/mcp/server.py
+- infra/serve_http.py
+- scripts/release/build_images.py
+- tests/mcp/test_server_identity.py
+- tests/infra/test_transport_error_sanitising.py
+satisfies:
+- REQ-G3-006
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Peers will try to break the shipped image: an adversarial suite is a requirement, not an extra (operator, supervisor, pre-TC-355)'
+  sha256: d2caef724bdb4ebdd6139a6775d2e46c22527150b512d2f09d15225ba6375268
+inputs:
+- >-
+  Read src/foss_mcp/mcp/server.py (`SERVER_NAME`, `SERVER_VERSION`, the `Server(...)` construction), infra/serve_http.py (`build_app`,
+  `RejectionMiddleware`, the `streamable_http_app` call), scripts/release/build_images.py (`export_head`, `build_image`, `main`),
+  Dockerfile.serving (read only: it copies `src/` into the image, so a file written into the exported `src/foss_mcp/` reaches the
+  image without any Dockerfile change), and the SDK's `Server.streamable_http_app` signature (`session_idle_timeout`,
+  `max_sessions`). Tests that must keep passing UNMODIFIED: tests/mcp/test_server_wiring.py, tests/infra/test_serve_http.py
+  (including the exact `/metrics` bodies), tests/mcp/test_transport_security.py, tests/infra/test_release_images.py,
+  tests/deploy/test_adversarial_suite.py, tests/deploy/test_image_workflow_gate.py. Never print or log any environment value.
+- >-
+  (1) build_images.py: after `export_head`, write the full commit SHA plus a newline to `<export_dir>/src/foss_mcp/BUILD_REVISION`
+  (never into the working tree). server.py: add a function named exactly `server_version` (defined as `def server_version(`) that
+  returns `0.1.0+<first 12 characters of the revision>` when that file exists next to the package and holds a 40- or 64-character
+  hex string, else `0.1.0+unknown`; `create_server` passes it as the version and passes `instructions`: a short fixed paragraph (at
+  most 800 characters) naming the pilot's scope is fixed by the deployment, lookup as the starting point for task questions,
+  search_symbols then get_symbol for exact API facts, find_examples for verified code, report_index_freshness for coverage and
+  provenance, and that misses are honest answers. (2) serve_http.py: a small ASGI wrapper around the Streamable HTTP app (inside the
+  existing RejectionMiddleware) that, for a 400 response whose JSON body is a JSON-RPC error with a message starting `Parse error:`
+  or `Validation error:`, replaces the message with exactly `Parse error: the request body is not valid JSON` or `Invalid request:
+  the body is not a valid JSON-RPC message for this server`, keeping status, id, code and every other byte of the envelope; all
+  other responses pass through untouched and streamed (SSE) responses are never buffered. (3) `streamable_http_app` is called with
+  `session_idle_timeout=600` and `max_sessions=500`.
+- >-
+  tests/mcp/test_server_identity.py (NEW, offline): `server_version` with no file, with a valid 40-hex file, with garbage in the file,
+  with a 64-hex file; an in-memory initialize (the way test_server_wiring drives a session) returns that version and the
+  instructions, which name lookup, search_symbols, get_symbol, find_examples and report_index_freshness and stay under 800
+  characters; build_images writes BUILD_REVISION into the export directory (run `export_head` and the new step against a temporary
+  git repository created in tmp_path with `git init`/`git commit` - no network, no docker; the docker build call stays stubbed).
+  tests/infra/test_transport_error_sanitising.py (NEW, offline, Starlette TestClient against `build_app` with a tmp store): bodies
+  `[]`, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":"str"}`, a body that is not JSON, and a JSON-RPC request with a
+  wrong `jsonrpc` value each get a 400 whose message is one of the two fixed strings and contains no `pydantic`, no `http`, no
+  newline; a valid initialize still succeeds; `/healthz` is untouched; the session manager received 600 and 500 (inspect it or stub
+  `streamable_http_app` to capture the keyword arguments). At least 14 tests across both files, none skipped.
+- >-
+  Run `{python} -m pytest tests/mcp/test_server_identity.py tests/infra/test_transport_error_sanitising.py -q -rfE`, then once the
+  second check command below. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Stamp the build revision into the image and report it, with real server instructions.
+- Sanitise the transport's malformed-request errors and bound idle sessions.
+checks:
+- command: '{python} -m pytest tests/mcp/test_server_identity.py tests/infra/test_transport_error_sanitising.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-006
+- command: '{python} -m pytest tests/mcp/test_server_identity.py tests/infra/test_transport_error_sanitising.py tests/mcp/test_server_wiring.py tests/infra/test_serve_http.py tests/mcp/test_transport_security.py tests/infra/test_release_images.py tests/deploy/test_adversarial_suite.py tests/deploy/test_image_workflow_gate.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-006
+min_tests: 14
+network: false
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/server.py');s=p.read_text(encoding='utf-8');old='def server_version(';assert old in s;p.write_text(s.replace(old,'def server_versionX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the version function create_server calls, so no server can be created: the identity tests, the sanitising tests (which
+    build the app) and the existing wiring tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-391/receipt.json
+closeout:
+- >-
+  A client sees which build it talks to and how to start, malformed requests get a short fixed error, and idle sessions are reaped.
+  Requires rebuilding the image with scripts/release/build_images.py.
+recovery: Re-run from a clean tree.

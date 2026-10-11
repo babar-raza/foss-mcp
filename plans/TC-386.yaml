@@ -1,0 +1,123 @@
+id: TC-386
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-005 (pilot completeness). What a peer reads in tools/list does not match what the tools do. Verified in
+  src/foss_mcp/mcp/server.py: the find_examples description cites `fqn='Aspose.Pdf.Facades.PdfFileSignature'` although the tool has
+  no `fqn` parameter and that type is not in the pdf/net index; get_symbol's description and the shared `fqn` field description
+  cite the method-level FQN `aspose.pdf.Document.save`, but members never have their own FQN on any pilot; `AFRelationship`, the
+  example in lookup and in the shared `query` field, is not in the pdf/net index; get_product_reference cites `pip install
+  aspose-pdf` (the commercial package); the `query` field description is shared verbatim across tools and talks about other
+  tools; the input schemas carry no enum for `section`/`content_type`/`source_kind`, no minimum/maximum/default for `top_k`/`limit`,
+  and no annotations. Verified in get_symbol.py: exact matching also matches pseudo-symbols, so get_symbol "Example: Add a
+  Watermark Annotation" answers `kind: verified_example` and list_members "Doc: Scope and Limitations" answers `[]` as success,
+  although search_symbols excludes both; NotFound carries no `found:false` and no reason although the descriptions promise an
+  explicit NotFound. Verified in search_symbols.py: `suggest_similar_fqns` compares only against full namespaced FQNs at cutoff 0.6,
+  so `Workbok` or `Documnet` get no suggestion. The unknown-tool error carries no `message`. This card makes descriptions, schemas
+  and miss shapes truthful, wires the pinned library commit into report_index_freshness, and leaves every successful answer
+  unchanged. Serving-side only: no re-ingestion is needed.
+depends_on:
+- TC-380
+- TC-381
+- TC-383
+write_paths:
+- src/foss_mcp/mcp/server.py
+- src/foss_mcp/mcp/tools/get_symbol.py
+- src/foss_mcp/mcp/tools/list_members.py
+- src/foss_mcp/mcp/tools/search_symbols.py
+- tests/mcp/test_tool_surface_truthful.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Peers will try to break the shipped image: an adversarial suite is a requirement, not an extra (operator, supervisor, pre-TC-355)'
+  sha256: d2caef724bdb4ebdd6139a6775d2e46c22527150b512d2f09d15225ba6375268
+inputs:
+- >-
+  Read src/foss_mcp/mcp/server.py in full (as left by TC-380: strict input models with closed sets and caps), get_symbol.py,
+  list_members.py, search_symbols.py (`suggest_similar_fqns`, `_NON_SYMBOL_FQN_PREFIXES`), find_examples.py (as left by TC-381:
+  its exact branch no longer goes through get_symbol), report_index_freshness.py (as left by TC-383: the keyword
+  `pinned_library_commit`) and get_product_reference.py's `ProductReferenceInputs.source_ref`. Read
+  scripts/release/adversarial_suite.py's `valid_arguments`/`sample_value` (it builds calls from the advertised schemas, so the
+  schemas must stay flat: `type` on every property, no `anyOf`, no `$ref`). Existing tests that must keep passing UNMODIFIED:
+  tests/mcp/test_server_wiring.py (including `test_schema_for_marks_defaulted_parameters_optional` - so keep `schema_for` exactly as
+  it is and build the advertised schemas with a NEW function), tests/mcp/test_search_symbols_honest_miss.py, tests/mcp/tools/*.py,
+  tests/infra/test_serve_http.py, tests/infra/test_serve_manifest_sidecar.py, tests/deploy/test_adversarial_suite.py. Never print or
+  log any environment value.
+- >-
+  server.py. (1) Add a function named exactly `tool_input_schema` (defined as `def tool_input_schema(`) that builds each tool's
+  advertised JSON Schema from its Pydantic input model in `_INPUT_MODELS`: `type: object`, `additionalProperties: false`, one flat
+  property per field with `type`, a per-tool `description`, and wherever the model states it `enum`, `default`, `minimum`,
+  `maximum`, `maxLength`, `pattern`; an optional field is simply not in `required` (never `anyOf` with null). `_list_tools`
+  advertises these schemas; every tool also gets `annotations` with `readOnlyHint` true, `destructiveHint` false, `idempotentHint`
+  true, `openWorldHint` false. (2) Per-tool field descriptions: replace the shared `_FIELD_DESCRIPTIONS["query"]` text with one
+  description per tool that talks only about that tool (keep `_FIELD_DESCRIPTIONS` itself for `schema_for`). (3) Rewrite the nine
+  `TOOL_DESCRIPTIONS` entries truthfully: find_examples takes only `query` and `top_k` (a query equal to an example title prefixed
+  `Example: ` is an exact match); get_symbol and list_members resolve TYPE-level FQNs only - a method or property has no FQN of its
+  own, find it with search_symbols by its member name; drop `aspose.pdf.Document.save`, `PdfFileSignature`, `AFRelationship` and `pip
+  install aspose-pdf`; any concrete identifier still quoted must exist in tests/fixtures/pdf_net/api_surface.json and be presented as
+  a pdf/net example; state two honest caveats once each where relevant: the API index may hold only part of a library's types
+  (report_index_freshness says how many when known), and Go/Rust/TypeScript symbol names are not import paths (use
+  get_product_reference 'install' and the product README for imports). Keep the cross-references the existing wiring tests assert
+  (lookup mentions search_symbols, search_symbols mentions get_symbol, get_symbol mentions search_symbols) and keep the nine
+  descriptions distinct. (4) The unknown-tool error adds `"message": "unknown tool"` to its structured content (do not echo the name
+  beyond 64 characters). (5) `_wrap_report_index_freshness` passes `pinned_library_commit=` the product-reference inputs'
+  `source_ref` when it is known (None otherwise); give the wrapper access to those inputs inside `_build_tool_registry`.
+- >-
+  get_symbol.py / list_members.py: exact matching ignores chunks whose FQN starts with `Example: ` or `Doc: ` (import the prefixes
+  from search_symbols), and so do the suggestions; `NotFound` gains additive fields with defaults: `found: bool = False`,
+  `reason: str = "no symbol with this exact FQN is in this index"` (`"no published generation for this scope"` on that path), and
+  `coverage_note: str | None = None`, set to "the API index holds P of T types; a type missing from it may still exist upstream" when
+  a symbol chunk carries an `API-Coverage: <P> of <T> types` line with P < T. `SymbolSignature` gains `found: bool = True`. Every
+  existing field, and every successful answer, is unchanged. search_symbols.py: `suggest_similar_fqns` keeps its current result
+  whenever that result is non-empty; only when it is empty does it also compare the target's final segment (split on `.` and `::`)
+  against each known FQN's final segment at cutoff 0.75 and return the matching full FQNs, deduplicated, in a deterministic order,
+  at most `limit`.
+- >-
+  tests/mcp/test_tool_surface_truthful.py (NEW, offline): every advertised schema has `additionalProperties` false, a `type` on
+  every property and no `anyOf`/`$ref`; `section`, `content_type` and `source_kind` advertise enums equal to the closed sets the
+  models enforce; `top_k`/`limit` advertise minimum 1, maximum 100 and the model's default; every `default` in a schema validates
+  against its own model; no description mentions `Document.save`, `PdfFileSignature`, `AFRelationship` or `pip install aspose-pdf`;
+  every single-quoted identifier-shaped example in any description is a type FQN or final segment present in the pdf/net fixture;
+  find_examples' schema has no `fqn`; the `query` description differs per tool; annotations are present and read-only; get_symbol
+  and list_members on `Example: ...` and `Doc: ...` pseudo-FQNs return NotFound with `found` false; a NotFound carries a reason, and
+  a coverage note when the published chunks carry `API-Coverage: 300 of 971 types`, none without the line; `Workbok` and `Documnet`
+  get `Workbook` / `Document` suggestions from a small synthetic index whose FQNs are namespaced; the unknown-tool error has a
+  message; report_index_freshness through the server reports `pinned_library_commit` equal to a sidecar `source_ref` given to
+  `create_server`. At least 22 tests, none skipped.
+- >-
+  Run `{python} -m pytest tests/mcp/test_tool_surface_truthful.py -q -rfE`, then once the second check command below. If an existing
+  test fails, stop and report it with its name; do not edit it. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Make tool descriptions and advertised schemas truthful, flat and complete (enum, bounds, defaults, annotations).
+- Stop pseudo-symbols leaking into get_symbol/list_members, give misses an explicit reason, suggest by final name segment, and wire the pinned commit into freshness.
+checks:
+- command: '{python} -m pytest tests/mcp/test_tool_surface_truthful.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_manifest_sidecar.py tests/deploy/test_adversarial_suite.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 22
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/server.py');s=p.read_text(encoding='utf-8');old='def tool_input_schema(';assert old in s;p.write_text(s.replace(old,'def tool_input_schemaX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the advertised-schema builder that create_server uses for tools/list, so no server can be created: the truthfulness
+    tests and the existing server wiring tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-386/receipt.json
+closeout:
+- >-
+  tools/list tells a peer the truth: real parameters with their enums, bounds and defaults, examples that resolve, honest caveats,
+  and misses that say they are misses and why.
+recovery: Re-run from a clean tree.

@@ -20,30 +20,6 @@ purpose: >-
   re-ingested (the demo manifests regenerated) afterwards for it to reach the image.
 depends_on:
 - TC-381
-- TC-001
-- TC-017a
-- TC-017b
-- TC-062
-- TC-065
-- TC-071
-- TC-074
-- TC-076
-- TC-077
-- TC-079
-- TC-109
-- TC-120
-- TC-143
-- TC-202
-- TC-218
-- TC-238
-- TC-255
-- TC-261
-- TC-263
-- TC-273
-- TC-278
-- TC-279
-- TC-284
-- TC-331
 write_paths:
 - src/foss_mcp/indexing/chunk_builder.py
 - tests/indexing/test_chunk_builder_honesty.py
@@ -87,7 +63,8 @@ inputs:
   the FQN, else its file's base name without extension; if that still collides, append `@<line>`. Non-colliding FQNs are untouched.
   (10) Coverage: when the fixture records an integer `type_count`, each symbol section ends with the line
   `API-Coverage: <P> of <T> types` where P is the number of type entries actually published by this call and T is `type_count`.
-  Without `type_count` no line is added. Use exactly this spelling: a serving card parses it.
+  Without `type_count` no line is added. Use exactly this spelling: a serving card parses it. (11) An enum member whose `value` is missing, None or empty renders as
+  its bare name (`  - Name`), never `Name = ` or `Name = None`.
 - >-
   tests/indexing/test_chunk_builder_honesty.py (NEW, offline): one focused test per rule above on small synthetic fixtures,
   plus real-fixture tests: pdf/net chunk text contains no ` -> void` for a method whose fixture return_type is empty
@@ -96,7 +73,7 @@ inputs:
   chunk lists `~BaseParagraph()` as inherited; no pdf/go or jmap/go chunk carries a symbol from a `_test.go` file; every FQN across
   the pdf/go and pdf/typescript output is unique; slides/python `aspose.slides_foss.charts.IChartDataCell` now lists the 4 methods
   its definition has and carries `Defined-In:`, and `aspose.slides_foss.charts.IChartDataCell.IChartDataCell` still exists; pdf/net
-  chunks carry `API-Coverage: 300 of 971 types`; a deprecated pdf/java method renders `(deprecated`; output is byte-identical across
+  chunks carry `API-Coverage: 300 of 971 types`; an enum member with no value renders without a dangling ` = `; a deprecated pdf/java method renders `(deprecated`; output is byte-identical across
   two runs. At least 20 tests, none skipped.
 - >-
   Existing tests that pin the invented `void` must change, and ONLY these assertions may change (each one checks a method whose

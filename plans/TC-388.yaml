@@ -1,0 +1,97 @@
+id: TC-388
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). A failed release fetch is published as "this product has no releases" and then sticks.
+  Verified in infra/fetch_recent_releases.py: `main` writes `[]` to the sidecar on ANY exception (rate limit, network, a 5xx), and
+  `_sidecar_is_fresh` treats any well-formed list younger than 24 hours as fresh, so that `[]` blocks every refetch for a day and is
+  baked into the image as the answer. 18 of the baked `recent_releases_*.json` files are `[]`; an independent reviewer reports that
+  slides/net, slides/cpp and note/python have upstream releases (not verifiable offline; the code defect is). Releases also carry no
+  date or URL (`Release` has only tag_name, body, richness), so a client cannot tell how recent "recent" is. This card makes a failed
+  fetch never look like a real empty answer and never overwrite good data, adds an explicit refetch switch, and carries the
+  release date and URL through when GitHub returns them. The sidecars must then be refetched (network) and the image rebuilt.
+depends_on: []
+depends_on:
+- TC-001
+- TC-012
+- TC-017c
+- TC-018
+- TC-220
+- TC-244
+- TC-251
+write_paths:
+- infra/fetch_recent_releases.py
+- src/foss_mcp/extraction/github_release_reader.py
+- src/foss_mcp/mcp/tools/list_recent_changes.py
+- tests/infra/test_fetch_recent_releases_failure.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read infra/fetch_recent_releases.py (module docstring: the Helm initContainer waits for the sidecar file to EXIST, so a run must
+  still leave a file behind), src/foss_mcp/extraction/github_release_reader.py (`Release`, `fetch_releases`),
+  src/foss_mcp/mcp/tools/list_recent_changes.py (`ChangeEntry`), and the tests that must keep passing UNMODIFIED:
+  tests/infra/test_fetch_recent_releases.py (including
+  `test_main_writes_an_empty_sidecar_and_does_not_raise_when_fetch_releases_fails`, which runs with NO existing sidecar),
+  tests/mcp/tools/test_consumer_tools.py, tests/infra/test_serve_manifest_sidecar.py, tests/mcp/test_server_wiring.py. Never print
+  or log any environment value, and never print a token or an Authorization header.
+- >-
+  fetch_recent_releases.py: (1) on a failed fetch, an EXISTING sidecar is left untouched (never replaced by `[]`); when there is
+  none, `[]` is written as today so the file exists; in both cases a marker file `<output>.failed` is written containing only the
+  exception class name and a UTC timestamp (no message text, no URL); (2) add a function named exactly `_fetch_failed_marker`
+  (defined as `def _fetch_failed_marker(`) returning the marker path; `_sidecar_is_fresh` returns False whenever that marker
+  exists, so the next run refetches instead of trusting the empty list; a successful fetch writes the sidecar and then deletes the
+  marker; (3) a new flag `--force` skips the freshness check entirely; (4) the printed failure line names the exception class
+  only. github_release_reader.py: `Release` gains `published_at: str | None = None` and `url: str | None = None` (additive, at the
+  end, so positional construction keeps working); `fetch_releases` fills them from the API's `published_at` and `html_url` when
+  present. Serialisation writes the two keys only when not None, and loading tolerates their absence (every existing sidecar loads
+  unchanged). list_recent_changes.py: `ChangeEntry` gains the same two optional fields, copied from the release.
+- >-
+  tests/infra/test_fetch_recent_releases_failure.py (NEW, offline, `fetch_releases` monkeypatched, mtimes set explicitly with
+  os.utime - never sleep, never compare against wall-clock thresholds): a failure with a good existing sidecar leaves its bytes
+  unchanged and writes the marker; a failure with no sidecar writes `[]` and the marker; with the marker present a fresh-looking
+  sidecar is NOT fresh and the next run calls `fetch_releases`; success deletes the marker; `--force` refetches a fresh sidecar; the
+  marker holds no exception message text; `published_at`/`url` round-trip through serialisation; an old sidecar without them loads
+  with None; `list_recent_changes` carries them; positional `Release(tag, body, richness)` still works. At least 12 tests, none
+  skipped.
+- >-
+  Run `{python} -m pytest tests/infra/test_fetch_recent_releases_failure.py -q -rfE`, then once the second check command below. Do NOT
+  refetch the baked sidecars yourself (that needs network and is the supervisor's step). Write commit messages as UTF-8 without a
+  byte-order mark.
+actions:
+- Never let a failed release fetch masquerade as an empty release list or overwrite good data, and allow a forced refetch.
+- Carry release dates and URLs through to list_recent_changes when GitHub provides them.
+checks:
+- command: '{python} -m pytest tests/infra/test_fetch_recent_releases_failure.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/infra/test_fetch_recent_releases_failure.py tests/infra/test_fetch_recent_releases.py tests/mcp/tools/test_consumer_tools.py tests/infra/test_serve_manifest_sidecar.py tests/mcp/test_server_wiring.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 12
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/fetch_recent_releases.py');s=p.read_text(encoding='utf-8');old='def _fetch_failed_marker(';assert old in s;p.write_text(s.replace(old,'def _fetch_failed_markerX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the marker-path function both the failure path and the freshness check call, so neither can run: the failure tests and
+    the existing freshness tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-388/receipt.json
+closeout:
+- >-
+  A failed release fetch is recorded as a failure, never served as "no releases", never overwrites good data, and is retried; release
+  dates and URLs reach clients when GitHub provides them. Requires refetching the release sidecars (network) and rebuilding the image.
+recovery: Re-run from a clean tree.

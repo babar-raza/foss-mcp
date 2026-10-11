@@ -1,0 +1,86 @@
+id: TC-385
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-006 (adversarial robustness). Chunk text is published exactly as upstream wrote it, with no clean-up and no size bound.
+  Verified on the committed demo manifests: a words/net chunk carries zero-width characters (U+200B), and Hugo shortcodes such as
+  `{{< package-install "pdf" "go" >}}` are served inside the pdf/go, pdf/typescript and slides/python example chunks (in the
+  description part, before the code). Invisible and bidirectional control characters in served text are a known way to make text
+  read differently from what it is, and a shortcode is page-template syntax, not content. Nothing bounds a chunk's size either
+  (the largest served chunk is 16.7 KB today; nothing stops a future README or docstring from producing a far larger one). This card
+  adds one sanitising step at the single place every chunk passes before it is written (infra/build_chunks.py, next to the
+  `Source-Commit:` line): strip invisible/bidi control characters everywhere, strip Hugo shortcodes from prose (never from verified
+  code), and cap a chunk's text at a fixed size with an explicit truncation line. It changes chunk text, so the affected pilots must
+  be re-ingested afterwards.
+depends_on:
+- TC-379
+write_paths:
+- infra/build_chunks.py
+- tests/infra/test_build_chunks_sanitize.py
+satisfies:
+- REQ-G3-006
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Peers will try to break the shipped image: an adversarial suite is a requirement, not an extra (operator, supervisor, pre-TC-355)'
+  sha256: d2caef724bdb4ebdd6139a6775d2e46c22527150b512d2f09d15225ba6375268
+inputs:
+- >-
+  Read infra/build_chunks.py (`main`, `_with_source_commit_line`, `_build_verified_example_chunks`, `_build_doc_chunks`) and the
+  tests that cover it, which must keep passing UNMODIFIED: tests/infra/test_build_chunks.py and
+  tests/infra/test_build_chunks_degradation.py. Never print or log any environment value.
+- >-
+  Add a pure function named exactly `_sanitize_chunk_text` (defined as `def _sanitize_chunk_text(`) and apply it to every chunk's
+  text in `main` immediately BEFORE `_with_source_commit_line` (so the `Source-Commit:` line is always the last line and never cut).
+  Rules, in order: (1) remove every occurrence of U+00AD, U+200B to U+200F, U+202A to U+202E, U+2060 to U+2064, U+2066 to U+2069
+  and U+FEFF, everywhere in the text (build these characters with chr() or a range, never type them literally in source); (2)
+  remove Hugo shortcodes, `{{<` ... `>}}` and `{{%` ... `%}}` on one line, non-greedy, together with a single space left doubled by
+  the removal, but ONLY in the part of the text before a line that is exactly `Example:`; the text after that line is verified
+  code and is never altered by this rule; a line that becomes empty because of the removal is dropped; (3) if the text is longer
+  than 24,000 characters, cut it at the last newline at or before character 24,000 and append the line
+  `Truncated: <N> characters omitted` (N the number removed). A text with none of these is returned unchanged, byte for byte.
+- >-
+  tests/infra/test_build_chunks_sanitize.py (NEW, offline): unit tests for each rule (each listed code point removed, built with
+  chr(); ordinary non-ASCII text such as accented letters, CJK and emoji kept; both shortcode forms removed from a description; a
+  shortcode-looking string after the `Example:` line kept verbatim; the 24,000 cap with the exact truncation line and a text of
+  exactly 24,000 characters unchanged; idempotence: sanitising twice equals sanitising once); an end-to-end test that runs `main`
+  the way tests/infra/test_build_chunks.py runs it (monkeypatched argv, a tiny api-surface fixture whose doc contains U+200B and a
+  furnished page whose example description contains `{{< package-install "pdf" "go" >}}`, with the platform verifier stubbed through
+  the same seams those tests use) and asserts the written chunks contain neither, still end with the `Source-Commit:` line, and keep
+  the example code byte-identical; and a test that every chunk text of a byte-identical input is unchanged when there is nothing
+  to sanitise. At least 14 tests, none skipped.
+- >-
+  Run `{python} -m pytest tests/infra/test_build_chunks_sanitize.py -q -rfE`, then once the second check command below. Write
+  commit messages as UTF-8 without a byte-order mark.
+actions:
+- Strip invisible and bidirectional control characters and template shortcodes from published prose, never touching verified code.
+- Bound every chunk's size with an explicit truncation line.
+checks:
+- command: '{python} -m pytest tests/infra/test_build_chunks_sanitize.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-006
+- command: '{python} -m pytest tests/infra/test_build_chunks_sanitize.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_degradation.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-006
+min_tests: 14
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/build_chunks.py');s=p.read_text(encoding='utf-8');old='def _sanitize_chunk_text(';assert old in s;p.write_text(s.replace(old,'def _sanitize_chunk_textX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the sanitising function main calls for every chunk, so no chunk file can be written: the sanitising tests and the
+    existing build_chunks end-to-end tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-385/receipt.json
+closeout:
+- >-
+  No published chunk carries invisible or bidirectional control characters or page-template shortcodes in its prose, verified
+  code is untouched, and no chunk exceeds a fixed size without saying so. Requires re-ingesting the affected pilots.
+recovery: Re-run from a clean tree.

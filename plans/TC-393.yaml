@@ -1,0 +1,102 @@
+id: TC-393
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). The Python reader hides how to construct and call the API, verified in
+  src/foss_mcp/extraction/tree_sitter_engine/python_surface.py and src/foss_mcp/extraction/run_extraction.py: (1) `_methods` skips
+  every name starting with `_`, so `__init__` is never extracted and no Python pilot shows a constructor (words/python
+  `Document.__init__(source, load_options, ...)`, cells/python `Workbook(file_path, password)` - the only way to open an existing
+  file); the adapter already maps `__init__` to `is_constructor` but never receives one. (2) `_structured_fields` keeps only ANNOTATED
+  parameters, so an unannotated parameter disappears (slides/python `IShapeCollection.add_auto_shape()` is published with no
+  parameters although upstream declares five). (3) `@property` getters are published as zero-argument methods (email/python
+  `MapiMessage.subject()`), and the adapter's docstring states properties always stay empty. This card extracts `__init__` as the
+  constructor, keeps every declared parameter (type empty when unannotated, `self`/`cls` excluded), and publishes properties as
+  properties with their annotated type and writability. It takes effect only when the Python fixtures are re-extracted (network)
+  and the pilots re-ingested.
+depends_on: []
+depends_on:
+- TC-001
+- TC-010
+- TC-011
+- TC-021
+- TC-233
+- TC-252
+- TC-265
+- TC-274
+- TC-281
+- TC-294
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+- src/foss_mcp/extraction/run_extraction.py
+- tests/extraction/tree_sitter_engine/test_python_surface_members.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read python_surface.py (`PublicSymbol`, `SymbolKind`, `_structured_fields`, `_methods`, the re-export origin recovery) and
+  run_extraction.py (`_python_types_from_surface`, `_extract_python_surface`, `_reference_strings`, `_centrality_scores`). Tests that
+  must keep passing UNMODIFIED: tests/extraction/tree_sitter_engine/test_python_surface.py (its sorted qualified-name list and the
+  exact `PublicSymbol` equality for `render`), tests/extraction/tree_sitter_engine/test_lang_python_parity.py,
+  tests/extraction/tree_sitter_engine/test_python_not_tree_sitter.py, tests/extraction/test_run_extraction_python.py, and every
+  per-pilot test under tests/extraction (they read committed fixtures, which this card does not touch). Never print or log any
+  environment value.
+- >-
+  python_surface.py: (1) `_methods` additionally yields `__init__` (only that dunder) as a method symbol; its qualified name is
+  `<class>.__init__`. (2) `PublicSymbol` gains an additive field `params: tuple[tuple[str, str], ...] = ()` holding EVERY declared
+  parameter in order (positional-only, regular, `*args` as `*name`, keyword-only, `**kwargs` as `**name`), with the annotation text
+  or "" when unannotated, excluding a leading `self` or `cls`; `param_types` keeps its current meaning unchanged. Add a function
+  named exactly `_declared_params` (defined as `def _declared_params(`) that computes it. (3) A function decorated with `@property`
+  or `@functools.cached_property`/`@cached_property` is yielded with a new kind `property` (add it to `SymbolKind`), its return
+  annotation as `return_type`; a `@<name>.setter` sibling marks it writable through a new additive field `writable: bool | None =
+  None` (True with a setter, False without). The getter is no longer ALSO yielded as a method. The existing test's sorted
+  qualified-name list stays identical (the property keeps its qualified name). run_extraction.py `_python_types_from_surface`:
+  method `params` come from `symbol.params` when non-empty, else from `param_types` as today (so existing synthetic symbols behave
+  as before); a `property` symbol goes to its owner's `properties` as `{"name", "type", "writable", "doc", "file", "line"}`; update
+  the adapter docstring that says properties stay empty.
+- >-
+  tests/extraction/tree_sitter_engine/test_python_surface_members.py (NEW, offline, synthetic packages in tmp_path, no clone): a
+  class with `__init__(self, source=None, load_options: LoadOptions | None = None, *args, **kwargs)` yields a constructor with all
+  four params (types "" , "LoadOptions | None", "", "") and `is_constructor` true through the adapter; other dunders and `_private`
+  methods stay excluded; `add_auto_shape(self, shape_type, x, y, width, height)` keeps five unannotated params; `cls` is excluded on
+  a classmethod; a `@property` getter with a return annotation becomes a property, not a method, writable only with a setter;
+  `cached_property` likewise; an `__init__` re-exported through a package `__init__.py` is recovered from its origin like other
+  methods; `_centrality_scores` still ignores "" types. At least 14 tests, none skipped.
+- >-
+  Run `{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_members.py -q -rfE`, then once the second check
+  command below. Do not re-extract or edit committed fixtures. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Extract Python constructors, every declared parameter, and properties as properties.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_members.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine tests/extraction/test_run_extraction_python.py tests/extraction/test_run_extraction_language_mapping.py -q -rfE -k "not live"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 14
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/python_surface.py');s=p.read_text(encoding='utf-8');old='def _declared_params(';assert old in s;p.write_text(s.replace(old,'def _declared_paramsX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the parameter reader every method symbol is built with, so no Python surface can be inspected: the new member tests and
+    the existing python-surface tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-393/receipt.json
+closeout:
+- >-
+  A re-extracted Python surface shows each class's constructor, every declared parameter, and properties as properties. Takes
+  effect only after re-extracting the Python fixtures and re-ingesting.
+recovery: Re-run from a clean tree.

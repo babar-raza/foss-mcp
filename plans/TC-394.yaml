@@ -1,0 +1,105 @@
+id: TC-394
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). The 300-type cut drops the classes the documentation tells people to use, and the cut is taken
+  from a different commit than the pinned library. Verified in src/foss_mcp/extraction/run_extraction.py: `reduce_fixture` orders
+  types only by a centrality score (how many other types reference the bare name), which favours interfaces; slides/python keeps
+  `IPresentationComponent` first but drops `Presentation` (score 0) although every verified example opens with
+  `slides.Presentation(...)` (tests/extraction/test_slides_python_extraction.py even asserts `"Presentation" not in` the fixture);
+  words/net keeps `DocumentBuilderOptions` but drops `DocumentBuilder`. Re-export stub/definition pairs count twice against the
+  budget (150 of slides/python's 300), test-file symbols count too. And `extract_pinned_repository` clones the default branch HEAD
+  (`git clone --depth 1`), not the commit the pilot pins, which is why pdf/net symbols say 10a36383 while its docs and examples are
+  b7172877. This card makes the cut keep every type the pilot's own furnished page uses in code, count a re-export pair once, skip
+  test-file entries before scoring, and lets extraction run at an exact commit. Committed fixtures are NOT changed here; the
+  supervisor's fixture-refresh step (network) re-extracts them afterwards.
+depends_on:
+- TC-393
+- TC-001
+- TC-011
+- TC-021
+- TC-233
+- TC-252
+- TC-265
+- TC-281
+write_paths:
+- src/foss_mcp/extraction/run_extraction.py
+- tests/extraction/test_run_extraction_selection.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read src/foss_mcp/extraction/run_extraction.py in full (as left by TC-393): `clone_shallow`, `extract_pinned_repository`,
+  `_centrality_scores`, `reduce_fixture`, `main`. Look at tests/fixtures/furnished/slides_python/pages/_index.md and
+  tests/fixtures/furnished/words_net/pages/_index.md (example code that names `Presentation` / `DocumentBuilder`). Tests that must
+  keep passing UNMODIFIED: every test under tests/extraction that does not need the network (the per-pilot tests read committed
+  fixtures and are unaffected because no fixture changes here), in particular tests/extraction/test_run_extraction_python.py and
+  tests/extraction/test_run_extraction_language_mapping.py and the reduce_fixture/centrality tests. Never print or log any
+  environment value or token.
+- >-
+  (1) Add a function named exactly `names_used_in_examples` (defined as `def names_used_in_examples(`) that reads a furnished page
+  (the same front-matter-plus-markdown file build_chunks reads) and returns the set of identifiers that appear in its fenced code
+  blocks as a class reference (`Name(`, `Name.`, `new Name`, `Name::`, `: Name`, `<Name>`, and `alias.Name` for Python module
+  aliases), CamelCase only, deterministic. (2) `reduce_fixture(artifact, *, max_types=300, must_keep=frozenset())`: before scoring,
+  entries whose `file` is a test source (the same file-name rules TC-382 uses: `_test.go`, `_test.py`, `test_*.py`, `.test.ts`,
+  `.spec.ts`, `.test.js`, `.spec.js`, or a `test`/`tests`/`__tests__` directory) are dropped; a Python re-export stub (from an
+  `__init__.py`, no members) and its unique definition (same name, class_import under the stub's package, with members) are kept or
+  dropped TOGETHER and count as one against `max_types`; every entry whose `name` is in `must_keep` is selected first (in the
+  existing deterministic order), then the remaining budget is filled by the current centrality order; `reduced_type_count`,
+  `truncated` and `type_count` keep their meanings (type_count is the count before any drop). With `must_keep` empty and no test
+  files or pairs present the output is byte-identical to today's for the same artifact (pin this with a test). (3)
+  `extract_pinned_repository(manifest_path, *, commit=None)` and `main --commit SHA --keep-names-from PAGE`: with `commit`, the clone
+  fetches exactly that commit (`git init`, `git fetch --depth 1 <url> <sha>`, `git checkout FETCH_HEAD`) and the artifact's
+  `source_commit` is that SHA (refuse with a clear error when the fetched HEAD differs); without it, behaviour is today's. The
+  repository URL comes from one small function so tests can point it at a local repository.
+- >-
+  tests/extraction/test_run_extraction_selection.py (NEW, offline): `names_used_in_examples` on the committed slides_python and
+  words_net furnished pages contains `Presentation` and `DocumentBuilder` respectively and no lowercase words; `reduce_fixture` on a
+  synthetic 1,000-type artifact with a zero-centrality `Presentation` keeps it when in `must_keep` and drops it otherwise; test-file
+  entries never selected and not counted; a stub/definition pair selected together and counted once; the byte-identical regression
+  pin; `--commit` against a local git repository created in tmp_path with two commits (no network: the URL function is
+  monkeypatched to the local path) extracts the OLDER commit and records it as `source_commit`; a mismatched commit is refused.
+  At least 14 tests, none skipped (git is required, declared below).
+- >-
+  Run `{python} -m pytest tests/extraction/test_run_extraction_selection.py -q -rfE`, then once the second check command below. Do
+  not run the extraction against GitHub and do not edit committed fixtures or tests/extraction/test_slides_python_extraction.py (its
+  `"Presentation" not in` assertion is changed by the later fixture-refresh card that re-extracts slides/python). Write commit
+  messages as UTF-8 without a byte-order mark.
+actions:
+- Keep every type the pilot's own examples use, count re-export pairs once, and skip test files when cutting the API surface.
+- Extract at the exact pinned commit when asked.
+checks:
+- command: '{python} -m pytest tests/extraction/test_run_extraction_selection.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction -q -rfE -k "not live and not github_http and not repo_native"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 14
+network: true
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/run_extraction.py');s=p.read_text(encoding='utf-8');old='def names_used_in_examples(';assert old in s;p.write_text(s.replace(old,'def names_used_in_examplesX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the example-name reader the selection tests and main depend on: the selection tests fail. A real break of the card's
+    central claim.
+evidence:
+- evidence/build/G3/TC-394/receipt.json
+closeout:
+- >-
+  A re-extraction at the pinned commit keeps every class the pilot's examples use and spends the type budget on real, distinct
+  public types. Takes effect only after the fixture-refresh step and re-ingestion.
+recovery: Re-run from a clean tree.

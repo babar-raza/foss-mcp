@@ -1,0 +1,91 @@
+id: TC-395
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). After TC-392, TC-393 and TC-394 the extractor can produce a correct cut, but the committed
+  fixtures the ingestion reads are still the old ones: slides/python has no `Presentation` (the class every slides/python example
+  opens), words/net has `DocumentBuilderOptions` but no `DocumentBuilder`, both were extracted from the default-branch HEAD rather
+  than the pinned commit, and nothing tests that a pilot's central classes survive the cut (the proof harnesses pick their probe from
+  the already-cut list). This card re-extracts exactly two fixtures, slides/python and words/net, at their pinned commits with the
+  new selection, and adds a fixture-level test that every class a pilot's own examples use is present in its committed fixture, for
+  those two pilots now and for any pilot added to its list later. It needs the network (GitHub) and must be followed by re-ingesting
+  the two pilots. Other pilots are refreshed by later cards of the same shape, one or two pilots each.
+depends_on:
+- TC-382
+- TC-392
+- TC-393
+- TC-394
+- TC-166
+- TC-269
+- TC-291
+write_paths:
+- tests/fixtures/slides_python/api_surface.json
+- tests/fixtures/words_net/api_surface.json
+- tests/extraction/test_central_classes_indexed.py
+- tests/extraction/test_slides_python_extraction.py
+- tests/extraction/test_words_net_extraction.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read src/foss_mcp/extraction/run_extraction.py (`main` with `--commit` and `--keep-names-from`, `names_used_in_examples`), the
+  pinned commits for slides/python and words/net in infra/helm/foss-mcp/values.yaml (the `commit:` of each pilot's library block;
+  read only), config/products/slides/python.yaml and config/products/words/net.yaml, the furnished pages
+  tests/fixtures/furnished/slides_python/pages/_index.md and tests/fixtures/furnished/words_net/pages/_index.md, and the two per-pilot
+  tests tests/extraction/test_slides_python_extraction.py and tests/extraction/test_words_net_extraction.py. Never print or log any
+  environment value or token; if GitHub rate-limits you, stop and report BLOCKED_EXTERNAL with the exact resume predicate.
+- >-
+  Re-extract each fixture with `python -m foss_mcp.extraction.run_extraction <manifest> <fixture path> --commit <pinned sha>
+  --keep-names-from <furnished page>` (default max types 300) and commit the result. Then: tests/extraction/test_central_classes_indexed.py
+  (NEW, offline, reads committed files only): a parametrized test over a module-level list `PILOTS = ["slides_python", "words_net"]`
+  asserting every name `names_used_in_examples` returns for the pilot's furnished page that exists as a type anywhere in the fixture
+  is present (so `Presentation` and `DocumentBuilder` by name, asserted explicitly too), that the fixture's `source_commit` equals the
+  pinned commit read from infra/helm/foss-mcp/values.yaml, that no entry comes from a test file, and that no Python stub/definition
+  pair is split. At least 8 tests, none skipped.
+- >-
+  The two per-pilot tests may change ONLY where they pin facts of the old cut or the old commit: in
+  test_slides_python_extraction.py the assertion `"Presentation" not in {entry["name"] for entry in data["types"]}` becomes
+  `"Presentation" in ...` (its docstring explains the old absence; update that sentence), and any assertion naming the old
+  `source_commit`, the old first type, or an exact old count is updated to the re-extracted fact. Every other assertion stays. List
+  each changed line in your report. If an assertion fails for any other reason, stop and report it.
+- >-
+  Run `{python} -m pytest tests/extraction/test_central_classes_indexed.py -q -rfE`, then once the second check command below. Write
+  commit messages as UTF-8 without a byte-order mark.
+actions:
+- Re-extract slides/python and words/net at their pinned commits with the corrected selection.
+- Pin, at fixture level, that every class a pilot's examples use is in its indexed set.
+checks:
+- command: '{python} -m pytest tests/extraction/test_central_classes_indexed.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction/test_central_classes_indexed.py tests/extraction/test_slides_python_extraction.py tests/extraction/test_words_net_extraction.py tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 8
+network: true
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "import json,pathlib;p=pathlib.Path('tests/fixtures/slides_python/api_surface.json');d=json.loads(p.read_text(encoding='utf-8'));n=len(d['types']);d['types']=[t for t in d['types'] if t.get('name')!='Presentation'];assert len(d['types'])<n;p.write_text(json.dumps(d),encoding='utf-8')"
+  rationale: >-
+    Removes Presentation from the re-extracted slides/python fixture, so the central-class test fails: proves the test reads the
+    committed fixture and that the refresh is what makes it pass.
+evidence:
+- evidence/build/G3/TC-395/receipt.json
+closeout:
+- >-
+  slides/python and words/net fixtures hold the classes their examples use, extracted at the pinned commits, and a fixture-level test
+  guards it. Requires re-ingesting the two pilots.
+recovery: Re-run from a clean tree.

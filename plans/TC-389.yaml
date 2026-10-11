@@ -1,0 +1,92 @@
+id: TC-389
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-006 (adversarial robustness). One slow request stalls the whole container. Verified in src/foss_mcp/mcp/server.py:
+  `_call_tool` is async but calls the tool handler synchronously (`result = handler(**...)`), so a handler's CPU and file I/O run on
+  the event loop; and every handler calls `GenerationManifestStore.read_generation`, which re-reads and re-parses the whole
+  generation JSON (up to ~2.3 MB) on every call, as does `/readyz` (src/foss_mcp/mcp/health.py `round_trip_check`). An independent
+  reviewer measured a 1 MB query taking 10.6 s on search_symbols and 19.8 s on lookup, `/readyz` taking 1.4 to 4.0 s meanwhile (the
+  Docker healthcheck times out at 5 s and marks the container unhealthy), and throughput of 50 to 70 requests per second. TC-380
+  caps argument sizes; this card removes the other two causes: tool dispatch runs in a worker thread so the event loop (and
+  `/healthz`, `/readyz`) stays responsive, and a parsed generation is cached in process, keyed by the file's identity, so a call or a
+  probe does not re-parse an unchanged file. Serving-side only; no re-ingestion.
+depends_on:
+- TC-380
+- TC-386
+write_paths:
+- src/foss_mcp/mcp/server.py
+- src/foss_mcp/indexing/generation_manifest.py
+- tests/mcp/test_dispatch_offload.py
+- tests/indexing/test_generation_read_cache.py
+satisfies:
+- REQ-G3-006
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Peers will try to break the shipped image: an adversarial suite is a requirement, not an extra (operator, supervisor, pre-TC-355)'
+  sha256: d2caef724bdb4ebdd6139a6775d2e46c22527150b512d2f09d15225ba6375268
+inputs:
+- >-
+  Read src/foss_mcp/mcp/server.py `_call_tool` (as left by TC-380 and TC-386), src/foss_mcp/indexing/generation_manifest.py
+  (`read_generation`, `_read_json`, `write_generation`, `cas_activate`, as left by TC-380), src/foss_mcp/mcp/health.py and the
+  `/readyz` route in infra/serve_http.py (read only). Existing tests that must keep passing UNMODIFIED:
+  tests/indexing/test_generation_manifest.py, tests/indexing/test_generation_manifest_containment.py, tests/indexing/test_publisher.py,
+  tests/infra/test_rollback.py, tests/mcp, tests/infra/test_serve_http.py, tests/deploy/test_adversarial_suite.py. Never print or log
+  any environment value.
+- >-
+  (1) Dispatch: in `_call_tool`, input validation stays on the loop; the handler call runs via `anyio.to_thread.run_sync` (a
+  `functools.partial` of the handler with the validated arguments). Every except-branch, the correlation id, the logging and the
+  usage recording behave exactly as today (exceptions raised in the thread propagate to the same branches). (2) Cache: add a method
+  named exactly `_cached_generation_document` (defined as `def _cached_generation_document(`) used by `read_generation`: it stats
+  the generation file and returns the parsed JSON document from an in-process cache keyed by (resolved path, st_mtime_ns,
+  st_size), re-reading only when that key changes or the entry is absent; the cache holds at most 8 entries (least recently used
+  evicted), is guarded by a `threading.Lock`, and is per store instance. `read_generation`'s return value, exceptions and the
+  immutability check in `write_generation` (which must still compare against the file's real content) are unchanged. A missing
+  file is never cached. `read_active` stays uncached (the pointer is tiny and must reflect a rollback immediately). No health.py
+  change is needed: `round_trip_check` already goes through `read_generation`.
+- >-
+  tests/mcp/test_dispatch_offload.py (NEW, offline, deterministic: NO wall-clock thresholds, no sleeps): a tool handler replaced
+  (monkeypatched registry entry) by one that blocks on a `threading.Event`; while it is blocked, a coroutine on the same event loop
+  runs to completion and then sets the event (proving the loop was not blocked; use anyio and a bounded `anyio.fail_after` only as a
+  deadlock guard, never as the assertion); exceptions from a threaded handler still map to invalid_argument (ValueError) and internal
+  (other) exactly as before; a valid call of each of the nine tools returns the same structured content as a direct call.
+  tests/indexing/test_generation_read_cache.py (NEW, offline): two reads of an unchanged generation parse the file once (count
+  `json.loads` or the reader via monkeypatch); a rewritten file (different bytes; set st_mtime_ns explicitly with os.utime) is
+  re-read; the cache never exceeds 8 entries; a rollback is visible on the next `read_active`; the immutability check still rejects
+  different content; concurrent reads from 8 threads return equal documents. At least 14 tests across the two files, none skipped.
+- >-
+  Run `{python} -m pytest tests/mcp/test_dispatch_offload.py tests/indexing/test_generation_read_cache.py -q -rfE`, then once the
+  second check command below. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Run tool handlers off the event loop so health probes and other sessions stay responsive.
+- Cache parsed generations by file identity so neither a tool call nor a readiness probe re-parses an unchanged file.
+checks:
+- command: '{python} -m pytest tests/mcp/test_dispatch_offload.py tests/indexing/test_generation_read_cache.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-006
+- command: '{python} -m pytest tests/indexing/test_generation_manifest.py tests/indexing/test_generation_manifest_containment.py tests/indexing/test_publisher.py tests/infra/test_rollback.py tests/mcp tests/infra/test_serve_http.py tests/deploy/test_adversarial_suite.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-006
+min_tests: 14
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/generation_manifest.py');s=p.read_text(encoding='utf-8');old='def _cached_generation_document(';assert old in s;p.write_text(s.replace(old,'def _cached_generation_documentX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the cached reader read_generation goes through, so no generation can be read: the cache tests, the dispatch tests and the
+    existing store and tool tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-389/receipt.json
+closeout:
+- >-
+  A slow or large request no longer blocks the event loop or the health probes, and an unchanged generation is parsed once. Re-run
+  harness check C15 (event loop) on the rebuilt image.
+recovery: Re-run from a clean tree.

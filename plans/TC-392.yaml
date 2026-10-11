@@ -1,0 +1,109 @@
+id: TC-392
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). Two extractor defects put non-API members into every tree-sitter pilot's API surface, verified in
+  src/foss_mcp/extraction/tree_sitter_engine: (1) `_flatten_inheritance` (api_surface.py) copies EVERY parent method into each
+  subclass, constructors and destructors included, so 1,630 base-class constructor/destructor lines across 19 committed fixtures
+  appear as "inherited" members (pdf/cpp PopupAnnotation lists `BaseParagraph()` and `~BaseParagraph()`, 3d/java Node lists
+  `SceneObject(...)`); constructors are not inherited in C#, Java, C++ or TypeScript. tests/extraction/tree_sitter_engine/
+  test_flatten_inheritance_provenance.py even pins the copy (`test_a_transitively_copied_constructor_is_rooted_to_the_grandparent`).
+  (2) `_collect_source_files` (tree_helpers.py) excludes test DIRECTORIES but not test FILES, so Go's `*_test.go` files (which live
+  next to the code by convention) are walked: 39 pdf/go and 103 jmap/go fixture entries come from them (ExampleDocument_*, test
+  helpers); package_manifest.py already excludes `_test.go` for its own purpose but the API walk does not. TC-382 hides both at chunk
+  build time for today's fixtures; this card fixes the extractor so a re-extraction no longer produces them. It takes effect only
+  when fixtures are re-extracted (network) and the pilots re-ingested.
+depends_on: []
+depends_on:
+- TC-001
+- TC-010
+- TC-010b
+- TC-051
+- TC-058
+- TC-059
+- TC-168
+- TC-241
+- TC-259
+- TC-261
+- TC-276
+- TC-293
+- TC-315
+- TC-316
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py
+- tests/extraction/tree_sitter_engine/test_flatten_inheritance_provenance.py
+- tests/extraction/tree_sitter_engine/test_extractor_public_surface_only.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read `_flatten_inheritance` in src/foss_mcp/extraction/tree_sitter_engine/api_surface.py (the copy loop over
+  `parent.get("methods", [])`), how each language marks a constructor (`is_constructor`, or name equal to the class's short name /
+  return type, `~Name` destructors, `constructor` in TypeScript), and `_NON_PUBLIC_DIRS`, `_is_non_public_path` and
+  `_collect_source_files` in tree_helpers.py. Read tests/extraction/tree_sitter_engine/*.py; all must keep passing UNMODIFIED except
+  the one test named below. Never print or log any environment value.
+- >-
+  (1) api_surface.py: add a function named exactly `_is_constructor_like` (defined as `def _is_constructor_like(`) taking a method
+  dict and the declaring class's short name, true when `is_constructor` is true, the name equals the class short name, the name is
+  `~` plus the class short name, or the name is `constructor` or `__init__`; the copy loop in `_flatten_inheritance` skips a parent
+  method for which it is true (using the PARENT's short name). Nothing else about flattening changes (overload keys, provenance,
+  deep copies, cycle guard). (2) tree_helpers.py: add a function named exactly `_is_test_source_file` (defined as
+  `def _is_test_source_file(`) - a base name ending `_test.go`, `_test.py`, `.test.ts`, `.spec.ts`, `.test.tsx`, `.spec.tsx`,
+  `.test.js`, `.spec.js`, `.test.mjs`, or starting `test_` and ending `.py` - and make `_collect_source_files` skip such files exactly
+  as it skips non-public directories (counted in the same stats if the stats record skips).
+- >-
+  tests/extraction/tree_sitter_engine/test_flatten_inheritance_provenance.py: the test
+  `test_a_transitively_copied_constructor_is_rooted_to_the_grandparent` pins the defect this card fixes. Replace exactly that test
+  with one named `test_a_base_constructor_is_never_copied_into_a_subclass` that builds the same `_three_level_chain()`, runs
+  `_flatten_inheritance`, and asserts the grandchild has NO method named `BaseParagraph` while the grandparent's own constructor entry
+  is still present and unmodified on the grandparent. Change nothing else in that file and say so in your report.
+- >-
+  tests/extraction/tree_sitter_engine/test_extractor_public_surface_only.py (NEW, offline, synthetic source trees in tmp_path parsed
+  with the real tree-sitter parsers the existing tests use): C# (a base with a constructor and a method; the subclass inherits the
+  method, not the constructor), Java (same), C++ (constructor and `~Destructor`), TypeScript (`constructor`); `_is_constructor_like`
+  unit cases including an ordinary method that happens to return the class type; a Go package with `doc.go`, `page.go` and
+  `page_test.go` whose `ExamplePage_Rotate` and test helper never appear in the surface while `page.go`'s exported symbols do; a
+  TypeScript tree with `x.spec.ts` and `x.test.ts`; a Python tree with `test_x.py`; and an ordinary file whose name merely contains
+  "test" (`attestation.go`, `latest.ts`) still walked. At least 14 tests, none skipped.
+- >-
+  Run `{python} -m pytest tests/extraction/tree_sitter_engine/test_extractor_public_surface_only.py tests/extraction/tree_sitter_engine/test_flatten_inheritance_provenance.py -q -rfE`,
+  then once the second check command below. Do not re-extract or edit committed fixtures. Write commit messages as UTF-8 without a
+  byte-order mark.
+actions:
+- Stop copying base constructors and destructors into subclasses during inheritance flattening.
+- Stop walking test source files when extracting the API surface.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_extractor_public_surface_only.py tests/extraction/tree_sitter_engine/test_flatten_inheritance_provenance.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine -q -rfE -k "not live"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 14
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='def _is_constructor_like(';assert old in s;p.write_text(s.replace(old,'def _is_constructor_likeX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the constructor test the flattening loop calls, so flattening raises: the new tests and the flattening tests fail. A real
+    break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-392/receipt.json
+closeout:
+- >-
+  A re-extracted API surface no longer lists base constructors and destructors as inherited members or test-file symbols as API.
+  Takes effect only after re-extracting fixtures and re-ingesting.
+recovery: Re-run from a clean tree.
