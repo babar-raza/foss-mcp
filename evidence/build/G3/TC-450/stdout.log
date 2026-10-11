@@ -1,0 +1,96 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_dotnet_verifier_assembly.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dqaemc9g\.junit-0.xml"
+--- stdout ---
+......................................                                   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_example_candidates.py tests/indexing/test_build_chunks_verification_report.py tests/indexing/test_build_chunks_page_sandbox.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_example_verifier_toolchain.py tests/indexing/test_java_page_imports.py tests/infra/test_build_chunks_platforms.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dqaemc9g\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 78%]
+....................                                                     [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_dotnet_verifier_assembly.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dqaemc9g\.junit-0.xml"
+--- stdout ---
+......................................                                   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_example_candidates.py tests/indexing/test_build_chunks_verification_report.py tests/indexing/test_build_chunks_page_sandbox.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_example_verifier_toolchain.py tests/indexing/test_java_page_imports.py tests/infra/test_build_chunks_platforms.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dqaemc9g\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 78%]
+....................                                                     [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/example_verifier.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_dotnet_verifier_assembly.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dqaemc9g\.junit-0.xml"
+--- stdout ---
+.............................F........                                   [100%]
+================================== FAILURES ===================================
+____ test_verify_text_and_formatting_builds_against_the_library_framework _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7194/test_verify_text_and_formattin0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000197FF674DE0>
+
+    def test_verify_text_and_formatting_builds_against_the_library_framework(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        candidate = _by_title(_candidates("slides_net"), "Text and formatting")
+        csproj = _library(tmp_path, "    <TargetFramework>net10.0</TargetFramework>")
+        fake = _install(monkeypatch, FakeRun(returncode=0, stdout="Build succeeded.", stderr=""))
+    
+        result = verify_dotnet_example(candidate, library_csproj=csproj, workdir=tmp_path / "work")
+    
+        assert len(fake.calls) == 1
+        argv, cwd = fake.calls[0]
+        assert argv == ["dotnet", "build"]
+        assert cwd == tmp_path / "work" / "candidate_project"
+>       assert "<TargetFramework>net10.0</TargetFramework>" in fake.csproj[0]
+E       assert '<TargetFramework>net10.0</TargetFramework>' in '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net8.0...f-babar\\pytest-7194\\test_verify_text_and_formattin0\\clone\\src\\Lib\\Lib.csproj" />\n  </ItemGroup>\n\n</Project>\n'
+
+tests\indexing\test_dotnet_verifier_assembly.py:274: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_dotnet_verifier_assembly.py::test_verify_text_and_formatting_builds_against_the_library_framework
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_example_candidates.py tests/indexing/test_build_chunks_verification_report.py tests/indexing/test_build_chunks_page_sandbox.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_example_verifier_toolchain.py tests/indexing/test_java_page_imports.py tests/infra/test_build_chunks_platforms.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dqaemc9g\.junit-1.xml"
+--- stdout ---
+.............................F.......................................... [ 78%]
+....................                                                     [100%]
+================================== FAILURES ===================================
+____ test_verify_text_and_formatting_builds_against_the_library_framework _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7195/test_verify_text_and_formattin0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000018BCF95C9F0>
+
+    def test_verify_text_and_formatting_builds_against_the_library_framework(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        candidate = _by_title(_candidates("slides_net"), "Text and formatting")
+        csproj = _library(tmp_path, "    <TargetFramework>net10.0</TargetFramework>")
+        fake = _install(monkeypatch, FakeRun(returncode=0, stdout="Build succeeded.", stderr=""))
+    
+        result = verify_dotnet_example(candidate, library_csproj=csproj, workdir=tmp_path / "work")
+    
+        assert len(fake.calls) == 1
+        argv, cwd = fake.calls[0]
+        assert argv == ["dotnet", "build"]
+        assert cwd == tmp_path / "work" / "candidate_project"
+>       assert "<TargetFramework>net10.0</TargetFramework>" in fake.csproj[0]
+E       assert '<TargetFramework>net10.0</TargetFramework>' in '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net8.0...f-babar\\pytest-7195\\test_verify_text_and_formattin0\\clone\\src\\Lib\\Lib.csproj" />\n  </ItemGroup>\n\n</Project>\n'
+
+tests\indexing\test_dotnet_verifier_assembly.py:274: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_dotnet_verifier_assembly.py::test_verify_text_and_formatting_builds_against_the_library_framework
+
+--- stderr ---
+
