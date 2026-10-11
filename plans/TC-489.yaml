@@ -1,0 +1,76 @@
+id: TC-489
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-007 (the definition of done: every review finding FIXED or ACCEPTED with a recorded reason). TC-440 requires every ACCEPTED row of
+  docs/REVIEW_LEDGER.md to be repeated in docs/RELEASE.md's known-limitations section, but docs/RELEASE.md (161 lines, sections 1-7) has no
+  such section today, so a peer pulling the image cannot see what the project knowingly ships without. The 2026-10-11 triage of the 44
+  findings that had no card (ledger rows L-089 to L-132) accepted 30 of them in whole or in part, each with a one-paragraph reason a peer can
+  check. This card adds `## 8. Known limitations` to docs/RELEASE.md with one entry per accepted finding (ledger id, what the limitation is,
+  what a peer would notice, why it is acceptable for the pilot), and a committed test that pins the list. Documentation only: no re-ingest,
+  no image rebuild needed for the text itself (the image does not bake docs/).
+depends_on:
+- TC-348
+write_paths:
+- docs/RELEASE.md
+- tests/deploy/test_release_known_limitations.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read docs/RELEASE.md in full (keep sections 1-7 byte-identical except where another card already changed them on main) and the accepted
+  rows the supervisor supplies in the dispatch instruction (a file path under the scratchpad: the "B" rows of triage_decisions.md, each an
+  ledger id plus its reason paragraph, with any change the supervisor made after later cards landed). Never print or log any environment
+  value.
+- >-
+  docs/RELEASE.md: append `## 8. Known limitations` after the last existing section. Open with two sentences: these are findings of the
+  independent adversarial reviews that this release accepts rather than fixes, and the full ledger is docs/REVIEW_LEDGER.md. Then one
+  subsection `### Standalone image` and one `### Kubernetes chart (not part of the standalone release)`; under each, one bullet per accepted
+  finding, starting with its ledger id in bold (`**L-0NN**`), then the limitation in plain words, what a peer would notice, and why it is
+  accepted, in at most four sentences, taken from the supplied reasons without adding claims of your own. Keep the wording plain (short
+  sentences, no marketing words).
+- >-
+  tests/deploy/test_release_known_limitations.py (NEW, offline, deterministic, reads only committed files, no skipped tests, no wall-clock
+  assertions): a module-level tuple `ACCEPTED_LEDGER_IDS` holding exactly the supplied ids; RELEASE.md has exactly one `## 8. Known
+  limitations` heading and both subsections; every id in the tuple appears in bold exactly once inside section 8 and its bullet has at least
+  80 characters of text after the id; section 8 contains no id that is not in the tuple; sections 1-7 still exist with their headings
+  unchanged. Parametrize over the ids so a failure names the id. At least 30 tests.
+- >-
+  Run `{python} -m pytest tests/deploy/test_release_known_limitations.py -q -rfE`, then once the second check command below. Write commit
+  messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Publish every accepted review finding, with its reason, in the release document peers read.
+checks:
+- command: '{python} -m pytest tests/deploy/test_release_known_limitations.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/deploy/test_release_known_limitations.py tests/deploy -q -rfE -k "release"'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 30
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('docs/RELEASE.md');s=p.read_text(encoding='utf-8');old='**L-089**';assert old in s;p.write_text(s.replace(old,'**L-0899**',1),encoding='utf-8')"
+  rationale: >-
+    Corrupts the id of the one Blocker-derived limitation, so the test finds L-089 missing from section 8 and an unknown id present. A real
+    break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-489/receipt.json
+closeout:
+- >-
+  docs/RELEASE.md lists every accepted review finding with its reason, and a test pins the list against the ledger ids.
+recovery: Re-run from a clean tree.

@@ -1,0 +1,105 @@
+id: TC-473
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness; review ledger L-093 Major, L-094 Major, L-096 Minor). Three gaps in the Python surface, all verified on
+  main. (1) L-096: src/foss_mcp/extraction/run_extraction.py `_python_types_from_surface` builds a `function` entry with no `params` and no
+  `return_type`, although `PublicSymbol.params` and `return_type` are filled for functions (python_surface.py, the module-level branch passes
+  `params=_declared_params(node)`); chunk_builder renders a function signature only when one of those keys exists, so every Python top-level
+  function is served as a bare `Kind: function` (barcode/python: 18 of 18 functions, including `generate`, have no `params` key in
+  tests/fixtures/barcode_python/api_surface.json). (2) L-094: python_surface.py `_methods` drops every name that starts with an underscore
+  except `__init__`, so `__enter__`/`__exit__` (the context-manager protocol that slides/python needs to avoid a measured 510 MB leak) are
+  never published. (3) L-093: nothing in python_surface.py reads class-level annotated fields (dataclasses, typed option classes) or public
+  `self.<name> = ...` assignments in `__init__`, so classes whose API is attributes are served empty: words/python
+  `aspose.words_foss.saving.MarkdownSaveOptions` and page/python `aspose.page.mcp.types.McpInput` have 0 methods and 0 properties in the
+  committed fixtures. This card fixes the extractor only; the Python fixture refresh cards TC-401 and TC-395 (both PENDING) must run AFTER it
+  so that one re-extraction picks the fixes up, and the pilots are re-ingested in the planned final re-ingest (no extra re-ingest).
+depends_on:
+- TC-393
+- TC-394
+- TC-426
+- TC-429
+write_paths:
+- src/foss_mcp/extraction/run_extraction.py
+- src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+- tests/extraction/tree_sitter_engine/test_python_surface_attributes.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read src/foss_mcp/extraction/tree_sitter_engine/python_surface.py in full (`PublicSymbol`, the module-level symbol loop, `_methods`,
+  `_structured_fields`, `_declared_params`, `_setter_names`, `_is_property_getter`, `_reexported_methods`, and the mixin flattening TC-429
+  added), src/foss_mcp/extraction/run_extraction.py `_python_types_from_surface` and `fill_python_enum_members`, and
+  src/foss_mcp/indexing/chunk_builder.py (read only: a `kind == "function"` entry with `params` or `return_type` is rendered as its own
+  single method line). These must keep passing UNMODIFIED: tests/extraction/tree_sitter_engine/test_python_surface.py,
+  tests/extraction/tree_sitter_engine/test_python_surface_members.py, tests/extraction/tree_sitter_engine/test_python_surface_mixins.py,
+  tests/extraction/tree_sitter_engine/test_lang_python_parity.py, tests/extraction/test_run_extraction_python.py. If one of them fails
+  because it pins the old (incomplete) member list, STOP and report the test and assertion; never edit, skip or weaken it. Never print or
+  log any environment value.
+- >-
+  (1) run_extraction.py `_python_types_from_surface`: for a `function` symbol add `params` (the same list shape methods get:
+  `[{"name": n, "type": t}]` from `symbol.params or symbol.param_types`) and `return_type` (`symbol.return_type or ""`) to the entry. Class
+  and enum entries are unchanged. (2) python_surface.py `_methods`: keep `__init__` and additionally publish exactly these dunders as methods
+  when defined in the class body: `__enter__`, `__exit__`, `__aenter__`, `__aexit__` (a module-level tuple named exactly
+  `PUBLISHED_DUNDERS`); every other underscore name stays excluded. (3) python_surface.py: publish attribute members as `property` symbols
+  (so the adapter puts them in the owner's `properties`) from (a) class-body `AnnAssign` statements with a simple public name (no leading
+  underscore), type = `ast.unparse(annotation)`, excluding annotations whose text starts with `ClassVar`; and (b) `self.<name> = ...` and
+  `self.<name>: T = ...` statements anywhere in the body of `__init__` (nested blocks included, nested function or class definitions
+  excluded) with a public name, type = the annotation text or "". Attributes are `writable=True`; `docstring` None; `line` the statement
+  line; each name once per class, and a name already published as a method or `@property` is never duplicated. Never add attributes to a
+  class the extractor classifies as an enum (its members come from `fill_python_enum_members`). Do it inside or next to `_methods` so the
+  re-export path (`_reexported_methods`) and the mixin flattening get the same members.
+- >-
+  tests/extraction/tree_sitter_engine/test_python_surface_attributes.py (NEW, offline, deterministic, tmp_path sources only, no skipped
+  tests, no wall-clock assertions), driving the REAL `inspect_public_surface` and `_python_types_from_surface` exactly as
+  test_python_surface_members.py does: a module function `def generate(data: str, symbology: str = 'qr') -> bytes` yields an entry with
+  `params` `[data:str, symbology:str]` and `return_type` `bytes`, and chunk_builder renders a signature line for it (not a bare kind); an
+  unannotated function has `params` with empty types and `return_type` ""; a class with `__enter__`/`__exit__` publishes both as methods,
+  while `__repr__` and `_helper` stay excluded; a `@dataclass` with `name: str`, `size: int = 0`, `_cache: dict` and
+  `LIMIT: ClassVar[int] = 3` publishes properties `name` and `size` only, with their types and writable True; a plain class whose `__init__`
+  assigns `self.title = title`, `self.count: int = 0`, `self._private = 1` and, inside an `if`, `self.mode = 'x'` publishes `title`, `count`
+  (type int) and `mode`, not `_private`; an attribute that is also a `@property` appears once (the property); an enum class gets no
+  attribute properties; a class re-exported through a package `__init__` keeps its attributes. At least 12 tests.
+- >-
+  Run `{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_attributes.py -q -rfE`, then once the second check command
+  below. Do NOT regenerate any committed fixture and do NOT re-ingest (TC-401 and TC-395 do that). Write commit messages as UTF-8 without a
+  byte-order mark.
+actions:
+- >-
+  Publish Python module-function signatures, the context-manager dunders, dataclass fields and public instance attributes.
+- >-
+  Pin each with offline tests on synthetic sources through the real extractor and adapter.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_attributes.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_attributes.py tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/tree_sitter_engine/test_python_surface_members.py tests/extraction/tree_sitter_engine/test_lang_python_parity.py tests/extraction/test_run_extraction_python.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 12
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/python_surface.py');s=p.read_text(encoding='utf-8');old='PUBLISHED_DUNDERS';assert old in s;p.write_text(s.replace(old,'PUBLISHED_DUNDERSX'),encoding='utf-8')"
+  rationale: >-
+    Renames the dunder allowlist everywhere in the module except in the new test that imports it, so the test module cannot import it and
+    every new test fails. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-473/receipt.json
+closeout:
+- >-
+  Python module functions carry their signatures, context-manager dunders are published, and dataclass fields and public instance
+  attributes are properties. Reaches the image through TC-401/TC-395's fixture refresh and the final re-ingest.
+recovery: Re-run from a clean tree.

@@ -1,0 +1,88 @@
+id: TC-475
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness; review ledger L-092, Major). The JavaScript extractor throws away the only type information a plain-JS
+  library has. Verified on main: src/foss_mcp/extraction/tree_sitter_engine/lang/typescript.py `parse_doc` matches `@param {T} name` with
+  `_JSDOC_PARAM_RE`, whose `{Type}` group is non-capturing, so only the name and description survive, and `@returns {T} text` is kept as
+  prose; api_surface.py `_apply_ts_tsdoc_enrichment` fills only `doc` and `return_doc`. In the committed tests/fixtures/jmap_nodejs/api_surface.json
+  all 65 parameters have an empty type and all 90 methods an empty return type, although the upstream JSDoc states them. This card fills an
+  EMPTY parameter type or return type from the JSDoc tag; a TypeScript annotation always wins. It changes the extractor only: the Go/Rust/TS
+  fixture refresh card TC-403 (PENDING) must run AFTER it so that its single re-extraction of jmap_nodejs picks it up, and the pilot is
+  re-ingested in the planned final re-ingest (no extra re-ingest). If this card is not dispatched before TC-403, the finding is accepted
+  instead (docs/RELEASE.md).
+depends_on:
+- TC-396
+- TC-397
+- TC-398
+- TC-428
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/lang/typescript.py
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- tests/extraction/tree_sitter_engine/test_jsdoc_types.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read src/foss_mcp/extraction/tree_sitter_engine/lang/typescript.py (`_JSDOC_PARAM_RE`, `parse_doc`) and
+  src/foss_mcp/extraction/tree_sitter_engine/api_surface.py (`_apply_ts_tsdoc_enrichment`, `_ts_raw_jsdoc_comment`, and how a JS/TS
+  method's `params[].type` and `return_type` are set before enrichment). These must keep passing UNMODIFIED:
+  tests/extraction/tree_sitter_engine/test_api_surface_javascript.py, test_api_surface_other_languages.py,
+  test_extractor_public_surface_only.py, test_tree_helpers.py, and the test files TC-398 and TC-428 added. Never print or log any environment value.
+- >-
+  lang/typescript.py `parse_doc`, ADDITIVE: capture the `{T}` of each `@param` and return it as `result["param_types"]` (name -> type text,
+  braces removed, whitespace collapsed), and when an `@returns`/`@return` chunk starts with `{T}` return `result["returns_type"]` (the type
+  text) and keep today's `result["returns"]` prose WITHOUT the leading `{T}`. Every key parse_doc returns today keeps its exact value for
+  input without types. A module-level helper named exactly `_jsdoc_type` (written as `def _jsdoc_type(`) extracts a leading balanced-brace
+  type (nested braces such as `{Object<string, {id: string}>}` are taken whole) and returns the type text and the rest.
+  api_surface.py `_apply_ts_tsdoc_enrichment`: set `p["type"]` from `param_types` only when the parameter's type is empty (same name
+  matching as the doc fill), and `entry["return_type"]` from `returns_type` only when it is empty. A TypeScript annotation is never
+  overwritten.
+- >-
+  tests/extraction/tree_sitter_engine/test_jsdoc_types.py (NEW, offline, deterministic, tmp_path or inline sources through the REAL
+  extractor entry point that the existing TypeScript tests use, no skipped tests, no wall-clock assertions): a JS class method with
+  `@param {string} name - the name`, `@param {number} [count=1]` and `@returns {Promise<Mailbox[]>} the mailboxes` gets types `string`,
+  `number`, return type `Promise<Mailbox[]>`, and its param doc and return_doc carry no `{...}`; a JS top-level function the same; a
+  TypeScript method annotated `(name: string): void` with a conflicting JSDoc `{number}` keeps `string` and `void`; a nested-brace type is
+  taken whole; a `@param` without a type leaves the type empty; `parse_doc` unit tests for `param_types` and `returns_type`, and for input
+  without types returning exactly today's keys. At least 10 tests.
+- >-
+  Run `{python} -m pytest tests/extraction/tree_sitter_engine/test_jsdoc_types.py -q -rfE`, then once the second check command below. Do NOT
+  regenerate any committed fixture and do NOT re-ingest (TC-403 does that). Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Fill empty JavaScript parameter and return types from the JSDoc `{T}` tags, never overriding a TypeScript annotation.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_jsdoc_types.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_jsdoc_types.py tests/extraction/tree_sitter_engine/test_api_surface_javascript.py tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py tests/extraction/tree_sitter_engine/test_extractor_public_surface_only.py tests/extraction/tree_sitter_engine/test_tree_helpers.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 10
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/lang/typescript.py');s=p.read_text(encoding='utf-8');old='def _jsdoc_type(';assert old in s;p.write_text(s.replace(old,'def _jsdoc_typeX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the JSDoc type helper parse_doc calls, so every JSDoc block with a tag raises and the new tests fail. A real break of the card's
+    central claim.
+evidence:
+- evidence/build/G3/TC-475/receipt.json
+closeout:
+- >-
+  JavaScript parameters and return values carry the types their JSDoc states. Reaches the image through TC-403's fixture refresh of
+  jmap_nodejs and the final re-ingest.
+recovery: Re-run from a clean tree.

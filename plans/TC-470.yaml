@@ -1,0 +1,114 @@
+id: TC-470
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-006 (adversarial robustness; review ledger L-089, the only Blocker without a card). The index and the installable package can
+  describe different code, and nothing tells the agent. Verified on main: every pilot is indexed at the pinned commit recorded in its
+  product-reference sidecar (all 40 committed infra/demo-manifests/product_reference_<family>_<platform>.json carry `source_repository` and
+  `source_ref`), but the "install" answer of src/foss_mcp/mcp/tools/get_product_reference.py is a bare command (`go get <module>`,
+  `pip install <name>`, `dotnet add package <id>`, `npm install`, `cargo add`, a Maven coordinate) that installs whatever release the registry
+  serves today. Measured by audit C (C-010): pdf/go is indexed at cdf43df, 66 commits past v0.9.0, the only version `go get` fetches, and
+  `BarcodeField` (served by search_symbols) is absent from v0.9.0; slides/python is 50 commits ahead of PyPI 26.8.0; cells/python is 4
+  behind 26.10.0. The resolvers `go_published_commit` / `pypi_published_commit` in infra/verify_package_registry.py have NO production
+  caller (only tests/infra/test_verify_package_registry.py), and wiring them into ingestion needs network, a new sidecar and a re-ingest,
+  which does not fit the release window. The smallest safe fix is server-only and truthful: the verified (or never-checked) install answer
+  keeps its exact `text` and gains a `notice` naming the indexed repository and commit and saying that the registry release may be older
+  or newer, plus, for Go only, the exact-commit form `go get <module>@<commit>`, and for Maven the version the pom at that commit declares
+  (ledger L-103, Minor: the Java answer had no version). No re-ingest is needed; the serving image must be rebuilt.
+  The published-commit comparison itself stays a documented known limitation (docs/RELEASE.md, added by TC-489).
+depends_on:
+- TC-353
+- TC-387
+- TC-427
+write_paths:
+- src/foss_mcp/mcp/tools/get_product_reference.py
+- tests/mcp/tools/test_product_reference_install_pin.py
+satisfies:
+- REQ-G3-006
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read src/foss_mcp/mcp/tools/get_product_reference.py in full (the `install` branch, `install_coordinate_for_verification`,
+  `_unresolved_install_text`, `ReferenceContent` and its additive `notice` field, `_source_repository_support` for how a repository becomes
+  a URL), src/foss_mcp/mcp/server.py `_to_jsonable` (read only: a dataclass is serialised field by field, so `notice` reaches the client),
+  infra/serve_http.py `_serving_product_reference_inputs` (read only), and one committed sidecar pair such as
+  infra/demo-manifests/product_reference_pdf_go.json and package_registry_pdf_go.json. These must keep passing UNMODIFIED:
+  tests/mcp/tools/test_get_product_reference_unresolved.py (in particular
+  `test_a_verified_or_never_checked_coordinate_is_served_exactly_as_before`, which pins that `text` equals the original command and does not
+  contain the commit: the commit goes into `notice`, never into `text`), tests/mcp/tools/test_get_product_reference_platforms.py,
+  tests/mcp/tools/test_product_reference_truthful.py, tests/mcp/tools/test_product_reference_license_support.py,
+  tests/mcp/tools/test_consumer_tools.py, tests/infra/test_serve_http.py. Never print or log any environment value.
+- >-
+  get_product_reference.py, ADDITIVE: define a module-level function named exactly `_install_pin_notice` (written as
+  `def _install_pin_notice(`) taking the ecosystem name, the bare coordinate, the source repository and the source ref, returning one plain
+  sentence group (no code fence, no markdown): `The API this server describes was extracted from <repository url> at commit <ref>. This
+  command installs the release the <ecosystem> registry serves today, which can be older or newer than that commit, so a type or member
+  shown here may be missing from, or different in, the installed package. To use exactly the indexed API, build the library from that
+  commit.` and, only when the ecosystem is `go`, one more sentence: `With Go you can fetch that exact commit: go get <coordinate>@<ref>.`
+  and, only when the ecosystem is `maven` and `read_java_manifest(manifest_text).version` is non-empty (review ledger L-103: the Java
+  answer is a bare coordinate with no version), one more sentence: `The pom at that commit declares version <version>; check that the
+  registry serves it before adding it to the coordinate.` (the bare coordinate in `text` stays as it is: `install_coordinate_for_verification`
+  and the verified-coordinate comparison depend on it). The repository url is built exactly as `_unresolved_install_text` builds it. In the `install` branch, after the existing unresolved
+  handling and only on the path that today returns the unmodified ReferenceContent: when `install_coordinate_for_verification(inputs)` is
+  not None and both `source_repository` and `source_ref` are non-empty strings, return the same ReferenceContent with only `notice` set
+  (`dataclasses.replace`); `text` is never changed. Everything else is exactly as today: the unresolved answer (its text already names the
+  commit; its notice stays None), every NotAvailable (cpp included), every other section, and every input without a source pin (notice
+  stays None).
+- >-
+  tests/mcp/tools/test_product_reference_install_pin.py (NEW, offline, deterministic, reads only committed files, no skipped tests, no
+  wall-clock assertions): (1) parametrized over the six ecosystems (npm, pypi, nuget, go, cargo, maven, with manifests shaped like those in
+  test_get_product_reference_unresolved.py) and over `install_verified` True and None: `text` equals the original command exactly, and
+  `notice` contains the repository URL, the full commit, the ecosystem name and the words `older or newer`; (2) go: the notice contains
+  `go get <module>@<commit>`; every other ecosystem: the notice contains no `@<commit>`; maven with a pom `<version>26.9.0</version>`: the
+  notice contains `declares version 26.9.0` and `text` is still the bare `group:artifact`; maven with no version: no version sentence; (3) without a pin (repository None, ref None,
+  either one empty): `notice` is None and the answer equals today's; (4) the unresolved answer (verified False, same coordinate) is
+  byte-identical to today's and its notice is None; (5) cpp stays NotAvailable with today's reason; (6) every other section is unchanged by
+  the pin; (7) on the REAL committed sidecars: for every pilot in infra/helm/foss-mcp/values.yaml (derive the list, never retype it) load
+  the inputs through `serve_http._serving_product_reference_inputs(Path('infra/demo-manifests'), DeploymentConfig(family=..., platform=...))`
+  exactly as tests/infra/test_serve_http.py calls it; whenever the install answer is a ReferenceContent whose text is a command (not the
+  unresolved prose), its notice names that pilot's `library.commit` from values.yaml; assert at least 20 such pilots; pdf/go's notice
+  contains `cdf43df10c8c565ecaa978428b1fe66ad6685f8d` and `go get github.com/aspose-pdf-foss/aspose-pdf-foss-for-go@`; (8) through the real
+  dispatch: build the server with `create_server` from the pdf/go inputs and call the `get_product_reference` tool with section `install`
+  through the same in-process seam tests/mcp/test_server_wiring.py uses; the structured result carries the notice. At least 24 tests.
+- >-
+  Run `{python} -m pytest tests/mcp/tools/test_product_reference_install_pin.py -q -rfE`, then once the second check command below. Do NOT
+  re-ingest any pilot (none is needed). Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Tell the agent, on every install answer that names a registry command, which commit the index describes and that the registry release
+  may differ; give Go users the exact-commit command.
+- >-
+  Pin the notice with offline tests on synthetic inputs, on all 40 committed sidecars and through the real tool dispatch.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_product_reference_install_pin.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-006
+- command: '{python} -m pytest tests/mcp/tools/test_product_reference_install_pin.py tests/mcp/tools/test_get_product_reference_unresolved.py tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_product_reference_truthful.py tests/mcp/tools/test_product_reference_license_support.py tests/mcp/tools/test_consumer_tools.py tests/infra/test_serve_http.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-006
+min_tests: 24
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/get_product_reference.py');s=p.read_text(encoding='utf-8');old='older or newer';assert old in s;p.write_text(s.replace(old,'the same as',1),encoding='utf-8')"
+  rationale: >-
+    Turns the drift warning into a false assurance that the registry release is the indexed code: every notice assertion that requires the
+    words `older or newer` fails. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-470/receipt.json
+closeout:
+- >-
+  Every install answer that names a registry command carries a notice with the indexed repository and commit and says the registry
+  release may be older or newer; Go answers add the exact-commit `go get <module>@<commit>`. No re-ingest; rebuild the serving image.
+recovery: Re-run from a clean tree.

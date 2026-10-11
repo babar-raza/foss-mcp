@@ -1,0 +1,85 @@
+id: TC-471
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-006 (adversarial robustness; review ledger L-122, Polish). get_product_reference("compatibility") answers a bare number for C++
+  ("20" for pdf, jmap and slides; "17" for cells and email): src/foss_mcp/mcp/tools/get_product_reference.py returns
+  `read_cpp_manifest(...).cpp_standard` verbatim, so a client cannot tell that it is a C++ language standard. And 3d/python answers
+  NotAvailable "manifest does not state requires-python" although its committed manifest (a setup.py, in
+  infra/demo-manifests/product_reference_3d_python.json) states `python_requires=">=3.7"`; the reader only reads pyproject's
+  `requires-python`. Verified on all 12 Python sidecars: only 3d/python changes. cells/rust, jmap/rust (edition only, no rust-version) and
+  cells/typescript (no engines) state nothing and stay NotAvailable; that part is accepted in docs/RELEASE.md. Server-only: no re-ingest,
+  no sidecar refetch; the serving image must be rebuilt.
+depends_on:
+- TC-470
+write_paths:
+- src/foss_mcp/mcp/tools/get_product_reference.py
+- tests/mcp/tools/test_get_product_reference_platforms.py
+- tests/mcp/tools/test_product_reference_compatibility_units.py
+satisfies:
+- REQ-G3-006
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read src/foss_mcp/mcp/tools/get_product_reference.py (the `compatibility` branch for python and cpp), src/foss_mcp/extraction/manifest_reader.py
+  `read_python_manifest` and `read_cpp_manifest` (read only; do NOT change the reader: tests/extraction/test_manifest_reader_ecosystems.py
+  pins it), and the committed sidecars infra/demo-manifests/product_reference_<pilot>.json. These must keep passing UNMODIFIED:
+  tests/mcp/tools/test_product_reference_truthful.py, tests/mcp/tools/test_get_product_reference_unresolved.py,
+  tests/mcp/tools/test_product_reference_install_pin.py, tests/infra/test_serve_manifest_sidecar.py, tests/poc/test_pilot_workflow_proof.py.
+  Never print or log any environment value.
+- >-
+  get_product_reference.py, compatibility branch only: (1) cpp: when the standard is non-empty answer `C++<standard>` (e.g. `C++17`), never a
+  bare number; when it is empty keep today's NotAvailable and reason. (2) python: when `requires_python` is empty, look in the manifest text
+  for a setup.py keyword `python_requires` with a quoted string value (single or double quotes) and answer that value verbatim; when neither
+  states anything keep today's NotAvailable with today's reason exactly. Every other platform and section is unchanged.
+- >-
+  tests/mcp/tools/test_get_product_reference_platforms.py: this card changes exactly ONE existing assertion, deliberately (the supervisor's
+  decision, ledger L-122): in `test_cpp_compatibility_returns_cpp_standard_verbatim` the expected text becomes `C++17`; rename that test to
+  `test_cpp_compatibility_names_the_cpp_standard`. Change nothing else in that file; never delete, skip or weaken any other test.
+- >-
+  tests/mcp/tools/test_product_reference_compatibility_units.py (NEW, offline, deterministic, committed files only, no skipped tests, no
+  wall-clock assertions): cpp standards 11, 14, 17, 20, 23 answer `C++<n>`; a CMake text with no standard stays NotAvailable with today's
+  reason; a setup.py with `python_requires=">=3.7"` and one with `python_requires='>=3.9'` answer the value; a pyproject `requires-python`
+  wins over a setup.py keyword in the same text; a setup.py with no keyword stays NotAvailable with today's reason; on the REAL committed
+  sidecars (derive the pilots from infra/helm/foss-mcp/values.yaml, never retype them): every cpp pilot answers a value starting `C++`,
+  3d/python answers `>=3.7`, every other python pilot answers exactly what `read_python_manifest(...).requires_python` gives, and
+  cells/rust, jmap/rust and cells/typescript stay NotAvailable. At least 14 tests.
+- >-
+  Run `{python} -m pytest tests/mcp/tools/test_product_reference_compatibility_units.py -q -rfE`, then once the second check command below.
+  Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Say C++ on the C++ compatibility answer, and read setup.py python_requires when pyproject states nothing.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_product_reference_compatibility_units.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-006
+- command: '{python} -m pytest tests/mcp/tools/test_product_reference_compatibility_units.py tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_product_reference_truthful.py tests/mcp/tools/test_get_product_reference_unresolved.py tests/infra/test_serve_manifest_sidecar.py tests/poc/test_pilot_workflow_proof.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-006
+min_tests: 14
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/get_product_reference.py');s=p.read_text(encoding='utf-8');old='python_requires';assert old in s;p.write_text(s.replace(old,'python_requiresX'),encoding='utf-8')"
+  rationale: >-
+    Makes the setup.py lookup search for a keyword no manifest contains, so 3d/python and the synthetic setup.py cases fall back to
+    NotAvailable and their tests fail. A real break of part of the card's claim; the C++ part is pinned by the platforms test.
+evidence:
+- evidence/build/G3/TC-471/receipt.json
+closeout:
+- >-
+  C++ compatibility answers name the standard (`C++17`, `C++20`) and 3d/python answers its setup.py `>=3.7`. No re-ingest; rebuild the
+  serving image.
+recovery: Re-run from a clean tree.

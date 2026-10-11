@@ -1,0 +1,88 @@
+id: TC-474
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-006 (adversarial robustness; review ledger L-101 Minor and the log half of L-123 Polish). Two small serving defects, verified on
+  main. (1) L-101: infra/demo_entrypoint.py discovers and validates the baked pilots under `FOSS_MCP_MANIFESTS_DIR` (default
+  /data/manifests), and infra/serve_http.py `build_app` and infra/serve_stdio.py `build_stdio_server` read the product-reference and
+  release sidecars from that same variable, but both build the generation store with `_default_manifest_store()`, which is hard-coded to
+  `Path("/data/manifests")` in src/foss_mcp/mcp/server.py. A peer who mounts their own manifests and sets the variable gets a mixed state:
+  pilots validated and sidecars read from their directory, symbols and documents served from the baked one. (2) L-123: `JsonLogFormatter`
+  copies every non-standard record attribute into the JSON line, and uvicorn logs with `extra={"color_message": ...}`, so every uvicorn
+  line carries a second copy of its message with ANSI colour escapes. This card builds the store from the same resolved directory as the
+  sidecars (unchanged behaviour when the variable is unset) and drops `color_message`. Server-only: no re-ingest; rebuild the serving
+  image. The healthcheck-interval half of L-123 is accepted in docs/RELEASE.md (cosmetic, and `--start-interval` needs Docker Engine 25+).
+depends_on:
+- TC-389
+- TC-391
+- TC-421
+write_paths:
+- infra/serve_http.py
+- infra/serve_stdio.py
+- tests/infra/test_serve_manifests_dir_and_log_hygiene.py
+satisfies:
+- REQ-G3-006
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read infra/serve_http.py (`build_app`: `resolved_store`, `resolved_manifests_dir`; `JsonLogFormatter`, `_STANDARD_RECORD_ATTRS`,
+  `configure_logging`), infra/serve_stdio.py `build_stdio_server`, src/foss_mcp/mcp/server.py `DEFAULT_MANIFEST_ROOT` and
+  `_default_manifest_store` (read only; do not change server.py), src/foss_mcp/indexing/generation_manifest.py `GenerationManifestStore`
+  constructor (read only), infra/demo_entrypoint.py (read only). These must keep passing UNMODIFIED: tests/infra/test_serve_http.py,
+  tests/infra/test_serve_http_session_limits.py, tests/infra/test_serve_logging.py, tests/infra/test_serve_startup_errors.py,
+  tests/infra/test_serve_stdio.py, tests/infra/test_serve_stdio_parity.py, and every test file TC-391 added. Never print or log any
+  environment value.
+- >-
+  (1) serve_http.py `build_app` and serve_stdio.py `build_stdio_server`: resolve the manifests directory FIRST (argument, else
+  `FOSS_MCP_MANIFESTS_DIR`, else /data/manifests, exactly as today), and when no store is passed build `GenerationManifestStore(<that
+  directory>)`, so symbols, documents and sidecars always come from one directory. An injected store is used as given. (2) serve_http.py
+  `JsonLogFormatter.format`: never emit a `color_message` key (a module-level frozenset named exactly `DROPPED_LOG_ATTRS` containing
+  `color_message`, consulted when copying extras); every other extra field is copied exactly as today.
+- >-
+  tests/infra/test_serve_manifests_dir_and_log_hygiene.py (NEW, offline, deterministic, tmp_path only, no skipped tests, no wall-clock
+  assertions): with `FOSS_MCP_MANIFESTS_DIR` pointing at a tmp directory that holds one published generation (build it the way
+  tests/infra/test_serve_stdio_parity.py's `deployment` fixture does) and no store passed, `build_stdio_server` answers a search_symbols
+  call with a symbol from that generation, and `build_app`'s store root is that directory (inspect it through the same seam existing tests
+  use, or call /readyz through a test client and get 200); with the variable unset and no store passed, the store root is /data/manifests
+  (inspect without touching the filesystem); an injected store wins over the variable. A log record carrying `extra={"color_message":
+  "\x1b[32mINFO\x1b[0m x", "tool": "lookup"}` formats to JSON with `tool` and without `color_message`, and the formatted line contains no
+  ESC character (build the ESC with chr(27) in the test, never a literal); a record without it formats exactly as before. At least 7 tests.
+- >-
+  Run `{python} -m pytest tests/infra/test_serve_manifests_dir_and_log_hygiene.py -q -rfE`, then once the second check command below. Write
+  commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Serve symbols, documents and sidecars from one manifests directory, and keep ANSI colour copies out of the JSON logs.
+checks:
+- command: '{python} -m pytest tests/infra/test_serve_manifests_dir_and_log_hygiene.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-006
+- command: '{python} -m pytest tests/infra/test_serve_manifests_dir_and_log_hygiene.py tests/infra/test_serve_http.py tests/infra/test_serve_http_session_limits.py tests/infra/test_serve_logging.py tests/infra/test_serve_startup_errors.py tests/infra/test_serve_stdio.py tests/infra/test_serve_stdio_parity.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-006
+min_tests: 7
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/serve_http.py');s=p.read_text(encoding='utf-8');old='DROPPED_LOG_ATTRS';assert old in s;p.write_text(s.replace(old,'DROPPED_LOG_ATTRSX'),encoding='utf-8')"
+  rationale: >-
+    Renames the dropped-attribute set everywhere in serve_http.py, so the new test module cannot import it and every new test fails. A real
+    break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-474/receipt.json
+closeout:
+- >-
+  The generation store follows FOSS_MCP_MANIFESTS_DIR like the sidecars and the entrypoint, and JSON log lines carry no ANSI copy of the
+  message. No re-ingest; rebuild the serving image.
+recovery: Re-run from a clean tree.

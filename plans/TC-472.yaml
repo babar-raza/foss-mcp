@@ -1,0 +1,76 @@
+id: TC-472
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-006 (adversarial robustness; review ledger L-114, Minor). The baked data of the standalone image is writable by the server
+  process. Verified in Dockerfile.serving: the demo stage copies the 40 pilots' generations with `COPY --chown=foss-mcp:foss-mcp
+  infra/demo-manifests/ /data/manifests`, and the runtime stage it builds on runs as `USER foss-mcp`. docker-compose.demo.yml mitigates this
+  with `read_only: true`, but the Dockerfile itself documents a bare `docker run` for peers, which leaves the served index writable by
+  the process that answers untrusted requests. The serving process never writes there: every demo-compose service already runs with a
+  read-only root filesystem and only /tmp as tmpfs. This card bakes the data owned by root (the default of COPY), so uid 10001 keeps read
+  access and loses write access, and pins it. No re-ingest; the demo image must be rebuilt (it is rebuilt for the release anyway) and the
+  gate-exit live smoke test must pass on it.
+depends_on:
+- TC-350
+write_paths:
+- Dockerfile.serving
+- tests/deploy/test_demo_compose.py
+satisfies:
+- REQ-G3-006
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read Dockerfile.serving in full (the runtime stage, the demo stage, the trailing bare `FROM runtime`), docker-compose.demo.yml (read
+  only), infra/demo_entrypoint.py (read only: it only reads the manifests directory and execs the server) and tests/deploy/test_demo_compose.py
+  (`dockerfile_stages`, `RUNTIME_STAGE`, `test_the_demo_stage_builds_on_runtime_and_keeps_its_baked_data`). These must keep passing
+  UNMODIFIED: tests/deploy/test_demo_entrypoint.py, tests/infra/test_container_pins.py. Never print or log any environment value.
+- >-
+  Dockerfile.serving, demo stage only: the line becomes exactly `COPY infra/demo-manifests/ /data/manifests` (no `--chown`, so the files are
+  owned by root and readable by every user). Update the comment above the stage in one sentence: the baked data is root-owned and read-only
+  to the serving user. The runtime stage and the trailing stage are not changed (test_the_runtime_stage_is_unchanged pins the runtime
+  stage).
+- >-
+  tests/deploy/test_demo_compose.py: this card changes exactly ONE existing assertion, deliberately (the supervisor's decision, ledger
+  L-114): in `test_the_demo_stage_builds_on_runtime_and_keeps_its_baked_data` the expected line becomes `COPY infra/demo-manifests/
+  /data/manifests`. Add one new test `test_the_baked_data_is_not_owned_by_the_serving_user` asserting that no instruction of the demo stage
+  that copies `infra/demo-manifests/` carries `--chown` or `--chmod`, and that the demo stage has no `RUN chown` or `RUN chmod`. Change nothing
+  else; never delete, skip or weaken another test.
+- >-
+  Run `{python} -m pytest tests/deploy/test_demo_compose.py -q -rfE`, then once the second check command below. Do not build or run any
+  image (the supervisor rebuilds the demo image and runs the live smoke test). Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Bake the standalone image's served data owned by root, so the serving user can read but never modify it.
+checks:
+- command: '{python} -m pytest tests/deploy/test_demo_compose.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-006
+- command: '{python} -m pytest tests/deploy/test_demo_compose.py tests/deploy/test_demo_entrypoint.py tests/infra/test_container_pins.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-006
+min_tests: 20
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('Dockerfile.serving');s=p.read_text(encoding='utf-8');old='COPY infra/demo-manifests/ /data/manifests';assert old in s;p.write_text(s.replace(old,'COPY --chown=foss-mcp:foss-mcp infra/demo-manifests/ /data/manifests',1),encoding='utf-8')"
+  rationale: >-
+    Restores the server-owned copy of the baked data, so both the updated stage assertion and the new ownership test fail. A real break of
+    the card's central claim.
+evidence:
+- evidence/build/G3/TC-472/receipt.json
+closeout:
+- >-
+  The standalone image's baked data is root-owned and read-only to the serving user, even under a bare docker run. No re-ingest; rebuild
+  the demo image and run the live smoke test.
+recovery: Re-run from a clean tree.
