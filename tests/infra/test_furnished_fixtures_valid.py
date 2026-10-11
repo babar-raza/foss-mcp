@@ -5,8 +5,15 @@ A furnished page is a committed fixture the ingestion image bakes in. Each one m
 * load through the real, accepted loader (``infra.build_chunks._load_furnished_page``),
 * carry a non-empty top-level ``title:`` (``scripts/poc/pilot_workflow_proof.py`` check 5 reads it),
 * contain at least one fenced code block, and
-* when its pilot is in the chart, record ``doc_source_commit`` equal to that pilot's pinned
-  ``library.commit`` - a page built from a different commit is stale, and fails.
+* if it was produced by ``infra/generate_furnished_page.py --source github`` - every such page
+  carries the front-matter key ``doc_source: github_readme`` - and its pilot is in the chart, record
+  ``doc_source_commit`` equal to that pilot's pinned ``library.commit``. A generated page built from
+  a different commit is stale, and fails.
+
+Pages WITHOUT the ``doc_source`` key are the original sealed-candidate pages. They deliberately carry
+the sealed candidate's own commit (an accepted test in test_generate_furnished_page.py asserts that
+it differs from the chart pin) or none, so they are exempt from the pin rule. They still must load,
+have a title and hold a fenced block, and this module never touches or regenerates them.
 
 The test is parametrized over every directory under ``tests/fixtures/furnished`` that holds
 ``pages/_index.md`` (``sealed_current`` holds only vendored commit pointers, so it is not a pilot
@@ -32,6 +39,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "furnished"
 CHART_VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 NOT_A_PILOT = {"sealed_current"}
+GENERATED_MARK = ("doc_source", "github_readme")  # the front-matter key/value a generated page carries
 FENCE_RE = re.compile(r"^[ \t]*(```|~~~)", re.MULTILINE)
 
 
@@ -83,7 +91,16 @@ def check_has_fenced_code(page_path: Path) -> None:
     assert FENCE_RE.search(page_path.read_text(encoding="utf-8")), f"{page_path} has no fenced code block"
 
 
+def is_generated(page: dict) -> bool:
+    """True for a page produced by the README source (it carries ``doc_source: github_readme``)."""
+    key, value = GENERATED_MARK
+    return page.get(key) == value
+
+
 def check_pinned_to_chart(pilot_name: str, page: dict, chart: dict[str, dict]) -> None:
+    """The commit-pin rule. It binds generated pages only; the original sealed pages are exempt."""
+    if not is_generated(page):
+        return
     pilot = chart.get(pilot_name)
     if pilot is None:
         return  # the pilot is not in the chart, so there is no pin to compare against
@@ -131,7 +148,21 @@ def test_the_page_contains_a_fenced_code_block(pilot_dir: Path) -> None:
 
 
 @pytest.mark.parametrize("pilot_dir", PILOT_DIRS, ids=lambda directory: directory.name)
-def test_the_page_is_pinned_to_the_charts_library_commit(pilot_dir: Path) -> None:
+def test_a_page_has_no_doc_source_value_that_would_dodge_the_pin_rule(pilot_dir: Path) -> None:
+    """``doc_source`` is either absent (an original sealed page) or exactly ``github_readme``.
+
+    Any other value (a typo such as ``github-readme``) would silently exempt a generated page from
+    the pin rule, so it fails here instead.
+    """
+    page = check_loads(pilot_dir / "pages" / "_index.md")
+    assert "doc_source" not in page or is_generated(page), (
+        f"{pilot_dir.name}: doc_source is {page['doc_source']!r}, not {GENERATED_MARK[1]!r}"
+    )
+
+
+@pytest.mark.parametrize("pilot_dir", PILOT_DIRS, ids=lambda directory: directory.name)
+def test_a_generated_page_is_pinned_to_the_charts_library_commit(pilot_dir: Path) -> None:
+    """The pin rule for this committed page: binding if it is generated, exempt if it is not."""
     page = check_loads(pilot_dir / "pages" / "_index.md")
     check_pinned_to_chart(pilot_dir.name, page, _chart_pilots())
 
@@ -177,12 +208,53 @@ def test_a_generated_page_passes_every_one_of_these_rules(
     page = check_loads(page_path)
     check_title(page_path, page)
     check_has_fenced_code(page_path)
+    # The generator marks its pages, so the pin rule binds this one (it is not exempt) ...
+    assert is_generated(page)
+    assert page["doc_source_commit"] == commit
     check_pinned_to_chart("pdf_go", page, chart)
 
-    # A page built from any other commit is stale and must fail the pin check.
+    # ... and a generated page built from any other commit is stale and must fail it.
     page["doc_source_commit"] = "0" * 40
     with pytest.raises(AssertionError, match="stale page"):
         check_pinned_to_chart("pdf_go", page, chart)
     del page["doc_source_commit"]
     with pytest.raises(AssertionError, match="no doc_source_commit"):
         check_pinned_to_chart("pdf_go", page, chart)
+
+
+def _synthetic_page(**front_matter: object) -> dict:
+    return {"title": "Synthetic", **front_matter}
+
+
+def test_a_synthetic_generated_page_with_a_wrong_doc_source_commit_fails_the_rule() -> None:
+    chart = _chart_pilots()
+    pinned = chart["pdf_go"]["library"]["commit"]
+    wrong = ("0" if pinned[0] != "0" else "1") + pinned[1:]
+
+    stale = _synthetic_page(doc_source="github_readme", doc_source_commit=wrong)
+    with pytest.raises(AssertionError, match="stale page"):
+        check_pinned_to_chart("pdf_go", stale, chart)
+
+    missing = _synthetic_page(doc_source="github_readme")
+    with pytest.raises(AssertionError, match="no doc_source_commit"):
+        check_pinned_to_chart("pdf_go", missing, chart)
+
+    # The right commit passes, so the failures above are the rule working, not a rule that always fails.
+    check_pinned_to_chart(
+        "pdf_go", _synthetic_page(doc_source="github_readme", doc_source_commit=pinned), chart
+    )
+    # A generated page for a pilot the chart does not list has no pin to compare against.
+    check_pinned_to_chart("not_a_pilot", stale, chart)
+
+
+def test_a_synthetic_page_without_the_key_is_exempt_from_the_pin_rule() -> None:
+    chart = _chart_pilots()
+    pinned = chart["pdf_go"]["library"]["commit"]
+
+    # The original sealed pages carry the sealed candidate's own commit, or none: both are exempt.
+    check_pinned_to_chart("pdf_go", _synthetic_page(doc_source_commit="0" * 40), chart)
+    check_pinned_to_chart("pdf_go", _synthetic_page(), chart)
+    # The mark is exactly doc_source: github_readme; the commit alone does not make a page generated.
+    assert not is_generated(_synthetic_page(doc_source_commit=pinned))
+    assert not is_generated(_synthetic_page(doc_source="sealed"))
+    assert is_generated(_synthetic_page(doc_source="github_readme"))
