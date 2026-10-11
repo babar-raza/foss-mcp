@@ -1,0 +1,99 @@
+id: TC-369
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). The README page generator (TC-351) recognises exactly seven top-level README headings by name. A README
+  that organises its content under other headings loses that content: the imaging/net page came out as one line of description and a single
+  example, words/net and slides/net lost four of seven sections, although their READMEs are not thin (the imaging/net README has a
+  supported-formats table, an install section, a usage section and notes). A documentation page with no searchable text defeats the
+  point of search_docs. This card teaches the generator to map common alternative headings onto the seven sections and to keep every
+  remaining README section instead of dropping it, while leaving the output for a README that already follows the contract byte for byte
+  identical.
+depends_on:
+- TC-351
+write_paths:
+- infra/generate_furnished_page.py
+- tests/infra/test_generate_furnished_page.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read infra/generate_furnished_page.py: `_REQUIRED_SECTIONS`, `_section_key`, `parse_readme` (the `level_two` map and the loop that fills
+  `sections` by canonical name), `_LEFT_SECTIONS`, `_RIGHT_SECTIONS`, `_SCOPE_SECTION`, `_merge_readme_sections` and
+  `build_page_from_readme`; and tests/infra/test_generate_furnished_page.py. Understand exactly which README headings reach the page
+  today and which are dropped. Never print or log any environment value.
+- >-
+  Add a function named exactly `_apply_section_fallback` (defined as `def _apply_section_fallback(`), called from `parse_readme` after the
+  canonical-name pass, taking the level-two headings with their bodies and the `sections` mapping built so far and returning the updated
+  mapping. It runs ONLY when at least one of the six required sections other than the optional `Dependencies` is missing after the
+  canonical pass. When every one of those six is present it returns the mapping unchanged, so a README that follows the contract yields
+  the identical page as before (add a test that pins this: for a contract-following README text, the page built with the fallback
+  in place equals the page built from exactly the canonical sections alone, byte for byte).
+- >-
+  When it runs: (1) ALIASES, a module-level constant `_SECTION_ALIASES` mapping normalised heading keys to canonical names, used only for a
+  canonical section still missing: Installation <- install, installing, getting started, setup, installation and setup; Quick Start <-
+  usage, quickstart, quick start guide, basic usage, getting started with code, examples, example usage; Key Capabilities <- features,
+  key features, capabilities, supported formats, supported file formats, what it does, highlights, why this exists, overview of features;
+  API Reference <- api, api overview, reference, documentation, supported api, classes; Scope and Limitations <- limitations, known
+  limitations, notes, scope, compatibility, requirements and limitations; At a Glance <- overview, about, introduction, summary,
+  description. The first matching heading in README order wins for each canonical name, and a heading is consumed once. (2) KEEP THE
+  REST: every remaining level-two section with a non-empty body that is NOT in a boilerplate set (contributing, contribution, license,
+  licence, contact, support, code of conduct, security, security policy, changelog, release notes, acknowledgements, acknowledgments,
+  credits, sponsors, authors, maintainers, table of contents, contents, faq is NOT boilerplate) is appended, in README order, to the body
+  of `Key Capabilities` (creating that section from them when it is still missing), each keeping its own `### <heading>` line, so no
+  substantive README prose is dropped. Bodies go through the same `_neutralise_markdown` as the canonical ones.
+- >-
+  `ReadmeFields.missing` and the generator's report must keep telling the truth: a canonical section satisfied through an alias or
+  built from kept sections is no longer reported missing, and the report lists, in a separate line, which README headings were mapped
+  to which canonical section and which were kept. The exit codes and the `ReadmeTooThinError` rules do not change.
+- >-
+  tests/infra/test_generate_furnished_page.py: add offline tests with synthetic README texts (no network): (a) a README whose content is
+  under Install / Usage / Supported formats / Notes headings produces a page whose text contains the install, usage, formats and notes
+  bodies and whose `missing` is empty or only `Dependencies`; (b) an imaging-style README (H1, a paragraph, `## Supported formats` with a
+  table, `## Why this exists`, `## Install`, `## Usage` with a language-tagged fence, `## Contributing`) keeps the formats table, the
+  why text, the install and usage text and DROPS contributing; (c) a contract-following README is unaffected, byte for byte; (d) the
+  same input gives the byte-identical page twice; (e) an unmapped section with an empty body is not added; (f) the first of two
+  matching alias headings wins and the second is kept as extra, not lost; (g) the report names the mapped and kept headings. Keep every
+  existing test passing unmodified.
+- >-
+  Run `{python} -m pytest tests/infra/test_generate_furnished_page.py -q -rfE`, then once
+  `{python} -m pytest tests/infra/test_furnished_fixtures_valid.py tests/infra/test_generate_furnished_page.py -q -rfE`. Do not run the
+  generator against GitHub and do not touch tests/fixtures (the supervisor regenerates the three affected pages in a later card). Write
+  commit messages as UTF-8 without a byte-order mark.
+actions:
+- Map common alternative README headings onto the seven sections when a canonical one is missing.
+- Keep every remaining substantive README section instead of dropping it, leaving contract-following READMEs unchanged.
+checks:
+- command: '{python} -m pytest tests/infra/test_generate_furnished_page.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/infra/test_furnished_fixtures_valid.py tests/infra/test_generate_furnished_page.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 40
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/generate_furnished_page.py');s=p.read_text(encoding='utf-8');old='def _apply_section_fallback(';assert old in s;p.write_text(s.replace(old,'def _apply_section_fallbackX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the definition of the fallback, so parse_readme can no longer call it and the generator crashes on every README: the new
+    tests and the existing generator tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-369/receipt.json
+closeout:
+- >-
+  A README that organises its content under other headings now produces a page that carries that content, and a README that follows the
+  contract still produces exactly the page it did before.
+recovery: Re-run from a clean tree.
