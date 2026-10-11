@@ -42,7 +42,7 @@ def stubbed(monkeypatch: pytest.MonkeyPatch, restore_root_logging) -> dict:
     monkeypatch.delenv(GRACE_VAR, raising=False)
     seen: dict = {"runs": []}
     app_sentinel = object()
-    monkeypatch.setattr(serve_http, "build_app", lambda config: app_sentinel)
+    monkeypatch.setattr(serve_http, "build_app", lambda config, **kwargs: app_sentinel)
 
     def fake_run(app, **kwargs):
         seen["runs"].append((app, kwargs))
