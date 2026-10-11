@@ -65,6 +65,11 @@ _REGISTRY_ECOSYSTEM_BY_PLATFORM: dict[str, str] = {
     "rust": "cargo",
 }
 
+# G3/TC-471: the setup.py keyword that states the supported Python range, with a quoted string value.
+_SETUP_PY_PYTHON_REQUIRES = re.compile(
+    r"""\bpython_requires\s*=\s*(?P<quote>["'])(?P<value>[^"'\r\n]+)(?P=quote)"""
+)
+
 Section = Literal[
     "install",
     "formats",
@@ -419,6 +424,11 @@ def get_product_reference(
             return ReferenceContent(section, manifest.target_framework)
         if platform == "python":
             value = read_python_manifest(inputs.manifest_text).requires_python
+            if not value:
+                # G3/TC-471: a setup.py states its floor as the keyword python_requires, which the
+                # pyproject-only reader never sees; pyproject's requires-python still wins above.
+                setup_match = _SETUP_PY_PYTHON_REQUIRES.search(inputs.manifest_text)
+                value = setup_match.group("value").strip() if setup_match else ""
             reason = "manifest does not state requires-python"
         elif platform == "java":
             value = read_java_manifest(inputs.manifest_text).runtime_min_version
@@ -434,6 +444,10 @@ def get_product_reference(
             reason = "manifest does not state a rust-version"
         elif platform == "cpp":
             value = read_cpp_manifest(inputs.manifest_text).cpp_standard
+            if value:
+                # G3/TC-471: the reader yields the bare number; a client must be told it is a
+                # C++ language standard, not a version of the library.
+                value = f"C++{value}"
             reason = "manifest does not state a C++ standard"
         else:
             return NotAvailable(section, f"platform {platform!r} is not supported")

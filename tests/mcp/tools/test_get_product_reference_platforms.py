@@ -162,11 +162,11 @@ def test_go_compatibility_returns_go_version_verbatim() -> None:
     assert result.text == "1.21"
 
 
-def test_cpp_compatibility_returns_cpp_standard_verbatim() -> None:
+def test_cpp_compatibility_names_the_cpp_standard() -> None:
     inputs = ProductReferenceInputs(manifest_text=CMAKE_LISTS_TEXT, platform="cpp")
     result = get_product_reference(inputs, "compatibility")
     assert isinstance(result, ReferenceContent)
-    assert result.text == "17"
+    assert result.text == "C++17"
 
 
 def test_rust_compatibility_is_not_available_when_manifest_states_no_rust_version() -> None:
