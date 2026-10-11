@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import dataclasses
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -547,6 +548,11 @@ def test_typescript_known_broken_candidate_fails_real_type_check(
 
 @pytest.fixture(scope="module")
 def cpp_library(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    if sys.platform != "win32":
+        pytest.skip(
+            "the C++ example verifier (prepare_cpp_library / verify_cpp_example) is an MSVC + ninja "
+            "build and is Windows-only; the Linux g++/CMake verifier has its own live test"
+        )
     workdir = tmp_path_factory.mktemp("cells_cpp_reference")
     return prepare_cpp_library(
         repository=CPP_REPOSITORY,
@@ -558,6 +564,44 @@ def cpp_library(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture(scope="module")
 def cpp_include_dir(cpp_library: Path) -> Path:
     return cpp_library / "Aspose.Cells.Foss.Cpp" / "include"
+
+
+def test_cpp_fixture_guard_skips_off_windows(
+    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    """Off Windows the MSVC + ninja fixture skips and never starts a clone or build."""
+
+    def _must_not_be_called(*args: object, **kwargs: object) -> Path:
+        pytest.fail("prepare_cpp_library must not be called off Windows")
+
+    monkeypatch.setattr(sys.modules[__name__], "prepare_cpp_library", _must_not_be_called)
+    monkeypatch.setattr(sys, "platform", "linux")
+
+    with pytest.raises(pytest.skip.Exception) as skipped:
+        cpp_library.__wrapped__(tmp_path_factory)
+
+    assert "Windows-only" in str(skipped.value)
+
+
+def test_cpp_fixture_guard_passes_through_on_windows(
+    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory, tmp_path: Path
+) -> None:
+    """On Windows the guard does not block: the fixture returns what prepare_cpp_library returns."""
+    prepared: list[dict[str, object]] = []
+
+    def _stub_prepare(repository: str, commit: str, workdir: Path) -> Path:
+        prepared.append({"repository": repository, "commit": commit, "workdir": workdir})
+        return tmp_path
+
+    monkeypatch.setattr(sys.modules[__name__], "prepare_cpp_library", _stub_prepare)
+    monkeypatch.setattr(sys, "platform", "win32")
+
+    result = cpp_library.__wrapped__(tmp_path_factory)
+
+    assert result == tmp_path
+    assert len(prepared) == 1
+    assert prepared[0]["repository"] == CPP_REPOSITORY
+    assert prepared[0]["commit"] == CPP_COMMIT
 
 
 def test_prepare_cpp_library_builds_the_real_pinned_commit(cpp_library: Path) -> None:
