@@ -1,0 +1,104 @@
+id: TC-443
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-007 (verified examples served in the same trustworthy way as everything else). This is the SMALLEST SAFE ALTERNATIVE to an
+  offline query-embedding fallback, which was measured and rejected. The operator's decision point (DECISION_LOG 2026-10-11, point b)
+  proposed baking a second vector set from foss_mcp.indexing.hashing_embedding_provider.HashingEmbeddingProvider so a standalone
+  container without the embedding gateway could still run find_examples' vector stage. Measured on the 14 committed verified example
+  chunks (6 pilots) with that provider at 64, 256 and 1024 dimensions: true queries (the examples' own titles) score 0.159 to 0.599,
+  unrelated queries ("bake a chocolate cake", "send a fax via modem") score up to 0.507 at 64 dimensions and up to 0.267 at 1024, so no
+  similarity floor separates them; every true query already has lexical coverage 1.0, so the lexical path answers it before the vector
+  stage runs; a bag-of-words hash only sees the tokens the lexical path already sees, so the only queries it could add are the
+  partial-overlap ones TC-273's coverage floor deliberately rejects, which would bring back confident answers to nonsense (the defect
+  TC-399 pins). The size was never the obstacle (about 100 to 250 bytes a point). So the standalone image stays lexical-only for
+  examples without the gateway, and this card states it where an operator and a peer will see it: docs/RELEASE.md, one startup log
+  record, and a `X-Example-Search` header on /readyz, all from TC-444's helper so the three can never disagree with
+  report_index_freshness.
+depends_on:
+- TC-348
+- TC-390
+- TC-391
+- TC-421
+- TC-444
+- TC-474
+- TC-489
+write_paths:
+- infra/serve_http.py
+- docs/RELEASE.md
+- tests/infra/test_serve_example_search_mode.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read infra/serve_http.py (`build_app`, `_readyz_route`, `configure_logging`, `JsonLogFormatter`, `main`),
+  src/foss_mcp/mcp/tools/example_search_mode.py (TC-444: `example_search_mode`, the two mode constants and the reasons),
+  src/foss_mcp/mcp/tools/find_examples.py (read only), docs/RELEASE.md in full and tests/deploy/test_release_record_contract.py (the
+  phrases RELEASE.md must keep, the credential-shape and placeholder-host rules: never name a real gateway host). These must keep
+  passing UNMODIFIED: tests/infra/test_serve_http.py, tests/infra/test_serve_logging.py, tests/infra/test_serve_startup_errors.py,
+  tests/infra/test_serve_manifest_sidecar.py, tests/deploy/test_release_record_contract.py. Never print or log any environment value.
+- >-
+  infra/serve_http.py: (1) `build_app` reads the deployment scope's active generation once from the resolved store (no active
+  generation counts as lexical-only with the reason `no active generation`) and emits exactly one INFO record on the logger the module
+  already uses, with the message `example search mode` and the extra fields `example_search`, `example_search_reason`, `family` and
+  `platform`; (2) the /readyz route sets the response header `X-Example-Search` to the mode of the active generation at request time
+  (the constant `EXAMPLE_SEARCH_HEADER = "X-Example-Search"`), on both the 200 and the 503 answer; the status codes and the bodies
+  (`ready`, `not ready`) are unchanged. A failure while computing the mode never changes readiness: it reports `lexical-only`.
+- >-
+  docs/RELEASE.md: add a section `## 8. Known limitations` (keep every existing section and phrase) whose first subsection
+  `### Example search without the embedding gateway` says: find_examples searches verified examples lexically first; its vector stage
+  needs the embedding gateway at run time to embed the query, because the baked example vectors come from the 4096-dimension gateway
+  model; without FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT and FOSS_MCP_EMBEDDING_GATEWAY_API_KEY the container searches examples lexically
+  only (`lexical-only`), with them it is `lexical+vector(gateway)`; how to see the mode (report_index_freshness `example_search`, the
+  startup log record, the `X-Example-Search` header on /readyz); and why there is no offline fallback (the measured hashing-provider
+  scores in this card's purpose, in one short paragraph). Names of variables only, never values or real hosts.
+- >-
+  tests/infra/test_serve_example_search_mode.py (NEW, offline, deterministic, no skipped tests, no wall-clock assertions; build the app
+  with a tmp manifest store exactly as tests/infra/test_serve_http.py does and call it with the Starlette test client): /readyz carries
+  `X-Example-Search: lexical-only` with the gateway variables unset and `lexical+vector(gateway)` with them set on a generation with an
+  example point, and `lexical-only` on one without; the body and status are unchanged (200 `ready`, and 503 `not ready` with the header
+  for an empty store); the startup record is emitted once with the four fields (caplog); a canary value in the endpoint, key and
+  dimension variables appears in no header and no log record; the header equals report_index_freshness's `example_search` for the same
+  store; docs/RELEASE.md has the section and subsection headings, both mode strings, both variable names, `report_index_freshness` and
+  `X-Example-Search`; wiring on committed source: infra/serve_http.py imports `example_search_mode`. At least 12 tests.
+- >-
+  Run `{python} -m pytest tests/infra/test_serve_example_search_mode.py -q -rfE`, then once the second check command below. Write
+  commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  State the example-search mode in docs/RELEASE.md, in one startup log record and in a /readyz header, from the same helper
+  report_index_freshness uses.
+checks:
+- command: '{python} -m pytest tests/infra/test_serve_example_search_mode.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/infra/test_serve_example_search_mode.py tests/infra/test_serve_http.py tests/infra/test_serve_logging.py tests/infra/test_serve_startup_errors.py tests/infra/test_serve_manifest_sidecar.py tests/deploy/test_release_record_contract.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 12
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/serve_http.py');s=p.read_text(encoding='utf-8');old='EXAMPLE_SEARCH_HEADER';assert old in s;p.write_text(s.replace(old,'EXAMPLE_SEARCH_HEADERX'),encoding='utf-8')"
+  rationale: >-
+    Renames the header constant everywhere in the module, so the tests that read it and the route that sets it no longer agree: the
+    header tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-443/receipt.json
+closeout:
+- >-
+  An operator and a peer can see whether example search uses the gateway vectors or is lexical-only (RELEASE.md, the startup log,
+  the /readyz header, report_index_freshness), and RELEASE.md records with measurements why no offline query embedding ships.
+recovery: Re-run from a clean tree.

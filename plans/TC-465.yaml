@@ -1,0 +1,101 @@
+id: TC-465
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-007 (a verified example is only ever something the verifier really passed). find_examples presents as a "verified snippet"
+  any chunk whose text merely contains `Example:` (src/foss_mcp/mcp/tools/find_examples.py `_EXAMPLE_MARKER`, used by the exact
+  branch, the lexical branch and `_vector_fallback`). Measured on the committed infra/demo-manifests on 2026-10-11: of the chunks that
+  contain `Example:`, 14 carry the line `Kind: verified_example` (cells/rust 1, pdf/go 4, pdf/java 2, pdf/net 1, pdf/typescript 4,
+  slides/python 2) and ONE does not - the 3d/java API-symbol chunk `FQN: com.aspose.threed.DracoFormat` (`Kind: class_declaration`), whose
+  Javadoc says "Example: The following code shows how to encode and decode a Mesh", and which is in BOTH the lexical index and the
+  vector index. TC-381 (in progress) narrows the exact and lexical branches to chunks whose FQN line starts with `Example: ` and that have
+  a line that is exactly `Example:`, but leaves the vector fallback "unchanged apart from using the same snippet extraction", so the
+  DracoFormat point stays servable as a verified example through the vector path, and nothing in any branch requires the verifier's own
+  `Kind: verified_example` line or, for an authored example (TC-460), `Verification: passed`. This card makes ONE predicate the only
+  definition of a verified example for all three branches and reports each match's provenance.
+depends_on:
+- TC-331
+- TC-381
+write_paths:
+- src/foss_mcp/mcp/tools/find_examples.py
+- tests/mcp/tools/test_find_examples_verified_only.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read src/foss_mcp/mcp/tools/find_examples.py in full as TC-381 left it (its example-chunk rule, the exact-match lookup over the
+  generation's documents, `_extract_example`, the `found`/`reason` fields, `_vector_fallback`), src/foss_mcp/mcp/tools/relevance.py
+  (TC-381, read only), src/foss_mcp/mcp/server.py `_wrap_find_examples` and `_to_jsonable` (read only; a new dataclass field appears
+  in the tool response automatically), infra/build_chunks.py `_build_verified_example_chunks` (read only - the body lines `FQN:
+  Example: <title>`, `Kind: verified_example`, and for an authored example `Provenance: authored` and `Verification: passed`, TC-460),
+  tests/mcp/tools/test_relevance_floor.py (TC-381 - how a test copies a committed scope directory into tmp_path and opens a
+  GenerationManifestStore there). These must keep passing UNMODIFIED: tests/mcp/tools/test_retrieval_tools.py,
+  tests/mcp/tools/test_relevance_floor.py, tests/mcp/test_server_wiring.py, tests/indexing/test_vector_scope.py. If one of them builds
+  a synthetic example chunk without the `Kind: verified_example` line and therefore fails, STOP and report it with the test name - do
+  not edit it and do not weaken the predicate. Never print or log any environment value.
+- >-
+  find_examples.py: a public pure function defined exactly as `def is_verified_example_text(` taking a chunk text and returning True
+  only when ALL hold - the FQN line starts with `Example: `; some line is exactly `Kind: verified_example`; some line is exactly
+  `Example:`; and, when some line is exactly `Provenance: authored`, some line is also exactly `Verification: passed`. The exact branch,
+  the lexical branch (its candidate set) and `_vector_fallback` (every point it may return) all use this function and nothing else to
+  decide that a chunk is a verified example; a text that fails it is never returned as an ExampleMatch. `ExampleMatch` gains one
+  additive field with a default, `provenance: str = "readme"`, set to "authored" when the chunk has the line `Provenance: authored`.
+  Snippet extraction, thresholds, ordering, `found`/`reason` and every other behaviour stay exactly as TC-381 left them.
+- >-
+  tests/mcp/tools/test_find_examples_verified_only.py (NEW, offline, deterministic, no skipped tests, no wall-clock assertions; the
+  gateway embedding provider is always monkeypatched, never constructed for real): unit cases for `is_verified_example_text` - a real
+  README example body passes; an authored body with `Verification: passed` passes; an authored body without it fails; a symbol chunk
+  whose Javadoc contains `Example:` fails; a documentation chunk that mentions "verified example" fails; a `FQN: Example:` chunk without
+  the Kind line fails. REAL DATA: copy infra/demo-manifests/3d__java__self_extracted into tmp_path, open a GenerationManifestStore
+  there, and (a) `find_examples(store, scope, "com.aspose.threed.DracoFormat")` is not an ExampleMatch; (b) with the provider
+  monkeypatched so the query embeds to the DracoFormat point's own stored vector (cosine 1.0 with it) and a query that has no lexical
+  hit, the result is NoExampleFound - the defect-shaped case the vector path serves today; (c) over every one of the 40 committed pilot
+  scope directories under infra/demo-manifests (derived from infra/helm/foss-mcp/values.yaml, never retyped; read in place, nothing
+  written), the set of lexical documents `is_verified_example_text` accepts equals the set whose text has the line `Kind:
+  verified_example`, and every vector point it accepts has a lexical document with the same chunk id; report the pilot in the message.
+  Synthetic generation: an authored verified example is returned with `provenance` "authored", a README one with "readme", and an
+  authored one without `Verification: passed` is never returned by any branch. At least 14 tests.
+- >-
+  Run `{python} -m pytest tests/mcp/tools/test_find_examples_verified_only.py -q -rfE`, then once the second check command below.
+  Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Make one predicate - the verifier's own `Kind: verified_example` line, plus `Verification: passed` for an authored example - the only
+  definition of a verified example in every find_examples branch, the vector fallback included.
+- >-
+  Report each match's provenance, and pin the 3d/java DracoFormat case and the 40-pilot equality on the committed data.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_find_examples_verified_only.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_relevance_floor.py tests/mcp/test_server_wiring.py tests/indexing/test_vector_scope.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 14
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/find_examples.py');s=p.read_text(encoding='utf-8');old='def is_verified_example_text(';assert old in s;p.write_text(s.replace(old,'def is_verified_example_textX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the single predicate every branch calls, so find_examples fails with a NameError on every query that reaches a branch and
+    the test module cannot import it: the predicate, DracoFormat and 40-pilot tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-465/receipt.json
+closeout:
+- >-
+  find_examples returns only chunks the verifier really passed (the `Kind: verified_example` line, plus `Verification: passed` for an
+  authored example) in its exact, lexical and vector branches, and says whether each match is a README or an authored example. The 3d/java
+  DracoFormat Javadoc chunk can no longer be served as a verified example. Takes effect in the next serving image; no re-ingestion needed.
+recovery: Re-run from a clean tree.

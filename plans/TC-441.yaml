@@ -1,0 +1,183 @@
+id: TC-441
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-007 (verified examples for every pilot; persistent, reusable work). Every verification verdict the real toolchains produce
+  today is thrown away. Verified in code: infra/build_chunks.py `_build_verified_example_chunks` appends one record per candidate
+  (`title`, `platform`, `verified`, full compiler `output`, `index`, `kind`) and `main` writes them to `--verification-report`, which
+  defaults to `--out` with the suffix `.verification.json`; the chart's ingestion Job (infra/helm/foss-mcp/templates/ingestion-job.yaml)
+  passes `--out /tmp/<family>_<platform>_chunks.json`, and /tmp is an emptyDir, so every verdict (and the reason a candidate failed) is
+  lost when the pod ends, and every re-ingestion clones, builds and compiles everything again. This card adds a committed per-pilot
+  VERIFICATION CACHE
+  (tests/fixtures/verified_examples/<family>_<platform>.json): build_chunks reuses a recorded `verified: true` verdict only when the
+  normalised code hash, the library commit, the verifier platform and the toolchain id all match, records `cached` per candidate,
+  can be forced to re-verify, and writes the merged verdicts out to the manifests volume. The cache holds VERDICTS ONLY, never example
+  code: by the supervisor's 2026-10-11 decision the single source of authored example code is the sidecar
+  tests/fixtures/furnished/<pilot>/authored_examples.yaml of TC-460, a later card (order TC-455, TC-441, TC-458, TC-460), and this
+  card only makes sure an authored candidate's verdict will be cached under its own provenance. A new idempotent helper
+  pulls the written cache back from the cluster into the repository so a pilot's results can be committed after a cluster run.
+depends_on:
+- TC-001
+- TC-018
+- TC-191
+- TC-349
+- TC-352
+- TC-363
+- TC-377
+- TC-379
+- TC-385
+- TC-426
+- TC-456
+write_paths:
+- infra/build_chunks.py
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
+- Dockerfile.ingestion
+- scripts/release/pull_verification_cache.py
+- tests/fixtures/verified_examples/.gitkeep
+- tests/infra/test_build_chunks_verification_cache.py
+- tests/deploy/test_pull_verification_cache.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read infra/build_chunks.py in full (`_PLATFORM_DISPATCH` with `shared_page_workdir`, `_build_verified_example_chunks`,
+  `_write_verification_report`, `main`), src/foss_mcp/indexing/example_candidates.py (`CandidateExample`: title, description,
+  language, code; the later TC-460 adds a `provenance` field), src/foss_mcp/indexing/example_verifier.py (which executables each platform's verify function invokes),
+  infra/helm/foss-mcp/templates/ingestion-job.yaml (the build_chunks arguments inside the `if $p.furnishedPage` block and
+  `$.Values.manifests.mountPath`), Dockerfile.ingestion (WORKDIR /app and the `COPY tests/fixtures/furnished/ ./fixtures/furnished/`
+  line), scripts/release/snapshot_demo_from_cluster.py (`ready_serving_pod`, `export_command`, `_assert_allowed`, `read_archive`, how it
+  loads the pilots from infra/helm/foss-mcp/values.yaml) and tests/infra/test_helm_manifest_step.py (how a test renders the chart with
+  the real helm binary and FAILS when helm is missing). These must keep passing UNMODIFIED:
+  tests/indexing/test_build_chunks_verification_report.py, tests/infra/test_build_chunks_degradation.py,
+  tests/infra/test_build_chunks_platforms.py, tests/infra/test_ingestion_image_fixtures.py, tests/infra/test_helm_manifest_step.py.
+  Never print or log any environment value.
+- >-
+  CACHE FILE FORMAT (UTF-8 JSON, `json.dumps(..., indent=2, sort_keys=True, ensure_ascii=False)` plus one trailing newline):
+  an object with exactly `schema_version` (integer 1) and `entries` (a list); any other top-level key (an `authored` list included)
+  makes the file malformed. An entry has exactly `provenance` (`getattr(candidate, "provenance", "readme")`, so "readme" until TC-460 adds "authored" candidates), `title`, `code_sha256`, `library_commit`, `platform` (the `--library-platform` value, for example
+  dotnet), `toolchain` (string), `verified` (bool) and `output` (the LAST 2000 characters of the verifier output; the full output
+  stays in the .verification.json report). Entries are
+  written sorted by (provenance, title, code_sha256, library_commit, platform, toolchain). No timestamps, so an unchanged run writes
+  identical bytes. Define the normalisation as a public function `normalised_code_sha256(code)`: CRLF and CR become LF, trailing
+  whitespace is stripped from every line, leading and trailing blank lines are dropped, then sha256 of the UTF-8 bytes, lowercase hex.
+- >-
+  TOOLCHAIN ID: a function `toolchain_id(platform)` returning one string built from the first line of the `--version` (or the
+  platform's equivalent, for example `go version`, `javac -version`) output of each executable that platform's verify function
+  invokes, joined by ` | `, run with subprocess, a timeout, no shell and no network; it returns None when any command is missing or
+  fails. Tests monkeypatch this function; they never run a real toolchain. When it returns None nothing is reused and nothing is
+  written to the cache for this run (print one line saying why).
+- >-
+  build_chunks flags, all optional and inert when absent (today's behaviour and the existing tests are unchanged without them):
+  `--verification-cache PATH` reads a cache; a missing file is an empty cache (print one line), a malformed file or a wrong
+  `schema_version` ends the run with exit code 2 and a one-line error, never a traceback. `--no-verification-cache` ignores every
+  recorded verdict (every candidate is really verified). `--verification-cache-out PATH` writes the merged cache:
+  every entry of the input cache kept (other commits and toolchains included, so history is never lost), each verdict produced in
+  this run added or replacing the entry with the identical (provenance, code_sha256, library_commit, platform, toolchain) key;
+  written atomically, parent directories created. `library_unavailable` records and environment
+  failures are never written as entries.
+- >-
+  REUSE RULES in `_build_verified_example_chunks`: a candidate is a cache HIT only when an entry with `verified: true` has the same
+  code_sha256, library_commit (`--library-commit`), platform and toolchain id; a `verified: false` entry is NEVER reused (always
+  re-verified). A hit is not verified again and its record gains `cached: true` (every record gains `cached`, `code_sha256` and
+  `toolchain`; existing keys keep their meaning). For a platform with `shared_page_workdir` True (python, where later examples depend
+  on files earlier ones wrote) the page is reused only when EVERY candidate (authored included) is a hit; otherwise every candidate is
+  verified for real, in order, and none is marked cached. The platform's `prepare` (clone and build) is called only when at least one
+  candidate must really be verified, so a fully cached page publishes without network. The published chunk text is byte-identical
+  whether its verdict was cached or fresh. The final print line becomes `verified <V>/<N> candidate examples (<C> from cache)`.
+- >-
+  AUTHORED CANDIDATES: this card adds, injects, renders and labels NO authored example and stores no example code. TC-460 (later)
+  appends sidecar candidates whose `provenance` is "authored" and renders their label lines. So that TC-460 needs no change here, a
+  candidate's entry provenance and its lookup key (a public `verification_cache_key(candidate, library_commit, platform, toolchain)`
+  used for every lookup and every written entry) always use `getattr(candidate, "provenance", "readme")`: an
+  authored candidate is a hit only for an authored entry, a README candidate only for a README entry, even with the same code hash.
+  A cache never supplies a candidate - an entry whose code is no longer on the page is simply unused, and kept as history.
+- >-
+  WIRING (AGENTS.md integration rule; prove it on committed source): in ingestion-job.yaml, inside the `if $p.furnishedPage` block,
+  pass `--verification-cache /app/fixtures/verified_examples/<family>_<platform>.json` and `--verification-cache-out
+  <manifests.mountPath>/verification_cache_<family>_<platform>.json` (family and platform from `$p`); in Dockerfile.ingestion add
+  `COPY tests/fixtures/verified_examples/ ./fixtures/verified_examples/` beside the furnished COPY, and commit an empty
+  tests/fixtures/verified_examples/.gitkeep so the COPY source exists. Do not touch docker-compose.yml.
+- >-
+  scripts/release/pull_verification_cache.py (NEW): `python scripts/release/pull_verification_cache.py --namespace NS [--only
+  FAMILY_PLATFORM ...] [--dest DIR] [--dry-run]`, default dest tests/fixtures/verified_examples. For each selected pilot (from
+  values.yaml, never retyped) find the Ready serving pod with snapshot_demo_from_cluster's own `ready_serving_pod` (import that module
+  as the snapshot tool imports compact_demo_manifests; do not edit it), export ONLY `verification_cache_<family>_<platform>.json` from
+  /data/manifests with the same `kubectl exec ... tar cf - -C /data/manifests <that file>` shape and the same safe unpacking, validate
+  it (schema_version 1, entry keys), and MERGE it into `<dest>/<family>_<platform>.json` with build_chunks' own merge function
+  (import it; never a second copy of the rules): existing entries of other keys are kept, cluster verdicts win on an identical key.
+  Write atomically and only when the bytes change; print one line per pilot (`written`, `unchanged`, `absent` when the pod has no
+  cache file, `failed: <reason>`). The only kubectl commands it may run are `get pods` and that `exec ... tar`; refuse anything else.
+  Exit 0 when every selected pilot is written, unchanged or absent; 1 when any failed; 2 for bad arguments.
+- >-
+  tests/infra/test_build_chunks_verification_cache.py (NEW, offline, deterministic, no skipped tests, no wall-clock assertions; drive
+  `main` with monkeypatched argv into tmp_path and fake prepare/verify functions exactly as
+  tests/indexing/test_build_chunks_verification_report.py does, and a monkeypatched `toolchain_id`): the hash normalisation (CRLF vs
+  LF, trailing spaces, surrounding blank lines give one hash; a changed statement gives another); a full hit calls neither verify nor
+  prepare and marks `cached: true`; a miss for each of a changed code, commit, platform and toolchain id (parametrized) calls verify;
+  a `verified: false` entry is re-verified; `--no-verification-cache` re-verifies; `toolchain_id` None reuses nothing and writes
+  nothing; python partial hit re-verifies every candidate, python full hit verifies none; a missing cache file is empty, a malformed
+  one exits 2 with one line, and so does a file with an `authored` key; the written cache is sorted, keeps entries of other commits,
+  truncates output to 2000 characters, and a second identical run writes identical bytes; `verification_cache_key` gives a
+  test-local frozen dataclass candidate that carries `provenance` "authored" a different key from the same code without it, and an
+  authored entry is never a hit for a README candidate (nor the reverse) - test the key function directly, never by monkeypatching
+  the extraction function, which TC-458 replaces; a page example's chunk text is identical with and without a cache; the chunk text is identical for a cached and a
+  fresh verdict. Wiring: the committed ingestion-job.yaml contains both new flags inside the furnishedPage block and the chart
+  rendered with the real helm binary (FAIL, never skip, when helm is missing) gives a furnished pilot's Job both flags with that
+  pilot's own family and platform; Dockerfile.ingestion contains the new COPY line; every committed
+  tests/fixtures/verified_examples/*.json (if any) parses with schema_version 1, has no `authored` key, and is named after a pilot
+  in values.yaml. At least 24
+  tests.
+- >-
+  tests/deploy/test_pull_verification_cache.py (NEW, offline; a fake runner replaces subprocess, kubectl is never run): merge keeps
+  entries of other keys and replaces an identical key; a second pull with the same data reports `unchanged` and does not rewrite the
+  file; `absent` when the archive lacks the file; a malformed cache is `failed` and the existing file is untouched; `--dry-run`
+  writes nothing; a command other than `get pods` or `exec ... tar` is refused; an unknown `--only` exits 2. At least 7 tests.
+- >-
+  Run `{python} -m pytest tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py -q -rfE`,
+  then once the second check command below, in a shell where scripts/toolchain/activate.ps1 has put helm on PATH. Do NOT run any
+  ingestion or kubectl command yourself. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Persist every verification verdict in a committed per-pilot cache keyed by code hash, library commit, platform and toolchain, and
+  reuse only matching verified verdicts.
+- >-
+  Key every verdict by provenance as well (verdicts only, never example code) and wire the cache into the ingestion Job and image.
+- >-
+  Add an idempotent helper that pulls a cluster run's cache back into the repository.
+checks:
+- command: '{python} -m pytest tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py tests/indexing/test_build_chunks_verification_report.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_platforms.py tests/infra/test_ingestion_image_fixtures.py tests/infra/test_helm_manifest_step.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 31
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/build_chunks.py');s=p.read_text(encoding='utf-8');old='def normalised_code_sha256(';assert old in s;p.write_text(s.replace(old,'def normalised_code_sha256X(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the cache key function build_chunks calls for every lookup and every written entry, so the hash tests fail on the
+    missing name and every run with a cache dies with a NameError: the cache-hit, miss, write and provenance tests fail. A real break
+    of the card's central claim.
+evidence:
+- evidence/build/G3/TC-441/receipt.json
+closeout:
+- >-
+  Verification verdicts are committed, reusable artefacts: a re-ingestion reuses a verified verdict only for the identical code,
+  provenance, commit, platform and toolchain, the cache never holds example code (authored code lives in the TC-460 sidecar), and a
+  cluster run's verdicts can be pulled back and committed. Requires rebuilding the ingestion image; the first
+  cluster run after it populates the caches.
+recovery: Re-run from a clean tree.

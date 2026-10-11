@@ -1,0 +1,115 @@
+id: TC-442
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-007 (every verified example is part of the vector index baked into the standalone image). Measured on the committed
+  infra/demo-manifests on 2026-10-11: every one of the 14 `Kind: verified_example` chunks (6 pilots) has its vector point, and the
+  compaction keeps it, so there is no coverage gap today; nothing pins that, though, and the data is about to grow from 14 examples to
+  at least 80 (two per pilot, TC-440). The growth breaks the lean budget: a 4096-dimension gateway vector serialised as JSON costs
+  87,928 bytes per point on average (the 15 committed points hold 1,319,009 bytes of vector text in a 17,501,743-byte tree), so 120
+  example points would add about 10.5 MB and the tree would pass the 22,000,000-byte TREE_BYTES_BUDGET pinned in
+  tests/deploy/test_compact_demo_manifests.py. Rounding each component to 5 decimals cuts a point to 34,100-34,396 bytes (measured on
+  all 15 real points) with a maximum pairwise cosine change of 8.7e-6 and a minimum self-cosine of 0.99999998, far inside the margin
+  of find_examples' 0.45 floor; 120 points then cost about 4.1 MB. This card pins, per pilot, that every verified example chunk has
+  its vector point with the same chunk id and text and that compaction keeps it, and adds opt-in vector quantisation at ingest
+  (`--vector-decimals`), which the chart's ingestion Job uses with 5. Quantisation applies to newly ingested generations only, so it
+  takes effect with the final re-ingest and snapshot; the committed data is not rewritten here.
+depends_on:
+- TC-001
+- TC-015
+- TC-336
+- TC-340
+- TC-346
+- TC-354
+- TC-425
+- TC-441
+write_paths:
+- src/foss_mcp/indexing/vector_index_writer.py
+- src/foss_mcp/indexing/publisher.py
+- infra/ingest.py
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
+- tests/deploy/test_verified_example_vectors.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read src/foss_mcp/indexing/vector_index_writer.py (`EXAMPLE_MARKER`, `is_example_chunk`, `point_id`, `build_vector_index`),
+  src/foss_mcp/indexing/publisher.py (`publish_generation`), infra/ingest.py (`main`, `--vector-scope`),
+  scripts/release/compact_demo_manifests.py (`active_generation_path`, `compact_scope`, `is_example_point`; read only),
+  tests/deploy/test_compact_demo_manifests.py and tests/deploy/test_demo_manifests_sidecars.py (how to read the committed tree and
+  derive the 40 pilots from infra/helm/foss-mcp/values.yaml, never retyping them), and the ingestion Job's `--vector-scope examples`
+  line in infra/helm/foss-mcp/templates/ingestion-job.yaml. These must keep passing UNMODIFIED: tests/indexing/test_index_writers.py,
+  tests/indexing/test_vector_scope.py, tests/indexing/test_publisher.py, tests/infra/test_ingest.py,
+  tests/infra/test_ingest_vector_scope.py, tests/infra/test_helm_vector_scope_probes.py, tests/deploy/test_compact_demo_manifests.py
+  (its synthetic vectors such as 1/3 and 2.5e-07 must still pass through compaction unchanged, so compaction is NOT changed),
+  tests/test_unwired_modules.py. Never print or log any environment value.
+- >-
+  vector_index_writer.py, ADDITIVE: a public function defined exactly as `def quantize_vector(` taking a vector and a number of
+  decimals and returning a tuple of `round(float(x), decimals)`; `build_vector_index` gains a keyword-only `decimals: int | None =
+  None`: None keeps today's output exactly, an integer applies `quantize_vector` to every stored vector. A point keeps exactly the keys
+  `chunk_id`, `point_id`, `text`, `vector`; the payload keeps exactly `generation_id`, `dimension`, `points`. publisher.py
+  `publish_generation` gains `vector_decimals: int | None = None`, passed through. infra/ingest.py gains `--vector-decimals N`
+  (integer 1 to 12, default unset meaning no rounding; anything else is an argparse error, exit 2) passed to publish_generation. In
+  ingestion-job.yaml add `--vector-decimals 5` directly after `--vector-scope examples`. Do not touch compact_demo_manifests.py or
+  find_examples.py.
+- >-
+  tests/deploy/test_verified_example_vectors.py (NEW, offline, deterministic, no skipped tests, no wall-clock assertions):
+  (1) parametrized over the 40 pilots from values.yaml, load the active generation as the serving code does (active_pointer.json to
+  the generation file) and, for every lexical document whose text has the line `Kind: verified_example`, require a vector point with
+  the same `chunk_id`, `point_id` equal to `<generation_id>::point::<chunk_id>`, identical `text`, and a vector whose length equals
+  `dimension`; report the pilot and the missing chunk ids in the assertion message. (2) parametrized over the 40 pilots, copy the
+  scope directory into tmp_path, run the real `compact_scope(..., apply=True)` on the copy and require every verified example point
+  to survive unchanged. (3) on every REAL committed vector point: the compact JSON of `quantize_vector(vector, 5)` is at most the
+  module constant `MAX_QUANTISED_POINT_BYTES = 40_000`, the cosine of the quantised and the original vector is at least 0.99999, and the
+  largest change of any pairwise cosine between the committed points is at most 1e-4. (4) `build_vector_index` with decimals None
+  returns exactly the provider's vectors and with 5 returns them rounded; ingest `main` end to end (monkeypatched argv into tmp_path,
+  as tests/infra/test_ingest.py runs it, with foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider and
+  `--vector-scope examples`) stores rounded components with `--vector-decimals 5` and unrounded ones without the flag; `0`, `13` and a
+  non-integer are rejected with exit code 2. (5) wiring on committed source: ingestion-job.yaml contains `--vector-decimals 5` in the
+  same argument block as `--vector-scope examples`. (6) synthetic: a chunk built with build_chunks' verified example body (`FQN:
+  Example: `, `Kind: verified_example`, and the authored variant with `Provenance: authored` and `Verification: passed`) is selected
+  by `is_example_chunk`. At least 90 tests.
+- >-
+  Run `{python} -m pytest tests/deploy/test_verified_example_vectors.py -q -rfE`, then once the second check command below. Do NOT
+  re-ingest, snapshot or recompact anything yourself (that is the supervisor's step after this card). Write commit messages as UTF-8
+  without a byte-order mark.
+actions:
+- >-
+  Pin that every verified example chunk of every pilot has its vector point in the baked data and that compaction keeps it.
+- >-
+  Add opt-in vector quantisation at ingest and use 5 decimals in the ingestion Job so 80 or more example points fit the lean budget.
+checks:
+- command: '{python} -m pytest tests/deploy/test_verified_example_vectors.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/deploy/test_verified_example_vectors.py tests/indexing/test_index_writers.py tests/indexing/test_vector_scope.py tests/indexing/test_publisher.py tests/infra/test_ingest.py tests/infra/test_ingest_vector_scope.py tests/infra/test_helm_vector_scope_probes.py tests/deploy/test_compact_demo_manifests.py tests/test_unwired_modules.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 90
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/vector_index_writer.py');s=p.read_text(encoding='utf-8');old='def quantize_vector(';assert old in s;p.write_text(s.replace(old,'def quantize_vectorX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the quantiser the test imports and build_vector_index calls when decimals are given, so the test module cannot import
+    it and every ingest run with --vector-decimals fails: the card's tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-442/receipt.json
+closeout:
+- >-
+  Every verified example of every pilot is pinned to its vector point in the baked data and survives compaction, and newly ingested
+  example vectors are quantised to 5 decimals (about 34 KB instead of 88 KB a point, cosine change below 1e-5), so the at-least-80
+  example points of the final image fit the lean budget. Takes effect with the final re-ingest and snapshot.
+recovery: Re-run from a clean tree.
