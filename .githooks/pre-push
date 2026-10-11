@@ -65,11 +65,22 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY G
 # rewrite only by accident of not being pushed yet. Reading raw emails here would re-litigate
 # that decision by blocking the very push that was always going to carry them. A genuinely new
 # bad-identity commit has no .mailmap entry, so %aE/%cE still catches it unresolved.
+MAIN_ROOT="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+PY="$MAIN_ROOT/.venv/Scripts/python.exe"
+[ -x "$PY" ] || PY="$MAIN_ROOT/.venv/bin/python"
+[ -x "$PY" ] || PY="python"
+
 allowed_email="$(git config --global --get user.email || true)"
 if [ -n "$allowed_email" ]; then
   while read -r local_ref local_sha remote_ref remote_sha; do
     [ -z "$local_sha" ] && continue
     case "$local_sha" in 0000000000000000000000000000000000000000) continue ;; esac
+    # Every commit this push would newly publish is scanned patch by patch, so a credential added and
+    # removed again inside the same push is still caught. Fails closed if the scan cannot run.
+    if ! "$PY" ops/gatectl.py secret-scan --pushed "$local_sha"; then
+      echo "pre-push: BLOCKED - a credential-shaped value is in the commits being pushed ($local_ref)." >&2
+      exit 1
+    fi
     bad="$(git log "$local_sha" --not --remotes --format='%H %aE %cE' 2>/dev/null | awk -v a="$allowed_email" '$2!=a || $3!=a {print}')"
     if [ -n "$bad" ]; then
       echo "pre-push: BLOCKED - commit(s) in $local_ref not authored/committed as $allowed_email:" >&2

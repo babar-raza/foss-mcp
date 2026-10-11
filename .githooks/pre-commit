@@ -61,6 +61,15 @@ PY="$MAIN_ROOT/.venv/Scripts/python.exe"
 [ -x "$PY" ] || PY="$MAIN_ROOT/.venv/bin/python"
 [ -x "$PY" ] || PY="python"
 
+# Never let a credential into a commit: GitHub/AWS/Slack/OpenAI-shaped tokens, private keys, docker auth,
+# and the exact value of any secret-looking variable in this shell's environment, on ADDED lines only.
+# The report names file:line and kind, never the value. Fails closed if the scan itself cannot run.
+if ! "$PY" ops/gatectl.py secret-scan --staged; then
+  echo >&2
+  echo "pre-commit: BLOCKED - a credential-shaped value is in the staged changes (see above)." >&2
+  exit 1
+fi
+
 if [ -n "${FOSS_MCP_WORKER:-}" ]; then
   if ! "$PY" ops/gatectl.py commit-guard --worker "$FOSS_MCP_WORKER"; then
     echo >&2

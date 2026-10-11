@@ -18,6 +18,7 @@ import cardlint as CL
 import gatectl as G
 import gateverify as V
 import release as R
+import secretscan as S
 
 SCHEMA_FOR = {
     "taskcard": "taskcard.schema.json",
@@ -1557,6 +1558,17 @@ def build_parser():
     )
 
     sp = sub.add_parser(
+        "secret-scan",
+        help="refuse credential-shaped values in added lines (staged diff, a push range, or the tracked tree)",
+    )
+    grp = sp.add_mutually_exclusive_group(required=True)
+    grp.add_argument("--staged", action="store_true", help="the staged diff (pre-commit)")
+    grp.add_argument(
+        "--pushed", metavar="SHA", help="every commit reachable from SHA and not from a remote ref (pre-push)"
+    )
+    grp.add_argument("--tree", action="store_true", help="every tracked file at HEAD (CI)")
+
+    sp = sub.add_parser(
         "release-record",
         help="REQ-G3-004: record the final standalone image (and its gate report, and push result) in the state machine",
     )
@@ -1575,6 +1587,25 @@ def build_parser():
         "--push-result", type=Path, help="the JSON written by scripts/release/push_image.py --record"
     )
     return p
+
+
+def cmd_secret_scan(args) -> int:
+    try:
+        if args.staged:
+            found = S.scan_staged()
+        elif args.pushed:
+            found = S.scan_pushed(args.pushed)
+        else:
+            found = S.scan_tree()
+    except RuntimeError as exc:
+        # Fail closed: a scan that could not run is not a scan that passed.
+        print(f"SECRET SCAN COULD NOT RUN: {exc}")
+        return G.EXIT_FAIL
+    if found:
+        print(S.report(found))
+        return G.EXIT_FAIL
+    print("OK  secret scan: no credential-shaped values in the scanned lines")
+    return G.EXIT_OK
 
 
 def cmd_release_record(args) -> int:
@@ -1621,6 +1652,7 @@ def cmd_integrate(args) -> int:
 
 HANDLERS = {
     "release-record": cmd_release_record,
+    "secret-scan": cmd_secret_scan,
     "validate": cmd_validate,
     "state": cmd_state,
     "next": cmd_next,
