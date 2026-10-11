@@ -398,3 +398,715 @@ def test_pdf_typescript_fixture_is_left_completely_untouched() -> None:
     # real FAQ entries - the opposite of every regenerated pilot's faq.enable: false.
     assert page["faq"]["enable"] is True
     assert "doc_source_commit" not in page
+
+
+# ---------------------------------------------------------------------------------------------
+# G3/TC-351 (REQ-G3-005): the README-at-the-pinned-commit source.
+#
+# Everything below is offline: ``read_repo_document`` is patched with in-memory README text, so
+# no test here can reach GitHub, and the chart under test is either a tiny values.yaml written
+# to tmp_path or the real, committed one (read as text only).
+# ---------------------------------------------------------------------------------------------
+
+import importlib.util  # noqa: E402
+import inspect  # noqa: E402
+import sys  # noqa: E402
+
+import yaml  # noqa: E402
+
+from foss_mcp.extraction.repo_native_reader import DocumentNotPresent, DocumentPresent  # noqa: E402
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_REAL_CHART_VALUES = _REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
+
+_README_COMMIT = "0123456789abcdef0123456789abcdef01234567"
+_README_REPOSITORY = "widget-org/Widget-FOSS-for-Go"
+_README_PILOT = {
+    "family": "widget",
+    "platform": "go",
+    "library": {"repository": _README_REPOSITORY, "commit": _README_COMMIT, "platform": "go"},
+}
+_README_PILOT_KEY = "widget_go"
+_README_TITLE = "Widget FOSS for Go"
+_README_FIRST_PARAGRAPH = (
+    "Widget FOSS for Go is a pure-Go library for building widgets, with no paid dependencies."
+)
+
+_README_INTRO = (
+    f"# {_README_TITLE}\n\n"
+    "[![Build](https://example.invalid/build.svg)](https://example.invalid/build)\n\n"
+    '<p align="center"><img src="logo.png"></p>\n\n'
+    f"{_README_FIRST_PARAGRAPH}\n"
+)
+
+_README_SECTIONS = {
+    "At a Glance": '```mermaid\nflowchart TD\n  PRODUCT["Widget FOSS"]\n```\n\nWidget FOSS builds widgets.',
+    "Installation": "Install with the Go tool:\n\n```bash\ngo get example.invalid/widget\n```",
+    "Dependencies": "### Required Package Dependencies\n\n- `gear v1.2.0`",
+    "Quick Start": "Create a widget and spin it:\n\n```go\nw := widget.New()\nw.Spin()\n```",
+    "Key Capabilities": "- **Make widgets.** `widget.New()` creates one.\n- **Spin widgets.** `Spin()` spins it.",
+    "API Reference": "The public surface has 12 types.\n\n| Type | Description |\n| --- | --- |\n| `Widget` | The widget. |",
+    "Additional Examples": (
+        "### TypeScript\n\n```ts\nimport { Widget } from 'widget';\n```\n\n"
+        "### C Sharp\n\n```cs\nvar w = new Widget();\n```\n\n"
+        "### JavaScript\n\n```js\nconst w = new Widget();\n```\n\n"
+        "### C Plus Plus\n\n```c++\nWidget w;\n```\n\n"
+        "### Build files\n\n```shell\nmake\n```\n\n```xml\n<project/>\n```\n\n```toml\nname = 'w'\n```\n\n"
+        "```cmake\nadd_library(w w.cpp)\n```\n\n```powershell\nGet-Widget\n```\n\n```groovy\nplugins { id 'w' }\n```"
+    ),
+    "Scope and Limitations": "Known issues: `Widget.Spin()` is not active on Windows.\n\nGears larger than 4cm are unsupported.",
+    "Development and Testing": "\n".join(f"- development step {number}" for number in range(30)),
+    "License": "MIT.",
+}
+
+# The example entries a complete README yields, in README order: (language, first line of code).
+_README_EXPECTED_EXAMPLES = [
+    ("go", "w := widget.New()"),
+    ("typescript", "import { Widget } from 'widget';"),
+    ("csharp", "var w = new Widget();"),
+    ("javascript", "const w = new Widget();"),
+    ("cpp", "Widget w;"),
+]
+
+
+def _readme(omit: tuple[str, ...] = (), intro: str = _README_INTRO) -> str:
+    parts = [intro]
+    for name, body in _README_SECTIONS.items():
+        if name not in omit:
+            parts.append(f"## {name}\n\n{body}\n")
+    return "\n".join(parts)
+
+
+def _readme_project(root: Path, pilots: tuple[dict, ...] = (_README_PILOT,)) -> Path:
+    """A throwaway project root holding only the chart's ingestion.pilots."""
+    values = root / "infra" / "helm" / "foss-mcp" / "values.yaml"
+    values.parent.mkdir(parents=True, exist_ok=True)
+    values.write_text(yaml.safe_dump({"ingestion": {"pilots": list(pilots)}}), encoding="utf-8")
+    return root
+
+
+def _patch_readmes(monkeypatch: pytest.MonkeyPatch, readmes: dict[str, str | None]) -> list[tuple]:
+    """Serve *readmes* (repository -> README text, None for absent) in place of GitHub; returns the call log."""
+    calls: list[tuple] = []
+
+    def fake_read_repo_document(
+        repository: str, path: str, *, ref: str | None = None, etag: str | None = None
+    ):
+        calls.append((repository, path, ref))
+        text = readmes[repository]
+        if text is None:
+            return DocumentNotPresent(path=path)
+        return DocumentPresent(path=path, sha="f" * 40, size=len(text), content=text)
+
+    monkeypatch.setattr(gen, "read_repo_document", fake_read_repo_document)
+    return calls
+
+
+def _load_page(tmp_path: Path, page_text: str) -> dict:
+    """Load *page_text* through the real, accepted furnished-page loader."""
+    path = tmp_path / "loaded" / "pages" / "_index.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(page_text.encode("utf-8"))
+    return build_chunks._load_furnished_page(path)
+
+
+def _build(
+    readme: str, monkeypatch: pytest.MonkeyPatch, pilot: dict = _README_PILOT
+) -> tuple[str, gen.ReadmeFields]:
+    _patch_readmes(monkeypatch, {_README_REPOSITORY: readme})
+    fields = gen.readme_doc_fields(_README_REPOSITORY, _README_COMMIT)
+    return gen.build_page_from_readme(pilot, fields), fields
+
+
+def _poc_module():
+    script = _REPO_ROOT / "scripts" / "poc" / "pilot_workflow_proof.py"
+    spec = importlib.util.spec_from_file_location("pilot_workflow_proof_for_tc351", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _run_github(root: Path, *extra: str) -> None:
+    gen.main(["--source", "github", "--project-root", str(root), *extra])
+
+
+def test_readme_doc_fields_reads_readme_md_at_the_pinned_commit(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = _patch_readmes(monkeypatch, {_README_REPOSITORY: _readme()})
+
+    fields = gen.readme_doc_fields(_README_REPOSITORY, _README_COMMIT)
+
+    assert calls == [(_README_REPOSITORY, "README.md", _README_COMMIT)]
+    assert fields.title == _README_TITLE
+    assert fields.commit == _README_COMMIT
+    assert fields.summary == _README_FIRST_PARAGRAPH
+    assert fields.found == tuple(name for name in gen._REQUIRED_SECTIONS)
+    assert fields.missing == ()
+    assert [(block.language, block.code.splitlines()[0]) for block in fields.blocks if block.is_example] == (
+        _README_EXPECTED_EXAMPLES
+    )
+
+
+def test_a_complete_readme_builds_a_complete_page(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    page_text, fields = _build(_readme(), monkeypatch)
+    page = _load_page(tmp_path, page_text)
+
+    assert fields.missing == ()
+    assert page["layout"] == "plugin"
+    assert page["title"] == _README_TITLE
+    assert page["github_url"] == f"https://github.com/{_README_REPOSITORY}"
+    assert page["doc_source_commit"] == _README_COMMIT
+    assert page["family_name"] == "Widget FOSS"
+    assert page["plugin_platform"] == "Go"
+    assert page["head_title"].startswith(_README_TITLE)
+    assert page["description"] == _README_FIRST_PARAGRAPH
+    assert page["head_description"] == _README_FIRST_PARAGRAPH
+    assert page["faq"] == {"enable": False, "list": []}
+
+    candidates = extract_doc_sections(page)
+    assert [(c.origin, c.title) for c in candidates] == [
+        ("overview", _README_TITLE),
+        ("content", "Installation, Dependencies, and Quick Start"),
+        ("content", "Key Capabilities and API Reference"),
+        ("content", "Scope and Limitations"),
+    ]
+    by_title = {c.title: c.body for c in candidates}
+    left = by_title["Installation, Dependencies, and Quick Start"]
+    assert "Install with the Go tool" in left and "gear v1.2.0" in left and "w.Spin()" in left
+    assert left.count("### Installation") == 1
+    assert left.count("### Required Package Dependencies") == 1  # its own heading is not wrapped again
+    right = by_title["Key Capabilities and API Reference"]
+    assert "Spin widgets" in right and "public surface has 12 types" in right
+    assert "```mermaid" in by_title[_README_TITLE]
+    # The table's separator row is dropped (the same rule the sealed path applies); the rows stay.
+    assert "| `Widget` | The widget. |" in right and "| --- |" not in right
+
+
+def test_the_scope_and_limitations_block_classifies_as_troubleshooting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page_text, _ = _build(_readme(), monkeypatch)
+    candidates = extract_doc_sections(_load_page(tmp_path, page_text))
+
+    scope = next(c for c in candidates if c.title == "Scope and Limitations")
+
+    assert not scope.body.lstrip().startswith("#")
+    assert "Gears larger than 4cm" in scope.body
+    assert classify_content_type(scope.body) == "troubleshooting"
+
+
+def test_the_page_yields_one_example_entry_per_eligible_fence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page_text, _ = _build(_readme(), monkeypatch)
+    page = _load_page(tmp_path, page_text)
+
+    examples = extract_candidate_examples(page)
+
+    assert [(e.language, e.code.splitlines()[0]) for e in examples] == _README_EXPECTED_EXAMPLES
+    # Only the first fence of an entry is read as an example, so each entry holds exactly one.
+    for entry in page["single"]["block"]:
+        assert entry["content"].count("```") == 2
+    # A description is the prose paragraph just before the fence.
+    assert examples[0].description == "Create a widget and spin it:"
+    assert examples[0].title == "Quick Start"
+
+
+def test_fence_tags_are_normalised_and_build_tags_never_become_examples(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page_text, fields = _build(_readme(), monkeypatch)
+    languages = [e.language for e in extract_candidate_examples(_load_page(tmp_path, page_text))]
+
+    assert languages == ["go", "typescript", "csharp", "javascript", "cpp"]
+    for raw_tag in ("```ts\n", "```cs\n", "```js\n", "```c++\n"):
+        assert raw_tag not in page_text
+    # shell, xml, toml, cmake, powershell, groovy (and bash, mermaid) are parsed, kept, never examples.
+    skipped = {block.language for block in fields.blocks if not block.is_example}
+    assert skipped == {"mermaid", "bash", "shell", "xml", "toml", "cmake", "powershell", "groovy"}
+    assert "```bash" in page_text and "```mermaid" in page_text  # still in the prose
+    for tag in ("shell", "xml", "toml", "cmake", "powershell", "groovy"):
+        assert tag not in languages
+
+
+def test_a_readme_without_dependencies_still_builds_a_page(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page_text, fields = _build(_readme(omit=("Dependencies",)), monkeypatch)
+    candidates = extract_doc_sections(_load_page(tmp_path, page_text))
+
+    assert fields.missing == ("Dependencies",)
+    assert [c.title for c in candidates if c.origin == "content"][0] == "Installation and Quick Start"
+    assert "gear v1.2.0" not in page_text and "Required Package Dependencies" not in page_text
+    assert len(candidates) == 4
+
+
+def test_a_readme_missing_several_sections_gives_a_partial_page_and_reports_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    omitted = ("At a Glance", "Key Capabilities", "API Reference", "Scope and Limitations")
+    root = _readme_project(tmp_path / "project")
+    _patch_readmes(monkeypatch, {_README_REPOSITORY: _readme(omit=omitted)})
+
+    _run_github(root)
+
+    output = capsys.readouterr().out
+    page = build_chunks._load_furnished_page(gen._fixture_path(root, _README_PILOT_KEY))
+    assert page["overview"] == {"enable": False}
+    assert [(c.origin, c.title) for c in extract_doc_sections(page)] == [
+        ("content", "Installation, Dependencies, and Quick Start")
+    ]
+    assert "title_right" not in page["content"]["block"][0]
+    for name in omitted:
+        assert name in output.split("missing:")[1]
+    assert "sections found: Installation, Dependencies, Quick Start;" in output
+    # Nothing was invented to stand in for the absent sections.
+    assert "Spin widgets" not in str(page) and "Gears larger than 4cm" not in str(page)
+
+
+def test_strict_refuses_a_readme_missing_any_section_and_writes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _readme_project(tmp_path / "project")
+    _patch_readmes(monkeypatch, {_README_REPOSITORY: _readme(omit=("Dependencies",))})
+
+    with pytest.raises(SystemExit) as excinfo:
+        _run_github(root, "--strict")
+
+    assert excinfo.value.code == 3
+    assert "Dependencies" in capsys.readouterr().err
+    assert not gen._fixture_path(root, _README_PILOT_KEY).exists()
+
+    # The same README without --strict is accepted: Dependencies is optional.
+    _run_github(root)
+    assert gen._fixture_path(root, _README_PILOT_KEY).is_file()
+
+
+def _readme_without_h1() -> str:
+    return _readme(intro=_README_INTRO.replace(f"# {_README_TITLE}", _README_TITLE))
+
+
+def _readme_without_tagged_blocks() -> str:
+    return re.sub(r"```[^\n`]+\n", "```\n", _readme())
+
+
+def _readme_too_short() -> str:
+    return f"# {_README_TITLE}\n\n{_README_FIRST_PARAGRAPH}\n\n```go\nw := widget.New()\n```\n"
+
+
+@pytest.mark.parametrize(
+    ("readme", "reason"),
+    [
+        pytest.param(_readme_without_h1, "no H1", id="no-h1"),
+        pytest.param(_readme_without_tagged_blocks, "no language-tagged code block", id="no-tagged-block"),
+        pytest.param(_readme_too_short, "non-blank lines", id="under-40-lines"),
+        pytest.param(lambda: None, "no README.md", id="absent"),
+    ],
+)
+def test_a_thin_readme_is_refused_with_exit_3_and_nothing_is_written(
+    readme,
+    reason: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = _readme_project(tmp_path / "project")
+    _patch_readmes(monkeypatch, {_README_REPOSITORY: readme()})
+
+    with pytest.raises(SystemExit) as excinfo:
+        _run_github(root, "--pilot", _README_PILOT_KEY)
+
+    assert excinfo.value.code == 3
+    error = capsys.readouterr().err
+    assert "REFUSED" in error and _README_PILOT_KEY in error and reason in error
+    assert not (root / "tests").exists(), "a refused README must not even create the fixture directory"
+
+
+def test_a_thin_readme_is_refused_in_the_library_and_names_every_reason(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_readmes(monkeypatch, {_README_REPOSITORY: "Just a sentence.\n"})
+
+    with pytest.raises(gen.ReadmeTooThinError) as excinfo:
+        gen.readme_doc_fields(_README_REPOSITORY, _README_COMMIT)
+
+    message = str(excinfo.value)
+    assert _README_REPOSITORY in message and _README_COMMIT in message
+    assert "non-blank lines" in message and "no H1" in message and "language-tagged" in message
+
+
+def test_one_thin_pilot_is_refused_while_the_others_are_still_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    thin_pilot = {
+        "family": "thin",
+        "platform": "net",
+        "library": {"repository": "widget-org/Thin-FOSS-for-.NET", "commit": "b" * 40},
+    }
+    root = _readme_project(tmp_path / "project", (_README_PILOT, thin_pilot))
+    _patch_readmes(
+        monkeypatch, {_README_REPOSITORY: _readme(), "widget-org/Thin-FOSS-for-.NET": "# Thin\n\nTiny.\n"}
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        _run_github(root)  # no --pilot: every chart pilot
+
+    assert excinfo.value.code == 3
+    assert gen._fixture_path(root, _README_PILOT_KEY).is_file()
+    assert not gen._fixture_path(root, "thin_net").exists()
+    captured = capsys.readouterr()
+    assert "thin_net: REFUSED" in captured.err and f"{_README_PILOT_KEY}: wrote" in captured.out
+
+
+def test_literal_triple_dash_lines_never_let_the_page_parser_split_the_page(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tricky = dict(_README_SECTIONS)
+    tricky["Installation"] = (
+        "Install with the Go tool:\n\n---\n\nA run of dashes---inside a sentence, and a rule of ------.\n\n"
+        "```yaml\n---\nname: widget\n---\n```\n\n```bash\ngo get example.invalid/widget\n```"
+    )
+    tricky["API Reference"] = "| Type | Description |\n|---|---|\n| `Widget` | The widget. |"
+    readme = _README_INTRO + "\n" + "\n".join(f"## {name}\n\n{body}\n" for name, body in tricky.items())
+
+    page_text, _ = _build(readme, monkeypatch)
+    page = _load_page(tmp_path, page_text)
+
+    # The accepted loader splits on the first two "---" substrings: only the two fences may exist.
+    assert page_text.count("---") == 2
+    assert page_text.startswith("---\n") and page_text.endswith("\n---\n")
+    candidates = {c.title: c.body for c in extract_doc_sections(page)}
+    left = candidates["Installation, Dependencies, and Quick Start"]
+    # A code block's own "---" lines are real content and survive byte for byte ...
+    assert "```yaml\n---\nname: widget\n---\n```" in left
+    # ... and so does a dash run inside a sentence, while a bare rule line and a table rule row are dropped.
+    assert "dashes---inside a sentence, and a rule of ------." in left
+    assert "\n---\n\n" not in left.replace("```yaml\n---\n", "").replace("\n---\n```", "")
+    assert "|---|" not in candidates["Key Capabilities and API Reference"]
+    assert "| `Widget` | The widget. |" in candidates["Key Capabilities and API Reference"]
+    yaml_example = next(e for e in extract_candidate_examples(page) if e.language == "yaml")
+    assert yaml_example.code == "---\nname: widget\n---"
+
+
+def test_headings_inside_fenced_code_are_code_not_sections() -> None:
+    readme = _readme().replace(
+        "```bash\ngo get example.invalid/widget\n```",
+        "```bash\n# Install the module\n## Quick Start\n# end\ngo get example.invalid/widget\n```",
+    )
+
+    fields = gen.parse_readme(_README_REPOSITORY, _README_COMMIT, readme)
+
+    assert fields.title == _README_TITLE
+    assert "## Quick Start\n# end" in fields.sections["Installation"]
+    assert fields.sections["Quick Start"].startswith("Create a widget and spin it:")
+
+
+def test_a_setext_h1_and_decorated_headings_are_understood() -> None:
+    readme = _readme(intro=f"{_README_TITLE}\n=========\n\n{_README_FIRST_PARAGRAPH}\n").replace(
+        "## Installation", "## Installation ##"
+    )
+    readme = readme.replace("## Quick Start", "## Quickstart")
+
+    fields = gen.parse_readme(_README_REPOSITORY, _README_COMMIT, readme)
+
+    assert fields.title == _README_TITLE
+    assert fields.summary == _README_FIRST_PARAGRAPH
+    assert "Installation" in fields.found and "Quick Start" in fields.found
+
+
+def test_the_same_readme_always_gives_a_byte_identical_page(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first, _ = _build(_readme(), monkeypatch)
+    second, _ = _build(_readme(), monkeypatch)
+    assert first == second
+
+    first_root = _readme_project(tmp_path / "first")
+    second_root = _readme_project(tmp_path / "second")
+    _patch_readmes(monkeypatch, {_README_REPOSITORY: _readme()})
+    _run_github(first_root)
+    _run_github(second_root)
+    first_bytes = gen._fixture_path(first_root, _README_PILOT_KEY).read_bytes()
+    assert first_bytes == gen._fixture_path(second_root, _README_PILOT_KEY).read_bytes()
+    assert first_bytes == first.encode("utf-8")
+    assert b"\r" not in first_bytes, "pages are written with LF line endings on every platform"
+    # Re-running over an existing page changes nothing.
+    _run_github(first_root)
+    assert gen._fixture_path(first_root, _README_PILOT_KEY).read_bytes() == first_bytes
+
+
+def test_tabs_unicode_and_odd_whitespace_round_trip_exactly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    readme = _readme().replace(
+        "w := widget.New()\nw.Spin()",
+        "func main() {\n\tw := widget.New()  \n\tw.Spin() // spins — \U0001f680 é\n}\n\n\n",
+    )
+
+    page_text, _ = _build(readme, monkeypatch)
+    page = _load_page(tmp_path, page_text)
+
+    example = extract_candidate_examples(page)[0]
+    assert example.language == "go"
+    assert example.code == "func main() {\n\tw := widget.New()  \n\tw.Spin() // spins — \U0001f680 é\n}"
+
+
+def test_furnished_title_finds_the_generated_title(monkeypatch: pytest.MonkeyPatch) -> None:
+    poc = _poc_module()
+    page_text, _ = _build(_readme(), monkeypatch)
+
+    assert poc.furnished_title(page_text) == _README_TITLE
+
+    awkward = f"{_README_TITLE}: the guide, 100% #1"
+    page_text, _ = _build(_readme(intro=_README_INTRO.replace(_README_TITLE, awkward, 1)), monkeypatch)
+    assert poc.furnished_title(page_text) == awkward
+
+
+def test_build_page_refuses_a_page_that_would_claim_the_wrong_commit(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_readmes(monkeypatch, {_README_REPOSITORY: _readme()})
+    fields = gen.readme_doc_fields(_README_REPOSITORY, "e" * 40)
+    with pytest.raises(ValueError, match="pins"):
+        gen.build_page_from_readme(_README_PILOT, fields)
+
+    for broken in ({"family": "widget", "platform": "go"}, {"family": "widget", "library": {}}):
+        with pytest.raises(ValueError):
+            gen.build_page_from_readme(broken, fields)
+
+
+def test_a_page_is_generated_for_a_real_chart_pilot_pinned_to_its_chart_commit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    chart = gen._load_chart_pilots(_REPO_ROOT)
+    assert len(chart) == 40
+    for key, pilot in chart.items():
+        family, platform, repository, commit = gen._pilot_identity(pilot)
+        assert key == f"{family}_{platform}"
+        assert repository and re.fullmatch(r"[0-9a-f]{40}", commit), key
+
+    pilot = chart["pdf_go"]
+    repository = pilot["library"]["repository"]
+    _patch_readmes(monkeypatch, {repository: _readme()})
+    fields = gen.readme_doc_fields(repository, pilot["library"]["commit"])
+    page = _load_page(tmp_path, gen.build_page_from_readme(pilot, fields))
+
+    assert page["doc_source_commit"] == pilot["library"]["commit"]
+    assert page["github_url"] == f"https://github.com/{repository}"
+    assert page["plugin_platform"] == "Go"
+
+
+def test_dry_run_reports_but_writes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _readme_project(tmp_path / "project")
+    _patch_readmes(monkeypatch, {_README_REPOSITORY: _readme(omit=("Dependencies",))})
+
+    _run_github(root, "--pilot", _README_PILOT_KEY, "--dry-run")
+
+    output = capsys.readouterr().out
+    assert (
+        f"{_README_PILOT_KEY}: would write tests/fixtures/furnished/{_README_PILOT_KEY}/pages/_index.md"
+        in output
+    )
+    assert "missing: Dependencies;" in output and "examples: 5;" in output and re.search(r"\d+ bytes", output)
+    assert not (root / "tests").exists()
+
+
+def test_the_report_names_found_and_missing_sections_examples_and_size(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _readme_project(tmp_path / "project")
+    _patch_readmes(monkeypatch, {_README_REPOSITORY: _readme()})
+
+    _run_github(root, "--pilot", _README_PILOT_KEY)
+
+    output = capsys.readouterr().out
+    written = gen._fixture_path(root, _README_PILOT_KEY)
+    assert output.strip() == (
+        f"{_README_PILOT_KEY}: wrote tests/fixtures/furnished/{_README_PILOT_KEY}/pages/_index.md - "
+        f"sections found: {', '.join(gen._REQUIRED_SECTIONS)}; missing: none; examples: 5; "
+        f"{written.stat().st_size} bytes"
+    )
+    _run_github(root, "--pilot", _README_PILOT_KEY)
+    assert ": replaced " in capsys.readouterr().out
+
+
+def test_pilot_is_repeatable_and_validated_against_the_charts_pilots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    other = {
+        "family": "gadget",
+        "platform": "nodejs",
+        "library": {"repository": "widget-org/Gadget-FOSS-for-Node.js", "commit": "c" * 40},
+    }
+    third = {
+        "family": "gizmo",
+        "platform": "cpp",
+        "library": {"repository": "widget-org/Gizmo-FOSS-for-Cpp", "commit": "d" * 40},
+    }
+    root = _readme_project(tmp_path / "project", (_README_PILOT, other, third))
+    calls = _patch_readmes(
+        monkeypatch,
+        {
+            _README_REPOSITORY: _readme(),
+            "widget-org/Gadget-FOSS-for-Node.js": _readme(),
+            "widget-org/Gizmo-FOSS-for-Cpp": _readme(),
+        },
+    )
+
+    _run_github(root, "--pilot", "gizmo_cpp", "--pilot", _README_PILOT_KEY, "--pilot", "gizmo_cpp")
+
+    assert [call[0] for call in calls] == ["widget-org/Gizmo-FOSS-for-Cpp", _README_REPOSITORY]
+    assert (
+        gen._fixture_path(root, "gizmo_cpp").is_file()
+        and not gen._fixture_path(root, "gadget_nodejs").exists()
+    )
+    assert "plugin_platform: C++" in gen._fixture_path(root, "gizmo_cpp").read_text(encoding="utf-8")
+    capsys.readouterr()
+
+
+def test_an_unknown_pilot_exits_2_before_any_network_use(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _readme_project(tmp_path / "project")
+    calls = _patch_readmes(monkeypatch, {_README_REPOSITORY: _readme()})
+
+    with pytest.raises(SystemExit) as excinfo:
+        _run_github(root, "--pilot", _README_PILOT_KEY, "--pilot", "nope_nope")
+
+    assert excinfo.value.code == 2
+    assert "nope_nope" in capsys.readouterr().err
+    assert calls == []
+    assert not (root / "tests").exists()
+
+    with pytest.raises(SystemExit) as excinfo:
+        gen.main(
+            [
+                "--repository-presenter-root",
+                str(tmp_path),
+                "--project-root",
+                str(root),
+                "--pilot",
+                "nope_nope",
+            ]
+        )
+    assert excinfo.value.code == 2
+
+
+def test_the_default_sealed_source_behaves_as_before_and_never_touches_the_network(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def forbidden(*args: object, **kwargs: object) -> None:
+        raise AssertionError("--source sealed must never read from GitHub")
+
+    monkeypatch.setattr(gen, "read_repo_document", forbidden)
+    project = tmp_path / "project"
+    presenter = tmp_path / "presenter"
+    fixture = project / "tests" / "fixtures" / "furnished" / "pdf_net" / "pages" / "_index.md"
+    fixture.parent.mkdir(parents=True)
+    fixture.write_bytes((FIXTURE_ROOT / "pdf_net" / "pages" / "_index.md").read_bytes())
+    manifest = project / "config" / "products" / "pdf" / "net.yaml"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text("repository: widget-org/widget-foss\n", encoding="utf-8")
+    _write_synthetic_sealed_candidate(
+        presenter, "widget-org/widget-foss", "abc123deadbeef", _SYNTHETIC_README
+    )
+
+    gen.main(
+        ["--repository-presenter-root", str(presenter), "--project-root", str(project), "--pilot", "pdf_net"]
+    )
+
+    expected_path = Path("tests/fixtures/furnished/pdf_net/pages/_index.md")
+    assert capsys.readouterr().out.strip() == f"regenerated pdf_net from sealed candidate ({expected_path})"
+    page = build_chunks._load_furnished_page(fixture)
+    assert page["doc_source_commit"] == "abc123deadbeef"
+    assert _single_block_sha256(fixture) == _EXPECTED_SINGLE_BLOCK_SHA256["pdf_net"]
+    assert page["overview"]["title"] == "Widget FOSS for Python"
+
+    # Without the root the sealed source cannot run, exactly as it was required before.
+    with pytest.raises(SystemExit) as excinfo:
+        gen.main(["--project-root", str(project)])
+    assert excinfo.value.code == 2
+    # --dry-run and --strict belong to the github source only.
+    with pytest.raises(SystemExit) as excinfo:
+        gen.main(["--repository-presenter-root", str(presenter), "--project-root", str(project), "--dry-run"])
+    assert excinfo.value.code == 2
+
+
+def test_no_token_or_environment_value_is_ever_printed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    token = "ghp_TC351_NOT_A_REAL_TOKEN_0123456789"
+    other = "tc351-some-other-environment-value"
+    monkeypatch.setenv("GITHUB_TOKEN", token)
+    monkeypatch.setenv("TC351_OTHER_VALUE", other)
+    thin = {
+        "family": "thin",
+        "platform": "net",
+        "library": {"repository": "widget-org/Thin-FOSS-for-.NET", "commit": "b" * 40},
+    }
+    broken = {
+        "family": "down",
+        "platform": "java",
+        "library": {"repository": "widget-org/Down-FOSS-for-Java", "commit": "c" * 40},
+    }
+    root = _readme_project(tmp_path / "project", (_README_PILOT, thin, broken))
+    texts = {_README_REPOSITORY: _readme(), "widget-org/Thin-FOSS-for-.NET": "# T\n"}
+
+    def fake_read_repo_document(
+        repository: str, path: str, *, ref: str | None = None, etag: str | None = None
+    ):
+        if repository == "widget-org/Down-FOSS-for-Java":
+            raise OSError(f"connection failed with Authorization: Bearer {token} and {other}")
+        return DocumentPresent(path=path, sha="f" * 40, size=1, content=texts[repository])
+
+    monkeypatch.setattr(gen, "read_repo_document", fake_read_repo_document)
+
+    for arguments in ([], ["--dry-run"], ["--strict"], ["--pilot", "nope_nope"], ["--help"]):
+        with pytest.raises(SystemExit):
+            _run_github(root, *arguments)
+
+    captured = capsys.readouterr()
+    everything = captured.out + captured.err
+    assert token not in everything and other not in everything and "Bearer" not in everything
+    assert "down_java: FAILED" in everything and "OSError" in everything  # the failure is still reported
+    # The generator itself never reads the environment at all.
+    source = inspect.getsource(gen)
+    assert "environ" not in source and "getenv" not in source
+
+
+def test_a_failed_fetch_exits_1_and_writes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import urllib.error
+
+    root = _readme_project(tmp_path / "project")
+
+    def rate_limited(*args: object, **kwargs: object) -> None:
+        raise urllib.error.HTTPError("https://api.invalid/x", 403, "rate limit exceeded", {}, None)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(gen, "read_repo_document", rate_limited)
+
+    with pytest.raises(SystemExit) as excinfo:
+        _run_github(root)
+
+    assert excinfo.value.code == 1
+    assert "HTTPError (HTTP 403)" in capsys.readouterr().err
+    assert not (root / "tests").exists()
+
+
+def test_the_generator_reads_nothing_until_the_github_source_is_asked_for(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Importing the module and parsing text never calls the reader; only readme_doc_fields does."""
+
+    def forbidden(*args: object, **kwargs: object) -> None:
+        raise AssertionError("the reader must not be called")
+
+    monkeypatch.setattr(gen, "read_repo_document", forbidden)
+
+    fields = gen.parse_readme(_README_REPOSITORY, _README_COMMIT, _readme())
+    gen.build_page_from_readme(_README_PILOT, fields)
+
+    with pytest.raises(AssertionError, match="must not be called"):
+        gen.readme_doc_fields(_README_REPOSITORY, _README_COMMIT)
