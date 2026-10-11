@@ -1,0 +1,800 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zr3o8zy3\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 84%]
+.............                                                            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zr3o8zy3\.junit-1.xml"
+--- stdout ---
+........................................................................ [  9%]
+........................................................................ [ 18%]
+........................................................................ [ 28%]
+........................................................................ [ 37%]
+........................................................................ [ 47%]
+........................................................................ [ 56%]
+........................................................................ [ 66%]
+........................................................................ [ 75%]
+........................................................................ [ 85%]
+........................................................................ [ 94%]
+..........................................                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zr3o8zy3\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 84%]
+.............                                                            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zr3o8zy3\.junit-1.xml"
+--- stdout ---
+........................................................................ [  9%]
+........................................................................ [ 18%]
+........................................................................ [ 28%]
+........................................................................ [ 37%]
+........................................................................ [ 47%]
+........................................................................ [ 56%]
+........................................................................ [ 66%]
+........................................................................ [ 75%]
+........................................................................ [ 85%]
+........................................................................ [ 94%]
+..........................................                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/release/adversarial_suite.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zr3o8zy3\.junit-0.xml"
+--- stdout ---
+........................F...........FF..................FFFFFFFF.......F [ 84%]
+........F....                                                            [100%]
+================================== FAILURES ===================================
+_____________ test_isolation_passes_against_a_well_behaved_server _____________
+
+endpoint = <function endpoint.<locals>.make at 0x0000020E692851C0>
+
+    def test_isolation_passes_against_a_well_behaved_server(endpoint) -> None:
+>       assert suite.scenario_isolation(make_target(endpoint())) == []
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_adversarial_suite.py:647: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\adversarial_suite.py:998: in scenario_isolation
+    for problem in isolation_findings(target, other, outcome.value, asked):
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+target = Target(base_url='http://127.0.0.1:62193', family='pdf', platform='net', symbol='HorizontalAlignment', other=OtherPilot...ct=<image_workflow_gate.Redactor object at 0x0000020E6923CD60>, latency_of=<function elapsed_of at 0x0000020E69290AE0>)
+other = OtherPilot(family='jmap', platform='go', symbol='TestClientCoreSendRequestBatchesMultipleCallsWithResultReference')
+value = []
+arguments = {'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference'}
+
+    def isolation_findings(
+        target: Target, other: OtherPilot, value: Any, arguments: Mapping[str, Any] | None = None
+    ) -> list[str]:
+        """What in one answer belongs to another pilot: its symbol, its scope, or its generation.
+    
+        The symbol is searched for only in what remains after the request's own text is removed from the answer."""
+        found: list[str] = []
+>       for text in data_strings(strip_request_echo(value, arguments or {}), skip=ISOLATION_SKIPPED_KEYS):
+                                 ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'strip_request_echo' is not defined
+
+scripts\release\adversarial_suite.py:906: NameError
+_________________ test_isolation_detects_a_cross_pilot_symbol _________________
+
+endpoint = <function endpoint.<locals>.make at 0x0000020E69344AE0>
+
+    def test_isolation_detects_a_cross_pilot_symbol(endpoint) -> None:
+>       violations = suite.scenario_isolation(make_target(endpoint(leak_other_symbol=True)))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_adversarial_suite.py:739: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\adversarial_suite.py:998: in scenario_isolation
+    for problem in isolation_findings(target, other, outcome.value, asked):
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+target = Target(base_url='http://127.0.0.1:63528', family='pdf', platform='net', symbol='HorizontalAlignment', other=OtherPilot...ct=<image_workflow_gate.Redactor object at 0x0000020E692001D0>, latency_of=<function elapsed_of at 0x0000020E69290AE0>)
+other = OtherPilot(family='jmap', platform='go', symbol='TestClientCoreSendRequestBatchesMultipleCallsWithResultReference')
+value = []
+arguments = {'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference'}
+
+    def isolation_findings(
+        target: Target, other: OtherPilot, value: Any, arguments: Mapping[str, Any] | None = None
+    ) -> list[str]:
+        """What in one answer belongs to another pilot: its symbol, its scope, or its generation.
+    
+        The symbol is searched for only in what remains after the request's own text is removed from the answer."""
+        found: list[str] = []
+>       for text in data_strings(strip_request_echo(value, arguments or {}), skip=ISOLATION_SKIPPED_KEYS):
+                                 ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'strip_request_echo' is not defined
+
+scripts\release\adversarial_suite.py:906: NameError
+_______ test_isolation_control_detects_an_endpoint_that_serves_nothing ________
+
+endpoint = <function endpoint.<locals>.make at 0x0000020E693472E0>
+
+    def test_isolation_control_detects_an_endpoint_that_serves_nothing(endpoint) -> None:
+        target = make_target(endpoint(empty_index=True), with_baseline=False)
+        target.schemas = {name: dict(schema, type="object") for name, schema in TOOLS.items()}
+>       violations = suite.scenario_isolation(target)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_adversarial_suite.py:748: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\adversarial_suite.py:998: in scenario_isolation
+    for problem in isolation_findings(target, other, outcome.value, asked):
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+target = Target(base_url='http://127.0.0.1:63539', family='pdf', platform='net', symbol='HorizontalAlignment', other=OtherPilot...ct=<image_workflow_gate.Redactor object at 0x0000020E69200590>, latency_of=<function elapsed_of at 0x0000020E69290AE0>)
+other = OtherPilot(family='jmap', platform='go', symbol='TestClientCoreSendRequestBatchesMultipleCallsWithResultReference')
+value = []
+arguments = {'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference'}
+
+    def isolation_findings(
+        target: Target, other: OtherPilot, value: Any, arguments: Mapping[str, Any] | None = None
+    ) -> list[str]:
+        """What in one answer belongs to another pilot: its symbol, its scope, or its generation.
+    
+        The symbol is searched for only in what remains after the request's own text is removed from the answer."""
+        found: list[str] = []
+>       for text in data_strings(strip_request_echo(value, arguments or {}), skip=ISOLATION_SKIPPED_KEYS):
+                                 ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'strip_request_echo' is not defined
+
+scripts\release\adversarial_suite.py:906: NameError
+__________ test_strip_request_echo_removes_exact_equal_strings_only ___________
+
+    def test_strip_request_echo_removes_exact_equal_strings_only() -> None:
+>       stripped = suite.strip_request_echo(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+            {"fqn": "Ns.Widget", "definition": "class Ns.Widget : Base", "n": 3, "ok": True, "none": None},
+            {"fqn": "Ns.Widget"},
+        )
+E       AttributeError: module 'adversarial_suite' has no attribute 'strip_request_echo'. Did you mean: 'strip_request_echoX'?
+
+tests\deploy\test_adversarial_suite.py:938: AttributeError
+____ test_strip_request_echo_handles_nested_structures_and_request_objects ____
+
+    def test_strip_request_echo_handles_nested_structures_and_request_objects() -> None:
+        arguments = {"query": "Widget", "scope": {"family": "pdf", "platform": "net"}, "tags": ["a", ["b"]]}
+        value = {
+            "scope": {"family": "pdf", "platform": "net", "extra": "Widget helper"},
+            "items": [{"name": "Widget"}, {"name": "WidgetFactory"}, ["a", "b", "c"]],
+            "count": 3,
+        }
+>       assert suite.strip_request_echo(value, arguments) == {
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+            "scope": {"family": "", "platform": "", "extra": "Widget helper"},
+            "items": [{"name": ""}, {"name": "WidgetFactory"}, ["", "", "c"]],
+            "count": 3,
+        }
+E       AttributeError: module 'adversarial_suite' has no attribute 'strip_request_echo'. Did you mean: 'strip_request_echoX'?
+
+tests\deploy\test_adversarial_suite.py:952: AttributeError
+_ test_strip_request_echo_does_not_mutate_its_inputs_or_touch_non_string_arguments _
+
+    def test_strip_request_echo_does_not_mutate_its_inputs_or_touch_non_string_arguments() -> None:
+        value = {"a": ["x", {"b": "x"}]}
+        arguments = {"top_k": 5, "flag": True, "nothing": None, "q": "x"}
+        snapshot = json.dumps(value)
+>       assert suite.strip_request_echo(value, arguments) == {"a": ["", {"b": ""}]}
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'adversarial_suite' has no attribute 'strip_request_echo'. Did you mean: 'strip_request_echoX'?
+
+tests\deploy\test_adversarial_suite.py:963: AttributeError
+______ test_isolation_findings_ignore_the_echo_but_keep_every_real_leak _______
+
+    def test_isolation_findings_ignore_the_echo_but_keep_every_real_leak() -> None:
+        target = suite.Target(base_url="x", family=FAMILY, platform=PLATFORM, symbol=SYMBOL, other=OTHER)
+        asked = {"fqn": OTHER.symbol}
+        echo = {"scope": {"family": FAMILY, "platform": PLATFORM}, "fqn": OTHER.symbol, "suggestions": []}
+>       assert suite.isolation_findings(target, OTHER, echo, asked) == []
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_adversarial_suite.py:978: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+target = Target(base_url='x', family='pdf', platform='net', symbol='HorizontalAlignment', other=OtherPilot(family='jmap', platf...ct=<image_workflow_gate.Redactor object at 0x0000020E692E24E0>, latency_of=<function elapsed_of at 0x0000020E69290AE0>)
+other = OtherPilot(family='jmap', platform='go', symbol='TestClientCoreSendRequestBatchesMultipleCallsWithResultReference')
+value = {'scope': {'family': 'pdf', 'platform': 'net'}, 'fqn': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference', 'suggestions': []}
+arguments = {'fqn': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference'}
+
+    def isolation_findings(
+        target: Target, other: OtherPilot, value: Any, arguments: Mapping[str, Any] | None = None
+    ) -> list[str]:
+        """What in one answer belongs to another pilot: its symbol, its scope, or its generation.
+    
+        The symbol is searched for only in what remains after the request's own text is removed from the answer."""
+        found: list[str] = []
+>       for text in data_strings(strip_request_echo(value, arguments or {}), skip=ISOLATION_SKIPPED_KEYS):
+                                 ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'strip_request_echo' is not defined
+
+scripts\release\adversarial_suite.py:906: NameError
+________ test_isolation_passes_an_honest_miss_that_echoes_the_request _________
+
+endpoint = <function endpoint.<locals>.make at 0x0000020E692447C0>
+
+    def test_isolation_passes_an_honest_miss_that_echoes_the_request(endpoint) -> None:
+        target = make_target(endpoint(honest_miss_shape=True))
+        target.limits = suite.Limits(tool_timeout_s=60.0)  # this test is about the echo, not about speed
+>       violations = suite.scenario_isolation(target)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_adversarial_suite.py:995: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\adversarial_suite.py:998: in scenario_isolation
+    for problem in isolation_findings(target, other, outcome.value, asked):
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+target = Target(base_url='http://127.0.0.1:63846', family='pdf', platform='net', symbol='HorizontalAlignment', other=OtherPilot...ct=<image_workflow_gate.Redactor object at 0x0000020E692E2490>, latency_of=<function elapsed_of at 0x0000020E69290AE0>)
+other = OtherPilot(family='jmap', platform='go', symbol='TestClientCoreSendRequestBatchesMultipleCallsWithResultReference')
+value = {'scope': {'family': 'pdf', 'platform': 'net', 'source_kind': 'self_extracted'}, 'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference', 'results': [], 'suggestions': []}
+arguments = {'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference'}
+
+    def isolation_findings(
+        target: Target, other: OtherPilot, value: Any, arguments: Mapping[str, Any] | None = None
+    ) -> list[str]:
+        """What in one answer belongs to another pilot: its symbol, its scope, or its generation.
+    
+        The symbol is searched for only in what remains after the request's own text is removed from the answer."""
+        found: list[str] = []
+>       for text in data_strings(strip_request_echo(value, arguments or {}), skip=ISOLATION_SKIPPED_KEYS):
+                                 ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'strip_request_echo' is not defined
+
+scripts\release\adversarial_suite.py:906: NameError
+__ test_isolation_fails_a_symbol_leaked_beyond_the_echo[leak_in_suggestions] __
+
+endpoint = <function endpoint.<locals>.make at 0x0000020E69345BC0>
+flag = 'leak_in_suggestions'
+
+    @pytest.mark.parametrize("flag", ["leak_in_suggestions", "leak_in_definition", "leak_in_members"])
+    def test_isolation_fails_a_symbol_leaked_beyond_the_echo(endpoint, flag: str) -> None:
+>       violations = suite.scenario_isolation(make_target(endpoint(honest_miss_shape=True, **{flag: True})))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_adversarial_suite.py:1001: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\adversarial_suite.py:998: in scenario_isolation
+    for problem in isolation_findings(target, other, outcome.value, asked):
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+target = Target(base_url='http://127.0.0.1:63857', family='pdf', platform='net', symbol='HorizontalAlignment', other=OtherPilot...ct=<image_workflow_gate.Redactor object at 0x0000020E692E3C00>, latency_of=<function elapsed_of at 0x0000020E69290AE0>)
+other = OtherPilot(family='jmap', platform='go', symbol='TestClientCoreSendRequestBatchesMultipleCallsWithResultReference')
+value = {'scope': {'family': 'pdf', 'platform': 'net', 'source_kind': 'self_extracted'}, 'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference', 'results': [], 'suggestions': []}
+arguments = {'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference'}
+
+    def isolation_findings(
+        target: Target, other: OtherPilot, value: Any, arguments: Mapping[str, Any] | None = None
+    ) -> list[str]:
+        """What in one answer belongs to another pilot: its symbol, its scope, or its generation.
+    
+        The symbol is searched for only in what remains after the request's own text is removed from the answer."""
+        found: list[str] = []
+>       for text in data_strings(strip_request_echo(value, arguments or {}), skip=ISOLATION_SKIPPED_KEYS):
+                                 ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'strip_request_echo' is not defined
+
+scripts\release\adversarial_suite.py:906: NameError
+__ test_isolation_fails_a_symbol_leaked_beyond_the_echo[leak_in_definition] ___
+
+endpoint = <function endpoint.<locals>.make at 0x0000020E69246480>
+flag = 'leak_in_definition'
+
+    @pytest.mark.parametrize("flag", ["leak_in_suggestions", "leak_in_definition", "leak_in_members"])
+    def test_isolation_fails_a_symbol_leaked_beyond_the_echo(endpoint, flag: str) -> None:
+>       violations = suite.scenario_isolation(make_target(endpoint(honest_miss_shape=True, **{flag: True})))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_adversarial_suite.py:1001: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\adversarial_suite.py:998: in scenario_isolation
+    for problem in isolation_findings(target, other, outcome.value, asked):
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+target = Target(base_url='http://127.0.0.1:63868', family='pdf', platform='net', symbol='HorizontalAlignment', other=OtherPilot...ct=<image_workflow_gate.Redactor object at 0x0000020E674DFD90>, latency_of=<function elapsed_of at 0x0000020E69290AE0>)
+other = OtherPilot(family='jmap', platform='go', symbol='TestClientCoreSendRequestBatchesMultipleCallsWithResultReference')
+value = {'scope': {'family': 'pdf', 'platform': 'net', 'source_kind': 'self_extracted'}, 'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference', 'results': [], 'suggestions': []}
+arguments = {'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference'}
+
+    def isolation_findings(
+        target: Target, other: OtherPilot, value: Any, arguments: Mapping[str, Any] | None = None
+    ) -> list[str]:
+        """What in one answer belongs to another pilot: its symbol, its scope, or its generation.
+    
+        The symbol is searched for only in what remains after the request's own text is removed from the answer."""
+        found: list[str] = []
+>       for text in data_strings(strip_request_echo(value, arguments or {}), skip=ISOLATION_SKIPPED_KEYS):
+                                 ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'strip_request_echo' is not defined
+
+scripts\release\adversarial_suite.py:906: NameError
+____ test_isolation_fails_a_symbol_leaked_beyond_the_echo[leak_in_members] ____
+
+endpoint = <function endpoint.<locals>.make at 0x0000020E69345A80>
+flag = 'leak_in_members'
+
+    @pytest.mark.parametrize("flag", ["leak_in_suggestions", "leak_in_definition", "leak_in_members"])
+    def test_isolation_fails_a_symbol_leaked_beyond_the_echo(endpoint, flag: str) -> None:
+>       violations = suite.scenario_isolation(make_target(endpoint(honest_miss_shape=True, **{flag: True})))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_adversarial_suite.py:1001: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\adversarial_suite.py:998: in scenario_isolation
+    for problem in isolation_findings(target, other, outcome.value, asked):
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+target = Target(base_url='http://127.0.0.1:63879', family='pdf', platform='net', symbol='HorizontalAlignment', other=OtherPilot...ct=<image_workflow_gate.Redactor object at 0x0000020E674DEBC0>, latency_of=<function elapsed_of at 0x0000020E69290AE0>)
+other = OtherPilot(family='jmap', platform='go', symbol='TestClientCoreSendRequestBatchesMultipleCallsWithResultReference')
+value = {'scope': {'family': 'pdf', 'platform': 'net', 'source_kind': 'self_extracted'}, 'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference', 'results': [], 'suggestions': []}
+arguments = {'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference'}
+
+    def isolation_findings(
+        target: Target, other: OtherPilot, value: Any, arguments: Mapping[str, Any] | None = None
+    ) -> list[str]:
+        """What in one answer belongs to another pilot: its symbol, its scope, or its generation.
+    
+        The symbol is searched for only in what remains after the request's own text is removed from the answer."""
+        found: list[str] = []
+>       for text in data_strings(strip_request_echo(value, arguments or {}), skip=ISOLATION_SKIPPED_KEYS):
+                                 ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'strip_request_echo' is not defined
+
+scripts\release\adversarial_suite.py:906: NameError
+_________________ test_a_well_behaved_image_passes_end_to_end _________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6361/test_a_well_behaved_image_pass0')
+endpoint = <function endpoint.<locals>.make at 0x0000020E69205C60>
+capsys = <_pytest.capture.CaptureFixture object at 0x0000020E6922DAE0>
+
+    def test_a_well_behaved_image_passes_end_to_end(
+        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        fake = endpoint()
+        code, docker, report_dir = run_main(tmp_path, fake)
+        out = capsys.readouterr().out
+>       assert code == 0, out
+E       AssertionError: pdf/net            FAIL  protocol PASS  arguments PASS  isolation FAIL  disclosure PASS  concurrency PASS  restart PASS
+E             violation [isolation] crash: the scenario crashed: NameError: name 'strip_request_echo' is not defined
+E         verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-6361\test_a_well_behaved_image_pass0\reports
+E         
+E       assert 1 == 0
+
+tests\deploy\test_adversarial_suite.py:1144: AssertionError
+_________ test_attacking_a_url_starts_no_container_and_skips_restart __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6361/test_attacking_a_url_starts_no0')
+endpoint = <function endpoint.<locals>.make at 0x0000020E69207B00>
+capsys = <_pytest.capture.CaptureFixture object at 0x0000020E69283850>
+
+    def test_attacking_a_url_starts_no_container_and_skips_restart(
+        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        fake = endpoint()
+        docker = FakeDocker(fake)
+        deps = make_deps(docker)
+        report_dir = tmp_path / "reports"
+        code = suite.main(["--url", fake.url, "--pilot", "pdf/net", "--report-dir", str(report_dir)], deps, FAST)
+        out = capsys.readouterr().out
+>       assert code == 0, out
+E       AssertionError: pdf/net            FAIL  protocol PASS  arguments PASS  isolation FAIL  disclosure PASS  concurrency PASS  restart SKIPPED
+E             violation [isolation] crash: the scenario crashed: NameError: name 'strip_request_echo' is not defined
+E             restart: restart persistence is skipped: --url attacks an already-running endpoint, not a container
+E         verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-6361\test_attacking_a_url_starts_no0\reports
+E         
+E       assert 1 == 0
+
+tests\deploy\test_adversarial_suite.py:1258: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_adversarial_suite.py::test_isolation_passes_against_a_well_behaved_server
+FAILED tests/deploy/test_adversarial_suite.py::test_isolation_detects_a_cross_pilot_symbol
+FAILED tests/deploy/test_adversarial_suite.py::test_isolation_control_detects_an_endpoint_that_serves_nothing
+FAILED tests/deploy/test_adversarial_suite.py::test_strip_request_echo_removes_exact_equal_strings_only
+FAILED tests/deploy/test_adversarial_suite.py::test_strip_request_echo_handles_nested_structures_and_request_objects
+FAILED tests/deploy/test_adversarial_suite.py::test_strip_request_echo_does_not_mutate_its_inputs_or_touch_non_string_arguments
+FAILED tests/deploy/test_adversarial_suite.py::test_isolation_findings_ignore_the_echo_but_keep_every_real_leak
+FAILED tests/deploy/test_adversarial_suite.py::test_isolation_passes_an_honest_miss_that_echoes_the_request
+FAILED tests/deploy/test_adversarial_suite.py::test_isolation_fails_a_symbol_leaked_beyond_the_echo[leak_in_suggestions]
+FAILED tests/deploy/test_adversarial_suite.py::test_isolation_fails_a_symbol_leaked_beyond_the_echo[leak_in_definition]
+FAILED tests/deploy/test_adversarial_suite.py::test_isolation_fails_a_symbol_leaked_beyond_the_echo[leak_in_members]
+FAILED tests/deploy/test_adversarial_suite.py::test_a_well_behaved_image_passes_end_to_end
+FAILED tests/deploy/test_adversarial_suite.py::test_attacking_a_url_starts_no_container_and_skips_restart
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zr3o8zy3\.junit-1.xml"
+--- stdout ---
+........................F...........FF..................FFFFFFFF.......F [  9%]
+........F............................................................... [ 18%]
+........................................................................ [ 28%]
+........................................................................ [ 37%]
+........................................................................ [ 47%]
+........................................................................ [ 56%]
+........................................................................ [ 66%]
+........................................................................ [ 75%]
+........................................................................ [ 85%]
+........................................................................ [ 94%]
+..........................................                               [100%]
+================================== FAILURES ===================================
+_____________ test_isolation_passes_against_a_well_behaved_server _____________
+
+endpoint = <function endpoint.<locals>.make at 0x000001E183F5F6A0>
+
+    def test_isolation_passes_against_a_well_behaved_server(endpoint) -> None:
+>       assert suite.scenario_isolation(make_target(endpoint())) == []
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_adversarial_suite.py:647: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\adversarial_suite.py:998: in scenario_isolation
+    for problem in isolation_findings(target, other, outcome.value, asked):
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+target = Target(base_url='http://127.0.0.1:61856', family='pdf', platform='net', symbol='HorizontalAlignment', other=OtherPilot...ct=<image_workflow_gate.Redactor object at 0x000001E1845815B0>, latency_of=<function elapsed_of at 0x000001E181A58C20>)
+other = OtherPilot(family='jmap', platform='go', symbol='TestClientCoreSendRequestBatchesMultipleCallsWithResultReference')
+value = []
+arguments = {'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference'}
+
+    def isolation_findings(
+        target: Target, other: OtherPilot, value: Any, arguments: Mapping[str, Any] | None = None
+    ) -> list[str]:
+        """What in one answer belongs to another pilot: its symbol, its scope, or its generation.
+    
+        The symbol is searched for only in what remains after the request's own text is removed from the answer."""
+        found: list[str] = []
+>       for text in data_strings(strip_request_echo(value, arguments or {}), skip=ISOLATION_SKIPPED_KEYS):
+                                 ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'strip_request_echo' is not defined
+
+scripts\release\adversarial_suite.py:906: NameError
+_________________ test_isolation_detects_a_cross_pilot_symbol _________________
+
+endpoint = <function endpoint.<locals>.make at 0x000001E183F08EA0>
+
+    def test_isolation_detects_a_cross_pilot_symbol(endpoint) -> None:
+>       violations = suite.scenario_isolation(make_target(endpoint(leak_other_symbol=True)))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_adversarial_suite.py:739: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\adversarial_suite.py:998: in scenario_isolation
+    for problem in isolation_findings(target, other, outcome.value, asked):
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+target = Target(base_url='http://127.0.0.1:65507', family='pdf', platform='net', symbol='HorizontalAlignment', other=OtherPilot...ct=<image_workflow_gate.Redactor object at 0x000001E183F93B90>, latency_of=<function elapsed_of at 0x000001E181A58C20>)
+other = OtherPilot(family='jmap', platform='go', symbol='TestClientCoreSendRequestBatchesMultipleCallsWithResultReference')
+value = []
+arguments = {'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference'}
+
+    def isolation_findings(
+        target: Target, other: OtherPilot, value: Any, arguments: Mapping[str, Any] | None = None
+    ) -> list[str]:
+        """What in one answer belongs to another pilot: its symbol, its scope, or its generation.
+    
+        The symbol is searched for only in what remains after the request's own text is removed from the answer."""
+        found: list[str] = []
+>       for text in data_strings(strip_request_echo(value, arguments or {}), skip=ISOLATION_SKIPPED_KEYS):
+                                 ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'strip_request_echo' is not defined
+
+scripts\release\adversarial_suite.py:906: NameError
+_______ test_isolation_control_detects_an_endpoint_that_serves_nothing ________
+
+endpoint = <function endpoint.<locals>.make at 0x000001E183EF36A0>
+
+    def test_isolation_control_detects_an_endpoint_that_serves_nothing(endpoint) -> None:
+        target = make_target(endpoint(empty_index=True), with_baseline=False)
+        target.schemas = {name: dict(schema, type="object") for name, schema in TOOLS.items()}
+>       violations = suite.scenario_isolation(target)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_adversarial_suite.py:748: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\adversarial_suite.py:998: in scenario_isolation
+    for problem in isolation_findings(target, other, outcome.value, asked):
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+target = Target(base_url='http://127.0.0.1:65517', family='pdf', platform='net', symbol='HorizontalAlignment', other=OtherPilot...ct=<image_workflow_gate.Redactor object at 0x000001E183F92450>, latency_of=<function elapsed_of at 0x000001E181A58C20>)
+other = OtherPilot(family='jmap', platform='go', symbol='TestClientCoreSendRequestBatchesMultipleCallsWithResultReference')
+value = []
+arguments = {'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference'}
+
+    def isolation_findings(
+        target: Target, other: OtherPilot, value: Any, arguments: Mapping[str, Any] | None = None
+    ) -> list[str]:
+        """What in one answer belongs to another pilot: its symbol, its scope, or its generation.
+    
+        The symbol is searched for only in what remains after the request's own text is removed from the answer."""
+        found: list[str] = []
+>       for text in data_strings(strip_request_echo(value, arguments or {}), skip=ISOLATION_SKIPPED_KEYS):
+                                 ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'strip_request_echo' is not defined
+
+scripts\release\adversarial_suite.py:906: NameError
+__________ test_strip_request_echo_removes_exact_equal_strings_only ___________
+
+    def test_strip_request_echo_removes_exact_equal_strings_only() -> None:
+>       stripped = suite.strip_request_echo(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+            {"fqn": "Ns.Widget", "definition": "class Ns.Widget : Base", "n": 3, "ok": True, "none": None},
+            {"fqn": "Ns.Widget"},
+        )
+E       AttributeError: module 'adversarial_suite' has no attribute 'strip_request_echo'. Did you mean: 'strip_request_echoX'?
+
+tests\deploy\test_adversarial_suite.py:938: AttributeError
+____ test_strip_request_echo_handles_nested_structures_and_request_objects ____
+
+    def test_strip_request_echo_handles_nested_structures_and_request_objects() -> None:
+        arguments = {"query": "Widget", "scope": {"family": "pdf", "platform": "net"}, "tags": ["a", ["b"]]}
+        value = {
+            "scope": {"family": "pdf", "platform": "net", "extra": "Widget helper"},
+            "items": [{"name": "Widget"}, {"name": "WidgetFactory"}, ["a", "b", "c"]],
+            "count": 3,
+        }
+>       assert suite.strip_request_echo(value, arguments) == {
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+            "scope": {"family": "", "platform": "", "extra": "Widget helper"},
+            "items": [{"name": ""}, {"name": "WidgetFactory"}, ["", "", "c"]],
+            "count": 3,
+        }
+E       AttributeError: module 'adversarial_suite' has no attribute 'strip_request_echo'. Did you mean: 'strip_request_echoX'?
+
+tests\deploy\test_adversarial_suite.py:952: AttributeError
+_ test_strip_request_echo_does_not_mutate_its_inputs_or_touch_non_string_arguments _
+
+    def test_strip_request_echo_does_not_mutate_its_inputs_or_touch_non_string_arguments() -> None:
+        value = {"a": ["x", {"b": "x"}]}
+        arguments = {"top_k": 5, "flag": True, "nothing": None, "q": "x"}
+        snapshot = json.dumps(value)
+>       assert suite.strip_request_echo(value, arguments) == {"a": ["", {"b": ""}]}
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'adversarial_suite' has no attribute 'strip_request_echo'. Did you mean: 'strip_request_echoX'?
+
+tests\deploy\test_adversarial_suite.py:963: AttributeError
+______ test_isolation_findings_ignore_the_echo_but_keep_every_real_leak _______
+
+    def test_isolation_findings_ignore_the_echo_but_keep_every_real_leak() -> None:
+        target = suite.Target(base_url="x", family=FAMILY, platform=PLATFORM, symbol=SYMBOL, other=OTHER)
+        asked = {"fqn": OTHER.symbol}
+        echo = {"scope": {"family": FAMILY, "platform": PLATFORM}, "fqn": OTHER.symbol, "suggestions": []}
+>       assert suite.isolation_findings(target, OTHER, echo, asked) == []
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_adversarial_suite.py:978: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+target = Target(base_url='x', family='pdf', platform='net', symbol='HorizontalAlignment', other=OtherPilot(family='jmap', platf...ct=<image_workflow_gate.Redactor object at 0x000001E1857B6AD0>, latency_of=<function elapsed_of at 0x000001E181A58C20>)
+other = OtherPilot(family='jmap', platform='go', symbol='TestClientCoreSendRequestBatchesMultipleCallsWithResultReference')
+value = {'scope': {'family': 'pdf', 'platform': 'net'}, 'fqn': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference', 'suggestions': []}
+arguments = {'fqn': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference'}
+
+    def isolation_findings(
+        target: Target, other: OtherPilot, value: Any, arguments: Mapping[str, Any] | None = None
+    ) -> list[str]:
+        """What in one answer belongs to another pilot: its symbol, its scope, or its generation.
+    
+        The symbol is searched for only in what remains after the request's own text is removed from the answer."""
+        found: list[str] = []
+>       for text in data_strings(strip_request_echo(value, arguments or {}), skip=ISOLATION_SKIPPED_KEYS):
+                                 ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'strip_request_echo' is not defined
+
+scripts\release\adversarial_suite.py:906: NameError
+________ test_isolation_passes_an_honest_miss_that_echoes_the_request _________
+
+endpoint = <function endpoint.<locals>.make at 0x000001E183EF1760>
+
+    def test_isolation_passes_an_honest_miss_that_echoes_the_request(endpoint) -> None:
+        target = make_target(endpoint(honest_miss_shape=True))
+        target.limits = suite.Limits(tool_timeout_s=60.0)  # this test is about the echo, not about speed
+>       violations = suite.scenario_isolation(target)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_adversarial_suite.py:995: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\adversarial_suite.py:998: in scenario_isolation
+    for problem in isolation_findings(target, other, outcome.value, asked):
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+target = Target(base_url='http://127.0.0.1:49728', family='pdf', platform='net', symbol='HorizontalAlignment', other=OtherPilot...ct=<image_workflow_gate.Redactor object at 0x000001E18404D810>, latency_of=<function elapsed_of at 0x000001E181A58C20>)
+other = OtherPilot(family='jmap', platform='go', symbol='TestClientCoreSendRequestBatchesMultipleCallsWithResultReference')
+value = {'scope': {'family': 'pdf', 'platform': 'net', 'source_kind': 'self_extracted'}, 'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference', 'results': [], 'suggestions': []}
+arguments = {'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference'}
+
+    def isolation_findings(
+        target: Target, other: OtherPilot, value: Any, arguments: Mapping[str, Any] | None = None
+    ) -> list[str]:
+        """What in one answer belongs to another pilot: its symbol, its scope, or its generation.
+    
+        The symbol is searched for only in what remains after the request's own text is removed from the answer."""
+        found: list[str] = []
+>       for text in data_strings(strip_request_echo(value, arguments or {}), skip=ISOLATION_SKIPPED_KEYS):
+                                 ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'strip_request_echo' is not defined
+
+scripts\release\adversarial_suite.py:906: NameError
+__ test_isolation_fails_a_symbol_leaked_beyond_the_echo[leak_in_suggestions] __
+
+endpoint = <function endpoint.<locals>.make at 0x000001E183FCDA80>
+flag = 'leak_in_suggestions'
+
+    @pytest.mark.parametrize("flag", ["leak_in_suggestions", "leak_in_definition", "leak_in_members"])
+    def test_isolation_fails_a_symbol_leaked_beyond_the_echo(endpoint, flag: str) -> None:
+>       violations = suite.scenario_isolation(make_target(endpoint(honest_miss_shape=True, **{flag: True})))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_adversarial_suite.py:1001: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\adversarial_suite.py:998: in scenario_isolation
+    for problem in isolation_findings(target, other, outcome.value, asked):
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+target = Target(base_url='http://127.0.0.1:49745', family='pdf', platform='net', symbol='HorizontalAlignment', other=OtherPilot...ct=<image_workflow_gate.Redactor object at 0x000001E18410DDB0>, latency_of=<function elapsed_of at 0x000001E181A58C20>)
+other = OtherPilot(family='jmap', platform='go', symbol='TestClientCoreSendRequestBatchesMultipleCallsWithResultReference')
+value = {'scope': {'family': 'pdf', 'platform': 'net', 'source_kind': 'self_extracted'}, 'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference', 'results': [], 'suggestions': []}
+arguments = {'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference'}
+
+    def isolation_findings(
+        target: Target, other: OtherPilot, value: Any, arguments: Mapping[str, Any] | None = None
+    ) -> list[str]:
+        """What in one answer belongs to another pilot: its symbol, its scope, or its generation.
+    
+        The symbol is searched for only in what remains after the request's own text is removed from the answer."""
+        found: list[str] = []
+>       for text in data_strings(strip_request_echo(value, arguments or {}), skip=ISOLATION_SKIPPED_KEYS):
+                                 ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'strip_request_echo' is not defined
+
+scripts\release\adversarial_suite.py:906: NameError
+__ test_isolation_fails_a_symbol_leaked_beyond_the_echo[leak_in_definition] ___
+
+endpoint = <function endpoint.<locals>.make at 0x000001E183F0B2E0>
+flag = 'leak_in_definition'
+
+    @pytest.mark.parametrize("flag", ["leak_in_suggestions", "leak_in_definition", "leak_in_members"])
+    def test_isolation_fails_a_symbol_leaked_beyond_the_echo(endpoint, flag: str) -> None:
+>       violations = suite.scenario_isolation(make_target(endpoint(honest_miss_shape=True, **{flag: True})))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_adversarial_suite.py:1001: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\adversarial_suite.py:998: in scenario_isolation
+    for problem in isolation_findings(target, other, outcome.value, asked):
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+target = Target(base_url='http://127.0.0.1:49763', family='pdf', platform='net', symbol='HorizontalAlignment', other=OtherPilot...ct=<image_workflow_gate.Redactor object at 0x000001E18410CFA0>, latency_of=<function elapsed_of at 0x000001E181A58C20>)
+other = OtherPilot(family='jmap', platform='go', symbol='TestClientCoreSendRequestBatchesMultipleCallsWithResultReference')
+value = {'scope': {'family': 'pdf', 'platform': 'net', 'source_kind': 'self_extracted'}, 'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference', 'results': [], 'suggestions': []}
+arguments = {'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference'}
+
+    def isolation_findings(
+        target: Target, other: OtherPilot, value: Any, arguments: Mapping[str, Any] | None = None
+    ) -> list[str]:
+        """What in one answer belongs to another pilot: its symbol, its scope, or its generation.
+    
+        The symbol is searched for only in what remains after the request's own text is removed from the answer."""
+        found: list[str] = []
+>       for text in data_strings(strip_request_echo(value, arguments or {}), skip=ISOLATION_SKIPPED_KEYS):
+                                 ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'strip_request_echo' is not defined
+
+scripts\release\adversarial_suite.py:906: NameError
+____ test_isolation_fails_a_symbol_leaked_beyond_the_echo[leak_in_members] ____
+
+endpoint = <function endpoint.<locals>.make at 0x000001E183F0A2A0>
+flag = 'leak_in_members'
+
+    @pytest.mark.parametrize("flag", ["leak_in_suggestions", "leak_in_definition", "leak_in_members"])
+    def test_isolation_fails_a_symbol_leaked_beyond_the_echo(endpoint, flag: str) -> None:
+>       violations = suite.scenario_isolation(make_target(endpoint(honest_miss_shape=True, **{flag: True})))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\deploy\test_adversarial_suite.py:1001: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\adversarial_suite.py:998: in scenario_isolation
+    for problem in isolation_findings(target, other, outcome.value, asked):
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+target = Target(base_url='http://127.0.0.1:49773', family='pdf', platform='net', symbol='HorizontalAlignment', other=OtherPilot...ct=<image_workflow_gate.Redactor object at 0x000001E183F04910>, latency_of=<function elapsed_of at 0x000001E181A58C20>)
+other = OtherPilot(family='jmap', platform='go', symbol='TestClientCoreSendRequestBatchesMultipleCallsWithResultReference')
+value = {'scope': {'family': 'pdf', 'platform': 'net', 'source_kind': 'self_extracted'}, 'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference', 'results': [], 'suggestions': []}
+arguments = {'query': 'TestClientCoreSendRequestBatchesMultipleCallsWithResultReference'}
+
+    def isolation_findings(
+        target: Target, other: OtherPilot, value: Any, arguments: Mapping[str, Any] | None = None
+    ) -> list[str]:
+        """What in one answer belongs to another pilot: its symbol, its scope, or its generation.
+    
+        The symbol is searched for only in what remains after the request's own text is removed from the answer."""
+        found: list[str] = []
+>       for text in data_strings(strip_request_echo(value, arguments or {}), skip=ISOLATION_SKIPPED_KEYS):
+                                 ^^^^^^^^^^^^^^^^^^
+E       NameError: name 'strip_request_echo' is not defined
+
+scripts\release\adversarial_suite.py:906: NameError
+_________________ test_a_well_behaved_image_passes_end_to_end _________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6363/test_a_well_behaved_image_pass0')
+endpoint = <function endpoint.<locals>.make at 0x000001E1857F87C0>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001E1857B88D0>
+
+    def test_a_well_behaved_image_passes_end_to_end(
+        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        fake = endpoint()
+        code, docker, report_dir = run_main(tmp_path, fake)
+        out = capsys.readouterr().out
+>       assert code == 0, out
+E       AssertionError: pdf/net            FAIL  protocol PASS  arguments PASS  isolation FAIL  disclosure PASS  concurrency PASS  restart PASS
+E             violation [isolation] crash: the scenario crashed: NameError: name 'strip_request_echo' is not defined
+E         verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-6363\test_a_well_behaved_image_pass0\reports
+E         
+E       assert 1 == 0
+
+tests\deploy\test_adversarial_suite.py:1144: AssertionError
+_________ test_attacking_a_url_starts_no_container_and_skips_restart __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6363/test_attacking_a_url_starts_no0')
+endpoint = <function endpoint.<locals>.make at 0x000001E1857FBCE0>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001E183F15B50>
+
+    def test_attacking_a_url_starts_no_container_and_skips_restart(
+        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        fake = endpoint()
+        docker = FakeDocker(fake)
+        deps = make_deps(docker)
+        report_dir = tmp_path / "reports"
+        code = suite.main(["--url", fake.url, "--pilot", "pdf/net", "--report-dir", str(report_dir)], deps, FAST)
+        out = capsys.readouterr().out
+>       assert code == 0, out
+E       AssertionError: pdf/net            FAIL  protocol PASS  arguments PASS  isolation FAIL  disclosure PASS  concurrency PASS  restart SKIPPED
+E             violation [isolation] crash: the scenario crashed: NameError: name 'strip_request_echo' is not defined
+E             restart: restart persistence is skipped: --url attacks an already-running endpoint, not a container
+E         verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-6363\test_attacking_a_url_starts_no0\reports
+E         
+E       assert 1 == 0
+
+tests\deploy\test_adversarial_suite.py:1258: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_adversarial_suite.py::test_isolation_passes_against_a_well_behaved_server
+FAILED tests/deploy/test_adversarial_suite.py::test_isolation_detects_a_cross_pilot_symbol
+FAILED tests/deploy/test_adversarial_suite.py::test_isolation_control_detects_an_endpoint_that_serves_nothing
+FAILED tests/deploy/test_adversarial_suite.py::test_strip_request_echo_removes_exact_equal_strings_only
+FAILED tests/deploy/test_adversarial_suite.py::test_strip_request_echo_handles_nested_structures_and_request_objects
+FAILED tests/deploy/test_adversarial_suite.py::test_strip_request_echo_does_not_mutate_its_inputs_or_touch_non_string_arguments
+FAILED tests/deploy/test_adversarial_suite.py::test_isolation_findings_ignore_the_echo_but_keep_every_real_leak
+FAILED tests/deploy/test_adversarial_suite.py::test_isolation_passes_an_honest_miss_that_echoes_the_request
+FAILED tests/deploy/test_adversarial_suite.py::test_isolation_fails_a_symbol_leaked_beyond_the_echo[leak_in_suggestions]
+FAILED tests/deploy/test_adversarial_suite.py::test_isolation_fails_a_symbol_leaked_beyond_the_echo[leak_in_definition]
+FAILED tests/deploy/test_adversarial_suite.py::test_isolation_fails_a_symbol_leaked_beyond_the_echo[leak_in_members]
+FAILED tests/deploy/test_adversarial_suite.py::test_a_well_behaved_image_passes_end_to_end
+FAILED tests/deploy/test_adversarial_suite.py::test_attacking_a_url_starts_no_container_and_skips_restart
+
+--- stderr ---
+
