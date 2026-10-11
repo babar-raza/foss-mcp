@@ -1,0 +1,87 @@
+id: TC-354
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-002 (the standalone image serves what the validated live path serves). TC-349 added a snapshot tool but nothing has run it:
+  infra/demo-manifests/ still has zero sidecar files, so a standalone image has no product reference, recent changes or install
+  verification, and its generations are older than the ones the 40-pilot cluster was proven on. This card runs the tool against the live,
+  healthy cluster (namespace foss-mcp, 40 Ready serving pods) and commits the result, then pins the result with a real-tree test: every
+  pilot has its pointer, one generation, non-empty lexical documents, and all three well-formed sidecars, inside the size budget.
+depends_on:
+- TC-346
+- TC-349
+write_paths:
+- infra/demo-manifests/**
+- tests/deploy/test_demo_manifests_sidecars.py
+- tests/deploy/test_compact_demo_manifests.py
+satisfies:
+- REQ-G3-002
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — The demo data is refreshed from the validated cluster, once per content wave, never by hand (supervisor)'
+  sha256: ac763feb6ec41c4735fb45d4ba3d011bdc4af1429b90c312a169b40bfe044309
+inputs:
+- >-
+  Precondition, check first and STOP with a `blocked` status if it is false (this is an environment condition, not something to work
+  around): from the toolchain-activated shell, `kubectl get pods -n foss-mcp` shows the 40 serving pods (selector
+  `app.kubernetes.io/component=serving`) all `1/1 Running`. Do not install, upgrade, restart or delete anything in the cluster; the only
+  cluster commands you may run are `kubectl get pods`, `kubectl get pod ... -o json` and what scripts/release/snapshot_demo_from_cluster.py
+  itself runs (`kubectl exec ... tar cf -`, read only).
+- >-
+  Read scripts/release/snapshot_demo_from_cluster.py and scripts/release/compact_demo_manifests.py (read only), then run
+  `python scripts/release/snapshot_demo_from_cluster.py --namespace foss-mcp --dry-run` and report what it would do. Then run it for real
+  (no --allow-missing-sidecars: all three sidecars must exist for all 40 pilots; if any pilot cannot, report exactly which and why and
+  STOP rather than loosening it). Run `python scripts/release/compact_demo_manifests.py --check` and require exit 0. Report the tree size
+  before and after, per-scope min/median/max generation size, the number of vector points kept per scope, and the sidecar sizes.
+- >-
+  tests/deploy/test_compact_demo_manifests.py (TC-346's file, in your write_paths for ONE reason): its real-tree size budgets were set
+  before sidecars existed. If, and only if, the measured tree now exceeds them, raise the affected budget to the measured value plus
+  about 25% and say so in your report with the numbers. Do not change any other assertion.
+- >-
+  tests/deploy/test_demo_manifests_sidecars.py (NEW; reads the committed tree, no cluster, no network): exactly 40 scope directories,
+  matching the chart's pilot list; each has active_pointer.json, exactly one generation file that the pointer names, and non-empty
+  `payload.lexical_index.documents`; each pilot has product_reference_<f>_<p>.json, recent_releases_<f>_<p>.json and
+  package_registry_<f>_<p>.json (file names from the repo's own sidecar-name helpers, never retyped), all valid JSON; the product reference
+  sidecar's `platform` matches the pilot and it has a non-empty `manifest_text` and a `source_repository`/`source_ref` equal to the chart's
+  library.repository and library.commit; the package-registry sidecar has `verified`, `coordinate` and `checked_at` keys; no file in the
+  tree outside the expected names exists (no stray temp files); no credential-shaped value appears anywhere in the tree (call
+  `secretscan.scan_tree`-equivalent logic by reading the files and checking the same shapes: `ghp_`, `github_pat_`, `AKIA`, `-----BEGIN`
+  PRIVATE KEY, `xox`); and the total size is under the budget.
+- >-
+  Run `{python} -m pytest tests/deploy/test_demo_manifests_sidecars.py tests/deploy/test_compact_demo_manifests.py -q -rfE`, then once
+  `{python} -m pytest tests/deploy tests/infra/test_demo_manifests.py -q -rfE`. Commit the data and tests together. Write commit messages as
+  UTF-8 without a byte-order mark. The repository pre-commit hook runs a secret scan on staged changes; if it objects, STOP and report the
+  file:line it names (never paste the value).
+actions:
+- Run the snapshot tool against the live healthy cluster and commit the refreshed demo data with all sidecars.
+- Pin the committed tree with a real-tree test for completeness, shape, size and absence of credentials.
+checks:
+- command: '{python} -m pytest tests/deploy/test_demo_manifests_sidecars.py tests/deploy/test_compact_demo_manifests.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-002
+- command: '{python} -m pytest tests/deploy tests/infra/test_demo_manifests.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-002
+min_tests: 8
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/deploy/test_demo_manifests_sidecars.py');s=p.read_text(encoding='utf-8');old='product_reference';assert old in s;p.write_text(s.replace(old,'product_referenceX'),encoding='utf-8')"
+  rationale: >-
+    Renames every product_reference in the new test so it asks for sidecar files that do not exist: the real-tree sidecar assertions
+    fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-354/receipt.json
+closeout:
+- >-
+  infra/demo-manifests/ holds, for all 40 pilots, the generation the validated cluster served plus its product reference, recent releases
+  and package-registry sidecars, pinned by a real-tree test.
+recovery: Re-run from a clean tree.

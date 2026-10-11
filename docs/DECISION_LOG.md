@@ -2881,3 +2881,35 @@ the content lane's target. Standalone demo image `foss-mcp-serving:demo-<sha7>` 
 355.7 MB (19 MB of it pilot data); it does not start by default (TC-350). Recovery notes worth keeping: a restart left five Helm
 releases in `pending-upgrade`; deleting only each dead revision's secret (`sh.helm.release.v1.<release>.v<N>` after confirming its
 `status` label) let the next upgrade proceed. Docker Desktop must be started by hand after a machine restart.
+
+## 2026-10-11 — Peers will try to break the shipped image: an adversarial suite is a requirement, not an extra (operator, supervisor, pre-TC-355)
+
+Operator: "We are talking about sharing the code with peers. They will test it to fail." A green eleven-check proof shows the
+happy path works; it says nothing about what a hostile or merely careless client does. REQ-G3-006: before an image is tagged for
+hosting, an adversarial suite is run against a container started exactly as a peer starts it, and it must find no crash, no
+server error, no leak and no cross-pilot data. Scope of the suite, chosen from how this server can actually be abused:
+protocol (malformed JSON-RPC, wrong content type, oversized bodies, unknown methods, a wrong Origin or protocol-version header,
+a missing session); tool arguments (wrong types, nested objects, megabyte strings, NUL and unpaired-surrogate and bidirectional
+Unicode, regular-expression and path-traversal text, zero, negative and huge `top_k`); scope isolation (asking one pilot's server
+for another pilot's symbols, including by passing identity-looking arguments); concurrency (many parallel sessions, bounded tail
+latency, no growth in memory); information disclosure (no filesystem path, environment value or stack trace in any error); and
+restart (the same generation after the container is restarted). The server must stay ready after every attack: `/readyz` is
+re-checked between scenarios. Findings are fixed through cards like any other defect; the suite itself never weakens to pass.
+
+## 2026-10-11 — The demo data is refreshed from the validated cluster, once per content wave, never by hand (supervisor)
+
+`infra/demo-manifests/` is what the standalone image serves. TC-349 gave it a snapshot tool that copies a pilot's active generation
+and its three sidecars out of a Ready serving pod, refusing an unhealthy pod, an empty index and an unsafe archive. TC-354 applies
+it to the live cluster so the demo carries the sidecars and the generation that produced the 40-pilot proof. Each content wave
+(new documentation pages and verified examples) is followed by a re-ingest on the cluster, the eleven-check proof, and a fresh
+snapshot, so what ships is what was proven. Every snapshot rewrites tens of megabytes of tracked JSON, so snapshots are batched per
+wave and the final one is taken last; the size budget test pins the growth.
+
+## 2026-10-11 — Checkpoint (supervisor)
+
+Integrated this session: TC-337 to TC-349 (chart gateway wiring, egress, installer secrets, vector scope, probe timeouts, CI fixes,
+lean demo data, registry push tool, cluster snapshot) and the governance mechanisms for the release record and the secret scanner.
+In flight: TC-350 (demo entrypoint and compose), TC-351 (README-based page generator), TC-352 (single furnished COPY), TC-353 (true
+install answer). Authored, not yet dispatched: TC-345 (per-pilot image gate), TC-348 (release-record contract and RELEASE.md),
+TC-354 (apply the snapshot), TC-355 (adversarial suite). Owner-only: the internal registry host and login (OWNER-13), and whether to
+relocate pytest's temporary directory away from the `pytest-of-*` name this host's Application Control blocks.

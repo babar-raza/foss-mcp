@@ -1,0 +1,95 @@
+id: TC-355
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-006 (adversarial robustness). The operator will share the image with peers who will test it to fail. The eleven-check proof and
+  the per-image workflow gate (TC-345) show the happy path works; nothing yet attacks a running container. This card adds
+  scripts/release/adversarial_suite.py: it starts the image exactly as a peer does, then runs protocol, argument, scope-isolation,
+  concurrency, information-disclosure and restart scenarios against a real MCP endpoint, re-checking /readyz between scenarios, and writes
+  a report. It exits non-zero on any server error, crash, disclosure, cross-pilot data, or unbounded latency or memory.
+depends_on:
+- TC-345
+- TC-350
+write_paths:
+- scripts/release/adversarial_suite.py
+- tests/deploy/test_adversarial_suite.py
+satisfies:
+- REQ-G3-006
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Peers will try to break the shipped image: an adversarial suite is a requirement, not an extra (operator, supervisor, pre-TC-355)'
+  sha256: d2caef724bdb4ebdd6139a6775d2e46c22527150b512d2f09d15225ba6375268
+inputs:
+- >-
+  Read scripts/release/image_workflow_gate.py (TC-345; reuse its container start/stop, port discovery, readiness polling and budget
+  handling by import, do not copy), scripts/poc/pilot_workflow_proof.py's `LiveMcpClient` and `open_live_client` (the MCP session over
+  Streamable HTTP), infra/serve_http.py (Origin and protocol-version rejection, /healthz, /readyz) and src/foss_mcp/mcp/server.py (the tool
+  registry and each tool's input schema from tools/list). Never print or log any environment value.
+- >-
+  scripts/release/adversarial_suite.py: arguments `--image NAME:TAG` (explicit tag, never latest), `--pilot FAMILY/PLATFORM` (repeatable,
+  default three pilots with different languages chosen from the chart), `--other-pilot` (a pilot whose symbols are used for the isolation
+  scenario), `--report-dir`, `--memory` (default 256m), `--cpus` (default 0.5), `--url URL` (attack an already-running endpoint instead of
+  starting a container; then restart persistence is skipped and says so), `--dry-run`. Start each pilot container as TC-345 does and ALWAYS
+  remove it in a `finally`. Each scenario is a named, independent function returning pass or a list of violations with evidence (a short
+  excerpt, never a secret), and after every scenario `/readyz` must still return 200 (a scenario that leaves the server unready FAILS).
+- >-
+  Scenarios (each with its exact expectation): PROTOCOL - invalid JSON, a JSON array batch, an unknown method, a missing or wrong
+  Content-Type, a 5 MB body, a wrong `Origin` header, an unsupported protocol-version header, a request with no session: every one gets a
+  4xx (or a JSON-RPC error object), never a 5xx, never a hang over 10 s, never a traceback in the body. ARGUMENTS - for every tool in
+  tools/list and every string argument: a 1 MB string, a NUL byte, an unpaired surrogate, right-to-left override characters, 5,000 nested
+  brackets, a regular-expression bomb such as `(a+)+$` against `aaaa...!`, `../../etc/passwd` and `..\..\windows\win.ini`, a shell and an SQL
+  metacharacter string; for every integer argument: 0, -1, 2**31, 2**63 and a float; wrong types for every argument: each yields a
+  structured tool error or an honest empty or miss result, within 5 s, never an unhandled exception text. ISOLATION - ask pilot A's endpoint
+  for a symbol that exists only in `--other-pilot`'s fixture, with and without identity-looking arguments (`family`, `platform`, `scope`,
+  `source_kind`, `generation_id`); the answer must contain no symbol from the other pilot. DISCLOSURE - collect every error body produced
+  above; none may contain a filesystem path from the container (`/app/`, `/data/`, `C:\`), an environment variable value, a Python traceback
+  or the string `Traceback`. CONCURRENCY - 20 parallel MCP sessions each making 10 mixed valid calls: zero errors, p95 latency under 2 s on
+  the budgeted container, and the container's memory (docker stats) after the run within 25% of before. RESTART - `docker restart` the
+  container, wait for ready, and the same `generation_id` is reported and a known symbol still resolves.
+- >-
+  Report: one JSON per pilot plus `summary.json` (schema_version 1, image, image_id, generated_at, per-scenario status and violations,
+  verdict PASS or FAIL). Exit 0 only on PASS. Print a short table; never print an environment value.
+- >-
+  tests/deploy/test_adversarial_suite.py (NEW, no docker and no network: fake container helpers and a fake MCP endpoint, for example a
+  small local HTTP server started in the test): each scenario detects a deliberately bad server (a 500 on a malformed body, a traceback in
+  an error, a leaked `/app/` path, a cross-pilot symbol, a slow reply, a server that goes unready after an attack, a memory jump, a
+  generation change after restart) and passes a well-behaved one; container cleanup runs on failure and on KeyboardInterrupt; `latest`
+  and untagged images are refused; `--dry-run` runs nothing; no environment value appears in any output or report; the verdict is FAIL if
+  any scenario fails.
+- >-
+  Run `{python} -m pytest tests/deploy/test_adversarial_suite.py -q -rfE`, then once `{python} -m pytest tests/deploy -q -rfE`. Do NOT start
+  any container or contact any real endpoint: the supervisor performs the live run as acceptance evidence. Write commit messages as UTF-8
+  without a byte-order mark.
+actions:
+- Add the adversarial suite with six scenario families, readiness re-checks, guaranteed cleanup and a verdict report.
+- Add tests that prove each scenario detects a deliberately bad server and passes a well-behaved one.
+checks:
+- command: '{python} -m pytest tests/deploy/test_adversarial_suite.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-006
+- command: '{python} -m pytest tests/deploy -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-006
+min_tests: 20
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/release/adversarial_suite.py');s=p.read_text(encoding='utf-8');old='Traceback';assert old in s;i=s.rindex(old);p.write_text(s[:i]+'TracebackX'+s[i+len(old):],encoding='utf-8')"
+  rationale: >-
+    Renames the last use of the traceback marker in the suite, so a leaked stack trace is no longer recognised as disclosure: the
+    disclosure test against the deliberately bad server fails. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-355/receipt.json
+closeout:
+- >-
+  The shipped image can be attacked the way a peer will, automatically: hostile protocol input, hostile arguments, scope-identity
+  injection, concurrency, information disclosure and restart, with the server required to stay ready throughout.
+recovery: Re-run from a clean tree.
