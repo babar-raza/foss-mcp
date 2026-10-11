@@ -27,11 +27,14 @@ import re
 from pathlib import Path
 
 import jsonschema
+import pytest
 import yaml
 
+from foss_mcp.indexing import topology_spike
 from foss_mcp.indexing.topology_spike import (
     EmbeddedProfile,
     LabelledQuery,
+    Measurement,
     ServiceShapedProfile,
     decide,
     measure,
@@ -262,22 +265,114 @@ def test_decision_log_has_one_storage_topology_entry_with_numbers_and_rule():
     assert len(non_blank_lines) <= 6, "decision entry must be at most 6 lines"
 
 
+# --------------------------------------------------------------------------
+# Fixed, synthetic measurements for the decision tests below. ``measure()``
+# derives p95 latency from wall-clock time, so a live re-measurement flips on
+# a busy host (observed: recorded ``embedded``, re-derived ``service_shaped``).
+# These objects are built exactly as ``measure()`` returns them
+# (``Measurement(profile_name, p95_latency_seconds, top5_relevance, n_queries)``)
+# but with fixed numbers, so the decision under test never depends on the clock.
+# --------------------------------------------------------------------------
+
+# The numbers recorded for the TC-004 spike in docs/DECISION_LOG.md
+# (2026-09-10 entry): embedded p95=0.058ms, service_shaped p95=0.692ms,
+# relevance 30/30 for both. That entry is the measurement the manifest's
+# recorded decision was derived from.
+_RECORDED_EMBEDDED = Measurement(
+    profile_name=EmbeddedProfile.name,
+    p95_latency_seconds=0.058e-3,
+    top5_relevance=30 / 30,
+    n_queries=30,
+)
+_RECORDED_SERVICE = Measurement(
+    profile_name=ServiceShapedProfile.name,
+    p95_latency_seconds=0.692e-3,
+    top5_relevance=30 / 30,
+    n_queries=30,
+)
+
+# Clearly synthetic measurements (not from the repository's history) that
+# drive ``decide`` down each of its other branches.
+_SYNTHETIC_EMBEDDED_LOW_RELEVANCE = Measurement(
+    profile_name=EmbeddedProfile.name,
+    p95_latency_seconds=0.058e-3,
+    top5_relevance=0.80,  # 0.80 / 1.00 = 0.80 < 0.90: more than 10% worse
+    n_queries=30,
+)
+_SYNTHETIC_EMBEDDED_HIGH_LATENCY = Measurement(
+    profile_name=EmbeddedProfile.name,
+    p95_latency_seconds=2.0e-3,  # 2.0ms / 0.692ms is about 2.9x: above 2x
+    top5_relevance=30 / 30,
+    n_queries=30,
+)
+
+
 def test_manifest_storage_topology_matches_the_measured_decision_and_is_not_the_placeholder():
     """Load-bearing test for TC-004's negative control: if the manifest's
     storage_topology is ever reverted to the 'undecided_pending_TC-004'
     placeholder, this must fail, because that would mean the measured
-    decision was never actually written back."""
+    decision was never actually written back.
+
+    Deterministic by construction (TC-430): the decision is re-derived from
+    the FIXED measurement recorded in docs/DECISION_LOG.md, never by timing
+    the profiles again, so host load cannot flip it."""
     manifest = _load_manifest()
     recorded = manifest["storage_topology"]
 
     assert recorded != PLACEHOLDER
     assert recorded, "storage_topology must be non-empty"
 
+    # (a) the recorded decision is what the decision rule yields for the
+    # measurement the spike recorded.
+    assert decide(_RECORDED_EMBEDDED, _RECORDED_SERVICE) == recorded
+
+    # (b) the recorded value is one of the values decide() can return. Every
+    # branch of the rule is exercised with fixed measurements.
+    reachable = {
+        decide(_RECORDED_EMBEDDED, _RECORDED_SERVICE),
+        decide(_SYNTHETIC_EMBEDDED_LOW_RELEVANCE, _RECORDED_SERVICE),
+        decide(_SYNTHETIC_EMBEDDED_HIGH_LATENCY, _RECORDED_SERVICE),
+    }
+    assert reachable == {EmbeddedProfile.name, ServiceShapedProfile.name}
+    assert decide(_SYNTHETIC_EMBEDDED_LOW_RELEVANCE, _RECORDED_SERVICE) == ServiceShapedProfile.name
+    assert decide(_SYNTHETIC_EMBEDDED_HIGH_LATENCY, _RECORDED_SERVICE) == ServiceShapedProfile.name
+    assert recorded in reachable
+
+
+def test_live_relevance_matches_the_recorded_measurement_without_timing_fields():
+    """The non-timing part of the recorded measurement stays live: retrieval
+    quality depends on the corpus and the scoring core, not on the clock.
+    Only ``top5_relevance`` and ``n_queries`` are asserted -- never latency."""
     embedded_measurement = measure(EmbeddedProfile(), CORPUS, QUERIES, top_k=TOP_K)
     service_measurement = measure(ServiceShapedProfile(), CORPUS, QUERIES, top_k=TOP_K)
-    expected_decision = decide(embedded_measurement, service_measurement)
 
-    assert recorded == expected_decision
+    assert embedded_measurement.n_queries == len(QUERIES) == _RECORDED_EMBEDDED.n_queries
+    assert service_measurement.n_queries == len(QUERIES) == _RECORDED_SERVICE.n_queries
+    assert embedded_measurement.top5_relevance == _RECORDED_EMBEDDED.top5_relevance
+    assert service_measurement.top5_relevance == _RECORDED_SERVICE.top5_relevance
+
+
+def test_decision_is_pure_and_the_decision_test_never_calls_measure(monkeypatch):
+    """Regression test for the flake TC-430 fixed. ``decide`` is a pure
+    function of its two measurements, so the same fixed inputs give the same
+    answer every time; and the manifest decision test must still pass when
+    ``measure`` (the only place wall-clock timing enters) is made to raise,
+    proving it does not re-measure."""
+    first = decide(_RECORDED_EMBEDDED, _RECORDED_SERVICE)
+    second = decide(_RECORDED_EMBEDDED, _RECORDED_SERVICE)
+    assert first == second
+
+    def _forbidden_measure(*args, **kwargs):
+        raise AssertionError("the decision test must not re-measure wall-clock timings")
+
+    monkeypatch.setattr(topology_spike, "measure", _forbidden_measure)
+    monkeypatch.setitem(globals(), "measure", _forbidden_measure)
+
+    test_manifest_storage_topology_matches_the_measured_decision_and_is_not_the_placeholder()
+
+    # Prove the guard is live: a call to measure() now raises.
+    with pytest.raises(AssertionError, match="must not re-measure"):
+        measure(EmbeddedProfile(), CORPUS, QUERIES, top_k=TOP_K)
 
 
 def test_manifest_still_validates_against_the_product_manifest_schema():
