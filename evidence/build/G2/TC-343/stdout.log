@@ -1,0 +1,106 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q -rfE -k cpp_fixture_guard "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5n8npat9\.junit-0.xml"
+--- stdout ---
+..                                                                       [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py --collect-only -q
+--- stdout ---
+tests/indexing/test_example_verifier.py: 27
+
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q -rfE -k cpp_fixture_guard "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5n8npat9\.junit-0.xml"
+--- stdout ---
+..                                                                       [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py --collect-only -q
+--- stdout ---
+tests/indexing/test_example_verifier.py: 27
+
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/indexing/test_example_verifier.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py -q -rfE -k cpp_fixture_guard "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5n8npat9\.junit-0.xml"
+--- stdout ---
+F.                                                                       [100%]
+================================== FAILURES ===================================
+__________________ test_cpp_fixture_guard_skips_off_windows ___________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000016DF3E2AD70>
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000016DF3F48E90>, _basetemp=None, _retention_count=3, _retention_policy='all')
+
+    def test_cpp_fixture_guard_skips_off_windows(
+        monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+    ) -> None:
+        """Off Windows the MSVC + ninja fixture skips and never starts a clone or build."""
+    
+        def _must_not_be_called(*args: object, **kwargs: object) -> Path:
+            pytest.fail("prepare_cpp_library must not be called off Windows")
+    
+        monkeypatch.setattr(sys.modules[__name__], "prepare_cpp_library", _must_not_be_called)
+        monkeypatch.setattr(sys, "platform", "linux")
+    
+        with pytest.raises(pytest.skip.Exception) as skipped:
+>           cpp_library.__wrapped__(tmp_path_factory)
+
+tests\indexing\test_example_verifier.py:581: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_example_verifier.py:556: in cpp_library
+    workdir = tmp_path_factory.mktemp("cells_cpp_reference")
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-7b182948484d7df9\Lib\site-packages\_pytest\tmpdir.py:136: in mktemp
+    basename = self._ensure_relative_to_basetemp(basename)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\venv-7b182948484d7df9\Lib\site-packages\_pytest\tmpdir.py:117: in _ensure_relative_to_basetemp
+    if (self.getbasetemp() / basename).resolve().parent != self.getbasetemp():
+        ^^^^^^^^^^^^^^^^^^
+..\venv-7b182948484d7df9\Lib\site-packages\_pytest\tmpdir.py:186: in getbasetemp
+    uid = get_user_id()
+          ^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def get_user_id() -> int | None:
+        """Return the current process's real user id or None if it could not be
+        determined.
+    
+        :return: The user id or None if it could not be determined.
+        """
+        # mypy follows the version and platform checking expectation of PEP 484:
+        # https://mypy.readthedocs.io/en/stable/common_issues.html?highlight=platform#python-version-and-system-platform-checks
+        # Containment checks are too complex for mypy v1.5.0 and cause failure.
+        if sys.platform == "win32" or sys.platform == "emscripten":
+            # win32 does not have a getuid() function.
+            # Emscripten has a return 0 stub.
+            return None
+        else:
+            # On other platforms, a return value of -1 is assumed to indicate that
+            # the current process's real user id could not be determined.
+            ERROR = -1
+>           uid = os.getuid()
+                  ^^^^^^^^^
+E           AttributeError: module 'os' has no attribute 'getuid'. Did you mean: 'getpid'?
+
+..\venv-7b182948484d7df9\Lib\site-packages\_pytest\compat.py:278: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_example_verifier.py::test_cpp_fixture_guard_skips_off_windows
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_example_verifier.py --collect-only -q
+--- stdout ---
+tests/indexing/test_example_verifier.py: 27
+
+
+--- stderr ---
+
