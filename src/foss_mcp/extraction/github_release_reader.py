@@ -105,6 +105,11 @@ class Release:
     tag_name: str
     body: str
     richness: RichnessVerdict
+    # Additive and last so positional ``Release(tag, body, richness)`` keeps working. Filled from
+    # the API's ``published_at`` / ``html_url`` when GitHub returns them, so a client can tell how
+    # recent "recent" is and where the release lives.
+    published_at: str | None = None
+    url: str | None = None
 
 
 def _get_json(url: str, *, etag: str | None = None) -> tuple[int, Any, str | None]:
@@ -143,7 +148,15 @@ def fetch_releases(repository: str, *, per_page: int = 100, etag: str | None = N
             break
         for entry in batch:
             body = entry.get("body") or ""
-            releases.append(Release(entry["tag_name"], body, classify_richness(body)))
+            releases.append(
+                Release(
+                    entry["tag_name"],
+                    body,
+                    classify_richness(body),
+                    published_at=entry.get("published_at") or None,
+                    url=entry.get("html_url") or None,
+                )
+            )
         if len(batch) < per_page:
             break
         page += 1

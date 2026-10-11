@@ -23,6 +23,12 @@ genuinely publish a new tag at any time. So the skip-on-unchanged idea TC-243 ad
 a time-based cache here instead: ``main`` skips the live fetch only when ``--output`` already
 exists, is well-formed JSON, and is less than ``_SIDECAR_FRESHNESS_SECONDS`` old (by its own
 mtime) - never a permanent skip.
+
+A failed fetch is never recorded as an answer (TC-388). ``main`` leaves a well-formed existing
+sidecar untouched, writes ``[]`` only when there is nothing usable (so the Helm initContainer's
+wait-for-the-file still ends), and in both cases writes a ``<output>.failed`` marker that makes
+``_sidecar_is_fresh`` False, so the next run refetches instead of trusting an empty list. A
+successful fetch deletes the marker. ``--force`` skips the freshness check entirely.
 """
 
 from __future__ import annotations
@@ -31,6 +37,7 @@ import argparse
 import json
 import re
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 from foss_mcp.extraction.github_release_reader import Release, fetch_releases
@@ -59,13 +66,28 @@ def recent_releases_sidecar_name(family: str, platform: str) -> str:
 
 
 def _serialize_release(release: Release) -> dict:
-    """A ``Release`` as a JSON-serializable dict: its three real fields, verbatim."""
-    return {"tag_name": release.tag_name, "body": release.body, "richness": release.richness}
+    """A ``Release`` as a JSON-serializable dict: its three real fields, verbatim, plus
+    ``published_at`` / ``url`` only when GitHub supplied them (older sidecars have neither).
+    """
+    data: dict = {"tag_name": release.tag_name, "body": release.body, "richness": release.richness}
+    if release.published_at is not None:
+        data["published_at"] = release.published_at
+    if release.url is not None:
+        data["url"] = release.url
+    return data
 
 
 def _deserialize_release(data: dict) -> Release:
-    """The inverse of ``_serialize_release``: rebuild the exact ``Release`` it wrote."""
-    return Release(tag_name=data["tag_name"], body=data["body"], richness=data["richness"])
+    """The inverse of ``_serialize_release``: rebuild the exact ``Release`` it wrote. The two
+    optional keys may be absent (every sidecar written before TC-388), which loads as None.
+    """
+    return Release(
+        tag_name=data["tag_name"],
+        body=data["body"],
+        richness=data["richness"],
+        published_at=data.get("published_at"),
+        url=data.get("url"),
+    )
 
 
 def load_recent_releases_sidecar(path: Path) -> tuple[Release, ...] | None:
@@ -88,12 +110,20 @@ def load_recent_releases_sidecar(path: Path) -> tuple[Release, ...] | None:
     return tuple(_deserialize_release(entry) for entry in data)
 
 
+def _fetch_failed_marker(output: Path) -> Path:
+    """The marker file ``<output>.failed`` that records the last fetch for *output* failed."""
+    return output.with_name(output.name + ".failed")
+
+
 def _sidecar_is_fresh(output: Path) -> bool:
-    """True only when *output* exists, is well-formed JSON holding a list, and its own mtime is
-    less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+    """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+    list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
     or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
-    raises, so a malformed existing file cannot block a re-run.
+    raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+    the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
     """
+    if _fetch_failed_marker(output).exists():
+        return False
     try:
         age_seconds = time.time() - output.stat().st_mtime
     except OSError:
@@ -107,14 +137,47 @@ def _sidecar_is_fresh(output: Path) -> bool:
     return isinstance(data, list)
 
 
+_URL_PATTERN = re.compile(r"\w+://\S+")
+_TOKEN_PATTERN = re.compile(r"\b(?:gh[pousr]_|github_pat_)\w+|\b[Bb]earer\s+\S+|\b[Tt]oken\s+\S+")
+_MAX_DETAIL_CHARS = 200
+
+
+def _safe_failure_detail(exc: BaseException) -> str:
+    """The exception's message with URLs and token-looking strings removed and its length capped,
+    for the console line only. The marker file never carries any message text.
+    """
+    text = _URL_PATTERN.sub("<url>", str(exc))
+    text = _TOKEN_PATTERN.sub("<redacted>", text)
+    return " ".join(text.split())[:_MAX_DETAIL_CHARS]
+
+
+def _sidecar_holds_a_list(output: Path) -> bool:
+    """True when *output* is readable, well-formed JSON holding a list (good data to preserve)."""
+    try:
+        return isinstance(json.loads(output.read_text(encoding="utf-8")), list)
+    except (OSError, ValueError):
+        return False
+
+
+def _write_failure_marker(output: Path, exc: BaseException) -> None:
+    """Record only the exception class name and a UTC timestamp - no message, no URL."""
+    stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    _fetch_failed_marker(output).write_text(f"{type(exc).__name__} {stamp}\n", encoding="utf-8")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", required=True, help="'owner/name'")
     parser.add_argument("--limit", type=int, default=_DEFAULT_LIMIT)
     parser.add_argument("--output", type=Path, required=True, help="path to write the JSON sidecar")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="refetch even when the existing sidecar looks fresh",
+    )
     args = parser.parse_args()
 
-    if _sidecar_is_fresh(args.output):
+    if not args.force and _sidecar_is_fresh(args.output):
         print(
             f"skipped fetch for {args.repository} -> {args.output}: "
             f"existing sidecar is less than {_SIDECAR_FRESHNESS_SECONDS} seconds old"
@@ -123,21 +186,30 @@ def main() -> None:
 
     try:
         releases = fetch_releases(args.repository)[: args.limit]
-    except Exception as exc:  # noqa: BLE001 - deliberately broad: any failure degrades to empty.
+    except Exception as exc:  # noqa: BLE001 - deliberately broad: any failure is recorded as one.
         # A sidecar must always eventually exist once this step runs at all (see module docstring
-        # and infra/helm/foss-mcp/templates/deployment.yaml's initContainer, which now waits on
-        # this file too) - so a live-fetch failure writes an honest empty list instead of leaving
-        # no file behind, matching _serving_recent_releases' already-documented contract.
-        args.output.write_text(json.dumps([]), encoding="utf-8")
+        # and infra/helm/foss-mcp/templates/deployment.yaml's initContainer, which waits on this
+        # file), so when there is nothing usable on disk an empty list is written. But a failure
+        # is not an answer: good existing data is never replaced, and the marker makes the next
+        # run refetch rather than trust either file.
+        if _sidecar_holds_a_list(args.output):
+            outcome = f"kept the existing sidecar {args.output}"
+        else:
+            args.output.write_text(json.dumps([]), encoding="utf-8")
+            outcome = f"wrote an empty placeholder sidecar to {args.output}"
+        _write_failure_marker(args.output, exc)
+        detail = _safe_failure_detail(exc)
         print(
-            f"failed to fetch releases for {args.repository}: {exc} -- wrote an empty sidecar "
-            f"to {args.output} instead"
+            f"failed to fetch releases for {args.repository}: {type(exc).__name__} -- {outcome}; "
+            f"marked {_fetch_failed_marker(args.output)} for a retry"
+            + (f" (detail: {detail})" if detail else "")
         )
         return
 
     args.output.write_text(
         json.dumps([_serialize_release(release) for release in releases]), encoding="utf-8"
     )
+    _fetch_failed_marker(args.output).unlink(missing_ok=True)
     print(f"wrote {len(releases)} recent release(s) for {args.repository} -> {args.output}")
 
 

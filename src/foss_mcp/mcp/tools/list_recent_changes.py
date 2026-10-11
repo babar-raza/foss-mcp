@@ -19,6 +19,8 @@ class ChangeEntry:
     tag_name: str
     richness: RichnessVerdict
     body: str
+    published_at: str | None = None
+    url: str | None = None
 
 
 def list_recent_changes(releases: Sequence[Release], *, limit: int = 10) -> list[ChangeEntry]:
@@ -27,6 +29,12 @@ def list_recent_changes(releases: Sequence[Release], *, limit: int = 10) -> list
     verdict ``classify_richness`` gave it - never dropped, never upgraded, never guessed at.
     """
     return [
-        ChangeEntry(tag_name=release.tag_name, richness=release.richness, body=release.body)
+        ChangeEntry(
+            tag_name=release.tag_name,
+            richness=release.richness,
+            body=release.body,
+            published_at=release.published_at,
+            url=release.url,
+        )
         for release in releases[:limit]
     ]
