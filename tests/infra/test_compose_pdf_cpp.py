@@ -38,8 +38,9 @@ def test_ingest_pdf_cpp_service_publishes_pdf_cpp_held_by_its_own_ingestion(comp
     assert "--family pdf" in command, command
     assert "--platform cpp" in command, command
     assert "--held-by ingestion-pdf-cpp" in command, command
-    assert "--library-platform" not in command, command
-    assert "--furnished-page" not in command, command
+    # TC-375: the documentation page is wired, so compose passes it and the library platform.
+    assert "--furnished-page /app/fixtures/furnished/pdf_cpp/pages/_index.md" in command, command
+    assert "--library-platform cpp" in command, command
 
 
 def test_ingest_and_serving_share_the_same_declared_named_volume(compose: dict) -> None:

@@ -67,16 +67,14 @@ PILOTS: list[dict[str, Any]] = [
         "apiSurface": "/app/fixtures/pdf_cpp/api_surface.json",
         "title": "pdf/cpp API surface",
         "maxTypes": 300,
+        # TC-375: values.yaml's pdf/cpp pilot now has a furnishedPage and docker-compose.yml's
+        # ingest-pdf-cpp passes --furnished-page with the library flags, so this synthetic pilot
+        # carries the same page and library block, copied verbatim from values.yaml's own
+        # pdf/cpp pilot. (Before TC-375, TC-327 attempt 2 gave it a library block without a
+        # page, because fetch_product_reference.py and fetch_recent_releases.py read
+        # $lib.repository/$lib.commit unconditionally.)
+        "furnishedPage": "/app/fixtures/furnished/pdf_cpp/pages/_index.md",
         "manifestPath": "CMakeLists.txt",
-        # TC-327 (attempt 2): this synthetic pilot has no furnishedPage, so it never got a
-        # "library" block either - unlike the real pdf/cpp pilot in values.yaml, which has one
-        # (repository/commit/platform) even without a furnishedPage, because
-        # infra/helm/foss-mcp/templates/ingestion-job.yaml's fetch_product_reference.py and
-        # fetch_recent_releases.py steps both read $lib.repository/$lib.commit unconditionally,
-        # never gated on furnishedPage. Without this, those two steps render with an empty
-        # --repository/--ref here and no longer match docker-compose.yml's own (correctly
-        # populated) ingest-pdf-cpp service. Values copied verbatim from values.yaml's own
-        # pdf/cpp pilot.
         "library": {
             "repository": "aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp",
             "commit": "4b83c9fec1e37fd205156770161f6843bac00ceb",
