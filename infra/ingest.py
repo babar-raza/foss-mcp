@@ -17,6 +17,8 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 from foss_mcp.indexing.embedding_provider import EmbeddingProvider
@@ -33,6 +35,7 @@ from foss_mcp.indexing.generation_manifest import (  # noqa: F401
 )
 from foss_mcp.indexing.publisher import publish_generation
 from foss_mcp.indexing.vector_index_writer import is_example_chunk
+from foss_mcp.mcp.tools.get_symbol import extract_fqn
 from foss_mcp.normalization.chunker import Chunk
 from foss_mcp.normalization.citation import (
     citable_chunks,
@@ -67,6 +70,82 @@ def _load_chunks(path: Path) -> list[Chunk]:
         )
         for entry in data["chunks"]
     ]
+
+
+# An ``FQN:`` value with one of these prefixes names a verified example or a documentation page,
+# not an extracted API symbol (infra/build_chunks.py writes them), so those chunks stay subject
+# to citation validation like any other prose the project generated.
+_NON_SYMBOL_FQN_PREFIXES = ("Example: ", "Doc: ")
+
+
+@dataclass(frozen=True)
+class SelectionReport:
+    """What ``select_publishable_chunks`` did, as plain counts."""
+
+    total: int
+    published: int
+    api_symbols: int
+    api_symbols_kept: int
+    excluded_other: int
+
+    def summary_line(self) -> str:
+        return (
+            f"citation: published {self.published} of {self.total} chunks; "
+            f"api symbols kept {self.api_symbols_kept} of {self.api_symbols}; "
+            f"excluded {self.excluded_other} other chunks"
+        )
+
+
+def _is_api_symbol_chunk(chunk: Chunk) -> bool:
+    """A self-extracted API-symbol chunk: ``api_surface`` content whose ``FQN:`` line names a
+    real symbol (not an ``Example: ``/``Doc: `` pseudo-FQN). Its text IS the extraction, so its
+    docstring is upstream's own words, not a claim this project generated.
+    """
+    if chunk.content_type != "api_surface":
+        return False
+    fqn = extract_fqn(chunk.text)
+    return fqn is not None and not fqn.startswith(_NON_SYMBOL_FQN_PREFIXES)
+
+
+def select_publishable_chunks(
+    chunks: Sequence[Chunk], fixture: Mapping[str, object]
+) -> tuple[list[Chunk], SelectionReport]:
+    """The chunks to publish for ``--api-surface``, in input order, plus a count report.
+
+    Every API-symbol chunk is kept whatever its validation verdict: an unresolvable inline code
+    span inside an upstream docstring is no reason to delete the symbol, and the unresolved
+    anchors are printed as ``kept api symbol: ...`` so nothing is silent. Every other chunk is
+    validated and filtered exactly as before (``excluded: ...`` lines, SUPPORTED-only).
+    """
+    symbol_index = symbol_index_from_api_surface(fixture["types"])
+    known_counts = known_counts_from_fixture(fixture)
+    validated_chunks = validate_document(chunks, symbol_index, known_counts)
+    selected: list[Chunk] = []
+    api_symbols = 0
+    excluded_other = 0
+    for validated in validated_chunks:
+        is_symbol = _is_api_symbol_chunk(validated)
+        label = "kept api symbol" if is_symbol else "excluded"
+        for section_title, resolution in describe_unresolved_anchors([validated], symbol_index):
+            print(
+                f"{label}: {section_title!r} anchor {resolution.anchor!r} -> "
+                f"{resolution.semantic_support_verdict.value} (match_count={resolution.match_count})"
+            )
+        if is_symbol:
+            api_symbols += 1
+            selected.append(validated)
+        elif citable_chunks([validated]):
+            selected.append(validated)
+        else:
+            excluded_other += 1
+    report = SelectionReport(
+        total=len(chunks),
+        published=len(selected),
+        api_symbols=api_symbols,
+        api_symbols_kept=api_symbols,
+        excluded_other=excluded_other,
+    )
+    return selected, report
 
 
 def main() -> None:
@@ -110,15 +189,8 @@ def main() -> None:
     chunks = _load_chunks(args.chunks)
     if args.api_surface is not None:
         fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
-        symbol_index = symbol_index_from_api_surface(fixture["types"])
-        known_counts = known_counts_from_fixture(fixture)
-        validated_chunks = validate_document(chunks, symbol_index, known_counts)
-        for section_title, resolution in describe_unresolved_anchors(validated_chunks, symbol_index):
-            print(
-                f"excluded: {section_title!r} anchor {resolution.anchor!r} -> "
-                f"{resolution.semantic_support_verdict.value} (match_count={resolution.match_count})"
-            )
-        chunks = citable_chunks(validated_chunks)
+        chunks, report = select_publishable_chunks(chunks, fixture)
+        print(report.summary_line())
     embedding_provider = _load_embedding_provider(args.embedding_provider)
 
     # The empty-generation / >50% regression guard (PublishSafetyError) is no longer
