@@ -322,7 +322,12 @@ def _build_verified_example_chunks(
 
     When ``verification_records`` is a list, one dict is appended per candidate as its verifier
     returns, verified or not: ``title``, ``platform``, ``verified``, ``output`` (in full) and
-    ``index`` (the candidate's 0-based position in document order on its page).
+    ``index`` (the candidate's 0-based position in document order on its page) and ``kind``
+    (``candidate``).
+
+    TC-379: when the platform's ``prepare`` raises a ``RuntimeError`` that is not an
+    ``ExampleEnvironmentError``, one record of ``kind`` ``library_unavailable`` (``index`` -1, the
+    full message as ``output``) is appended instead and an empty list is returned.
     """
     page = _load_furnished_page(args.furnished_page)
     candidates = extract_candidate_examples(page)
@@ -330,7 +335,33 @@ def _build_verified_example_chunks(
     platform_dispatch = _PLATFORM_DISPATCH[args.library_platform]
 
     library_workdir = Path(tempfile.mkdtemp(prefix="build_chunks_library_"))
-    prepared_library = platform_dispatch["prepare"](args, library_workdir)
+    try:
+        prepared_library = platform_dispatch["prepare"](args, library_workdir)
+    except ExampleEnvironmentError:
+        # An environment failure stays fatal: main() ends the build with ENVIRONMENT_FAILURE_EXIT.
+        raise
+    except RuntimeError as exc:
+        # TC-379 (REQ-G3-005): a reference library that cannot be built is a reason to publish no
+        # verified examples, not a reason to publish no documentation. Only the platform's prepare
+        # call is covered; the caller still adds the documentation chunks and writes the output.
+        message = str(exc)
+        print(
+            f"reference library unavailable: {message[:600]}; "
+            "publishing documentation without verified examples",
+            file=sys.stderr,
+        )
+        if verification_records is not None:
+            verification_records.append(
+                {
+                    "title": "(reference library preparation)",
+                    "platform": args.library_platform,
+                    "verified": False,
+                    "output": message,
+                    "index": -1,
+                    "kind": "library_unavailable",
+                }
+            )
+        return []
     verify_kwargs = platform_dispatch["verify_kwargs"](prepared_library, args)
     verify = platform_dispatch["verify"]
 
@@ -357,6 +388,7 @@ def _build_verified_example_chunks(
                     "verified": verification_result.verified,
                     "output": verification_result.output,
                     "index": index,
+                    "kind": "candidate",
                 }
             )
         if verification_result.verified:
