@@ -506,6 +506,8 @@ class ReadmeFields:
     sections: Mapping[str, str]  # canonical required-section name -> neutralised body (found only)
     blocks: tuple[FencedBlock, ...]  # every non-empty language-tagged fenced block, in README order
     non_blank_lines: int
+    mapped: tuple[tuple[str, str], ...] = ()  # (README heading, canonical section) pairs set by the fallback
+    kept: tuple[str, ...] = ()  # README headings the fallback kept under Key Capabilities
 
     @property
     def found(self) -> tuple[str, ...]:
@@ -644,6 +646,83 @@ def _section_key(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", name.lower())
 
 
+# Normalised alternative README headings (see ``_section_key``) -> the canonical section they stand for.
+# Consulted only for a canonical section the README does not name itself (``_apply_section_fallback``).
+_SECTION_ALIASES: dict[str, str] = {
+    _section_key(alias): canonical
+    for canonical, aliases in (
+        ("Installation", ("install", "installing", "getting started", "setup", "installation and setup")),
+        (
+            "Quick Start",
+            (
+                "usage",
+                "quickstart",
+                "quick start guide",
+                "basic usage",
+                "getting started with code",
+                "examples",
+                "example usage",
+            ),
+        ),
+        (
+            "Key Capabilities",
+            (
+                "features",
+                "key features",
+                "capabilities",
+                "supported formats",
+                "supported file formats",
+                "what it does",
+                "highlights",
+                "why this exists",
+                "overview of features",
+            ),
+        ),
+        ("API Reference", ("api", "api overview", "reference", "documentation", "supported api", "classes")),
+        (
+            "Scope and Limitations",
+            (
+                "limitations",
+                "known limitations",
+                "notes",
+                "scope",
+                "compatibility",
+                "requirements and limitations",
+            ),
+        ),
+        ("At a Glance", ("overview", "about", "introduction", "summary", "description")),
+    )
+    for alias in aliases
+}
+
+# README sections that are project housekeeping, not documentation: never kept as extra content.
+# (An FAQ is deliberately not here: it is documentation.)
+_BOILERPLATE_SECTIONS = frozenset(
+    _section_key(name)
+    for name in (
+        "contributing",
+        "contribution",
+        "license",
+        "licence",
+        "contact",
+        "support",
+        "code of conduct",
+        "security",
+        "security policy",
+        "changelog",
+        "release notes",
+        "acknowledgements",
+        "acknowledgments",
+        "credits",
+        "sponsors",
+        "authors",
+        "maintainers",
+        "table of contents",
+        "contents",
+    )
+)
+
+
 def _fence_language(info: str) -> str:
     match = _FENCE_TAG_RE.match(info.strip())
     if match is None:
@@ -683,6 +762,63 @@ def _first_paragraph(lines: Sequence[str], skip: set[int], start: int, stop: int
         if len(plain) >= _MIN_SUMMARY_CHARS and any(ch.isalpha() for ch in plain):
             return plain
     return ""
+
+
+def _apply_section_fallback(
+    level_two: Sequence[tuple[str, str]],
+    sections: Mapping[str, str],
+    report: dict[str, list] | None = None,
+) -> dict[str, str]:
+    """*sections* completed from the README's other level-two sections, when a canonical one is missing.
+
+    *level_two* is every level-two ``(heading, neutralised body)`` of the README, in README order.
+    It runs only when one of the six required sections other than the optional ``Dependencies`` is
+    missing after the canonical-name pass; otherwise *sections* comes back unchanged. Then (1) an
+    alternative heading from ``_SECTION_ALIASES`` fills a still-missing canonical section (the first
+    matching heading in README order wins, and a heading is consumed once), and (2) every remaining
+    non-empty section that is not boilerplate is appended, under its own ``### <heading>``, to
+    ``Key Capabilities`` (created from them when still missing), so no substantive prose is dropped.
+
+    When *report* is given it receives ``mapped`` (``(heading, canonical)`` pairs) and ``kept`` (headings).
+    """
+    result = dict(sections)
+    if all(name in result for name in _REQUIRED_SECTIONS if name != "Dependencies"):
+        return result
+
+    canonical_keys = {_section_key(name): name for name in _REQUIRED_SECTIONS}
+    consumed: set[int] = set()
+    claimed: set[str] = set()
+    for index, (heading, _) in enumerate(level_two):
+        name = canonical_keys.get(_section_key(heading))
+        if name is not None and name in result and name not in claimed:
+            consumed.add(index)  # the heading the canonical-name pass already used
+            claimed.add(name)
+
+    mapped: list[tuple[str, str]] = []
+    for index, (heading, body) in enumerate(level_two):
+        if index in consumed or not body.strip():
+            continue
+        canonical = _SECTION_ALIASES.get(_section_key(heading))
+        if canonical is None or canonical in result:
+            continue
+        result[canonical] = body
+        consumed.add(index)
+        mapped.append((heading, canonical))
+
+    kept = [
+        (heading, body)
+        for index, (heading, body) in enumerate(level_two)
+        if index not in consumed and body.strip() and _section_key(heading) not in _BOILERPLATE_SECTIONS
+    ]
+    if kept:
+        extras = "\n\n".join(f"### {heading}\n\n{body}" for heading, body in kept)
+        existing = result.get("Key Capabilities")
+        result["Key Capabilities"] = extras if existing is None else f"{existing}\n\n{extras}"
+
+    if report is not None:
+        report["mapped"] = mapped
+        report["kept"] = [heading for heading, _ in kept]
+    return result
 
 
 def parse_readme(repository: str, commit: str, text: str) -> ReadmeFields:
@@ -745,6 +881,21 @@ def parse_readme(repository: str, commit: str, text: str) -> ReadmeFields:
         if body.strip():
             sections[name] = body
 
+    level_two_bodies = [
+        (
+            name,
+            _neutralise_markdown(
+                "\n".join(
+                    lines[start + 1 : next((n for n, lv, _ in headings if n > start and lv <= 2), len(lines))]
+                )
+            ),
+        )
+        for start, level, name in headings
+        if level == 2
+    ]
+    fallback_report: dict[str, list] = {}
+    sections = _apply_section_fallback(level_two_bodies, sections, fallback_report)
+
     assert h1 is not None
     after_h1 = h1[0] + (
         2 if h1[0] + 1 < len(lines) and _SETEXT_H1_UNDERLINE_RE.match(lines[h1[0] + 1]) else 1
@@ -761,6 +912,8 @@ def parse_readme(repository: str, commit: str, text: str) -> ReadmeFields:
         sections=sections,
         blocks=tuple(blocks),
         non_blank_lines=non_blank,
+        mapped=tuple(fallback_report.get("mapped", ())),
+        kept=tuple(fallback_report.get("kept", ())),
     )
 
 
@@ -1047,6 +1200,13 @@ def _run_github(parser: argparse.ArgumentParser, args: argparse.Namespace) -> in
             f"{key}: {verb} {shown} - sections found: {_listing(fields.found)}; "
             f"missing: {_listing(fields.missing)}; examples: {fields.example_count}; {len(data)} bytes"
         )
+        if fields.mapped or fields.kept:
+            mapped = "; ".join(f"{heading!r} -> {canonical}" for heading, canonical in fields.mapped)
+            kept = ", ".join(repr(heading) for heading in fields.kept)
+            print(
+                f"{key}: README headings mapped: {mapped or 'none'}; "
+                f"kept under Key Capabilities: {kept or 'none'}"
+            )
     if failed:
         return EXIT_FETCH_FAILED
     return EXIT_REFUSED if refused else 0

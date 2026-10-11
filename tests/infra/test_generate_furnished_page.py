@@ -648,7 +648,14 @@ def test_a_readme_missing_several_sections_gives_a_partial_page_and_reports_them
 ) -> None:
     omitted = ("At a Glance", "Key Capabilities", "API Reference", "Scope and Limitations")
     root = _readme_project(tmp_path / "project")
-    _patch_readmes(monkeypatch, {_README_REPOSITORY: _readme(omit=omitted)})
+    # TC-369: the README is also built without the two unrecognised sections (the keep-the-rest rule
+    # now carries them into the page); only this input changed, no assertion below did.
+    unrecognised = ("Additional Examples", "Development and Testing")
+    # The README must stay long enough not to be refused as thin, so the 30 lines that Development and
+    # Testing supplied are appended to the (last, boilerplate) License section, which is never kept.
+    padding = "\n".join(f"- licence note {number}" for number in range(30))
+    readme = _readme(omit=omitted + unrecognised) + f"\n{padding}\n"
+    _patch_readmes(monkeypatch, {_README_REPOSITORY: readme})
 
     _run_github(root)
 
@@ -1112,3 +1119,244 @@ def test_the_generator_reads_nothing_until_the_github_source_is_asked_for(
 
     with pytest.raises(AssertionError, match="must not be called"):
         gen.readme_doc_fields(_README_REPOSITORY, _README_COMMIT)
+
+
+# ---------------------------------------------------------------------------------------------
+# G3/TC-369 (REQ-G3-005): alternative README headings are mapped onto the seven sections and
+# every remaining substantive section is kept, instead of being dropped. Offline, synthetic text.
+# ---------------------------------------------------------------------------------------------
+
+_FILLER = "\n".join(f"- housekeeping line {number}" for number in range(45))
+
+
+def _loose_readme(*sections: tuple[str, str]) -> str:
+    """The standard intro, the given ``(heading, body)`` sections in order, and a long Contributing."""
+    parts = [_README_INTRO]
+    parts.extend(f"## {heading}\n\n{body}\n" for heading, body in sections)
+    parts.append(f"## Contributing\n\nPlease read the guide first.\n\n{_FILLER}\n")
+    return "\n".join(parts)
+
+
+_ALIASED_SECTIONS = (
+    ("Install", "Fetch it with the toolchain:\n\n```bash\ngo get example.invalid/loose\n```"),
+    ("Usage", "Spin a loose widget:\n\n```go\nw := loose.New()\n```"),
+    ("Supported formats", "| Format | Read |\n| --- | --- |\n| WIDGETFMT | yes |"),
+    ("Notes", "Loose widgets are not thread safe."),
+)
+
+_IMAGING_STYLE_README = _loose_readme(
+    ("Supported formats", "| Format | Read | Write |\n| --- | --- | --- |\n| BMPFMT | yes | yes |"),
+    ("Why this exists", "Commercial imaging stacks cost money; WHYTEXT does not."),
+    ("Install", "Add the package:\n\n```bash\ndotnet add package Loose.Imaging\n```"),
+    ("Usage", "Load a picture:\n\n```csharp\nvar image = Image.Load(path);\n```"),
+)
+
+
+def test_alternative_headings_are_mapped_onto_the_canonical_sections(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    page_text, fields = _build(_loose_readme(*_ALIASED_SECTIONS), monkeypatch)
+
+    assert set(fields.missing) == {"At a Glance", "Dependencies", "API Reference"}
+    assert fields.mapped == (
+        ("Install", "Installation"),
+        ("Usage", "Quick Start"),
+        ("Supported formats", "Key Capabilities"),
+        ("Notes", "Scope and Limitations"),
+    )
+    assert fields.kept == ()
+    for text in ("go get example.invalid/loose", "w := loose.New()", "WIDGETFMT", "not thread safe"):
+        assert text in page_text
+    assert "housekeeping line" not in page_text
+
+
+def test_a_readme_with_only_alias_headings_reports_no_missing_section_but_dependencies(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sections = _ALIASED_SECTIONS + (
+        ("Overview", "A short overview of loose widgets."),
+        ("API", "The public API has one type."),
+    )
+    _, fields = _build(_loose_readme(*sections), monkeypatch)
+
+    assert fields.missing == ("Dependencies",)
+
+
+def test_an_imaging_style_readme_keeps_its_content_and_drops_contributing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    page_text, fields = _build(_IMAGING_STYLE_README, monkeypatch)
+
+    assert "BMPFMT" in page_text and "WHYTEXT" in page_text
+    assert "dotnet add package Loose.Imaging" in page_text
+    assert "Image.Load(path)" in page_text
+    assert "housekeeping line" not in page_text and "Please read the guide" not in page_text
+    assert ("Install", "Installation") in fields.mapped and ("Usage", "Quick Start") in fields.mapped
+    # "Supported formats" claimed Key Capabilities first; "Why this exists" is kept beside it.
+    assert ("Supported formats", "Key Capabilities") in fields.mapped
+    assert fields.kept == ("Why this exists",)
+    assert "Key Capabilities" in fields.found
+
+
+def test_a_contract_following_readme_is_unchanged_byte_for_byte(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for readme in (_readme(), _readme(omit=("Dependencies",))):
+        _patch_readmes(monkeypatch, {_README_REPOSITORY: readme})
+        with_fallback = gen.readme_doc_fields(_README_REPOSITORY, _README_COMMIT)
+        page_with_fallback = gen.build_page_from_readme(_README_PILOT, with_fallback)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(
+                gen, "_apply_section_fallback", lambda level_two, sections, report=None: dict(sections)
+            )
+            canonical_only = gen.readme_doc_fields(_README_REPOSITORY, _README_COMMIT)
+            page_canonical_only = gen.build_page_from_readme(_README_PILOT, canonical_only)
+
+        assert page_with_fallback == page_canonical_only
+        assert with_fallback.sections == canonical_only.sections
+        assert with_fallback.mapped == () and with_fallback.kept == ()
+        assert "Development and Testing" not in page_with_fallback
+        assert "MIT." not in page_with_fallback
+
+
+def test_the_fallback_returns_the_mapping_unchanged_when_every_required_section_is_present() -> None:
+    sections = {name: f"{name} body" for name in gen._REQUIRED_SECTIONS if name != "Dependencies"}
+    level_two = list(sections.items()) + [("Roadmap", "Soon.")]
+    report: dict[str, list] = {}
+
+    assert gen._apply_section_fallback(level_two, sections, report) == sections
+    assert report == {}
+
+
+def test_the_fallback_page_is_byte_identical_every_time(monkeypatch: pytest.MonkeyPatch) -> None:
+    first, _ = _build(_IMAGING_STYLE_README, monkeypatch)
+    second, _ = _build(_IMAGING_STYLE_README, monkeypatch)
+
+    assert first == second
+    assert "\r" not in first
+
+
+def test_an_unmapped_section_with_an_empty_body_is_not_added(monkeypatch: pytest.MonkeyPatch) -> None:
+    readme = _loose_readme(*_ALIASED_SECTIONS, ("Roadmap", ""), ("Hidden", "   "))
+    page_text, fields = _build(readme, monkeypatch)
+
+    assert fields.kept == ()
+    assert "Roadmap" not in page_text and "Hidden" not in page_text
+
+
+def test_the_first_of_two_matching_alias_headings_wins_and_the_second_is_kept(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    readme = _loose_readme(
+        ("Features", "FIRSTFEATURES are listed here."),
+        ("Highlights", "SECONDHIGHLIGHTS are listed here."),
+        *_ALIASED_SECTIONS[:2],
+    )
+    page_text, fields = _build(readme, monkeypatch)
+
+    assert ("Features", "Key Capabilities") in fields.mapped
+    assert all(heading != "Highlights" for heading, _ in fields.mapped)
+    assert fields.kept == ("Highlights",)
+    body = fields.sections["Key Capabilities"]
+    assert body.startswith("FIRSTFEATURES") and "### Highlights\n\nSECONDHIGHLIGHTS" in body
+    assert "FIRSTFEATURES" in page_text and "SECONDHIGHLIGHTS" in page_text
+
+
+def test_unrecognised_sections_alone_create_key_capabilities_and_are_not_reported_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    readme = _loose_readme(
+        ("Install", "Fetch it."),
+        ("Usage", "Use it:\n\n```go\nw := loose.New()\n```"),
+        ("Roadmap", "ROADMAPTEXT is planned."),
+        ("FAQ", "FAQTEXT answers questions."),
+        ("License", "MIT."),
+    )
+    page_text, fields = _build(readme, monkeypatch)
+
+    assert fields.kept == ("Roadmap", "FAQ")
+    assert "Key Capabilities" in fields.found and "Key Capabilities" not in fields.missing
+    assert fields.sections["Key Capabilities"].startswith("### Roadmap\n\nROADMAPTEXT")
+    assert "ROADMAPTEXT" in page_text and "FAQTEXT" in page_text and "MIT." not in page_text
+
+
+def test_boilerplate_sections_are_never_kept(monkeypatch: pytest.MonkeyPatch) -> None:
+    boilerplate = (
+        "Contributing",
+        "License",
+        "Security Policy",
+        "Code of Conduct",
+        "Changelog",
+        "Acknowledgements",
+        "Table of Contents",
+    )
+    readme = _loose_readme(*_ALIASED_SECTIONS[:2], *((name, f"BOILER {name}.") for name in boilerplate))
+    page_text, fields = _build(readme, monkeypatch)
+
+    assert fields.kept == ()
+    assert "BOILER" not in page_text
+
+
+def test_the_page_built_from_kept_sections_loads_through_the_real_loader(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page_text, _ = _build(_IMAGING_STYLE_README, monkeypatch)
+    page = _load_page(tmp_path, page_text)
+
+    titles = [(c.origin, c.title) for c in extract_doc_sections(page)]
+    assert titles == [("content", "Installation and Quick Start"), ("content", "Key Capabilities")]
+    assert "BMPFMT" in str(page["content"]) and "WHYTEXT" in str(page["content"])
+
+
+def test_the_report_names_the_mapped_and_kept_headings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _readme_project(tmp_path / "project")
+    _patch_readmes(monkeypatch, {_README_REPOSITORY: _IMAGING_STYLE_README})
+
+    _run_github(root, "--pilot", _README_PILOT_KEY)
+
+    lines = capsys.readouterr().out.strip().splitlines()
+    assert len(lines) == 2
+    assert "Key Capabilities" in lines[0].split("sections found:")[1].split(";")[0]
+    assert lines[1] == (
+        f"{_README_PILOT_KEY}: README headings mapped: 'Supported formats' -> Key Capabilities; "
+        "'Install' -> Installation; 'Usage' -> Quick Start; kept under Key Capabilities: 'Why this exists'"
+    )
+
+
+def test_a_contract_following_readme_prints_no_mapping_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _readme_project(tmp_path / "project")
+    _patch_readmes(monkeypatch, {_README_REPOSITORY: _readme()})
+
+    _run_github(root)
+
+    assert len(capsys.readouterr().out.strip().splitlines()) == 1
+
+
+def test_alias_keys_are_normalised_and_point_at_canonical_sections() -> None:
+    assert set(gen._SECTION_ALIASES.values()) <= set(gen._REQUIRED_SECTIONS) - {"Dependencies"}
+    assert gen._SECTION_ALIASES[gen._section_key("Installation and Setup")] == "Installation"
+    assert gen._SECTION_ALIASES[gen._section_key("QuickStart")] == "Quick Start"
+    assert gen._SECTION_ALIASES[gen._section_key("Why this exists")] == "Key Capabilities"
+    assert gen._SECTION_ALIASES[gen._section_key("Classes")] == "API Reference"
+    assert gen._SECTION_ALIASES[gen._section_key("Known Limitations")] == "Scope and Limitations"
+    assert gen._SECTION_ALIASES[gen._section_key("About")] == "At a Glance"
+
+
+def test_parse_readme_calls_the_section_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[int] = []
+    real = gen._apply_section_fallback
+
+    def spy(level_two, sections, report=None):  # type: ignore[no-untyped-def]
+        calls.append(len(level_two))
+        return real(level_two, sections, report)
+
+    monkeypatch.setattr(gen, "_apply_section_fallback", spy)
+    gen.parse_readme(_README_REPOSITORY, _README_COMMIT, _IMAGING_STYLE_README)
+
+    assert calls == [5]
+    assert "_apply_section_fallback(" in inspect.getsource(gen.parse_readme)
