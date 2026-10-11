@@ -22,11 +22,13 @@ keeps ``infra/ingest.py``'s own plain-print, argparse-based CLI convention.
 whose ``--repository``/``--ref`` exactly match what the existing ``--output`` sidecar already
 records has nothing to re-verify: the sidecar also carries ``source_repository``/``source_ref``
 (recorded verbatim from the arguments that produced it), and ``main`` skips the live fetch
-entirely - zero network calls - when a re-run's pin is unchanged. ``source_repository``/
-``source_ref`` are sidecar-file-only fields: ``ProductReferenceInputs`` (in
-``get_product_reference.py``, outside this module's write scope) is not extended with them, and
-``load_manifest_sidecar`` does not read them back; only ``main``'s own skip-check reads them,
-directly off the raw JSON.
+entirely - zero network calls - when a re-run's pin is unchanged. ``main``'s own skip-check reads
+them directly off the raw JSON.
+
+G3/TC-353: ``load_manifest_sidecar`` ALSO reads ``source_repository``/``source_ref`` back into
+``ProductReferenceInputs`` (the fields of the same names), so ``get_product_reference`` can name the
+repository and exact commit when a package coordinate does not resolve on its registry. A sidecar
+written before that card has no such keys and loads with both set to None; that is never an error.
 """
 
 from __future__ import annotations
@@ -86,6 +88,12 @@ def _deserialize_document(data: dict) -> DocumentResult:
     raise ValueError(f"unknown document status {status!r} in product reference sidecar")
 
 
+def _optional_text(value: object) -> str | None:
+    """*value* when the sidecar stored a string, else None - a key absent from a sidecar written
+    before TC-353, or recorded as null (``--ref`` omitted), both read as "not known"."""
+    return value if isinstance(value, str) else None
+
+
 def load_manifest_sidecar(path: Path) -> ProductReferenceInputs | None:
     """Read the JSON sidecar *path* back into the ``ProductReferenceInputs`` it was built from.
 
@@ -103,6 +111,8 @@ def load_manifest_sidecar(path: Path) -> ProductReferenceInputs | None:
         platform=data["platform"],
         contributing=_deserialize_document(data["contributing"]),
         agent_guidance=_deserialize_document(data["agent_guidance"]),
+        source_repository=_optional_text(data.get("source_repository")),
+        source_ref=_optional_text(data.get("source_ref")),
     )
 
 

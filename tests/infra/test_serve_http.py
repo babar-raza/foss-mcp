@@ -29,6 +29,7 @@ from foss_mcp.indexing.lexical_index_writer import build_lexical_index
 from foss_mcp.indexing.publisher import content_chunk_id, new_version, publish_generation
 from foss_mcp.indexing.vector_index_writer import build_vector_index
 from foss_mcp.mcp.routing import DeploymentConfig
+from foss_mcp.mcp.tools.get_product_reference import NotAvailable, ReferenceContent, get_product_reference
 from foss_mcp.normalization.chunker import Chunk
 from foss_mcp.normalization.document_schema import NOT_CHECKED, Provenance
 from foss_mcp.telemetry.usage_recorder import UsageRecorder
@@ -329,13 +330,27 @@ def test_metrics_reports_a_real_drop_once_the_queue_is_at_capacity(tmp_path: Pat
 # ---------------------------------------------------------------------
 
 
-def _write_manifest_sidecar(manifests_dir: Path, family: str, platform: str, manifest_text: str) -> None:
+def _write_manifest_sidecar(
+    manifests_dir: Path,
+    family: str,
+    platform: str,
+    manifest_text: str,
+    *,
+    source_repository: str | None = None,
+    source_ref: str | None = None,
+) -> None:
     sidecar = {
         "manifest_text": manifest_text,
         "platform": platform,
         "contributing": {"status": "not_present", "path": "CONTRIBUTING.md"},
         "agent_guidance": {"status": "not_present", "path": "AGENTS.md"},
     }
+    # G3/TC-353: a sidecar written before that card has neither key, so the keys are only present
+    # when the caller gives a value - the default writes exactly the pre-TC-353 shape.
+    if source_repository is not None:
+        sidecar["source_repository"] = source_repository
+    if source_ref is not None:
+        sidecar["source_ref"] = source_ref
     (manifests_dir / serve_http.sidecar_name(family, platform)).write_text(
         json.dumps(sidecar), encoding="utf-8"
     )
@@ -382,6 +397,71 @@ def test_serving_product_reference_inputs_is_unchanged_when_the_registry_sidecar
     assert result.install_verified is None
     assert result.install_verified_coordinate is None
     assert result.install_verified_checked_at is None
+
+
+def test_serving_product_reference_inputs_carries_the_source_repository_and_commit_through_the_merge(
+    tmp_path: Path,
+) -> None:
+    """G3/TC-353: the manifest sidecar's source_repository/source_ref survive the
+    dataclasses.replace merge of the registry-verification result, and the tool built from the
+    merged inputs answers the unresolved "install" section with real content naming that
+    repository and exact commit - the call path the live proof's check 7 exercises."""
+    config = DeploymentConfig(family="pdf", platform="net")
+    manifest_text = "<Project><PropertyGroup><PackageId>Aspose.PDF-FOSS</PackageId></PropertyGroup></Project>"
+    repository = "aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET"
+    commit = "0123456789abcdef0123456789abcdef01234567"
+    _write_manifest_sidecar(
+        tmp_path, "pdf", "net", manifest_text, source_repository=repository, source_ref=commit
+    )
+    registry_sidecar = {
+        "ecosystem": "nuget",
+        "coordinate": "Aspose.PDF-FOSS",
+        "verified": False,
+        "checked_at": "2026-10-08T00:00:00+00:00",
+    }
+    (tmp_path / serve_http.verify_package_registry_sidecar_name("pdf", "net")).write_text(
+        json.dumps(registry_sidecar), encoding="utf-8"
+    )
+
+    result = serve_http._serving_product_reference_inputs(tmp_path, config)
+
+    assert result is not None
+    assert result.install_verified is False
+    assert result.source_repository == repository
+    assert result.source_ref == commit
+    answer = get_product_reference(result, "install")
+    assert isinstance(answer, ReferenceContent)
+    assert answer.text
+    assert f"https://github.com/{repository}" in answer.text
+    assert commit in answer.text
+    assert "not found" in answer.text
+    assert "dotnet add package" not in answer.text
+
+
+def test_serving_product_reference_inputs_without_source_fields_keeps_the_explicit_absence(
+    tmp_path: Path,
+) -> None:
+    """A manifest sidecar written before TC-353 has no source_repository/source_ref: they load as
+    None, nothing raises, and an unresolved coordinate keeps today's explicit NotAvailable."""
+    config = DeploymentConfig(family="pdf", platform="net")
+    manifest_text = "<Project><PropertyGroup><PackageId>Aspose.PDF-FOSS</PackageId></PropertyGroup></Project>"
+    _write_manifest_sidecar(tmp_path, "pdf", "net", manifest_text)
+    registry_sidecar = {
+        "ecosystem": "nuget",
+        "coordinate": "Aspose.PDF-FOSS",
+        "verified": False,
+        "checked_at": "2026-10-08T00:00:00+00:00",
+    }
+    (tmp_path / serve_http.verify_package_registry_sidecar_name("pdf", "net")).write_text(
+        json.dumps(registry_sidecar), encoding="utf-8"
+    )
+
+    result = serve_http._serving_product_reference_inputs(tmp_path, config)
+
+    assert result is not None
+    assert result.source_repository is None
+    assert result.source_ref is None
+    assert isinstance(get_product_reference(result, "install"), NotAvailable)
 
 
 def test_serving_product_reference_inputs_is_none_when_the_manifest_sidecar_is_absent_even_with_a_registry_sidecar(

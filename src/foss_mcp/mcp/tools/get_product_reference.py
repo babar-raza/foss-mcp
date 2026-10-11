@@ -120,6 +120,14 @@ class ProductReferenceInputs:
     install_verified: bool | None = None
     install_verified_coordinate: str | None = None
     install_verified_checked_at: str | None = None
+    # G3/TC-353: the repository ("owner/name", or a full URL) and the exact commit the product's
+    # symbols were extracted from, as recorded in the product-reference sidecar by
+    # infra/fetch_product_reference.py. Read ONLY by the "install" branch, and only when the
+    # registry coordinate did not resolve: the answer then names this repository and commit instead
+    # of being empty. None (the default, and what a sidecar written before TC-353 loads as) means
+    # "not known", and that branch keeps its explicit NotAvailable.
+    source_repository: str | None = None
+    source_ref: str | None = None
 
 
 def _xml_field(manifest_text: str, tag: str) -> str | None:
@@ -131,6 +139,35 @@ def _document_section(section: Section, document: DocumentResult | None) -> Refe
     if document is None or isinstance(document, DocumentNotPresent):
         return NotAvailable(section, f"{section} is not present in this repository")
     return ReferenceContent(section, document.content)
+
+
+def _unresolved_install_text(
+    *,
+    ecosystem: str,
+    coordinate: str,
+    checked_at: str | None,
+    source_repository: str,
+    source_ref: str,
+) -> str:
+    """The "install" answer for a coordinate that ingestion-time verification found absent from its
+    real registry: plain prose that says so, points at the repository and the exact commit, and says
+    to build from source. It is deliberately command-free - the unresolved coordinate is named only
+    to say it was not found, never offered as something to install, and nothing here is a code
+    fence."""
+    repository_url = (
+        source_repository
+        if source_repository.startswith(("http://", "https://"))
+        else f"https://github.com/{source_repository}"
+    )
+    checked = f"{ecosystem} at {checked_at}" if checked_at else ecosystem
+    return (
+        f"The package {coordinate} was checked against {checked} and was not found there, "
+        f"so it should not be installed from that registry. "
+        f"The source repository is {repository_url}, and this reference was taken from "
+        f"the exact commit {source_ref}. "
+        f"To use this library, build it from that source at that commit and install the result, "
+        f"following the repository's README."
+    )
 
 
 def install_coordinate_for_verification(inputs: ProductReferenceInputs) -> tuple[str, str] | None:
@@ -312,10 +349,26 @@ def get_product_reference(
         # literal `is False` (never truthiness): True and None (never checked, or checked under a
         # since-changed coordinate) both fall through to the unmodified ReferenceContent below,
         # exactly as before this card.
+        #
+        # G3/TC-353: an empty answer on this path was true but useless, and the sidecar already
+        # records the repository and exact commit the library came from. When both are known the
+        # answer is real content - not found on the registry, never the unresolved name as a
+        # command, and where to build it from; when either is unknown the explicit absence stays.
         if isinstance(content, ReferenceContent) and inputs.install_verified is False:
             current = install_coordinate_for_verification(inputs)
             if current is not None and current[1] == inputs.install_verified_coordinate:
                 ecosystem, coordinate = current
+                if inputs.source_repository and inputs.source_ref:
+                    return ReferenceContent(
+                        section,
+                        _unresolved_install_text(
+                            ecosystem=ecosystem,
+                            coordinate=coordinate,
+                            checked_at=inputs.install_verified_checked_at,
+                            source_repository=inputs.source_repository,
+                            source_ref=inputs.source_ref,
+                        ),
+                    )
                 return NotAvailable(
                     section,
                     f"{coordinate} ({ecosystem}) was checked against its real registry at "

@@ -447,3 +447,90 @@ def test_main_treats_a_malformed_existing_sidecar_as_absent_and_fetches_live(
     }
     assert written["source_repository"] == REPOSITORY
     assert written["source_ref"] == _NEW_REF
+
+
+# --- load_manifest_sidecar reads the pin back (G3/TC-353) ----------------------------------------
+
+
+def _sidecar_dict(**extra: object) -> dict:
+    sidecar: dict = {
+        "manifest_text": "<Project><TargetFramework>net8.0</TargetFramework></Project>",
+        "platform": "net",
+        "contributing": {"status": "not_present", "path": "CONTRIBUTING.md"},
+        "agent_guidance": {"status": "not_present", "path": "AGENTS.md"},
+    }
+    sidecar.update(extra)
+    return sidecar
+
+
+def test_load_manifest_sidecar_reads_the_source_repository_and_commit_back(tmp_path: Path) -> None:
+    """TC-353: the pin build_sidecar records is carried into ProductReferenceInputs, so the tool can
+    name the repository and exact commit when a package coordinate does not resolve."""
+    path = tmp_path / "product_reference.json"
+    path.write_text(
+        json.dumps(_sidecar_dict(source_repository=REPOSITORY, source_ref=_OLD_REF)), encoding="utf-8"
+    )
+
+    inputs = fetch_product_reference.load_manifest_sidecar(path)
+
+    assert inputs is not None
+    assert inputs.source_repository == REPOSITORY
+    assert inputs.source_ref == _OLD_REF
+    assert inputs.platform == "net"
+    assert inputs.manifest_text == "<Project><TargetFramework>net8.0</TargetFramework></Project>"
+
+
+def test_load_manifest_sidecar_of_a_sidecar_written_before_the_pin_fields_leaves_them_none(
+    tmp_path: Path,
+) -> None:
+    """A sidecar with neither key (written before TC-353) loads without raising, both None."""
+    path = tmp_path / "product_reference.json"
+    path.write_text(json.dumps(_sidecar_dict()), encoding="utf-8")
+
+    inputs = fetch_product_reference.load_manifest_sidecar(path)
+
+    assert inputs is not None
+    assert inputs.source_repository is None
+    assert inputs.source_ref is None
+
+
+def test_load_manifest_sidecar_reads_a_null_ref_as_none_and_keeps_the_repository(tmp_path: Path) -> None:
+    """build_sidecar records source_ref as null when --ref was omitted: not known, not an error."""
+    path = tmp_path / "product_reference.json"
+    path.write_text(
+        json.dumps(_sidecar_dict(source_repository=REPOSITORY, source_ref=None)), encoding="utf-8"
+    )
+
+    inputs = fetch_product_reference.load_manifest_sidecar(path)
+
+    assert inputs is not None
+    assert inputs.source_repository == REPOSITORY
+    assert inputs.source_ref is None
+
+
+def test_load_manifest_sidecar_round_trips_what_build_sidecar_recorded(tmp_path: Path, monkeypatch) -> None:
+    _install_fake_urlopen(
+        monkeypatch,
+        {
+            "CONTRIBUTING.md": _contents_payload(
+                path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"
+            ),
+            "AGENTS.md": _contents_payload(path="AGENTS.md", sha="a" * 40, content="# Agents\n"),
+        },
+    )
+    sidecar = fetch_product_reference.build_sidecar(
+        repository=REPOSITORY,
+        platform="net",
+        manifest_path=None,
+        contributing_path="CONTRIBUTING.md",
+        agent_guidance_path="AGENTS.md",
+        ref=_NEW_REF,
+    )
+    path = tmp_path / "product_reference.json"
+    path.write_text(json.dumps(sidecar), encoding="utf-8")
+
+    inputs = fetch_product_reference.load_manifest_sidecar(path)
+
+    assert inputs is not None
+    assert inputs.source_repository == REPOSITORY
+    assert inputs.source_ref == _NEW_REF
