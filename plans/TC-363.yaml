@@ -1,0 +1,107 @@
+id: TC-363
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-005 (pilot completeness). TC-360, TC-361 and TC-362 give infra/build_chunks.py optional per-pilot verifier flags
+  (`--library-java-packages`, `--library-cpp-source-dir`, `--library-cpp-target`, `--library-cpp-warnings`,
+  `--library-cpp-verify-mode`) and a `nodejs` platform that requires `--library-package-name`. Nothing in the chart passes them:
+  infra/helm/foss-mcp/templates/ingestion-job.yaml forwards only csproj, packageName, modulePath and crateName, and values.yaml has
+  no packageName for cells/typescript, jmap/typescript, 3d/typescript or jmap/nodejs. This card adds the per-pilot library fields
+  to the chart, forwards them to build_chunks.py inside the existing furnishedPage guard, and records the values for the thirteen
+  pilots read from their pinned repositories. No pilot gains a furnishedPage here (the content-wave wiring cards do that), so the
+  rendered chart is unchanged until a wave wires a page.
+depends_on:
+- TC-236
+- TC-327
+- TC-341
+- TC-362
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
+- tests/infra/test_helm_verifier_fields.py
+- tests/infra/test_helm_pilots_match_compose.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read infra/helm/foss-mcp/templates/ingestion-job.yaml (the `{{- if $p.furnishedPage }}` block that forwards `$lib.repository`,
+  `$lib.commit`, `$lib.platform`, `$lib.csproj`, `$lib.packageName`, `$lib.modulePath`, `$lib.crateName`), the `ingestion.pilots`
+  list in infra/helm/foss-mcp/values.yaml, infra/build_chunks.py's argparse (read only: the flag names and choices you forward must
+  match it exactly), tests/infra/test_helm_pilots_match_compose.py (`LIBRARY_FLAGS`, `FIXTURE_CHECKED_PILOTS`,
+  `_assert_pilot_matches_compose`), tests/infra/test_helm_manifest_step.py `_render` (the helm-render pattern to copy), and
+  tests/test_container_build.py::test_the_helm_chart_never_disables_network_policy (read only). Follow the DECISION_LOG entry
+  "Rules for chart-touching cards" (2026-10-11).
+- >-
+  ingestion-job.yaml: inside the existing furnishedPage guard, after the crateName block, forward each new library key with the
+  same `{{- with $lib.<key> }}` shape: javaPackages to `--library-java-packages`, cppSourceDir to `--library-cpp-source-dir`,
+  cppTarget to `--library-cpp-target`, cppWarnings to `--library-cpp-warnings`, cppVerifyMode to `--library-cpp-verify-mode`. Do not
+  change anything else in the template; comment lines must contain no template braces.
+- >-
+  values.yaml, library blocks only, these exact values (read from each pinned repository's pom.xml, CMakeLists.txt and
+  package.json at its library.commit): slides/java javaPackages org.aspose.slides.foss; cells/java javaPackages
+  org.aspose.cells_foss; jmap/java javaPackages com.aspose.jmap; 3d/java javaPackages com.aspose.threed; cells/cpp cppSourceDir
+  Aspose.Cells.Foss.Cpp, cppTarget aspose_cells_foss, cppWarnings relaxed; slides/cpp cppTarget AsposeSlidesFoss; email/cpp
+  cppTarget AsposeEmailFoss, cppVerifyMode compile; jmap/cpp cppTarget aspose-jmap-foss-cpp, cppVerifyMode compile;
+  cells/typescript packageName excel-cells; jmap/typescript packageName aspose-jmap-foss-ts; 3d/typescript packageName "@aspose/3d";
+  jmap/nodejs packageName aspose-jmap-foss. pdf/cpp, pdf/java, pdf/typescript and every other pilot are unchanged. Add one short
+  comment above the first changed entry naming TC-363 and saying these fields take effect only once a pilot has a furnishedPage.
+- >-
+  What must NOT change: with the shipped values the full `helm template` output (image.tag set) is byte-identical before and after
+  this card, because none of the thirteen pilots has a furnishedPage. Compare the SHA256 of the rendered output before and after
+  and state both in your report. docker-compose.yml is not touched: the thirteen pilots are in FIXTURE_CHECKED_PILOTS, whose compose
+  services pass no library flags.
+- >-
+  tests/infra/test_helm_pilots_match_compose.py: APPEND the five new flag/key pairs to `LIBRARY_FLAGS` (so a later wave that wires
+  one of these pilots is parity-checked on them) and change nothing else; every existing test must pass unmodified.
+- >-
+  tests/infra/test_helm_verifier_fields.py (NEW; renders with the real helm binary like test_helm_manifest_step.py, and a missing
+  helm FAILS, never skips): (1) the values.yaml library block of each of the thirteen pilots holds exactly the values above and no
+  other pilot holds any of the five new keys; (2) with shipped values no rendered ingestion Job contains any of the five new flags
+  or `--library-platform nodejs`; (3) with a `-f` override file in tmp_path that gives slides/java, cells/cpp, jmap/cpp,
+  jmap/typescript and jmap/nodejs a furnishedPage (their library blocks copied from values.yaml), each rendered build_chunks.py
+  command carries exactly its pilot's flags with the right values, no value token begins with a dash, jmap/nodejs renders
+  `--library-platform nodejs --library-package-name aspose-jmap-foss`, and a pilot without a given key renders no flag for it;
+  (4) every rendered value of `--library-platform` is one of `sorted(infra.build_chunks._PLATFORM_DISPATCH)` and every
+  `--library-cpp-warnings` / `--library-cpp-verify-mode` value is one of build_chunks' choices.
+- >-
+  Run `{python} -m pytest tests/infra/test_helm_verifier_fields.py tests/infra/test_helm_pilots_match_compose.py -q -rfE`, then once
+  the second check (the Helm CLI needs the toolchain activated in the same command: scripts/toolchain/activate.ps1). Do NOT run the
+  rest of tests/test_container_build.py: it runs real docker builds. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Forward the new per-pilot verifier fields from the chart to build_chunks.py inside the furnishedPage guard.
+- Record the per-pilot values for the thirteen Java, C++, TypeScript and Node.js pilots.
+- Pin the wiring with a real helm render and extend the compose parity flag table.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_verifier_fields.py tests/infra/test_helm_pilots_match_compose.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/test_container_build.py tests/infra/test_helm_chart.py tests/infra/test_helm_manifest_step.py tests/infra/test_build_chunks_platforms.py -q -rfE -k "never_disables_network_policy or helm_chart or manifest_step or build_chunks_platforms"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 100
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/ingestion-job.yaml');s=p.read_text(encoding='utf-8');old='--library-cpp-target';assert old in s;p.write_text(s.replace(old,'--library-cpp-targetX'),encoding='utf-8')"
+  rationale: >-
+    Renames the forwarded C++ target flag in the Job template, so the override render no longer carries --library-cpp-target for
+    cells/cpp and jmap/cpp: the rendered-flag assertions fail. A real break of the wiring this card adds.
+evidence:
+- evidence/build/G3/TC-363/receipt.json
+closeout:
+- >-
+  The chart carries each Java, C++, TypeScript and Node.js pilot's verifier fields and forwards them to build_chunks.py as soon as
+  a content wave gives the pilot a furnishedPage, with today's rendered chart unchanged.
+recovery: Re-run from a clean tree.

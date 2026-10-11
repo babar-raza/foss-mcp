@@ -1,0 +1,126 @@
+id: TC-361
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). The Linux C++ verifier that the ingestion image dispatches to for `--library-platform cpp`
+  (`prepare_cpp_library_linux` / `verify_cpp_example_linux` in src/foss_mcp/indexing/example_verifier.py) is fixed to pdf/cpp:
+  it configures the repository root, builds `_CPP_LINUX_LIBRARY_TARGET = "aspose_pdf_foss"`, and links the one archive
+  `_CPP_LINUX_ARTIFACT_NAME = "libaspose_pdf_foss.a"`. The other four C++ pilots differ in every one of those: cells/cpp keeps its
+  CMake project in the subdirectory Aspose.Cells.Foss.Cpp (target aspose_cells_foss, built with -Wall -Wextra -Werror on
+  non-MSVC compilers), slides/cpp's target is AsposeSlidesFoss (OUTPUT_NAME aspose_slides_foss, plus pugixml and miniz pulled
+  in with FetchContent and a generated include directory), email/cpp's is AsposeEmailFoss, and jmap/cpp's is the header-only
+  INTERFACE target aspose-jmap-foss-cpp with no archive at all. Linking a single archive by name cannot serve those; linking
+  through CMake can. Most README C++ blocks are also fragments without `main`, which never link. This card adds an opt-in
+  consumer-project mode (a tiny CMake project that add_subdirectory()s the library and links a candidate executable to the
+  pilot's target, so CMake supplies includes, dependencies and language level), a fragment wrapper, and an opt-in compile-only
+  verdict. pdf/cpp, which does not opt in, keeps its exact command lines.
+depends_on:
+- TC-222
+- TC-360
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- infra/build_chunks.py
+- tests/indexing/test_cpp_verifier_consumer.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read in src/foss_mcp/indexing/example_verifier.py the block `# --- pdf/cpp on Linux (TC-222)` to the end of the file:
+  `_CPP_LINUX_COMPILER`, `_CPP_LINUX_CMAKE`, `_CPP_LINUX_LIBRARY_TARGET`, `_CPP_LINUX_ARTIFACT_NAME`, `_CPP_LINUX_BUILD_DIRNAME`,
+  `_CPP_LINUX_RUN_TIMEOUT_SECONDS`, `_require_linux_tool`, `prepare_cpp_library_linux(repository, commit, workdir)`,
+  `verify_cpp_example_linux(candidate, workdir, library_dir, include_dir)`; and `_wrap_go_fragment_if_needed` as the model for a
+  fragment wrapper. Leave the Windows MSVC pair (`prepare_cpp_library`, `verify_cpp_example`, `_CPP_LIBRARY_*`) untouched; no
+  production path dispatches to it. In infra/build_chunks.py read the `"cpp"` entry of `_PLATFORM_DISPATCH` and `main()`.
+  Read tests/indexing/test_cpp_verifier_linux.py (read only): every offline test in it must pass UNMODIFIED, including the exact
+  build argv `["cmake", "--build", <build_dir>, "--target", "aspose_pdf_foss", "--parallel"]`, the dispatch prepare called with
+  exactly three positional arguments, the cpp `verify_kwargs` for an empty `argparse.Namespace()` returning exactly
+  `{"library_dir": build_dir, "include_dir": build_dir.parent / "include"}`, the entry's key set, and candidate.cpp written
+  byte-identical to a candidate that already has `main`.
+- >-
+  What must NOT change: with no new flag, `prepare_cpp_library_linux` and `verify_cpp_example_linux` issue exactly today's
+  subprocess calls for every candidate that contains a `main` function. Java (TC-360), pdf/net, pdf/go, pdf/typescript,
+  slides/python and cells/rust paths are untouched.
+- >-
+  example_verifier.py: (1) `_wrap_cpp_fragment_if_needed(code: str) -> str`: unchanged when the code matches
+  `\bmain\s*\(`; otherwise the leading `#include` and `using` lines are kept at the top and the rest is placed inside
+  `int main() {` ... `return 0; }`. Apply it in verify for both modes (a candidate with `main` is byte-identical, so pdf/cpp's pinned
+  test still holds). (2) Add constants `_CPP_CONSUMER_DIRNAME = "_foss_mcp_consumer"` and `_CPP_CONSUMER_TARGET =
+  "foss_mcp_candidate"`, and `def _write_cpp_consumer_project(consumer_dir: Path, library_source_dir: Path, target: str,
+  relax_warnings: bool) -> None` (named exactly this) writing a CMakeLists.txt: cmake_minimum_required 3.16, project CXX,
+  CMAKE_CXX_STANDARD 20 required, `add_subdirectory("<library_source_dir as posix>" foss_mcp_library EXCLUDE_FROM_ALL)`, when
+  relax_warnings `target_compile_options(<target> PRIVATE -Wno-error)` (appended after the library's own -Werror, so it wins),
+  `add_executable(foss_mcp_candidate candidate.cpp)`, `target_link_libraries(foss_mcp_candidate PRIVATE <target>)`, plus a
+  placeholder candidate.cpp `int main() { return 0; }`. Validate target against `^[A-Za-z0-9_.+-]+$` and the source subdirectory
+  as relative, without `..`, and existing after the clone; a violation is a ValueError. (3) `prepare_cpp_library_linux(...,
+  *, source_subdir: str | None = None, target: str | None = None, relax_warnings: bool = False)`: when target is None, today's
+  path exactly. Otherwise, after the same tool checks and clone, write the consumer project at workdir/_foss_mcp_consumer,
+  configure it (`cmake -S <consumer> -B <consumer>/_build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++
+  -DBUILD_TESTING=OFF`) and build `--target foss_mcp_candidate --parallel` (this proves the library itself builds); return
+  <consumer>/_build. Failures keep today's split: missing tool or failed fetch is ExampleEnvironmentError, a failed configure or
+  build is RuntimeError. (4) `verify_cpp_example_linux(candidate, workdir, library_dir, include_dir, *, consumer: bool = False,
+  run: bool = True)`: in consumer mode write the wrapped code to library_dir.parent/candidate.cpp, compile with `_run([cmake,
+  "--build", str(library_dir), "--target", "foss_mcp_candidate"], cwd=...)`, and run library_dir/foss_mcp_candidate under the same
+  timeout with cwd workdir/candidate_project (created). `run=False` (both modes) makes compile-and-link success the verdict and
+  skips execution. Keep the result shape and environment-error behaviour.
+- >-
+  infra/build_chunks.py: optional flags `--library-cpp-source-dir`, `--library-cpp-target`, `--library-cpp-warnings
+  {strict,relaxed}` and `--library-cpp-verify-mode {run,compile}` (values never begin with a dash, so they survive the chart and
+  compose argument parsers). `--library-cpp-source-dir` or `--library-cpp-warnings` without `--library-cpp-target` is a parser
+  error (exit 2). The cpp prepare lambda calls `prepare_cpp_library_linux(repository, commit, workdir)` with exactly three
+  positional arguments when no cpp flag is set, else adds the keywords. `verify_kwargs` adds `"consumer": True` only when a
+  target is set and `"run": False` only for verify mode compile, so the empty-namespace result is unchanged.
+- >-
+  tests/indexing/test_cpp_verifier_consumer.py (NEW, offline; replace `ev.subprocess.run`, `ev._run`, `ev.shutil.which` and the
+  clone through the same seams test_cpp_verifier_linux.py uses; no g++, cmake, git or network): the generated CMakeLists.txt for
+  cells/cpp (source dir Aspose.Cells.Foss.Cpp, target aspose_cells_foss, relaxed: contains -Wno-error after add_subdirectory),
+  slides/cpp (AsposeSlidesFoss), email/cpp (AsposeEmailFoss) and jmap/cpp (aspose-jmap-foss-cpp, an INTERFACE target: no archive
+  is expected anywhere); the configure and build argv in consumer mode; return value <workdir>/_foss_mcp_consumer/_build; an invalid
+  target, an absolute or `..` source dir, and a missing source dir raise ValueError; configure and build failures are RuntimeError,
+  not ExampleEnvironmentError; verify in consumer mode writes the wrapped candidate.cpp next to the consumer CMakeLists, builds the
+  candidate target, runs the executable, and reports a compile failure without running; run=False never executes; the fragment
+  wrapper on a slides/cpp-style fragment (includes then statements), a fragment with `using namespace`, and a full program
+  (unchanged); the dispatch kwargs per flag combination and the two parser errors.
+- >-
+  Run `{python} -m pytest tests/indexing/test_cpp_verifier_consumer.py tests/indexing/test_cpp_verifier_linux.py -q -rfE`, then
+  once the neighbours in the second check. The `live` test in test_cpp_verifier_linux.py stays deselected (no
+  FOSS_MCP_NETWORK_TESTS). network is declared true only because the existing pinned test file names the clone helper as a
+  monkeypatch target (ops/cardlint.py heuristic L2); no test this card runs may reach the network. Write commit messages as UTF-8
+  without a byte-order mark.
+actions:
+- Add an opt-in CMake consumer-project mode and an opt-in compile-only verdict to the Linux C++ verifier.
+- Wrap C++ README fragments that have no main.
+- Expose the per-pilot source directory, target, warnings and verify mode as optional build_chunks flags; keep pdf/cpp's exact path.
+checks:
+- command: '{python} -m pytest tests/indexing/test_cpp_verifier_consumer.py tests/indexing/test_cpp_verifier_linux.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/indexing/test_java_verifier_pilots.py tests/indexing/test_java_page_imports.py tests/infra/test_build_chunks_platforms.py tests/indexing/test_build_chunks_page_sandbox.py tests/indexing/test_build_chunks_env_failure.py tests/indexing/test_build_chunks_verification_report.py tests/indexing/test_example_verifier_classification.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 30
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');old='def _write_cpp_consumer_project(';assert old in s;p.write_text(s.replace(old,'def _write_cpp_consumer_projectX('),encoding='utf-8')"
+  rationale: >-
+    Renames the consumer-project writer, so consumer-mode prepare raises NameError and any direct test of the writer fails to
+    import: every consumer-mode test fails while pdf/cpp's legacy tests still pass, which proves the new tests exercise the new path.
+evidence:
+- evidence/build/G3/TC-361/receipt.json
+closeout:
+- >-
+  The Linux C++ verifier can build cells/cpp, slides/cpp, email/cpp and jmap/cpp through their own CMake targets, verifies README
+  fragments by wrapping them in main, and can be told to judge by compile-and-link alone, while pdf/cpp runs exactly as before.
+recovery: Re-run from a clean tree.

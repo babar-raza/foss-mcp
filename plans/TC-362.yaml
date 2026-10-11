@@ -1,0 +1,127 @@
+id: TC-362
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). The TypeScript verifier is fixed to pdf/typescript's layout and there is no JavaScript verifier.
+  `prepare_typescript_library` always runs `npx tsc -p tsconfig.build.json`, but only pdf/typescript has that file: cells/typescript
+  has no build at all (package.json main is index.ts), jmap/typescript builds with tsconfig.json into dist/src/ (types
+  dist/src/index.d.ts), and 3d/typescript builds with tsconfig.json into dist/. `verify_typescript_example` always maps the package
+  to dist/index, and README blocks for cells and 3d import by RELATIVE path from the repository root (`./aspose_cells`,
+  `./dist/aspose/threed`), which a `paths` mapping can never resolve. And `nodejs` has no `_PLATFORM_DISPATCH` entry, so
+  `--library-platform nodejs` is rejected by argparse and jmap/nodejs (plain ESM JavaScript, package aspose-jmap-foss, entry
+  src/index.js, no dependencies) cannot be verified at all. This card makes the TypeScript build and entry point come from the
+  library's own package.json and files, adds a repository-root mode for candidates with relative imports, and adds a real Node.js
+  verifier. pdf/typescript keeps its exact behaviour.
+depends_on:
+- TC-361
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- infra/build_chunks.py
+- tests/indexing/test_typescript_verifier_layouts.py
+- tests/indexing/test_nodejs_verifier.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read in src/foss_mcp/indexing/example_verifier.py: `_TS_TSCONFIG_TEMPLATE`, `prepare_typescript_library(repository, commit,
+  workdir)` (npm/npx resolved through shutil.which, the dist/ non-empty check), `verify_typescript_example(candidate, *,
+  library_dir, package_name, workdir)`, `_run`, `ExampleEnvironmentError`, `_require_linux_tool`, `__all__`. In infra/build_chunks.py:
+  the `"typescript"` entry of `_PLATFORM_DISPATCH`, `_PLATFORM_REQUIRED_FLAGS`, and the argparse `--library-platform` choices
+  (`sorted(_PLATFORM_DISPATCH)`). Read tests/indexing/test_build_chunks_page_sandbox.py and tests/infra/test_build_chunks_platforms.py
+  (read only): every dispatch entry other than python must keep `shared_page_workdir` False, and both files must pass UNMODIFIED.
+- >-
+  What must NOT change (pdf/typescript): when the library has tsconfig.build.json, prepare runs exactly `npm install` then
+  `npx tsc -p tsconfig.build.json` and keeps the dist/ non-empty check; when the candidate has no relative import and package.json
+  declares `types: dist/index.d.ts` (or there is no package.json), the candidate tsconfig.json text is byte-identical to today's
+  (same `paths` target `<library_dir>/dist/index`) and the tsc argv is identical. TC-360 Java and TC-361 C++ behaviour, and every
+  other platform, are untouched.
+- >-
+  TypeScript, example_verifier.py: (1) `def _typescript_types_entry(library_dir: Path) -> Path` (named exactly this): from
+  library_dir/package.json take `types`, else `typings`, else `main`; strip a trailing `.d.ts`, `.ts`, `.js`, `.mjs` or `.cjs`;
+  return library_dir joined with it; with no package.json or none of those keys, return library_dir/dist/index (today's value). Use it
+  for the `paths` target. (2) In `prepare_typescript_library`, choose the build: tsconfig.build.json if present (today); else no
+  build when the entry from (1) resolves to an existing `.ts` source file that is not `.d.ts` (cells/typescript); else
+  `npx tsc -p tsconfig.json` when tsconfig.json exists; else RuntimeError naming the repository. After a build, require that the
+  declared types entry exists as a .d.ts file when package.json declares one, else keep today's dist/ non-empty check. (3) In
+  `verify_typescript_example`, when any static import or export-from specifier in the candidate starts with `./` or `../`, use
+  repository-root mode: write the candidate as library_dir/__foss_mcp_candidate__.ts and a library_dir/__foss_mcp_tsconfig__.json
+  that `extends` ./tsconfig.json when it exists and sets noEmit true, rootDir ".", noUnusedLocals false, noUnusedParameters false,
+  skipLibCheck true and `files` [the candidate only]; run the same node + tsc.js with `-p __foss_mcp_tsconfig__.json` and cwd
+  library_dir; delete both files in a finally block; also copy the candidate into workdir/candidate_project for the record.
+- >-
+  Node.js, example_verifier.py: `prepare_nodejs_library(repository, commit, workdir) -> Path`: require node on PATH
+  (ExampleEnvironmentError otherwise, like `_require_linux_tool`), clone into workdir/repo, run `npm install --omit=dev` only when
+  package.json has a non-empty `dependencies` object (jmap/nodejs has none, so it runs no npm at all), return the repo dir.
+  `verify_nodejs_example(candidate, *, library_dir, package_name, workdir) -> VerificationResult`: write candidate.mjs into
+  workdir/candidate_project; make `node_modules/<package_name>` resolve to library_dir (os.symlink with target_is_directory; on
+  OSError write a shim package whose package.json is `{"type": "module"}` with an index.js that does `export * from` the file URL of
+  the library's entry from package.json exports["."] / main); then (a) `node --check candidate.mjs`, and (b) a link check: a
+  generated __foss_mcp_link_check__.mjs holding ONLY the candidate's static import declarations whose specifier is package_name or
+  starts with package_name + "/", run with `node`, so a named import the library does not export fails at module link time without
+  executing the candidate. verified is True only when both exit 0 AND the candidate has at least one such import; a candidate
+  with none is not verified and its output says so (a fragment that uses names it never imports proves nothing). Add both functions
+  to `__all__`. This is a weaker bar than compilation and the docstring must say so.
+- >-
+  infra/build_chunks.py: add a `"nodejs"` entry: prepare `prepare_nodejs_library(repository, commit, workdir)`, verify
+  `verify_nodejs_example`, verify_kwargs `{"library_dir": prepared, "package_name": args.library_package_name}`,
+  shared_page_workdir False; add `"nodejs": ("library_package_name", "--library-package-name")` to `_PLATFORM_REQUIRED_FLAGS`; import
+  the two functions. The typescript entry is unchanged. Update the --library-package-name help text to say typescript and nodejs.
+- >-
+  Tests (NEW, offline; replace `ev._run`, `ev.subprocess.run` where used, and `ev.shutil.which`; synthetic package.json, tsconfig
+  and source trees in tmp_path; a fake `_run` treats every argv starting with "git" as success without naming any git subcommand;
+  neither file may contain any string listed in ops/cardlint.py NETWORK_HINTS; never run node, npm or tsc).
+  tests/indexing/test_typescript_verifier_layouts.py: `_typescript_types_entry` for the pdf (dist/index.d.ts), jmap
+  (dist/src/index.d.ts), 3d (dist/index.d.ts), cells (main index.ts, no types) and no-package.json cases; prepare build choice for
+  each of the four layouts with the exact npx argv, including that pdf's is unchanged; a build that leaves the declared .d.ts missing
+  raises RuntimeError; the pdf-shaped candidate's tsconfig.json text equals today's template output; a cells-style
+  `import { Workbook } from "./aspose_cells"` candidate runs in repository-root mode with the extends/noEmit/files config, cwd
+  library_dir, and both temporary files removed afterwards even when the fake tsc fails. tests/indexing/test_nodejs_verifier.py:
+  prepare runs no npm for a dependency-free package and `npm install --omit=dev` for one with dependencies; missing node raises
+  ExampleEnvironmentError; verify writes the link-check module with only the package imports (single-line and multi-line import
+  lists); verified needs both node calls to succeed; a syntax failure skips the link check; a candidate with no package import is
+  not verified; the shim path when os.symlink raises OSError; the dispatch entry (keys, verify function, kwargs, shared_page_workdir
+  False); `--library-platform nodejs` without --library-package-name exits 2 naming the flag.
+- >-
+  Run `{python} -m pytest tests/indexing/test_typescript_verifier_layouts.py tests/indexing/test_nodejs_verifier.py
+  tests/infra/test_build_chunks_platforms.py tests/indexing/test_build_chunks_page_sandbox.py -q -rfE`, then once the neighbours in
+  the second check. Do NOT run tests/indexing/test_example_verifier.py or tests/infra/test_build_chunks.py (real clones and
+  builds). Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Derive the TypeScript build step and type entry from the library's own package.json and files, keeping pdf/typescript's path.
+- Type-check candidates that import by relative path from the repository root.
+- Add a Node.js verifier (syntax plus export-binding check) and its nodejs dispatch entry.
+checks:
+- command: '{python} -m pytest tests/indexing/test_typescript_verifier_layouts.py tests/indexing/test_nodejs_verifier.py tests/infra/test_build_chunks_platforms.py tests/indexing/test_build_chunks_page_sandbox.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/indexing/test_java_verifier_pilots.py tests/indexing/test_java_page_imports.py tests/indexing/test_build_chunks_env_failure.py tests/indexing/test_build_chunks_verification_report.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_go_vet_verdict.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 30
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');old='def _typescript_types_entry(';assert old in s;p.write_text(s.replace(old,'def _typescript_types_entryX('),encoding='utf-8')"
+  rationale: >-
+    Renames the package.json entry resolver, so verify_typescript_example raises NameError for every layout and the direct tests of
+    the resolver cannot import it: the TypeScript layout tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-362/receipt.json
+closeout:
+- >-
+  cells/typescript, jmap/typescript and 3d/typescript candidates are type-checked against each library's real build output or
+  source, including README blocks that import by relative path, jmap/nodejs candidates get a real syntax and export-binding check
+  through a nodejs dispatch entry, and pdf/typescript is verified exactly as before.
+recovery: Re-run from a clean tree.

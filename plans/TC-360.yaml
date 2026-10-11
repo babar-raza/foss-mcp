@@ -1,0 +1,119 @@
+id: TC-360
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). The Java example verifier can only verify pdf/java. `_java_wrapper_source` in
+  src/foss_mcp/indexing/example_verifier.py always writes `import org.aspose.pdf.*;`, which is a compile error against the
+  slides, cells, jmap and 3d jars (their packages are org.aspose.slides.foss, org.aspose.cells_foss, com.aspose.jmap and
+  com.aspose.threed). README code blocks for those pilots also begin with their own `import` lines followed by statements, and
+  the wrapper puts those import lines inside `main`, which no Java compiler accepts. And javac is given only the library jar,
+  while jmap/java declares a compile-scope dependency (jackson-databind). A read of all five pinned Java repositories found
+  every one is a single Maven project with pom.xml at the root, so `_select_built_jar(repo/target)` is already right for all
+  of them and needs no Gradle path. This card adds an opt-in, per-pilot Java mode: library packages given by the pilot,
+  candidate import lines hoisted above the class, and the library's runtime dependencies on the classpath. pdf/java, which
+  does not opt in, compiles exactly as today.
+depends_on:
+- TC-194
+- TC-219
+- TC-222
+- TC-238
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- infra/build_chunks.py
+- tests/indexing/test_java_verifier_pilots.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read in src/foss_mcp/indexing/example_verifier.py: `_JAVA_PUBLIC_CLASS_RE`, `_java_wrapper_source(candidate_code, class_name,
+  page_imports)`, `_find_or_download_maven`, `_select_built_jar`, `prepare_java_library(repository, commit, workdir)`,
+  `verify_java_example(candidate, *, library_jar, workdir, page_imports=())`, `_run` and `_clone_pinned_commit` (read only). In
+  infra/build_chunks.py: the `"java"` entry of `_PLATFORM_DISPATCH`, `_page_java_imports`, `_PLATFORM_REQUIRED_FLAGS` and
+  `main()`'s argparse. Read tests/indexing/test_java_page_imports.py and tests/infra/test_build_chunks_platforms.py (read only):
+  they pin today's behaviour and must pass UNMODIFIED. In particular `_java_wrapper_source` called with three arguments must still
+  start with `import org.aspose.pdf.*;`, the java prepare lambda must still call `prepare_java_library` with exactly the three
+  positional arguments (repository, commit, workdir) when no new flag is given, and the java `verify_kwargs` with an empty
+  `argparse.Namespace()` must still return exactly `{"library_jar": prepared, "page_imports": ()}`.
+- >-
+  What must NOT change: pdf/java (no new flag given) produces byte-identical Candidate.java text and the identical javac argv
+  `["javac", "-cp", str(library_jar), "Candidate.java"]`; `prepare_java_library` for a pom whose dependencies are all test,
+  provided or optional scope (pdf/java's case) issues exactly the same subprocess calls as today. pdf/net, pdf/go,
+  pdf/typescript, slides/python, cells/rust and the cpp entry are untouched.
+- >-
+  example_verifier.py: (1) add `def _hoist_java_imports(code: str) -> tuple[tuple[str, ...], str]` returning the candidate's
+  top-of-block `import ...;` and `import static ...;` lines (in order, blank lines and comments between them allowed) and the
+  remaining body; the function must be named exactly this. (2) Give `_java_wrapper_source` a fourth keyword parameter
+  `base_packages: tuple[str, ...] | None = None`. None keeps today's text exactly. A tuple selects pilot mode: the header is
+  `import <pkg>.*;` for each package in order, then `import java.io.*;` and `import java.util.*;`, then the hoisted candidate
+  imports (de-duplicated, order kept); page_imports are NOT added in pilot mode (a README page collects every block's imports, and
+  two single-type imports of the same simple name are a compile error); the body is the candidate code minus the hoisted lines.
+  (3) Give `verify_java_example` a keyword `java_packages: tuple[str, ...] | None = None` and pass it through. A candidate that
+  declares its own `public class` is compiled as-is in both modes (cells/java READMEs are whole classes). (4) In
+  `prepare_java_library`, after the package build succeeds, parse repo/pom.xml with xml.etree (namespace-aware) and, only when the
+  project-level <dependencies> (not <dependencyManagement>) contains at least one dependency whose scope is absent, compile or
+  runtime and which is not <optional>true</optional>, run `mvn dependency:copy-dependencies -DincludeScope=runtime
+  -DoutputDirectory=target/foss-mcp-deps` with the same mvn executable; a non-zero exit is a RuntimeError like the build. (5)
+  In `verify_java_example`, the -cp value is `str(library_jar)` alone when `library_jar.parent / "foss-mcp-deps"` does not exist
+  (today's exact argv), else the jar followed by every *.jar in that directory in sorted order, joined with os.pathsep.
+  (6) If repo/pom.xml does not exist, raise RuntimeError naming the repository and saying only root Maven projects are supported
+  (no pilot needs another layout today; do not add Gradle support).
+- >-
+  infra/build_chunks.py: add an optional `--library-java-packages` flag (comma-separated Java package names, each validated against
+  `^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$`; an invalid one is a parser error, exit 2). It is not added to
+  `_PLATFORM_REQUIRED_FLAGS`. The java `verify_kwargs` adds `"java_packages": tuple(...)` ONLY when
+  `getattr(args, "library_java_packages", None)` is set, so the empty-namespace result above is unchanged.
+- >-
+  tests/indexing/test_java_verifier_pilots.py (NEW, offline): never run javac, Maven or git; replace `ev._run` (and
+  `ev._find_or_download_maven`) with recorders; a fake `_run` must treat every argv starting with "git" as success without naming
+  any git subcommand, and the file must not contain any string listed in ops/cardlint.py NETWORK_HINTS (use synthetic pom.xml and
+  jar files written into tmp_path by the fake build step). Cover: hoisting with blank lines, comments and `import static`; the
+  slides/java README shape (imports + try-with-resources) wrapped with `org.aspose.slides.foss` gives a source whose first lines
+  are the package wildcard, java.io, java.util and the hoisted imports, and whose main holds no import line; the jmap/java shape
+  with `com.aspose.jmap`; the 3d/java shape with `com.aspose.threed`; a cells/java whole-class block compiled as-is under its own
+  class name; three-argument `_java_wrapper_source` output identical to a literal copy of today's text; pom with only test-scope
+  deps issues no dependency step and javac gets `-cp <jar>` exactly; pom with a compile-scope dep issues the copy step and javac gets
+  the jar plus the dependency jars in sorted order; a failing copy step raises RuntimeError; a repo without pom.xml raises
+  RuntimeError; the dispatch adds java_packages only when the flag is given; an invalid package name exits 2.
+- >-
+  Run `{python} -m pytest tests/indexing/test_java_verifier_pilots.py tests/indexing/test_java_page_imports.py
+  tests/infra/test_build_chunks_platforms.py -q -rfE`, then once the offline neighbours listed in the second check. Do NOT run
+  tests/indexing/test_example_verifier.py or tests/infra/test_build_chunks.py: they clone and build real repositories. Write
+  commit messages as UTF-8 without a byte-order mark.
+actions:
+- Add an opt-in pilot mode to the Java verifier (pilot packages, hoisted candidate imports, runtime dependencies on the classpath).
+- Expose it through an optional --library-java-packages flag in infra/build_chunks.py without changing pdf/java's path.
+- Pin both modes with offline tests.
+checks:
+- command: '{python} -m pytest tests/indexing/test_java_verifier_pilots.py tests/indexing/test_java_page_imports.py tests/infra/test_build_chunks_platforms.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/indexing/test_build_chunks_page_sandbox.py tests/indexing/test_build_chunks_env_failure.py tests/indexing/test_build_chunks_verification_report.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_go_vet_verdict.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 20
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');old='def _hoist_java_imports(';assert old in s;p.write_text(s.replace(old,'def _hoist_java_importsX('),encoding='utf-8')"
+  rationale: >-
+    Renames the import-hoisting function, so pilot mode raises NameError and the new test module cannot import it: every pilot-mode
+    wrapper and verify test fails. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-360/receipt.json
+closeout:
+- >-
+  The Java verifier can verify slides/java, cells/java, jmap/java and 3d/java README examples when the pilot names its packages,
+  with dependency jars on the classpath, while pdf/java compiles byte-for-byte as before.
+recovery: Re-run from a clean tree.
