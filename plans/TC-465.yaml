@@ -17,10 +17,12 @@ depends_on:
 - TC-331
 - TC-381
 - TC-382
+- TC-444
 write_paths:
 - src/foss_mcp/mcp/tools/find_examples.py
 - tests/mcp/tools/test_find_examples_verified_only.py
 - tests/mcp/tools/test_symbol_tools.py
+- tests/mcp/tools/test_example_search_mode.py
 satisfies:
 - REQ-G3-007
 source_refs:
@@ -69,6 +71,14 @@ inputs:
   exactly `Example:` then the code), keep what each test asserts (exact match preferred, semantic fallback, no snippet executed), and never delete or skip a test.
   Check 2 now runs the file. TC-382 (a dependency) also edits this file, so build on its version.
 - >-
+  A SECOND OLD-RULE FIXTURE (found by the worker, red on main): tests/mcp/tools/test_example_search_mode.py (TC-444) builds EXAMPLE_CHUNK as
+  `FQN: Example: sign a file` plus a bare `Example: certificate signature` line with no `Kind: verified_example` line and no line exactly `Example:`,
+  so `test_with_the_variables_set_find_examples_matches_by_vector_and_the_report_says_gateway` and
+  `test_the_lexical_stage_still_answers_without_the_gateway_in_both_modes` now fail on main (NoExampleFound, 'no verified example exists in this generation').
+  The file is now in your write_paths: change ONLY EXAMPLE_CHUNK (and the text the two tests derive from it) to a real verified example chunk (FQN line
+  starting `Example: `, a line `Kind: verified_example`, a line exactly `Example:` then the code). Keep every assertion about the example-search mode.
+  Check 2 runs the file; it must pass in full.
+- >-
   Run `{python} -m pytest tests/mcp/tools/test_find_examples_verified_only.py -q -rfE`, then once the second check command below.
   Write commit messages as UTF-8 without a byte-order mark.
 actions:
@@ -84,7 +94,7 @@ checks:
   junitxml: true
   proves:
   - REQ-G3-007
-- command: '{python} -m pytest tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_symbol_tools.py tests/mcp/tools/test_relevance_floor.py tests/mcp/test_server_wiring.py tests/indexing/test_vector_scope.py -q -rfE'
+- command: '{python} -m pytest tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_symbol_tools.py tests/mcp/tools/test_example_search_mode.py tests/mcp/tools/test_relevance_floor.py tests/mcp/test_server_wiring.py tests/indexing/test_vector_scope.py -q -rfE'
   expect: exit 0
   timeout_seconds: 1200
   junitxml: true
