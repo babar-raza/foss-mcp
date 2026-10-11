@@ -1,0 +1,1287 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases_failure.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jn2f282t\.junit-0.xml"
+--- stdout ---
+...................                                                      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases_failure.py tests/infra/test_fetch_recent_releases.py tests/mcp/tools/test_consumer_tools.py tests/infra/test_serve_manifest_sidecar.py tests/mcp/test_server_wiring.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jn2f282t\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 53%]
+..............................................................           [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases_failure.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jn2f282t\.junit-0.xml"
+--- stdout ---
+...................                                                      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases_failure.py tests/infra/test_fetch_recent_releases.py tests/mcp/tools/test_consumer_tools.py tests/infra/test_serve_manifest_sidecar.py tests/mcp/test_server_wiring.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jn2f282t\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 53%]
+..............................................................           [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/fetch_recent_releases.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases_failure.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jn2f282t\.junit-0.xml"
+--- stdout ---
+FFFFFFFFFFFFFF.....                                                      [100%]
+================================== FAILURES ===================================
+_ test_failure_with_a_good_existing_sidecar_leaves_its_bytes_unchanged_and_writes_the_marker _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_failure_with_a_good_exist0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE27D728B0>
+
+    def test_failure_with_a_good_existing_sidecar_leaves_its_bytes_unchanged_and_writes_the_marker(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "recent_releases.json"
+        # Make the sidecar stale so main reaches the fetch (the failure path is what is under test).
+        before = _write_sidecar(output, _GOOD_SIDECAR, mtime=1.0)
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _failing_fetch())
+        _set_argv(monkeypatch, output)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases_failure.py:70: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_failure_with_a_good_exist0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+______ test_failure_with_no_sidecar_writes_an_empty_list_and_the_marker _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_failure_with_no_sidecar_w0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE27DCA9E0>
+
+    def test_failure_with_no_sidecar_writes_an_empty_list_and_the_marker(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "recent_releases.json"
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _failing_fetch())
+        _set_argv(monkeypatch, output)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases_failure.py:83: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_failure_with_no_sidecar_w0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+__ test_failure_over_a_malformed_sidecar_writes_an_empty_list_and_the_marker __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_failure_over_a_malformed_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE27C6E690>
+
+    def test_failure_over_a_malformed_sidecar_writes_an_empty_list_and_the_marker(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "recent_releases.json"
+        output.write_text("{not json", encoding="utf-8")
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _failing_fetch())
+        _set_argv(monkeypatch, output)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases_failure.py:97: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_failure_over_a_malformed_0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+__________ test_marker_path_is_the_output_path_plus_a_failed_suffix ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_marker_path_is_the_output0')
+
+    def test_marker_path_is_the_output_path_plus_a_failed_suffix(tmp_path: Path) -> None:
+        output = tmp_path / "recent_releases_slides_net.json"
+>       marker = fetch_recent_releases._fetch_failed_marker(output)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.fetch_recent_releases' has no attribute '_fetch_failed_marker'. Did you mean: '_fetch_failed_markerX'?
+
+tests\infra\test_fetch_recent_releases_failure.py:105: AttributeError
+______ test_a_fresh_looking_sidecar_is_not_fresh_while_the_marker_exists ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_a_fresh_looking_sidecar_i0')
+
+    def test_a_fresh_looking_sidecar_is_not_fresh_while_the_marker_exists(tmp_path: Path) -> None:
+        output = tmp_path / "recent_releases.json"
+        output.write_text(json.dumps(_GOOD_SIDECAR), encoding="utf-8")
+        # Control: with no marker, a just-written sidecar IS fresh.
+>       assert fetch_recent_releases._sidecar_is_fresh(output) is True
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_fetch_recent_releases_failure.py:114: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_a_fresh_looking_sidecar_i0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+_ test_the_next_run_refetches_when_the_marker_is_present_even_though_the_sidecar_looks_fresh _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_the_next_run_refetches_wh0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE27D8F750>
+
+    def test_the_next_run_refetches_when_the_marker_is_present_even_though_the_sidecar_looks_fresh(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "recent_releases.json"
+        output.write_text(json.dumps([]), encoding="utf-8")  # a just-written, fresh-looking []
+>       fetch_recent_releases._fetch_failed_marker(output).write_text(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            "X 2026-01-01T00:00:00Z\n", encoding="utf-8"
+        )
+E       AttributeError: module 'infra.fetch_recent_releases' has no attribute '_fetch_failed_marker'. Did you mean: '_fetch_failed_markerX'?
+
+tests\infra\test_fetch_recent_releases_failure.py:128: AttributeError
+_____________ test_a_failed_run_followed_by_another_run_refetches _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_a_failed_run_followed_by_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE27D8FB50>
+
+    def test_a_failed_run_followed_by_another_run_refetches(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "recent_releases.json"
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _failing_fetch())
+        _set_argv(monkeypatch, output)
+>       fetch_recent_releases.main()  # fails: writes [] + marker, both brand new (so "fresh-looking")
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_fetch_recent_releases_failure.py:147: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_a_failed_run_followed_by_0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+_______________________ test_success_deletes_the_marker _______________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_success_deletes_the_marke0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE27CA88C0>
+
+    def test_success_deletes_the_marker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        output = tmp_path / "recent_releases.json"
+>       marker = fetch_recent_releases._fetch_failed_marker(output)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.fetch_recent_releases' has no attribute '_fetch_failed_marker'. Did you mean: '_fetch_failed_markerX'?
+
+tests\infra\test_fetch_recent_releases_failure.py:158: AttributeError
+_________________ test_success_without_a_marker_does_not_fail _________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_success_without_a_marker_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE27CA8D70>
+
+    def test_success_without_a_marker_does_not_fail(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        output = tmp_path / "recent_releases.json"
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _recording_fetch([]))
+        _set_argv(monkeypatch, output)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases_failure.py:176: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_success_without_a_marker_0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+____________________ test_force_refetches_a_fresh_sidecar _____________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_force_refetches_a_fresh_s0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE27CADE10>
+
+    def test_force_refetches_a_fresh_sidecar(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        output = tmp_path / "recent_releases.json"
+        output.write_text(json.dumps(_GOOD_SIDECAR), encoding="utf-8")
+>       assert fetch_recent_releases._sidecar_is_fresh(output) is True
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_fetch_recent_releases_failure.py:184: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_force_refetches_a_fresh_s0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+_____________ test_without_force_a_fresh_sidecar_is_still_skipped _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_without_force_a_fresh_sid0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE27C03E70>
+
+    def test_without_force_a_fresh_sidecar_is_still_skipped(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "recent_releases.json"
+        output.write_text(json.dumps(_GOOD_SIDECAR), encoding="utf-8")
+        calls: list[str] = []
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _recording_fetch(calls))
+        _set_argv(monkeypatch, output)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases_failure.py:204: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_without_force_a_fresh_sid0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+_ test_the_marker_holds_the_exception_class_name_and_a_timestamp_but_no_message_text _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_the_marker_holds_the_exce0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE27E8CBB0>
+
+    def test_the_marker_holds_the_exception_class_name_and_a_timestamp_but_no_message_text(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        secret_message = "HTTP Error 403 at https://api.github.com/repos/x/y/releases token ghp_SECRETSECRET123"
+        output = tmp_path / "recent_releases.json"
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _failing_fetch(secret_message))
+        _set_argv(monkeypatch, output)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases_failure.py:217: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_the_marker_holds_the_exce0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+_ test_the_printed_failure_line_names_the_class_and_never_leaks_a_url_or_token _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_the_printed_failure_line_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE27BD65D0>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001FE27B4AE40>
+
+    def test_the_printed_failure_line_names_the_class_and_never_leaks_a_url_or_token(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        secret_message = "HTTP Error 403 at https://api.github.com/repos/x/y/releases token ghp_SECRETSECRET123"
+        output = tmp_path / "recent_releases.json"
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _failing_fetch(secret_message))
+        _set_argv(monkeypatch, output)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases_failure.py:236: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_the_printed_failure_line_0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+__________ test_published_at_and_url_round_trip_through_the_sidecar ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_published_at_and_url_roun0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE27BD6990>
+
+    def test_published_at_and_url_round_trip_through_the_sidecar(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        release = Release(
+            "v3.0.0",
+            "Added `x`",
+            "detailed",
+            published_at="2026-09-01T12:00:00Z",
+            url="https://github.com/o/r/releases/tag/v3.0.0",
+        )
+        output = tmp_path / "recent_releases.json"
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _recording_fetch([], [release]))
+        _set_argv(monkeypatch, output)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases_failure.py:261: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6655/test_published_at_and_url_roun0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_failure_with_a_good_existing_sidecar_leaves_its_bytes_unchanged_and_writes_the_marker
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_failure_with_no_sidecar_writes_an_empty_list_and_the_marker
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_failure_over_a_malformed_sidecar_writes_an_empty_list_and_the_marker
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_marker_path_is_the_output_path_plus_a_failed_suffix
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_a_fresh_looking_sidecar_is_not_fresh_while_the_marker_exists
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_the_next_run_refetches_when_the_marker_is_present_even_though_the_sidecar_looks_fresh
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_a_failed_run_followed_by_another_run_refetches
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_success_deletes_the_marker
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_success_without_a_marker_does_not_fail
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_force_refetches_a_fresh_sidecar
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_without_force_a_fresh_sidecar_is_still_skipped
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_the_marker_holds_the_exception_class_name_and_a_timestamp_but_no_message_text
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_the_printed_failure_line_names_the_class_and_never_leaks_a_url_or_token
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_published_at_and_url_round_trip_through_the_sidecar
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases_failure.py tests/infra/test_fetch_recent_releases.py tests/mcp/tools/test_consumer_tools.py tests/infra/test_serve_manifest_sidecar.py tests/mcp/test_server_wiring.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jn2f282t\.junit-1.xml"
+--- stdout ---
+FFFFFFFFFFFFFF.....FFFFFFF.................F.F.......................... [ 53%]
+..............................................................           [100%]
+================================== FAILURES ===================================
+_ test_failure_with_a_good_existing_sidecar_leaves_its_bytes_unchanged_and_writes_the_marker _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_failure_with_a_good_exist0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFEE15A8B0>
+
+    def test_failure_with_a_good_existing_sidecar_leaves_its_bytes_unchanged_and_writes_the_marker(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "recent_releases.json"
+        # Make the sidecar stale so main reaches the fetch (the failure path is what is under test).
+        before = _write_sidecar(output, _GOOD_SIDECAR, mtime=1.0)
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _failing_fetch())
+        _set_argv(monkeypatch, output)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases_failure.py:70: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_failure_with_a_good_exist0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+______ test_failure_with_no_sidecar_writes_an_empty_list_and_the_marker _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_failure_with_no_sidecar_w0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFEE15A9E0>
+
+    def test_failure_with_no_sidecar_writes_an_empty_list_and_the_marker(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "recent_releases.json"
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _failing_fetch())
+        _set_argv(monkeypatch, output)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases_failure.py:83: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_failure_with_no_sidecar_w0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+__ test_failure_over_a_malformed_sidecar_writes_an_empty_list_and_the_marker __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_failure_over_a_malformed_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA03AB2F0>
+
+    def test_failure_over_a_malformed_sidecar_writes_an_empty_list_and_the_marker(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "recent_releases.json"
+        output.write_text("{not json", encoding="utf-8")
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _failing_fetch())
+        _set_argv(monkeypatch, output)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases_failure.py:97: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_failure_over_a_malformed_0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+__________ test_marker_path_is_the_output_path_plus_a_failed_suffix ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_marker_path_is_the_output0')
+
+    def test_marker_path_is_the_output_path_plus_a_failed_suffix(tmp_path: Path) -> None:
+        output = tmp_path / "recent_releases_slides_net.json"
+>       marker = fetch_recent_releases._fetch_failed_marker(output)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.fetch_recent_releases' has no attribute '_fetch_failed_marker'. Did you mean: '_fetch_failed_markerX'?
+
+tests\infra\test_fetch_recent_releases_failure.py:105: AttributeError
+______ test_a_fresh_looking_sidecar_is_not_fresh_while_the_marker_exists ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_a_fresh_looking_sidecar_i0')
+
+    def test_a_fresh_looking_sidecar_is_not_fresh_while_the_marker_exists(tmp_path: Path) -> None:
+        output = tmp_path / "recent_releases.json"
+        output.write_text(json.dumps(_GOOD_SIDECAR), encoding="utf-8")
+        # Control: with no marker, a just-written sidecar IS fresh.
+>       assert fetch_recent_releases._sidecar_is_fresh(output) is True
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_fetch_recent_releases_failure.py:114: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_a_fresh_looking_sidecar_i0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+_ test_the_next_run_refetches_when_the_marker_is_present_even_though_the_sidecar_looks_fresh _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_the_next_run_refetches_wh0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA03B9350>
+
+    def test_the_next_run_refetches_when_the_marker_is_present_even_though_the_sidecar_looks_fresh(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "recent_releases.json"
+        output.write_text(json.dumps([]), encoding="utf-8")  # a just-written, fresh-looking []
+>       fetch_recent_releases._fetch_failed_marker(output).write_text(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            "X 2026-01-01T00:00:00Z\n", encoding="utf-8"
+        )
+E       AttributeError: module 'infra.fetch_recent_releases' has no attribute '_fetch_failed_marker'. Did you mean: '_fetch_failed_markerX'?
+
+tests\infra\test_fetch_recent_releases_failure.py:128: AttributeError
+_____________ test_a_failed_run_followed_by_another_run_refetches _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_a_failed_run_followed_by_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA03B9750>
+
+    def test_a_failed_run_followed_by_another_run_refetches(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "recent_releases.json"
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _failing_fetch())
+        _set_argv(monkeypatch, output)
+>       fetch_recent_releases.main()  # fails: writes [] + marker, both brand new (so "fresh-looking")
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_fetch_recent_releases_failure.py:147: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_a_failed_run_followed_by_0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+_______________________ test_success_deletes_the_marker _______________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_success_deletes_the_marke0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA01776B0>
+
+    def test_success_deletes_the_marker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        output = tmp_path / "recent_releases.json"
+>       marker = fetch_recent_releases._fetch_failed_marker(output)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.fetch_recent_releases' has no attribute '_fetch_failed_marker'. Did you mean: '_fetch_failed_markerX'?
+
+tests\infra\test_fetch_recent_releases_failure.py:158: AttributeError
+_________________ test_success_without_a_marker_does_not_fail _________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_success_without_a_marker_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA0177B60>
+
+    def test_success_without_a_marker_does_not_fail(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        output = tmp_path / "recent_releases.json"
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _recording_fetch([]))
+        _set_argv(monkeypatch, output)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases_failure.py:176: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_success_without_a_marker_0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+____________________ test_force_refetches_a_fresh_sidecar _____________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_force_refetches_a_fresh_s0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA03A6EB0>
+
+    def test_force_refetches_a_fresh_sidecar(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        output = tmp_path / "recent_releases.json"
+        output.write_text(json.dumps(_GOOD_SIDECAR), encoding="utf-8")
+>       assert fetch_recent_releases._sidecar_is_fresh(output) is True
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_fetch_recent_releases_failure.py:184: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_force_refetches_a_fresh_s0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+_____________ test_without_force_a_fresh_sidecar_is_still_skipped _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_without_force_a_fresh_sid0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA03A7CB0>
+
+    def test_without_force_a_fresh_sidecar_is_still_skipped(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "recent_releases.json"
+        output.write_text(json.dumps(_GOOD_SIDECAR), encoding="utf-8")
+        calls: list[str] = []
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _recording_fetch(calls))
+        _set_argv(monkeypatch, output)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases_failure.py:204: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_without_force_a_fresh_sid0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+_ test_the_marker_holds_the_exception_class_name_and_a_timestamp_but_no_message_text _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_the_marker_holds_the_exce0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA02BBD40>
+
+    def test_the_marker_holds_the_exception_class_name_and_a_timestamp_but_no_message_text(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        secret_message = "HTTP Error 403 at https://api.github.com/repos/x/y/releases token ghp_SECRETSECRET123"
+        output = tmp_path / "recent_releases.json"
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _failing_fetch(secret_message))
+        _set_argv(monkeypatch, output)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases_failure.py:217: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_the_marker_holds_the_exce0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+_ test_the_printed_failure_line_names_the_class_and_never_leaks_a_url_or_token _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_the_printed_failure_line_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA07A3A10>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001FFA018AA50>
+
+    def test_the_printed_failure_line_names_the_class_and_never_leaks_a_url_or_token(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        secret_message = "HTTP Error 403 at https://api.github.com/repos/x/y/releases token ghp_SECRETSECRET123"
+        output = tmp_path / "recent_releases.json"
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _failing_fetch(secret_message))
+        _set_argv(monkeypatch, output)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases_failure.py:236: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_the_printed_failure_line_0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+__________ test_published_at_and_url_round_trip_through_the_sidecar ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_published_at_and_url_roun0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA0704590>
+
+    def test_published_at_and_url_round_trip_through_the_sidecar(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        release = Release(
+            "v3.0.0",
+            "Added `x`",
+            "detailed",
+            published_at="2026-09-01T12:00:00Z",
+            url="https://github.com/o/r/releases/tag/v3.0.0",
+        )
+        output = tmp_path / "recent_releases.json"
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _recording_fetch([], [release]))
+        _set_argv(monkeypatch, output)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases_failure.py:261: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_published_at_and_url_roun0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+_________________ test_main_writes_the_real_shaped_json_list __________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_main_writes_the_real_shap0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFEDF2D350>
+
+    def test_main_writes_the_real_shaped_json_list(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls: list[str] = []
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _fake_fetch_releases(calls))
+        output_path = tmp_path / "recent_releases.json"
+        _set_argv(monkeypatch, output_path)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases.py:58: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_main_writes_the_real_shap0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+____________________ test_main_respects_the_limit_argument ____________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_main_respects_the_limit_a0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA04F11D0>
+
+    def test_main_respects_the_limit_argument(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls: list[str] = []
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _fake_fetch_releases(calls))
+        output_path = tmp_path / "recent_releases.json"
+        _set_argv(monkeypatch, output_path, "--limit", "1")
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases.py:74: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_main_respects_the_limit_a0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+_ test_main_skips_the_fetch_when_the_existing_output_is_within_the_freshness_window _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_main_skips_the_fetch_when0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA071CA60>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001FFA06CCE10>
+
+    def test_main_skips_the_fetch_when_the_existing_output_is_within_the_freshness_window(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        output_path = tmp_path / "recent_releases.json"
+        existing = [{"tag_name": "v1.0.0", "body": "", "richness": "none"}]
+        output_path.write_text(json.dumps(existing), encoding="utf-8")
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _must_not_be_called)
+        _set_argv(monkeypatch, output_path)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases.py:89: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_main_skips_the_fetch_when0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+_ test_main_fetches_again_when_the_existing_output_is_older_than_the_freshness_window _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_main_fetches_again_when_t0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA071C670>
+
+    def test_main_fetches_again_when_the_existing_output_is_older_than_the_freshness_window(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls: list[str] = []
+        output_path = tmp_path / "recent_releases.json"
+        output_path.write_text(
+            json.dumps([{"tag_name": "v1.0.0", "body": "", "richness": "none"}]), encoding="utf-8"
+        )
+        stale_time = time.time() - fetch_recent_releases._SIDECAR_FRESHNESS_SECONDS - 1
+        os.utime(output_path, (stale_time, stale_time))
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _fake_fetch_releases(calls))
+        _set_argv(monkeypatch, output_path)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases.py:111: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_main_fetches_again_when_t0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+_ test_main_treats_a_malformed_existing_output_as_absent_and_fetches_live_without_raising _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_main_treats_a_malformed_e0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA071F150>
+
+    def test_main_treats_a_malformed_existing_output_as_absent_and_fetches_live_without_raising(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls: list[str] = []
+        output_path = tmp_path / "recent_releases.json"
+        output_path.write_text("{this is not valid json at all", encoding="utf-8")
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _fake_fetch_releases(calls))
+        _set_argv(monkeypatch, output_path)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases.py:127: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_main_treats_a_malformed_e0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+_ test_main_writes_an_empty_sidecar_and_does_not_raise_when_fetch_releases_fails _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_main_writes_an_empty_side0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA071EF20>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001FFA06CC2D0>
+
+    def test_main_writes_an_empty_sidecar_and_does_not_raise_when_fetch_releases_fails(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        def _fetch_that_fails(repository: str, **kwargs: object) -> list[Release]:
+            raise RuntimeError("boom: simulated GitHub failure")
+    
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _fetch_that_fails)
+        output_path = tmp_path / "recent_releases.json"
+        _set_argv(monkeypatch, output_path)
+    
+>       fetch_recent_releases.main()  # must not raise
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_fetch_recent_releases.py:144: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_main_writes_an_empty_side0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+________ test_load_recent_releases_sidecar_round_trips_what_main_wrote ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_load_recent_releases_side0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA071F5B0>
+
+    def test_load_recent_releases_sidecar_round_trips_what_main_wrote(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls: list[str] = []
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _fake_fetch_releases(calls))
+        output_path = tmp_path / "recent_releases.json"
+        _set_argv(monkeypatch, output_path)
+    
+>       fetch_recent_releases.main()
+
+tests\infra\test_fetch_recent_releases.py:161: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_load_recent_releases_side0/recent_releases.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+_ test_serving_with_a_recent_releases_sidecar_reaches_list_recent_changes_with_real_content _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_serving_with_a_recent_rel0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA071FE70>
+
+    def test_serving_with_a_recent_releases_sidecar_reaches_list_recent_changes_with_real_content(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The live-content smoke test AGENTS.md's "Integration and liveness" section requires: real,
+        # non-empty content actually reaching the tool, not merely a well-formed empty response.
+        releases = (
+            Release(tag_name="v2.1.0", body="Fixed a real bug in the parser", richness="detailed"),
+            Release(tag_name="v2.0.0", body="", richness="none"),
+        )
+>       manifests = _write_recent_releases_sidecar(tmp_path, monkeypatch, platform="net", releases=releases)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_serve_manifest_sidecar.py:124: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_serve_manifest_sidecar.py:111: in _write_recent_releases_sidecar
+    fetch_recent_releases.main()
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_serving_with_a_recent_rel0/recent_releases_pdf_net.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+_ test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_recent_releases_sidecar _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_serving_with_the_pdf_java0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FFA071D160>
+
+    def test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_recent_releases_sidecar(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        net_releases = (Release(tag_name="v9.0.0", body="net-only release", richness="none"),)
+>       _write_recent_releases_sidecar(tmp_path, monkeypatch, platform="net", releases=net_releases)
+
+tests\infra\test_serve_manifest_sidecar.py:150: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_serve_manifest_sidecar.py:111: in _write_recent_releases_sidecar
+    fetch_recent_releases.main()
+infra\fetch_recent_releases.py:180: in main
+    if not args.force and _sidecar_is_fresh(args.output):
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+output = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-6656/test_serving_with_the_pdf_java0/recent_releases_pdf_net.json')
+
+    def _sidecar_is_fresh(output: Path) -> bool:
+        """True only when no failure marker exists and *output* exists, is well-formed JSON holding a
+        list, and its own mtime is less than ``_SIDECAR_FRESHNESS_SECONDS`` old. Anything else - absent, unreadable, malformed,
+        or merely stale - is never "fresh", so ``main`` always falls back to fetching live; this never
+        raises, so a malformed existing file cannot block a re-run. A ``<output>.failed`` marker means
+        the last fetch failed, so whatever the sidecar holds is not an answer to trust: never fresh.
+        """
+>       if _fetch_failed_marker(output).exists():
+           ^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_fetch_failed_marker' is not defined
+
+infra\fetch_recent_releases.py:125: NameError
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_failure_with_a_good_existing_sidecar_leaves_its_bytes_unchanged_and_writes_the_marker
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_failure_with_no_sidecar_writes_an_empty_list_and_the_marker
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_failure_over_a_malformed_sidecar_writes_an_empty_list_and_the_marker
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_marker_path_is_the_output_path_plus_a_failed_suffix
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_a_fresh_looking_sidecar_is_not_fresh_while_the_marker_exists
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_the_next_run_refetches_when_the_marker_is_present_even_though_the_sidecar_looks_fresh
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_a_failed_run_followed_by_another_run_refetches
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_success_deletes_the_marker
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_success_without_a_marker_does_not_fail
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_force_refetches_a_fresh_sidecar
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_without_force_a_fresh_sidecar_is_still_skipped
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_the_marker_holds_the_exception_class_name_and_a_timestamp_but_no_message_text
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_the_printed_failure_line_names_the_class_and_never_leaks_a_url_or_token
+FAILED tests/infra/test_fetch_recent_releases_failure.py::test_published_at_and_url_round_trip_through_the_sidecar
+FAILED tests/infra/test_fetch_recent_releases.py::test_main_writes_the_real_shaped_json_list
+FAILED tests/infra/test_fetch_recent_releases.py::test_main_respects_the_limit_argument
+FAILED tests/infra/test_fetch_recent_releases.py::test_main_skips_the_fetch_when_the_existing_output_is_within_the_freshness_window
+FAILED tests/infra/test_fetch_recent_releases.py::test_main_fetches_again_when_the_existing_output_is_older_than_the_freshness_window
+FAILED tests/infra/test_fetch_recent_releases.py::test_main_treats_a_malformed_existing_output_as_absent_and_fetches_live_without_raising
+FAILED tests/infra/test_fetch_recent_releases.py::test_main_writes_an_empty_sidecar_and_does_not_raise_when_fetch_releases_fails
+FAILED tests/infra/test_fetch_recent_releases.py::test_load_recent_releases_sidecar_round_trips_what_main_wrote
+FAILED tests/infra/test_serve_manifest_sidecar.py::test_serving_with_a_recent_releases_sidecar_reaches_list_recent_changes_with_real_content
+FAILED tests/infra/test_serve_manifest_sidecar.py::test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_recent_releases_sidecar
+
+--- stderr ---
+
