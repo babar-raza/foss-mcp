@@ -1,0 +1,108 @@
+id: TC-340
+gate: G2
+lane: storage-retrieval
+purpose: >-
+  Measured on the first real 40-pilot install with the Qwen gateway wired in: embedding EVERY chunk (4096-dim) grew a
+  pilot's generation file from 5.8 MB to 42 MB, and GenerationManifestStore re-parses the whole file on every access
+  (including /readyz every 10 s), so serving pods timed out their probes and were restarted. The vector index has
+  exactly one consumer - find_examples' fallback - and that keeps only points whose text contains the "Example:"
+  marker, a few to a few dozen chunks per pilot out of hundreds or thousands. This card adds an OPT-IN scope so a
+  production ingestion can embed and store only example-bearing chunks (and make far fewer gateway calls), while the
+  library default stays "every chunk" so every accepted test and caller is unchanged.
+depends_on:
+- TC-146
+- TC-242
+- TC-331
+- TC-336
+write_paths:
+- src/foss_mcp/indexing/vector_index_writer.py
+- src/foss_mcp/indexing/publisher.py
+- infra/ingest.py
+- tests/indexing/test_vector_scope.py
+- tests/infra/test_ingest_vector_scope.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Embedding every chunk with the 4096-dim gateway made serving pods unreadable; only example chunks need vectors (supervisor, pre-TC-340)'
+  sha256: dae21964bea9369486a1385a17f0c383eb4bccc457922c537cb8b988a9ccdce1
+inputs:
+- >-
+  Read src/foss_mcp/indexing/vector_index_writer.py, src/foss_mcp/indexing/publisher.py (the publish function and how it
+  calls build_vector_index), infra/ingest.py (its argparse and how it calls publish), the "Example:" handling in
+  src/foss_mcp/mcp/tools/find_examples.py (read only; you do not own it), and tests/infra/test_ingest.py plus
+  tests/indexing/test_publisher.py (their style and helpers). Every existing test must keep passing UNMODIFIED. Many
+  of them pin "one vector point per chunk", which is why this is an opt-in scope, not a changed default.
+- >-
+  vector_index_writer.py: add a module constant `EXAMPLE_MARKER = "Example:"`, a function
+  `is_example_chunk(chunk) -> bool` (true when the marker is in chunk.text), and an optional keyword argument
+  `include: Callable[[Chunk], bool] | None = None` on build_vector_index. With include=None the function must behave
+  exactly as today. With a predicate, ONLY the selected chunks are passed to embedding_provider.embed (select first,
+  then embed - never embed everything and discard), their chunk_ids stay paired correctly, and the payload's
+  `dimension` and `generation_id` are unchanged in meaning. If nothing is selected, embed must not be called at all
+  and the payload has `points: []`. Check validate_manifest and anything else that reads the vector index for an
+  assumption that it is non-empty; if one exists that would reject or misread an empty index, say so in your report
+  and STOP rather than weakening it.
+- >-
+  publisher.py: publish gains an optional keyword argument `vector_chunk_filter: Callable[[Chunk], bool] | None = None`
+  passed straight to build_vector_index as include. Default None = today's behaviour byte for byte.
+- >-
+  infra/ingest.py: add `--vector-scope {all,examples}`, default `all`. `examples` passes
+  vector_index_writer.is_example_chunk as the filter. An invalid value must be refused by argparse (exit 2). Nothing
+  else about the CLI changes.
+- >-
+  Create tests/indexing/test_vector_scope.py (NEW): (1) include=None yields exactly one point per chunk, identical to
+  the current output for the same inputs; (2) with is_example_chunk on a mixed list, only the marked chunks appear,
+  each with its own chunk_id and text, and a RECORDING provider proves embed was called exactly once with only those
+  texts (never the unmarked ones); (3) a list with no marked chunks never calls embed, gives `points: []`, and the
+  payload still has dimension and generation_id; (4) EXAMPLE_MARKER equals find_examples._EXAMPLE_MARKER (import both
+  and compare - this pins the two copies together); (5) is_example_chunk is false for text that merely contains the
+  word "example" in lower case or mid-word.
+- >-
+  Create tests/infra/test_ingest_vector_scope.py (NEW), mirroring tests/infra/test_ingest.py's helpers: run the real
+  ingest entry point against a tmp manifest store with a deterministic test provider and a small chunk file containing
+  both marked and unmarked chunks: with `--vector-scope examples` the stored generation's vector_index points are only
+  the marked chunks while the lexical index still holds ALL chunks; with the default and with `--vector-scope all`
+  every chunk has a point; `--vector-scope bogus` exits 2.
+- >-
+  Run `{python} -m pytest tests/indexing/test_vector_scope.py tests/infra/test_ingest_vector_scope.py -q -rfE`, then
+  once `{python} -m pytest tests/indexing/test_index_writers.py tests/indexing/test_publisher.py tests/infra/test_ingest.py tests/mcp/tools/test_retrieval_tools.py tests/test_unwired_modules.py -q -rfE`
+  to confirm nothing regressed (test_unwired_modules proves build_vector_index is still reachable from a production
+  entrypoint; test_retrieval_tools covers find_examples' vector fallback). Do NOT widen this to all of tests/indexing:
+  several files there clone from the network.
+- Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Add EXAMPLE_MARKER, is_example_chunk and an optional include filter to build_vector_index (select first, then embed).
+- Thread an optional vector_chunk_filter through publish and add --vector-scope {all,examples} (default all) to infra/ingest.py.
+- Add two new test files proving default-unchanged, examples-only, no-embed-when-empty, marker pinning and the CLI.
+checks:
+- command: '{python} -m pytest tests/indexing/test_vector_scope.py tests/infra/test_ingest_vector_scope.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/indexing/test_index_writers.py tests/indexing/test_publisher.py tests/infra/test_ingest.py tests/mcp/tools/test_retrieval_tools.py tests/test_unwired_modules.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 8
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;q=chr(34);p=pathlib.Path('src/foss_mcp/indexing/vector_index_writer.py');s=p.read_text(encoding='utf-8');old='EXAMPLE_MARKER = '+q+'Example:'+q;assert old in s;p.write_text(s.replace(old,'EXAMPLE_MARKER = '+q+'Exampl3:'+q,1),encoding='utf-8')"
+  rationale: >-
+    Changes the marker text, so is_example_chunk no longer recognizes real example chunks: the examples-only
+    selection, the marker-pinning test against find_examples and the CLI scope test all fail. A real semantic break
+    of the card's central claim.
+evidence:
+- evidence/build/G2/TC-340/receipt.json
+closeout:
+- >-
+  An ingestion run can now embed and store only the chunks find_examples can ever return, cutting a pilot's vector
+  payload by roughly 95-99% and its gateway calls by the same factor, with the library default unchanged.
+recovery: Re-run from a clean tree.

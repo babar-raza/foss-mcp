@@ -1,0 +1,93 @@
+id: TC-341
+gate: G2
+lane: transport-deployment
+purpose: >-
+  Two production defects from the first real 40-pilot install. (1) The ingestion Job embeds and stores a vector for
+  every chunk although only example-bearing chunks can ever be returned, bloating each generation file about 7x
+  (TC-340 adds the opt-in --vector-scope examples; this card makes the chart use it). (2) The chart never sets a probe
+  timeoutSeconds, so Kubernetes uses 1 second, and on a busy node healthy serving pods failed readiness
+  ("Client.Timeout exceeded while awaiting headers") and were killed by the liveness probe (3d-net restarted 11 times
+  in an hour). Explicit, generous, overridable timeouts are standard hygiene.
+depends_on:
+- TC-328
+- TC-337
+- TC-338
+- TC-340
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
+- infra/helm/foss-mcp/templates/deployment.yaml
+- infra/helm/foss-mcp/templates/demo-deployment.yaml
+- tests/infra/test_helm_vector_scope_probes.py
+satisfies:
+- REQ-G2-043
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Embedding every chunk with the 4096-dim gateway made serving pods unreadable; only example chunks need vectors (supervisor, pre-TC-340)'
+  sha256: dae21964bea9369486a1385a17f0c383eb4bccc457922c537cb8b988a9ccdce1
+inputs:
+- >-
+  Read infra/helm/foss-mcp/templates/ingestion-job.yaml (note TC-337's conditional provider and env), deployment.yaml,
+  demo-deployment.yaml (it renders inside a range loop, so every values lookup there is `$.Values...`), the `probes:`
+  block in values.yaml, and tests/infra/test_helm_ingestion_embedding.py for the render helper and style. Every
+  existing test must keep passing UNMODIFIED. If an existing accepted test pins exact command or probe text that this
+  change contradicts, STOP and report it; do not edit it and do not obfuscate text to dodge it.
+- >-
+  ingestion-job.yaml: in the `python /app/infra/ingest.py` command, add `--vector-scope examples` immediately after the
+  `--embedding-provider ...` argument, UNCONDITIONALLY (it is the production path and applies in both the hashing and
+  the gateway mode). Verify with `helm template` that the rendered command is still one well-formed shell line in both
+  modes, exactly as TC-337 did.
+- >-
+  values.yaml `probes:`: add `timeoutSeconds: 5` under `liveness` and `timeoutSeconds: 3` under `readiness`, with a
+  short comment that the Kubernetes default of 1 second failed healthy pods on a busy node. Change nothing else there.
+- >-
+  deployment.yaml and demo-deployment.yaml: add `timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}` (and the
+  readiness equivalent) to the respective probes, right after `periodSeconds`; use `$.Values` in the demo file.
+- >-
+  Create tests/infra/test_helm_vector_scope_probes.py (NEW) proving against real `helm template` output: (1) every
+  ingestion Job's ingest.py command contains `--vector-scope examples` exactly once, in default mode and with
+  embeddingGateway.existingSecret set, and the Job count is the same in both; (2) the serving Deployment's liveness
+  probe has timeoutSeconds 5 and readiness 3 by default; (3) with demo.enabled=true every demo Deployment has the same
+  two values; (4) `--set probes.liveness.timeoutSeconds=9` and `--set probes.readiness.timeoutSeconds=7` are honoured in
+  both templates. Derive pilot counts from the render, never hard-code them.
+- >-
+  Run `{python} -m pytest tests/infra/test_helm_vector_scope_probes.py -q -rfE`, then once
+  `{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_github_token.py tests/infra/test_helm_embedding_gateway.py tests/infra/test_helm_ingestion_embedding.py tests/infra/test_helm_embedding_egress.py -q -rfE`
+  to confirm no regression (the Helm CLI needs the toolchain activated in the same command; the second command takes
+  several minutes).
+- Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Pass --vector-scope examples in every ingestion Job command.
+- Add explicit, overridable liveness (5 s) and readiness (3 s) probe timeouts to values.yaml and both serving templates.
+- Add a dedicated test file proving the flag, the defaults and the overrides against real helm template output.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_vector_scope_probes.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G2-043
+- command: '{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_github_token.py tests/infra/test_helm_embedding_gateway.py tests/infra/test_helm_ingestion_embedding.py tests/infra/test_helm_embedding_egress.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G2-043
+min_tests: 6
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/ingestion-job.yaml');s=p.read_text(encoding='utf-8');old='--vector-scope';assert old in s;i=s.rindex(old);p.write_text(s[:i]+'--vector-scoped'+s[i+len(old):],encoding='utf-8')"
+  rationale: >-
+    Renames the last occurrence of --vector-scope inside ingestion-job.yaml, so the rendered command carries a flag
+    that does not exist and the "exactly once --vector-scope examples" assertion fails. A real semantic break of the
+    card's central claim.
+evidence:
+- evidence/build/G2/TC-341/receipt.json
+closeout:
+- >-
+  Production ingestion stores vectors only for chunks find_examples can return, and serving pods get explicit probe
+  timeouts that survive a busy node. Closes the two defects recorded in docs/DECISION_LOG.md's 2026-10-11 entry.
+recovery: Re-run from a clean tree.

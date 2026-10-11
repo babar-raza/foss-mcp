@@ -2624,3 +2624,37 @@ real non-empty matches; (6) `gatectl gate-exit G3`. Owner-only edges: the GitHub
 created if the operator says so - without it the readers wait out the 60-per-hour limit (TC-220) and ingestion is
 slower but still completes; pushing past this machine's Application Control block on Rust build scripts needs the
 operator, not an agent.
+
+## 2026-10-11 — Embedding every chunk with the 4096-dim gateway made serving pods unreadable; only example chunks need vectors (supervisor, pre-TC-340)
+
+Measured on the first real 40-pilot install with the gateway wired in (TC-337..TC-339), not predicted. With the
+Job embedding EVERY chunk through Qwen (4096-dim), a pilot's generation file grew from 5.8 MB (hashing) to
+42 MB (3d/net). `GenerationManifestStore` re-reads and `json.loads` the whole generation file on every access,
+and `/readyz` (`health.round_trip_check`) does so every 10 s; the serving pod has a 512 MiB limit and the chart
+never sets a probe `timeoutSeconds` (Kubernetes default: 1 s). Result: `Readiness probe failed ... Client.Timeout
+exceeded` and `Container serving failed liveness probe, will be restarted` on most serving pods (3d-net 11
+restarts in an hour); only 11 of 40 were Ready.
+
+The vector index has exactly one consumer: `find_examples`' fallback (`query_vector_index_scored`), which then
+keeps only points whose text contains the `Example:` marker (`find_examples._EXAMPLE_MARKER`). A pilot has
+single-digit to a few dozen such chunks (TC-331 measured 4 each for pdf/go and pdf/typescript) against hundreds
+to thousands of chunks in total - so ~95-99% of the stored vector bytes are points nothing can ever return.
+
+Decision: embed and store only example-bearing chunks in production. Opt-in, not a changed default, because many
+accepted tests pin "one vector point per chunk" for `build_vector_index` / `publish` and the library contract is
+a legitimate general one: TC-340 adds a `--vector-scope {all,examples}` option to `infra/ingest.py` (default
+`all`, today's behaviour) threaded through `publish`; TC-341 makes the production chart pass `examples` and sets
+explicit probe timeouts (liveness 5 s, readiness 3 s) so a busy node no longer kills healthy pods. Semantic
+search over symbols or docs is not a tool today; if one is built, it brings its own scope. Not done here: a
+parsed-manifest cache for serving (with vectors gone the generation is back to ~6 MB and parses in ~100 ms).
+
+## 2026-10-11 — GitHub's unauthenticated limit makes a 40-pilot re-roll take hours; pacing is the no-credential path (supervisor)
+
+The 40-pilot install ran without a GitHub token (as the previous one did). 31 of 40 completed; 9 ingestion Jobs hit
+`HTTP Error 403: rate limit exceeded` on the product-reference and recent-releases fetches, so those pilots'
+serving pods sat in their init step and `helm --wait` timed out. Roughly 4 GitHub calls per pilot against 60 per
+hour unauthenticated means ~15 pilots per hour at best. Without a credential the safe procedure is pacing:
+re-install in batches sized to the remaining quota (`curl https://api.github.com/rate_limit` is free) with
+`--parallel 1`, and let the loop wait for the window to reset. OWNER-08 stays OPEN: creating a GitHub-token Secret
+from the operator's own `GITHUB_TOKEN` is the operator's call, and with it every re-roll drops from hours to
+minutes (`install_pilots.py --github-token-secret NAME`, TC-339).
