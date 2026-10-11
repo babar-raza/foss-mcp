@@ -1,0 +1,147 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_vector_scope.py tests/infra/test_ingest_vector_scope.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qb4qre1i\.junit-0.xml"
+--- stdout ---
+.............                                                            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py tests/indexing/test_publisher.py tests/infra/test_ingest.py tests/mcp/tools/test_retrieval_tools.py tests/test_unwired_modules.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qb4qre1i\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 87%]
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_vector_scope.py tests/infra/test_ingest_vector_scope.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qb4qre1i\.junit-0.xml"
+--- stdout ---
+.............                                                            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py tests/indexing/test_publisher.py tests/infra/test_ingest.py tests/mcp/tools/test_retrieval_tools.py tests/test_unwired_modules.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qb4qre1i\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 87%]
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/vector_index_writer.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_vector_scope.py tests/infra/test_ingest_vector_scope.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qb4qre1i\.junit-0.xml"
+--- stdout ---
+.F...FFFF....                                                            [100%]
+================================== FAILURES ===================================
+___ test_example_scope_keeps_only_marked_chunks_and_embeds_only_their_texts ___
+
+    def test_example_scope_keeps_only_marked_chunks_and_embeds_only_their_texts() -> None:
+        chunks = _mixed_chunks()
+        chunk_ids = [f"c{i}" for i in range(len(chunks))]
+        provider = RecordingEmbeddingProvider()
+    
+        payload = build_vector_index(chunks, chunk_ids, provider, "gen-2", include=is_example_chunk)
+    
+        assert payload["generation_id"] == "gen-2"
+        assert payload["dimension"] == provider.dimension
+>       assert [p["chunk_id"] for p in payload["points"]] == ["c1", "c3"]
+E       AssertionError: assert [] == ['c1', 'c3']
+E         
+E         Right contains 2 more items, first extra item: 'c1'
+E         Use -v to get more diff
+
+tests\indexing\test_vector_scope.py:102: AssertionError
+___________ test_example_marker_is_pinned_to_find_examples_own_copy ___________
+
+    def test_example_marker_is_pinned_to_find_examples_own_copy() -> None:
+>       assert EXAMPLE_MARKER == find_examples._EXAMPLE_MARKER == "Example:"
+E       AssertionError: assert 'Exampl3:' == 'Example:'
+E         
+E         - Example:
+E         ?       ^
+E         + Exampl3:
+E         ?       ^
+
+tests\indexing\test_vector_scope.py:154: AssertionError
+_______________ test_is_example_chunk_requires_the_exact_marker _______________
+
+    def test_is_example_chunk_requires_the_exact_marker() -> None:
+>       assert is_example_chunk(_chunk("Document.Open", EXAMPLE_TEXT_ONE))
+E       AssertionError: assert False
+E        +  where False = is_example_chunk(Chunk(section_title='Document.Open', text='`Document.Open` opens a file.\nExample:\n```csharp\nvar d = Document.Open(p...7287', path=''), trust_tier='highest', evidence_refs=(), validation=ValidationResult(verdict='not_checked', detail='')))
+E        +    where Chunk(section_title='Document.Open', text='`Document.Open` opens a file.\nExample:\n```csharp\nvar d = Document.Open(p...7287', path=''), trust_tier='highest', evidence_refs=(), validation=ValidationResult(verdict='not_checked', detail='')) = _chunk('Document.Open', '`Document.Open` opens a file.\nExample:\n```csharp\nvar d = Document.Open(path);\n```')
+
+tests\indexing\test_vector_scope.py:158: AssertionError
+_ test_publish_generation_threads_vector_chunk_filter_into_the_stored_generation _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5228/test_publish_generation_thread0')
+
+    def test_publish_generation_threads_vector_chunk_filter_into_the_stored_generation(tmp_path: Path) -> None:
+        chunks = _mixed_chunks()
+        store = GenerationManifestStore(tmp_path / "manifests")
+        scope = "pdf::net::self_extracted"
+        provider = RecordingEmbeddingProvider()
+        lease = store.acquire_lease(scope, "test", "pending")
+    
+        generation_id = publish_generation(
+            store,
+            family="pdf",
+            platform="net",
+            source_kind="self_extracted",
+            expected_active=store.read_active(scope),
+            chunks=chunks,
+            embedding_provider=provider,
+            lease=lease,
+            vector_chunk_filter=is_example_chunk,
+        )
+    
+        manifest = store.read_generation(scope, generation_id)
+        vector_points = manifest.payload["vector_index"]["points"]
+>       assert [p["chunk_id"] for p in vector_points] == [
+            content_chunk_id(chunks[1]),
+            content_chunk_id(chunks[3]),
+        ]
+E       AssertionError: assert [] == ['aa705243eb1...52fa17ec9035']
+E         
+E         Right contains 2 more items, first extra item: 'aa705243eb1bc4de'
+E         Use -v to get more diff
+
+tests\indexing\test_vector_scope.py:190: AssertionError
+_ test_examples_scope_stores_vector_points_only_for_marked_chunks_but_lexical_keeps_all _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5228/test_examples_scope_stores_vec0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001A3FED83B60>
+
+    def test_examples_scope_stores_vector_points_only_for_marked_chunks_but_lexical_keeps_all(
+        tmp_path: Path, monkeypatch
+    ) -> None:
+        manifest = _run_ingest(monkeypatch, tmp_path, "--vector-scope", "examples")
+    
+        vector_index = manifest.payload["vector_index"]
+>       assert [p["text"] for p in vector_index["points"]] == [EXAMPLE_ONE, EXAMPLE_TWO]
+E       AssertionError: assert [] == ['`Document.O...te(90);\n```']
+E         
+E         Right contains 2 more items, first extra item: '`Document.Open` opens a file.\nExample:\n```csharp\nvar d = Document.Open(path);\n```'
+E         Use -v to get more diff
+
+tests\infra\test_ingest_vector_scope.py:125: AssertionError
+---------------------------- Captured stdout call -----------------------------
+published pdf::net::self_extracted::20261011T031653410225Z-4cfbe918
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_vector_scope.py::test_example_scope_keeps_only_marked_chunks_and_embeds_only_their_texts
+FAILED tests/indexing/test_vector_scope.py::test_example_marker_is_pinned_to_find_examples_own_copy
+FAILED tests/indexing/test_vector_scope.py::test_is_example_chunk_requires_the_exact_marker
+FAILED tests/indexing/test_vector_scope.py::test_publish_generation_threads_vector_chunk_filter_into_the_stored_generation
+FAILED tests/infra/test_ingest_vector_scope.py::test_examples_scope_stores_vector_points_only_for_marked_chunks_but_lexical_keeps_all
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py tests/indexing/test_publisher.py tests/infra/test_ingest.py tests/mcp/tools/test_retrieval_tools.py tests/test_unwired_modules.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qb4qre1i\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 87%]
+..........                                                               [100%]
+
+--- stderr ---
+
