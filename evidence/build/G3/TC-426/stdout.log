@@ -1,0 +1,2439 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_build_chunks_extraction_notice.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xcdsqflc\.junit-0.xml"
+--- stdout ---
+..................                                                       [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_build_chunks_extraction_notice.py tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/tree_sitter_engine/test_python_surface_members.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_platforms.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xcdsqflc\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 93%]
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_build_chunks_extraction_notice.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xcdsqflc\.junit-0.xml"
+--- stdout ---
+..................                                                       [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_build_chunks_extraction_notice.py tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/tree_sitter_engine/test_python_surface_members.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_platforms.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xcdsqflc\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 93%]
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/build_chunks.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_build_chunks_extraction_notice.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xcdsqflc\.junit-0.xml"
+--- stdout ---
+FFFFFFFFFFF.......                                                       [100%]
+================================== FAILURES ===================================
+_______________ test_tex_fixture_yields_exactly_one_doc_notice ________________
+
+    def test_tex_fixture_yields_exactly_one_doc_notice() -> None:
+>       chunks = build_chunks._extraction_notice_chunks(_fixture(TEX))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:71: AttributeError
+_________________ test_notice_text_starts_with_the_doc_marker _________________
+
+    def test_notice_text_starts_with_the_doc_marker() -> None:
+>       (chunk,) = build_chunks._extraction_notice_chunks(_fixture(TEX))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:78: AttributeError
+_______________ test_notice_names_the_unparseable_file_and_line _______________
+
+    def test_notice_names_the_unparseable_file_and_line() -> None:
+>       (chunk,) = build_chunks._extraction_notice_chunks(_fixture(TEX))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:83: AttributeError
+_______ test_notice_names_every_public_name_that_could_not_be_extracted _______
+
+    def test_notice_names_every_public_name_that_could_not_be_extracted() -> None:
+>       (chunk,) = build_chunks._extraction_notice_chunks(_fixture(TEX))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:88: AttributeError
+__________ test_notice_has_no_backtick_and_states_the_source_commit ___________
+
+    def test_notice_has_no_backtick_and_states_the_source_commit() -> None:
+        fixture = _fixture(TEX)
+>       (chunk,) = build_chunks._extraction_notice_chunks(fixture)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:96: AttributeError
+______ test_fixtures_without_a_syntax_error_yield_no_notice[pdf_python] _______
+
+pilot = 'pdf_python'
+
+    @pytest.mark.parametrize("pilot", ["pdf_python", "html_python", "words_python"])
+    def test_fixtures_without_a_syntax_error_yield_no_notice(pilot: str) -> None:
+        fixture = _fixture(FIXTURES / pilot / "api_surface.json")
+>       assert build_chunks._extraction_notice_chunks(fixture) == []
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:106: AttributeError
+______ test_fixtures_without_a_syntax_error_yield_no_notice[html_python] ______
+
+pilot = 'html_python'
+
+    @pytest.mark.parametrize("pilot", ["pdf_python", "html_python", "words_python"])
+    def test_fixtures_without_a_syntax_error_yield_no_notice(pilot: str) -> None:
+        fixture = _fixture(FIXTURES / pilot / "api_surface.json")
+>       assert build_chunks._extraction_notice_chunks(fixture) == []
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:106: AttributeError
+_____ test_fixtures_without_a_syntax_error_yield_no_notice[words_python] ______
+
+pilot = 'words_python'
+
+    @pytest.mark.parametrize("pilot", ["pdf_python", "html_python", "words_python"])
+    def test_fixtures_without_a_syntax_error_yield_no_notice(pilot: str) -> None:
+        fixture = _fixture(FIXTURES / pilot / "api_surface.json")
+>       assert build_chunks._extraction_notice_chunks(fixture) == []
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:106: AttributeError
+__ test_a_syntax_error_without_reexports_still_yields_a_notice_without_names __
+
+    def test_a_syntax_error_without_reexports_still_yields_a_notice_without_names() -> None:
+        fixture = {
+            "source_repository": "example-org/example-python",
+            "source_commit": "0" * 40,
+            "unresolved": ["pkg.mod:3:syntax-error:src/pkg/mod.py:invalid syntax"],
+        }
+>       (chunk,) = build_chunks._extraction_notice_chunks(fixture)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:115: AttributeError
+________ test_main_on_tex_writes_the_notice_with_a_source_commit_line _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7216/test_main_on_tex_writes_the_no0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000152E4E02970>
+
+    def test_main_on_tex_writes_the_notice_with_a_source_commit_line(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fixture = _fixture(TEX)
+>       chunks = _run_main(monkeypatch, tmp_path, TEX)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_build_chunks_extraction_notice.py:127: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_extraction_notice.py:63: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=300)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript and nodejs only)",
+        )
+        parser.add_argument(
+            "--library-java-packages",
+            type=_java_packages_argument,
+            default=None,
+            help="comma-separated Java packages whose classes the README examples use "
+            "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
+        )
+        parser.add_argument(
+            "--library-cpp-source-dir",
+            default=None,
+            help="repository-relative directory holding the C++ library's CMake project "
+            "(cpp only; needs --library-cpp-target, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-target",
+            default=None,
+            help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-warnings",
+            choices=("strict", "relaxed"),
+            default=None,
+            help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+        )
+        parser.add_argument(
+            "--library-cpp-verify-mode",
+            choices=("run", "compile"),
+            default=None,
+            help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        if args.library_cpp_target is None and (
+            args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        ):
+            parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+>       chunks = chunks + _extraction_notice_chunks(fixture)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_extraction_notice_chunks' is not defined
+
+infra\build_chunks.py:710: NameError
+______ test_main_on_pdf_python_writes_no_notice_and_the_same_chunk_count ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7216/test_main_on_pdf_python_writes0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000152E4E03930>
+
+    def test_main_on_pdf_python_writes_no_notice_and_the_same_chunk_count(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fixture = _fixture(PDF)
+        expected = build_chunks_from_api_surface(fixture, title="Notice fixture", max_types=300)
+>       chunks = _run_main(monkeypatch, tmp_path, PDF)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_build_chunks_extraction_notice.py:140: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_extraction_notice.py:63: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=300)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript and nodejs only)",
+        )
+        parser.add_argument(
+            "--library-java-packages",
+            type=_java_packages_argument,
+            default=None,
+            help="comma-separated Java packages whose classes the README examples use "
+            "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
+        )
+        parser.add_argument(
+            "--library-cpp-source-dir",
+            default=None,
+            help="repository-relative directory holding the C++ library's CMake project "
+            "(cpp only; needs --library-cpp-target, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-target",
+            default=None,
+            help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-warnings",
+            choices=("strict", "relaxed"),
+            default=None,
+            help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+        )
+        parser.add_argument(
+            "--library-cpp-verify-mode",
+            choices=("run", "compile"),
+            default=None,
+            help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        if args.library_cpp_target is None and (
+            args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        ):
+            parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+>       chunks = chunks + _extraction_notice_chunks(fixture)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_extraction_notice_chunks' is not defined
+
+infra\build_chunks.py:710: NameError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_tex_fixture_yields_exactly_one_doc_notice
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_notice_text_starts_with_the_doc_marker
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_notice_names_the_unparseable_file_and_line
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_notice_names_every_public_name_that_could_not_be_extracted
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_notice_has_no_backtick_and_states_the_source_commit
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_fixtures_without_a_syntax_error_yield_no_notice[pdf_python]
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_fixtures_without_a_syntax_error_yield_no_notice[html_python]
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_fixtures_without_a_syntax_error_yield_no_notice[words_python]
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_a_syntax_error_without_reexports_still_yields_a_notice_without_names
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_main_on_tex_writes_the_notice_with_a_source_commit_line
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_main_on_pdf_python_writes_no_notice_and_the_same_chunk_count
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_build_chunks_extraction_notice.py tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/tree_sitter_engine/test_python_surface_members.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_platforms.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xcdsqflc\.junit-1.xml"
+--- stdout ---
+FFFFFFFFFFF..............................................FFFFFFFF.FFFFF. [ 93%]
+.....                                                                    [100%]
+================================== FAILURES ===================================
+_______________ test_tex_fixture_yields_exactly_one_doc_notice ________________
+
+    def test_tex_fixture_yields_exactly_one_doc_notice() -> None:
+>       chunks = build_chunks._extraction_notice_chunks(_fixture(TEX))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:71: AttributeError
+_________________ test_notice_text_starts_with_the_doc_marker _________________
+
+    def test_notice_text_starts_with_the_doc_marker() -> None:
+>       (chunk,) = build_chunks._extraction_notice_chunks(_fixture(TEX))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:78: AttributeError
+_______________ test_notice_names_the_unparseable_file_and_line _______________
+
+    def test_notice_names_the_unparseable_file_and_line() -> None:
+>       (chunk,) = build_chunks._extraction_notice_chunks(_fixture(TEX))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:83: AttributeError
+_______ test_notice_names_every_public_name_that_could_not_be_extracted _______
+
+    def test_notice_names_every_public_name_that_could_not_be_extracted() -> None:
+>       (chunk,) = build_chunks._extraction_notice_chunks(_fixture(TEX))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:88: AttributeError
+__________ test_notice_has_no_backtick_and_states_the_source_commit ___________
+
+    def test_notice_has_no_backtick_and_states_the_source_commit() -> None:
+        fixture = _fixture(TEX)
+>       (chunk,) = build_chunks._extraction_notice_chunks(fixture)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:96: AttributeError
+______ test_fixtures_without_a_syntax_error_yield_no_notice[pdf_python] _______
+
+pilot = 'pdf_python'
+
+    @pytest.mark.parametrize("pilot", ["pdf_python", "html_python", "words_python"])
+    def test_fixtures_without_a_syntax_error_yield_no_notice(pilot: str) -> None:
+        fixture = _fixture(FIXTURES / pilot / "api_surface.json")
+>       assert build_chunks._extraction_notice_chunks(fixture) == []
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:106: AttributeError
+______ test_fixtures_without_a_syntax_error_yield_no_notice[html_python] ______
+
+pilot = 'html_python'
+
+    @pytest.mark.parametrize("pilot", ["pdf_python", "html_python", "words_python"])
+    def test_fixtures_without_a_syntax_error_yield_no_notice(pilot: str) -> None:
+        fixture = _fixture(FIXTURES / pilot / "api_surface.json")
+>       assert build_chunks._extraction_notice_chunks(fixture) == []
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:106: AttributeError
+_____ test_fixtures_without_a_syntax_error_yield_no_notice[words_python] ______
+
+pilot = 'words_python'
+
+    @pytest.mark.parametrize("pilot", ["pdf_python", "html_python", "words_python"])
+    def test_fixtures_without_a_syntax_error_yield_no_notice(pilot: str) -> None:
+        fixture = _fixture(FIXTURES / pilot / "api_surface.json")
+>       assert build_chunks._extraction_notice_chunks(fixture) == []
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:106: AttributeError
+__ test_a_syntax_error_without_reexports_still_yields_a_notice_without_names __
+
+    def test_a_syntax_error_without_reexports_still_yields_a_notice_without_names() -> None:
+        fixture = {
+            "source_repository": "example-org/example-python",
+            "source_commit": "0" * 40,
+            "unresolved": ["pkg.mod:3:syntax-error:src/pkg/mod.py:invalid syntax"],
+        }
+>       (chunk,) = build_chunks._extraction_notice_chunks(fixture)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_extraction_notice_chunks'. Did you mean: '_extraction_notice_chunksX'?
+
+tests\infra\test_build_chunks_extraction_notice.py:115: AttributeError
+________ test_main_on_tex_writes_the_notice_with_a_source_commit_line _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7217/test_main_on_tex_writes_the_no0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198FED72430>
+
+    def test_main_on_tex_writes_the_notice_with_a_source_commit_line(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fixture = _fixture(TEX)
+>       chunks = _run_main(monkeypatch, tmp_path, TEX)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_build_chunks_extraction_notice.py:127: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_extraction_notice.py:63: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=300)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript and nodejs only)",
+        )
+        parser.add_argument(
+            "--library-java-packages",
+            type=_java_packages_argument,
+            default=None,
+            help="comma-separated Java packages whose classes the README examples use "
+            "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
+        )
+        parser.add_argument(
+            "--library-cpp-source-dir",
+            default=None,
+            help="repository-relative directory holding the C++ library's CMake project "
+            "(cpp only; needs --library-cpp-target, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-target",
+            default=None,
+            help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-warnings",
+            choices=("strict", "relaxed"),
+            default=None,
+            help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+        )
+        parser.add_argument(
+            "--library-cpp-verify-mode",
+            choices=("run", "compile"),
+            default=None,
+            help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        if args.library_cpp_target is None and (
+            args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        ):
+            parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+>       chunks = chunks + _extraction_notice_chunks(fixture)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_extraction_notice_chunks' is not defined
+
+infra\build_chunks.py:710: NameError
+______ test_main_on_pdf_python_writes_no_notice_and_the_same_chunk_count ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7217/test_main_on_pdf_python_writes0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198FED72A50>
+
+    def test_main_on_pdf_python_writes_no_notice_and_the_same_chunk_count(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fixture = _fixture(PDF)
+        expected = build_chunks_from_api_surface(fixture, title="Notice fixture", max_types=300)
+>       chunks = _run_main(monkeypatch, tmp_path, PDF)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_build_chunks_extraction_notice.py:140: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_extraction_notice.py:63: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=300)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript and nodejs only)",
+        )
+        parser.add_argument(
+            "--library-java-packages",
+            type=_java_packages_argument,
+            default=None,
+            help="comma-separated Java packages whose classes the README examples use "
+            "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
+        )
+        parser.add_argument(
+            "--library-cpp-source-dir",
+            default=None,
+            help="repository-relative directory holding the C++ library's CMake project "
+            "(cpp only; needs --library-cpp-target, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-target",
+            default=None,
+            help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-warnings",
+            choices=("strict", "relaxed"),
+            default=None,
+            help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+        )
+        parser.add_argument(
+            "--library-cpp-verify-mode",
+            choices=("run", "compile"),
+            default=None,
+            help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        if args.library_cpp_target is None and (
+            args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        ):
+            parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+>       chunks = chunks + _extraction_notice_chunks(fixture)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_extraction_notice_chunks' is not defined
+
+infra\build_chunks.py:710: NameError
+_________ test_failed_preparation_still_publishes_api_and_doc_chunks __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7217/test_failed_preparation_still_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198FE6E49F0>
+capsys = <_pytest.capture.CaptureFixture object at 0x00000198FE414440>
+
+    def test_failed_preparation_still_publishes_api_and_doc_chunks(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        # The page must yield candidates, or "zero example chunks" proves nothing.
+        assert FURNISHED_PAGE.exists() and API_SURFACE.exists()
+>       chunks, _report_records, _ = _degraded_run(tmp_path, monkeypatch, "failed to build cleanly: boom")
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_build_chunks_degradation.py:132: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_degradation.py:119: in _degraded_run
+    _run_main(_argv(tmp_path))
+tests\infra\test_build_chunks_degradation.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=300)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript and nodejs only)",
+        )
+        parser.add_argument(
+            "--library-java-packages",
+            type=_java_packages_argument,
+            default=None,
+            help="comma-separated Java packages whose classes the README examples use "
+            "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
+        )
+        parser.add_argument(
+            "--library-cpp-source-dir",
+            default=None,
+            help="repository-relative directory holding the C++ library's CMake project "
+            "(cpp only; needs --library-cpp-target, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-target",
+            default=None,
+            help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-warnings",
+            choices=("strict", "relaxed"),
+            default=None,
+            help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+        )
+        parser.add_argument(
+            "--library-cpp-verify-mode",
+            choices=("run", "compile"),
+            default=None,
+            help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        if args.library_cpp_target is None and (
+            args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        ):
+            parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+>       chunks = chunks + _extraction_notice_chunks(fixture)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_extraction_notice_chunks' is not defined
+
+infra\build_chunks.py:710: NameError
+_____________________ test_failed_preparation_exits_zero ______________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7217/test_failed_preparation_exits_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198FE5C43D0>
+
+    def test_failed_preparation_exits_zero(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        # main() returns normally (no SystemExit); the output file exists.
+>       _degraded_run(tmp_path, monkeypatch, "failed to build cleanly: boom")
+
+tests\infra\test_build_chunks_degradation.py:141: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_degradation.py:119: in _degraded_run
+    _run_main(_argv(tmp_path))
+tests\infra\test_build_chunks_degradation.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=300)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript and nodejs only)",
+        )
+        parser.add_argument(
+            "--library-java-packages",
+            type=_java_packages_argument,
+            default=None,
+            help="comma-separated Java packages whose classes the README examples use "
+            "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
+        )
+        parser.add_argument(
+            "--library-cpp-source-dir",
+            default=None,
+            help="repository-relative directory holding the C++ library's CMake project "
+            "(cpp only; needs --library-cpp-target, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-target",
+            default=None,
+            help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-warnings",
+            choices=("strict", "relaxed"),
+            default=None,
+            help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+        )
+        parser.add_argument(
+            "--library-cpp-verify-mode",
+            choices=("run", "compile"),
+            default=None,
+            help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        if args.library_cpp_target is None and (
+            args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        ):
+            parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+>       chunks = chunks + _extraction_notice_chunks(fixture)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_extraction_notice_chunks' is not defined
+
+infra\build_chunks.py:710: NameError
+___________ test_failed_preparation_prints_exactly_one_stderr_line ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7217/test_failed_preparation_prints0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198FE5C4FA0>
+capsys = <_pytest.capture.CaptureFixture object at 0x00000198FE892350>
+
+    def test_failed_preparation_prints_exactly_one_stderr_line(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        message = "failed to build cleanly: boom"
+>       _degraded_run(tmp_path, monkeypatch, message)
+
+tests\infra\test_build_chunks_degradation.py:149: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_degradation.py:119: in _degraded_run
+    _run_main(_argv(tmp_path))
+tests\infra\test_build_chunks_degradation.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=300)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript and nodejs only)",
+        )
+        parser.add_argument(
+            "--library-java-packages",
+            type=_java_packages_argument,
+            default=None,
+            help="comma-separated Java packages whose classes the README examples use "
+            "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
+        )
+        parser.add_argument(
+            "--library-cpp-source-dir",
+            default=None,
+            help="repository-relative directory holding the C++ library's CMake project "
+            "(cpp only; needs --library-cpp-target, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-target",
+            default=None,
+            help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-warnings",
+            choices=("strict", "relaxed"),
+            default=None,
+            help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+        )
+        parser.add_argument(
+            "--library-cpp-verify-mode",
+            choices=("run", "compile"),
+            default=None,
+            help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        if args.library_cpp_target is None and (
+            args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        ):
+            parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+>       chunks = chunks + _extraction_notice_chunks(fixture)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_extraction_notice_chunks' is not defined
+
+infra\build_chunks.py:710: NameError
+___ test_failed_preparation_records_exactly_one_library_unavailable_record ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7217/test_failed_preparation_record0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198FE5C47C0>
+
+    def test_failed_preparation_records_exactly_one_library_unavailable_record(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        message = "failed to build cleanly: boom"
+>       _chunks_out, report, _ = _degraded_run(tmp_path, monkeypatch, message)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_build_chunks_degradation.py:158: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_degradation.py:119: in _degraded_run
+    _run_main(_argv(tmp_path))
+tests\infra\test_build_chunks_degradation.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=300)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript and nodejs only)",
+        )
+        parser.add_argument(
+            "--library-java-packages",
+            type=_java_packages_argument,
+            default=None,
+            help="comma-separated Java packages whose classes the README examples use "
+            "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
+        )
+        parser.add_argument(
+            "--library-cpp-source-dir",
+            default=None,
+            help="repository-relative directory holding the C++ library's CMake project "
+            "(cpp only; needs --library-cpp-target, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-target",
+            default=None,
+            help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-warnings",
+            choices=("strict", "relaxed"),
+            default=None,
+            help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+        )
+        parser.add_argument(
+            "--library-cpp-verify-mode",
+            choices=("run", "compile"),
+            default=None,
+            help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        if args.library_cpp_target is None and (
+            args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        ):
+            parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+>       chunks = chunks + _extraction_notice_chunks(fixture)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_extraction_notice_chunks' is not defined
+
+infra\build_chunks.py:710: NameError
+_________ test_failed_preparation_chunks_equal_an_all_unverified_run __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7217/test_failed_preparation_chunks0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198FEDB7B60>
+
+    def test_failed_preparation_chunks_equal_an_all_unverified_run(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        degraded_dir = tmp_path / "degraded"
+        degraded_dir.mkdir()
+>       chunks, _report_records, _ = _degraded_run(degraded_dir, monkeypatch, "boom")
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_build_chunks_degradation.py:174: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_degradation.py:119: in _degraded_run
+    _run_main(_argv(tmp_path))
+tests\infra\test_build_chunks_degradation.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=300)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript and nodejs only)",
+        )
+        parser.add_argument(
+            "--library-java-packages",
+            type=_java_packages_argument,
+            default=None,
+            help="comma-separated Java packages whose classes the README examples use "
+            "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
+        )
+        parser.add_argument(
+            "--library-cpp-source-dir",
+            default=None,
+            help="repository-relative directory holding the C++ library's CMake project "
+            "(cpp only; needs --library-cpp-target, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-target",
+            default=None,
+            help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-warnings",
+            choices=("strict", "relaxed"),
+            default=None,
+            help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+        )
+        parser.add_argument(
+            "--library-cpp-verify-mode",
+            choices=("run", "compile"),
+            default=None,
+            help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        if args.library_cpp_target is None and (
+            args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        ):
+            parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+>       chunks = chunks + _extraction_notice_chunks(fixture)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_extraction_notice_chunks' is not defined
+
+infra\build_chunks.py:710: NameError
+______ test_environment_failure_in_prepare_exits_75_and_writes_no_chunks ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7217/test_environment_failure_in_pr0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198FEDB4360>
+capsys = <_pytest.capture.CaptureFixture object at 0x00000198FC928F50>
+
+    def test_environment_failure_in_prepare_exits_75_and_writes_no_chunks(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        exc = ExampleEnvironmentError("cargo", REGISTRY_MARKER, "registry unreachable")
+        monkeypatch.setattr(build_chunks, "prepare_rust_library", _raising_prepare(exc))
+        _install_verify(monkeypatch, verified=True)
+    
+        with pytest.raises(SystemExit) as info:
+>           _run_main(_argv(tmp_path))
+
+tests\infra\test_build_chunks_degradation.py:196: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_degradation.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=300)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript and nodejs only)",
+        )
+        parser.add_argument(
+            "--library-java-packages",
+            type=_java_packages_argument,
+            default=None,
+            help="comma-separated Java packages whose classes the README examples use "
+            "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
+        )
+        parser.add_argument(
+            "--library-cpp-source-dir",
+            default=None,
+            help="repository-relative directory holding the C++ library's CMake project "
+            "(cpp only; needs --library-cpp-target, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-target",
+            default=None,
+            help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-warnings",
+            choices=("strict", "relaxed"),
+            default=None,
+            help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+        )
+        parser.add_argument(
+            "--library-cpp-verify-mode",
+            choices=("run", "compile"),
+            default=None,
+            help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        if args.library_cpp_target is None and (
+            args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        ):
+            parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+>       chunks = chunks + _extraction_notice_chunks(fixture)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_extraction_notice_chunks' is not defined
+
+infra\build_chunks.py:710: NameError
+_____ test_environment_failure_in_prepare_records_no_library_unavailable ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7217/test_environment_failure_in_pr1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198FEDB7EE0>
+
+    def test_environment_failure_in_prepare_records_no_library_unavailable(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        exc = ExampleEnvironmentError("cargo", REGISTRY_MARKER, "registry unreachable")
+        monkeypatch.setattr(build_chunks, "prepare_rust_library", _raising_prepare(exc))
+        _install_verify(monkeypatch, verified=True)
+    
+        with pytest.raises(SystemExit):
+>           _run_main(_argv(tmp_path))
+
+tests\infra\test_build_chunks_degradation.py:214: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_degradation.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=300)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript and nodejs only)",
+        )
+        parser.add_argument(
+            "--library-java-packages",
+            type=_java_packages_argument,
+            default=None,
+            help="comma-separated Java packages whose classes the README examples use "
+            "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
+        )
+        parser.add_argument(
+            "--library-cpp-source-dir",
+            default=None,
+            help="repository-relative directory holding the C++ library's CMake project "
+            "(cpp only; needs --library-cpp-target, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-target",
+            default=None,
+            help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-warnings",
+            choices=("strict", "relaxed"),
+            default=None,
+            help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+        )
+        parser.add_argument(
+            "--library-cpp-verify-mode",
+            choices=("run", "compile"),
+            default=None,
+            help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        if args.library_cpp_target is None and (
+            args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        ):
+            parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+>       chunks = chunks + _extraction_notice_chunks(fixture)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_extraction_notice_chunks' is not defined
+
+infra\build_chunks.py:710: NameError
+__________________ test_value_error_from_prepare_propagates ___________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7217/test_value_error_from_prepare_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198FE5C6200>
+
+    def test_value_error_from_prepare_propagates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(build_chunks, "prepare_rust_library", _raising_prepare(ValueError("bad value")))
+        _install_verify(monkeypatch, verified=True)
+    
+        with pytest.raises(ValueError, match="bad value"):
+>           _run_main(_argv(tmp_path))
+
+tests\infra\test_build_chunks_degradation.py:227: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_degradation.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=300)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript and nodejs only)",
+        )
+        parser.add_argument(
+            "--library-java-packages",
+            type=_java_packages_argument,
+            default=None,
+            help="comma-separated Java packages whose classes the README examples use "
+            "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
+        )
+        parser.add_argument(
+            "--library-cpp-source-dir",
+            default=None,
+            help="repository-relative directory holding the C++ library's CMake project "
+            "(cpp only; needs --library-cpp-target, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-target",
+            default=None,
+            help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-warnings",
+            choices=("strict", "relaxed"),
+            default=None,
+            help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+        )
+        parser.add_argument(
+            "--library-cpp-verify-mode",
+            choices=("run", "compile"),
+            default=None,
+            help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        if args.library_cpp_target is None and (
+            args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        ):
+            parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+>       chunks = chunks + _extraction_notice_chunks(fixture)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_extraction_notice_chunks' is not defined
+
+infra\build_chunks.py:710: NameError
+__________________ test_runtime_error_from_verify_propagates __________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7217/test_runtime_error_from_verify0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198FE2C9DA0>
+
+    def test_runtime_error_from_verify_propagates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(build_chunks, "prepare_rust_library", _working_prepare)
+    
+        def raising_verify(candidate, *, workdir, library_crate_name, library_dir):
+            raise RuntimeError("verifier exploded")
+    
+        monkeypatch.setitem(build_chunks._PLATFORM_DISPATCH["rust"], "verify", raising_verify)
+    
+        with pytest.raises(RuntimeError, match="verifier exploded"):
+>           _run_main(_argv(tmp_path))
+
+tests\infra\test_build_chunks_degradation.py:258: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_degradation.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=300)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript and nodejs only)",
+        )
+        parser.add_argument(
+            "--library-java-packages",
+            type=_java_packages_argument,
+            default=None,
+            help="comma-separated Java packages whose classes the README examples use "
+            "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
+        )
+        parser.add_argument(
+            "--library-cpp-source-dir",
+            default=None,
+            help="repository-relative directory holding the C++ library's CMake project "
+            "(cpp only; needs --library-cpp-target, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-target",
+            default=None,
+            help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-warnings",
+            choices=("strict", "relaxed"),
+            default=None,
+            help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+        )
+        parser.add_argument(
+            "--library-cpp-verify-mode",
+            choices=("run", "compile"),
+            default=None,
+            help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        if args.library_cpp_target is None and (
+            args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        ):
+            parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+>       chunks = chunks + _extraction_notice_chunks(fixture)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_extraction_notice_chunks' is not defined
+
+infra\build_chunks.py:710: NameError
+______ test_happy_path_publishes_verified_examples_and_candidate_records ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7217/test_happy_path_publishes_veri0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198FE2CA510>
+capsys = <_pytest.capture.CaptureFixture object at 0x00000198FAE15480>
+
+    def test_happy_path_publishes_verified_examples_and_candidate_records(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "prepare_rust_library", _working_prepare)
+        verify_calls = _install_verify(monkeypatch, verified=True)
+    
+>       _run_main(_argv(tmp_path))
+
+tests\infra\test_build_chunks_degradation.py:273: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_degradation.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=300)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript and nodejs only)",
+        )
+        parser.add_argument(
+            "--library-java-packages",
+            type=_java_packages_argument,
+            default=None,
+            help="comma-separated Java packages whose classes the README examples use "
+            "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
+        )
+        parser.add_argument(
+            "--library-cpp-source-dir",
+            default=None,
+            help="repository-relative directory holding the C++ library's CMake project "
+            "(cpp only; needs --library-cpp-target, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-target",
+            default=None,
+            help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-warnings",
+            choices=("strict", "relaxed"),
+            default=None,
+            help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+        )
+        parser.add_argument(
+            "--library-cpp-verify-mode",
+            choices=("run", "compile"),
+            default=None,
+            help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        if args.library_cpp_target is None and (
+            args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        ):
+            parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+>       chunks = chunks + _extraction_notice_chunks(fixture)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_extraction_notice_chunks' is not defined
+
+infra\build_chunks.py:710: NameError
+____ test_happy_path_unverified_candidates_are_recorded_and_not_published _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7217/test_happy_path_unverified_can0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198FE2CA200>
+capsys = <_pytest.capture.CaptureFixture object at 0x00000198FEEFF890>
+
+    def test_happy_path_unverified_candidates_are_recorded_and_not_published(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "prepare_rust_library", _working_prepare)
+        _install_verify(monkeypatch, verified=False)
+    
+>       _run_main(_argv(tmp_path))
+
+tests\infra\test_build_chunks_degradation.py:299: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_degradation.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=300)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript and nodejs only)",
+        )
+        parser.add_argument(
+            "--library-java-packages",
+            type=_java_packages_argument,
+            default=None,
+            help="comma-separated Java packages whose classes the README examples use "
+            "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
+        )
+        parser.add_argument(
+            "--library-cpp-source-dir",
+            default=None,
+            help="repository-relative directory holding the C++ library's CMake project "
+            "(cpp only; needs --library-cpp-target, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-target",
+            default=None,
+            help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-warnings",
+            choices=("strict", "relaxed"),
+            default=None,
+            help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+        )
+        parser.add_argument(
+            "--library-cpp-verify-mode",
+            choices=("run", "compile"),
+            default=None,
+            help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        if args.library_cpp_target is None and (
+            args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        ):
+            parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+>       chunks = chunks + _extraction_notice_chunks(fixture)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_extraction_notice_chunks' is not defined
+
+infra\build_chunks.py:710: NameError
+_______ test_long_message_is_truncated_on_stderr_but_complete_in_report _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7217/test_long_message_is_truncated0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198FCB774D0>
+capsys = <_pytest.capture.CaptureFixture object at 0x00000198FED6B790>
+
+    def test_long_message_is_truncated_on_stderr_but_complete_in_report(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        message = "".join(chr(ord("a") + (i % 26)) for i in range(2000))
+>       _chunks_out, report, _ = _degraded_run(tmp_path, monkeypatch, message)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_build_chunks_degradation.py:315: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_degradation.py:119: in _degraded_run
+    _run_main(_argv(tmp_path))
+tests\infra\test_build_chunks_degradation.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=300)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript and nodejs only)",
+        )
+        parser.add_argument(
+            "--library-java-packages",
+            type=_java_packages_argument,
+            default=None,
+            help="comma-separated Java packages whose classes the README examples use "
+            "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
+        )
+        parser.add_argument(
+            "--library-cpp-source-dir",
+            default=None,
+            help="repository-relative directory holding the C++ library's CMake project "
+            "(cpp only; needs --library-cpp-target, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-target",
+            default=None,
+            help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-warnings",
+            choices=("strict", "relaxed"),
+            default=None,
+            help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+        )
+        parser.add_argument(
+            "--library-cpp-verify-mode",
+            choices=("run", "compile"),
+            default=None,
+            help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        if args.library_cpp_target is None and (
+            args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        ):
+            parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+>       chunks = chunks + _extraction_notice_chunks(fixture)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_extraction_notice_chunks' is not defined
+
+infra\build_chunks.py:710: NameError
+____________ test_message_of_exactly_600_characters_is_not_altered ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7217/test_message_of_exactly_600_ch0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000198FED8E900>
+capsys = <_pytest.capture.CaptureFixture object at 0x00000198FE95F240>
+
+    def test_message_of_exactly_600_characters_is_not_altered(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        message = "x" * 600
+>       _degraded_run(tmp_path, monkeypatch, message)
+
+tests\infra\test_build_chunks_degradation.py:328: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_degradation.py:119: in _degraded_run
+    _run_main(_argv(tmp_path))
+tests\infra\test_build_chunks_degradation.py:65: in _run_main
+    build_chunks.main()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def main() -> None:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--api-surface", type=Path, required=True, help="raw extraction fixture JSON")
+        parser.add_argument("--title", required=True)
+        parser.add_argument("--max-types", type=int, default=300)
+        parser.add_argument("--out", type=Path, required=True, help="where to write the --chunks JSON")
+        parser.add_argument(
+            "--furnished-page",
+            type=Path,
+            default=None,
+            help="optional Hugo-bundle YAML page (e.g. tests/fixtures/furnished/pdf_net/pages/_index.md) "
+            "to extract and real-compile-verify candidate examples from (REQ-G2-048)",
+        )
+        parser.add_argument("--library-repository", default=None, help="pinned reference library's repository")
+        parser.add_argument("--library-commit", default=None, help="pinned reference library's commit")
+        parser.add_argument(
+            "--library-platform",
+            choices=sorted(_PLATFORM_DISPATCH),
+            default=None,
+            help="which pilot's real prepare/verify pair (REQ-G2-048) to dispatch --furnished-page "
+            "verification to",
+        )
+        parser.add_argument(
+            "--library-csproj",
+            default=None,
+            help="pinned reference library's repository-relative csproj path (dotnet only)",
+        )
+        parser.add_argument(
+            "--library-crate-name", default=None, help="pinned reference crate's package name (rust only)"
+        )
+        parser.add_argument(
+            "--library-module-path", default=None, help="pinned reference module's Go module path (go only)"
+        )
+        parser.add_argument(
+            "--library-package-name",
+            default=None,
+            help="pinned reference package's npm package name (typescript and nodejs only)",
+        )
+        parser.add_argument(
+            "--library-java-packages",
+            type=_java_packages_argument,
+            default=None,
+            help="comma-separated Java packages whose classes the README examples use "
+            "(java only; opts in to the pilot mode of the Java verifier, TC-360)",
+        )
+        parser.add_argument(
+            "--library-cpp-source-dir",
+            default=None,
+            help="repository-relative directory holding the C++ library's CMake project "
+            "(cpp only; needs --library-cpp-target, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-target",
+            default=None,
+            help="the C++ library's CMake target; opts in to the consumer-project mode (cpp only, TC-361)",
+        )
+        parser.add_argument(
+            "--library-cpp-warnings",
+            choices=("strict", "relaxed"),
+            default=None,
+            help="relaxed appends -Wno-error to the library target (cpp only; needs --library-cpp-target)",
+        )
+        parser.add_argument(
+            "--library-cpp-verify-mode",
+            choices=("run", "compile"),
+            default=None,
+            help="compile makes compile-and-link success the verdict and skips running (cpp only)",
+        )
+        parser.add_argument(
+            "--verification-report",
+            type=Path,
+            default=None,
+            help="where to write every candidate's verification result (verified or not, output in full) "
+            "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
+        )
+        args = parser.parse_args()
+    
+        if args.library_cpp_target is None and (
+            args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        ):
+            parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+    
+        furnished_args = (
+            args.furnished_page,
+            args.library_repository,
+            args.library_commit,
+            args.library_platform,
+        )
+        if any(furnished_args) and not all(furnished_args):
+            parser.error(
+                "--furnished-page, --library-repository, --library-commit, and --library-platform "
+                "must all be given together"
+            )
+    
+        if args.furnished_page is not None:
+            required_flag = _PLATFORM_REQUIRED_FLAGS.get(args.library_platform)
+            if required_flag is not None:
+                attr_name, flag_name = required_flag
+                if getattr(args, attr_name) is None:
+                    parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
+    
+        fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
+        chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+>       chunks = chunks + _extraction_notice_chunks(fixture)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_extraction_notice_chunks' is not defined
+
+infra\build_chunks.py:710: NameError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_tex_fixture_yields_exactly_one_doc_notice
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_notice_text_starts_with_the_doc_marker
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_notice_names_the_unparseable_file_and_line
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_notice_names_every_public_name_that_could_not_be_extracted
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_notice_has_no_backtick_and_states_the_source_commit
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_fixtures_without_a_syntax_error_yield_no_notice[pdf_python]
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_fixtures_without_a_syntax_error_yield_no_notice[html_python]
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_fixtures_without_a_syntax_error_yield_no_notice[words_python]
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_a_syntax_error_without_reexports_still_yields_a_notice_without_names
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_main_on_tex_writes_the_notice_with_a_source_commit_line
+FAILED tests/infra/test_build_chunks_extraction_notice.py::test_main_on_pdf_python_writes_no_notice_and_the_same_chunk_count
+FAILED tests/infra/test_build_chunks_degradation.py::test_failed_preparation_still_publishes_api_and_doc_chunks
+FAILED tests/infra/test_build_chunks_degradation.py::test_failed_preparation_exits_zero
+FAILED tests/infra/test_build_chunks_degradation.py::test_failed_preparation_prints_exactly_one_stderr_line
+FAILED tests/infra/test_build_chunks_degradation.py::test_failed_preparation_records_exactly_one_library_unavailable_record
+FAILED tests/infra/test_build_chunks_degradation.py::test_failed_preparation_chunks_equal_an_all_unverified_run
+FAILED tests/infra/test_build_chunks_degradation.py::test_environment_failure_in_prepare_exits_75_and_writes_no_chunks
+FAILED tests/infra/test_build_chunks_degradation.py::test_environment_failure_in_prepare_records_no_library_unavailable
+FAILED tests/infra/test_build_chunks_degradation.py::test_value_error_from_prepare_propagates
+FAILED tests/infra/test_build_chunks_degradation.py::test_runtime_error_from_verify_propagates
+FAILED tests/infra/test_build_chunks_degradation.py::test_happy_path_publishes_verified_examples_and_candidate_records
+FAILED tests/infra/test_build_chunks_degradation.py::test_happy_path_unverified_candidates_are_recorded_and_not_published
+FAILED tests/infra/test_build_chunks_degradation.py::test_long_message_is_truncated_on_stderr_but_complete_in_report
+FAILED tests/infra/test_build_chunks_degradation.py::test_message_of_exactly_600_characters_is_not_altered
+
+--- stderr ---
+
