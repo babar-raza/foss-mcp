@@ -2017,6 +2017,16 @@ _TS_TSCONFIG_TEMPLATE = """{{
 _TS_ENTRY_SUFFIXES = (".d.ts", ".ts", ".js", ".mjs", ".cjs")
 _TS_CANDIDATE_FILENAME = "__foss_mcp_candidate__.ts"
 _TS_ROOT_TSCONFIG_FILENAME = "__foss_mcp_tsconfig__.json"
+# The file names a tsc diagnostic can carry when it is about the candidate itself: the
+# repository-root file, and the paths-mode file. Only this constant identifies the candidate in
+# tsc output.
+_TS_CANDIDATE_DIAGNOSTIC_FILES = (_TS_CANDIDATE_FILENAME, "candidate.ts")
+# One tsc diagnostic line: ``file(line,col): error TSnnnn: message``. A message must follow the code.
+_TS_DIAGNOSTIC_LINE_RE = re.compile(
+    r"^(?P<file>[^\r\n(]+)\((?P<line>\d+),(?P<col>\d+)\): error (?P<code>TS\d+): ",
+    re.MULTILINE,
+)
+_TS_ERROR_CODE_RE = re.compile(r"error TS\d+")
 
 # A static import or export-from declaration's module specifier. A declaration starts at a line
 # start or after a semicolon; the optional middle part spans the (possibly multi-line) binding
@@ -2135,8 +2145,20 @@ def prepare_typescript_library(
     declared_types = _declared_types_file(repo_dir)
     if declared_types is not None:
         if not declared_types.is_file():
-            raise RuntimeError(
-                f"the build of {repository}@{commit} did not produce the declared types file {declared_types}"
+            declaration_files = sorted(
+                path.relative_to(repo_dir).as_posix()
+                for path in (repo_dir / "dist").rglob("*.d.ts")
+                if path.is_file()
+            )
+            if not declaration_files:
+                raise RuntimeError(
+                    f"the build of {repository}@{commit} did not produce the declared types file {declared_types}"
+                )
+            print(
+                f"[foss-mcp] the declared types file {declared_types} was not produced; "
+                f"dist/ holds {len(declaration_files)} declaration files (first: {declaration_files[0]}); "
+                "relative-path imports are checked against them, package-name imports will not resolve",
+                file=sys.stderr,
             )
     else:
         dist_dir = repo_dir / "dist"
@@ -2151,6 +2173,44 @@ def _has_relative_module_specifier(code: str) -> bool:
     return any(
         match.group("spec").startswith(("./", "../"))
         for match in _STATIC_MODULE_DECLARATION_RE.finditer(code)
+    )
+
+
+def _typescript_verdict(returncode: int, output: str) -> tuple[bool, str]:
+    """Decide a tsc run from its exit code and output; the note says which rule decided.
+
+    Exit 0 is verified. A non-zero exit is verified only when every ``error TS<digits>`` in the
+    output is a parsed ``file(line,col): error TSnnnn: message`` diagnostic (so a file-less config
+    error or any unparsed mention fails), at least one parses, and none is in the candidate file
+    (``_TS_CANDIDATE_DIAGNOSTIC_FILES``): then the candidate's own use of the library type-checks
+    and only the library's own sources fail.
+    """
+    if returncode == 0:
+        return True, "tsc exit 0"
+    diagnostics = [match.group("file").strip() for match in _TS_DIAGNOSTIC_LINE_RE.finditer(output)]
+    mentions = len(_TS_ERROR_CODE_RE.findall(output))
+    if not diagnostics:
+        return False, f"tsc exit {returncode}; no tsc diagnostic could be parsed from the output"
+    if len(diagnostics) != mentions:
+        return False, (
+            f"tsc exit {returncode}; {mentions - len(diagnostics)} of {mentions} error mentions "
+            "are not attributable to a file"
+        )
+    candidate_files = [
+        name
+        for name in diagnostics
+        if name.replace("\\", "/").rsplit("/", 1)[-1] in _TS_CANDIDATE_DIAGNOSTIC_FILES
+    ]
+    if candidate_files:
+        return False, (
+            f"tsc exit {returncode}; {len(candidate_files)} of {len(diagnostics)} diagnostics "
+            "are in the candidate file"
+        )
+    library_files = sorted(set(diagnostics))
+    return True, (
+        f"tsc exit {returncode}; all {len(diagnostics)} diagnostics are in library files "
+        f"({', '.join(library_files)}) and none in the candidate; "
+        "the candidate's own use of the library type-checks"
     )
 
 
@@ -2182,10 +2242,19 @@ def verify_typescript_example(
     and type-checked with ``library_dir`` as the working directory. Both temporary
     files are removed afterwards.
 
-    The literal comparison determining ``verified`` is intentionally
-    exact (``verified = result.returncode == 0``), matching
-    ``verify_dotnet_example``.
+    ``verified`` comes from ``_typescript_verdict`` (TC-452): exit 0, or a non-zero exit whose
+    every diagnostic is parsed and attributed to a library file and none to the candidate. The
+    output starts with a ``[foss-mcp] verdict:`` line naming the rule that decided. A block that
+    holds only import / export-from declarations is rejected without running tsc.
     """
+    without_imports = _STATIC_MODULE_DECLARATION_RE.sub("", candidate.code)
+    if not _has_own_statements(without_imports, preamble_line=None):
+        return VerificationResult(
+            candidate=candidate,
+            verified=False,
+            output=_NO_STATEMENTS_MESSAGE.format(kind="import and export-from declarations"),
+        )
+
     project_dir = workdir / "candidate_project"
     project_dir.mkdir(parents=True, exist_ok=True)
 
@@ -2241,8 +2310,9 @@ def verify_typescript_example(
             cwd=project_dir,
         )
 
-    verified = result.returncode == 0
-    output = _truncate(f"{result.stdout}\n{result.stderr}")
+    tsc_output = f"{result.stdout}\n{result.stderr}"
+    verified, note = _typescript_verdict(result.returncode, tsc_output)
+    output = f"[foss-mcp] verdict: {note}\n{_truncate(tsc_output)}"
 
     return VerificationResult(candidate=candidate, verified=verified, output=output)
 
