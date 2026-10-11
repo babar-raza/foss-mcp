@@ -159,3 +159,101 @@ docker run -d --rm --read-only --tmpfs /tmp --memory 256m --cpus 0.5 -p 127.0.0.
 The pilot is one of the names `--list` prints. Wait for `http://127.0.0.1:8080/readyz` to answer 200; the container
 serves one pilot, so start one container per pilot you need, each on its own host port. The 256 MiB and 0.5 CPU figures
 are the budget the image was gated under, not a minimum.
+
+## 8. Known limitations
+
+These are findings of the independent adversarial reviews that this release accepts rather than fixes. The full
+ledger is `docs/REVIEW_LEDGER.md`; each entry below repeats one accepted finding with its reason.
+
+### Standalone image
+
+- **L-089** The server describes each library at one pinned commit, but the install command installs the registry's
+  current release, which can be older or newer. pdf/go's index is 66 commits past v0.9.0 and slides/python is 50
+  commits past PyPI 26.8.0, so a peer may find a type in `search_symbols` that the installed package lacks. Every
+  install answer carries a notice naming the indexed commit, and Go answers give `go get <module>@<commit>`. The server
+  does not compute the difference, because that needs network access at ingestion and a new data file per pilot; it is
+  planned after the pilot.
+- **L-090** jmap/nodejs and jmap/typescript build their client from mixin functions
+  (`SubmissionClientMixin(MailClientMixin(...))`), and the extractor does not flatten class-expression mixins. A peer
+  asking for `getMailboxes` on these two pilots gets a miss, because `JmapClient` lists no mail methods. The other jmap
+  platforms are not affected. The fix is a medium-sized change to a shared extractor file that already has four fixes
+  queued for this release, so it is accepted with that risk.
+- **L-091** Go and Rust symbol names are package-relative (`Cells`, `session::Session`) and are not import paths. The
+  tool descriptions say so, and for Go the install answer gives the module path, which is the import root. A peer still
+  has to read the README for sub-package or crate paths.
+- **L-095** Ingestion refuses to publish only when the document count drops by more than half. There is no automatic
+  gate on signature quality, such as the share of empty types or zero-parameter methods. Signature fidelity in this
+  release is pinned by per-language extractor tests, per-pilot fixture tests, and a re-run of the review harnesses on the
+  final image. A signature defect in a pilot those tests do not sample could still ship.
+- **L-097** Go typed constants declared in `const (...)` groups are not extracted as enum members. Go pilots show the
+  named type but not its constant values, and the README examples use those values by name.
+- **L-098** Over stdio, when the client closes stdin while requests are still running, the MCP SDK cancels those
+  requests and their replies are lost. A client that waits for its replies before closing is not affected. The
+  standalone image serves HTTP, where this does not apply.
+- **L-099** Every tool result carries its JSON both as text and as `structuredContent`, which the MCP specification
+  recommends for client compatibility. `get_symbol` also carries `raw_text`, the full indexed chunk, beside the parsed
+  fields, so its answers are large (about 55 KB for pdf/net `Document`). Clients that read `structuredContent` can
+  ignore the text.
+- **L-100** `/metrics` exposes two counters, queued and dropped usage events. The usage queue is bounded at 1,000
+  events (under 1 MB) and is not drained in the standalone image, so `usage_events_dropped` grows after 1,000 calls.
+  Tool-call log lines carry tool, correlation id, outcome and latency, but no pilot identity or error code. This is
+  enough to run a pilot, not to alert on.
+- **L-102** pdf/cpp's install section is NotAvailable, because C++ has no package-manager coordinate in its CMake
+  manifest. The answer points to `list_recent_changes`, whose 1.0.1 release note names the NuGet package
+  `Aspose.PDF.Cpp.FOSS`. C++ coordinates are not checked against any registry in this release.
+- **L-105** Each pilot's index holds exactly one version, the pinned commit. `lookup` ignores version words in a
+  question (such as "in version 0.1.0") and answers for the indexed version. Use `list_recent_changes` for release
+  history and `get_product_reference` install for the indexed commit.
+- **L-106** There is no reverse discovery, such as "which method returns a Page". `search_symbols` matches names, not
+  return types. It is planned as a later capability.
+- **L-107** No pilot has FAQ or troubleshooting content, because the upstream READMEs have none. `search_docs` answers
+  an honest miss for those categories.
+- **L-108** Registry verification proves that a package name exists on its registry, not that it is published from the
+  configured repository. PyPI `aspose-3d-foss` points to a different repository URL, and cells/typescript's generic
+  `excel-cells` does not exist today, so its install answer already says not found, but it would be served as installable
+  if someone registered the name. Checking the registry's repository URL is planned after the pilot.
+- **L-109** Some upstream packages are themselves defective: the 3d/net package does not work, 3d/python OBJ export is
+  buggy, cells/typescript ships a demo-only entry point, and the jmap release notes are templates. These are upstream
+  defects. The MCP reports the packages as they are, and `list_recent_changes` labels templated notes.
+- **L-110** One item (B08) of the second independent audit was never specified, and no text for it exists anywhere. The
+  third and fourth review rounds re-verified every earlier finding and found nothing unmapped. It is retired as
+  unidentifiable, and the owner closes it as OWNER-11.
+- **L-111** Integration replays worker commits onto main with new hashes, so an ancestry check of the worker commit
+  cannot prove integration. A card's integration is proven by its `(G3/TC-NNN)` commit subject on main and its
+  acceptance receipt.
+- **L-119** `/readyz` reports ready when the pilot's lexical documents are servable. It does not check the
+  product-reference or release side files, which are read once at start. If they are missing, those sections answer
+  NotAvailable or an empty list.
+- **L-120** In the Kubernetes deployment a new generation can be published while a client session is open. The
+  standalone image bakes one generation and never re-ingests, so this cannot happen there.
+- **L-121** Task-to-API coverage (about 59% of sampled tasks resolved to the right API) was measured in review round 4,
+  before the G3 fixes, and was not re-measured on the final image.
+- **L-122** cells/rust, jmap/rust and cells/typescript answer compatibility NotAvailable, because their manifests state
+  no rust-version or engines. The server does not infer one.
+- **L-123** The image healthcheck probes every 30 s, so `docker ps` can show "starting" for up to about 30 s after the
+  server is ready. The server answers as soon as it starts. A shorter start interval needs Docker Engine 25 or later.
+- **L-124** For Rust types, `Bases:` lists implemented traits, including derived ones (`Debug`, `Clone`). Rust has no
+  class inheritance, and these are real trait implementations.
+- **L-125** `Kind:` lines show the parser's node names (`class_declaration`, `type_spec`, `struct_item`) instead of one
+  vocabulary. pdf/cpp's `foundation::` namespace and page/python's `aspose.page.mcp` package are indexed because the
+  source declares them public.
+- **L-126** For Java and C++, a no-argument `getX()` or `isX()` method is also listed as a property `x`. The method
+  itself stays listed. This is a convenience view, not a separate member.
+- **L-127** `list_members` returns one flat list of member names without a kind per member. `lookup` answers in one of
+  four shapes with no shape field, and clients tell them apart by their fields.
+- **L-128** No two indexed chunks have identical text. Long documentation sections are split into several chunks with
+  the same title, and pdf/typescript has 5 FAQ chunks that hold only the question, with the answer in the next chunk.
+  Search results can therefore show the same title more than once.
+- **L-129** A repeated `initialize` on an open HTTP session is accepted and replaces that session's client information
+  (MCP SDK behaviour). It does not affect other sessions.
+
+### Kubernetes chart (not part of the standalone release)
+
+- **L-115** The serving pod's init container waits without a deadline for the side files. A GitHub 403 during
+  ingestion leaves no product-reference file, so the pod stays in Init. The standalone image has no init container.
+- **L-116** `scripts/deploy/install_pilots.py` runs `helm upgrade --install --wait` without `--atomic`, so a failed
+  install is not rolled back automatically. This is an operator tool, not part of the image.
+- **L-117** The chart's NetworkPolicy allows traffic between all pods in the namespace, so pilots can reach each
+  other. The standalone image runs one pilot per container.
+- **L-118** The chart does not `required()` the family and platform values, so an unset release falls back to pdf/net.
+  The standalone entrypoint refuses to start without a valid pilot.
