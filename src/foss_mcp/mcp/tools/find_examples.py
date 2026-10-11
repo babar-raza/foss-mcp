@@ -6,9 +6,12 @@ No snippet is ever executed inside the serving process: this module never calls 
 ``exec``, ``compile``, or a subprocess on anything it returns - a snippet is text a human (or
 another process entirely) chose to run, never code this tool runs itself.
 
-A "verified snippet" is a chunk whose self-extracted text carries an ``Example:`` block -
-this project's own convention (the published lexical-index payload has no separate metadata
-field for it, same constraint ``get_symbol``'s ``FQN:`` line convention works around).
+A "verified snippet" is a chunk ``is_verified_example_text`` accepts (TC-465) - the one definition
+every branch uses: the ``FQN: Example: <title>`` line, the verifier's own ``Kind: verified_example``
+line, an ``Example:`` block line, and ``Verification: passed`` for an authored example (the
+published lexical-index payload has no separate metadata field for any of it, same constraint
+``get_symbol``'s ``FQN:`` line convention works around). A symbol chunk whose Javadoc merely says
+``Example:`` is therefore never a verified example. Each match reports its ``provenance``.
 
 The exact-FQN-match branch (a direct FQN lookup over the generation's documents) is already precise and reports
 ``coverage=1.0`` unconditionally - it is definitionally exact, never a guess. The semantic
@@ -43,17 +46,11 @@ from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored
 from foss_mcp.indexing.vector_index_writer import query_vector_index_scored
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
-from foss_mcp.mcp.tools.relevance import (
-    EXAMPLE,
-    RELEVANCE_THRESHOLD,
-    SYMBOL,
-    chunk_kind,
-    coverage,
-    query_terms,
-)
+from foss_mcp.mcp.tools.relevance import RELEVANCE_THRESHOLD, coverage, query_terms
 from foss_mcp.mcp.tools.search_symbols import SOURCE_KIND, scope_key
 
 _EXAMPLE_MARKER = "Example:"
+_EXAMPLE_FQN_PREFIX = "Example: "
 
 # The lexical floor is ``relevance.RELEVANCE_THRESHOLD`` (TC-273's measured 0.6, unchanged; see
 # that module). TC-381 moved it, with the query-term rule, into the one place documentation search,
@@ -73,17 +70,34 @@ _EXAMPLE_MARKER = "Example:"
 _VECTOR_SIMILARITY_THRESHOLD = 0.45
 
 
-def _is_example_chunk(text: str) -> bool:
-    """An example chunk: a line is exactly ``Example:`` and the chunk is not documentation.
+_VERIFIED_KIND_LINE = "Kind: verified_example"
+_AUTHORED_PROVENANCE_LINE = "Provenance: authored"
+_VERIFICATION_PASSED_LINE = "Verification: passed"
 
-    ``chunk_kind`` ``example`` is the ingested shape (``FQN: Example: <title>``). A ``symbol`` chunk
-    that carries its own ``Example:`` block is accepted too (hand-written symbol-with-example chunks
-    are pinned by tests/mcp/tools/test_symbol_tools.py; no committed demo chunk has that shape, so
-    on real data the two readings coincide). A ``documentation`` chunk never is, whatever it quotes.
+
+def is_verified_example_text(text: str) -> bool:
+    """The ONE definition of a verified example, shared by the exact, lexical and vector branches.
+
+    True only when ALL hold: the chunk's ``FQN:`` line starts with ``Example: ``; some line is
+    exactly ``Kind: verified_example`` (the verifier's own line - a symbol chunk whose Javadoc merely
+    says ``Example:`` never has it); some line is exactly ``Example:``; and, when some line is
+    exactly ``Provenance: authored``, some line is also exactly ``Verification: passed``.
     """
-    if chunk_kind(text) not in (EXAMPLE, SYMBOL):
+    fqn = extract_fqn(text)
+    if fqn is None or not fqn.startswith(_EXAMPLE_FQN_PREFIX):
         return False
-    return _find_marker_line(text.splitlines(keepends=True)) is not None
+    lines = {line.rstrip("\r\n") for line in text.splitlines()}
+    if _VERIFIED_KIND_LINE not in lines or _EXAMPLE_MARKER not in lines:
+        return False
+    if _AUTHORED_PROVENANCE_LINE in lines and _VERIFICATION_PASSED_LINE not in lines:
+        return False
+    return True
+
+
+def _provenance(text: str) -> str:
+    """``authored`` when the chunk has the line ``Provenance: authored``, ``readme`` otherwise."""
+    lines = {line.rstrip("\r\n") for line in text.splitlines()}
+    return "authored" if _AUTHORED_PROVENANCE_LINE in lines else "readme"
 
 
 def _find_marker_line(lines: list[str]) -> int | None:
@@ -129,6 +143,9 @@ class ExampleMatch:
     coverage: float
     source: str
     found: bool = True
+    # TC-465: "authored" when the chunk has the line ``Provenance: authored`` (an example written
+    # for the library and really verified), "readme" for a README example the verifier passed.
+    provenance: str = "readme"
 
 
 @dataclass(frozen=True)
@@ -170,15 +187,23 @@ def find_examples(
     # without breaking this.
     for document in documents.values():
         text = document["text"]
-        if _is_example_chunk(text) and extract_fqn(text) == query:
+        if is_verified_example_text(text) and extract_fqn(text) == query:
             example = _extract_example(text)
             if example is not None:
                 return [
-                    ExampleMatch(scope, active_generation_id, query, example, coverage=1.0, source="exact")
+                    ExampleMatch(
+                        scope,
+                        active_generation_id,
+                        query,
+                        example,
+                        coverage=1.0,
+                        source="exact",
+                        provenance=_provenance(text),
+                    )
                 ]
 
     example_doc_ids = [
-        doc_id for doc_id, document in documents.items() if _is_example_chunk(document["text"])
+        doc_id for doc_id, document in documents.items() if is_verified_example_text(document["text"])
     ]
     if not example_doc_ids:
         return NoExampleFound(scope, query, reason="no verified example exists in this generation")
@@ -209,6 +234,7 @@ def find_examples(
                 snippet=_extract_example(text) or "",
                 coverage=doc_coverage,
                 source="lexical",
+                provenance=_provenance(text),
             )
         )
     return matches
@@ -251,7 +277,7 @@ def _vector_fallback(
         for point_id, score in ranked:
             point = point_by_id[point_id]
             text = point["text"]
-            if not _is_example_chunk(text):
+            if not is_verified_example_text(text):
                 continue
             if score < _VECTOR_SIMILARITY_THRESHOLD:
                 continue
@@ -263,6 +289,7 @@ def _vector_fallback(
                     snippet=_extract_example(text) or "",
                     coverage=score,
                     source="vector",
+                    provenance=_provenance(text),
                 )
             )
             if len(matches) >= top_k:
