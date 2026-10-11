@@ -58,17 +58,27 @@ def _format_signature(entry: dict) -> str:
     if entry.get("properties"):
         lines.append("Properties:")
         lines.extend(f"  - {property_line(p)}" for p in entry["properties"])
-    if entry["name"] == WITH_EXAMPLE:
-        lines.append("Example:")
-        lines.append("annotation.Flatten();")
     return "\n".join(lines)
+
+
+# TC-465: a verified example is a chunk the verifier really passed - an FQN line starting
+# "Example: ", the line "Kind: verified_example", a line exactly "Example:", then the code. A symbol
+# chunk that merely carries an "Example:" block is no longer one, so the example is published as its
+# own chunk beside the two symbol chunks.
+EXAMPLE_FQN = f"Example: Flatten an {WITH_EXAMPLE}"
+
+
+def _verified_example_section(fqn: str, snippet: str) -> str:
+    return f"## {fqn}\n\nFQN: {fqn}\nKind: verified_example\n\nExample:\n{snippet}"
 
 
 def _publish_pdf_net_symbols(store: GenerationManifestStore) -> tuple[str, dict]:
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     by_name = {t["name"]: t for t in fixture["types"]}
     entries = [by_name[WITH_EXAMPLE], by_name[WITHOUT_EXAMPLE]]
-    body = "\n\n".join(f"## {entry['name']}\n\n{_format_signature(entry)}" for entry in entries)
+    sections = [f"## {entry['name']}\n\n{_format_signature(entry)}" for entry in entries]
+    sections.append(_verified_example_section(EXAMPLE_FQN, "annotation.Flatten();"))
+    body = "\n\n".join(sections)
     doc = make_document(
         source_kind=SourceKind.SELF_EXTRACTED,
         content_type="api_surface",
@@ -248,10 +258,10 @@ def test_find_examples_prefers_an_exact_match(tmp_path: Path) -> None:
     store = _store(tmp_path)
     _publish_pdf_net_symbols(store)
 
-    result = find_examples(store, PDF_NET_SCOPE, WITH_EXAMPLE)
+    result = find_examples(store, PDF_NET_SCOPE, EXAMPLE_FQN)
 
     assert isinstance(result, list) and len(result) == 1
-    assert result[0].fqn == WITH_EXAMPLE
+    assert result[0].fqn == EXAMPLE_FQN
     assert "Flatten" in result[0].snippet
 
 
@@ -263,7 +273,7 @@ def test_find_examples_falls_back_to_semantic_search(tmp_path: Path) -> None:
     result = find_examples(store, PDF_NET_SCOPE, "flatten annotation")
 
     assert isinstance(result, list) and result
-    assert any(match.fqn == WITH_EXAMPLE for match in result)
+    assert any(match.fqn == EXAMPLE_FQN for match in result)
 
 
 def test_find_examples_returns_an_explicit_miss_when_nothing_has_an_example(tmp_path: Path) -> None:
@@ -284,7 +294,8 @@ def test_no_snippet_is_ever_executed_at_query_time(tmp_path: Path) -> None:
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     entry = fixture["types"][0]
     hostile_snippet = "raise RuntimeError('find_examples executed this snippet')"
-    body = f"## {entry['name']}\n\nFQN: {entry['name']}\nKind: {entry['kind']}\nExample:\n{hostile_snippet}"
+    example_fqn = f"Example: {entry['name']}"
+    body = _verified_example_section(example_fqn, hostile_snippet)
     doc = make_document(
         source_kind=SourceKind.SELF_EXTRACTED,
         content_type="api_surface",
@@ -305,7 +316,7 @@ def test_no_snippet_is_ever_executed_at_query_time(tmp_path: Path) -> None:
         lease=lease,
     )
 
-    result = find_examples(store, PDF_NET_SCOPE, entry["name"])
+    result = find_examples(store, PDF_NET_SCOPE, example_fqn)
 
     assert isinstance(result, list) and len(result) == 1
     assert result[0].snippet == hostile_snippet  # returned as inert text, not raised
