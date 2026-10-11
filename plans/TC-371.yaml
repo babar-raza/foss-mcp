@@ -22,6 +22,7 @@ write_paths:
 - infra/helm/foss-mcp/values.yaml
 - docker-compose.yml
 - tests/infra/test_wave2_wiring.py
+- tests/infra/test_wave1_python_wiring.py
 satisfies:
 - REQ-G3-005
 source_refs:
@@ -52,13 +53,22 @@ inputs:
   `--library-commit ...`, `--library-platform <dotnet|go|rust>` (the library block's own `platform` value) and the platform flag
   (`--library-csproj` / `--library-module-path` / `--library-crate-name`). Change nothing else.
 - >-
+  tests/infra/test_wave1_python_wiring.py (TC-364's file, in your write_paths for ONE reason): its test
+  `test_only_wave1_and_previously_furnished_pilots_have_a_furnished_page` is a closed-set check that fails the moment any later wave is
+  wired (the supervisor's review of this card caught it). Replace that ONE test with the forward-compatible form: every pilot with a
+  `furnishedPage` has an existing page file at exactly that path, and the set of pilots with a furnishedPage contains the eleven wave-1
+  pilots and the six that already had one. Keep its name's intent (rename it to say so), keep every other test in the file unchanged,
+  and say in your report that you did this.
+- >-
   tests/infra/test_wave2_wiring.py (NEW, offline, reads repository files only, no helm, no docker): parametrized over the ten pilots so a
   failure names the pilot: (1) values.yaml has the exact furnishedPage path; (2) the file exists, its front matter has
   `doc_source: github_readme` and a `doc_source_commit` equal to the pilot's `library.commit`; (3) the compose service passes the same
   `--furnished-page`, `--library-repository`, `--library-commit`, `--library-platform` and the platform flag, all equal to values.yaml's
   library block, all inside the build_chunks.py invocation and before `--out`; (4) the platform field is present and non-empty for its
-  platform (`csproj` ends in `.csproj`; `modulePath` looks like a Go module path; `crateName` is a plausible crate name); (5) no pilot
-  outside the ten and the ones that already had a page gained a furnishedPage. Read expected values from values.yaml, do not hard-code
+  platform (`csproj` ends in `.csproj`; `modulePath` looks like a Go module path; `crateName` is a plausible crate name); (5) FORWARD-COMPATIBLE
+  coverage instead of a closed set: every pilot whose chart entry has a `furnishedPage` points at a page file that exists, and the set of
+  pilots with a furnishedPage CONTAINS the ten (plus the earlier ones); never assert that no other pilot has one, because later waves add
+  more. Read expected values from values.yaml, do not hard-code
   commits.
 - >-
   Run `{python} -m pytest tests/infra/test_wave2_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE`, then once
