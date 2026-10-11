@@ -185,7 +185,10 @@ REAL_DOC_FRAGMENT = "roxmltree 0.20"
 # Workbook" example's own text shares no lexical overlap with "crate"/"depend"/"roxmltree") -
 # never () as every prior comprehensive live verification pass found for every pilot, for every
 # query, before TC-109 through TC-112 (and TC-113 through TC-117/this card) closed the gap.
-REAL_DOC_TASK_QUERY = "does this crate depend on roxmltree"
+# TC-381: restated. The shared relevance floor (0.6 over the query's meaningful terms, product-family
+# word excluded) needs at least three meaningful terms for a natural question; the previous wording
+# reduced to two and no longer reaches it. The question is still answered by the same real page chunk.
+REAL_DOC_TASK_QUERY = "what installation dependencies include roxmltree"
 
 VALID_HEADERS = {
     "Accept": "application/json, text/event-stream",
@@ -423,7 +426,11 @@ def test_lookup_composes_the_real_task_answer_for_the_workbook_question(
     assert result["example"] is not None, f"expected a real, verified example, got none: {result}"
     snippet = result["example"]["snippet"]
     assert REAL_EXAMPLE_SYMBOL in snippet, snippet
-    assert REAL_SOURCE_COMMIT in snippet, snippet
+    assert not any(line.startswith(("Kind:", "Source-Commit:", "FQN:")) for line in snippet.splitlines()), (
+        snippet
+    )
+    assert snippet == snippet.strip(), snippet
+    assert result["example"]["fqn"].startswith("Example: "), result["example"]
 
 
 def test_get_symbol_returns_the_real_enum_members_for_autoshapetype(session: _McpSession) -> None:

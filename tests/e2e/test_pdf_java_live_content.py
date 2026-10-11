@@ -398,7 +398,11 @@ def test_lookup_composes_the_real_task_answer(
     assert result["example"] is not None, f"expected a real, verified example, got none: {result}"
     snippet = result["example"]["snippet"]
     assert REAL_EXAMPLE_SYMBOL in snippet, snippet
-    assert REAL_SOURCE_COMMIT in snippet, snippet
+    assert not any(line.startswith(("Kind:", "Source-Commit:", "FQN:")) for line in snippet.splitlines()), (
+        snippet
+    )
+    assert snippet == snippet.strip(), snippet
+    assert result["example"]["fqn"].startswith("Example: "), result["example"]
 
 
 def test_get_symbol_returns_the_real_enum_members_for_artifact_subtype(session: _McpSession) -> None:

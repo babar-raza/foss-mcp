@@ -251,7 +251,10 @@ REAL_DOC_FRAGMENT = "lxml>=4.9"
 # live: example=None for this exact query, run by hand against the real running container - even
 # find_examples on its own returns a bare Miss for it), so this is also a real, live instance of
 # a TaskAnswer composed from a doc match alone, with example genuinely None - never fabricated.
-REAL_DOC_TASK_QUERY = "does this library require lxml"
+# TC-381: restated. The shared relevance floor (0.6 over the query's meaningful terms, product-family
+# word excluded) needs at least three meaningful terms for a natural question; the previous wording
+# reduced to two and no longer reaches it. The question is still answered by the same real page chunk.
+REAL_DOC_TASK_QUERY = "what installation dependencies include lxml"
 
 VALID_HEADERS = {
     "Accept": "application/json, text/event-stream",
@@ -456,7 +459,11 @@ def test_find_examples_returns_the_real_compile_verified_shape_example(
     result = body["result"]["structuredContent"]["result"]
     assert isinstance(result, list) and result, f"expected real ExampleMatch(es), got a Miss: {result}"
     assert any(REAL_EXAMPLE_SYMBOL in match["snippet"] for match in result), result
-    assert any(REAL_SOURCE_COMMIT in match["snippet"] for match in result), result
+    for match in result:
+        assert not any(
+            line.startswith(("Kind:", "Source-Commit:", "FQN:")) for line in match["snippet"].splitlines()
+        ), match
+        assert match["snippet"] == match["snippet"].strip(), match
 
 
 def test_lookup_composes_the_real_task_answer_for_the_rectangle_question(
@@ -480,7 +487,11 @@ def test_lookup_composes_the_real_task_answer_for_the_rectangle_question(
     assert result["example"] is not None, f"expected a real, verified example, got none: {result}"
     snippet = result["example"]["snippet"]
     assert REAL_EXAMPLE_SYMBOL in snippet, snippet
-    assert REAL_SOURCE_COMMIT in snippet, snippet
+    assert not any(line.startswith(("Kind:", "Source-Commit:", "FQN:")) for line in snippet.splitlines()), (
+        snippet
+    )
+    assert snippet == snippet.strip(), snippet
+    assert result["example"]["fqn"].startswith("Example: "), result["example"]
 
 
 def test_get_symbol_returns_the_real_type_spec_for_shape(session: _McpSession) -> None:

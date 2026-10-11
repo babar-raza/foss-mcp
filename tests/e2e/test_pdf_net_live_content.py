@@ -129,7 +129,10 @@ REAL_DOC_FRAGMENT = "open-source subset of Aspose.PDF for .NET"
 # this card) closed the gap. This query happens to match no verified example, so lookup's
 # TaskAnswer carries a real, non-empty doc_matches with example=None - a doc match found on its
 # own, exactly as lookup.py's own module docstring says a TaskAnswer may legitimately look.
-REAL_DOC_TASK_QUERY = "what are the known limitations of this library"
+# TC-381: restated. The shared relevance floor (0.6 over the query's meaningful terms, product-family
+# word excluded) needs at least three meaningful terms for a natural question; the previous wording
+# reduced to two and no longer reaches it. The question is still answered by the same real page chunk.
+REAL_DOC_TASK_QUERY = "what is the scope of this open-source subset of the library"
 
 VALID_HEADERS = {
     "Accept": "application/json, text/event-stream",
@@ -365,7 +368,11 @@ def test_lookup_composes_the_real_task_answer_for_the_watermark_question(
     assert result["example"] is not None, f"expected a real, verified example, got none: {result}"
     snippet = result["example"]["snippet"]
     assert REAL_EXAMPLE_SYMBOL in snippet, snippet
-    assert REAL_EXAMPLE_SOURCE_COMMIT in snippet, snippet
+    assert not any(line.startswith(("Kind:", "Source-Commit:", "FQN:")) for line in snippet.splitlines()), (
+        snippet
+    )
+    assert snippet == snippet.strip(), snippet
+    assert result["example"]["fqn"].startswith("Example: "), result["example"]
 
 
 def test_get_symbol_returns_the_real_enum_members_for_horizontalalignment(session: _McpSession) -> None:

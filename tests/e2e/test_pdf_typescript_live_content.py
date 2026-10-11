@@ -407,7 +407,11 @@ def test_lookup_composes_the_real_task_answer_for_the_new_pdf_question(
     assert result["example"] is not None, f"expected a real, verified example, got none: {result}"
     snippet = result["example"]["snippet"]
     assert REAL_EXAMPLE_SYMBOL in snippet, snippet
-    assert REAL_EXAMPLE_SOURCE_COMMIT in snippet, snippet
+    assert not any(line.startswith(("Kind:", "Source-Commit:", "FQN:")) for line in snippet.splitlines()), (
+        snippet
+    )
+    assert snippet == snippet.strip(), snippet
+    assert result["example"]["fqn"].startswith("Example: "), result["example"]
 
 
 def test_get_symbol_returns_the_real_value_for_page(session: _McpSession) -> None:
