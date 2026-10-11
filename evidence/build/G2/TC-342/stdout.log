@@ -1,0 +1,199 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-nqzidwrc\.junit-0.xml"
+--- stdout ---
+................                                                         [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-nqzidwrc\.junit-0.xml"
+--- stdout ---
+................                                                         [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/vector_index_writer.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_index_writers.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-nqzidwrc\.junit-0.xml"
+--- stdout ---
+....FFFF........                                                         [100%]
+================================== FAILURES ===================================
+____________ test_query_vector_index_ranks_the_closest_point_first ____________
+
+    def test_query_vector_index_ranks_the_closest_point_first() -> None:
+        chunks = _chunks()
+        provider = DeterministicEmbeddingProvider()
+        payload = build_vector_index(chunks, ["c1", "c2"], provider, "gen-1")
+        query_vector = provider.embed([chunks[0].text])[0]
+>       assert query_vector_index(payload, query_vector, top_k=1) == [point_id("gen-1", "c1")]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_index_writers.py:118: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+payload = {'generation_id': 'gen-1', 'dimension': 8, 'points': [{'point_id': 'gen-1::point::c1', 'chunk_id': 'c1', 'vector': [0....8117647058823529, 0.06666666666666667, 0.6, 0.07058823529411765, ...], 'text': 'A Page belongs to a PageCollection.'}]}
+query_vector = (0.16862745098039217, 0.9215686274509803, 0.6745098039215687, 0.00392156862745098, 0.5058823529411764, 0.4, ...)
+top_k = 1
+
+    def query_vector_index(payload: dict, query_vector: Vector, top_k: int = 5) -> list[str]:
+        """The ``top_k`` point ids most similar to ``query_vector`` by cosine similarity."""
+        points = payload["points"]
+>       scores = _cosine_scores(query_vector, points)
+                 ^^^^^^^^^^^^^^
+E       NameError: name '_cosine_scores' is not defined
+
+src\foss_mcp\indexing\vector_index_writer.py:96: NameError
+_ test_query_vector_index_scored_matches_query_vector_index_order_and_caps_by_top_k _
+
+    def test_query_vector_index_scored_matches_query_vector_index_order_and_caps_by_top_k() -> None:
+        """query_vector_index_scored() must share query_vector_index()'s own cosine-similarity
+        ranking: the SAME two chunks must come back from BOTH functions in the identical rank
+        order, pairing each point id with a real score in descending order rather than discarding
+        it - and top_k must cap the scored list exactly the way it already caps the plain id list.
+        query_vector_index()'s own existing tests (above) are untouched by this addition.
+        """
+        chunks = _chunks()
+        provider = DeterministicEmbeddingProvider()
+        payload = build_vector_index(chunks, ["c1", "c2"], provider, "gen-1")
+        query_vector = provider.embed([chunks[0].text])[0]
+    
+>       ids = query_vector_index(payload, query_vector, top_k=5)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_index_writers.py:137: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+payload = {'generation_id': 'gen-1', 'dimension': 8, 'points': [{'point_id': 'gen-1::point::c1', 'chunk_id': 'c1', 'vector': [0....8117647058823529, 0.06666666666666667, 0.6, 0.07058823529411765, ...], 'text': 'A Page belongs to a PageCollection.'}]}
+query_vector = (0.16862745098039217, 0.9215686274509803, 0.6745098039215687, 0.00392156862745098, 0.5058823529411764, 0.4, ...)
+top_k = 5
+
+    def query_vector_index(payload: dict, query_vector: Vector, top_k: int = 5) -> list[str]:
+        """The ``top_k`` point ids most similar to ``query_vector`` by cosine similarity."""
+        points = payload["points"]
+>       scores = _cosine_scores(query_vector, points)
+                 ^^^^^^^^^^^^^^
+E       NameError: name '_cosine_scores' is not defined
+
+src\foss_mcp\indexing\vector_index_writer.py:96: NameError
+__ test_a_zero_vector_point_or_query_scores_exactly_zero_with_no_nan_or_inf ___
+
+    def test_a_zero_vector_point_or_query_scores_exactly_zero_with_no_nan_or_inf() -> None:
+        """A genuine zero vector - among the corpus points, and as the query itself - must score
+        exactly 0.0 for that pairing, never raise, and never leak a NaN or inf into the result.
+        NumPy's own division by zero would otherwise silently produce nan/inf instead of raising,
+        so this is the real proof the zero-norm guard in ``_cosine_scores()`` actually works, not
+        an assumption.
+        """
+        dimension = 8
+        payload = {
+            "points": [
+                {"point_id": "real-match", "vector": [1.0] + [0.0] * (dimension - 1)},
+                {"point_id": "zero-vector", "vector": [0.0] * dimension},
+                {"point_id": "orthogonal", "vector": [0.0, 1.0] + [0.0] * (dimension - 2)},
+            ]
+        }
+        query_vector = tuple([1.0] + [0.0] * (dimension - 1))
+    
+>       scored = query_vector_index_scored(payload, query_vector, top_k=3)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_index_writers.py:184: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+payload = {'points': [{'point_id': 'real-match', 'vector': [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, ...]}, {'point_id': 'zero-vector', 'vector': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, ...]}, {'point_id': 'orthogonal', 'vector': [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, ...]}]}
+query_vector = (1.0, 0.0, 0.0, 0.0, 0.0, 0.0, ...), top_k = 3
+
+    def query_vector_index_scored(payload: dict, query_vector: Vector, top_k: int = 5) -> list[tuple[str, float]]:
+        """Like ``query_vector_index()``, but pairs each returned point id with its own cosine
+        similarity score instead of discarding it - same body as ``query_vector_index()``, in the
+        same ``(identifier, score)`` field order ``query_lexical_index_scored()`` uses.
+    
+        Added by TC-331 for ``find_examples.py``'s vector-based fallback stage alone: that stage
+        needs the real score to enforce ``_VECTOR_SIMILARITY_THRESHOLD``, which
+        ``query_vector_index()``'s plain id list cannot carry. ``query_vector_index()``'s own
+        signature, behavior, and both existing call sites are untouched by this addition.
+        """
+        points = payload["points"]
+>       scores = _cosine_scores(query_vector, points)
+                 ^^^^^^^^^^^^^^
+E       NameError: name '_cosine_scores' is not defined
+
+src\foss_mcp\indexing\vector_index_writer.py:113: NameError
+_ test_query_vector_index_scored_stays_well_under_the_old_pure_python_cost_at_real_scale _
+
+    def test_query_vector_index_scored_stays_well_under_the_old_pure_python_cost_at_real_scale() -> None:
+        """A real timing proof, measured RELATIVE to the old algorithm rather than against a hard
+        number. At 2,000 points x 4096 dimensions (the real embedding width this project uses), the
+        old pure-Python per-point loop (``_pure_python_reference_scores`` above) is timed once, in
+        this same process under this same machine load, and ``query_vector_index_scored()`` is then
+        timed three times; the fastest of those three must be under 75% of the reference time, and
+        its top-5 point ids must equal the reference's top-5 ids, so the speed claim is about the
+        same answer rather than a faster wrong one.
+    
+        The comparison is relative (same process, same load) because an absolute millisecond bound
+        is a property of the host, not of the code: a busy or slow machine slows the vectorized
+        scorer and the pure-Python loop alike, so their ratio stays meaningful where a fixed bound
+        fails at random. Taking the minimum of three vectorized calls discards scheduler noise from
+        any one call; a genuinely non-vectorized implementation costs about as much as the
+        reference on every call and so still fails.
+        """
+        rng = random.Random(20261010)
+        dimension = 4096
+        n_points = 2000
+        points = [
+            {"point_id": f"point-{i}", "vector": [rng.random() for _ in range(dimension)]}
+            for i in range(n_points)
+        ]
+        payload = {"points": points}
+        query_vector = tuple(rng.random() for _ in range(dimension))
+    
+        start = time.perf_counter()
+        reference_scores = _pure_python_reference_scores(query_vector, points)
+        reference_seconds = time.perf_counter() - start
+        reference_ranked = sorted(
+            zip(reference_scores, (p["point_id"] for p in points), strict=True),
+            key=lambda pair: (-pair[0], pair[1]),
+        )
+        reference_top_ids = [pid for _, pid in reference_ranked[:5]]
+    
+        vectorized_seconds = []
+        result: list[tuple[str, float]] = []
+        for _ in range(3):
+            start = time.perf_counter()
+>           result = query_vector_index_scored(payload, query_vector, top_k=5)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_index_writers.py:259: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+payload = {'points': [{'point_id': 'point-0', 'vector': [0.35019145334629687, 0.6620921924796372, 0.04218024562331657, 0.8315717...4286, 0.40129256988379614, 0.8257278621863304, 0.6290896763579815, 0.8173071565055726, 0.8801932780706883, ...]}, ...]}
+query_vector = (0.6215262427115208, 0.31751743892434936, 0.05647196785318165, 0.8429976616190911, 0.03016761247259747, 0.14455755891275723, ...)
+top_k = 5
+
+    def query_vector_index_scored(payload: dict, query_vector: Vector, top_k: int = 5) -> list[tuple[str, float]]:
+        """Like ``query_vector_index()``, but pairs each returned point id with its own cosine
+        similarity score instead of discarding it - same body as ``query_vector_index()``, in the
+        same ``(identifier, score)`` field order ``query_lexical_index_scored()`` uses.
+    
+        Added by TC-331 for ``find_examples.py``'s vector-based fallback stage alone: that stage
+        needs the real score to enforce ``_VECTOR_SIMILARITY_THRESHOLD``, which
+        ``query_vector_index()``'s plain id list cannot carry. ``query_vector_index()``'s own
+        signature, behavior, and both existing call sites are untouched by this addition.
+        """
+        points = payload["points"]
+>       scores = _cosine_scores(query_vector, points)
+                 ^^^^^^^^^^^^^^
+E       NameError: name '_cosine_scores' is not defined
+
+src\foss_mcp\indexing\vector_index_writer.py:113: NameError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_index_writers.py::test_query_vector_index_ranks_the_closest_point_first
+FAILED tests/indexing/test_index_writers.py::test_query_vector_index_scored_matches_query_vector_index_order_and_caps_by_top_k
+FAILED tests/indexing/test_index_writers.py::test_a_zero_vector_point_or_query_scores_exactly_zero_with_no_nan_or_inf
+FAILED tests/indexing/test_index_writers.py::test_query_vector_index_scored_stays_well_under_the_old_pure_python_cost_at_real_scale
+
+--- stderr ---
+
