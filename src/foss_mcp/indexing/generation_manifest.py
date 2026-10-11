@@ -59,6 +59,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -66,6 +67,12 @@ from pathlib import Path
 from typing import Any
 
 _SEP = "::"
+
+# A scope is exactly three components; each one becomes part of a single directory name, so
+# it must be a plain, short token that can never be (or contain) a path.
+_SCOPE_COMPONENT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+_SCOPE_COMPONENT_COUNT = 3
+_MAX_VERSION_LENGTH = 128
 
 
 # ---------------------------------------------------------------------
@@ -100,6 +107,32 @@ class ActivePointerConflictError(GenerationManifestError):
 class UnknownGenerationError(GenerationManifestError):
     """A rollback (or read) named a generation_id that was never written
     for the target scope."""
+
+
+class InvalidScopeError(GenerationManifestError, ValueError):
+    """A scope string or generation version would not map to a path strictly
+    inside the store root (a path separator, ``..``, a control character, the
+    wrong number of components, an over-long component...). Its message never
+    repeats the offending value."""
+
+
+def _has_control_character(value: str) -> bool:
+    return any(ord(ch) < 32 or ord(ch) == 127 for ch in value)
+
+
+def _validate_version(version: object) -> str:
+    """A generation version is used verbatim inside ``generation__{version}.json``, so it
+    must not be able to name anything but a file directly in its scope directory."""
+    if (
+        not isinstance(version, str)
+        or len(version) > _MAX_VERSION_LENGTH
+        or "/" in version
+        or "\\" in version
+        or ".." in version
+        or _has_control_character(version)
+    ):
+        raise InvalidScopeError("invalid generation version")
+    return version
 
 
 # ---------------------------------------------------------------------
@@ -252,21 +285,43 @@ class GenerationManifestStore:
 
     # -- filesystem layout ------------------------------------------------
 
+    def _contained_scope_dir(self, scope: str) -> Path:
+        """Map ``scope`` to its directory under the store root. This is the ONLY place a
+        scope string becomes a path: it never creates anything, accepts only
+        ``component::component::component`` with each component a short plain token, and
+        refuses any directory whose resolved location is not inside the resolved root."""
+        if not isinstance(scope, str):
+            raise InvalidScopeError("invalid scope")
+        components = scope.split(_SEP)
+        if len(components) != _SCOPE_COMPONENT_COUNT:
+            raise InvalidScopeError("invalid scope")
+        for component in components:
+            if _SCOPE_COMPONENT_PATTERN.fullmatch(component) is None or ".." in component:
+                raise InvalidScopeError("invalid scope")
+        candidate = self.root / "__".join(components)
+        resolved_root = self.root.resolve()
+        resolved = candidate.resolve()
+        if resolved == resolved_root or not resolved.is_relative_to(resolved_root):
+            raise InvalidScopeError("invalid scope")
+        return candidate
+
     def _scope_dir(self, scope: str) -> Path:
-        safe = scope.replace(_SEP, "__")
-        d = self.root / safe
-        d.mkdir(parents=True, exist_ok=True)
-        return d
+        # Never creates the directory: a READ must have no side effect. Writes create it
+        # through _atomic_write_json.
+        return self._contained_scope_dir(scope)
 
     def _generation_path(self, key: GenerationKey) -> Path:
-        return self._scope_dir(key.scope) / f"generation__{key.version}.json"
+        version = _validate_version(key.version)
+        return self._scope_dir(key.scope) / f"generation__{version}.json"
 
     def _generation_path_for_id(self, scope: str, generation_id: str) -> Path:
         # generation_id is "family::platform::source_kind::version"; the
         # version is everything after the LAST separator, since none of
         # the identity components may themselves contain the separator
         # (enforced by _clean_component at construction time).
-        version = generation_id.rsplit(_SEP, 1)[-1]
+        if not isinstance(generation_id, str):
+            raise InvalidScopeError("invalid generation version")
+        version = _validate_version(generation_id.rsplit(_SEP, 1)[-1])
         return self._scope_dir(scope) / f"generation__{version}.json"
 
     def _active_pointer_path(self, scope: str) -> Path:

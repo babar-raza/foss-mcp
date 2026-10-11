@@ -33,20 +33,21 @@ from typing import Any
 from mcp.server.lowlevel import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import CallToolRequestParams, CallToolResult, ListToolsResult, TextContent, Tool
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from foss_mcp.extraction.github_release_reader import Release
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import DeploymentConfig, Scope, resolve_scope
 from foss_mcp.mcp.tools.find_examples import find_examples
-from foss_mcp.mcp.tools.get_product_reference import ProductReferenceInputs, get_product_reference
+from foss_mcp.mcp.tools.get_product_reference import SECTIONS, ProductReferenceInputs, get_product_reference
 from foss_mcp.mcp.tools.get_symbol import get_symbol
 from foss_mcp.mcp.tools.list_members import list_members
 from foss_mcp.mcp.tools.list_recent_changes import list_recent_changes
 from foss_mcp.mcp.tools.lookup import lookup
 from foss_mcp.mcp.tools.report_index_freshness import report_index_freshness
-from foss_mcp.mcp.tools.search_docs import search_docs
+from foss_mcp.mcp.tools.search_docs import CONTENT_TYPES, search_docs
 from foss_mcp.mcp.tools.search_symbols import search_symbols
+from foss_mcp.normalization.document_schema import SourceKind
 from foss_mcp.telemetry.usage_recorder import (
     UsageEvent,
     UsageRecorder,
@@ -300,6 +301,22 @@ _FIELD_DESCRIPTIONS: dict[str, str] = {
 
 _TOP_K_MAX = 100
 
+# Length caps: no response can echo a large input back (the largest field a client controls).
+_QUERY_MAX_LENGTH = 1000
+_FQN_MAX_LENGTH = 512
+_SHORT_STRING_MAX_LENGTH = 128
+
+_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{7,64}$")
+
+# The closed sets are derived from the constants the tools themselves enforce, never retyped.
+_SourceKindLiteral = typing.Literal[tuple(kind.value for kind in SourceKind)]  # type: ignore[valid-type]
+_ContentTypeLiteral = typing.Literal[CONTENT_TYPES]  # type: ignore[valid-type]
+_SectionLiteral = typing.Literal[SECTIONS]  # type: ignore[valid-type]
+
+# Every input model is closed (no unknown arguments) and strict (no coercion: ``true`` or
+# ``"3"`` is never a valid ``top_k``).
+_STRICT_CLOSED = ConfigDict(extra="forbid", strict=True)
+
 
 def _require_non_empty(value: str, field_name: str) -> str:
     if not value.strip():
@@ -307,92 +324,123 @@ def _require_non_empty(value: str, field_name: str) -> str:
     return value
 
 
+def _reject_control_characters(value: str, field_name: str, *, allow_whitespace_controls: bool) -> str:
+    """Reject NUL and every other C0 control character - except, when allowed, tab, newline
+    and carriage return. The message never repeats the rejected value."""
+    allowed = "\t\n\r" if allow_whitespace_controls else ""
+    if any(ord(ch) < 32 and ch not in allowed for ch in value):
+        raise ValueError(f"{field_name} must not contain control characters")
+    return value
+
+
+def _clean_text(value: str, field_name: str, *, allow_whitespace_controls: bool) -> str:
+    """Strip, require non-empty, and reject control characters."""
+    stripped = value.strip()
+    _require_non_empty(stripped, field_name)
+    return _reject_control_characters(
+        stripped, field_name, allow_whitespace_controls=allow_whitespace_controls
+    )
+
+
 class LookupInput(BaseModel):
-    query: str
-    content_type: str | None = None
+    model_config = _STRICT_CLOSED
+
+    query: str = Field(max_length=_QUERY_MAX_LENGTH)
+    content_type: _ContentTypeLiteral | None = None
     top_k: int = Field(default=10, gt=0, le=_TOP_K_MAX)
 
     @field_validator("query")
     @classmethod
-    def _query_not_empty(cls, value: str) -> str:
-        return _require_non_empty(value, "query")
-
-    @field_validator("content_type")
-    @classmethod
-    def _content_type_not_empty(cls, value: str | None) -> str | None:
-        return value if value is None else _require_non_empty(value, "content_type")
+    def _query_clean(cls, value: str) -> str:
+        return _clean_text(value, "query", allow_whitespace_controls=True)
 
 
 class SearchDocsInput(BaseModel):
-    query: str
-    content_type: str
-    top_k: int = Field(default=10, gt=0, le=_TOP_K_MAX)
+    model_config = _STRICT_CLOSED
 
-    @field_validator("query", "content_type")
-    @classmethod
-    def _not_empty(cls, value: str, info: Any) -> str:
-        return _require_non_empty(value, info.field_name)
-
-
-class SearchSymbolsInput(BaseModel):
-    query: str
+    query: str = Field(max_length=_QUERY_MAX_LENGTH)
+    content_type: _ContentTypeLiteral
     top_k: int = Field(default=10, gt=0, le=_TOP_K_MAX)
 
     @field_validator("query")
     @classmethod
-    def _query_not_empty(cls, value: str) -> str:
-        return _require_non_empty(value, "query")
+    def _query_clean(cls, value: str) -> str:
+        return _clean_text(value, "query", allow_whitespace_controls=True)
+
+
+class SearchSymbolsInput(BaseModel):
+    model_config = _STRICT_CLOSED
+
+    query: str = Field(max_length=_QUERY_MAX_LENGTH)
+    top_k: int = Field(default=10, gt=0, le=_TOP_K_MAX)
+
+    @field_validator("query")
+    @classmethod
+    def _query_clean(cls, value: str) -> str:
+        return _clean_text(value, "query", allow_whitespace_controls=True)
 
 
 class GetSymbolInput(BaseModel):
-    fqn: str
+    model_config = _STRICT_CLOSED
+
+    fqn: str = Field(max_length=_FQN_MAX_LENGTH)
 
     @field_validator("fqn")
     @classmethod
-    def _fqn_not_empty(cls, value: str) -> str:
-        return _require_non_empty(value, "fqn")
+    def _fqn_clean(cls, value: str) -> str:
+        return _clean_text(value, "fqn", allow_whitespace_controls=False)
 
 
 class ListMembersInput(BaseModel):
-    fqn: str
+    model_config = _STRICT_CLOSED
+
+    fqn: str = Field(max_length=_FQN_MAX_LENGTH)
 
     @field_validator("fqn")
     @classmethod
-    def _fqn_not_empty(cls, value: str) -> str:
-        return _require_non_empty(value, "fqn")
+    def _fqn_clean(cls, value: str) -> str:
+        return _clean_text(value, "fqn", allow_whitespace_controls=False)
 
 
 class FindExamplesInput(BaseModel):
-    query: str
+    model_config = _STRICT_CLOSED
+
+    query: str = Field(max_length=_QUERY_MAX_LENGTH)
     top_k: int = Field(default=5, gt=0, le=_TOP_K_MAX)
 
     @field_validator("query")
     @classmethod
-    def _query_not_empty(cls, value: str) -> str:
-        return _require_non_empty(value, "query")
+    def _query_clean(cls, value: str) -> str:
+        return _clean_text(value, "query", allow_whitespace_controls=True)
 
 
 class GetProductReferenceInput(BaseModel):
-    section: str
+    model_config = _STRICT_CLOSED
 
-    @field_validator("section")
-    @classmethod
-    def _section_not_empty(cls, value: str) -> str:
-        return _require_non_empty(value, "section")
+    section: _SectionLiteral
 
 
 class ListRecentChangesInput(BaseModel):
+    model_config = _STRICT_CLOSED
+
     limit: int = Field(default=10, gt=0, le=_TOP_K_MAX)
 
 
 class ReportIndexFreshnessInput(BaseModel):
-    source_kind: str = "self_extracted"
-    current_source_commit: str | None = None
+    model_config = _STRICT_CLOSED
 
-    @field_validator("source_kind")
+    source_kind: _SourceKindLiteral = SourceKind.SELF_EXTRACTED.value  # type: ignore[valid-type]
+    current_source_commit: str | None = Field(default=None, max_length=_SHORT_STRING_MAX_LENGTH)
+
+    @field_validator("current_source_commit")
     @classmethod
-    def _source_kind_not_empty(cls, value: str) -> str:
-        return _require_non_empty(value, "source_kind")
+    def _commit_normalised(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalised = value.strip().lower()
+        if _COMMIT_PATTERN.fullmatch(normalised) is None:
+            raise ValueError("current_source_commit must be a 7 to 64 character hexadecimal commit id")
+        return normalised
 
 
 _INPUT_MODELS: dict[str, type[BaseModel]] = {
@@ -559,9 +607,19 @@ def public_validation_error_message(exc: ValidationError) -> str:
     library internal, or anything resembling what that filter exists to catch. This is a
     different, narrower, independently-safe path, not a weakening of the existing one.
     """
-    return "; ".join(
-        f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}" for error in exc.errors()
-    )
+    return "; ".join(f"{_error_location(error)}: {error['msg']}" for error in exc.errors())
+
+
+_UNEXPECTED_ARGUMENT_LOCATION = "unexpected argument"
+
+
+def _error_location(error: Any) -> str:
+    """The ``loc`` of one pydantic error for a client-facing message. For an unknown argument
+    pydantic's ``loc`` is the CLIENT-CHOSEN argument name - arbitrary and possibly huge - so
+    it is never echoed back; every other ``loc`` is one of this project's own field names."""
+    if error["type"] == "extra_forbidden":
+        return _UNEXPECTED_ARGUMENT_LOCATION
+    return ".".join(str(part) for part in error["loc"])
 
 
 _GENERIC_ERROR_FALLBACK = "An internal error occurred while handling this tool call."
