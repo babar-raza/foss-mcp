@@ -33,9 +33,11 @@ import re
 import shutil
 import subprocess
 import sys
+import tomllib
 import urllib.request
 import xml.etree.ElementTree as ElementTree
 import zipfile
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -759,6 +761,173 @@ def _venv_python_executable(venv_dir: Path) -> Path:
     return venv_dir / "bin" / "python"
 
 
+# --- Python interpreter choice ------------------------------------------------
+#
+# A library's ``requires-python`` can exclude the interpreter that runs this
+# verifier (the ingestion image runs 3.13; words/python needs ``<3.13``). The
+# venv is therefore created with an interpreter that satisfies the library's
+# own requirement. ``packaging`` is only a transitive pin here, not a declared
+# dependency, so the specifier forms real projects use are parsed by hand.
+
+_FALLBACK_INTERPRETER_NAMES = ("python3.13", "python3.12", "python3.11", "python3.10")
+_SPECIFIER_PATTERN = re.compile(r"^(~=|===|==|!=|<=|>=|<|>)\s*(\d+(?:\.\d+)*)(\.\*)?")
+
+
+def _release_tuple(text: str) -> tuple[int, ...] | None:
+    """Parse the leading release segment of ``text`` ("3.13.0rc1" -> (3, 13, 0))."""
+    match = re.match(r"^\s*(\d+(?:\.\d+)*)", text)
+    if match is None:
+        return None
+    return tuple(int(part) for part in match.group(1).split("."))
+
+
+def _padded(left: tuple[int, ...], right: tuple[int, ...]) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    width = max(len(left), len(right))
+    return left + (0,) * (width - len(left)), right + (0,) * (width - len(right))
+
+
+def _has_release_prefix(version: tuple[int, ...], prefix: tuple[int, ...]) -> bool:
+    left, right = _padded(version[: len(prefix)], prefix)
+    return left == right
+
+
+def _clause_matches(
+    version: tuple[int, ...], operator: str, release: tuple[int, ...], wildcard: bool
+) -> bool:
+    if wildcard:
+        if operator not in ("==", "!="):
+            raise ValueError(f"'.*' is only valid with == and !=, not {operator}")
+        prefix_match = _has_release_prefix(version, release)
+        return prefix_match if operator == "==" else not prefix_match
+    left, right = _padded(version, release)
+    if operator == "==":
+        return left == right
+    if operator == "!=":
+        return left != right
+    if operator == ">=":
+        return left >= right
+    if operator == ">":
+        return left > right
+    if operator == "<=":
+        return left <= right
+    if operator == "<":
+        return left < right
+    if operator == "~=":
+        if len(release) < 2:
+            raise ValueError("~= needs at least two release segments")
+        return left >= right and _has_release_prefix(version, release[:-1])
+    raise ValueError(f"unsupported specifier operator {operator}")
+
+
+def _python_version_satisfies(version: tuple[int, ...], requires_python: str) -> bool:
+    """Whether ``version`` satisfies the comma-separated specifier string.
+
+    Raises ValueError for a specifier this parser does not understand.
+    """
+    for raw_clause in requires_python.split(","):
+        clause = raw_clause.strip()
+        if not clause:
+            continue
+        match = _SPECIFIER_PATTERN.match(clause)
+        if match is None or clause[match.end() :].strip() or match.group(1) == "===":
+            raise ValueError(f"unsupported requires-python specifier {clause!r}")
+        release = tuple(int(part) for part in match.group(2).split("."))
+        if not _clause_matches(version, match.group(1), release, match.group(3) is not None):
+            return False
+    return True
+
+
+def _interpreter_version(executable: str) -> tuple[int, ...] | None:
+    """The (major, minor, micro) of ``executable``, or None when it cannot be run."""
+    if executable == sys.executable:
+        return tuple(sys.version_info[:3])
+    try:
+        result = subprocess.run(
+            [executable, "-c", "import sys;print('.'.join(map(str,sys.version_info[:3])))"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    return _release_tuple(result.stdout)
+
+
+def _candidate_interpreters() -> list[str]:
+    """The running interpreter first, then python3.13..python3.10 found on PATH."""
+    candidates = [sys.executable]
+    seen = {os.path.normcase(os.path.realpath(sys.executable))}
+    for name in _FALLBACK_INTERPRETER_NAMES:
+        found = shutil.which(name)
+        if found is None:
+            continue
+        identity = os.path.normcase(os.path.realpath(found))
+        if identity in seen:
+            continue
+        seen.add(identity)
+        candidates.append(found)
+    return candidates
+
+
+def _pick_python_interpreter(
+    requires_python: str | None,
+    versions: Mapping[str, tuple[int, ...] | None] | Callable[[str], tuple[int, ...] | None] | None = None,
+) -> str:
+    """Choose the interpreter to build a library's venv with.
+
+    ``versions`` reports each candidate's version: a mapping (its keys, in
+    order, are the candidates) or a callable applied to the default candidate
+    list (None means probing each real interpreter). No (or an empty, or an unparseable) requirement keeps the first
+    candidate, the running interpreter. Raises RuntimeError naming the
+    requirement and every interpreter tried, with its version, when none
+    satisfies the requirement.
+    """
+    if isinstance(versions, Mapping):
+        candidates = list(versions)
+        lookup: Callable[[str], tuple[int, ...] | None] = versions.get
+    else:
+        candidates = _candidate_interpreters()
+        lookup = _interpreter_version if versions is None else versions
+    requirement = (requires_python or "").strip()
+    if not requirement:
+        return candidates[0] if candidates else sys.executable
+    tried: list[str] = []
+    for candidate in candidates:
+        version = lookup(candidate)
+        if version is None:
+            tried.append(f"{candidate} (version unavailable)")
+            continue
+        try:
+            satisfied = _python_version_satisfies(tuple(version), requirement)
+        except ValueError:
+            # A specifier this parser cannot read must not newly break a library
+            # that worked before: behave as if nothing was declared.
+            return candidates[0]
+        if satisfied:
+            return candidate
+        tried.append(f"{candidate} ({'.'.join(str(part) for part in version)})")
+    raise RuntimeError(
+        f"no available Python interpreter satisfies requires-python {requirement!r}; "
+        f"tried: {', '.join(tried) if tried else 'none'}"
+    )
+
+
+def _read_requires_python(repo_dir: Path) -> str | None:
+    """``[project].requires-python`` from the clone's pyproject.toml, or None
+    when the file, the key, or valid TOML is missing."""
+    try:
+        data = tomllib.loads((repo_dir / "pyproject.toml").read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return None
+    project = data.get("project")
+    if not isinstance(project, dict):
+        return None
+    value = project.get("requires-python")
+    return value if isinstance(value, str) and value.strip() else None
+
+
 def prepare_python_library(
     repository: str,
     commit: str,
@@ -781,7 +950,8 @@ def prepare_python_library(
     _clone_pinned_commit(repository, commit, repo_dir)
 
     venv_dir = workdir / "venv"
-    venv_result = _run([sys.executable, "-m", "venv", str(venv_dir)], cwd=workdir)
+    interpreter = _pick_python_interpreter(_read_requires_python(repo_dir))
+    venv_result = _run([interpreter, "-m", "venv", str(venv_dir)], cwd=workdir)
     if venv_result.returncode != 0:
         raise RuntimeError(
             f"python -m venv failed for {venv_dir}:\n{venv_result.stdout}\n{venv_result.stderr}"
