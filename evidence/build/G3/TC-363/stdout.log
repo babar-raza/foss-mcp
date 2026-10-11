@@ -1,0 +1,132 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_verifier_fields.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pw4ah4r_\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 75%]
+.......................                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/test_container_build.py tests/infra/test_helm_chart.py tests/infra/test_helm_manifest_step.py tests/infra/test_build_chunks_platforms.py -q -rfE -k "never_disables_network_policy or helm_chart or manifest_step or build_chunks_platforms" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pw4ah4r_\.junit-1.xml"
+--- stdout ---
+..........................................................               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_verifier_fields.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pw4ah4r_\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 75%]
+.......................                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/test_container_build.py tests/infra/test_helm_chart.py tests/infra/test_helm_manifest_step.py tests/infra/test_build_chunks_platforms.py -q -rfE -k "never_disables_network_policy or helm_chart or manifest_step or build_chunks_platforms" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pw4ah4r_\.junit-1.xml"
+--- stdout ---
+..........................................................               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/templates/ingestion-job.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_verifier_fields.py tests/infra/test_helm_pilots_match_compose.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pw4ah4r_\.junit-0.xml"
+--- stdout ---
+....F.FF...F............................................................ [ 75%]
+.......................                                                  [100%]
+================================== FAILURES ===================================
+______________ test_wired_pilots_render_exactly_their_own_flags _______________
+
+wired_jobs = {('pdf', 'net'): {'apiVersion': 'batch/v1', 'kind': 'Job', 'metadata': {'name': 'foss-mcp-pdf-net-ingest-pdf-net', 'la...p': 10001, 'runAsNonRoot': True, 'runAsUser': 10001}, 'containers': [{...}], 'volumes': [{...}, {...}, {...}]}}}}, ...}
+
+    def test_wired_pilots_render_exactly_their_own_flags(
+        wired_jobs: dict[tuple[str, str], dict[str, Any]],
+    ) -> None:
+        values = _values()
+        for family, platform in WIRED_PILOTS:
+            flags = _flags(_build_chunks_tokens(wired_jobs[(family, platform)]))
+            library = _pilot(values, family, platform)["library"]
+            expected_fields = EXPECTED_LIBRARY_FIELDS[(family, platform)]
+            for key, flag in VERIFIER_KEYS.items():
+                if key in expected_fields:
+>                   assert flags.get(flag) == expected_fields[key], f"{family}/{platform} {flag}"
+E                   AssertionError: cells/cpp --library-cpp-target
+E                   assert None == 'aspose_cells_foss'
+E                    +  where None = <built-in method get of dict object at 0x00000162F3164840>('--library-cpp-target')
+E                    +    where <built-in method get of dict object at 0x00000162F3164840> = {'--api-surface': '/app/fixtures/cells_cpp/api_surface.json', '--title': 'cells/cpp API surface', '--max-types': '300', '--furnished-page': '/app/fixtures/furnished/cells_cpp/pages/_index.md', ...}.get
+
+tests\infra\test_helm_verifier_fields.py:263: AssertionError
+________ test_cells_cpp_renders_its_three_cpp_flags_and_no_verify_mode ________
+
+wired_jobs = {('pdf', 'net'): {'apiVersion': 'batch/v1', 'kind': 'Job', 'metadata': {'name': 'foss-mcp-pdf-net-ingest-pdf-net', 'la...p': 10001, 'runAsNonRoot': True, 'runAsUser': 10001}, 'containers': [{...}], 'volumes': [{...}, {...}, {...}]}}}}, ...}
+
+    def test_cells_cpp_renders_its_three_cpp_flags_and_no_verify_mode(
+        wired_jobs: dict[tuple[str, str], dict[str, Any]],
+    ) -> None:
+        flags = _flags(_build_chunks_tokens(wired_jobs[("cells", "cpp")]))
+        assert flags["--library-cpp-source-dir"] == "Aspose.Cells.Foss.Cpp"
+>       assert flags["--library-cpp-target"] == "aspose_cells_foss"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: '--library-cpp-target'
+
+tests\infra\test_helm_verifier_fields.py:288: KeyError
+_____________ test_jmap_cpp_renders_target_and_compile_mode_only ______________
+
+wired_jobs = {('pdf', 'net'): {'apiVersion': 'batch/v1', 'kind': 'Job', 'metadata': {'name': 'foss-mcp-pdf-net-ingest-pdf-net', 'la...p': 10001, 'runAsNonRoot': True, 'runAsUser': 10001}, 'containers': [{...}], 'volumes': [{...}, {...}, {...}]}}}}, ...}
+
+    def test_jmap_cpp_renders_target_and_compile_mode_only(
+        wired_jobs: dict[tuple[str, str], dict[str, Any]],
+    ) -> None:
+        flags = _flags(_build_chunks_tokens(wired_jobs[("jmap", "cpp")]))
+>       assert flags["--library-cpp-target"] == "aspose-jmap-foss-cpp"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: '--library-cpp-target'
+
+tests\infra\test_helm_verifier_fields.py:298: KeyError
+___ test_every_rendered_platform_and_cpp_choice_is_one_build_chunks_accepts ___
+
+all_wired_jobs = {('pdf', 'net'): {'apiVersion': 'batch/v1', 'kind': 'Job', 'metadata': {'name': 'foss-mcp-pdf-net-ingest-pdf-net', 'la...p': 10001, 'runAsNonRoot': True, 'runAsUser': 10001}, 'containers': [{...}], 'volumes': [{...}, {...}, {...}]}}}}, ...}
+
+    def test_every_rendered_platform_and_cpp_choice_is_one_build_chunks_accepts(
+        all_wired_jobs: dict[tuple[str, str], dict[str, Any]],
+    ) -> None:
+        platforms = set(sorted(build_chunks._PLATFORM_DISPATCH))
+        warnings = _help_choices("--library-cpp-warnings")
+        verify_modes = _help_choices("--library-cpp-verify-mode")
+        assert warnings == {"strict", "relaxed"}
+        assert verify_modes == {"run", "compile"}
+        seen_platforms: set[str] = set()
+        seen_verifier_flags: set[str] = set()
+        for (family, platform), job in all_wired_jobs.items():
+            flags = _flags(_build_chunks_tokens(job))
+            assert flags["--library-platform"] in platforms, f"{family}/{platform}"
+            seen_platforms.add(flags["--library-platform"])
+            if "--library-cpp-warnings" in flags:
+                assert flags["--library-cpp-warnings"] in warnings, f"{family}/{platform}"
+            if "--library-cpp-verify-mode" in flags:
+                assert flags["--library-cpp-verify-mode"] in verify_modes, f"{family}/{platform}"
+            seen_verifier_flags |= set(VERIFIER_KEYS.values()) & set(flags)
+        assert "nodejs" in seen_platforms
+>       assert seen_verifier_flags == set(VERIFIER_KEYS.values())
+E       AssertionError: assert {'--library-c...ava-packages'} == {'--library-c...ava-packages'}
+E         
+E         Extra items in the right set:
+E         '--library-cpp-target'
+E         Use -v to get more diff
+
+tests\infra\test_helm_verifier_fields.py:353: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_verifier_fields.py::test_wired_pilots_render_exactly_their_own_flags
+FAILED tests/infra/test_helm_verifier_fields.py::test_cells_cpp_renders_its_three_cpp_flags_and_no_verify_mode
+FAILED tests/infra/test_helm_verifier_fields.py::test_jmap_cpp_renders_target_and_compile_mode_only
+FAILED tests/infra/test_helm_verifier_fields.py::test_every_rendered_platform_and_cpp_choice_is_one_build_chunks_accepts
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/test_container_build.py tests/infra/test_helm_chart.py tests/infra/test_helm_manifest_step.py tests/infra/test_build_chunks_platforms.py -q -rfE -k "never_disables_network_policy or helm_chart or manifest_step or build_chunks_platforms" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pw4ah4r_\.junit-1.xml"
+--- stdout ---
+..........................................................               [100%]
+
+--- stderr ---
+
