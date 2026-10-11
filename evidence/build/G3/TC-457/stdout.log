@@ -1,0 +1,368 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_ingestion_memory.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6enuudk4\.junit-0.xml"
+--- stdout ---
+..................                                                       [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_ingestion_memory.py tests/infra/test_helm_chart.py tests/infra/test_helm_verifier_fields.py tests/infra/test_helm_pilots_match_compose.py tests/deploy/test_pilots.py tests/deploy/test_install_pilots.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6enuudk4\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 30%]
+........................................................................ [ 60%]
+........................................................................ [ 90%]
+......................                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_ingestion_memory.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6enuudk4\.junit-0.xml"
+--- stdout ---
+..................                                                       [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_ingestion_memory.py tests/infra/test_helm_chart.py tests/infra/test_helm_verifier_fields.py tests/infra/test_helm_pilots_match_compose.py tests/deploy/test_pilots.py tests/deploy/test_install_pilots.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6enuudk4\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 30%]
+........................................................................ [ 60%]
+........................................................................ [ 90%]
+......................                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/templates/ingestion-job.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_ingestion_memory.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6enuudk4\.junit-0.xml"
+--- stdout ---
+.......FFFF..FFFF.                                                       [100%]
+================================== FAILURES ===================================
+_______ test_each_carrier_job_renders_its_own_memory_limit[pilot_key0] ________
+
+shipped_jobs = {('pdf', 'net'): {'apiVersion': 'batch/v1', 'kind': 'Job', 'metadata': {'name': 'foss-mcp-pdf-net-ingest-pdf-net', 'la...p': 10001, 'runAsNonRoot': True, 'runAsUser': 10001}, 'containers': [{...}], 'volumes': [{...}, {...}, {...}]}}}}, ...}
+pilot_key = ('html', 'python')
+
+    @pytest.mark.parametrize("pilot_key", sorted(EXPECTED_MEMORY_LIMITS))
+    def test_each_carrier_job_renders_its_own_memory_limit(
+        shipped_jobs: dict[tuple[str, str], dict[str, Any]], pilot_key: tuple[str, str]
+    ) -> None:
+>       assert _resources(shipped_jobs[pilot_key])["limits"]["memory"] == EXPECTED_MEMORY_LIMITS[pilot_key]
+E       AssertionError: assert '4Gi' == '8Gi'
+E         
+E         - 8Gi
+E         + 4Gi
+
+tests\infra\test_helm_ingestion_memory.py:148: AssertionError
+_______ test_each_carrier_job_renders_its_own_memory_limit[pilot_key1] ________
+
+shipped_jobs = {('pdf', 'net'): {'apiVersion': 'batch/v1', 'kind': 'Job', 'metadata': {'name': 'foss-mcp-pdf-net-ingest-pdf-net', 'la...p': 10001, 'runAsNonRoot': True, 'runAsUser': 10001}, 'containers': [{...}], 'volumes': [{...}, {...}, {...}]}}}}, ...}
+pilot_key = ('page', 'python')
+
+    @pytest.mark.parametrize("pilot_key", sorted(EXPECTED_MEMORY_LIMITS))
+    def test_each_carrier_job_renders_its_own_memory_limit(
+        shipped_jobs: dict[tuple[str, str], dict[str, Any]], pilot_key: tuple[str, str]
+    ) -> None:
+>       assert _resources(shipped_jobs[pilot_key])["limits"]["memory"] == EXPECTED_MEMORY_LIMITS[pilot_key]
+E       AssertionError: assert '4Gi' == '8Gi'
+E         
+E         - 8Gi
+E         + 4Gi
+
+tests\infra\test_helm_ingestion_memory.py:148: AssertionError
+_______ test_each_carrier_job_renders_its_own_memory_limit[pilot_key2] ________
+
+shipped_jobs = {('pdf', 'net'): {'apiVersion': 'batch/v1', 'kind': 'Job', 'metadata': {'name': 'foss-mcp-pdf-net-ingest-pdf-net', 'la...p': 10001, 'runAsNonRoot': True, 'runAsUser': 10001}, 'containers': [{...}], 'volumes': [{...}, {...}, {...}]}}}}, ...}
+pilot_key = ('slides', 'cpp')
+
+    @pytest.mark.parametrize("pilot_key", sorted(EXPECTED_MEMORY_LIMITS))
+    def test_each_carrier_job_renders_its_own_memory_limit(
+        shipped_jobs: dict[tuple[str, str], dict[str, Any]], pilot_key: tuple[str, str]
+    ) -> None:
+>       assert _resources(shipped_jobs[pilot_key])["limits"]["memory"] == EXPECTED_MEMORY_LIMITS[pilot_key]
+E       AssertionError: assert '4Gi' == '10Gi'
+E         
+E         - 10Gi
+E         + 4Gi
+
+tests\infra\test_helm_ingestion_memory.py:148: AssertionError
+_______ test_each_carrier_job_renders_its_own_memory_limit[pilot_key3] ________
+
+shipped_jobs = {('pdf', 'net'): {'apiVersion': 'batch/v1', 'kind': 'Job', 'metadata': {'name': 'foss-mcp-pdf-net-ingest-pdf-net', 'la...p': 10001, 'runAsNonRoot': True, 'runAsUser': 10001}, 'containers': [{...}], 'volumes': [{...}, {...}, {...}]}}}}, ...}
+pilot_key = ('words', 'net')
+
+    @pytest.mark.parametrize("pilot_key", sorted(EXPECTED_MEMORY_LIMITS))
+    def test_each_carrier_job_renders_its_own_memory_limit(
+        shipped_jobs: dict[tuple[str, str], dict[str, Any]], pilot_key: tuple[str, str]
+    ) -> None:
+>       assert _resources(shipped_jobs[pilot_key])["limits"]["memory"] == EXPECTED_MEMORY_LIMITS[pilot_key]
+E       AssertionError: assert '4Gi' == '8Gi'
+E         
+E         - 8Gi
+E         + 4Gi
+
+tests\infra\test_helm_ingestion_memory.py:148: AssertionError
+________ test_the_per_release_values_file_for_slides_cpp_renders_10gi _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7283/test_the_per_release_values_fi0')
+
+    def test_the_per_release_values_file_for_slides_cpp_renders_10gi(tmp_path: Path) -> None:
+        pilot = next(p for p in deploy_pilots.load_pilots() if _key(p) == ("slides", "cpp"))
+        (path,) = deploy_pilots.write_values([pilot], tmp_path)
+        docs = _render("-f", str(path))
+        jobs = [doc for doc in docs if doc.get("kind") == "Job"]
+        assert len(jobs) == 1
+        res = _resources(jobs[0])
+>       assert res["limits"]["memory"] == "10Gi"
+E       AssertionError: assert '4Gi' == '10Gi'
+E         
+E         - 10Gi
+E         + 4Gi
+
+tests\infra\test_helm_ingestion_memory.py:189: AssertionError
+_______ test_deleting_the_key_from_slides_cpp_falls_back_to_the_default _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7283/test_deleting_the_key_from_sli0')
+
+    def test_deleting_the_key_from_slides_cpp_falls_back_to_the_default(tmp_path: Path) -> None:
+        pilot_list = copy.deepcopy(_all_pilots())
+        for pilot in pilot_list:
+            if _key(pilot) == ("slides", "cpp"):
+                del pilot[KEY]
+        path = _write_override(tmp_path / "override_deleted.yaml", pilot_list)
+        jobs = _jobs_by_pilot(_render("-f", str(path)), pilot_list)
+        assert _resources(jobs[("slides", "cpp")])["limits"]["memory"] == "4Gi"
+>       assert _resources(jobs[("words", "net")])["limits"]["memory"] == "8Gi"
+E       AssertionError: assert '4Gi' == '8Gi'
+E         
+E         - 8Gi
+E         + 4Gi
+
+tests\infra\test_helm_ingestion_memory.py:205: AssertionError
+_____________ test_an_override_on_pdf_net_applies_to_pdf_net_only _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7283/test_an_override_on_pdf_net_ap0')
+
+    def test_an_override_on_pdf_net_applies_to_pdf_net_only(tmp_path: Path) -> None:
+        pilot_list = copy.deepcopy(_all_pilots())
+        for pilot in pilot_list:
+            if _key(pilot) == ("pdf", "net"):
+                pilot[KEY] = "6Gi"
+        path = _write_override(tmp_path / "override_pdf_net.yaml", pilot_list)
+        jobs = _jobs_by_pilot(_render("-f", str(path)), pilot_list)
+        memory = {key: _resources(job)["limits"]["memory"] for key, job in jobs.items()}
+        expected = {_key(p): EXPECTED_MEMORY_LIMITS.get(_key(p), "4Gi") for p in pilot_list}
+        expected[("pdf", "net")] = "6Gi"
+>       assert memory == expected
+E       AssertionError: assert {('pdf', 'net...): '4Gi', ...} == {('pdf', 'net...): '4Gi', ...}
+E         
+E         Omitting 35 identical items, use -vv to show
+E         Differing items:
+E         {('slides', 'cpp'): '4Gi'} != {('slides', 'cpp'): '10Gi'}
+E         {('pdf', 'net'): '4Gi'} != {('pdf', 'net'): '6Gi'}
+E         {('words', 'net'): '4Gi'} != {('words', 'net'): '8Gi'}
+E         {('html', 'python'): '4Gi'} != {('html', 'python'): '8Gi'}
+E         {('page', 'python'): '4Gi'} != {('page', 'python'): '8Gi'}
+E         Use -v to get more diff
+
+tests\infra\test_helm_ingestion_memory.py:221: AssertionError
+_______ test_an_override_does_not_leak_into_the_jobs_rendered_after_it ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7283/test_an_override_does_not_leak0')
+
+    def test_an_override_does_not_leak_into_the_jobs_rendered_after_it(tmp_path: Path) -> None:
+        pilot_list = copy.deepcopy(_all_pilots())
+        first = pilot_list[0]
+        first[KEY] = "7Gi"
+        path = _write_override(tmp_path / "override_first.yaml", pilot_list)
+        jobs = _jobs_by_pilot(_render("-f", str(path)), pilot_list)
+        for pilot in pilot_list[1:]:
+            want = EXPECTED_MEMORY_LIMITS.get(_key(pilot), "4Gi") if KEY not in pilot else pilot[KEY]
+>           assert _resources(jobs[_key(pilot)])["limits"]["memory"] == want, _key(pilot)
+E           AssertionError: ('words', 'net')
+E           assert '4Gi' == '8Gi'
+E             
+E             - 8Gi
+E             + 4Gi
+
+tests\infra\test_helm_ingestion_memory.py:232: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_ingestion_memory.py::test_each_carrier_job_renders_its_own_memory_limit[pilot_key0]
+FAILED tests/infra/test_helm_ingestion_memory.py::test_each_carrier_job_renders_its_own_memory_limit[pilot_key1]
+FAILED tests/infra/test_helm_ingestion_memory.py::test_each_carrier_job_renders_its_own_memory_limit[pilot_key2]
+FAILED tests/infra/test_helm_ingestion_memory.py::test_each_carrier_job_renders_its_own_memory_limit[pilot_key3]
+FAILED tests/infra/test_helm_ingestion_memory.py::test_the_per_release_values_file_for_slides_cpp_renders_10gi
+FAILED tests/infra/test_helm_ingestion_memory.py::test_deleting_the_key_from_slides_cpp_falls_back_to_the_default
+FAILED tests/infra/test_helm_ingestion_memory.py::test_an_override_on_pdf_net_applies_to_pdf_net_only
+FAILED tests/infra/test_helm_ingestion_memory.py::test_an_override_does_not_leak_into_the_jobs_rendered_after_it
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_ingestion_memory.py tests/infra/test_helm_chart.py tests/infra/test_helm_verifier_fields.py tests/infra/test_helm_pilots_match_compose.py tests/deploy/test_pilots.py tests/deploy/test_install_pilots.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6enuudk4\.junit-1.xml"
+--- stdout ---
+.......FFFF..FFFF....................................................... [ 30%]
+........................................................................ [ 60%]
+........................................................................ [ 90%]
+......................                                                   [100%]
+================================== FAILURES ===================================
+_______ test_each_carrier_job_renders_its_own_memory_limit[pilot_key0] ________
+
+shipped_jobs = {('pdf', 'net'): {'apiVersion': 'batch/v1', 'kind': 'Job', 'metadata': {'name': 'foss-mcp-pdf-net-ingest-pdf-net', 'la...p': 10001, 'runAsNonRoot': True, 'runAsUser': 10001}, 'containers': [{...}], 'volumes': [{...}, {...}, {...}]}}}}, ...}
+pilot_key = ('html', 'python')
+
+    @pytest.mark.parametrize("pilot_key", sorted(EXPECTED_MEMORY_LIMITS))
+    def test_each_carrier_job_renders_its_own_memory_limit(
+        shipped_jobs: dict[tuple[str, str], dict[str, Any]], pilot_key: tuple[str, str]
+    ) -> None:
+>       assert _resources(shipped_jobs[pilot_key])["limits"]["memory"] == EXPECTED_MEMORY_LIMITS[pilot_key]
+E       AssertionError: assert '4Gi' == '8Gi'
+E         
+E         - 8Gi
+E         + 4Gi
+
+tests\infra\test_helm_ingestion_memory.py:148: AssertionError
+_______ test_each_carrier_job_renders_its_own_memory_limit[pilot_key1] ________
+
+shipped_jobs = {('pdf', 'net'): {'apiVersion': 'batch/v1', 'kind': 'Job', 'metadata': {'name': 'foss-mcp-pdf-net-ingest-pdf-net', 'la...p': 10001, 'runAsNonRoot': True, 'runAsUser': 10001}, 'containers': [{...}], 'volumes': [{...}, {...}, {...}]}}}}, ...}
+pilot_key = ('page', 'python')
+
+    @pytest.mark.parametrize("pilot_key", sorted(EXPECTED_MEMORY_LIMITS))
+    def test_each_carrier_job_renders_its_own_memory_limit(
+        shipped_jobs: dict[tuple[str, str], dict[str, Any]], pilot_key: tuple[str, str]
+    ) -> None:
+>       assert _resources(shipped_jobs[pilot_key])["limits"]["memory"] == EXPECTED_MEMORY_LIMITS[pilot_key]
+E       AssertionError: assert '4Gi' == '8Gi'
+E         
+E         - 8Gi
+E         + 4Gi
+
+tests\infra\test_helm_ingestion_memory.py:148: AssertionError
+_______ test_each_carrier_job_renders_its_own_memory_limit[pilot_key2] ________
+
+shipped_jobs = {('pdf', 'net'): {'apiVersion': 'batch/v1', 'kind': 'Job', 'metadata': {'name': 'foss-mcp-pdf-net-ingest-pdf-net', 'la...p': 10001, 'runAsNonRoot': True, 'runAsUser': 10001}, 'containers': [{...}], 'volumes': [{...}, {...}, {...}]}}}}, ...}
+pilot_key = ('slides', 'cpp')
+
+    @pytest.mark.parametrize("pilot_key", sorted(EXPECTED_MEMORY_LIMITS))
+    def test_each_carrier_job_renders_its_own_memory_limit(
+        shipped_jobs: dict[tuple[str, str], dict[str, Any]], pilot_key: tuple[str, str]
+    ) -> None:
+>       assert _resources(shipped_jobs[pilot_key])["limits"]["memory"] == EXPECTED_MEMORY_LIMITS[pilot_key]
+E       AssertionError: assert '4Gi' == '10Gi'
+E         
+E         - 10Gi
+E         + 4Gi
+
+tests\infra\test_helm_ingestion_memory.py:148: AssertionError
+_______ test_each_carrier_job_renders_its_own_memory_limit[pilot_key3] ________
+
+shipped_jobs = {('pdf', 'net'): {'apiVersion': 'batch/v1', 'kind': 'Job', 'metadata': {'name': 'foss-mcp-pdf-net-ingest-pdf-net', 'la...p': 10001, 'runAsNonRoot': True, 'runAsUser': 10001}, 'containers': [{...}], 'volumes': [{...}, {...}, {...}]}}}}, ...}
+pilot_key = ('words', 'net')
+
+    @pytest.mark.parametrize("pilot_key", sorted(EXPECTED_MEMORY_LIMITS))
+    def test_each_carrier_job_renders_its_own_memory_limit(
+        shipped_jobs: dict[tuple[str, str], dict[str, Any]], pilot_key: tuple[str, str]
+    ) -> None:
+>       assert _resources(shipped_jobs[pilot_key])["limits"]["memory"] == EXPECTED_MEMORY_LIMITS[pilot_key]
+E       AssertionError: assert '4Gi' == '8Gi'
+E         
+E         - 8Gi
+E         + 4Gi
+
+tests\infra\test_helm_ingestion_memory.py:148: AssertionError
+________ test_the_per_release_values_file_for_slides_cpp_renders_10gi _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7284/test_the_per_release_values_fi0')
+
+    def test_the_per_release_values_file_for_slides_cpp_renders_10gi(tmp_path: Path) -> None:
+        pilot = next(p for p in deploy_pilots.load_pilots() if _key(p) == ("slides", "cpp"))
+        (path,) = deploy_pilots.write_values([pilot], tmp_path)
+        docs = _render("-f", str(path))
+        jobs = [doc for doc in docs if doc.get("kind") == "Job"]
+        assert len(jobs) == 1
+        res = _resources(jobs[0])
+>       assert res["limits"]["memory"] == "10Gi"
+E       AssertionError: assert '4Gi' == '10Gi'
+E         
+E         - 10Gi
+E         + 4Gi
+
+tests\infra\test_helm_ingestion_memory.py:189: AssertionError
+_______ test_deleting_the_key_from_slides_cpp_falls_back_to_the_default _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7284/test_deleting_the_key_from_sli0')
+
+    def test_deleting_the_key_from_slides_cpp_falls_back_to_the_default(tmp_path: Path) -> None:
+        pilot_list = copy.deepcopy(_all_pilots())
+        for pilot in pilot_list:
+            if _key(pilot) == ("slides", "cpp"):
+                del pilot[KEY]
+        path = _write_override(tmp_path / "override_deleted.yaml", pilot_list)
+        jobs = _jobs_by_pilot(_render("-f", str(path)), pilot_list)
+        assert _resources(jobs[("slides", "cpp")])["limits"]["memory"] == "4Gi"
+>       assert _resources(jobs[("words", "net")])["limits"]["memory"] == "8Gi"
+E       AssertionError: assert '4Gi' == '8Gi'
+E         
+E         - 8Gi
+E         + 4Gi
+
+tests\infra\test_helm_ingestion_memory.py:205: AssertionError
+_____________ test_an_override_on_pdf_net_applies_to_pdf_net_only _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7284/test_an_override_on_pdf_net_ap0')
+
+    def test_an_override_on_pdf_net_applies_to_pdf_net_only(tmp_path: Path) -> None:
+        pilot_list = copy.deepcopy(_all_pilots())
+        for pilot in pilot_list:
+            if _key(pilot) == ("pdf", "net"):
+                pilot[KEY] = "6Gi"
+        path = _write_override(tmp_path / "override_pdf_net.yaml", pilot_list)
+        jobs = _jobs_by_pilot(_render("-f", str(path)), pilot_list)
+        memory = {key: _resources(job)["limits"]["memory"] for key, job in jobs.items()}
+        expected = {_key(p): EXPECTED_MEMORY_LIMITS.get(_key(p), "4Gi") for p in pilot_list}
+        expected[("pdf", "net")] = "6Gi"
+>       assert memory == expected
+E       AssertionError: assert {('pdf', 'net...): '4Gi', ...} == {('pdf', 'net...): '4Gi', ...}
+E         
+E         Omitting 35 identical items, use -vv to show
+E         Differing items:
+E         {('slides', 'cpp'): '4Gi'} != {('slides', 'cpp'): '10Gi'}
+E         {('pdf', 'net'): '4Gi'} != {('pdf', 'net'): '6Gi'}
+E         {('words', 'net'): '4Gi'} != {('words', 'net'): '8Gi'}
+E         {('html', 'python'): '4Gi'} != {('html', 'python'): '8Gi'}
+E         {('page', 'python'): '4Gi'} != {('page', 'python'): '8Gi'}
+E         Use -v to get more diff
+
+tests\infra\test_helm_ingestion_memory.py:221: AssertionError
+_______ test_an_override_does_not_leak_into_the_jobs_rendered_after_it ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7284/test_an_override_does_not_leak0')
+
+    def test_an_override_does_not_leak_into_the_jobs_rendered_after_it(tmp_path: Path) -> None:
+        pilot_list = copy.deepcopy(_all_pilots())
+        first = pilot_list[0]
+        first[KEY] = "7Gi"
+        path = _write_override(tmp_path / "override_first.yaml", pilot_list)
+        jobs = _jobs_by_pilot(_render("-f", str(path)), pilot_list)
+        for pilot in pilot_list[1:]:
+            want = EXPECTED_MEMORY_LIMITS.get(_key(pilot), "4Gi") if KEY not in pilot else pilot[KEY]
+>           assert _resources(jobs[_key(pilot)])["limits"]["memory"] == want, _key(pilot)
+E           AssertionError: ('words', 'net')
+E           assert '4Gi' == '8Gi'
+E             
+E             - 8Gi
+E             + 4Gi
+
+tests\infra\test_helm_ingestion_memory.py:232: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_ingestion_memory.py::test_each_carrier_job_renders_its_own_memory_limit[pilot_key0]
+FAILED tests/infra/test_helm_ingestion_memory.py::test_each_carrier_job_renders_its_own_memory_limit[pilot_key1]
+FAILED tests/infra/test_helm_ingestion_memory.py::test_each_carrier_job_renders_its_own_memory_limit[pilot_key2]
+FAILED tests/infra/test_helm_ingestion_memory.py::test_each_carrier_job_renders_its_own_memory_limit[pilot_key3]
+FAILED tests/infra/test_helm_ingestion_memory.py::test_the_per_release_values_file_for_slides_cpp_renders_10gi
+FAILED tests/infra/test_helm_ingestion_memory.py::test_deleting_the_key_from_slides_cpp_falls_back_to_the_default
+FAILED tests/infra/test_helm_ingestion_memory.py::test_an_override_on_pdf_net_applies_to_pdf_net_only
+FAILED tests/infra/test_helm_ingestion_memory.py::test_an_override_does_not_leak_into_the_jobs_rendered_after_it
+
+--- stderr ---
+
