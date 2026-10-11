@@ -27,7 +27,9 @@ from foss_mcp.mcp.routing import DeploymentConfig, Scope
 from foss_mcp.mcp.server import (
     _INPUT_MODELS,
     TOOL_DESCRIPTIONS,
+    _assert_schema_matches_wrapper,
     create_server,
+    schema_for,
     tool_description,
     tool_input_schema,
 )
@@ -470,3 +472,14 @@ def test_report_index_freshness_has_no_pinned_commit_without_a_sidecar() -> None
     result = _call(server, "report_index_freshness", {})
     assert result.is_error is False
     assert result.structured_content["result"]["pinned_library_commit"] is None
+
+
+def test_server_construction_rejects_a_schema_that_disagrees_with_its_wrapper() -> None:
+    def wrapper(*, query: str, top_k: int = 10) -> None:
+        pass
+
+    advertised = tool_input_schema("search_symbols")
+    _assert_schema_matches_wrapper("search_symbols", advertised, schema_for(wrapper))
+    drifted = {**advertised, "required": ["query", "top_k"]}
+    with pytest.raises(RuntimeError, match="search_symbols"):
+        _assert_schema_matches_wrapper("search_symbols", drifted, schema_for(wrapper))

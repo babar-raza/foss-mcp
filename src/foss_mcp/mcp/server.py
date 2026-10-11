@@ -673,6 +673,20 @@ def tool_input_schema(tool_name: str) -> dict[str, Any]:
     return schema
 
 
+def _assert_schema_matches_wrapper(
+    tool_name: str, advertised: dict[str, Any], wrapper_schema: dict[str, Any]
+) -> None:
+    """Fail server construction if a tool's advertised schema (built from its input model) and its
+    client-facing wrapper's own signature (``schema_for``) disagree on parameter names, types or
+    which are required - the drift this would otherwise only show to a peer at call time."""
+    advertised_shape = {name: prop["type"] for name, prop in advertised["properties"].items()}
+    wrapper_shape = {name: prop["type"] for name, prop in wrapper_schema["properties"].items()}
+    if advertised_shape != wrapper_shape or advertised.get("required", []) != wrapper_schema.get(
+        "required", []
+    ):
+        raise RuntimeError(f"tool '{tool_name}': advertised schema disagrees with its wrapper signature")
+
+
 def _to_jsonable(value: Any) -> Any:
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
         return {field.name: _to_jsonable(getattr(value, field.name)) for field in dataclasses.fields(value)}
@@ -948,6 +962,8 @@ def create_server(
     deployment_id = f"{scope.family}::{scope.platform}"
     registry = _build_tool_registry(store, scope, inputs, recent_releases)
     schemas = {name: tool_input_schema(name) for name in registry}
+    for name, handler in registry.items():
+        _assert_schema_matches_wrapper(name, schemas[name], schema_for(handler))
 
     async def _list_tools(context: Any, params: Any) -> ListToolsResult:
         return ListToolsResult(
