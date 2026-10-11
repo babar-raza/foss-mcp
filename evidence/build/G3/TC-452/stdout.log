@@ -1,0 +1,182 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_typescript_verifier_diagnostics.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-undyowy4\.junit-0.xml"
+--- stdout ---
+...................                                                      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_typescript_verifier_diagnostics.py tests/indexing/test_typescript_verifier_layouts.py tests/indexing/test_nodejs_verifier.py tests/infra/test_build_chunks_platforms.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-undyowy4\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 64%]
+.......................................                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_typescript_verifier_diagnostics.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-undyowy4\.junit-0.xml"
+--- stdout ---
+...................                                                      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_typescript_verifier_diagnostics.py tests/indexing/test_typescript_verifier_layouts.py tests/indexing/test_nodejs_verifier.py tests/infra/test_build_chunks_platforms.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-undyowy4\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 64%]
+.......................................                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/example_verifier.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_typescript_verifier_diagnostics.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-undyowy4\.junit-0.xml"
+--- stdout ---
+.....FFFF....F.....                                                      [100%]
+================================== FAILURES ===================================
+____________ test_verdict_3d_candidate_diagnostic_is_not_verified _____________
+
+    def test_verdict_3d_candidate_diagnostic_is_not_verified() -> None:
+        verified, note = ev._typescript_verdict(2, THREE_D_OUTPUT)
+    
+>       assert verified is False
+E       assert True is False
+
+tests\indexing\test_typescript_verifier_diagnostics.py:185: AssertionError
+_______ test_verdict_library_plus_candidate_diagnostics_is_not_verified _______
+
+    def test_verdict_library_plus_candidate_diagnostics_is_not_verified() -> None:
+        verified, _note = ev._typescript_verdict(2, CELLS_OUTPUT + THREE_D_OUTPUT)
+    
+>       assert verified is False
+E       assert True is False
+
+tests\indexing\test_typescript_verifier_diagnostics.py:192: AssertionError
+___________ test_verdict_paths_mode_candidate_file_is_not_verified ____________
+
+    def test_verdict_paths_mode_candidate_file_is_not_verified() -> None:
+        output = "candidate.ts(1,22): error TS2307: Cannot find module 'aspose-reference-foss'.\n"
+    
+>       assert ev._typescript_verdict(2, output)[0] is False
+E       assert True is False
+
+tests\indexing\test_typescript_verifier_diagnostics.py:198: AssertionError
+_ test_verdict_windows_library_path_verifies_and_windows_candidate_path_does_not _
+
+    def test_verdict_windows_library_path_verifies_and_windows_candidate_path_does_not() -> None:
+        library = "C:\\work\\repo\\aspose_cells\\workbook.ts(482,63): error TS2345: Argument is wrong.\n"
+        candidate = "C:\\work\\repo\\__foss_mcp_candidate__.ts(3,5): error TS2339: Property is missing.\n"
+    
+        assert ev._typescript_verdict(2, library)[0] is True
+>       assert ev._typescript_verdict(2, candidate)[0] is False
+E       assert True is False
+
+tests\indexing\test_typescript_verifier_diagnostics.py:206: AssertionError
+__ test_candidate_diagnostic_is_not_verified_and_temporary_files_are_removed __
+
+toolchain = <tests.indexing.test_typescript_verifier_diagnostics.FakeToolchain object at 0x000001D69F0DAEA0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7303/test_candidate_diagnostic_is_n0')
+
+    def test_candidate_diagnostic_is_not_verified_and_temporary_files_are_removed(
+        toolchain: FakeToolchain, tmp_path: Path
+    ) -> None:
+        library = _library_dir(tmp_path)
+        candidate = _candidate(
+            'import { Workbook } from "./aspose_cells";\nconst w = new Workbook();\nw.nope();\n'
+        )
+        toolchain.responder = lambda args, cwd: _completed(args, 2, stdout=THREE_D_OUTPUT)
+    
+        result = ev.verify_typescript_example(
+            candidate, library_dir=library, package_name=PACKAGE_NAME, workdir=tmp_path / "work"
+        )
+    
+>       assert result.verified is False
+E       assert True is False
+E        +  where True = VerificationResult(candidate=CandidateExample(title='example', description='', language='typescript', code='import { W...-checks\n__foss_mcp_candidate__.ts(9,54): error TS2339: Property 'controlPoints' does not exist on type 'Entity'.\n\n").verified
+
+tests\indexing\test_typescript_verifier_diagnostics.py:288: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_typescript_verifier_diagnostics.py::test_verdict_3d_candidate_diagnostic_is_not_verified
+FAILED tests/indexing/test_typescript_verifier_diagnostics.py::test_verdict_library_plus_candidate_diagnostics_is_not_verified
+FAILED tests/indexing/test_typescript_verifier_diagnostics.py::test_verdict_paths_mode_candidate_file_is_not_verified
+FAILED tests/indexing/test_typescript_verifier_diagnostics.py::test_verdict_windows_library_path_verifies_and_windows_candidate_path_does_not
+FAILED tests/indexing/test_typescript_verifier_diagnostics.py::test_candidate_diagnostic_is_not_verified_and_temporary_files_are_removed
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_typescript_verifier_diagnostics.py tests/indexing/test_typescript_verifier_layouts.py tests/indexing/test_nodejs_verifier.py tests/infra/test_build_chunks_platforms.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-undyowy4\.junit-1.xml"
+--- stdout ---
+.....FFFF....F.......................................................... [ 64%]
+.......................................                                  [100%]
+================================== FAILURES ===================================
+____________ test_verdict_3d_candidate_diagnostic_is_not_verified _____________
+
+    def test_verdict_3d_candidate_diagnostic_is_not_verified() -> None:
+        verified, note = ev._typescript_verdict(2, THREE_D_OUTPUT)
+    
+>       assert verified is False
+E       assert True is False
+
+tests\indexing\test_typescript_verifier_diagnostics.py:185: AssertionError
+_______ test_verdict_library_plus_candidate_diagnostics_is_not_verified _______
+
+    def test_verdict_library_plus_candidate_diagnostics_is_not_verified() -> None:
+        verified, _note = ev._typescript_verdict(2, CELLS_OUTPUT + THREE_D_OUTPUT)
+    
+>       assert verified is False
+E       assert True is False
+
+tests\indexing\test_typescript_verifier_diagnostics.py:192: AssertionError
+___________ test_verdict_paths_mode_candidate_file_is_not_verified ____________
+
+    def test_verdict_paths_mode_candidate_file_is_not_verified() -> None:
+        output = "candidate.ts(1,22): error TS2307: Cannot find module 'aspose-reference-foss'.\n"
+    
+>       assert ev._typescript_verdict(2, output)[0] is False
+E       assert True is False
+
+tests\indexing\test_typescript_verifier_diagnostics.py:198: AssertionError
+_ test_verdict_windows_library_path_verifies_and_windows_candidate_path_does_not _
+
+    def test_verdict_windows_library_path_verifies_and_windows_candidate_path_does_not() -> None:
+        library = "C:\\work\\repo\\aspose_cells\\workbook.ts(482,63): error TS2345: Argument is wrong.\n"
+        candidate = "C:\\work\\repo\\__foss_mcp_candidate__.ts(3,5): error TS2339: Property is missing.\n"
+    
+        assert ev._typescript_verdict(2, library)[0] is True
+>       assert ev._typescript_verdict(2, candidate)[0] is False
+E       assert True is False
+
+tests\indexing\test_typescript_verifier_diagnostics.py:206: AssertionError
+__ test_candidate_diagnostic_is_not_verified_and_temporary_files_are_removed __
+
+toolchain = <tests.indexing.test_typescript_verifier_diagnostics.FakeToolchain object at 0x0000029005DBF820>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7304/test_candidate_diagnostic_is_n0')
+
+    def test_candidate_diagnostic_is_not_verified_and_temporary_files_are_removed(
+        toolchain: FakeToolchain, tmp_path: Path
+    ) -> None:
+        library = _library_dir(tmp_path)
+        candidate = _candidate(
+            'import { Workbook } from "./aspose_cells";\nconst w = new Workbook();\nw.nope();\n'
+        )
+        toolchain.responder = lambda args, cwd: _completed(args, 2, stdout=THREE_D_OUTPUT)
+    
+        result = ev.verify_typescript_example(
+            candidate, library_dir=library, package_name=PACKAGE_NAME, workdir=tmp_path / "work"
+        )
+    
+>       assert result.verified is False
+E       assert True is False
+E        +  where True = VerificationResult(candidate=CandidateExample(title='example', description='', language='typescript', code='import { W...-checks\n__foss_mcp_candidate__.ts(9,54): error TS2339: Property 'controlPoints' does not exist on type 'Entity'.\n\n").verified
+
+tests\indexing\test_typescript_verifier_diagnostics.py:288: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_typescript_verifier_diagnostics.py::test_verdict_3d_candidate_diagnostic_is_not_verified
+FAILED tests/indexing/test_typescript_verifier_diagnostics.py::test_verdict_library_plus_candidate_diagnostics_is_not_verified
+FAILED tests/indexing/test_typescript_verifier_diagnostics.py::test_verdict_paths_mode_candidate_file_is_not_verified
+FAILED tests/indexing/test_typescript_verifier_diagnostics.py::test_verdict_windows_library_path_verifies_and_windows_candidate_path_does_not
+FAILED tests/indexing/test_typescript_verifier_diagnostics.py::test_candidate_diagnostic_is_not_verified_and_temporary_files_are_removed
+
+--- stderr ---
+
