@@ -73,7 +73,7 @@ def test_definitions_all_and_reexports_are_inventoried_without_importing(tmp_pat
         "name",
         signature="def render(self)",
     )
-    assert by_name["pkg.widget.Widget.size"].kind == "method"
+    assert by_name["pkg.widget.Widget.size"].kind == "property"
     assert "pkg.widget.Widget._hide" not in by_name
     assert "pkg.widget._Hidden.visible" not in by_name
     assert by_name["pkg.Widget"] == PublicSymbol(
@@ -473,3 +473,51 @@ def test_a_scanned_origins_structured_data_reaches_its_reexport_unchanged(tmp_pa
     assert shape.signature == scanned.signature == "class Shape(Base)"
     assert shape.return_type is None
     assert shape.param_types == ()
+
+
+def _unannotated_class(tmp_path: Path, body: str) -> dict[str, PublicSymbol]:
+    _write(tmp_path, "pkg/__init__.py", "")
+    _write(
+        tmp_path,
+        "pkg/cells.py",
+        "import functools\nfrom functools import cached_property\n\n\nclass Cell:\n" + body,
+    )
+    return {s.qualified_name: s for s in inspect_public_surface(tmp_path, ["pkg"]).symbols}
+
+
+def test_an_unannotated_getter_without_a_setter_is_a_read_only_property(tmp_path: Path) -> None:
+    by_name = _unannotated_class(tmp_path, "    @property\n    def value(self):\n        return 1\n")
+    value = by_name["pkg.cells.Cell.value"]
+    assert value.kind == "property"
+    assert value.writable is False
+    assert value.return_type is None
+
+
+def test_an_unannotated_getter_with_a_setter_is_one_writable_property(tmp_path: Path) -> None:
+    by_name = _unannotated_class(
+        tmp_path,
+        "    @property\n    def value(self):\n        return 1\n\n"
+        "    @value.setter\n    def value(self, new):\n        pass\n",
+    )
+    value = by_name["pkg.cells.Cell.value"]
+    assert value.kind == "property"
+    assert value.writable is True
+    assert [name for name in by_name if name.endswith(".value")] == ["pkg.cells.Cell.value"]
+
+
+def test_an_unannotated_cached_property_is_a_property(tmp_path: Path) -> None:
+    by_name = _unannotated_class(
+        tmp_path,
+        "    @cached_property\n    def words(self):\n        return []\n\n"
+        "    @functools.cached_property\n    def cells(self):\n        return []\n",
+    )
+    assert by_name["pkg.cells.Cell.words"].kind == "property"
+    assert by_name["pkg.cells.Cell.cells"].kind == "property"
+    assert by_name["pkg.cells.Cell.words"].writable is False
+
+
+def test_a_plain_unannotated_method_stays_a_method(tmp_path: Path) -> None:
+    by_name = _unannotated_class(tmp_path, "    def render(self):\n        return 1\n")
+    render = by_name["pkg.cells.Cell.render"]
+    assert render.kind == "method"
+    assert render.writable is None

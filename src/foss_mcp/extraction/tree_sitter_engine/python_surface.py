@@ -13,8 +13,8 @@ Nothing is imported or executed. Every module under the product packages is pars
 A top-level class or function is public when its name has no leading underscore and, when the
 module declares a literal ``__all__``, is listed there. A public class's methods without a
 leading underscore are public with it, recorded as ``module.Class.method`` so prose may name a
-method the code defines; ``__init__`` is the one public dunder (the constructor), and an annotated
-``@property`` getter is a ``property`` member. A package ``__init__`` re-export is public by the same rule and keeps
+method the code defines; ``__init__`` is the one public dunder (the constructor), and a
+``@property`` getter (annotated or not) is a ``property`` member. A package ``__init__`` re-export is public by the same rule and keeps
 the origin it came from. Star imports, unresolvable relative imports, and syntax errors are
 recorded as unresolved, never guessed.
 """
@@ -290,10 +290,10 @@ def _methods(node: ast.ClassDef, module: str, relative: str, public_by: PublicBy
     """The public members a class body defines, each once, in source order.
 
     A method is public when its name has no leading underscore; ``__init__`` (and only that
-    dunder) is the constructor and is public too. A ``@property`` getter whose return type is
-    annotated is a ``property`` member rather than a method, writable only when a
-    ``@<name>.setter`` sibling exists. (An unannotated getter stays a method: the pre-existing
-    ``test_python_surface.py`` pins that and must keep passing unmodified.)
+    dunder) is the constructor and is public too. Every ``@property`` /
+    ``@cached_property`` getter is a ``property`` member rather than a method, whether or not it
+    carries a return annotation (an unannotated one has an empty type), writable only when a
+    ``@<name>.setter`` sibling exists.
     """
     found: list[PublicSymbol] = []
     seen: set[str] = set()
@@ -305,7 +305,7 @@ def _methods(node: ast.ClassDef, module: str, relative: str, public_by: PublicBy
             continue
         seen.add(item.name)
         bases, return_type, param_types = _structured_fields(item)
-        is_property = item.returns is not None and _is_property_getter(item)
+        is_property = _is_property_getter(item)
         found.append(
             PublicSymbol(
                 f"{module}.{node.name}.{item.name}",
