@@ -1,0 +1,1073 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_ingestion_image_fixtures.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-196hn8jp\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 73%]
+..........................                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-196hn8jp\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 38%]
+........................................................................ [ 76%]
+............................................                             [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_ingestion_image_fixtures.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-196hn8jp\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 73%]
+..........................                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-196hn8jp\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 38%]
+........................................................................ [ 76%]
+............................................                             [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M Dockerfile.ingestion, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_ingestion_image_fixtures.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-196hn8jp\.junit-0.xml"
+--- stdout ---
+...F.F.F.F.F.F.................................................FFFFFF... [ 73%]
+......................F...                                               [100%]
+================================== FAILURES ===================================
+________ test_fixture_is_in_the_ingestion_image[pdf/net-furnishedPage] ________
+
+path = '/app/fixtures/furnished/pdf_net/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _cases())
+    def test_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/pdf_net/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/pdf_net/pages/_index.md at ./fixtures/furnished/pdf_net/pages/_index.md for /app/fixtures/furnished/pdf_net/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/pdf_net/pages/_index.md', './fixtures/furnished/pdf_net/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+_____ test_fixture_is_in_the_ingestion_image[slides/python-furnishedPage] _____
+
+path = '/app/fixtures/furnished/slides_python/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _cases())
+    def test_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/slides_python/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/slides_python/pages/_index.md at ./fixtures/furnished/slides_python/pages/_index.md for /app/fixtures/furnished/slides_python/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/slides_python/pages/_index.md', './fixtures/furnished/slides_python/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+____ test_fixture_is_in_the_ingestion_image[pdf/typescript-furnishedPage] _____
+
+path = '/app/fixtures/furnished/pdf_typescript/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _cases())
+    def test_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/pdf_typescript/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/pdf_typescript/pages/_index.md at ./fixtures/furnished/pdf_typescript/pages/_index.md for /app/fixtures/furnished/pdf_typescript/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/pdf_typescript/pages/_index.md', './fixtures/furnished/pdf_typescript/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+________ test_fixture_is_in_the_ingestion_image[pdf/go-furnishedPage] _________
+
+path = '/app/fixtures/furnished/pdf_go/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _cases())
+    def test_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/pdf_go/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/pdf_go/pages/_index.md at ./fixtures/furnished/pdf_go/pages/_index.md for /app/fixtures/furnished/pdf_go/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/pdf_go/pages/_index.md', './fixtures/furnished/pdf_go/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+_______ test_fixture_is_in_the_ingestion_image[pdf/java-furnishedPage] ________
+
+path = '/app/fixtures/furnished/pdf_java/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _cases())
+    def test_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/pdf_java/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/pdf_java/pages/_index.md at ./fixtures/furnished/pdf_java/pages/_index.md for /app/fixtures/furnished/pdf_java/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/pdf_java/pages/_index.md', './fixtures/furnished/pdf_java/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+______ test_fixture_is_in_the_ingestion_image[cells/rust-furnishedPage] _______
+
+path = '/app/fixtures/furnished/cells_rust/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _cases())
+    def test_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/cells_rust/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/cells_rust/pages/_index.md at ./fixtures/furnished/cells_rust/pages/_index.md for /app/fixtures/furnished/cells_rust/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/cells_rust/pages/_index.md', './fixtures/furnished/cells_rust/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+_ test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/cells_rust/pages/_index.md] _
+
+path = '/app/fixtures/furnished/cells_rust/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _compose_cases())
+    def test_compose_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:130: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/cells_rust/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/cells_rust/pages/_index.md at ./fixtures/furnished/cells_rust/pages/_index.md for /app/fixtures/furnished/cells_rust/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/cells_rust/pages/_index.md', './fixtures/furnished/cells_rust/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+_ test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/pdf_go/pages/_index.md] _
+
+path = '/app/fixtures/furnished/pdf_go/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _compose_cases())
+    def test_compose_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:130: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/pdf_go/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/pdf_go/pages/_index.md at ./fixtures/furnished/pdf_go/pages/_index.md for /app/fixtures/furnished/pdf_go/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/pdf_go/pages/_index.md', './fixtures/furnished/pdf_go/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+_ test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/pdf_java/pages/_index.md] _
+
+path = '/app/fixtures/furnished/pdf_java/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _compose_cases())
+    def test_compose_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:130: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/pdf_java/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/pdf_java/pages/_index.md at ./fixtures/furnished/pdf_java/pages/_index.md for /app/fixtures/furnished/pdf_java/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/pdf_java/pages/_index.md', './fixtures/furnished/pdf_java/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+_ test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/pdf_net/pages/_index.md] _
+
+path = '/app/fixtures/furnished/pdf_net/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _compose_cases())
+    def test_compose_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:130: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/pdf_net/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/pdf_net/pages/_index.md at ./fixtures/furnished/pdf_net/pages/_index.md for /app/fixtures/furnished/pdf_net/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/pdf_net/pages/_index.md', './fixtures/furnished/pdf_net/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+_ test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/pdf_typescript/pages/_index.md] _
+
+path = '/app/fixtures/furnished/pdf_typescript/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _compose_cases())
+    def test_compose_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:130: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/pdf_typescript/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/pdf_typescript/pages/_index.md at ./fixtures/furnished/pdf_typescript/pages/_index.md for /app/fixtures/furnished/pdf_typescript/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/pdf_typescript/pages/_index.md', './fixtures/furnished/pdf_typescript/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+_ test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/slides_python/pages/_index.md] _
+
+path = '/app/fixtures/furnished/slides_python/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _compose_cases())
+    def test_compose_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:130: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/slides_python/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/slides_python/pages/_index.md at ./fixtures/furnished/slides_python/pages/_index.md for /app/fixtures/furnished/slides_python/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/slides_python/pages/_index.md', './fixtures/furnished/slides_python/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+______________ test_furnished_pages_are_copied_as_one_directory _______________
+
+    def test_furnished_pages_are_copied_as_one_directory() -> None:
+        """TC-352: the furnished pages arrive by one directory COPY, not one COPY line per pilot."""
+        pairs = _copy_pairs()
+>       assert FURNISHED_DIRECTORY_COPY in pairs, sorted(pairs)
+E       AssertionError: [('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...]
+E       assert ('tests/fixtures/furnished/', './fixtures/furnished/') in {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}
+
+tests\infra\test_ingestion_image_fixtures.py:136: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_fixture_is_in_the_ingestion_image[pdf/net-furnishedPage]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_fixture_is_in_the_ingestion_image[slides/python-furnishedPage]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_fixture_is_in_the_ingestion_image[pdf/typescript-furnishedPage]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_fixture_is_in_the_ingestion_image[pdf/go-furnishedPage]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_fixture_is_in_the_ingestion_image[pdf/java-furnishedPage]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_fixture_is_in_the_ingestion_image[cells/rust-furnishedPage]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/cells_rust/pages/_index.md]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/pdf_go/pages/_index.md]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/pdf_java/pages/_index.md]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/pdf_net/pages/_index.md]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/pdf_typescript/pages/_index.md]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/slides_python/pages/_index.md]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_furnished_pages_are_copied_as_one_directory
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-196hn8jp\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 38%]
+..............F.F.F.F.F.F............................................... [ 76%]
+..FFFFFF.........................F........FF                             [100%]
+================================== FAILURES ===================================
+________ test_fixture_is_in_the_ingestion_image[pdf/net-furnishedPage] ________
+
+path = '/app/fixtures/furnished/pdf_net/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _cases())
+    def test_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/pdf_net/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/pdf_net/pages/_index.md at ./fixtures/furnished/pdf_net/pages/_index.md for /app/fixtures/furnished/pdf_net/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/pdf_net/pages/_index.md', './fixtures/furnished/pdf_net/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+_____ test_fixture_is_in_the_ingestion_image[slides/python-furnishedPage] _____
+
+path = '/app/fixtures/furnished/slides_python/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _cases())
+    def test_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/slides_python/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/slides_python/pages/_index.md at ./fixtures/furnished/slides_python/pages/_index.md for /app/fixtures/furnished/slides_python/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/slides_python/pages/_index.md', './fixtures/furnished/slides_python/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+____ test_fixture_is_in_the_ingestion_image[pdf/typescript-furnishedPage] _____
+
+path = '/app/fixtures/furnished/pdf_typescript/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _cases())
+    def test_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/pdf_typescript/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/pdf_typescript/pages/_index.md at ./fixtures/furnished/pdf_typescript/pages/_index.md for /app/fixtures/furnished/pdf_typescript/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/pdf_typescript/pages/_index.md', './fixtures/furnished/pdf_typescript/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+________ test_fixture_is_in_the_ingestion_image[pdf/go-furnishedPage] _________
+
+path = '/app/fixtures/furnished/pdf_go/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _cases())
+    def test_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/pdf_go/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/pdf_go/pages/_index.md at ./fixtures/furnished/pdf_go/pages/_index.md for /app/fixtures/furnished/pdf_go/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/pdf_go/pages/_index.md', './fixtures/furnished/pdf_go/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+_______ test_fixture_is_in_the_ingestion_image[pdf/java-furnishedPage] ________
+
+path = '/app/fixtures/furnished/pdf_java/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _cases())
+    def test_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/pdf_java/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/pdf_java/pages/_index.md at ./fixtures/furnished/pdf_java/pages/_index.md for /app/fixtures/furnished/pdf_java/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/pdf_java/pages/_index.md', './fixtures/furnished/pdf_java/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+______ test_fixture_is_in_the_ingestion_image[cells/rust-furnishedPage] _______
+
+path = '/app/fixtures/furnished/cells_rust/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _cases())
+    def test_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/cells_rust/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/cells_rust/pages/_index.md at ./fixtures/furnished/cells_rust/pages/_index.md for /app/fixtures/furnished/cells_rust/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/cells_rust/pages/_index.md', './fixtures/furnished/cells_rust/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+_ test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/cells_rust/pages/_index.md] _
+
+path = '/app/fixtures/furnished/cells_rust/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _compose_cases())
+    def test_compose_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:130: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/cells_rust/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/cells_rust/pages/_index.md at ./fixtures/furnished/cells_rust/pages/_index.md for /app/fixtures/furnished/cells_rust/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/cells_rust/pages/_index.md', './fixtures/furnished/cells_rust/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+_ test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/pdf_go/pages/_index.md] _
+
+path = '/app/fixtures/furnished/pdf_go/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _compose_cases())
+    def test_compose_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:130: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/pdf_go/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/pdf_go/pages/_index.md at ./fixtures/furnished/pdf_go/pages/_index.md for /app/fixtures/furnished/pdf_go/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/pdf_go/pages/_index.md', './fixtures/furnished/pdf_go/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+_ test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/pdf_java/pages/_index.md] _
+
+path = '/app/fixtures/furnished/pdf_java/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _compose_cases())
+    def test_compose_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:130: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/pdf_java/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/pdf_java/pages/_index.md at ./fixtures/furnished/pdf_java/pages/_index.md for /app/fixtures/furnished/pdf_java/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/pdf_java/pages/_index.md', './fixtures/furnished/pdf_java/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+_ test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/pdf_net/pages/_index.md] _
+
+path = '/app/fixtures/furnished/pdf_net/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _compose_cases())
+    def test_compose_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:130: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/pdf_net/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/pdf_net/pages/_index.md at ./fixtures/furnished/pdf_net/pages/_index.md for /app/fixtures/furnished/pdf_net/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/pdf_net/pages/_index.md', './fixtures/furnished/pdf_net/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+_ test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/pdf_typescript/pages/_index.md] _
+
+path = '/app/fixtures/furnished/pdf_typescript/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _compose_cases())
+    def test_compose_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:130: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/pdf_typescript/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/pdf_typescript/pages/_index.md at ./fixtures/furnished/pdf_typescript/pages/_index.md for /app/fixtures/furnished/pdf_typescript/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/pdf_typescript/pages/_index.md', './fixtures/furnished/pdf_typescript/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+_ test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/slides_python/pages/_index.md] _
+
+path = '/app/fixtures/furnished/slides_python/pages/_index.md'
+
+    @pytest.mark.parametrize("path", _compose_cases())
+    def test_compose_fixture_is_in_the_ingestion_image(path: str) -> None:
+>       _assert_in_the_image(path)
+
+tests\infra\test_ingestion_image_fixtures.py:130: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = '/app/fixtures/furnished/slides_python/pages/_index.md'
+
+    def _assert_in_the_image(path: str) -> None:
+        assert path.startswith(APP_PREFIX), f"{path} is not under {APP_PREFIX}"
+        relative = path[len(APP_PREFIX) :]
+        assert relative.startswith(FIXTURES_PREFIX), f"{path} is not under {APP_PREFIX}{FIXTURES_PREFIX}"
+        source = "tests/" + relative
+        assert (ROOT / source).is_file(), f"{source} does not exist in the repository"
+        destination = "./" + relative
+>       assert _is_covered(_copy_pairs(), source, destination), (
+            f"Dockerfile.ingestion has no COPY that lands {source} at {destination} for {path}"
+        )
+E       AssertionError: Dockerfile.ingestion has no COPY that lands tests/fixtures/furnished/slides_python/pages/_index.md at ./fixtures/furnished/slides_python/pages/_index.md for /app/fixtures/furnished/slides_python/pages/_index.md
+E       assert False
+E        +  where False = _is_covered({('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}, 'tests/fixtures/furnished/slides_python/pages/_index.md', './fixtures/furnished/slides_python/pages/_index.md')
+E        +    where {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...} = _copy_pairs()
+
+tests\infra\test_ingestion_image_fixtures.py:107: AssertionError
+______________ test_furnished_pages_are_copied_as_one_directory _______________
+
+    def test_furnished_pages_are_copied_as_one_directory() -> None:
+        """TC-352: the furnished pages arrive by one directory COPY, not one COPY line per pilot."""
+        pairs = _copy_pairs()
+>       assert FURNISHED_DIRECTORY_COPY in pairs, sorted(pairs)
+E       AssertionError: [('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...]
+E       assert ('tests/fixtures/furnished/', './fixtures/furnished/') in {('config/', './config/'), ('infra/build_chunks.py', './infra/build_chunks.py'), ('infra/fetch_product_reference.py', ...nfra/ingest.py', './infra/ingest.py'), ('infra/verify_package_registry.py', './infra/verify_package_registry.py'), ...}
+
+tests\infra\test_ingestion_image_fixtures.py:136: AssertionError
+___ test_a_real_docker_build_of_the_ingestion_image_has_working_toolchains ____
+
+    def test_a_real_docker_build_of_the_ingestion_image_has_working_toolchains() -> None:
+        """REQ-G2-048 (TC-097): Dockerfile.ingestion was generalized to add real toolchains
+        for the 4 remaining original pilots that need one beyond the base image's own python3
+        (pdf/typescript, pdf/java, pdf/go, cells/rust - slides/python needs nothing extra).
+        This proves each toolchain genuinely works INSIDE the built image, by really running its
+        own version command in a real container - not just that the Dockerfile has right-looking
+        RUN lines.
+        """
+        image_tag = f"foss-mcp-ingestion:test-build-{os.getpid()}"
+        version_commands = [
+            ["node", "--version"],
+            ["npm", "--version"],
+            ["java", "-version"],
+            ["mvn", "--version"],
+            ["go", "version"],
+            ["cargo", "--version"],
+            ["rustc", "--version"],
+        ]
+        try:
+            build_result = subprocess.run(
+                ["docker", "build", "-f", "Dockerfile.ingestion", "-t", image_tag, "."],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=1800,
+            )
+>           assert build_result.returncode == 0, (build_result.stdout + build_result.stderr)[-6000:]
+E           AssertionError: #0 building with "desktop-linux" instance using docker driver
+E             
+E             #1 [runtime  1/12] FROM docker.io/library/python:3.13-slim@sha256:b92e6b9bb1ea9d826e9956fd8d30bf18bc384c130231d74fdf0ba3460c290b0b
+E             #1 resolve docker.io/library/python:3.13-slim@sha256:b92e6b9bb1ea9d826e9956fd8d30bf18bc384c130231d74fdf0ba3460c290b0b 0.0s done
+E             #1 DONE 0.0s
+E             
+E             #2 [internal] load build definition from Dockerfile.ingestion
+E             #2 transferring dockerfile: 17.10kB done
+E             #2 DONE 0.0s
+E             
+E             #3 [internal] load metadata for docker.io/library/python:3.13-slim@sha256:b92e6b9bb1ea9d826e9956fd8d30bf18bc384c130231d74fdf0ba3460c290b0b
+E             #3 DONE 0.0s
+E             
+E             #4 [internal] load .dockerignore
+E             #4 transferring context: 1.20kB done
+E             #4 DONE 0.0s
+E             
+E             #5 [internal] load build context
+E             #5 transferring context: 11.73kB 0.0s done
+E             #5 DONE 0.0s
+E             
+E             #6 [16/61] COPY infra/fetch_product_reference.py ./infra/fetch_product_reference.py
+E             #6 CACHED
+E             
+E             #7 [18/61] COPY infra/verify_package_registry.py ./infra/verify_package_registry.py
+E             #7 CACHED
+E             
+E             #8 [ 9/61] COPY requirements.lock ./requirements.lock
+E             #8 CACHED
+E             
+E             #9 [14/61] COPY infra/ingest.py ./infra/ingest.py
+E             #9 CACHED
+E             
+E             #10 [15/61] COPY infra/build_chunks.py ./infra/build_chunks.py
+E             #10 CACHED
+E             
+E             #11 [ 4/61] RUN curl -fsSL "https://nodejs.org/dist/v24.13.1/node-v24.13.1-linux-x64.tar.gz" -o /tmp/node.tar.gz     && echo "7ad28fb172a9ab0593f86c1a39e5c268d0d8fc3d6cb0167f455b5655a7a6e2fd  /tmp/node.tar.gz" | sha256sum -c -     && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1     && rm /tmp/node.tar.gz
+E             #11 CACHED
+E             
+E             #12 [ 2/61] WORKDIR /app
+E             #12 CACHED
+E             
+E             #13 [12/61] COPY src/ ./src/
+E             #13 CACHED
+E             
+E             #14 [20/61] COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+E             #14 CACHED
+E             
+E             #15 [13/61] COPY config/ ./config/
+E             #15 CACHED
+E             
+E             #16 [11/61] RUN python -c "from tree_sitter_language_pack import get_parser as g; names = ('python', 'rust', 'csharp', 'typescript', 'java', 'cpp', 'go'); [g(n) for n in names]; print('baked tree-sitter grammars:', ' '.join(names))"     && chown -R 10001:10001 /opt/tree-sitter-cache     && chmod -R a+rX /opt/tree-sitter-cache
+E             #16 CACHED
+E             
+E             #17 [ 8/61] RUN apt-get update     && apt-get install -y --no-install-recommends g++ cmake     && rm -rf /var/lib/apt/lists/*
+E             #17 CACHED
+E             
+E             #18 [ 7/61] RUN apt-get update     && apt-get install -y --no-install-recommends build-essential     && rm -rf /var/lib/apt/lists/*     && curl --proto '=https' --tlsv1.2 -fsSL https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init -o /tmp/rustup-init     && echo "dda7234360b7f578ca8b0ddcb80145646fa61a67c1720a5abc7051b35c9fcb71  /tmp/rustup-init" | sha256sum -c -     && chmod +x /tmp/rustup-init     && /tmp/rustup-init -y --profile minimal --default-toolchain "1.98.1" --no-modify-path     && rm /tmp/rustup-init     && chmod -R a+w "/usr/local/rustup" "/usr/local/cargo"
+E             #18 CACHED
+E             
+E             #19 [17/61] COPY infra/fetch_recent_releases.py ./infra/fetch_recent_releases.py
+E             #19 CACHED
+E             
+E             #20 [19/61] COPY infra/verify_product_reference_install.py ./infra/verify_product_reference_install.py
+E             #20 CACHED
+E             
+E             #21 [ 5/61] RUN apt-get update     && apt-get install -y --no-install-recommends openjdk-21-jdk maven     && rm -rf /var/lib/apt/lists/*
+E             #21 CACHED
+E             
+E             #22 [ 6/61] RUN curl -fsSL "https://go.dev/dl/go1.26.4.linux-amd64.tar.gz" -o /tmp/go.tar.gz     && echo "1153d3d50e0ac764b447adfe05c2bcf08e889d42a02e0fe0259bd47f6733ad7f  /tmp/go.tar.gz" | sha256sum -c -     && tar -xzf /tmp/go.tar.gz -C /usr/local     && rm /tmp/go.tar.gz
+E             #22 CACHED
+E             
+E             #23 [10/61] RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+E             #23 CACHED
+E             
+E             #24 [ 3/61] RUN apt-get update     && apt-get install -y --no-install-recommends git curl ca-certificates     && rm -rf /var/lib/apt/lists/*     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh     && chmod +x /tmp/dotnet-install.sh     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet     && rm /tmp/dotnet-install.sh
+E             #24 CACHED
+E             
+E             #25 [21/61] COPY tests/fixtures/furnished_missing/ ./fixtures/furnished/
+E             #25 ERROR: failed to calculate checksum of ref zeuiu8l8ddgkqbydvp2nfhr2t::r5drk774mp172mshsymkr7bzj: "/tests/fixtures/furnished_missing": not found
+E             ------
+E              > [21/61] COPY tests/fixtures/furnished_missing/ ./fixtures/furnished/:
+E             ------
+E             Dockerfile.ingestion:159
+E             --------------------
+E              157 |     # below.) tests/infra/test_ingestion_image_fixtures.py still fails if a fixture the chart or compose
+E              158 |     # references is covered by no COPY, or lands at the wrong destination.
+E              159 | >>> COPY tests/fixtures/furnished_missing/ ./fixtures/furnished/
+E              160 |     
+E              161 |     # REQ-G2-050 (TC-103): the same api_surface.json as pdf/net above, for each of the 5
+E             --------------------
+E             ERROR: failed to build: failed to solve: failed to compute cache key: failed to calculate checksum of ref zeuiu8l8ddgkqbydvp2nfhr2t::r5drk774mp172mshsymkr7bzj: "/tests/fixtures/furnished_missing": not found
+E             
+E           assert 1 == 0
+E            +  where 1 = CompletedProcess(args=['docker', 'build', '-f', 'Dockerfile.ingestion', '-t', 'foss-mcp-ingestion:test-build-45864', '...hecksum of ref zeuiu8l8ddgkqbydvp2nfhr2t::r5drk774mp172mshsymkr7bzj: "/tests/fixtures/furnished_missing": not found\n').returncode
+
+tests\test_container_build.py:185: AssertionError
+___ test_a_real_docker_build_of_the_ingestion_image_has_all_pilot_fixtures ____
+
+    def test_a_real_docker_build_of_the_ingestion_image_has_all_pilot_fixtures() -> None:
+        """REQ-G2-050 (TC-103): TC-098's own worker found that Dockerfile.ingestion only ever
+        COPYed pdf/net's own fixture files, so every other pilot's ingest-<pilot> compose service
+        failed immediately with FileNotFoundError. This proves the 10 new COPY lines (2 per pilot,
+        for pdf/typescript, pdf/java, pdf/go, slides/python, cells/rust) genuinely land their
+        fixture files at the exact destinations each pilot's own build_chunks.py
+        --api-surface/--furnished-page flags expect, INSIDE a really-built image - not just that
+        the Dockerfile text looks right.
+        """
+        image_tag = f"foss-mcp-ingestion:test-build-fixtures-{os.getpid()}"
+        pilots = ("pdf_typescript", "pdf_java", "pdf_go", "slides_python", "cells_rust")
+        expected_paths = [f"/app/fixtures/{pilot}/api_surface.json" for pilot in pilots] + [
+            f"/app/fixtures/furnished/{pilot}/pages/_index.md" for pilot in pilots
+        ]
+        try:
+            build_result = subprocess.run(
+                ["docker", "build", "-f", "Dockerfile.ingestion", "-t", image_tag, "."],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=1800,
+            )
+>           assert build_result.returncode == 0, (build_result.stdout + build_result.stderr)[-6000:]
+E           AssertionError: #0 building with "desktop-linux" instance using docker driver
+E             
+E             #1 [runtime  1/12] FROM docker.io/library/python:3.13-slim@sha256:b92e6b9bb1ea9d826e9956fd8d30bf18bc384c130231d74fdf0ba3460c290b0b
+E             #1 resolve docker.io/library/python:3.13-slim@sha256:b92e6b9bb1ea9d826e9956fd8d30bf18bc384c130231d74fdf0ba3460c290b0b 0.0s done
+E             #1 DONE 0.0s
+E             
+E             #2 [internal] load build definition from Dockerfile.ingestion
+E             #2 transferring dockerfile: 17.10kB done
+E             #2 DONE 0.0s
+E             
+E             #3 [internal] load metadata for docker.io/library/python:3.13-slim@sha256:b92e6b9bb1ea9d826e9956fd8d30bf18bc384c130231d74fdf0ba3460c290b0b
+E             #3 DONE 0.0s
+E             
+E             #4 [internal] load .dockerignore
+E             #4 transferring context: 1.20kB done
+E             #4 DONE 0.0s
+E             
+E             #5 [internal] load build context
+E             #5 transferring context: 34.97MB 3.1s done
+E             #5 DONE 3.1s
+E             
+E             #6 [19/61] COPY infra/verify_product_reference_install.py ./infra/verify_product_reference_install.py
+E             #6 CACHED
+E             
+E             #7 [ 7/61] RUN apt-get update     && apt-get install -y --no-install-recommends build-essential     && rm -rf /var/lib/apt/lists/*     && curl --proto '=https' --tlsv1.2 -fsSL https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init -o /tmp/rustup-init     && echo "dda7234360b7f578ca8b0ddcb80145646fa61a67c1720a5abc7051b35c9fcb71  /tmp/rustup-init" | sha256sum -c -     && chmod +x /tmp/rustup-init     && /tmp/rustup-init -y --profile minimal --default-toolchain "1.98.1" --no-modify-path     && rm /tmp/rustup-init     && chmod -R a+w "/usr/local/rustup" "/usr/local/cargo"
+E             #7 CACHED
+E             
+E             #8 [ 4/61] RUN curl -fsSL "https://nodejs.org/dist/v24.13.1/node-v24.13.1-linux-x64.tar.gz" -o /tmp/node.tar.gz     && echo "7ad28fb172a9ab0593f86c1a39e5c268d0d8fc3d6cb0167f455b5655a7a6e2fd  /tmp/node.tar.gz" | sha256sum -c -     && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1     && rm /tmp/node.tar.gz
+E             #8 CACHED
+E             
+E             #9 [ 6/61] RUN curl -fsSL "https://go.dev/dl/go1.26.4.linux-amd64.tar.gz" -o /tmp/go.tar.gz     && echo "1153d3d50e0ac764b447adfe05c2bcf08e889d42a02e0fe0259bd47f6733ad7f  /tmp/go.tar.gz" | sha256sum -c -     && tar -xzf /tmp/go.tar.gz -C /usr/local     && rm /tmp/go.tar.gz
+E             #9 CACHED
+E             
+E             #10 [ 8/61] RUN apt-get update     && apt-get install -y --no-install-recommends g++ cmake     && rm -rf /var/lib/apt/lists/*
+E             #10 CACHED
+E             
+E             #11 [14/61] COPY infra/ingest.py ./infra/ingest.py
+E             #11 CACHED
+E             
+E             #12 [ 9/61] COPY requirements.lock ./requirements.lock
+E             #12 CACHED
+E             
+E             #13 [12/61] COPY src/ ./src/
+E             #13 CACHED
+E             
+E             #14 [ 2/61] WORKDIR /app
+E             #14 CACHED
+E             
+E             #15 [20/61] COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
+E             #15 CACHED
+E             
+E             #16 [15/61] COPY infra/build_chunks.py ./infra/build_chunks.py
+E             #16 CACHED
+E             
+E             #17 [10/61] RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+E             #17 CACHED
+E             
+E             #18 [11/61] RUN python -c "from tree_sitter_language_pack import get_parser as g; names = ('python', 'rust', 'csharp', 'typescript', 'java', 'cpp', 'go'); [g(n) for n in names]; print('baked tree-sitter grammars:', ' '.join(names))"     && chown -R 10001:10001 /opt/tree-sitter-cache     && chmod -R a+rX /opt/tree-sitter-cache
+E             #18 CACHED
+E             
+E             #19 [16/61] COPY infra/fetch_product_reference.py ./infra/fetch_product_reference.py
+E             #19 CACHED
+E             
+E             #20 [13/61] COPY config/ ./config/
+E             #20 CACHED
+E             
+E             #21 [17/61] COPY infra/fetch_recent_releases.py ./infra/fetch_recent_releases.py
+E             #21 CACHED
+E             
+E             #22 [ 3/61] RUN apt-get update     && apt-get install -y --no-install-recommends git curl ca-certificates     && rm -rf /var/lib/apt/lists/*     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh     && chmod +x /tmp/dotnet-install.sh     && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet     && rm /tmp/dotnet-install.sh
+E             #22 CACHED
+E             
+E             #23 [ 5/61] RUN apt-get update     && apt-get install -y --no-install-recommends openjdk-21-jdk maven     && rm -rf /var/lib/apt/lists/*
+E             #23 CACHED
+E             
+E             #24 [18/61] COPY infra/verify_package_registry.py ./infra/verify_package_registry.py
+E             #24 CACHED
+E             
+E             #25 [21/61] COPY tests/fixtures/furnished_missing/ ./fixtures/furnished/
+E             #25 ERROR: failed to calculate checksum of ref zeuiu8l8ddgkqbydvp2nfhr2t::iuspypmxdltd9dt0385fs0hld: "/tests/fixtures/furnished_missing": not found
+E             ------
+E              > [21/61] COPY tests/fixtures/furnished_missing/ ./fixtures/furnished/:
+E             ------
+E             Dockerfile.ingestion:159
+E             --------------------
+E              157 |     # below.) tests/infra/test_ingestion_image_fixtures.py still fails if a fixture the chart or compose
+E              158 |     # references is covered by no COPY, or lands at the wrong destination.
+E              159 | >>> COPY tests/fixtures/furnished_missing/ ./fixtures/furnished/
+E              160 |     
+E              161 |     # REQ-G2-050 (TC-103): the same api_surface.json as pdf/net above, for each of the 5
+E             --------------------
+E             ERROR: failed to build: failed to solve: failed to compute cache key: failed to calculate checksum of ref zeuiu8l8ddgkqbydvp2nfhr2t::iuspypmxdltd9dt0385fs0hld: "/tests/fixtures/furnished_missing": not found
+E             
+E           assert 1 == 0
+E            +  where 1 = CompletedProcess(args=['docker', 'build', '-f', 'Dockerfile.ingestion', '-t', 'foss-mcp-ingestion:test-build-fixtures-...hecksum of ref zeuiu8l8ddgkqbydvp2nfhr2t::iuspypmxdltd9dt0385fs0hld: "/tests/fixtures/furnished_missing": not found\n').returncode
+
+tests\test_container_build.py:227: AssertionError
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_fixture_is_in_the_ingestion_image[pdf/net-furnishedPage]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_fixture_is_in_the_ingestion_image[slides/python-furnishedPage]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_fixture_is_in_the_ingestion_image[pdf/typescript-furnishedPage]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_fixture_is_in_the_ingestion_image[pdf/go-furnishedPage]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_fixture_is_in_the_ingestion_image[pdf/java-furnishedPage]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_fixture_is_in_the_ingestion_image[cells/rust-furnishedPage]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/cells_rust/pages/_index.md]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/pdf_go/pages/_index.md]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/pdf_java/pages/_index.md]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/pdf_net/pages/_index.md]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/pdf_typescript/pages/_index.md]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_compose_fixture_is_in_the_ingestion_image[fixtures/furnished/slides_python/pages/_index.md]
+FAILED tests/infra/test_ingestion_image_fixtures.py::test_furnished_pages_are_copied_as_one_directory
+FAILED tests/test_container_build.py::test_a_real_docker_build_of_the_ingestion_image_has_working_toolchains
+FAILED tests/test_container_build.py::test_a_real_docker_build_of_the_ingestion_image_has_all_pilot_fixtures
+
+--- stderr ---
+
