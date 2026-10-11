@@ -1,0 +1,216 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_known_limitations.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-97sjksd5\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 64%]
+........................................                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_known_limitations.py tests/deploy -q -rfE -k "release" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-97sjksd5\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 39%]
+........................................................................ [ 78%]
+.......................................                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_known_limitations.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-97sjksd5\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 64%]
+........................................                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_known_limitations.py tests/deploy -q -rfE -k "release" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-97sjksd5\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 39%]
+........................................................................ [ 78%]
+.......................................                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M docs/RELEASE.md, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_known_limitations.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-97sjksd5\.junit-0.xml"
+--- stdout ---
+................F..............................F........................ [ 64%]
+......F..............................FFF                                 [100%]
+================================== FAILURES ===================================
+______ test_accepted_id_appears_in_bold_exactly_once_in_section_8[L-089] ______
+
+ledger_id = 'L-089'
+
+    @pytest.mark.parametrize("ledger_id", ACCEPTED_LEDGER_IDS)
+    def test_accepted_id_appears_in_bold_exactly_once_in_section_8(ledger_id: str):
+        found = _BOLD_ID.findall(_section_8())
+>       assert found.count(ledger_id) == 1, (
+            f"{ledger_id} appears in bold {found.count(ledger_id)} times in section 8"
+        )
+E       AssertionError: L-089 appears in bold 0 times in section 8
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x000001D62027F240>('L-089')
+E        +    where <built-in method count of list object at 0x000001D62027F240> = ['L-0899', 'L-090', 'L-091', 'L-095', 'L-097', 'L-098', ...].count
+
+tests\deploy\test_release_known_limitations.py:181: AssertionError
+_____________ test_accepted_id_has_a_bullet_with_a_reason[L-089] ______________
+
+ledger_id = 'L-089'
+
+    @pytest.mark.parametrize("ledger_id", ACCEPTED_LEDGER_IDS)
+    def test_accepted_id_has_a_bullet_with_a_reason(ledger_id: str):
+        bullets = _bullets(_section_8())
+>       assert ledger_id in bullets, f"{ledger_id} has no bullet that opens with its bold id"
+E       AssertionError: L-089 has no bullet that opens with its bold id
+E       assert 'L-089' in {'L-0899': "The server describes each library at one pinned commit, but the install command installs the registry's cu...e review harnesses on the final image. A signature defect in a pilot those tests do not sample could still ship.', ...}
+
+tests\deploy\test_release_known_limitations.py:189: AssertionError
+_______ test_standalone_id_sits_under_the_standalone_subsection[L-089] ________
+
+ledger_id = 'L-089'
+
+    @pytest.mark.parametrize("ledger_id", STANDALONE_IDS)
+    def test_standalone_id_sits_under_the_standalone_subsection(ledger_id: str):
+>       assert ledger_id in _bullets(_subsection(STANDALONE_HEADING))
+E       assert 'L-089' in {'L-0899': "The server describes each library at one pinned commit, but the install command installs the registry's cu...e review harnesses on the final image. A signature defect in a pilot those tests do not sample could still ship.', ...}
+E        +  where {'L-0899': "The server describes each library at one pinned commit, but the install command installs the registry's cu...e review harnesses on the final image. A signature defect in a pilot those tests do not sample could still ship.', ...} = _bullets("\n- **L-0899** The server describes each library at one pinned commit, but the install command installs the registry'...s accepted and replaces that session's client information\n  (MCP SDK behaviour). It does not affect other sessions.\n")
+E        +    where "\n- **L-0899** The server describes each library at one pinned commit, but the install command installs the registry'...s accepted and replaces that session's client information\n  (MCP SDK behaviour). It does not affect other sessions.\n" = _subsection('### Standalone image')
+
+tests\deploy\test_release_known_limitations.py:196: AssertionError
+_____________ test_section_8_names_no_ledger_id_outside_the_tuple _____________
+
+    def test_section_8_names_no_ledger_id_outside_the_tuple():
+        unknown = sorted(set(_LEDGER_ID.findall(_section_8())) - set(ACCEPTED_LEDGER_IDS))
+>       assert unknown == [], f"section 8 names ledger ids that are not in ACCEPTED_LEDGER_IDS: {unknown}"
+E       AssertionError: section 8 names ledger ids that are not in ACCEPTED_LEDGER_IDS: ['L-0899']
+E       assert ['L-0899'] == []
+E         
+E         Left contains one more item: 'L-0899'
+E         Use -v to get more diff
+
+tests\deploy\test_release_known_limitations.py:209: AssertionError
+______________ test_every_section_8_bullet_belongs_to_the_tuple _______________
+
+    def test_every_section_8_bullet_belongs_to_the_tuple():
+        bullets = _bullets(_section_8())
+>       assert sorted(set(bullets) - set(ACCEPTED_LEDGER_IDS)) == []
+E       AssertionError: assert ['L-0899'] == []
+E         
+E         Left contains one more item: 'L-0899'
+E         Use -v to get more diff
+
+tests\deploy\test_release_known_limitations.py:214: AssertionError
+____________ test_section_8_has_exactly_one_bullet_per_accepted_id ____________
+
+    def test_section_8_has_exactly_one_bullet_per_accepted_id():
+        openers = re.findall(r"^- \*\*(L-\d+)\*\*", _section_8(), re.M)
+>       assert sorted(openers) == sorted(ACCEPTED_LEDGER_IDS)
+E       AssertionError: assert ['L-0899', 'L... 'L-098', ...] == ['L-089', 'L-... 'L-098', ...]
+E         
+E         At index 0 diff: 'L-0899' != 'L-089'
+E         Use -v to get more diff
+
+tests\deploy\test_release_known_limitations.py:219: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_release_known_limitations.py::test_accepted_id_appears_in_bold_exactly_once_in_section_8[L-089]
+FAILED tests/deploy/test_release_known_limitations.py::test_accepted_id_has_a_bullet_with_a_reason[L-089]
+FAILED tests/deploy/test_release_known_limitations.py::test_standalone_id_sits_under_the_standalone_subsection[L-089]
+FAILED tests/deploy/test_release_known_limitations.py::test_section_8_names_no_ledger_id_outside_the_tuple
+FAILED tests/deploy/test_release_known_limitations.py::test_every_section_8_bullet_belongs_to_the_tuple
+FAILED tests/deploy/test_release_known_limitations.py::test_section_8_has_exactly_one_bullet_per_accepted_id
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_known_limitations.py tests/deploy -q -rfE -k "release" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-97sjksd5\.junit-1.xml"
+--- stdout ---
+.................................................................F...... [ 39%]
+........................F..............................F................ [ 78%]
+..............FFF......................                                  [100%]
+================================== FAILURES ===================================
+______ test_accepted_id_appears_in_bold_exactly_once_in_section_8[L-089] ______
+
+ledger_id = 'L-089'
+
+    @pytest.mark.parametrize("ledger_id", ACCEPTED_LEDGER_IDS)
+    def test_accepted_id_appears_in_bold_exactly_once_in_section_8(ledger_id: str):
+        found = _BOLD_ID.findall(_section_8())
+>       assert found.count(ledger_id) == 1, (
+            f"{ledger_id} appears in bold {found.count(ledger_id)} times in section 8"
+        )
+E       AssertionError: L-089 appears in bold 0 times in section 8
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x0000022A325125C0>('L-089')
+E        +    where <built-in method count of list object at 0x0000022A325125C0> = ['L-0899', 'L-090', 'L-091', 'L-095', 'L-097', 'L-098', ...].count
+
+tests\deploy\test_release_known_limitations.py:181: AssertionError
+_____________ test_accepted_id_has_a_bullet_with_a_reason[L-089] ______________
+
+ledger_id = 'L-089'
+
+    @pytest.mark.parametrize("ledger_id", ACCEPTED_LEDGER_IDS)
+    def test_accepted_id_has_a_bullet_with_a_reason(ledger_id: str):
+        bullets = _bullets(_section_8())
+>       assert ledger_id in bullets, f"{ledger_id} has no bullet that opens with its bold id"
+E       AssertionError: L-089 has no bullet that opens with its bold id
+E       assert 'L-089' in {'L-0899': "The server describes each library at one pinned commit, but the install command installs the registry's cu...e review harnesses on the final image. A signature defect in a pilot those tests do not sample could still ship.', ...}
+
+tests\deploy\test_release_known_limitations.py:189: AssertionError
+_______ test_standalone_id_sits_under_the_standalone_subsection[L-089] ________
+
+ledger_id = 'L-089'
+
+    @pytest.mark.parametrize("ledger_id", STANDALONE_IDS)
+    def test_standalone_id_sits_under_the_standalone_subsection(ledger_id: str):
+>       assert ledger_id in _bullets(_subsection(STANDALONE_HEADING))
+E       assert 'L-089' in {'L-0899': "The server describes each library at one pinned commit, but the install command installs the registry's cu...e review harnesses on the final image. A signature defect in a pilot those tests do not sample could still ship.', ...}
+E        +  where {'L-0899': "The server describes each library at one pinned commit, but the install command installs the registry's cu...e review harnesses on the final image. A signature defect in a pilot those tests do not sample could still ship.', ...} = _bullets("\n- **L-0899** The server describes each library at one pinned commit, but the install command installs the registry'...s accepted and replaces that session's client information\n  (MCP SDK behaviour). It does not affect other sessions.\n")
+E        +    where "\n- **L-0899** The server describes each library at one pinned commit, but the install command installs the registry'...s accepted and replaces that session's client information\n  (MCP SDK behaviour). It does not affect other sessions.\n" = _subsection('### Standalone image')
+
+tests\deploy\test_release_known_limitations.py:196: AssertionError
+_____________ test_section_8_names_no_ledger_id_outside_the_tuple _____________
+
+    def test_section_8_names_no_ledger_id_outside_the_tuple():
+        unknown = sorted(set(_LEDGER_ID.findall(_section_8())) - set(ACCEPTED_LEDGER_IDS))
+>       assert unknown == [], f"section 8 names ledger ids that are not in ACCEPTED_LEDGER_IDS: {unknown}"
+E       AssertionError: section 8 names ledger ids that are not in ACCEPTED_LEDGER_IDS: ['L-0899']
+E       assert ['L-0899'] == []
+E         
+E         Left contains one more item: 'L-0899'
+E         Use -v to get more diff
+
+tests\deploy\test_release_known_limitations.py:209: AssertionError
+______________ test_every_section_8_bullet_belongs_to_the_tuple _______________
+
+    def test_every_section_8_bullet_belongs_to_the_tuple():
+        bullets = _bullets(_section_8())
+>       assert sorted(set(bullets) - set(ACCEPTED_LEDGER_IDS)) == []
+E       AssertionError: assert ['L-0899'] == []
+E         
+E         Left contains one more item: 'L-0899'
+E         Use -v to get more diff
+
+tests\deploy\test_release_known_limitations.py:214: AssertionError
+____________ test_section_8_has_exactly_one_bullet_per_accepted_id ____________
+
+    def test_section_8_has_exactly_one_bullet_per_accepted_id():
+        openers = re.findall(r"^- \*\*(L-\d+)\*\*", _section_8(), re.M)
+>       assert sorted(openers) == sorted(ACCEPTED_LEDGER_IDS)
+E       AssertionError: assert ['L-0899', 'L... 'L-098', ...] == ['L-089', 'L-... 'L-098', ...]
+E         
+E         At index 0 diff: 'L-0899' != 'L-089'
+E         Use -v to get more diff
+
+tests\deploy\test_release_known_limitations.py:219: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_release_known_limitations.py::test_accepted_id_appears_in_bold_exactly_once_in_section_8[L-089]
+FAILED tests/deploy/test_release_known_limitations.py::test_accepted_id_has_a_bullet_with_a_reason[L-089]
+FAILED tests/deploy/test_release_known_limitations.py::test_standalone_id_sits_under_the_standalone_subsection[L-089]
+FAILED tests/deploy/test_release_known_limitations.py::test_section_8_names_no_ledger_id_outside_the_tuple
+FAILED tests/deploy/test_release_known_limitations.py::test_every_section_8_bullet_belongs_to_the_tuple
+FAILED tests/deploy/test_release_known_limitations.py::test_section_8_has_exactly_one_bullet_per_accepted_id
+
+--- stderr ---
+
