@@ -1,0 +1,75 @@
+id: TC-430
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-001 (a green, trustworthy suite). tests/indexing/test_topology_decision.py::test_manifest_storage_topology_matches_the_measured_decision_and_is_not_the_placeholder
+  re-runs the topology spike LIVE (`measure(EmbeddedProfile(), ...)` and `measure(ServiceShapedProfile(), ...)`, then `decide(...)`) and asserts
+  the result equals the decision recorded in config/products/pdf/net.yaml. The decision is derived from wall-clock timings, so on a loaded host
+  the live re-measurement flips (observed: recorded `embedded`, re-derived `service_shaped`), the test fails, and with it the local pytest step,
+  the pre-push gate and any card review that selects it as a related test. It passes when run alone. A decision that only depends on whether
+  the host happens to be busy is not a measurement. This card keeps the test's real purpose (the recorded decision must be a written-back
+  measured decision, never the placeholder, and must be the decision the measurement logic yields for the recorded measurement) without
+  re-measuring wall-clock time in the suite.
+depends_on:
+- TC-380
+write_paths:
+- tests/indexing/test_topology_decision.py
+satisfies:
+- REQ-G3-001
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Peers will try to break the shipped image: an adversarial suite is a requirement, not an extra (operator, supervisor, pre-TC-355)'
+  sha256: d2caef724bdb4ebdd6139a6775d2e46c22527150b512d2f09d15225ba6375268
+inputs:
+- >-
+  Read tests/indexing/test_topology_decision.py in full (the corpus, queries, `_load_manifest`, every test), src/foss_mcp/indexing/topology_spike.py
+  (`Measurement`, `measure`, `decide`, the two profiles; read only: you do not own it) and config/products/pdf/net.yaml's `storage_topology`.
+  Never print or log any environment value.
+- >-
+  Replace the live re-measurement in `test_manifest_storage_topology_matches_the_measured_decision_and_is_not_the_placeholder` with deterministic
+  checks: keep the assertions that the recorded value is not the placeholder and is non-empty; then assert the decision with FIXED synthetic
+  `Measurement` objects built in the test (construct them exactly as `measure` returns them, with the latency and quality fields set to values
+  that make `decide` return each possible outcome), proving that (a) `decide` returns the recorded decision for a measurement shaped like the
+  one the spike recorded in the repository's history (use the numbers documented in the spike module docstring, the decision log or the test
+  module's own comments if they exist; if none are recorded, use clearly synthetic numbers and say so), and (b) the recorded value is one of
+  the values `decide` can return. Keep every OTHER test in the file unchanged. If the file also contains a quality (non-timing) assertion that
+  can be made from `measure` without relying on wall-clock time (for example retrieval quality fields of the Measurement, which depend on
+  the corpus and not on the clock), keep that part live and deterministic, and assert only on the non-timing fields.
+- >-
+  Add one regression test that documents the flake: run the decision twice with the SAME fixed measurements and assert identical results (the
+  decision function is pure), and assert that no test in this module calls `time.perf_counter`/`time.time`-based measurement through `measure`
+  on the timing fields (for example by monkeypatching `measure` to raise in this module's decision test and showing the test still passes).
+- >-
+  Run `{python} -m pytest tests/indexing/test_topology_decision.py -q -rfE`, then once `{python} -m pytest tests/indexing -q -rfE -k "topology"`.
+  Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Make the manifest storage-topology decision test deterministic: fixed measurements instead of a live wall-clock re-measurement.
+checks:
+- command: '{python} -m pytest tests/indexing/test_topology_decision.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-001
+- command: '{python} -m pytest tests/indexing -q -rfE -k "topology"'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-001
+min_tests: 6
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/indexing/test_topology_decision.py');s=p.read_text(encoding='utf-8');old='PLACEHOLDER = ';assert old in s;p.write_text(s.replace(old,'PLACEHOLDER_X = ',1),encoding='utf-8')"
+  rationale: >-
+    Renames the placeholder constant the not-the-placeholder assertions use, so those assertions can no longer be evaluated: the decision tests
+    fail. A real break of the card's central claim (the recorded decision must not be the placeholder).
+evidence:
+- evidence/build/G3/TC-430/receipt.json
+closeout:
+- >-
+  The topology decision test no longer depends on how busy the host is, so the suite and the pre-push gate stay green under load.
+recovery: Re-run from a clean tree.
