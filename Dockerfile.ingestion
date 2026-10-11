@@ -35,6 +35,32 @@ ENV PATH="/usr/share/dotnet:${PATH}" \
     DOTNET_NOLOGO=1 \
     DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 
+# REQ-G3-005 (TC-377): the pilots that carry documentation pages are built by the verifier inside this
+# image, and two of them need more than the toolchain above provided. slides/net, email/net and 3d/net
+# target .NET 10 (a lone SDK 8.0 fails with NETSDK1045), so the .NET 10 SDK is installed BESIDE 8.0 in the
+# same install directory: one `dotnet` then serves both, `dotnet --list-sdks` shows 8.0.x and 10.0.x, and a
+# project's TargetFramework is built through the resolver's default of the highest installed SDK (so no
+# global.json is added to the image). The 8.0 channel above is left exactly as it was; the channel is a
+# literal here, as it is above.
+RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
+    && chmod +x /tmp/dotnet-install.sh \
+    && /tmp/dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet \
+    && rm /tmp/dotnet-install.sh \
+    && dotnet --list-sdks
+
+# REQ-G3-005 (TC-377): words/python declares requires-python <3.13,>=3.10, and this image's only
+# interpreter is the base's 3.13, so its dependency resolution fails. A second interpreter, Python 3.12,
+# is baked in with uv (pinned by UV_VERSION: the newest release on the PyPI index at the time of writing,
+# and it ships a manylinux x86_64 wheel) into a fixed directory and exposed as /usr/local/bin/python3.12,
+# so `python3.12 -m venv` works for the verifier. The 3.13 `python` that the entrypoint and healthcheck
+# use is untouched. chmod keeps the interpreter readable by the non-root foss-mcp user created below.
+ARG UV_VERSION=0.13.0
+RUN pip install --no-cache-dir uv==${UV_VERSION} \
+    && uv python install 3.12 --install-dir /opt/python-versions \
+    && ln -s "$(UV_PYTHON_INSTALL_DIR=/opt/python-versions uv python find 3.12 --managed-python)" /usr/local/bin/python3.12 \
+    && chmod -R a+rX /opt/python-versions \
+    && python3.12 --version
+
 # REQ-G2-048 (TC-097): pdf/typescript's ingestion path (build_chunks.py's
 # --library-typescript flag) needs Node.js + npm to run `npx tsc` against candidate
 # examples. Checked apt-cache policy on this exact base image first: trixie's own
