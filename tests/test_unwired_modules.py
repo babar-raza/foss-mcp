@@ -38,8 +38,9 @@ Method (real, structural, ``ast``-based - never a hand-maintained prose list):
    other production-reachable file, so the separate special case was retired.
 
 ``_KNOWN_UNWIRED`` pins the resulting set exactly. Running this walk against the real, current
-tree now finds FIVE such symbols: ``prepare_cpp_library``, ``verify_cpp_example``,
-``query_vector_index``, ``document_schema.from_dict``, ``document_schema.to_dict`` - each
+tree now finds SEVEN such symbols: ``prepare_cpp_library``, ``verify_cpp_example``,
+``query_vector_index``, ``query_lexical_index``, ``server.run_stdio``,
+``document_schema.from_dict``, ``document_schema.to_dict`` - each
 individually confirmed above the frozenset by manual citation of its own real callers (or lack
 of them). ``_KNOWN_UNWIRED_AND_UNTESTED`` is currently empty: every symbol that once sat in that
 worse ("reachable from NOTHING, not even a test") tier has since been wired in. (History: TC-140
@@ -93,6 +94,10 @@ _KNOWN_UNWIRED = frozenset(
         "foss_mcp.indexing.example_verifier.prepare_cpp_library",
         "foss_mcp.indexing.example_verifier.verify_cpp_example",
         "foss_mcp.indexing.vector_index_writer.query_vector_index",
+        # The plain BM25 reference query, kept for the tests that compare the scored sibling
+        # query_lexical_index_scored and the old relevance bar against it (TC-381 moved
+        # find_examples to the scored function, so nothing in production calls this any more).
+        "foss_mcp.indexing.lexical_index_writer.query_lexical_index",
         # Superseded by infra/serve_stdio.run_stdio, which serves the same server with the
         # product-reference and release sidecars that HTTP loads; this dead original is to be
         # deleted by the card that next edits server.py (G3/TC-390).
