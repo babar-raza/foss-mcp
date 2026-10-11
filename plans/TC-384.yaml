@@ -1,0 +1,98 @@
+id: TC-384
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). Ingestion silently deletes real API symbols. infra/ingest.py runs
+  `validate_document`/`citable_chunks` over EVERY loaded chunk when `--api-surface` is given, and a self-extracted API-symbol
+  chunk whose upstream docstring contains an inline code span that does not resolve, or resolves ambiguously (`error`,
+  `notCreated`, `urllib.request`, or the class's own re-exported name with two matches), is excluded from the generation as a
+  whole. Reproduced offline from the committed fixtures: jmap/python 71 -> 63, words/python 300 -> 249, pdf/python 300 -> 257,
+  pdf/typescript 300 -> 280, html/python 300 -> 290, jmap/rust 45 -> 38, jmap/typescript 60 -> 58, page/python 244 -> 243: 142
+  real symbols lost (words/python SaveFormat and LoadFormat, jmap/python Email and MethodError). The >50% regression guard does not
+  notice, and the only trace is per-anchor "excluded:" lines. A symbol chunk's text IS the extraction; its docstring is upstream's
+  own words, not a claim this project generated, so an unresolvable anchor inside it is no reason to delete the symbol. This card
+  keeps every API-symbol chunk, keeps citation validation (and exclusion) for every other chunk exactly as today, and prints a
+  summary so a drop is never silent. It changes what ingestion publishes, so the affected pilots must be re-ingested afterwards.
+depends_on: []
+depends_on:
+- TC-001
+- TC-018
+- TC-060
+- TC-129
+- TC-144
+- TC-242
+- TC-340
+write_paths:
+- infra/ingest.py
+- tests/infra/test_ingest_symbol_survival.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read infra/ingest.py (`main`, the `--api-surface` branch: `symbol_index_from_api_surface`, `known_counts_from_fixture`,
+  `validate_document`, `describe_unresolved_anchors`, `citable_chunks`), src/foss_mcp/normalization/citation.py (read only; do not
+  change it - an evidence holdout depends on it), get_symbol.py's `extract_fqn`, and tests/infra/test_ingest.py, whose tests must
+  keep passing UNMODIFIED (their chunks carry `content_type` "api_surface" but no `FQN:` line, and must keep being validated and
+  excluded exactly as today, with the same "excluded: ..." lines). Never print or log any environment value.
+- >-
+  Add a pure function named exactly `select_publishable_chunks` (defined as `def select_publishable_chunks(`) in infra/ingest.py,
+  taking the loaded chunks and the parsed api-surface fixture and returning the chunks to publish plus a small report (counts),
+  and call it from `main` in place of the inline validate/describe/citable sequence. Rule: a chunk is an API-symbol chunk when its
+  `content_type` is "api_surface" AND its text has an `FQN:` line (via `extract_fqn`) whose value does not start with `Example: ` or
+  `Doc: `. Every API-symbol chunk is published regardless of its validation verdict; its unresolved anchors are still described,
+  printed as `kept api symbol: <section_title> anchor <anchor> -> <verdict> (match_count=N)`. Every other chunk is validated and
+  filtered exactly as today, printing the existing `excluded: ...` lines unchanged. After selection print one summary line
+  `citation: published <P> of <N> chunks; api symbols kept <S> of <S>; excluded <E> other chunks` (always printed when
+  `--api-surface` is given). Chunk order is preserved. Nothing changes when `--api-surface` is omitted.
+- >-
+  tests/infra/test_ingest_symbol_survival.py (NEW, offline): (1) for each of the eight pilots jmap_python, words_python,
+  pdf_python, pdf_typescript, html_python, jmap_rust, jmap_typescript, page_python: build the symbol chunks from the committed
+  tests/fixtures/<pilot>/api_surface.json with `build_chunks_from_api_surface` (the same call build_chunks.py makes, default
+  max_types) and assert `select_publishable_chunks` keeps EVERY API-symbol chunk (the set of FQNs out equals the set in; compare
+  sets, not a hard-coded number, so the test stays valid when the chunk builder changes); (2) named survivors: words_python
+  `SaveFormat` and `LoadFormat` and jmap_python `Email` and `MethodError` appear among the published FQN final segments; (3) a
+  synthetic non-symbol chunk with an unresolvable anchor is still excluded and a numeric claim contradicting the fixture is still
+  excluded; (4) a synthetic `FQN: Doc: ...` chunk and an `FQN: Example: ...` chunk keep today's treatment; (5) `main` end to end
+  (monkeypatched argv into tmp_path, the same way tests/infra/test_ingest.py runs it) publishes a generation whose documents
+  include the symbol chunk whose docstring has a bad anchor, and prints the summary line and a `kept api symbol:` line. At least
+  14 tests (parametrize over the eight pilots), none skipped.
+- >-
+  Run `{python} -m pytest tests/infra/test_ingest_symbol_survival.py -q -rfE`, then once the second check command below. Write
+  commit messages as UTF-8 without a byte-order mark.
+actions:
+- Never drop a self-extracted API-symbol chunk for an unresolved anchor in its upstream docstring; keep citation filtering for everything else.
+- Print a per-run summary of what was published and excluded, and pin symbol survival on eight real fixtures.
+checks:
+- command: '{python} -m pytest tests/infra/test_ingest_symbol_survival.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/infra/test_ingest_symbol_survival.py tests/infra/test_ingest.py tests/infra/test_ingest_vector_scope.py tests/normalization/test_citation.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 14
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/ingest.py');s=p.read_text(encoding='utf-8');old='def select_publishable_chunks(';assert old in s;p.write_text(s.replace(old,'def select_publishable_chunksX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the selection function main and the new tests call, so ingestion with --api-surface can no longer select what to
+    publish: the survival tests and the existing --api-surface ingest tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-384/receipt.json
+closeout:
+- >-
+  Every self-extracted API symbol reaches the published generation; citation validation still filters generated prose, and every
+  run states what it published and excluded. Requires re-ingesting the affected pilots.
+recovery: Re-run from a clean tree.

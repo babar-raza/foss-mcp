@@ -1,0 +1,148 @@
+id: TC-382
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). The symbol chunks every pilot publishes state things the extraction never said, and hide
+  things it did say. Verified against the committed fixtures and src/foss_mcp/indexing/chunk_builder.py: (1) `_method_line`
+  renders a missing return type as `void` (`return_type = method.get("return_type") or "void"`), so 1,976 of 1,979 pdf/net
+  methods (constructors included) and Rust methods (Rust has no void) are shown `-> void`; (2) a parameter with no type renders
+  as `options: ` (65 in jmap/nodejs); (3) TypeScript property types carry the declaration colon (`id: : string`, 2,607 entries
+  across pdf/cells/3d/jmap typescript) and 61 types list the same property twice; (4) the inheritance flattening copied base-class
+  constructors and destructors into subclasses as "inherited" members (1,630 lines across 19 pilots, e.g. pdf/cpp PopupAnnotation
+  lists `~BaseParagraph()`); (5) the `deprecated` flag recorded in fixtures is never rendered; (6) Go and TypeScript fixtures carry
+  symbols from test files (39 pdf/go and 103 jmap/go entries from `*_test.go`) and unqualified names that collide (pdf/go Color,
+  TextLine, Error, FetchCRL, FetchOCSP; pdf/typescript color, num, table), so get_symbol returns an arbitrary one; (7) a Python
+  re-export stub in a package `__init__.py` (aspose.slides_foss.charts.IChartDataCell, 150 such pairs on slides/python) is
+  published with zero members while its definition (...IChartDataCell.IChartDataCell) has them, so the natural import path
+  answers with an empty class; (8) every fixture was cut to 300 types (pdf/net 971, slides/python 1,023, pdf/go 2,313) and nothing
+  tells a client, so a real but unindexed type looks like an honest NotFound. This card makes the chunk builder render only what
+  the extraction states, drop what is not public API, and state the coverage. It changes chunk TEXT, so every pilot must be
+  re-ingested (the demo manifests regenerated) afterwards for it to reach the image.
+depends_on:
+- TC-381
+- TC-001
+- TC-017a
+- TC-017b
+- TC-062
+- TC-065
+- TC-071
+- TC-074
+- TC-076
+- TC-077
+- TC-079
+- TC-109
+- TC-120
+- TC-143
+- TC-202
+- TC-218
+- TC-238
+- TC-255
+- TC-261
+- TC-263
+- TC-273
+- TC-278
+- TC-279
+- TC-284
+- TC-331
+write_paths:
+- src/foss_mcp/indexing/chunk_builder.py
+- tests/indexing/test_chunk_builder_honesty.py
+- tests/indexing/test_chunk_builder.py
+- tests/mcp/tools/test_symbol_tools.py
+- tests/mcp/tools/test_retrieval_tools.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read src/foss_mcp/indexing/chunk_builder.py in full, get_symbol.py (`_extract_block`, `_FQN_LINE`) and search_symbols.py
+  (`_member_name`, which parses a rendered member line up to its first `(` or `:`), and the fixtures' real field shapes in
+  tests/fixtures/{pdf_net,pdf_go,pdf_typescript,slides_python,cells_rust,jmap_go,jmap_nodejs,pdf_cpp,pdf_java}/api_surface.json
+  (`type_count`, `reduced_type_count`, `truncated`, per-type `file`, `canonical_namespace`, `receiver_type`, `deprecated`,
+  `deprecated_reason`, per-method `is_constructor`, `inherited_from`). Never print or log any environment value.
+- >-
+  Rendering rules (all in chunk_builder.py; the FQN/Kind/Bases/Methods/Properties/Members line convention and section order stay):
+  (1) a method whose `return_type` is missing or empty renders with NO ` -> ...` part at all (`  - Open(path: string)`); a real
+  return type, `void` included, renders exactly as today. (2) A parameter or property with an empty type renders as its bare name
+  (`options`, not `options: `). (3) A type string that starts with `:` (after stripping whitespace) has that leading colon and the
+  whitespace after it removed, for params, properties and return types. (4) Within one type, a property whose name already
+  appeared is not rendered again, and a method line identical to one already rendered is not rendered again (first wins, order
+  kept). (5) An INHERITED member (one carrying `inherited_from`) that is a constructor or destructor is not rendered: `is_constructor`
+  true, or a name equal to the last segment of `inherited_from` (split on `.` and `::`), or a name starting with `~`, or the name
+  `constructor` or `__init__`. The type's own constructors stay. (6) A type, method or property with `deprecated` true gets a
+  ` (deprecated)` suffix, or ` (deprecated: <deprecated_reason>)` when a reason is recorded (reason cut to 200 characters); a
+  deprecated type additionally gets a `Deprecated: <reason or yes>` line right after its `Kind:` line. (7) Add a function named
+  exactly `_is_test_source` (defined as `def _is_test_source(`) and do not publish an entry whose `file` it accepts: a base name
+  ending `_test.go`, `_test.py`, `.test.ts`, `.spec.ts`, `.test.js`, `.spec.js`, a base name starting `test_` and ending `.py`, or a
+  path with a directory segment exactly `test`, `tests` or `__tests__`. (8) Python re-export pairs: when an entry S comes from a
+  file ending `__init__.py` and has no methods, properties or enum members, and exactly one other entry D has the same `name`, a
+  `class_import` that starts with S's package (S's `class_import` without its last segment, plus a dot) and at least one member,
+  then S is rendered with D's bases, methods, properties, enum members and (if S has none) doc, plus a line `Defined-In: <D's
+  FQN>` after `Kind:`; D gets a line `Exported-As: <S's FQN>` after `Kind:`. Both keep their FQNs, so nothing that resolves today
+  stops resolving. (9) After (7), FQNs that still collide are qualified, every colliding entry: `<qualifier>.<name>` where the
+  qualifier is the entry's `receiver_type` when present, else its `canonical_namespace` when present and not already a prefix of
+  the FQN, else its file's base name without extension; if that still collides, append `@<line>`. Non-colliding FQNs are untouched.
+  (10) Coverage: when the fixture records an integer `type_count`, each symbol section ends with the line
+  `API-Coverage: <P> of <T> types` where P is the number of type entries actually published by this call and T is `type_count`.
+  Without `type_count` no line is added. Use exactly this spelling: a serving card parses it.
+- >-
+  tests/indexing/test_chunk_builder_honesty.py (NEW, offline): one focused test per rule above on small synthetic fixtures,
+  plus real-fixture tests: pdf/net chunk text contains no ` -> void` for a method whose fixture return_type is empty
+  (`Aspose.Pdf.Page` SetRotation renders `SetRotation(degrees: int)`) and still renders the 3 genuine `void` returns; jmap/nodejs
+  has no `: ` followed by `)` or `,`; pdf/typescript has no `: : ` anywhere and no repeated property name within a type; no pdf/cpp
+  chunk lists `~BaseParagraph()` as inherited; no pdf/go or jmap/go chunk carries a symbol from a `_test.go` file; every FQN across
+  the pdf/go and pdf/typescript output is unique; slides/python `aspose.slides_foss.charts.IChartDataCell` now lists the 4 methods
+  its definition has and carries `Defined-In:`, and `aspose.slides_foss.charts.IChartDataCell.IChartDataCell` still exists; pdf/net
+  chunks carry `API-Coverage: 300 of 971 types`; a deprecated pdf/java method renders `(deprecated`; output is byte-identical across
+  two runs. At least 20 tests, none skipped.
+- >-
+  Existing tests that pin the invented `void` must change, and ONLY these assertions may change (each one checks a method whose
+  fixture `return_type` is empty or missing): in tests/indexing/test_chunk_builder.py the assertions on `Create() -> void`,
+  `Destroy() -> void`, `Spin() -> void`, `Reset() -> void` and `AddFontFile(path: string) -> void` (wherever they occur) become the
+  same line without ` -> void`, asserted as a whole line (for example `"  - Create()" in all_text.splitlines()`), and
+  `Accept() -> void` stays (its fixture return_type is the real string "void"); in tests/mcp/tools/test_symbol_tools.py
+  `"Stop() -> void"` becomes `"Stop()"`; in tests/mcp/tools/test_retrieval_tools.py the assertion and the comment naming
+  `SetRotation(degrees: int) -> void` become `SetRotation(degrees: int)`. Do not change any other assertion; list every changed
+  line in your report. If any other existing test fails (for example one that pins a duplicated Go name or a test-file symbol),
+  stop and report it with its name; do not edit it.
+- >-
+  Run `{python} -m pytest tests/indexing/test_chunk_builder_honesty.py -q -rfE`, then once the second check command below. Do not
+  regenerate demo manifests or fixtures (the supervisor re-ingests afterwards). Write commit messages as UTF-8 without a
+  byte-order mark.
+actions:
+- Render only what the extraction states (no invented void, no malformed types, no copied base constructors), mark deprecation, drop test-file symbols.
+- Give re-exported Python classes their members, make colliding FQNs unique, and state how much of the API surface is indexed.
+checks:
+- command: '{python} -m pytest tests/indexing/test_chunk_builder_honesty.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder.py tests/indexing/test_publisher.py tests/mcp tests/infra/test_build_chunks.py tests/poc -q -rfE -k "not live and not docker"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 20
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/chunk_builder.py');s=p.read_text(encoding='utf-8');old='def _is_test_source(';assert old in s;p.write_text(s.replace(old,'def _is_test_sourceX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the test-source filter the builder calls for every entry, so no chunk can be built: the honesty tests and the existing
+    chunk-builder tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-382/receipt.json
+closeout:
+- >-
+  A symbol chunk shows a return type only when the extraction found one, never a copied base constructor, malformed type or
+  test-file symbol, marks deprecation, gives a re-exported Python class its members, and says how much of the API is indexed.
+  Requires re-ingesting every pilot.
+recovery: Re-run from a clean tree.

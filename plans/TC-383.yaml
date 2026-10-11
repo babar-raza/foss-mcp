@@ -1,0 +1,104 @@
+id: TC-383
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-005 (pilot completeness). report_index_freshness reports one arbitrary commit for a generation that was built from
+  several. Verified in src/foss_mcp/mcp/tools/report_index_freshness.py: `_indexed_source_commit` returns the first
+  `Source-Commit:` line found in dict order. On pdf/net the 300 API-symbol chunks were extracted at 10a363830f... while the
+  documentation and verified-example chunks (and the product-reference sidecar's `source_ref`) are at the pinned library commit
+  b7172877...; passing the pinned commit answers stale=true "indexed 10a36383...", passing the other answers stale=false, and
+  neither answer says the index is mixed (pdf/typescript the same: c672b391 for 278 chunks against 155bfc7a). A 7-character short
+  SHA is never recognised. And nothing tells a client that the API surface was cut to 300 types, so a real type looks like an
+  honest NotFound. This card makes the report list EVERY distinct source commit with how many chunks of each kind came from it,
+  compare the caller's commit against all of them (full SHA or a prefix of at least 7 characters), optionally compare against the
+  library's pinned commit when the server knows it, and report the indexed share of the API surface when the chunks state it. It
+  invents nothing: anything not recorded in the chunks is reported as unknown. Serving-side only.
+depends_on: []
+depends_on:
+- TC-001
+- TC-017c
+write_paths:
+- src/foss_mcp/mcp/tools/report_index_freshness.py
+- tests/mcp/tools/test_freshness_provenance.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read src/foss_mcp/mcp/tools/report_index_freshness.py, get_symbol.py's `extract_fqn`, and the tests that cover the tool:
+  tests/mcp/tools/test_consumer_tools.py (the three `test_freshness_*` tests, which must pass UNMODIFIED, including
+  `report.reason == "never published"` and the single-commit fresh/stale cases), tests/mcp/test_server_wiring.py and
+  tests/poc/test_pilot_workflow_proof.py. Look at a real generation, for example
+  infra/demo-manifests/pdf__net__self_extracted/generation__*.json, to see the per-chunk `Source-Commit:` lines and the FQN
+  prefixes (`Example: `, `Doc: `, anything else is an API symbol). Never print or log any environment value.
+- >-
+  Changes, all additive to `FreshnessReport` (existing fields keep their names, types and meaning): (1) a new frozen dataclass
+  `CommitCount` with `commit`, `chunks`, `symbol_chunks`, `example_chunks`, `documentation_chunks`, and a new field
+  `source_commits: tuple[CommitCount, ...] = ()` listing every distinct `Source-Commit:` value in the active generation, ordered
+  by `chunks` descending then commit; a chunk without the line is counted in a separate `chunks_without_commit: int = 0`.
+  (2) `indexed_source_commit` becomes deterministic: the commit with the most API-symbol chunks (ties broken by the smaller
+  commit string), or, when no chunk is a symbol chunk, the commit with the most chunks. (3) Add a function named exactly
+  `_commit_matches` (defined as `def _commit_matches(`) - true when the indexed commit equals the caller's value after both are
+  stripped and lowercased, or the caller's value has at least 7 characters and is a prefix of the indexed commit. (4) `stale` is
+  false only when every distinct indexed commit matches the caller's commit; with one distinct commit the reasons stay exactly
+  today's strings; with several, the reason names each commit's first 12 characters with its chunk counts by kind and says which
+  of them match (for example "index is mixed: API symbols from 10a363830fea (300 chunks); documentation and examples from
+  b71728776514 (12 chunks); current b71728776514 matches documentation and examples only"). (5) A new keyword-only parameter
+  `pinned_library_commit: str | None = None` on `report_index_freshness` (default keeps every current caller working); when given,
+  the report carries `pinned_library_commit` and `pinned_matches_symbols: bool | None` (None when there are no symbol chunks) and
+  the reason gains one sentence when the API symbols were not extracted at the pinned commit. Do not wire it from server.py (a
+  later card owns that file). (6) Coverage: parse the first `API-Coverage: <P> of <T> types` line found in a symbol chunk into
+  `indexed_types: int | None` and `total_types: int | None`; when P < T add `coverage_note` ("the API index holds P of T types; a
+  type missing from it may still exist upstream"); when no chunk has the line all three stay None (today's generations do not
+  carry it until they are re-ingested; never guess it).
+- >-
+  tests/mcp/tools/test_freshness_provenance.py (NEW, offline): synthetic generations published through the same publish helper
+  the consumer-tools tests use, covering: one commit (fresh, stale, short-SHA match, uppercase and padded match, a 6-character
+  prefix NOT matching); two commits split by kind with exact counts in `source_commits`; stale true when the caller matches only
+  one of two commits, with the mixed reason naming both; deterministic `indexed_source_commit` regardless of document insertion
+  order (publish the same chunks in two orders and compare); chunks without a `Source-Commit:` line counted in
+  `chunks_without_commit`; `pinned_library_commit` matching and not matching the symbol commit; `API-Coverage` parsed into
+  `indexed_types`/`total_types` with the note when P < T and no note when P == T; absent coverage gives None. Plus one REAL-DATA test
+  that copies infra/demo-manifests/pdf__net__self_extracted into tmp_path and asserts the report lists at least two distinct
+  commits, `10a363830fea952c29df20fdb37d35ad3a881433` for the symbol chunks and `b7172877651413cff57a8bfe41fb8a8befb2406b` for
+  the documentation/example chunks, and that passing either one gives stale true with the mixed reason. At least 16 tests, none
+  skipped.
+- >-
+  Run `{python} -m pytest tests/mcp/tools/test_freshness_provenance.py -q -rfE`, then once the second check command below. Write
+  commit messages as UTF-8 without a byte-order mark.
+actions:
+- Report every distinct source commit with per-kind chunk counts and compare the caller's commit against all of them honestly.
+- Optionally compare against the pinned library commit, and report how much of the API surface the index holds when the chunks say so.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_freshness_provenance.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_consumer_tools.py tests/mcp/test_server_wiring.py tests/poc/test_pilot_workflow_proof.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 16
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/report_index_freshness.py');s=p.read_text(encoding='utf-8');old='def _commit_matches(';assert old in s;p.write_text(s.replace(old,'def _commit_matchesX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the commit comparison the report is built on, so no freshness report can be produced: the new provenance tests and the
+    existing freshness tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-383/receipt.json
+closeout:
+- >-
+  The freshness report names every source commit the index was built from, with counts by kind, and never calls a mixed index
+  fresh; it states the indexed share of the API when the chunks record it.
+recovery: Re-run from a clean tree.

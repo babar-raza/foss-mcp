@@ -1,0 +1,151 @@
+id: TC-381
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-005 (pilot completeness). The preferred entry point returns near-constant noise. Reproduced on the committed demo
+  manifests: `search_docs.classify_content_type` defaults EVERY chunk, API-symbol chunks included, to `developer_guide`, and an
+  example chunk that contains "install " becomes `getting_started`; any positive BM25 score counts as a hit; `lookup` takes the
+  first category with a hit. So pdf/net `lookup("how do I save a document")` answers with 10 symbol chunks as documentation,
+  cells/cpp (no documentation page at all) answers with 10 "developer_guide" matches, and pdf/go answers "rotate a page", "convert a
+  pdf to images" and "extract text" with the same Installation page and "Example: Split and Merge PDFs". `find_examples`'
+  coverage floor (0.6) is defeated by the product-family word: after stop words, "split a pdf into pages" is {split, pdf, pages},
+  "pdf" occurs in nearly every example, and one more shared word reaches 0.67, so pdf/net returns "Add a Watermark Annotation",
+  pdf/go returns "Fill AcroForm Fields" for "extract text", pdf/typescript returns "Create a New PDF from Scratch". There is no
+  plural/stem tolerance: `search_docs("install", "getting_started")` misses although "Installation..." pages exist. The
+  find_examples snippet is not clean code: `_extract_example` splits at the first "Example:" substring, which is the
+  `FQN: Example: <title>` line, so the snippet begins with the title, `Kind: verified_example` and prose and ends with the
+  `Source-Commit:` line. And the miss shape promised by the tool description (`NoExampleFound`) carries no reason and no
+  found marker. This card gives documentation search, lookup composition and example search one shared, deterministic relevance
+  rule that symbol chunks can never satisfy and the product-family word cannot defeat, with light stemming, and makes the
+  example snippet the code alone. Serving-side only: no re-ingestion is needed.
+depends_on: []
+depends_on:
+- TC-001
+- TC-017a
+- TC-017b
+- TC-071
+- TC-074
+- TC-079
+- TC-109
+- TC-120
+- TC-143
+- TC-202
+- TC-218
+- TC-273
+- TC-278
+- TC-279
+- TC-331
+write_paths:
+- src/foss_mcp/mcp/tools/relevance.py
+- src/foss_mcp/mcp/tools/search_docs.py
+- src/foss_mcp/mcp/tools/lookup.py
+- src/foss_mcp/mcp/tools/find_examples.py
+- tests/mcp/tools/test_relevance_floor.py
+- tests/mcp/tools/test_retrieval_tools.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read src/foss_mcp/mcp/tools/search_docs.py, lookup.py, find_examples.py (all of it, including `_EXAMPLE_MARKER`,
+  `_extract_example`, `_coverage`, `_COVERAGE_THRESHOLD`, the exact-match branch through `get_symbol`, and `_vector_fallback`),
+  get_symbol.py's `extract_fqn`, and `foss_mcp.indexing.lexical_index_writer.tokenize`/`query_lexical_index_scored`. Read the
+  tests that cover them: tests/mcp/tools/test_retrieval_tools.py, tests/indexing/test_lookup_doc_fallback_query_safety.py,
+  tests/indexing/test_vector_scope.py, tests/mcp/test_server_wiring.py. Look at real chunk shapes in
+  infra/demo-manifests/pdf__go__self_extracted/ (symbol chunks start `FQN: <name>`, examples `FQN: Example: <title>` with a line
+  that is exactly `Example:` before the code, documentation `FQN: Doc: <title>`, every chunk ends with `Source-Commit: <sha>`).
+  Never print or log any environment value.
+- >-
+  NEW MODULE src/foss_mcp/mcp/tools/relevance.py (imported by the three tools, so it is wired), pure and deterministic:
+  `chunk_kind(text)` returning `symbol`, `example` or `documentation` (`example` when the FQN line starts with `Example: `;
+  `documentation` when the FQN line starts with `Doc: ` OR there is no FQN line at all, which keeps hand-written documentation
+  chunks in tests working; `symbol` otherwise); a light stemmer named exactly `stem_token` (defined as `def stem_token(`) that
+  lowercases and strips, in this order, `ations`/`ation`, `ings`/`ing` (only when at least 3 characters remain), `ies`->`y`,
+  `es` after s/x/z/ch/sh, a final `s` not preceded by `s` (only when more than 3 characters), `ed` (only when more than 4
+  characters) - so install, installs, installing, installation all give `install`, pages gives `page`, images gives `image`;
+  `query_terms(query, family)`: the stemmed `tokenize(query)` set minus the stemmed tokens of the scope's family name and minus
+  the fixed generic set {aspose, foss, library, api}; when that leaves nothing, the stemmed set before removal (so the bare query
+  "pdf" still works); `coverage(terms, document_tokens)`: the fraction of terms present among the stemmed document tokens;
+  `RELEVANCE_THRESHOLD = 0.6` (TC-273's measured value, unchanged; with two terms both must be present, with three at least two).
+- >-
+  search_docs: only `documentation` chunks are candidates (a symbol or example chunk is never documentation, whatever its words);
+  `classify_content_type` is applied to documentation chunks only. A candidate is a hit only when
+  `coverage(query_terms(query, scope.family), document["tokens"]) >= RELEVANCE_THRESHOLD`; hits are ordered by coverage
+  descending, then the existing BM25 score descending (0 for a document BM25 did not score), then doc_id, and cut to top_k.
+  Candidate selection must not depend on BM25 having scored the document, so stemmed matches ("install" vs "Installation") are
+  found. The Miss shapes and reasons stay as they are.
+- >-
+  find_examples: an example chunk is one whose `chunk_kind` is `example` and which has a line that is exactly `Example:`; the
+  exact-match branch keeps working for a query that equals an example's pseudo-FQN but looks the FQN up directly over the
+  generation's documents (no longer through `get_symbol`, so a later card can stop get_symbol from returning pseudo-symbols
+  without breaking this); the lexical branch uses `query_terms`/`coverage`/`RELEVANCE_THRESHOLD` instead of the raw token
+  coverage, so the family word no longer counts. `_extract_example` returns the text after the LAST line that is exactly
+  `Example:`, with trailing `Source-Commit:` lines and trailing blank lines removed and nothing else changed. `NoExampleFound`
+  gains two additive fields with defaults, `found: bool = False` and `reason: str` (for example "no verified example matches
+  this query" / "no published generation for this scope"); `ExampleMatch` gains `found: bool = True`. The vector fallback is
+  unchanged apart from using the same snippet extraction.
+- >-
+  lookup: `_compose_from_docs` keeps its order and shapes; with the rules above it can no longer return symbol or example chunks
+  as `doc_matches`. When the answer is the fall-through symbol Miss, leave its fields as they are.
+- >-
+  tests/mcp/tools/test_relevance_floor.py (NEW, offline, deterministic, nothing written inside the repository): (a) unit tests
+  for `stem_token`, `query_terms` (family word removed; generic words removed; fallback when nothing remains) and `coverage`;
+  (b) REAL-DATA tests that copy the committed scope directories infra/demo-manifests/pdf__net__self_extracted,
+  pdf__go__self_extracted, pdf__typescript__self_extracted and cells__cpp__self_extracted into tmp_path with shutil.copytree and
+  open a GenerationManifestStore there, asserting each QA case: pdf/net `search_docs("Document", "developer_guide")` and
+  `lookup("how do I save a document")` contain no chunk whose kind is `symbol`; cells/cpp `lookup("how do I save a document")`
+  has no `doc_matches` drawn from symbol chunks; pdf/go `lookup("rotate a page")`, `lookup("convert a pdf to images")` and
+  `lookup("how do I extract text from a pdf")` never carry "Example: Split and Merge PDFs" as a doc match and never attach "Fill
+  AcroForm Fields" as the example; pdf/net `find_examples("split a pdf into pages")` is not "Add a Watermark Annotation";
+  pdf/typescript `find_examples("how do I extract text from a pdf")` is not "Create a New PDF from Scratch"; and the true
+  positives still hold: pdf/net `find_examples("add a watermark to a PDF")` returns "Example: Add a Watermark Annotation",
+  pdf/net and pdf/go `search_docs("install", "getting_started")` return an Installation page, pdf/typescript
+  `find_examples("convert a pdf to html")` returns its Convert example; (c) the snippet of a real pdf/go and slides/python example
+  starts with code (not the title, not `Kind:`), contains no `Source-Commit:` line and no `{{<` shortcode text that lives only in
+  the description; (d) NoExampleFound carries `found` false and a non-empty reason. At least 24 tests, none skipped.
+- >-
+  tests/mcp/tools/test_retrieval_tools.py: keep every test passing UNMODIFIED except exactly one assertion, in
+  `test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere`: it asserts
+  `isinstance(result.doc_matches, tuple) and result.doc_matches` and its own docstring explains this pins the very defect this card
+  fixes (an example pseudo-symbol counted as developer_guide documentation). Change only that assertion to
+  `assert result.doc_matches == ()`, leave its docstring and every other assertion alone, and say in your report that you did so.
+  If any other existing test fails, stop and report it; do not weaken it.
+- >-
+  Run `{python} -m pytest tests/mcp/tools/test_relevance_floor.py -q -rfE`, then once the second check command below. Write commit
+  messages as UTF-8 without a byte-order mark.
+actions:
+- One shared relevance rule for documentation, lookup and examples, immune to symbol chunks and the product-family word, with light stemming.
+- Clean example snippets and an explicit, additive miss marker, pinned by tests on the real committed demo data.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_relevance_floor.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/mcp/tools/test_relevance_floor.py tests/mcp/tools/test_retrieval_tools.py tests/indexing/test_lookup_doc_fallback_query_safety.py tests/indexing/test_vector_scope.py tests/mcp/test_server_wiring.py tests/mcp/tools/test_symbol_tools.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 24
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/relevance.py');s=p.read_text(encoding='utf-8');old='def stem_token(';assert old in s;p.write_text(s.replace(old,'def stem_tokenX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the stemmer every relevance computation goes through, so search_docs, lookup and find_examples can no longer compute
+    a query's terms: the new relevance tests and the existing retrieval tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-381/receipt.json
+closeout:
+- >-
+  Documentation search and lookup never return API symbols or examples as documentation, the product-family word can no longer
+  manufacture a match, "install" finds "Installation", and an example snippet is the code alone.
+recovery: Re-run from a clean tree.

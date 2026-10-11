@@ -1,0 +1,151 @@
+id: TC-380
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-006 (adversarial robustness). An independent QA run against the shipped serving image found a blocker: the
+  `source_kind` argument of report_index_freshness reaches the filesystem unchecked. `GenerationManifestStore._scope_dir`
+  (src/foss_mcp/indexing/generation_manifest.py) joins the raw scope string onto the store root with no containment check and
+  calls `mkdir(parents=True)` even on a READ (`read_active` -> `_active_pointer_path` -> `_scope_dir`). A client can therefore
+  read another pilot's active generation (`x/../slides__python__self_extracted`), create arbitrary directories inside the
+  container (`../../../../tmp/qa_probe_dir`), create one new directory per distinct value (inode exhaustion), and on a
+  read-only root filesystem every non-default value answers `internal` instead of "never published". The same run found that
+  tool arguments are coerced and unbounded: `top_k` accepts `true` and `"3"`, unknown arguments are silently ignored, a
+  50,000-character query is echoed back twice (200 KB), a NUL byte yields "embedded null character in path", a 300-character
+  `source_kind` yields `internal`, an uppercase, padded or empty `current_source_commit` is compared as a different commit, and
+  `get_product_reference(section='../../etc/passwd')` answers with the generic internal-error text. This card closes the
+  traversal at its root (the store never leaves its root and a read never creates anything) and makes every tool's input
+  model strict, closed and bounded, so a bad argument is always a clean `invalid_argument` that echoes nothing large.
+depends_on: []
+depends_on:
+- TC-001
+- TC-005
+- TC-016
+- TC-019a
+- TC-125
+- TC-126
+- TC-131
+- TC-132
+- TC-136
+- TC-142
+- TC-148
+- TC-239
+- TC-242
+- TC-253
+write_paths:
+- src/foss_mcp/indexing/generation_manifest.py
+- src/foss_mcp/mcp/server.py
+- tests/indexing/test_generation_manifest_containment.py
+- tests/mcp/test_tool_input_hardening.py
+satisfies:
+- REQ-G3-006
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Peers will try to break the shipped image: an adversarial suite is a requirement, not an extra (operator, supervisor, pre-TC-355)'
+  sha256: d2caef724bdb4ebdd6139a6775d2e46c22527150b512d2f09d15225ba6375268
+inputs:
+- >-
+  Read src/foss_mcp/indexing/generation_manifest.py in full (`_SEP`, `_clean_component`, `GenerationKey`,
+  `GenerationManifestStore.__init__`, `_scope_dir`, `_generation_path`, `_generation_path_for_id`, `_active_pointer_path`,
+  `_lease_state_path`, `_read_json`, `_atomic_write_json`, `read_active`, `read_generation`, `current_fencing_token`,
+  `generation_exists`), and in src/foss_mcp/mcp/server.py the Pydantic input models (`LookupInput` ... `ReportIndexFreshnessInput`,
+  `_INPUT_MODELS`, `_require_non_empty`, `_TOP_K_MAX`) and `_call_tool`'s three except-branches. Read the existing tests that cover
+  them, which must keep passing UNMODIFIED: tests/indexing/test_generation_manifest.py, tests/indexing/test_publisher.py,
+  tests/infra/test_rollback.py, tests/infra/test_ingest.py, tests/infra/test_serve_http.py, tests/mcp/test_health.py,
+  tests/mcp/test_server_wiring.py, tests/mcp/tools/*.py and tests/deploy/test_adversarial_suite.py. Never print or log any
+  environment value.
+- >-
+  STORE (generation_manifest.py). (1) Add a function named exactly `_contained_scope_dir` (defined as
+  `def _contained_scope_dir(`), a method or module function, that maps a scope string to its directory under the store root and is
+  the ONLY place a scope string becomes a path; `_scope_dir` delegates to it. It accepts a scope only when it splits on `::` into
+  exactly three components, each matching `^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$` and none containing `..`; anything else (a path
+  separator of either kind, `..`, NUL or any other control character, an empty component, more or fewer than three components,
+  a component over 64 characters) raises a new exception class `InvalidScopeError` that subclasses BOTH `GenerationManifestError`
+  and `ValueError`, with a short message that does not repeat the offending value. As defence in depth it also resolves the
+  candidate directory and refuses (same exception) any directory whose resolved path is not inside the resolved store root.
+  (2) The version part of a generation id, used in `generation__{version}.json`, gets the same treatment: a version containing a
+  path separator, `..`, NUL or a control character, or longer than 128 characters, raises `InvalidScopeError` before any path is
+  built. (3) A READ NEVER CREATES ANYTHING: remove the `mkdir` from `_scope_dir`; `read_active`, `read_generation`,
+  `current_fencing_token` and `generation_exists` on a scope that has no directory return exactly what they return today for "never
+  written" (None, UnknownGenerationError, 0, False) without creating a directory or file. Writes keep working because
+  `_atomic_write_json` already creates the parent directory. `GenerationManifestStore.__init__` keeps creating the root (unchanged).
+  (4) Behaviour for every valid scope used anywhere in the repository (family/platform/`self_extracted`, `pdf::net::self_extracted`,
+  `3d::java::self_extracted` and so on) is byte-for-byte unchanged.
+- >-
+  INPUT MODELS (server.py; only the models, `_INPUT_MODELS` and validation helpers; tool descriptions, `schema_for` and the
+  `_call_tool` branches stay as they are). (1) Every input model gets `model_config = ConfigDict(extra="forbid", strict=True)`,
+  so `top_k: true`, `top_k: "3"`, `limit: "5"` and any unknown argument (`family`, `scope`, `extra`) are rejected as
+  invalid_argument. (2) Closed sets: `ReportIndexFreshnessInput.source_kind` is a `Literal` of the four
+  `foss_mcp.normalization.document_schema.SourceKind` values, default `"self_extracted"`; `SearchDocsInput.content_type` and
+  `LookupInput.content_type` (optional) are a `Literal` of `search_docs.CONTENT_TYPES`; `GetProductReferenceInput.section` is a
+  `Literal` of `get_product_reference.SECTIONS`. Derive the Literal members from those existing constants at import time (for
+  example `Literal[tuple(...)]`), never retype the strings. (3) Length caps, so no response can echo a large input: `query` at
+  most 1000 characters, `fqn` at most 512, every other string at most 128. (4) Strip: `fqn` and `query` are returned stripped of
+  surrounding whitespace by their validators (get_symbol and list_members then receive the stripped value, matching
+  search_symbols). (5) Reject any string argument containing NUL or another C0 control character other than tab, newline and
+  carriage return (`query` may contain newlines; `fqn`, `section`, `content_type`, `source_kind` and `current_source_commit` may
+  not). (6) `current_source_commit`: optional; when present it is stripped and lowercased, then must match `^[0-9a-f]{7,64}$`,
+  else invalid_argument; an empty or all-whitespace value is invalid_argument, never treated as a commit. The tool receives the
+  normalised value. (7) Every validation message stays built by `public_validation_error_message` from `exc.errors()` and must
+  never contain the rejected input value itself (pydantic's `msg` does not; assert it).
+- >-
+  tests/indexing/test_generation_manifest_containment.py (NEW, offline, tmp_path only): every QA probe is rejected with
+  `InvalidScopeError` and creates NOTHING (snapshot the set of paths under tmp_path, and under tmp_path's parent where the probe
+  would have landed, before and after): `pdf::net::x/../slides__python__self_extracted`,
+  `pdf::net::self_extracted/../../manifests/cells__rust__self_extracted`, `pdf::net::../../../../tmp/qa_probe_dir`, a backslash
+  variant built with chr(92), a NUL built with chr(0), a 300-character component, two and four components; `read_active` on a
+  VALID but never-written scope returns None and creates no directory (assert the root's listing is unchanged), also when the
+  root directory is made read-only (use `os.chmod` on POSIX; on Windows assert via the no-new-directory snapshot instead, never
+  skip); a valid publish then read round-trips exactly as before; a symlink inside the root that points outside it is refused
+  when the platform can create one, otherwise the test asserts the resolved-path check through a fake root path (never skip);
+  a version containing `/` or `..` raises before any file is written. At least 14 tests, none skipped, no wall-clock timing.
+- >-
+  tests/mcp/test_tool_input_hardening.py (NEW, offline): drive `create_server`'s real call path the way
+  tests/mcp/test_server_wiring.py does (an in-memory store under tmp_path with one small published generation) and assert, each as
+  its own test: every QA traversal `source_kind` returns isError true with code `invalid_argument` and the store root gains no
+  directory; an unknown `source_kind` value such as `totally_new_kind` and `SELF_EXTRACTED` are invalid_argument and create
+  nothing; `top_k: true`, `top_k: "3"`, `limit: "5"` are invalid_argument; an unknown argument is invalid_argument; a 50,000-character
+  query and a 20,000-character fqn are invalid_argument and the whole response text is under 2,000 characters; a NUL in `fqn` and
+  in `source_kind` is invalid_argument and the message contains no "mkdir" and no "null character"; `section='../../etc/passwd'`
+  is invalid_argument whose message names the allowed sections and is not the generic internal-error text; `current_source_commit`
+  in uppercase, with surrounding spaces, and a 7-character prefix are accepted (no error) while `""`, `"   "`, `"xyz"` and a
+  65-character hex string are invalid_argument; `get_symbol` with `"  Aspose.Pdf.Document\n"` resolves the same symbol as
+  without the padding; a valid call of every one of the nine tools still succeeds exactly as before. At least 20 tests, none
+  skipped.
+- >-
+  Run `{python} -m pytest tests/indexing/test_generation_manifest_containment.py tests/mcp/test_tool_input_hardening.py -q -rfE`,
+  then once the second check command below. If an existing test fails because it relied on lax coercion or ignored extra
+  arguments, STOP and report it with the test name; do not edit it (it is outside write_paths). Write commit messages as UTF-8
+  without a byte-order mark.
+actions:
+- Confine every manifest path to the store root, make reads side-effect free, and reject unsafe scope and version strings.
+- Make every tool input model strict, closed, bounded and normalised, so bad arguments are clean invalid_argument errors.
+checks:
+- command: '{python} -m pytest tests/indexing/test_generation_manifest_containment.py tests/mcp/test_tool_input_hardening.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-006
+- command: '{python} -m pytest tests/indexing/test_generation_manifest.py tests/indexing/test_publisher.py tests/infra/test_rollback.py tests/infra/test_ingest.py tests/infra/test_serve_http.py tests/mcp/test_health.py tests/mcp/test_server_wiring.py tests/mcp/tools tests/deploy/test_adversarial_suite.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-006
+min_tests: 34
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/generation_manifest.py');s=p.read_text(encoding='utf-8');old='def _contained_scope_dir(';assert old in s;p.write_text(s.replace(old,'def _contained_scope_dirX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the one function that turns a scope into a contained path, so the store can no longer resolve any scope: the
+    containment tests and the server hardening tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-380/receipt.json
+closeout:
+- >-
+  No tool argument can reach outside the manifest store or create anything on a read, and every malformed, oversized or
+  unknown argument is a clean invalid_argument that echoes nothing large.
+recovery: Re-run from a clean tree.
