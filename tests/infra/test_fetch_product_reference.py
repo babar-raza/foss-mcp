@@ -51,6 +51,14 @@ def _contents_payload(*, path: str, sha: str, content: str) -> bytes:
     ).encode("utf-8")
 
 
+def _listing_payload(*entries: tuple[str, str]) -> bytes:
+    """A Contents-API directory listing (G3/TC-427: build_sidecar lists the repository root once)."""
+    return json.dumps([{"name": name, "type": kind} for name, kind in entries]).encode("utf-8")
+
+
+_ROOT_ENTRIES = (("CONTRIBUTING.md", "file"), ("AGENTS.md", "file"))
+
+
 def _install_fake_urlopen(monkeypatch, responses: dict) -> None:
     """One fake, routed by the Contents-API path at the end of the request URL, installed at
     both ``manifest_reader.urllib.request`` and ``repo_native_reader.urllib.request``. Both
@@ -79,6 +87,7 @@ def test_build_sidecar_with_a_present_manifest_and_both_documents_present(monkey
     _install_fake_urlopen(
         monkeypatch,
         {
+            "": _listing_payload(*_ROOT_ENTRIES),
             "Aspose.PDF.FOSS.csproj": _contents_payload(
                 path="Aspose.PDF.FOSS.csproj", sha="m" * 40, content=manifest_text
             ),
@@ -124,6 +133,7 @@ def test_build_sidecar_with_manifest_path_omitted_never_calls_fetch_manifest_fil
     _install_fake_urlopen(
         monkeypatch,
         {
+            "": _listing_payload(*_ROOT_ENTRIES),
             "CONTRIBUTING.md": _contents_payload(
                 path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"
             ),
@@ -149,6 +159,7 @@ def test_build_sidecar_reports_a_real_404_on_contributing_as_not_present(monkeyp
     _install_fake_urlopen(
         monkeypatch,
         {
+            "": _listing_payload(*_ROOT_ENTRIES),
             "CONTRIBUTING.md": 404,
             "AGENTS.md": _contents_payload(path="AGENTS.md", sha="a" * 40, content="# Agents\n"),
         },
@@ -178,6 +189,7 @@ def test_main_writes_the_real_sidecar_json_matching_build_sidecars_return_value(
     _install_fake_urlopen(
         monkeypatch,
         {
+            "": _listing_payload(*_ROOT_ENTRIES),
             "CONTRIBUTING.md": _contents_payload(
                 path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"
             ),
@@ -219,6 +231,7 @@ def test_main_prints_a_one_line_confirmation(tmp_path: Path, monkeypatch, capsys
     _install_fake_urlopen(
         monkeypatch,
         {
+            "": _listing_payload(*_ROOT_ENTRIES),
             "CONTRIBUTING.md": _contents_payload(
                 path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"
             ),
@@ -287,6 +300,7 @@ def test_main_skips_the_live_fetch_when_the_existing_sidecar_records_the_identic
 
     monkeypatch.setattr(fetch_product_reference, "fetch_manifest_file", _must_not_be_called)
     monkeypatch.setattr(fetch_product_reference, "read_repo_document", _must_not_be_called)
+    monkeypatch.setattr(fetch_product_reference, "list_root_entries", _must_not_be_called)
 
     argv = [
         "fetch_product_reference.py",
@@ -324,6 +338,10 @@ def test_main_fetches_live_when_the_existing_sidecars_ref_differs_from_a_new_pin
         calls.append(("fetch_manifest_file", repository, path, ref))
         return "<Project><TargetFramework>net8.0</TargetFramework></Project>"
 
+    def _fake_list_root_entries(repository, *, ref=None):
+        calls.append(("list_root_entries", repository, "", ref))
+        return list(_ROOT_ENTRIES)
+
     def _fake_read_repo_document(repository, path, *, ref=None):
         calls.append(("read_repo_document", repository, path, ref))
         return repo_native_reader.DocumentPresent(path=path, sha="f" * 40, size=1, content="fresh")
@@ -356,6 +374,7 @@ def test_main_fetches_live_when_the_existing_sidecars_ref_differs_from_a_new_pin
     )
 
     monkeypatch.setattr(fetch_product_reference, "fetch_manifest_file", _fake_fetch_manifest_file)
+    monkeypatch.setattr(fetch_product_reference, "list_root_entries", _fake_list_root_entries)
     monkeypatch.setattr(fetch_product_reference, "read_repo_document", _fake_read_repo_document)
 
     argv = [
@@ -377,6 +396,7 @@ def test_main_fetches_live_when_the_existing_sidecars_ref_differs_from_a_new_pin
 
     assert [call[0] for call in calls] == [
         "fetch_manifest_file",
+        "list_root_entries",
         "read_repo_document",
         "read_repo_document",
     ]
@@ -400,6 +420,10 @@ def test_main_treats_a_malformed_existing_sidecar_as_absent_and_fetches_live(
 
     calls: list[tuple[str, ...]] = []
 
+    def _fake_list_root_entries(repository, *, ref=None):
+        calls.append(("list_root_entries", repository, "", ref))
+        return list(_ROOT_ENTRIES)
+
     def _fake_read_repo_document(repository, path, *, ref=None):
         calls.append(("read_repo_document", repository, path, ref))
         if path == "CONTRIBUTING.md":
@@ -412,6 +436,7 @@ def test_main_treats_a_malformed_existing_sidecar_as_absent_and_fetches_live(
     output_path.write_text("{this is not valid json at all", encoding="utf-8")
 
     monkeypatch.setattr(fetch_product_reference, "fetch_manifest_file", _must_not_be_called)
+    monkeypatch.setattr(fetch_product_reference, "list_root_entries", _fake_list_root_entries)
     monkeypatch.setattr(fetch_product_reference, "read_repo_document", _fake_read_repo_document)
 
     argv = [
@@ -429,7 +454,7 @@ def test_main_treats_a_malformed_existing_sidecar_as_absent_and_fetches_live(
 
     fetch_product_reference.main()
 
-    assert len(calls) == 2
+    assert len(calls) == 3
     written = json.loads(output_path.read_text(encoding="utf-8"))
     assert written["contributing"] == {
         "status": "present",
@@ -512,6 +537,7 @@ def test_load_manifest_sidecar_round_trips_what_build_sidecar_recorded(tmp_path:
     _install_fake_urlopen(
         monkeypatch,
         {
+            "": _listing_payload(*_ROOT_ENTRIES),
             "CONTRIBUTING.md": _contents_payload(
                 path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"
             ),
