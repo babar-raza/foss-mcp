@@ -12,6 +12,8 @@ depends_on:
 write_paths:
 - infra/serve_http.py
 - tests/infra/test_serve_http_session_limits.py
+- tests/infra/test_serve_logging.py
+- tests/infra/test_serve_startup_errors.py
 satisfies:
 - REQ-G3-006
 source_refs:
@@ -37,6 +39,15 @@ inputs:
   one-line startup error with exit code 2; a defect-shaped negative: building the app with the SDK defaults (idle 1800, max 10000) is
   detected as a violation by an assertion on the limits.
 - >-
+  RELATED TESTS THAT STUB THE APP FACTORY (found by the first review): `tests/infra/test_serve_logging.py::test_main_wires_json_logging_and_grace_into_uvicorn`
+  and several tests in `tests/infra/test_serve_startup_errors.py` (`test_a_blank_log_level_means_unset_and_the_server_starts`,
+  `test_valid_values_still_reach_uvicorn_with_the_same_arguments`, `test_the_defaults_still_reach_uvicorn_when_nothing_is_set`,
+  `test_a_zero_grace_is_valid`) replace `streamable_http_app` / the app factory with a stub (`stubbed.<locals>.<lambda>`) that does not accept
+  the new `session_idle_timeout` and `max_sessions` keyword arguments, so they now fail with `TypeError ... unexpected keyword argument
+  'session_idle_timeout'`. Both files are now in your write_paths: update ONLY the stubs so they accept (and where useful record) the new
+  keyword arguments, for example `lambda *a, **k: ...`; do not change what those tests assert about logging, grace seconds or uvicorn
+  arguments, and never delete or skip a test. Run both files, `tests/infra/test_serve_http.py` and the session-limit tests together in check 2.
+- >-
   Run `{python} -m pytest tests/infra/test_serve_http_session_limits.py -q -rfE`, then once
   `{python} -m pytest tests/infra/test_serve_http.py tests/infra/test_serve_http_session_limits.py -q -rfE`. Write commit messages as UTF-8
   without a byte-order mark.
@@ -50,7 +61,7 @@ checks:
   junitxml: true
   proves:
   - REQ-G3-006
-- command: '{python} -m pytest tests/infra/test_serve_http.py tests/infra/test_serve_http_session_limits.py -q -rfE'
+- command: '{python} -m pytest tests/infra/test_serve_http.py tests/infra/test_serve_http_session_limits.py tests/infra/test_serve_logging.py tests/infra/test_serve_startup_errors.py -q -rfE'
   expect: exit 0
   timeout_seconds: 900
   junitxml: true
