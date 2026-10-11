@@ -78,6 +78,15 @@ SHUTDOWN_GRACE_ENV = "FOSS_MCP_SHUTDOWN_GRACE_SECONDS"
 # uvicorn finishes in-flight tool calls before the kubelet sends SIGKILL.
 DEFAULT_SHUTDOWN_GRACE_SECONDS = 25
 
+# Bounds on MCP sessions (G3/TC-421, REQ-G3-006). A session costs about 100 KB and the SDK defaults
+# (30 minutes idle, 10,000 sessions) let any peer that opens sessions and never closes them OOM-kill
+# the 192 MiB demo container in under two minutes. 200 live sessions is about 20 MB; 5 minutes of
+# idleness reaps an abandoned one. Both are overridable through the environment.
+SESSION_IDLE_TIMEOUT_SECONDS = 300
+MAX_SESSIONS = 200
+SESSION_IDLE_ENV = "FOSS_MCP_SESSION_IDLE_SECONDS"
+MAX_SESSIONS_ENV = "FOSS_MCP_MAX_SESSIONS"
+
 # Attributes every LogRecord carries. Anything else on a record came from ``extra=`` and is
 # emitted as a top-level JSON field.
 _STANDARD_RECORD_ATTRS = frozenset(vars(logging.LogRecord("", 0, "", 0, "", None, None))) | {
@@ -137,6 +146,33 @@ def shutdown_grace_seconds() -> int:
     if seconds < 0:
         raise ValueError(f"{SHUTDOWN_GRACE_ENV} must be >= 0, got {seconds}")
     return seconds
+
+
+def _positive_int_from_env(name: str, default: int) -> int:
+    """``name`` as a positive whole number when set and non-empty, else ``default``. Raises
+    ``ValueError`` (never echoing the value) on a non-integer or a value below 1."""
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        raise ValueError(f"{name} must be a whole number") from None
+    if value < 1:
+        raise ValueError(f"{name} must be >= 1")
+    return value
+
+
+def session_idle_timeout_seconds() -> int:
+    """Seconds of inactivity after which an MCP session is closed: ``FOSS_MCP_SESSION_IDLE_SECONDS``
+    when set and non-empty, else ``SESSION_IDLE_TIMEOUT_SECONDS``."""
+    return _positive_int_from_env(SESSION_IDLE_ENV, SESSION_IDLE_TIMEOUT_SECONDS)
+
+
+def max_sessions() -> int:
+    """Most MCP sessions open at once: ``FOSS_MCP_MAX_SESSIONS`` when set and non-empty, else
+    ``MAX_SESSIONS``. Further sessions are refused until room frees up."""
+    return _positive_int_from_env(MAX_SESSIONS_ENV, MAX_SESSIONS)
 
 
 def allowed_origins_from_env() -> list[str]:
@@ -313,6 +349,8 @@ def build_app(
     allowed_origins: list[str] | None = None,
     usage_recorder: UsageRecorder | None = None,
     manifests_dir: Path | None = None,
+    session_idle_timeout: int | None = None,
+    max_session_count: int | None = None,
 ) -> ASGIApp:
     """The ASGI app this container serves: the same ``create_server`` dispatch core as
     stdio, wrapped in Origin/protocol-version rejection, plus real ``/healthz``, ``/readyz``,
@@ -333,7 +371,15 @@ def build_app(
     their own route (``/readyz``, ``/metrics``) - never two separate instances for one running
     deployment, so ``/metrics`` always reports the exact counters ``_call_tool`` is live
     updating.
+
+    ``session_idle_timeout`` and ``max_session_count`` bound the MCP sessions the transport keeps
+    (G3/TC-421); each defaults to its environment variable, else ``SESSION_IDLE_TIMEOUT_SECONDS``
+    / ``MAX_SESSIONS``, and is always passed to the SDK explicitly, never left to its defaults.
     """
+    resolved_idle_timeout = (
+        session_idle_timeout if session_idle_timeout is not None else session_idle_timeout_seconds()
+    )
+    resolved_max_sessions = max_session_count if max_session_count is not None else max_sessions()
     resolved_store = manifest_store if manifest_store is not None else _default_manifest_store()
     resolved_usage_recorder = usage_recorder if usage_recorder is not None else UsageRecorder()
     resolved_manifests_dir = (
@@ -350,6 +396,8 @@ def build_app(
     )
     allowed_origins = allowed_origins_from_env() if allowed_origins is None else allowed_origins
     inner = server.streamable_http_app(
+        session_idle_timeout=resolved_idle_timeout,
+        max_sessions=resolved_max_sessions,
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
         custom_starlette_routes=[
             _healthz_route(),
@@ -390,10 +438,18 @@ def main() -> None:
         grace = shutdown_grace_seconds()
     except ValueError:
         _exit_invalid_setting(SHUTDOWN_GRACE_ENV, "expected a whole number of seconds, 0 or more")
+    try:
+        idle_timeout = session_idle_timeout_seconds()
+    except ValueError:
+        _exit_invalid_setting(SESSION_IDLE_ENV, "expected a whole number of seconds, 1 or more")
+    try:
+        session_cap = max_sessions()
+    except ValueError:
+        _exit_invalid_setting(MAX_SESSIONS_ENV, "expected a whole number of sessions, 1 or more")
     # log_config=None: uvicorn must not install its own dictConfig over configure_logging(),
     # or its access/error lines would bypass the JSON formatter and go to stderr as plain text.
     uvicorn.run(
-        build_app(config),
+        build_app(config, session_idle_timeout=idle_timeout, max_session_count=session_cap),
         host="0.0.0.0",
         port=DEFAULT_PORT,
         log_config=None,
