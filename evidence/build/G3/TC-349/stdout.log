@@ -1,0 +1,1167 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_snapshot_demo_from_cluster.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gfxhf8pi\.junit-0.xml"
+--- stdout ---
+.......................................................................  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gfxhf8pi\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 21%]
+........................................................................ [ 43%]
+........................................................................ [ 65%]
+........................................................................ [ 87%]
+.........................................                                [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_snapshot_demo_from_cluster.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gfxhf8pi\.junit-0.xml"
+--- stdout ---
+.......................................................................  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gfxhf8pi\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 21%]
+........................................................................ [ 43%]
+........................................................................ [ 65%]
+........................................................................ [ 87%]
+.........................................                                [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/release/snapshot_demo_from_cluster.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_snapshot_demo_from_cluster.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gfxhf8pi\.junit-0.xml"
+--- stdout ---
+FFFF.......F.................FFFFFFFFFF.............FFFF.......FFFFFF..  [100%]
+================================== FAILURES ===================================
+_____ test_good_pilot_is_written_with_only_pointer_and_active_generation ______
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B499E80>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_good_pilot_is_written_wit0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9B499FD0>
+
+    def test_good_pilot_is_written_with_only_pointer_and_active_generation(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET)
+    
+        rc, out, err = run_tool(capsys, root, "--only", "pdf_net")
+    
+>       assert rc == 0, (out, err)
+E       AssertionError: ("pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         ...ers\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_good_pilot_is_written_wit0\\demo-manifests
+E         ", '')
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:307: AssertionError
+_______ test_sidecars_land_at_the_root_with_the_right_names_and_content _______
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9D5F5E50>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_sidecars_land_at_the_root0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9D5F5F90>
+
+    def test_sidecars_land_at_the_root_with_the_right_names_and_content(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET)
+        cluster.add(SLIDES_PY)
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--only", "slides_python")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         slides_python: FAILED slides__python__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 2 pilot(s) ok, 2 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_sidecars_land_at_the_root0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:337: AssertionError
+___________________ test_compaction_ran_on_what_was_written ___________________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9D5F6990>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_compaction_ran_on_what_wa0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9D5F6AD0>
+
+    def test_compaction_ran_on_what_was_written(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET)
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_compaction_ran_on_what_wa0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:357: AssertionError
+__________________ test_only_get_pods_and_exec_tar_ever_run ___________________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B5D8180>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_only_get_pods_and_exec_ta0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9B5D83E0>
+
+    def test_only_get_pods_and_exec_tar_ever_run(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET)
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_only_get_pods_and_exec_ta0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:376: AssertionError
+_______________ test_a_ready_pod_is_chosen_over_an_unready_one ________________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9D2ECAA0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_a_ready_pod_is_chosen_ove0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9D2EC7D0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000024A9D27E680>
+
+    def test_a_ready_pod_is_chosen_over_an_unready_one(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        cluster.add(PDF_NET)
+        good = cluster.pods[release_of(PDF_NET)]
+        bad = {
+            "metadata": {"name": "foss-mcp-pdf-net-0-aaaaa"},
+            "status": {"phase": "Pending", "conditions": [{"type": "Ready", "status": "False"}]},
+        }
+    
+        def two_pods(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+            if cmd[:3] == ["kubectl", "get", "pods"]:
+                cluster.calls.append(list(cmd))
+                return subprocess.CompletedProcess(cmd, 0, json.dumps({"items": [bad, good]}).encode(), b"")
+            return cluster(cmd, **kwargs)
+    
+        monkeypatch.setattr(snap.subprocess, "run", two_pods)
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_a_ready_pod_is_chosen_ove0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:491: AssertionError
+__ test_each_missing_sidecar_fails_the_pilot_and_is_named[product_reference] __
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52F230>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_each_missing_sidecar_fail0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9D6122D0>
+label = 'product_reference'
+
+    @pytest.mark.parametrize("label", SIDECAR_LABELS)
+    def test_each_missing_sidecar_fails_the_pilot_and_is_named(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+        assert rc == 1
+>       assert f"pdf_net: FAILED {scope_of(PDF_NET)}: missing sidecar(s) {sidecar_name_of(label, PDF_NET)}" in out
+E       assert 'pdf_net: FAILED pdf__net__self_extracted: missing sidecar(s) product_reference_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_each_missing_sidecar_fail0\\demo-manifests\n"
+
+tests\deploy\test_snapshot_demo_from_cluster.py:602: AssertionError
+___ test_each_missing_sidecar_fails_the_pilot_and_is_named[recent_releases] ___
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52E4A0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_each_missing_sidecar_fail1/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9D6121D0>
+label = 'recent_releases'
+
+    @pytest.mark.parametrize("label", SIDECAR_LABELS)
+    def test_each_missing_sidecar_fails_the_pilot_and_is_named(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+        assert rc == 1
+>       assert f"pdf_net: FAILED {scope_of(PDF_NET)}: missing sidecar(s) {sidecar_name_of(label, PDF_NET)}" in out
+E       assert 'pdf_net: FAILED pdf__net__self_extracted: missing sidecar(s) recent_releases_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_each_missing_sidecar_fail1\\demo-manifests\n"
+
+tests\deploy\test_snapshot_demo_from_cluster.py:602: AssertionError
+__ test_each_missing_sidecar_fails_the_pilot_and_is_named[package_registry] ___
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52EA50>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_each_missing_sidecar_fail2/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9D612DD0>
+label = 'package_registry'
+
+    @pytest.mark.parametrize("label", SIDECAR_LABELS)
+    def test_each_missing_sidecar_fails_the_pilot_and_is_named(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+        assert rc == 1
+>       assert f"pdf_net: FAILED {scope_of(PDF_NET)}: missing sidecar(s) {sidecar_name_of(label, PDF_NET)}" in out
+E       assert 'pdf_net: FAILED pdf__net__self_extracted: missing sidecar(s) package_registry_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_each_missing_sidecar_fail2\\demo-manifests\n"
+
+tests\deploy\test_snapshot_demo_from_cluster.py:602: AssertionError
+_ test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[product_reference] _
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52F5B0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_each_missing_sidecar_pass0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC62CE50>
+label = 'product_reference'
+
+    @pytest.mark.parametrize("label", SIDECAR_LABELS)
+    def test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--allow-missing-sidecars")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_each_missing_sidecar_pass0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:614: AssertionError
+_ test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[recent_releases] _
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9D1709F0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_each_missing_sidecar_pass1/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9B641050>
+label = 'recent_releases'
+
+    @pytest.mark.parametrize("label", SIDECAR_LABELS)
+    def test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--allow-missing-sidecars")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_each_missing_sidecar_pass1\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:614: AssertionError
+_ test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[package_registry] _
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B4BC600>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_each_missing_sidecar_pass2/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9B6420D0>
+label = 'package_registry'
+
+    @pytest.mark.parametrize("label", SIDECAR_LABELS)
+    def test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--allow-missing-sidecars")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_each_missing_sidecar_pass2\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:614: AssertionError
+_____________ test_all_three_missing_sidecars_are_named_together ______________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B4427B0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_all_three_missing_sidecar0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9D258CD0>
+
+    def test_all_three_missing_sidecars_are_named_together(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=SIDECAR_LABELS))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+        assert rc == 1
+        for label in SIDECAR_LABELS:
+>           assert sidecar_name_of(label, PDF_NET) in out
+E           assert 'product_reference_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_all_three_missing_sidecar0\\demo-manifests\n"
+E            +  where 'product_reference_pdf_net.json' = sidecar_name_of('product_reference', {'family': 'pdf', 'platform': 'net', 'sourceKind': 'self_extracted', 'heldBy': 'ingestion-pdf-net', ...})
+
+tests\deploy\test_snapshot_demo_from_cluster.py:631: AssertionError
+________________ test_an_empty_or_unparseable_sidecar_fails[] _________________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52EC10>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_an_empty_or_unparseable_s0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9B511450>
+bad = b''
+
+    @pytest.mark.parametrize("bad", [b"", b"not json", b"\xff\xfe"])
+    def test_an_empty_or_unparseable_sidecar_fails(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], bad: bytes
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, sidecar_override={"recent_releases": bad}))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+        assert rc == 1
+>       assert f"sidecar {sidecar_name_of('recent_releases', PDF_NET)} is not valid JSON" in out
+E       assert 'sidecar recent_releases_pdf_net.json is not valid JSON' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_an_empty_or_unparseable_s0\\demo-manifests\n"
+
+tests\deploy\test_snapshot_demo_from_cluster.py:644: AssertionError
+____________ test_an_empty_or_unparseable_sidecar_fails[not json] _____________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B443540>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_an_empty_or_unparseable_s1/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9B512D50>
+bad = b'not json'
+
+    @pytest.mark.parametrize("bad", [b"", b"not json", b"\xff\xfe"])
+    def test_an_empty_or_unparseable_sidecar_fails(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], bad: bytes
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, sidecar_override={"recent_releases": bad}))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+        assert rc == 1
+>       assert f"sidecar {sidecar_name_of('recent_releases', PDF_NET)} is not valid JSON" in out
+E       assert 'sidecar recent_releases_pdf_net.json is not valid JSON' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_an_empty_or_unparseable_s1\\demo-manifests\n"
+
+tests\deploy\test_snapshot_demo_from_cluster.py:644: AssertionError
+____________ test_an_empty_or_unparseable_sidecar_fails[\xff\xfe] _____________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52EDD0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_an_empty_or_unparseable_s2/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC62E0D0>
+bad = b'\xff\xfe'
+
+    @pytest.mark.parametrize("bad", [b"", b"not json", b"\xff\xfe"])
+    def test_an_empty_or_unparseable_sidecar_fails(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], bad: bytes
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, sidecar_override={"recent_releases": bad}))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+        assert rc == 1
+>       assert f"sidecar {sidecar_name_of('recent_releases', PDF_NET)} is not valid JSON" in out
+E       assert 'sidecar recent_releases_pdf_net.json is not valid JSON' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_an_empty_or_unparseable_s2\\demo-manifests\n"
+
+tests\deploy\test_snapshot_demo_from_cluster.py:644: AssertionError
+_ test_a_failed_pilot_keeps_its_previous_files_while_the_others_still_succeed _
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52E4A0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_a_failed_pilot_keeps_its_0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC62D8D0>
+
+    def test_a_failed_pilot_keeps_its_previous_files_while_the_others_still_succeed(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET)
+        cluster.add(PDF_GO)
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--only", "pdf_go")
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         pdf_go: FAILED pdf__go__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 2 pilot(s) ok, 2 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_a_failed_pilot_keeps_its_0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:772: AssertionError
+_ test_a_pilot_that_fails_validation_after_a_good_run_leaves_every_file_byte_identical _
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B443620>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_a_pilot_that_fails_valida0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9B5123D0>
+
+    def test_a_pilot_that_fails_validation_after_a_good_run_leaves_every_file_byte_identical(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET)
+>       assert run_tool(capsys, root, "--only", "pdf_net")[0] == 0
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:797: AssertionError
+______________________ test_a_second_run_changes_nothing ______________________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52EAC0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_a_second_run_changes_noth0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC6F90D0>
+
+    def test_a_second_run_changes_nothing(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET)
+        cluster.add(SLIDES_PY)
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--only", "slides_python")
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         slides_python: FAILED slides__python__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 2 pilot(s) ok, 2 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_a_second_run_changes_noth0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:822: AssertionError
+_____________________ test_only_selects_the_named_pilots ______________________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B4431C0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_only_selects_the_named_pi0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC6FA3D0>
+
+    def test_only_selects_the_named_pilots(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        for pilot in (PDF_NET, PDF_GO, SLIDES_PY):
+            cluster.add(pilot)
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_go", "--only", "slides_python")
+    
+>       assert rc == 0, out
+E       AssertionError: slides_python: FAILED slides__python__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         pdf_go: FAILED pdf__go__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 2 pilot(s) ok, 2 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_only_selects_the_named_pi0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:842: AssertionError
+_____________ test_dry_run_reads_and_validates_but_writes_nothing _____________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B4426D0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_dry_run_reads_and_validat0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC656DD0>
+
+    def test_dry_run_reads_and_validates_but_writes_nothing(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET)
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--dry-run")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_dry_run_reads_and_validat0\demo-manifests (dry run, nothing written)
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:894: AssertionError
+_________________ test_a_dry_run_still_fails_an_invalid_pilot _________________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B5CF460>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_a_dry_run_still_fails_an_0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC657ED0>
+
+    def test_a_dry_run_still_fails_an_invalid_pilot(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=("recent_releases",)))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--dry-run")
+    
+>       assert rc == 1 and sidecar_name_of("recent_releases", PDF_NET) in out
+E       assert (1 == 1 and 'recent_releases_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...ocal\\Temp\\pytest-of-babar\\pytest-5548\\test_a_dry_run_still_fails_an_0\\demo-manifests (dry run, nothing written)\n")
+E        +  where 'recent_releases_pdf_net.json' = sidecar_name_of('recent_releases', {'family': 'pdf', 'platform': 'net', 'sourceKind': 'self_extracted', 'heldBy': 'ingestion-pdf-net', ...})
+
+tests\deploy\test_snapshot_demo_from_cluster.py:915: AssertionError
+_____________ test_the_final_compaction_runs_over_the_whole_root ______________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52FA10>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_the_final_compaction_runs0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC62EAD0>
+
+    def test_the_final_compaction_runs_over_the_whole_root(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        foreign = _write_uncompacted_scope(root, "zzz__lang__self_extracted")
+        cluster.add(PDF_NET)
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 1 pilot(s) ok, 1 failed; tree 963 bytes in 2 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_the_final_compaction_runs0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:943: AssertionError
+_ test_a_broken_scope_in_the_root_fails_the_run_after_the_pilots_were_written _
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B5CFAF0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_a_broken_scope_in_the_roo0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC655250>
+
+    def test_a_broken_scope_in_the_root_fails_the_run_after_the_pilots_were_written(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        (root / "broken__scope__self_extracted").mkdir(parents=True)  # no pointer
+        cluster.add(PDF_NET)
+    
+        rc, out, err = run_tool(capsys, root, "--only", "pdf_net")
+    
+        assert rc == 1
+        assert "compaction failed" in err and "broken__scope__self_extracted" in err
+>       assert "pdf_net: ok [written]" in out
+E       assert 'pdf_net: ok [written]' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_a_broken_scope_in_the_roo0\\demo-manifests\n"
+
+tests\deploy\test_snapshot_demo_from_cluster.py:959: AssertionError
+________________ test_every_pilot_in_the_chart_is_snapshotted _________________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B442740>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_every_pilot_in_the_chart_0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC654B50>
+
+    def test_every_pilot_in_the_chart_is_snapshotted(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        chart_pilots = pilots.load_pilots()
+        count = len(chart_pilots)
+        assert count == pilots.PILOT_COUNT
+        for pilot in chart_pilots:
+            cluster.add(pilot)
+    
+        rc, out, err = run_tool(capsys, root)
+    
+>       assert rc == 0, (out, err)
+E       AssertionError: ("pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         ...ers\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_every_pilot_in_the_chart_0\\demo-manifests
+E         ", '')
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:973: AssertionError
+_______________ test_no_environment_value_appears_in_any_output _______________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B5CF540>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_no_environment_value_appe0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9B513DD0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000024A9B5CE040>
+
+    def test_no_environment_value_appears_in_any_output(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        secrets = {
+            "KUBECONFIG": "tc349-sentinel-kubeconfig-path",
+            "GITHUB_TOKEN": "tc349-sentinel-github-token",
+            "FOSS_MCP_EMBEDDING_GATEWAY_API_KEY": "tc349-sentinel-api-key",
+            "KUBE_TOKEN": "tc349-sentinel-kube-token",
+        }
+        for name, value in secrets.items():
+            monkeypatch.setenv(name, value)
+        cluster.add(PDF_NET)
+        cluster.add(PDF_GO, phase="Pending", ready=False)
+        cluster.add(SLIDES_PY, pilot_tar(SLIDES_PY, extra=(("sym", "./l", "/etc"),)))
+    
+        rc, out, err = run_tool(capsys, root, "--only", "pdf_net", "--only", "pdf_go", "--only", "slides_python")
+        rc2, out2, err2 = run_tool(capsys, root, "--only", "pdf_net", "--dry-run")
+    
+>       assert rc == 1 and rc2 == 0
+E       assert (1 == 1 and 1 == 0)
+
+tests\deploy\test_snapshot_demo_from_cluster.py:1014: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_good_pilot_is_written_with_only_pointer_and_active_generation
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_sidecars_land_at_the_root_with_the_right_names_and_content
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_compaction_ran_on_what_was_written
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_only_get_pods_and_exec_tar_ever_run
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_ready_pod_is_chosen_over_an_unready_one
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_fails_the_pilot_and_is_named[product_reference]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_fails_the_pilot_and_is_named[recent_releases]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_fails_the_pilot_and_is_named[package_registry]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[product_reference]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[recent_releases]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[package_registry]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_all_three_missing_sidecars_are_named_together
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_an_empty_or_unparseable_sidecar_fails[]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_an_empty_or_unparseable_sidecar_fails[not json]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_an_empty_or_unparseable_sidecar_fails[\xff\xfe]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_failed_pilot_keeps_its_previous_files_while_the_others_still_succeed
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_pilot_that_fails_validation_after_a_good_run_leaves_every_file_byte_identical
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_second_run_changes_nothing
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_only_selects_the_named_pilots
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_dry_run_reads_and_validates_but_writes_nothing
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_dry_run_still_fails_an_invalid_pilot
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_the_final_compaction_runs_over_the_whole_root
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_broken_scope_in_the_root_fails_the_run_after_the_pilots_were_written
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_every_pilot_in_the_chart_is_snapshotted
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_no_environment_value_appears_in_any_output
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gfxhf8pi\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 21%]
+........................................................................ [ 43%]
+........................................................................ [ 65%]
+..........................................FFFF.......F.................F [ 87%]
+FFFFFFFFF.............FFFF.......FFFFFF..                                [100%]
+================================== FAILURES ===================================
+_____ test_good_pilot_is_written_with_only_pointer_and_active_generation ______
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE0B7230>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_good_pilot_is_written_wit0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AE2BD6D0>
+
+    def test_good_pilot_is_written_with_only_pointer_and_active_generation(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET)
+    
+        rc, out, err = run_tool(capsys, root, "--only", "pdf_net")
+    
+>       assert rc == 0, (out, err)
+E       AssertionError: ("pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         ...ers\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_good_pilot_is_written_wit0\\demo-manifests
+E         ", '')
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:307: AssertionError
+_______ test_sidecars_land_at_the_root_with_the_right_names_and_content _______
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AF599450>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_sidecars_land_at_the_root0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AE4F20D0>
+
+    def test_sidecars_land_at_the_root_with_the_right_names_and_content(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET)
+        cluster.add(SLIDES_PY)
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--only", "slides_python")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         slides_python: FAILED slides__python__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 2 pilot(s) ok, 2 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_sidecars_land_at_the_root0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:337: AssertionError
+___________________ test_compaction_ran_on_what_was_written ___________________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AF599D10>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_compaction_ran_on_what_wa0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AF5D9DD0>
+
+    def test_compaction_ran_on_what_was_written(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET)
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_compaction_ran_on_what_wa0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:357: AssertionError
+__________________ test_only_get_pods_and_exec_tar_ever_run ___________________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE2DC2B0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_only_get_pods_and_exec_ta0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AF5424D0>
+
+    def test_only_get_pods_and_exec_tar_ever_run(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET)
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_only_get_pods_and_exec_ta0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:376: AssertionError
+_______________ test_a_ready_pod_is_chosen_over_an_unready_one ________________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE343110>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_a_ready_pod_is_chosen_ove0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFEBA750>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002C8AE4972A0>
+
+    def test_a_ready_pod_is_chosen_over_an_unready_one(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        cluster.add(PDF_NET)
+        good = cluster.pods[release_of(PDF_NET)]
+        bad = {
+            "metadata": {"name": "foss-mcp-pdf-net-0-aaaaa"},
+            "status": {"phase": "Pending", "conditions": [{"type": "Ready", "status": "False"}]},
+        }
+    
+        def two_pods(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+            if cmd[:3] == ["kubectl", "get", "pods"]:
+                cluster.calls.append(list(cmd))
+                return subprocess.CompletedProcess(cmd, 0, json.dumps({"items": [bad, good]}).encode(), b"")
+            return cluster(cmd, **kwargs)
+    
+        monkeypatch.setattr(snap.subprocess, "run", two_pods)
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_a_ready_pod_is_chosen_ove0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:491: AssertionError
+__ test_each_missing_sidecar_fails_the_pilot_and_is_named[product_reference] __
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE226F20>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_each_missing_sidecar_fail0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFE0FA50>
+label = 'product_reference'
+
+    @pytest.mark.parametrize("label", SIDECAR_LABELS)
+    def test_each_missing_sidecar_fails_the_pilot_and_is_named(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+        assert rc == 1
+>       assert f"pdf_net: FAILED {scope_of(PDF_NET)}: missing sidecar(s) {sidecar_name_of(label, PDF_NET)}" in out
+E       assert 'pdf_net: FAILED pdf__net__self_extracted: missing sidecar(s) product_reference_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_each_missing_sidecar_fail0\\demo-manifests\n"
+
+tests\deploy\test_snapshot_demo_from_cluster.py:602: AssertionError
+___ test_each_missing_sidecar_fails_the_pilot_and_is_named[recent_releases] ___
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE224FA0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_each_missing_sidecar_fail1/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AF5DA1D0>
+label = 'recent_releases'
+
+    @pytest.mark.parametrize("label", SIDECAR_LABELS)
+    def test_each_missing_sidecar_fails_the_pilot_and_is_named(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+        assert rc == 1
+>       assert f"pdf_net: FAILED {scope_of(PDF_NET)}: missing sidecar(s) {sidecar_name_of(label, PDF_NET)}" in out
+E       assert 'pdf_net: FAILED pdf__net__self_extracted: missing sidecar(s) recent_releases_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_each_missing_sidecar_fail1\\demo-manifests\n"
+
+tests\deploy\test_snapshot_demo_from_cluster.py:602: AssertionError
+__ test_each_missing_sidecar_fails_the_pilot_and_is_named[package_registry] ___
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE2273F0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_each_missing_sidecar_fail2/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFF8E2D0>
+label = 'package_registry'
+
+    @pytest.mark.parametrize("label", SIDECAR_LABELS)
+    def test_each_missing_sidecar_fails_the_pilot_and_is_named(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+        assert rc == 1
+>       assert f"pdf_net: FAILED {scope_of(PDF_NET)}: missing sidecar(s) {sidecar_name_of(label, PDF_NET)}" in out
+E       assert 'pdf_net: FAILED pdf__net__self_extracted: missing sidecar(s) package_registry_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_each_missing_sidecar_fail2\\demo-manifests\n"
+
+tests\deploy\test_snapshot_demo_from_cluster.py:602: AssertionError
+_ test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[product_reference] _
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE2277E0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_each_missing_sidecar_pass0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFF8E8D0>
+label = 'product_reference'
+
+    @pytest.mark.parametrize("label", SIDECAR_LABELS)
+    def test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--allow-missing-sidecars")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_each_missing_sidecar_pass0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:614: AssertionError
+_ test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[recent_releases] _
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE226DD0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_each_missing_sidecar_pass1/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AF5799D0>
+label = 'recent_releases'
+
+    @pytest.mark.parametrize("label", SIDECAR_LABELS)
+    def test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--allow-missing-sidecars")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_each_missing_sidecar_pass1\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:614: AssertionError
+_ test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[package_registry] _
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE226CF0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_each_missing_sidecar_pass2/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AF57B0D0>
+label = 'package_registry'
+
+    @pytest.mark.parametrize("label", SIDECAR_LABELS)
+    def test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--allow-missing-sidecars")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_each_missing_sidecar_pass2\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:614: AssertionError
+_____________ test_all_three_missing_sidecars_are_named_together ______________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE224BB0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_all_three_missing_sidecar0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AF57A8D0>
+
+    def test_all_three_missing_sidecars_are_named_together(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=SIDECAR_LABELS))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+        assert rc == 1
+        for label in SIDECAR_LABELS:
+>           assert sidecar_name_of(label, PDF_NET) in out
+E           assert 'product_reference_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_all_three_missing_sidecar0\\demo-manifests\n"
+E            +  where 'product_reference_pdf_net.json' = sidecar_name_of('product_reference', {'family': 'pdf', 'platform': 'net', 'sourceKind': 'self_extracted', 'heldBy': 'ingestion-pdf-net', ...})
+
+tests\deploy\test_snapshot_demo_from_cluster.py:631: AssertionError
+________________ test_an_empty_or_unparseable_sidecar_fails[] _________________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE225E10>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_an_empty_or_unparseable_s0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AE3116D0>
+bad = b''
+
+    @pytest.mark.parametrize("bad", [b"", b"not json", b"\xff\xfe"])
+    def test_an_empty_or_unparseable_sidecar_fails(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], bad: bytes
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, sidecar_override={"recent_releases": bad}))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+        assert rc == 1
+>       assert f"sidecar {sidecar_name_of('recent_releases', PDF_NET)} is not valid JSON" in out
+E       assert 'sidecar recent_releases_pdf_net.json is not valid JSON' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_an_empty_or_unparseable_s0\\demo-manifests\n"
+
+tests\deploy\test_snapshot_demo_from_cluster.py:644: AssertionError
+____________ test_an_empty_or_unparseable_sidecar_fails[not json] _____________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE227380>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_an_empty_or_unparseable_s1/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AE311AD0>
+bad = b'not json'
+
+    @pytest.mark.parametrize("bad", [b"", b"not json", b"\xff\xfe"])
+    def test_an_empty_or_unparseable_sidecar_fails(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], bad: bytes
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, sidecar_override={"recent_releases": bad}))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+        assert rc == 1
+>       assert f"sidecar {sidecar_name_of('recent_releases', PDF_NET)} is not valid JSON" in out
+E       assert 'sidecar recent_releases_pdf_net.json is not valid JSON' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_an_empty_or_unparseable_s1\\demo-manifests\n"
+
+tests\deploy\test_snapshot_demo_from_cluster.py:644: AssertionError
+____________ test_an_empty_or_unparseable_sidecar_fails[\xff\xfe] _____________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE226580>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_an_empty_or_unparseable_s2/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AE2BF1D0>
+bad = b'\xff\xfe'
+
+    @pytest.mark.parametrize("bad", [b"", b"not json", b"\xff\xfe"])
+    def test_an_empty_or_unparseable_sidecar_fails(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], bad: bytes
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, sidecar_override={"recent_releases": bad}))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+        assert rc == 1
+>       assert f"sidecar {sidecar_name_of('recent_releases', PDF_NET)} is not valid JSON" in out
+E       assert 'sidecar recent_releases_pdf_net.json is not valid JSON' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_an_empty_or_unparseable_s2\\demo-manifests\n"
+
+tests\deploy\test_snapshot_demo_from_cluster.py:644: AssertionError
+_ test_a_failed_pilot_keeps_its_previous_files_while_the_others_still_succeed _
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE226CF0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_a_failed_pilot_keeps_its_0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFF8D450>
+
+    def test_a_failed_pilot_keeps_its_previous_files_while_the_others_still_succeed(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET)
+        cluster.add(PDF_GO)
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--only", "pdf_go")
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         pdf_go: FAILED pdf__go__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 2 pilot(s) ok, 2 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_a_failed_pilot_keeps_its_0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:772: AssertionError
+_ test_a_pilot_that_fails_validation_after_a_good_run_leaves_every_file_byte_identical _
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE225A20>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_a_pilot_that_fails_valida0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AE0630D0>
+
+    def test_a_pilot_that_fails_validation_after_a_good_run_leaves_every_file_byte_identical(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET)
+>       assert run_tool(capsys, root, "--only", "pdf_net")[0] == 0
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:797: AssertionError
+______________________ test_a_second_run_changes_nothing ______________________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE2255C0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_a_second_run_changes_noth0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AF578550>
+
+    def test_a_second_run_changes_nothing(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET)
+        cluster.add(SLIDES_PY)
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--only", "slides_python")
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         slides_python: FAILED slides__python__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 2 pilot(s) ok, 2 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_a_second_run_changes_noth0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:822: AssertionError
+_____________________ test_only_selects_the_named_pilots ______________________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE227460>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_only_selects_the_named_pi0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFE0C8D0>
+
+    def test_only_selects_the_named_pilots(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        for pilot in (PDF_NET, PDF_GO, SLIDES_PY):
+            cluster.add(pilot)
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_go", "--only", "slides_python")
+    
+>       assert rc == 0, out
+E       AssertionError: slides_python: FAILED slides__python__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         pdf_go: FAILED pdf__go__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 2 pilot(s) ok, 2 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_only_selects_the_named_pi0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:842: AssertionError
+_____________ test_dry_run_reads_and_validates_but_writes_nothing _____________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE2269E0>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_dry_run_reads_and_validat0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AF541BD0>
+
+    def test_dry_run_reads_and_validates_but_writes_nothing(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET)
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--dry-run")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_dry_run_reads_and_validat0\demo-manifests (dry run, nothing written)
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:894: AssertionError
+_________________ test_a_dry_run_still_fails_an_invalid_pilot _________________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE4D3B60>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_a_dry_run_still_fails_an_0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFE0DC50>
+
+    def test_a_dry_run_still_fails_an_invalid_pilot(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=("recent_releases",)))
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--dry-run")
+    
+>       assert rc == 1 and sidecar_name_of("recent_releases", PDF_NET) in out
+E       assert (1 == 1 and 'recent_releases_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...ocal\\Temp\\pytest-of-babar\\pytest-5550\\test_a_dry_run_still_fails_an_0\\demo-manifests (dry run, nothing written)\n")
+E        +  where 'recent_releases_pdf_net.json' = sidecar_name_of('recent_releases', {'family': 'pdf', 'platform': 'net', 'sourceKind': 'self_extracted', 'heldBy': 'ingestion-pdf-net', ...})
+
+tests\deploy\test_snapshot_demo_from_cluster.py:915: AssertionError
+_____________ test_the_final_compaction_runs_over_the_whole_root ______________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE227A80>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_the_final_compaction_runs0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFE0EDD0>
+
+    def test_the_final_compaction_runs_over_the_whole_root(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        foreign = _write_uncompacted_scope(root, "zzz__lang__self_extracted")
+        cluster.add(PDF_NET)
+    
+        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+    
+>       assert rc == 0, out
+E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         total: 0 of 1 pilot(s) ok, 1 failed; tree 963 bytes in 2 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_the_final_compaction_runs0\demo-manifests
+E         
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:943: AssertionError
+_ test_a_broken_scope_in_the_root_fails_the_run_after_the_pilots_were_written _
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE4D0C90>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_a_broken_scope_in_the_roo0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AE062950>
+
+    def test_a_broken_scope_in_the_root_fails_the_run_after_the_pilots_were_written(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        (root / "broken__scope__self_extracted").mkdir(parents=True)  # no pointer
+        cluster.add(PDF_NET)
+    
+        rc, out, err = run_tool(capsys, root, "--only", "pdf_net")
+    
+        assert rc == 1
+        assert "compaction failed" in err and "broken__scope__self_extracted" in err
+>       assert "pdf_net: ok [written]" in out
+E       assert 'pdf_net: ok [written]' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_a_broken_scope_in_the_roo0\\demo-manifests\n"
+
+tests\deploy\test_snapshot_demo_from_cluster.py:959: AssertionError
+________________ test_every_pilot_in_the_chart_is_snapshotted _________________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE226C80>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_every_pilot_in_the_chart_0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AE061D50>
+
+    def test_every_pilot_in_the_chart_is_snapshotted(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        chart_pilots = pilots.load_pilots()
+        count = len(chart_pilots)
+        assert count == pilots.PILOT_COUNT
+        for pilot in chart_pilots:
+            cluster.add(pilot)
+    
+        rc, out, err = run_tool(capsys, root)
+    
+>       assert rc == 0, (out, err)
+E       AssertionError: ("pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
+E         ...ers\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_every_pilot_in_the_chart_0\\demo-manifests
+E         ", '')
+E       assert 1 == 0
+
+tests\deploy\test_snapshot_demo_from_cluster.py:973: AssertionError
+_______________ test_no_environment_value_appears_in_any_output _______________
+
+cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE4D2040>
+root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_no_environment_value_appe0/demo-manifests')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFE0EAD0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002C8AE4D33F0>
+
+    def test_no_environment_value_appears_in_any_output(
+        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        secrets = {
+            "KUBECONFIG": "tc349-sentinel-kubeconfig-path",
+            "GITHUB_TOKEN": "tc349-sentinel-github-token",
+            "FOSS_MCP_EMBEDDING_GATEWAY_API_KEY": "tc349-sentinel-api-key",
+            "KUBE_TOKEN": "tc349-sentinel-kube-token",
+        }
+        for name, value in secrets.items():
+            monkeypatch.setenv(name, value)
+        cluster.add(PDF_NET)
+        cluster.add(PDF_GO, phase="Pending", ready=False)
+        cluster.add(SLIDES_PY, pilot_tar(SLIDES_PY, extra=(("sym", "./l", "/etc"),)))
+    
+        rc, out, err = run_tool(capsys, root, "--only", "pdf_net", "--only", "pdf_go", "--only", "slides_python")
+        rc2, out2, err2 = run_tool(capsys, root, "--only", "pdf_net", "--dry-run")
+    
+>       assert rc == 1 and rc2 == 0
+E       assert (1 == 1 and 1 == 0)
+
+tests\deploy\test_snapshot_demo_from_cluster.py:1014: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_good_pilot_is_written_with_only_pointer_and_active_generation
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_sidecars_land_at_the_root_with_the_right_names_and_content
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_compaction_ran_on_what_was_written
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_only_get_pods_and_exec_tar_ever_run
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_ready_pod_is_chosen_over_an_unready_one
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_fails_the_pilot_and_is_named[product_reference]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_fails_the_pilot_and_is_named[recent_releases]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_fails_the_pilot_and_is_named[package_registry]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[product_reference]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[recent_releases]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[package_registry]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_all_three_missing_sidecars_are_named_together
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_an_empty_or_unparseable_sidecar_fails[]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_an_empty_or_unparseable_sidecar_fails[not json]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_an_empty_or_unparseable_sidecar_fails[\xff\xfe]
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_failed_pilot_keeps_its_previous_files_while_the_others_still_succeed
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_pilot_that_fails_validation_after_a_good_run_leaves_every_file_byte_identical
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_second_run_changes_nothing
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_only_selects_the_named_pilots
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_dry_run_reads_and_validates_but_writes_nothing
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_dry_run_still_fails_an_invalid_pilot
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_the_final_compaction_runs_over_the_whole_root
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_broken_scope_in_the_root_fails_the_run_after_the_pilots_were_written
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_every_pilot_in_the_chart_is_snapshotted
+FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_no_environment_value_appears_in_any_output
+
+--- stderr ---
+
