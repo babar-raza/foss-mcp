@@ -319,7 +319,12 @@ def test_a_canary_never_appears_in_a_serialized_report(
 SYMBOL_TEXT_WITH_COMMIT = (
     f"FQN: Aspose.Pdf.Alpha\nKind: class_declaration\nSummary of Alpha.\nSource-Commit: {COMMIT}"
 )
-EXAMPLE_CHUNK = f"FQN: Example: sign a file\nExample: certificate signature\nSource-Commit: {COMMIT}"
+# TC-465: a real verified example - the FQN line starts "Example: ", the verifier's own
+# "Kind: verified_example" line, a line exactly "Example:", then the code.
+EXAMPLE_CHUNK = (
+    "FQN: Example: sign a file\nKind: verified_example\n"
+    f"Example:\ndoc.Sign(certificate, signature)\nSource-Commit: {COMMIT}"
+)
 
 
 def _publish(root: Path, texts: list[str]) -> GenerationManifestStore:
