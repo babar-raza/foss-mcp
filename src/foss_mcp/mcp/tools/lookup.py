@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.find_examples import ExampleMatch, find_examples
+from foss_mcp.mcp.tools.relevance import DOCUMENTATION, chunk_kind
 from foss_mcp.mcp.tools.search_docs import CONTENT_TYPES, DocMatch, search_docs
 from foss_mcp.mcp.tools.search_symbols import Miss, SymbolMatch, search_symbols
 
@@ -137,8 +138,13 @@ def lookup(
         for candidate_type in CONTENT_TYPES:
             doc_result = search_docs(store, scope, query, candidate_type, top_k=top_k)
             if isinstance(doc_result, list) and doc_result:
-                doc_matches = tuple(doc_result)
-                break
+                # TC-381: doc_matches are documentation chunks only - a symbol or example chunk
+                # is never offered as documentation (search_docs already guarantees it; this
+                # keeps lookup's own composition honest even if that ever regresses).
+                documentation = tuple(m for m in doc_result if chunk_kind(m.text) == DOCUMENTATION)
+                if documentation:
+                    doc_matches = documentation
+                    break
 
         example_result = find_examples(store, scope, query, top_k=1)
         example = example_result[0] if isinstance(example_result, list) and example_result else None

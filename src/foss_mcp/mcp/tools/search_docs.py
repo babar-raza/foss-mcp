@@ -19,8 +19,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
-from foss_mcp.indexing.lexical_index_writer import query_lexical_index
+from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored
 from foss_mcp.mcp.routing import Scope
+from foss_mcp.mcp.tools.relevance import DOCUMENTATION, RELEVANCE_THRESHOLD, chunk_kind, coverage, query_terms
 from foss_mcp.mcp.tools.search_symbols import scope_key
 
 SOURCE_KIND = "self_extracted"
@@ -103,16 +104,28 @@ def search_docs(
     if not documents:
         return Miss(scope, query, content_type, "published generation has no document index")
 
+    # TC-381: only ``documentation`` chunks are candidates - an API-symbol or example chunk is never
+    # documentation, whatever its words - and the category is derived for those alone.
     matching_doc_ids = {
         doc_id
         for doc_id, document in documents.items()
-        if classify_content_type(document["text"]) == content_type
+        if chunk_kind(document["text"]) == DOCUMENTATION
+        and classify_content_type(document["text"]) == content_type
     }
     if not matching_doc_ids:
         return Miss(scope, query, content_type, f"no documents classified content_type={content_type!r}")
 
-    ranked = query_lexical_index(lexical_payload, query, top_k=len(documents))
-    hits = [doc_id for doc_id in ranked if doc_id in matching_doc_ids][:top_k]
+    # Candidate selection never depends on BM25 having scored the document (a stemmed match such as
+    # "install" vs "Installation" has no BM25 score); BM25 only breaks ties between equal coverage.
+    terms = query_terms(query, scope.family)
+    bm25 = dict(query_lexical_index_scored(lexical_payload, query, top_k=len(documents)))
+    scored: list[tuple[float, float, str]] = []
+    for doc_id in matching_doc_ids:
+        doc_coverage = coverage(terms, documents[doc_id]["tokens"])
+        if doc_coverage >= RELEVANCE_THRESHOLD:
+            scored.append((doc_coverage, bm25.get(doc_id, 0.0), doc_id))
+    scored.sort(key=lambda item: (-item[0], -item[1], item[2]))
+    hits = [doc_id for _coverage, _score, doc_id in scored][:top_k]
     if not hits:
         return Miss(scope, query, content_type, f"no {content_type} documents match {query!r}")
 

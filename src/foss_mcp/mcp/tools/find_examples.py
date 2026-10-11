@@ -10,15 +10,16 @@ A "verified snippet" is a chunk whose self-extracted text carries an ``Example:`
 this project's own convention (the published lexical-index payload has no separate metadata
 field for it, same constraint ``get_symbol``'s ``FQN:`` line convention works around).
 
-The exact-FQN-match branch (``get_symbol``-backed) is already precise and reports
+The exact-FQN-match branch (a direct FQN lookup over the generation's documents) is already precise and reports
 ``coverage=1.0`` unconditionally - it is definitionally exact, never a guess. The semantic
 (BM25) fallback is NOT definitionally exact: before TC-273, any chunk with a strictly-positive
 BM25 score was treated as a confident match, so a single shared common word between the query
 and an otherwise-unrelated chunk (e.g. both mention "page") could manufacture a full-confidence
 ``ExampleMatch`` for a query with no real relevant example in the corpus at all. The fallback
-now ALSO requires ``coverage`` - the fraction of the query's own distinct tokens present in the
-candidate chunk's own tokens - to be at or above ``_COVERAGE_THRESHOLD`` (see its own comment
-for how that number was measured against 3 real pilots). A chunk that only shares a stray
+now ALSO requires ``coverage`` - the fraction of the query's own distinct (stemmed) terms present
+in the candidate chunk's own tokens - to be at or above ``relevance.RELEVANCE_THRESHOLD`` (see
+that module for how the number was measured against 3 real pilots; since TC-381 the scope's
+product-family word is not one of the terms, so it can no longer fill a slot of the floor). A chunk that only shares a stray
 common word with the query clears the old positive-BM25-score bar but not this floor, and the
 fallback now honestly returns ``NoExampleFound`` instead of guessing.
 
@@ -38,31 +39,26 @@ from dataclasses import dataclass
 
 from foss_mcp.indexing.gateway_embedding_provider import GatewayEmbeddingProvider
 from foss_mcp.indexing.generation_manifest import GenerationManifest, GenerationManifestStore
-from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored, tokenize
+from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored
 from foss_mcp.indexing.vector_index_writer import query_vector_index_scored
 from foss_mcp.mcp.routing import Scope
-from foss_mcp.mcp.tools.get_symbol import NotFound, extract_fqn, get_symbol
+from foss_mcp.mcp.tools.get_symbol import extract_fqn
+from foss_mcp.mcp.tools.relevance import (
+    EXAMPLE,
+    RELEVANCE_THRESHOLD,
+    SYMBOL,
+    chunk_kind,
+    coverage,
+    query_terms,
+)
 from foss_mcp.mcp.tools.search_symbols import SOURCE_KIND, scope_key
 
 _EXAMPLE_MARKER = "Example:"
 
-# Empirically measured (TC-273), not guessed: built against 3 real, already-ingested pilots'
-# own lexical indexes (pdf/net, cells/cpp, slides/python - picked from this project's own
-# committed fixtures/generations) across 7 distinct query phrasings per category, split into
-# two measured bounds:
-#   - A query sharing only one or two common words with an otherwise-unrelated verified
-#     example chunk (e.g. "page rotation" against a PDF example that never discusses
-#     rotation, "style guide" against a styled-workbook example that never discusses a
-#     guide, "text alignment" against a slides example that never discusses alignment) -
-#     the exact "page"-style false-confidence regression this floor exists to close - never
-#     reached coverage above 0.500 against ANY example chunk, in ANY of the 3 pilots.
-#   - A query that actually names the real task a verified example answers reached coverage
-#     of at least 0.667, and usually 1.000, against that example, in every one of the 3
-#     pilots, across every phrasing tried (exact title wording and more natural paraphrases
-#     alike).
-# 0.6 sits strictly between both measured bounds (0.500 < 0.6 <= 0.667), with margin on both
-# sides - not a round number picked without this data.
-_COVERAGE_THRESHOLD = 0.6
+# The lexical floor is ``relevance.RELEVANCE_THRESHOLD`` (TC-273's measured 0.6, unchanged; see
+# that module). TC-381 moved it, with the query-term rule, into the one place documentation search,
+# lookup and example search all share, and removed the product-family word from the terms it is
+# computed over: "pdf" occurs in nearly every example, so it used to fill one slot of the floor.
 
 # Empirically measured (TC-331), not guessed: built against 2 real, already-ingested pilots'
 # own real example chunks (pdf/go, 4 examples; pdf/typescript, 4 examples) through the real,
@@ -77,19 +73,42 @@ _COVERAGE_THRESHOLD = 0.6
 _VECTOR_SIMILARITY_THRESHOLD = 0.45
 
 
-def _extract_example(text: str) -> str | None:
-    if _EXAMPLE_MARKER not in text:
-        return None
-    return text.split(_EXAMPLE_MARKER, 1)[1].strip()
+def _is_example_chunk(text: str) -> bool:
+    """An example chunk: a line is exactly ``Example:`` and the chunk is not documentation.
 
-
-def _coverage(query_tokens: frozenset[str], document_tokens: list[str]) -> float:
-    """The fraction of ``query_tokens`` (the query's own DISTINCT tokens) that appear among
-    ``document_tokens`` - the relevance signal the semantic fallback's floor is built on.
+    ``chunk_kind`` ``example`` is the ingested shape (``FQN: Example: <title>``). A ``symbol`` chunk
+    that carries its own ``Example:`` block is accepted too (hand-written symbol-with-example chunks
+    are pinned by tests/mcp/tools/test_symbol_tools.py; no committed demo chunk has that shape, so
+    on real data the two readings coincide). A ``documentation`` chunk never is, whatever it quotes.
     """
-    if not query_tokens:
-        return 0.0
-    return len(query_tokens & set(document_tokens)) / len(query_tokens)
+    if chunk_kind(text) not in (EXAMPLE, SYMBOL):
+        return False
+    return _find_marker_line(text.splitlines(keepends=True)) is not None
+
+
+def _find_marker_line(lines: list[str]) -> int | None:
+    """Index of the LAST line that is exactly ``Example:``, or ``None``."""
+    for index in range(len(lines) - 1, -1, -1):
+        if lines[index].rstrip("\r\n") == _EXAMPLE_MARKER:
+            return index
+    return None
+
+
+def _extract_example(text: str) -> str | None:
+    """The code alone: the text after the LAST line that is exactly ``Example:``, with trailing
+    ``Source-Commit:`` lines and trailing blank lines removed and nothing else changed.
+
+    (The earlier substring split at the first ``Example:`` landed inside the ``FQN: Example: <title>``
+    line, so the snippet began with the title, ``Kind:`` and prose and ended with ``Source-Commit:``.)
+    """
+    lines = text.splitlines(keepends=True)
+    marker = _find_marker_line(lines)
+    if marker is None:
+        return None
+    body = lines[marker + 1 :]
+    while body and (not body[-1].strip() or body[-1].startswith("Source-Commit:")):
+        body.pop()
+    return "".join(body).rstrip("\r\n")
 
 
 @dataclass(frozen=True)
@@ -97,7 +116,7 @@ class ExampleMatch:
     """``coverage`` means two different things depending on ``source`` (TC-331): for
     ``source="exact"`` it is unconditionally ``1.0`` (definitionally exact); for
     ``source="lexical"`` it is the lexical fallback's own token-overlap fraction (see
-    ``_COVERAGE_THRESHOLD``); for ``source="vector"`` it is the vector fallback's own cosine
+    ``relevance.RELEVANCE_THRESHOLD``); for ``source="vector"`` it is the vector fallback's own cosine
     similarity (see ``_VECTOR_SIMILARITY_THRESHOLD``). These two numbers are not
     interchangeable - always check ``source`` before comparing or thresholding ``coverage``
     across matches, rather than assuming it is one fixed kind of number.
@@ -109,21 +128,28 @@ class ExampleMatch:
     snippet: str
     coverage: float
     source: str
+    found: bool = True
 
 
 @dataclass(frozen=True)
 class NoExampleFound:
-    """An explicit miss. Never smoothed over into an unrelated snippet."""
+    """An explicit miss. Never smoothed over into an unrelated snippet.
+
+    ``found`` (always ``False``) and ``reason`` are additive (TC-381): the miss shape the tool
+    description promises carries a found marker and the reason nothing was returned.
+    """
 
     scope: Scope
     query: str
+    found: bool = False
+    reason: str = "no verified example matches this query"
 
 
 def find_examples(
     store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 5
 ) -> list[ExampleMatch] | NoExampleFound:
-    """A verified snippet for *query*: an exact FQN match first (``get_symbol`` under the
-    hood), a semantic (lexical) search over every OTHER example-bearing chunk otherwise.
+    """A verified snippet for *query*: an exact FQN match first (a direct FQN lookup
+    over the generation's documents), a semantic (lexical) search over every OTHER example-bearing chunk otherwise.
 
     Never executes a snippet, and never returns one when nothing - exact or semantic - has
     one to offer.
@@ -131,48 +157,49 @@ def find_examples(
     key = scope_key(scope, SOURCE_KIND)
     active_generation_id = store.read_active(key)
     if active_generation_id is None:
-        return NoExampleFound(scope, query)
+        return NoExampleFound(scope, query, reason="no published generation for this scope")
 
     manifest = store.read_generation(key, active_generation_id)
     lexical_payload = manifest.payload.get("lexical_index")
     documents = (lexical_payload or {}).get("documents") or {}
     if not documents:
-        return NoExampleFound(scope, query)
+        return NoExampleFound(scope, query, reason="published generation has no document index")
 
-    exact = get_symbol(store, scope, query)
-    if not isinstance(exact, NotFound):
-        example = _extract_example(exact.raw_text)
-        if example is not None:
-            return [
-                ExampleMatch(scope, active_generation_id, exact.fqn, example, coverage=1.0, source="exact")
-            ]
+    # Exact branch: the query IS an example's pseudo-FQN. Looked up directly over this generation's
+    # documents (not through ``get_symbol``), so ``get_symbol`` can stop returning pseudo-symbols
+    # without breaking this.
+    for document in documents.values():
+        text = document["text"]
+        if _is_example_chunk(text) and extract_fqn(text) == query:
+            example = _extract_example(text)
+            if example is not None:
+                return [
+                    ExampleMatch(scope, active_generation_id, query, example, coverage=1.0, source="exact")
+                ]
 
-    example_doc_ids = {
-        doc_id for doc_id, document in documents.items() if _EXAMPLE_MARKER in document["text"]
-    }
+    example_doc_ids = [
+        doc_id for doc_id, document in documents.items() if _is_example_chunk(document["text"])
+    ]
     if not example_doc_ids:
-        return NoExampleFound(scope, query)
+        return NoExampleFound(scope, query, reason="no verified example exists in this generation")
 
-    query_tokens = frozenset(tokenize(query))
-    ranked = query_lexical_index_scored(lexical_payload, query, top_k=len(documents))
-    hits: list[tuple[str, float]] = []
-    for doc_id, _score in ranked:
-        if doc_id not in example_doc_ids:
-            continue
-        coverage = _coverage(query_tokens, documents[doc_id]["tokens"])
-        if coverage < _COVERAGE_THRESHOLD:
-            continue
-        hits.append((doc_id, coverage))
-        if len(hits) >= top_k:
-            break
+    terms = query_terms(query, scope.family)
+    bm25 = dict(query_lexical_index_scored(lexical_payload, query, top_k=len(documents)))
+    scored: list[tuple[float, float, str]] = []
+    for doc_id in example_doc_ids:
+        doc_coverage = coverage(terms, documents[doc_id]["tokens"])
+        if doc_coverage >= RELEVANCE_THRESHOLD:
+            scored.append((doc_coverage, bm25.get(doc_id, 0.0), doc_id))
+    scored.sort(key=lambda item: (-item[0], -item[1], item[2]))
+    hits = [(doc_id, doc_coverage) for doc_coverage, _score, doc_id in scored[:top_k]]
     if not hits:
         vector_matches = _vector_fallback(manifest, scope, active_generation_id, query, top_k)
         if vector_matches:
             return vector_matches
-        return NoExampleFound(scope, query)
+        return NoExampleFound(scope, query, reason="no verified example matches this query")
 
     matches = []
-    for doc_id, coverage in hits:
+    for doc_id, doc_coverage in hits:
         text = documents[doc_id]["text"]
         matches.append(
             ExampleMatch(
@@ -180,7 +207,7 @@ def find_examples(
                 generation_id=active_generation_id,
                 fqn=extract_fqn(text) or "",
                 snippet=_extract_example(text) or "",
-                coverage=coverage,
+                coverage=doc_coverage,
                 source="lexical",
             )
         )
@@ -224,7 +251,7 @@ def _vector_fallback(
         for point_id, score in ranked:
             point = point_by_id[point_id]
             text = point["text"]
-            if _EXAMPLE_MARKER not in text:
+            if not _is_example_chunk(text):
                 continue
             if score < _VECTOR_SIMILARITY_THRESHOLD:
                 continue

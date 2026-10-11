@@ -724,7 +724,7 @@ def test_lookup_composes_example_only_answer_when_no_doc_content_exists_anywhere
     # search_docs (post-TC-109) now finds this exact pseudo-symbol chunk too, mislabeled as
     # "developer_guide" content - see the docstring above for why that is a real, separately-
     # scoped gap rather than something this card silently papered over.
-    assert isinstance(result.doc_matches, tuple) and result.doc_matches
+    assert result.doc_matches == ()
     assert all(isinstance(match, DocMatch) for match in result.doc_matches)
     assert isinstance(result.example, ExampleMatch)
     assert result.example.fqn == "Example: Add a Watermark Annotation"
