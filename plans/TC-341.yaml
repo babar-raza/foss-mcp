@@ -18,6 +18,7 @@ write_paths:
 - infra/helm/foss-mcp/templates/ingestion-job.yaml
 - infra/helm/foss-mcp/templates/deployment.yaml
 - infra/helm/foss-mcp/templates/demo-deployment.yaml
+- docker-compose.yml
 - tests/infra/test_helm_vector_scope_probes.py
 satisfies:
 - REQ-G2-043
@@ -38,6 +39,14 @@ inputs:
   the gateway mode). Verify with `helm template` that the rendered command is still one well-formed shell line in both
   modes, exactly as TC-337 did.
 - >-
+  docker-compose.yml (now in your write_paths): tests/infra/test_helm_chart.py
+  ::test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose compares the chart's rendered ingest.py
+  command TOKEN FOR TOKEN against each `ingest-<family>-<platform>` service's `command` in docker-compose.yml, so the
+  same flag must appear there. In every one of the 40 `ingest-*` commands add `--vector-scope examples` immediately
+  after the `--embedding-provider ...` argument - exactly the position you put it in the chart - and change nothing
+  else in that file. Do it with a careful scripted edit and verify afterwards that the file differs only by 40 inserted
+  tokens (`git diff --stat` and a count of `--vector-scope`). Do not run anything under tests/e2e (it needs Docker).
+- >-
   values.yaml `probes:`: add `timeoutSeconds: 5` under `liveness` and `timeoutSeconds: 3` under `readiness`, with a
   short comment that the Kubernetes default of 1 second failed healthy pods on a busy node. Change nothing else there.
 - >-
@@ -52,7 +61,7 @@ inputs:
   both templates. Derive pilot counts from the render, never hard-code them.
 - >-
   Run `{python} -m pytest tests/infra/test_helm_vector_scope_probes.py -q -rfE`, then once
-  `{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_github_token.py tests/infra/test_helm_embedding_gateway.py tests/infra/test_helm_ingestion_embedding.py tests/infra/test_helm_embedding_egress.py -q -rfE`
+  `{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_github_token.py tests/infra/test_helm_embedding_gateway.py tests/infra/test_helm_ingestion_embedding.py tests/infra/test_helm_embedding_egress.py tests/infra/test_compose_pdf_cpp.py tests/infra/test_docker_compose_multi_instance.py tests/infra/test_helm_pilots_match_compose.py -q -rfE`
   to confirm no regression (the Helm CLI needs the toolchain activated in the same command; the second command takes
   several minutes).
 - Write commit messages as UTF-8 without a byte-order mark.
@@ -67,9 +76,9 @@ checks:
   junitxml: true
   proves:
   - REQ-G2-043
-- command: '{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_github_token.py tests/infra/test_helm_embedding_gateway.py tests/infra/test_helm_ingestion_embedding.py tests/infra/test_helm_embedding_egress.py -q -rfE'
+- command: '{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_github_token.py tests/infra/test_helm_embedding_gateway.py tests/infra/test_helm_ingestion_embedding.py tests/infra/test_helm_embedding_egress.py tests/infra/test_compose_pdf_cpp.py tests/infra/test_docker_compose_multi_instance.py tests/infra/test_helm_pilots_match_compose.py -q -rfE'
   expect: exit 0
-  timeout_seconds: 2400
+  timeout_seconds: 3000
   junitxml: true
   proves:
   - REQ-G2-043
