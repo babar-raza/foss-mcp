@@ -220,3 +220,25 @@ def test_the_integrate_command_is_wired_into_the_cli():
     import gatecli as C
 
     assert "integrate" in C.HANDLERS
+
+
+def test_a_late_integrated_status_line_lands_in_timestamp_order_not_at_the_end(tmp_path):
+    status = tmp_path / "status.jsonl"
+    rows = [{"ts": "2026-10-11T08:00:00Z", "card": "A"}, {"ts": "2026-10-11T09:48:11Z", "card": "B"}]
+    status.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    I.insert_status_line(status, json.dumps({"ts": "2026-10-11T08:57:37Z", "card": "C"}))
+    order = [json.loads(x)["card"] for x in status.read_text(encoding="utf-8").splitlines()]
+    assert order == ["A", "C", "B"], "an earlier-stamped line must not follow a later one"
+    stamps = [json.loads(x)["ts"] for x in status.read_text(encoding="utf-8").splitlines()]
+    assert stamps == sorted(stamps)
+
+
+def test_inserting_into_a_log_that_is_already_out_of_order_repairs_it_without_losing_a_line(tmp_path):
+    status = tmp_path / "status.jsonl"
+    status.write_text(
+        "".join(json.dumps({"ts": t, "card": c}) + "\n" for t, c in [("09", "late"), ("08", "early")]),
+        encoding="utf-8",
+    )
+    I.insert_status_line(status, json.dumps({"ts": "10", "card": "new"}))
+    got = [json.loads(x)["card"] for x in status.read_text(encoding="utf-8").splitlines()]
+    assert got == ["early", "late", "new"]

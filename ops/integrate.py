@@ -55,6 +55,28 @@ def _tree_is_clean_of_product_paths() -> tuple[bool, list[str]]:
     return (not dirty), dirty
 
 
+def _line_ts(line: str) -> str:
+    try:
+        return str(json.loads(line).get("ts", ""))
+    except ValueError:
+        return ""
+
+
+def insert_status_line(path: Path, line: str) -> None:
+    """Add `line` to the append-only status log in timestamp order.
+
+    Parallel cards are integrated in the order they are accepted, not the order their workers wrote their lines, so a plain
+    append produced a log whose timestamps went backwards - and `gatectl validate` (rightly) refuses a log like that. The line's
+    own content is never touched; only its position is chosen: after the last line whose timestamp is not later than its own.
+    Any lines already out of order are put in order too (a stable sort), so one bad integration cannot wedge every later one.
+    """
+    existing = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+    lines = [x for x in existing if x.strip()]
+    lines.append(line)
+    lines.sort(key=_line_ts)  # stable: equal timestamps keep their arrival order
+    path.write_text("".join(x + "\n" for x in lines), encoding="utf-8")
+
+
 def _status_line_for(card_id: str, head: str, worktree: Path, main_status: Path) -> str | None:
     """The worker's own status line for this card, copied verbatim, or None if already present.
 
@@ -146,8 +168,7 @@ def integrate(card_id: str) -> dict:
 
     main_status = G.REPO / "ops" / "status.jsonl"
     if p["status_line_to_copy"]:
-        with main_status.open("a", encoding="utf-8") as fh:
-            fh.write(p["status_line_to_copy"] + "\n")
+        insert_status_line(main_status, p["status_line_to_copy"])
 
     G.STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
     G.STATE_FILE.write_text(G.dump_yaml(V.rebuild_state()), encoding="utf-8")

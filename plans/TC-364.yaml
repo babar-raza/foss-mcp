@@ -1,0 +1,91 @@
+id: TC-364
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-005 (pilot completeness), content wave 1 wiring. TC-356, TC-357 and TC-358 committed a documentation page for each of
+  words/python, cells/python, jmap/python, pdf/python, email/python, barcode/python, note/python, html/python, page/python, 3d/python, tex/python, but a page that nothing references is not served: the chart's ingestion.pilots entry needs `furnishedPage`, and the
+  compose ingest service needs the matching `--furnished-page` plus the library flags that make the examples verify. This card wires all
+  eleven the way slides/python is already wired, and pins the wiring with a new parity test, so the next re-ingest of the cluster
+  publishes real documentation and verified examples for them.
+depends_on:
+- TC-356
+- TC-357
+- TC-358
+- TC-352
+- TC-327
+- TC-338
+- TC-341
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- docker-compose.yml
+- tests/infra/test_wave1_python_wiring.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read the `slides`/`python` entry in infra/helm/foss-mcp/values.yaml (ingestion.pilots) and the `ingest-slides-python` service in
+  docker-compose.yml, which are the finished shape; then read the entries for the eleven pilots words_python, cells_python, jmap_python, pdf_python, email_python, barcode_python, note_python, html_python, page_python, 3d_python, tex_python. Each already has a `library`
+  block in values.yaml (repository, commit, platform) but no `furnishedPage`; its compose service has `--api-surface`, `--title`,
+  `--max-types` and `--out` for build_chunks.py but none of `--furnished-page`, `--library-repository`, `--library-commit`,
+  `--library-platform`. Read tests/infra/test_helm_pilots_match_compose.py (read only) to see exactly what it compares so your edit
+  keeps it green without changing it.
+- >-
+  infra/helm/foss-mcp/values.yaml: for each of the eleven pilots add `furnishedPage: /app/fixtures/furnished/<family>_python/pages/_index.md`
+  in the same position slides/python has it (after `maxTypes`, before `manifestPath`). Change nothing else: not the library blocks, not any
+  other pilot, not any other key.
+- >-
+  docker-compose.yml: in each of the eleven `ingest-<family>-python` services, add to the build_chunks.py command, in the same order as
+  `ingest-slides-python`, the lines `--furnished-page /app/fixtures/furnished/<family>_python/pages/_index.md`,
+  `--library-repository <repository>`, `--library-commit <commit>` and `--library-platform python`, using the repository and commit that
+  pilot's values.yaml `library` block already holds (copy them from values.yaml, never retype them from memory). They go between
+  `--max-types 300` and `--out`. Change nothing else.
+- >-
+  tests/infra/test_wave1_python_wiring.py (NEW, offline, reads the repository files only, no helm, no docker): for each of the eleven pilots
+  assert (1) values.yaml has exactly the furnishedPage path above; (2) the file it names exists under tests/fixtures/furnished/ and its
+  front matter carries `doc_source: github_readme` and a `doc_source_commit` equal to that pilot's `library.commit`; (3) the compose
+  service `ingest-<family>-python` passes the same `--furnished-page`, and `--library-repository`, `--library-commit`,
+  `--library-platform` equal to values.yaml's library block, all inside the build_chunks.py invocation and before `--out`; (4) no pilot
+  other than the eleven (and the ones that already had a page) gained a furnishedPage. Parametrize over the eleven so a failure names the
+  pilot. Do not hard-code the commits: read them from values.yaml.
+- >-
+  Run `{python} -m pytest tests/infra/test_wave1_python_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE`, then once
+  `{python} -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker"`.
+  Do not render the chart or start containers. Write commit messages as UTF-8 without a byte-order mark. The repository pre-commit hook
+  runs a secret scan on staged changes; if it objects, STOP and report the file:line it names (never paste the value).
+actions:
+- Reference each wave-1 page from the chart and from compose, with the library flags that make its examples verify.
+- Pin the wiring with an offline test.
+checks:
+- command: '{python} -m pytest tests/infra/test_wave1_python_wiring.py tests/infra/test_helm_pilots_match_compose.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/infra tests/test_container_build.py -q -rfE -k "ingestion_image or fixtures or pilots_match or container_build and not docker_build and not real_docker"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 40
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/values.yaml');s=p.read_text(encoding='utf-8');old='/app/fixtures/furnished/words_python/pages/_index.md';assert old in s;p.write_text(s.replace(old,'/app/fixtures/furnished/words_python/pages/_gone.md',1),encoding='utf-8')"
+  rationale: >-
+    Points one wave-1 pilot's furnishedPage at a file that does not exist, and away from what compose passes: the wiring test and the
+    chart-compose parity test both fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-364/receipt.json
+closeout:
+- >-
+  The eleven wave-1 Python pilots reference their documentation pages in the chart and in compose, with the library flags that verify
+  their examples, pinned by an offline parity test.
+recovery: Re-run from a clean tree.
