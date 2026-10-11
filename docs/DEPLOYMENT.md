@@ -124,8 +124,8 @@ operator's to supply; every host below is a placeholder, so substitute your own.
    docker build --target demo -t foss-mcp-serving:<tag> .
    ```
 
-2. Run the pre-deployment workflow gate (card TC-345) on that exact image. An image with no passing gate
-   report is not pushed.
+2. Run the pre-deployment workflow gate on that exact image (see "The pre-deployment workflow gate"
+   below). An image without a passing 40-of-40 `summary.json` is not tagged for hosting and is not pushed.
 3. Log in to the internal registry yourself, in your own terminal:
    `docker login registry.example.internal:5000`. The push tool never takes, reads or stores a credential,
    and it has no option for one.
@@ -135,8 +135,10 @@ operator's to supply; every host below is a placeholder, so substitute your own.
    python scripts/release/push_image.py --image foss-mcp-serving:<tag> --registry registry.example.internal:5000/foss-mcp --record push-result.json
    ```
 
-5. Record the result in the project's state with `gatectl release-record --push-result push-result.json`.
-   Run `python ops/gatectl.py release-record --help` for the other options it takes.
+5. Record the result in the project's state with `gatectl release-record --gate-report <report-dir>/summary.json
+   --push-result push-result.json`. Run `python ops/gatectl.py release-record --help` for the other options it
+   takes. The record refuses a gate report that is for a different image id or is not a passing report covering
+   every pilot in the chart.
 
 What `push_image.py` does, in order, stopping at the first failure:
 
@@ -161,6 +163,65 @@ What `push_image.py` does, in order, stopping at the first failure:
 
 The tool never runs `docker login`, never reads the Docker client configuration, and never prints an
 environment variable. Check a new registry value with `--dry-run` before the real push.
+
+### The pre-deployment workflow gate
+
+`scripts/release/image_workflow_gate.py` runs the exact image that would ship, one container per pilot, under an
+explicit memory and CPU budget, and proves each container through a real MCP session before the image is tagged
+for hosting. It needs a running Docker and the image in the local image store.
+
+```powershell
+python scripts/release/image_workflow_gate.py --image foss-mcp-serving:<tag> --report-dir gate-report
+```
+
+For each pilot in the chart (`ingestion.pilots`, read through `scripts/deploy/pilots.py`, so the count is never
+written down here) the gate:
+
+1. Starts one container the way a peer starts it: `docker run -d --rm --read-only --tmpfs /tmp --memory M --cpus C
+   --pids-limit 256 --publish 127.0.0.1::8080 -e FOSS_MCP_PILOT=<family>/<platform> IMAGE`, with a unique
+   container name, no volume mount and no command override, so the image's own entrypoint
+   (`infra/demo_entrypoint.py`) selects the pilot and starts the HTTP server. The port is bound to loopback only
+   and found with `docker port`.
+2. Polls `/readyz` until it answers 200 or `--ready-timeout` runs out.
+3. Runs the eleven checks of `scripts/poc/pilot_workflow_proof.py` over a real MCP session, then a short
+   task-oriented workflow recorded as its own entries: `W1` `tools/list` returns a non-empty registry that includes
+   `lookup`, `search_symbols`, `get_symbol`, `list_members` and `find_examples`; `W2` `lookup` answers a natural
+   question about the pilot's probe symbol with a non-empty answer that names it (the report says whether the
+   question or the bare name satisfied it); `W3` `find_examples` with the title of the verified example the proof
+   found returns a match with a non-empty snippet, or `not_applicable` with the reason when the pilot has none.
+   Every entry keeps a short excerpt as evidence, not only a boolean.
+4. Samples `docker stats --no-stream` memory before and after the checks and keeps the larger value.
+5. Removes the container with `docker rm -f`, always: on success, on failure, on a readiness timeout and on Ctrl-C.
+
+A pilot fails when any applicable check or workflow entry fails, when its container never became ready, when it was
+OOM-killed or its peak memory is over the budget, when its memory could not be measured, or when `docker run`
+itself failed. A `not_applicable` entry is never counted as a pass, and a pilot with no passing entry does not
+pass. The gate exits 0 only when every selected pilot passes, prints one line per pilot and the verdict, and never
+prints an environment variable's value.
+
+| Option | Meaning |
+| --- | --- |
+| `--image NAME:TAG` | The image to test. Required. The tag is explicit and is never `latest`; an untagged or malformed reference exits 2 and runs nothing. |
+| `--only FAMILY_PLATFORM` | Test only that pilot, for example `pdf_net`. Repeat the option for several. An unknown name exits 2 and runs nothing. |
+| `--fixtures DIR` | The fixtures root the proof's expected values come from. Default `tests/fixtures`. |
+| `--report-dir DIR` | Where the reports are written. Default: `foss-mcp-image-workflow-gate` in the system temporary directory. |
+| `--memory 256m` | Per-container memory limit, passed to `docker run --memory`. Default 256m. |
+| `--cpus 0.5` | Per-container CPU limit, passed to `docker run --cpus`. Default 0.5. |
+| `--ready-timeout 120` | Seconds to wait for each container to become ready. Default 120. |
+| `--parallel 2` | Containers starting at once, at least 1. Default 2. MCP sessions never overlap; only the start-up does. |
+| `--dry-run` | Print the docker commands each pilot would get. Run nothing and write nothing. |
+| `--with-embedding-gateway` | Pass `FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT` and `FOSS_MCP_EMBEDDING_GATEWAY_API_KEY` from your environment to each container, by name only (`-e NAME`), so docker reads the value itself and it never appears in a command line, a log or a report. Without the flag they are never passed; with it and either variable unset the gate exits 2. |
+
+Reports. `--report-dir` receives one `<family>_<platform>.json` per pilot (the proof checks, the workflow entries,
+the memory samples and the container name) and `summary.json`. `summary.json` is the file the project's state
+machine reads: `gatectl release-record --gate-report` needs `schema_version`, `image`, `image_id` (the full
+`sha256:` id from `docker image inspect`), `image_size_bytes`, `budget` (`memory` and `cpus`), `generated_at`,
+`verdict` (exactly `PASS` or `FAIL`), `pilots_total`, `pilots_passed` and `pilots`, one object per pilot with
+`key`, `status`, `checks` (`pass`, `fail`, `not_applicable`), `peak_memory_mb`, `startup_seconds` and `reasons`.
+
+The rule: an image without a passing 40-of-40 `summary.json` (`verdict` `PASS`, every pilot in the chart passed,
+on the image id being hosted) is not tagged for hosting and is not pushed. A gate run with `--only` is a diagnostic,
+never release evidence. Check the commands with `--dry-run` first.
 
 ## What the init container does, and why a pod waits at Init
 
