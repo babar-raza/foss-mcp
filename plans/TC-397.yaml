@@ -1,0 +1,96 @@
+id: TC-397
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). The C++ extractor publishes implementation helpers as API and loses their signatures, verified
+  in the committed fixtures and the parser. (1) For a `function_definition` the parameter list sits inside the
+  `function_declarator` child (`declarator` field -> `parameters` field), but `_extract_method_params` looks for a parameters field
+  or `parameter_list` child on the definition node itself, so EVERY C++ free function is published without parameters (cells/cpp
+  100 of 100, slides/cpp 36 of 36, pdf/cpp 3 of 3: `IsLeapYear() -> bool` for `IsLeapYear(int year)`). (2) All 100 cells/cpp
+  "functions" come from `.cpp` implementation files, and an out-of-line member definition (`void DisplayTextDateFormatSupport::
+  AppendInt(int, std::string&)`, whose declarator is a `qualified_identifier`) is published as a free function `AppendInt`. (3)
+  Constructors declared without a body in a header are missed (cells/cpp `Workbook` shows only `Workbook()`; upstream Workbook.h
+  declares four), and const/non-const overload pairs render as identical duplicate lines (100 duplicate method lines on cells/cpp,
+  219 on slides/cpp, 20 on pdf/cpp). This card makes C++ extraction read parameters from the declarator, attach out-of-line member
+  definitions to their class instead of publishing them, publish free functions only from public headers, capture declaration-only
+  constructors, and record `const` so overloads are distinguishable. It takes effect after the C++ fixtures are re-extracted and the
+  pilots re-ingested.
+depends_on:
+- TC-396
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- tests/extraction/tree_sitter_engine/test_api_surface_cpp_functions.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read in api_surface.py `_extract_method_params`, `_extract_return_type`, the C++ class/member extraction (search for
+  `function_definition`, `field_declaration`, `declaration`, `function_declarator`, `qualified_identifier`, `_HEADER_EXTENSIONS`),
+  `consolidate_classes`, `_dedupe_same_name_functions_by_file` and `_merge_members`, and tests/extraction/tree_sitter_engine/
+  test_cpp_reference_return_member_naming.py and test_consolidate_classes_free_functions.py, which must keep passing UNMODIFIED along
+  with every other test in that directory. Confirm node shapes with `get_parser("cpp")` on small snippets. Never print or log any
+  environment value.
+- >-
+  C++ only (every other language's output byte-identical; pin with one C# and one Java snippet): (1) parameters of a function or
+  method are read from its `function_declarator` (descending through pointer/reference declarators), with types including
+  qualifiers, references and pointers (`const std::string&`, `int*`), and defaults as an additive `"default"` key as TC-396 does for
+  C#. (2) A `function_definition` whose declarator name is a `qualified_identifier` (`A::B`) is never published as a free function:
+  when class `A` is extracted and lacks a member `B` with the same parameter types, the definition's signature is merged into `A` as
+  a method; otherwise it is dropped. (3) A free function is published only when it is DECLARED in a public header (an extension in
+  `_HEADER_EXTENSIONS`, not under a non-public path); a function defined only in a `.cpp`/`.cc` file is an implementation helper and
+  is not published. (4) Constructor declarations without a body inside a class in a header (`Workbook(const std::string& path);`,
+  `explicit Workbook(std::istream&);`, `Workbook(const Workbook&) = delete;` is skipped as deleted) are extracted as constructors with
+  their parameters. (5) A `const` method qualifier is recorded in the additive `"modifiers"` key (`["const"]`, plus `static`,
+  `virtual`, `override` when present), so a const/non-const pair renders as two distinguishable lines; two members that remain
+  exactly identical after this are deduplicated. Add a function named exactly `_cpp_declarator_params` (defined as
+  `def _cpp_declarator_params(`) for (1).
+- >-
+  tests/extraction/tree_sitter_engine/test_api_surface_cpp_functions.py (NEW, offline, synthetic header and source files in tmp_path
+  through `extract_api_surface`): `bool IsLeapYear(int year);` in a header with its definition in a .cpp gives one free function with
+  `year: int`; a helper defined only in a .cpp is absent; `void Fmt::AppendInt(int v, std::string& out)` in a .cpp attaches to class
+  `Fmt` from its header and is not a free function; a qualified definition for a class that is not extracted is absent; four
+  declaration-only constructors of `Workbook` are all present with their parameter types; a deleted copy constructor is absent;
+  `const T& Get() const;` and `T& Get();` are two members distinguished by `modifiers`; defaults captured; C# and Java snippets
+  unchanged. At least 14 tests, none skipped.
+- >-
+  Run `{python} -m pytest tests/extraction/tree_sitter_engine/test_api_surface_cpp_functions.py -q -rfE`, then once the second check
+  command below. If an existing test fails because it asserts one of the defects above, stop and report its name; do not edit it.
+  Do not re-extract or edit committed fixtures. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Read C++ parameters from the declarator, publish free functions only from public headers, attach out-of-line member definitions to their class.
+- Capture declaration-only constructors and the const qualifier so overloads are distinguishable.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_api_surface_cpp_functions.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine -q -rfE -k "not live"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 14
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='def _cpp_declarator_params(';assert old in s;p.write_text(s.replace(old,'def _cpp_declarator_paramsX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the declarator parameter reader the C++ extraction calls, so C++ extraction raises: the new C++ tests fail. A real break
+    of the card's central claim.
+evidence:
+- evidence/build/G3/TC-397/receipt.json
+closeout:
+- >-
+  A re-extracted C++ pilot publishes only header-declared free functions with their parameters, attaches out-of-line members to
+  their class, lists every declared constructor and distinguishes const overloads. Takes effect after the C++ fixture refresh and
+  re-ingestion. Re-run harness check C25 on the rebuilt image.
+recovery: Re-run from a clean tree.

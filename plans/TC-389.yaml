@@ -53,7 +53,15 @@ inputs:
   tests/indexing/test_generation_read_cache.py (NEW, offline): two reads of an unchanged generation parse the file once (count
   `json.loads` or the reader via monkeypatch); a rewritten file (different bytes; set st_mtime_ns explicitly with os.utime) is
   re-read; the cache never exceeds 8 entries; a rollback is visible on the next `read_active`; the immutability check still rejects
-  different content; concurrent reads from 8 threads return equal documents. At least 14 tests across the two files, none skipped.
+  different content; concurrent reads from 8 threads return equal documents. ADVERSARIAL-SUITE SCENARIO (the project's own
+  scripts/release/adversarial_suite.py failed words/net under the 256m / 0.5-CPU budget: `search_docs` with `top_k=2**63` got no
+  reply within 10 s, and one ~690 KB query took 49 s and blocked /healthz): in tests/mcp/test_dispatch_offload.py, against a copy of
+  infra/demo-manifests/words__net__self_extracted in tmp_path, assert (a) `search_docs` with `top_k=2**63` returns invalid_argument
+  and the generation file is never read for it (count reads through the monkeypatched cached reader: 0), (b) a 690,000-character
+  query returns invalid_argument with zero generation reads, (c) while a real words/net `lookup` is held mid-handler on a
+  `threading.Event`, an async `/healthz`-style coroutine on the same loop completes first, (d) 20 sequential valid calls on words/net
+  parse its generation file once. Event/barrier based only, no timing thresholds. At least 18 tests across the two files, none
+  skipped.
 - >-
   Run `{python} -m pytest tests/mcp/test_dispatch_offload.py tests/indexing/test_generation_read_cache.py -q -rfE`, then once the
   second check command below. Write commit messages as UTF-8 without a byte-order mark.
@@ -73,7 +81,7 @@ checks:
   junitxml: true
   proves:
   - REQ-G3-006
-min_tests: 14
+min_tests: 18
 network: true
 requires:
 - python

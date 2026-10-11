@@ -1,0 +1,91 @@
+id: TC-398
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). Go, Rust and TypeScript extraction publish non-API functions as top-level API, verified in the
+  committed fixtures. Go (pdf/go): 33 receiver methods are published as top-level functions, every one on an UNEXPORTED receiver
+  (`Color` on annotationBase, `TextLine` on appearanceBuilder); `_associate_go_methods` only attaches methods whose receiver type was
+  itself extracted, and leaves the rest as free functions. Rust (cells/rust, jmap/rust): functions carrying `receiver_type` and
+  `trait_impl` are published as bare free functions - standard trait boilerplate (`fmt` for std::fmt::Display, `eq` for PartialEq,
+  `hash` for Hash, three `default` for Default) - and a real inherent method `get_mailbox(&mut self, ...)` stays a free function
+  because its receiver is recorded path-qualified (`crate::JmapClient`) and never matches the extracted type name. TypeScript
+  (pdf/typescript): 33 entries with no export (`visibility` absent) are published, including module-local helpers `num` (7 files),
+  `color` (2) and `table` (2), whose FQNs collide. This card makes each language publish only its public API: methods attached to
+  their (public) receiver type, non-public receivers and std trait boilerplate dropped, and only exported TypeScript symbols kept.
+  It takes effect after the affected fixtures are re-extracted and the pilots re-ingested. (Test-file symbols are TC-392's.)
+depends_on:
+- TC-397
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- tests/extraction/tree_sitter_engine/test_api_surface_public_only.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read in api_surface.py `_extract_go_receiver_type`, `_associate_go_methods`, `_extract_rust_impl_context`,
+  `_associate_rust_impl_methods`, `consolidate_classes`, and how TypeScript `visibility`/`reachable` are set (search for
+  `"exported"` and `export_surface`). Existing tests that must keep passing UNMODIFIED: everything in
+  tests/extraction/tree_sitter_engine (`-k "not live"`), in particular test_consolidate_classes_free_functions.py and
+  test_api_surface_other_languages.py. Never print or log any environment value.
+- >-
+  Add a function named exactly `_drop_non_public_functions` (defined as `def _drop_non_public_functions(`), called once at the end of
+  `consolidate_classes` for go, rust and typescript only (every other language byte-identical; pin with one C# and one Java snippet):
+  (1) Go: a function with a `receiver_type` is attached to the extracted type of that name (existing association) and is never left
+  as a top-level function; when the receiver type is unexported (lowercase first letter) or not extracted, the function is dropped;
+  a method whose own name is unexported is dropped. (2) Rust: a `receiver_type` is normalised before matching (strip `crate::`,
+  `self::`, `super::` and any module path, generic arguments and a leading `&`/`&mut`), so `crate::JmapClient` attaches
+  `get_mailbox` to `JmapClient`; a function whose `trait_impl` is one of Debug, Display, Clone, Copy, PartialEq, Eq, PartialOrd,
+  Ord, Hash, Default, Drop, From, Into, AsRef, Deref, Send, Sync (with or without a `std::`/`core::` path) is dropped and its trait
+  name is recorded once in the receiver type's additive `"traits"` list when that type is extracted; any other trait-impl method
+  attaches to its receiver type like an inherent one; a function with a receiver that matches no extracted type is dropped. (3)
+  TypeScript: a top-level entry without `visibility` "exported" or "public" is dropped (class members keep today's rules). Free
+  functions with no receiver in Go/Rust and exported TypeScript functions are unchanged.
+- >-
+  tests/extraction/tree_sitter_engine/test_api_surface_public_only.py (NEW, offline, synthetic source trees in tmp_path through
+  `extract_api_surface`): a Go package with an exported type and method (attached), an unexported type with an exported-name
+  method (dropped), an exported free function (kept); a Rust crate with `impl JmapClient { pub fn get_mailbox(&mut self, ...) }` in
+  a different module referring to `crate::JmapClient` (attached), `impl std::fmt::Display for CellAddress` and `impl Default for X`
+  (dropped, `traits` recorded), a custom-trait impl (attached), an impl on a private type (dropped); a TypeScript module with an
+  exported function, a non-exported helper `num` in two files (both dropped, no duplicate FQN left) and an exported class; C# and
+  Java snippets unchanged. At least 14 tests, none skipped.
+- >-
+  Run `{python} -m pytest tests/extraction/tree_sitter_engine/test_api_surface_public_only.py -q -rfE`, then once the second check
+  command below. If an existing test fails because it asserts one of the defects above, stop and report its name; do not edit it.
+  Do not re-extract or edit committed fixtures. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Publish only public API for Go, Rust and TypeScript, attaching receiver and impl methods to their types and dropping boilerplate and private helpers.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_api_surface_public_only.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine -q -rfE -k "not live"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 14
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='def _drop_non_public_functions(';assert old in s;p.write_text(s.replace(old,'def _drop_non_public_functionsX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the public-API filter consolidate_classes calls for Go, Rust and TypeScript, so their extraction raises: the new tests
+    fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-398/receipt.json
+closeout:
+- >-
+  A re-extracted Go, Rust or TypeScript pilot publishes only public API: receiver and impl methods on their types, no private
+  helpers, no trait boilerplate, no colliding module-local names. Takes effect after the fixture refresh and re-ingestion. Re-run
+  harness check C17 on the rebuilt image.
+recovery: Re-run from a clean tree.

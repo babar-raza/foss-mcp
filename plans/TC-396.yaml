@@ -1,0 +1,102 @@
+id: TC-396
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-005 (pilot completeness). The C# extractor loses every return type and more, verified against the real parser.
+  tree-sitter-c-sharp names a method's return type field `returns`, but `_extract_return_type`
+  (src/foss_mcp/extraction/tree_sitter_engine/api_surface.py) reads only `return_type`, a `type_annotation` child, and `type`, so
+  every C# method gets "" (1,976 of 1,979 methods in the committed pdf/net fixture; an independent reviewer measured 5,123 of 5,127
+  on a fresh pdf/net extraction). A `params Document[] documents` parameter is parsed as loose `params`/`array_type`/`identifier`
+  tokens rather than a `parameter` node, so `_extract_method_params` drops it. Default values (`int x = 3`) are dropped. Modifiers
+  (`static`, `abstract`, `virtual`, `override`, `async`, `sealed`) are never recorded, so a static factory looks like an instance
+  method. Indexers (`indexer_declaration`, `this[...]`) are never extracted, so cells/net `Cells["A1"]` is invisible. This card fixes
+  the C# extraction and renders the two new facts (modifiers, default values) in symbol chunks. It takes effect after the .NET
+  fixtures are re-extracted (network) and the pilots re-ingested.
+depends_on:
+- TC-392
+- TC-382
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- src/foss_mcp/indexing/chunk_builder.py
+- tests/extraction/tree_sitter_engine/test_api_surface_csharp_signatures.py
+- tests/indexing/test_chunk_builder_modifiers.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Documentation pages for every pilot come from its README at the pinned commit; supersedes OQ-002''s ''sealed candidates only'' (supervisor, pre-TC-351)'
+  sha256: f29ce7eecf52723c064aa1050d00aee1e5ad9233dd0987f06abb715207202a9a
+inputs:
+- >-
+  Read in src/foss_mcp/extraction/tree_sitter_engine/api_surface.py `_extract_return_type`, `_extract_method_params`, the C#
+  method/constructor/property extraction (search for `method_declaration`, `constructor_declaration`, `property_declaration` and
+  where method dicts with `"is_constructor"` are built), and src/foss_mcp/indexing/chunk_builder.py as left by TC-382 (`_method_line`,
+  `_property_line`). Confirm the node shapes yourself with `tree_sitter_language_pack.get_parser("csharp")` on small snippets.
+  Existing tests that must keep passing UNMODIFIED: tests/extraction/tree_sitter_engine (all, `-k "not live"`),
+  tests/indexing/test_chunk_builder.py, tests/indexing/test_chunk_builder_honesty.py, tests/mcp (they parse rendered member lines;
+  `search_symbols._member_name` reads a member name up to its first `(` or `:`, so nothing may be rendered before the name). Never
+  print or log any environment value.
+- >-
+  Extraction (C# only; every other language's output stays byte-identical, pin that with a test on one Java and one Go snippet):
+  (1) `_extract_return_type` reads the `returns` field for C#, giving the source text of the type for predefined, generic
+  (`Task<List<int>>`), nullable (`int?`), array (`byte[]`), tuple (`(int a, string b)`) and qualified types; constructors and
+  destructors keep "". (2) A `params` array parameter becomes `{"name": "documents", "type": "params Document[]"}`; `ref`, `out`,
+  `in` and `this` (extension methods) parameter modifiers are kept as a prefix of the type the same way. (3) A parameter default
+  becomes an additive key `"default": "<source text>"` (only when present). (4) Methods, constructors and properties gain an
+  additive key `"modifiers": [...]` listing, in source order, only `static`, `abstract`, `virtual`, `override`, `async`, `sealed`,
+  `extern`, `new`, `readonly` (never access modifiers); the key is omitted when the list is empty, so existing exact-dict assertions
+  on modifier-free members still hold. (5) Each `indexer_declaration` of a public type becomes a PROPERTY entry named
+  `this[<param types comma-separated>]` with its `type`, writability from its accessors (a `set` accessor means writable) and its
+  doc, plus additive `"params"` with the bracketed parameters. Add a function named exactly `_csharp_modifiers` (defined as
+  `def _csharp_modifiers(`) for (4).
+- >-
+  Rendering (chunk_builder.py): a parameter with a `default` renders `name: type = default`; a member with `modifiers` gets a
+  suffix ` [static]` / ` [static, async]` placed after the return type or property type and before any `(deprecated...)` or
+  `(inherited from ...)` suffix; nothing is ever placed before the member name. Members without these keys render exactly as
+  after TC-382.
+- >-
+  tests/extraction/tree_sitter_engine/test_api_surface_csharp_signatures.py (NEW, offline, synthetic `.cs` files in tmp_path through
+  the same `extract_api_surface` entry the existing C# tests use): return types for each shape listed in (1), constructors with "",
+  `params` and `ref`/`out`/`this` parameters, defaults, modifiers on static/abstract/virtual/override/async members and none on a
+  plain method, a read-only and a read-write indexer, Java and Go snippets byte-identical to before (compare with expected dicts).
+  tests/indexing/test_chunk_builder_modifiers.py (NEW): rendering of defaults, modifier suffixes, ordering with deprecated and
+  inherited suffixes, `_member_name` from search_symbols still returns the bare name for each rendered line, and lines without the
+  new keys unchanged. At least 20 tests across both files, none skipped.
+- >-
+  Run `{python} -m pytest tests/extraction/tree_sitter_engine/test_api_surface_csharp_signatures.py tests/indexing/test_chunk_builder_modifiers.py -q -rfE`,
+  then once the second check command below. If an existing extraction test fails because it asserts one of the defects above (an
+  empty C# return type, a missing params-array parameter), stop and report its name; do not edit it. Do not re-extract or edit
+  committed fixtures. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- Extract C# return types, params arrays, parameter modifiers and defaults, member modifiers and indexers.
+- Render modifiers and default values in symbol chunks without disturbing member-name parsing.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_api_surface_csharp_signatures.py tests/indexing/test_chunk_builder_modifiers.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/mcp -q -rfE -k "not live"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 20
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='def _csharp_modifiers(';assert old in s;p.write_text(s.replace(old,'def _csharp_modifiersX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the modifier reader the C# member extraction calls, so C# extraction raises: the new signature tests fail. A real break
+    of the card's central claim.
+evidence:
+- evidence/build/G3/TC-396/receipt.json
+closeout:
+- >-
+  A re-extracted .NET pilot shows real return types, params arrays, defaults, static/abstract/override markers and indexers.
+  Takes effect after the .NET fixture refresh and re-ingestion. Re-run harness check C11 on the rebuilt image.
+recovery: Re-run from a clean tree.

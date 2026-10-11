@@ -1,0 +1,66 @@
+id: TC-399
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-005 (pilot completeness). An independent reviewer found that nonsense questions get confident answers: "send a fax via
+  modem" and "how do I bake a chocolate cake" return a documentation or example answer instead of an honest miss. Reproduced on the
+  committed demo manifests of all 40 pilots with today's code: 22 of the 80 (pilot, query) pairs answer confidently. A prototype of
+  TC-381's relevance rule (query terms minus the family word, light stemming, coverage of at least 0.6 over documentation and example
+  chunks only) together with today's search_symbols answers 0 of 80 confidently, so TC-381 already fixes it; this card adds the
+  regression tests that pin it across every pilot, so a later relevance change cannot quietly reintroduce it. Tests only; no
+  product code changes and no re-ingestion.
+depends_on:
+- TC-381
+write_paths:
+- tests/mcp/tools/test_nonsense_queries_miss.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Peers will try to break the shipped image: an adversarial suite is a requirement, not an extra (operator, supervisor, pre-TC-355)'
+  sha256: d2caef724bdb4ebdd6139a6775d2e46c22527150b512d2f09d15225ba6375268
+inputs:
+- >-
+  Read src/foss_mcp/mcp/tools/lookup.py, search_docs.py, find_examples.py and relevance.py as left by TC-381 (`RELEVANCE_THRESHOLD`,
+  `query_terms`, `coverage`), and search_symbols.py. Never print or log any environment value.
+- >-
+  tests/mcp/tools/test_nonsense_queries_miss.py (NEW, offline, deterministic): discover every scope directory under
+  infra/demo-manifests that holds an `active_pointer.json` (40 today; assert at least 40 so a lost pilot is noticed), copy each into
+  tmp_path with shutil.copytree (never write inside the repository), and for each pilot and each of the queries "send a fax via
+  modem", "how do I bake a chocolate cake", "teleport the cat to mars" and "quantum entanglement of spreadsheets" assert that
+  `lookup` returns a Miss (no TaskAnswer, no symbol list) and that `find_examples` returns NoExampleFound with `found` false.
+  Parametrize over pilots and queries (one test id per pair). Keep it offline and deterministic: monkeypatch
+  `find_examples.GatewayEmbeddingProvider` with a stub whose `embed` raises, exactly as the standalone image behaves with no
+  embedding gateway (the vector stage then degrades to no match by design). Add three control tests that a REAL question still answers on pilots
+  that have the content: pdf/net `find_examples("add a watermark to a PDF")`, slides/python `find_examples("create a presentation and
+  add a shape")`, pdf/net `search_docs("install", "getting_started")`. If any (pilot, query) pair answers confidently, do not weaken
+  the test: report the pilot, the query and the matching chunk's first line, and stop.
+- >-
+  Run `{python} -m pytest tests/mcp/tools/test_nonsense_queries_miss.py -q -rfE` twice; both runs must pass identically. Write commit
+  messages as UTF-8 without a byte-order mark.
+actions:
+- Pin, across every baked pilot, that nonsense questions get an honest miss while real questions still answer.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_nonsense_queries_miss.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 163
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/relevance.py');s=p.read_text(encoding='utf-8');old='RELEVANCE_THRESHOLD = 0.6';assert old in s;p.write_text(s.replace(old,'RELEVANCE_THRESHOLD = 0.0',1),encoding='utf-8')"
+  rationale: >-
+    Drops the relevance floor to zero, so any documentation or example chunk counts as a match and nonsense questions get confident
+    answers again: the miss tests fail. A real break of what the tests protect.
+evidence:
+- evidence/build/G3/TC-399/receipt.json
+closeout:
+- >-
+  On every baked pilot a nonsense question gets an honest miss and a real one still answers; harness lookup-floor probes should
+  agree on the rebuilt image.
+recovery: Re-run from a clean tree.
