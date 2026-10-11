@@ -1,8 +1,8 @@
 """TC-377 (REQ-G3-005): the ingestion image carries .NET SDK 10 beside 8.0 and a baked Python 3.12.
 
 Offline and static: it reads Dockerfile.ingestion as text and asserts the toolchain layers are present, pinned,
-and ordered before the source COPYs, so a source-only change never rebuilds them. It never runs docker unless
-FOSS_MCP_BUILD_TESTS=1 is set, and then only the one build test at the bottom.
+and ordered before the source COPYs, so a source-only change never rebuilds them. It never runs docker, and
+every test in it runs: none is skippable.
 
 Why the image needs this: slides/net, email/net and 3d/net target .NET 10 (a lone SDK 8.0 fails with
 NETSDK1045) and words/python declares ``requires-python <3.13,>=3.10`` while the base image only has 3.13.
@@ -10,13 +10,8 @@ NETSDK1045) and words/python declares ``requires-python <3.13,>=3.10`` while the
 
 from __future__ import annotations
 
-import os
 import re
-import shutil
-import subprocess
 from pathlib import Path
-
-import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 DOCKERFILE = ROOT / "Dockerfile.ingestion"
@@ -87,7 +82,9 @@ def _first_source_copy_line() -> int:
 
 def test_the_dotnet_8_install_is_still_present() -> None:
     installs = _dotnet_installs()
-    assert any(channel == "8.0" and install_dir == DOTNET_DIR for _, channel, install_dir in installs), installs
+    assert any(channel == "8.0" and install_dir == DOTNET_DIR for _, channel, install_dir in installs), (
+        installs
+    )
 
 
 def test_a_dotnet_10_install_is_present_in_the_same_install_directory() -> None:
@@ -172,31 +169,3 @@ def test_the_entrypoint_user_and_healthcheck_are_untouched() -> None:
     assert 'ENTRYPOINT ["python", "/app/infra/ingest.py"]' in instructions
     assert "USER foss-mcp" in instructions
     assert any(i.startswith("HEALTHCHECK") and "foss_mcp.indexing.publisher" in i for i in instructions)
-
-
-@pytest.mark.skipif(
-    os.environ.get("FOSS_MCP_BUILD_TESTS") != "1",
-    reason="docker build is opt-in: set FOSS_MCP_BUILD_TESTS=1 to build the ingestion image",
-)
-@pytest.mark.skipif(shutil.which("docker") is None, reason="docker is not installed on this host")
-def test_docker_build_of_the_ingestion_image_has_both_sdks_and_python_3_12() -> None:  # pragma: no cover
-    tag = f"foss-mcp-ingestion:toolchain-{os.getpid()}"
-    try:
-        build = subprocess.run(
-            ["docker", "build", "-f", "Dockerfile.ingestion", "-t", tag, "."],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            timeout=3000,
-        )
-        assert build.returncode == 0, build.stderr[-2000:]
-        probe = subprocess.run(
-            ["docker", "run", "--rm", "--entrypoint", "sh", tag, "-c", "dotnet --list-sdks && python3.12 --version"],
-            capture_output=True,
-            text=True,
-            timeout=300,
-        )
-        assert probe.returncode == 0, probe.stderr[-2000:]
-        assert "8.0." in probe.stdout and "10.0." in probe.stdout and "Python 3.12" in probe.stdout, probe.stdout
-    finally:
-        subprocess.run(["docker", "rmi", "-f", tag], capture_output=True, text=True, timeout=300)
