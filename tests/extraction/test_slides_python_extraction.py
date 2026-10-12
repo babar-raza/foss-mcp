@@ -103,13 +103,14 @@ def test_the_highest_centrality_type_survives_the_cut() -> None:
     in the corpus references it by bare name, far more than any other type) is kept, and -
     because ``reduce_fixture()`` keeps its own full pre-truncation sort order rather than
     re-sorting afterward - is this fixture's own first entry. "Presentation" itself cannot serve
-    this role for this pilot (it legitimately scores 0 and is absent - see module docstring), so
-    this is the real, concrete stand-in proof of fix for slides/python.
+    this role for this pilot (it legitimately scores 0), so this is the real, concrete stand-in
+    proof of fix for slides/python. It was absent from the pre-TC-395 cut (see module docstring);
+    TC-395's re-extraction keeps it because it is a class the pilot's own examples use.
     """
     data = _load_fixture()
     assert data["types"][0]["name"] == "IPresentationComponent"
-    assert data["types"][0]["class_import"] == "aspose.slides_foss.IPresentationComponent"
-    assert "Presentation" not in {entry["name"] for entry in data["types"]}
+    assert data["types"][0]["class_import"] == "aspose.slides_foss.IPresentationComponent.IPresentationComponent"
+    assert "Presentation" in {entry["name"] for entry in data["types"]}
 
 
 def test_shapes_own_real_method_is_untouched_by_flattening() -> None:
