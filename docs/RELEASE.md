@@ -257,3 +257,14 @@ ledger is `docs/REVIEW_LEDGER.md`; each entry below repeats one accepted finding
   other. The standalone image runs one pilot per container.
 - **L-118** The chart does not `required()` the family and platform values, so an unset release falls back to pdf/net.
   The standalone entrypoint refuses to start without a valid pilot.
+
+## 9. Deferred extraction improvements
+
+These extractor improvements were planned and are not in this release. The full list of review findings is in `docs/REVIEW_LEDGER.md`.
+
+- **TC-397** Would have fixed C++ extraction: parameters read from the declarator, out-of-line member definitions attached to their class, free functions published only from public headers, header-only constructors captured. Affected pilots are the five C++ pilots: pdf/cpp, cells/cpp, slides/cpp, email/cpp and jmap/cpp. A peer may see C++ parameter types without qualifiers or defaults, constructors missing, some free functions defined in headers missing, and functions defined only in `.cpp` files still listed.
+- **TC-398** Would have made Go, Rust and TypeScript publish only their public API, with methods attached to their receiver type and import paths for symbol names. Affected pilots are pdf/go, cells/go and jmap/go (Go), cells/rust and jmap/rust (Rust), and pdf/typescript, cells/typescript, jmap/typescript, 3d/typescript and jmap/nodejs (TypeScript and Node). A peer will see Go and Rust symbol names that are not import paths, and non-exported helpers or trait boilerplate listed as top-level functions.
+- **TC-402** Would have re-extracted the five C++ fixtures at their pinned library commits with the corrected C++ extractor. Affected pilots are pdf/cpp, cells/cpp, slides/cpp, email/cpp and jmap/cpp. A peer will see the earlier C++ signatures unchanged, and the 300-type extraction cap may still hide central types.
+- **TC-403** Would have re-extracted the ten Go, Rust and TypeScript fixtures at their pinned library commits. Affected pilots are pdf/go, jmap/go, cells/go, cells/rust, jmap/rust, pdf/typescript, cells/typescript, jmap/typescript, 3d/typescript and jmap/nodejs. A peer will see the earlier fixtures unchanged, and for these pilots the 300-type extraction cap may still hide central types.
+- **TC-428** Would have fixed Go struct fields whose tag was published as their type. Affected pilots are the Go pilots pdf/go, cells/go and jmap/go. A peer may see a field type shown as a tag such as `json:"id,omitempty"` instead of the Go type.
+- **TC-475** Would have filled empty JavaScript parameter and return types from the JSDoc tags. The affected pilot is jmap/nodejs, whose fixture has empty parameter types. A peer may see JavaScript parameter types that are empty even though the upstream JSDoc states them.
