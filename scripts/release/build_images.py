@@ -80,6 +80,15 @@ def export_head(sha: str, dest: Path) -> None:
         tar.extractall(dest, filter="data")
 
 
+def write_build_revision(sha: str, export_dir: Path) -> Path:
+    """Stamp *sha* into the exported tree (never the working tree) where the serving package reads
+    it: ``<export_dir>/src/foss_mcp/BUILD_REVISION``. The serving image copies ``src/``, so the
+    file reaches the container, and ``foss_mcp.mcp.server.server_version`` reports it."""
+    target = export_dir / "src" / "foss_mcp" / "BUILD_REVISION"
+    target.write_bytes(sha.encode("ascii") + b"\n")
+    return target
+
+
 def build_image(name: str, dockerfile: str, context: Path, sha: str, tag: str, target: str | None) -> None:
     image = f"{name}:{tag}"
     cmd = [
@@ -123,6 +132,7 @@ def main(argv: list[str] | None = None) -> int:
     export_dir = Path(tempfile.mkdtemp(prefix="foss-mcp-release-"))
     try:
         export_head(sha, export_dir)
+        write_build_revision(sha, export_dir)
         for name, dockerfile, target in IMAGES:
             build_image(name, dockerfile, export_dir, sha, tag, target)
     finally:

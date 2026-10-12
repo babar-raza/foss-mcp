@@ -66,9 +66,40 @@ from foss_mcp.telemetry.usage_recorder import (
 )
 
 SERVER_NAME = "foss-mcp"
-SERVER_VERSION = "0.0.0"
+SERVER_BASE_VERSION = "0.1.0"
+# The release build (scripts/release/build_images.py) writes the exact commit it built into this
+# file next to the package, because nothing inside a running container can read an image label.
+BUILD_REVISION_FILENAME = "BUILD_REVISION"
+_REVISION_PATTERN = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
+
+SERVER_INSTRUCTIONS = (
+    "This server answers questions about one open-source product's documentation and API; which "
+    "product (and platform) is fixed by the deployment, so you never choose it. Start with `lookup` "
+    "for task questions. For exact API facts use `search_symbols` to find a name, then `get_symbol` "
+    "for its signature and details. Use `find_examples` for verified code. Use "
+    "`report_index_freshness` to see what is covered and where it came from. A miss or an empty "
+    "result is an honest answer: nothing in the index matched, so do not guess past it."
+)
 
 DEFAULT_MANIFEST_ROOT = Path("/data/manifests")
+
+
+def server_version(revision_file: Path | None = None) -> str:
+    """``0.1.0+<first 12 characters of the build revision>`` when the BUILD_REVISION file next to
+    the package holds a 40- or 64-character lowercase hex string, else ``0.1.0+unknown``. Never
+    raises: a missing, unreadable or malformed file only means the build is unidentified."""
+    path = (
+        revision_file
+        if revision_file is not None
+        else Path(__file__).resolve().parents[1] / BUILD_REVISION_FILENAME
+    )
+    try:
+        revision = path.read_text(encoding="ascii").strip().lower()
+    except (OSError, ValueError):
+        return f"{SERVER_BASE_VERSION}+unknown"
+    if _REVISION_PATTERN.fullmatch(revision) is None:
+        return f"{SERVER_BASE_VERSION}+unknown"
+    return f"{SERVER_BASE_VERSION}+{revision[:12]}"
 
 
 def _default_manifest_store() -> GenerationManifestStore:
@@ -1164,7 +1195,11 @@ def create_server(
         )
 
     return Server(
-        name=SERVER_NAME, version=SERVER_VERSION, on_list_tools=_list_tools, on_call_tool=_call_tool
+        name=SERVER_NAME,
+        version=server_version(),
+        instructions=SERVER_INSTRUCTIONS,
+        on_list_tools=_list_tools,
+        on_call_tool=_call_tool,
     )
 
 

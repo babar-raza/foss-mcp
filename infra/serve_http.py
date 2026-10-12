@@ -34,10 +34,10 @@ import json
 import logging
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import MutableMapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn
 
 from fetch_product_reference import load_manifest_sidecar, sidecar_name
 from fetch_recent_releases import load_recent_releases_sidecar, recent_releases_sidecar_name
@@ -210,6 +210,85 @@ class RejectionMiddleware:
             await response(scope, receive, send)
             return
         await self.app(scope, receive, send)
+
+
+PARSE_ERROR_MESSAGE = "Parse error: the request body is not valid JSON"
+INVALID_REQUEST_MESSAGE = "Invalid request: the body is not a valid JSON-RPC message for this server"
+
+
+def _sanitised_error_body(body: bytes) -> bytes | None:
+    """*body* with its JSON-RPC error message replaced by a fixed string when the SDK produced it
+    from a parse or validation failure, else None (leave the response alone)."""
+    try:
+        envelope = json.loads(body)
+    except ValueError:
+        return None
+    if not isinstance(envelope, dict):
+        return None
+    error = envelope.get("error")
+    if not isinstance(error, dict):
+        return None
+    message = error.get("message")
+    if not isinstance(message, str):
+        return None
+    if message.startswith("Parse error:"):
+        error["message"] = PARSE_ERROR_MESSAGE
+    elif message.startswith("Validation error:"):
+        error["message"] = INVALID_REQUEST_MESSAGE
+    else:
+        return None
+    return json.dumps(envelope, separators=(",", ":")).encode("utf-8")
+
+
+class ErrorSanitisingMiddleware:
+    """Wraps the Streamable HTTP app. The SDK answers a malformed JSON-RPC body with HTTP 400 and
+    ``f"Parse error: {e}"`` / ``f"Validation error: {e}"``, i.e. a multi-line pydantic dump with
+    union internals and a documentation URL. For exactly those responses the message becomes one
+    of two fixed strings; status, id, code and the rest of the envelope are kept. Every other
+    response, and every streamed (SSE) response, passes through untouched and unbuffered: only a
+    400 whose content type is ``application/json`` is ever held back.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        held_start: dict[str, Any] | None = None
+        chunks: list[bytes] = []
+
+        async def sanitising_send(message: MutableMapping[str, Any]) -> None:
+            nonlocal held_start
+            if held_start is None and message["type"] == "http.response.start":
+                content_type = next(
+                    (v for k, v in message.get("headers", []) if k.lower() == b"content-type"), b""
+                )
+                if message["status"] == 400 and content_type.lower().startswith(b"application/json"):
+                    held_start = dict(message)
+                    return
+                await send(message)
+                return
+            if held_start is None or message["type"] != "http.response.body":
+                await send(message)
+                return
+            chunks.append(message.get("body", b""))
+            if message.get("more_body", False):
+                return
+            original = b"".join(chunks)
+            body = _sanitised_error_body(original)
+            start = dict(held_start)
+            if body is None:
+                body = original
+            else:
+                start["headers"] = [
+                    (k, v) for k, v in start.get("headers", []) if k.lower() != b"content-length"
+                ] + [(b"content-length", str(len(body)).encode("ascii"))]
+            await send(start)
+            await send({"type": "http.response.body", "body": body})
+
+        await self.app(scope, receive, sanitising_send)
 
 
 def _healthz_route() -> Route:
@@ -406,7 +485,9 @@ def build_app(
         ],
     )
     return RejectionMiddleware(
-        inner, allowed_origins, exempt_paths=frozenset({HEALTHZ_PATH, READYZ_PATH, METRICS_PATH})
+        ErrorSanitisingMiddleware(inner),
+        allowed_origins,
+        exempt_paths=frozenset({HEALTHZ_PATH, READYZ_PATH, METRICS_PATH}),
     )
 
 
