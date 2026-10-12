@@ -1,0 +1,142 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_cpp_compat_and_page_includes.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gxzjj6hs\.junit-0.xml"
+--- stdout ---
+...................................                                      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_cpp_compat_and_page_includes.py tests/indexing/test_cpp_verifier_consumer.py tests/indexing/test_cpp_verifier_linux.py tests/infra/test_build_chunks_platforms.py tests/infra/test_helm_verifier_fields.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_wave3_wiring.py tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gxzjj6hs\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 24%]
+........................................................................ [ 48%]
+........................................................................ [ 73%]
+........................................................................ [ 97%]
+.......                                                                  [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_cpp_compat_and_page_includes.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gxzjj6hs\.junit-0.xml"
+--- stdout ---
+...................................                                      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_cpp_compat_and_page_includes.py tests/indexing/test_cpp_verifier_consumer.py tests/indexing/test_cpp_verifier_linux.py tests/infra/test_build_chunks_platforms.py tests/infra/test_helm_verifier_fields.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_wave3_wiring.py tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gxzjj6hs\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 24%]
+........................................................................ [ 48%]
+........................................................................ [ 73%]
+........................................................................ [ 97%]
+.......                                                                  [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/example_verifier.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_cpp_compat_and_page_includes.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gxzjj6hs\.junit-0.xml"
+--- stdout ---
+.......FF..........................                                      [100%]
+================================== FAILURES ===================================
+_______ test_compile_options_line_sits_directly_before_add_subdirectory _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7832/test_compile_options_line_sits0')
+
+    def test_compile_options_line_sits_directly_before_add_subdirectory(tmp_path: Path) -> None:
+        library = tmp_path / "lib"
+        library.mkdir()
+    
+        lines = _write(tmp_path, library, compile_options=("-Wno-changes-meaning", "SHELL:-include limits"))
+    
+        index = next(i for i, line in enumerate(lines) if line.startswith("add_subdirectory("))
+>       assert lines[index - 1] == 'add_compile_options("-Wno-changes-meaning" "SHELL:-include limits")'
+E       assert 'add_link_opt...lude limits")' == 'add_compile_...lude limits")'
+E         
+E         - add_compile_options("-Wno-changes-meaning" "SHELL:-include limits")
+E         ?     ^^^^ ^^
+E         + add_link_options("-Wno-changes-meaning" "SHELL:-include limits")
+E         ?     ^ ^^
+
+tests\indexing\test_cpp_compat_and_page_includes.py:106: AssertionError
+_ test_relaxed_warnings_with_compile_options_keep_wno_error_after_add_subdirectory _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7832/test_relaxed_warnings_with_com0')
+
+    def test_relaxed_warnings_with_compile_options_keep_wno_error_after_add_subdirectory(tmp_path: Path) -> None:
+        library = tmp_path / "lib"
+        library.mkdir()
+        consumer = tmp_path / "consumer"
+    
+        ev._write_cpp_consumer_project(consumer, library, "tgt", True, compile_options=("-Wno-changes-meaning",))
+    
+        lines = _lines(consumer)
+        sub = next(i for i, line in enumerate(lines) if line.startswith("add_subdirectory("))
+>       opts = next(i for i, line in enumerate(lines) if line.startswith("add_compile_options("))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+tests\indexing\test_cpp_compat_and_page_includes.py:119: StopIteration
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_cpp_compat_and_page_includes.py::test_compile_options_line_sits_directly_before_add_subdirectory
+FAILED tests/indexing/test_cpp_compat_and_page_includes.py::test_relaxed_warnings_with_compile_options_keep_wno_error_after_add_subdirectory
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_cpp_compat_and_page_includes.py tests/indexing/test_cpp_verifier_consumer.py tests/indexing/test_cpp_verifier_linux.py tests/infra/test_build_chunks_platforms.py tests/infra/test_helm_verifier_fields.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_wave3_wiring.py tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gxzjj6hs\.junit-1.xml"
+--- stdout ---
+.......FF............................................................... [ 24%]
+........................................................................ [ 48%]
+........................................................................ [ 73%]
+........................................................................ [ 97%]
+.......                                                                  [100%]
+================================== FAILURES ===================================
+_______ test_compile_options_line_sits_directly_before_add_subdirectory _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7833/test_compile_options_line_sits0')
+
+    def test_compile_options_line_sits_directly_before_add_subdirectory(tmp_path: Path) -> None:
+        library = tmp_path / "lib"
+        library.mkdir()
+    
+        lines = _write(tmp_path, library, compile_options=("-Wno-changes-meaning", "SHELL:-include limits"))
+    
+        index = next(i for i, line in enumerate(lines) if line.startswith("add_subdirectory("))
+>       assert lines[index - 1] == 'add_compile_options("-Wno-changes-meaning" "SHELL:-include limits")'
+E       assert 'add_link_opt...lude limits")' == 'add_compile_...lude limits")'
+E         
+E         - add_compile_options("-Wno-changes-meaning" "SHELL:-include limits")
+E         ?     ^^^^ ^^
+E         + add_link_options("-Wno-changes-meaning" "SHELL:-include limits")
+E         ?     ^ ^^
+
+tests\indexing\test_cpp_compat_and_page_includes.py:106: AssertionError
+_ test_relaxed_warnings_with_compile_options_keep_wno_error_after_add_subdirectory _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7833/test_relaxed_warnings_with_com0')
+
+    def test_relaxed_warnings_with_compile_options_keep_wno_error_after_add_subdirectory(tmp_path: Path) -> None:
+        library = tmp_path / "lib"
+        library.mkdir()
+        consumer = tmp_path / "consumer"
+    
+        ev._write_cpp_consumer_project(consumer, library, "tgt", True, compile_options=("-Wno-changes-meaning",))
+    
+        lines = _lines(consumer)
+        sub = next(i for i, line in enumerate(lines) if line.startswith("add_subdirectory("))
+>       opts = next(i for i, line in enumerate(lines) if line.startswith("add_compile_options("))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+tests\indexing\test_cpp_compat_and_page_includes.py:119: StopIteration
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_cpp_compat_and_page_includes.py::test_compile_options_line_sits_directly_before_add_subdirectory
+FAILED tests/indexing/test_cpp_compat_and_page_includes.py::test_relaxed_warnings_with_compile_options_keep_wno_error_after_add_subdirectory
+
+--- stderr ---
+
