@@ -39,7 +39,7 @@ import tomllib
 import urllib.request
 import xml.etree.ElementTree as ElementTree
 import zipfile
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -2949,6 +2949,36 @@ _CPP_TARGET_RE = re.compile(r"^[A-Za-z0-9_.+-]+$")
 _CPP_MAIN_RE = re.compile(r"\bmain\s*\(")
 _CPP_PREAMBLE_LINE_RE = re.compile(r"^\s*(?:#\s*include\b|using\b)")
 
+# TC-455 (REQ-G3-007): opt-in per-pilot C++ compatibility switches for consumer mode.
+# ``no-changes-meaning`` and ``include-limits`` become global compile options (so the
+# library and the candidate both get them); ``include-subdirs`` puts every directory
+# directly under ``<library>/include`` on the candidate's include path; ``page-includes``
+# puts the page's own ``#include`` lines in front of each candidate. Names, never raw
+# compiler flags, are what the deploy layer forwards (a flag value begins with a dash).
+CPP_COMPAT_NAMES = ("no-changes-meaning", "include-limits", "include-subdirs", "page-includes")
+_CPP_COMPAT_COMPILE_OPTIONS = {
+    "no-changes-meaning": "-Wno-changes-meaning",
+    "include-limits": "SHELL:-include limits",
+}
+
+
+def cpp_compat_compile_options(names: Iterable[str]) -> tuple[str, ...]:
+    """Return the compile options for the C++ compat ``names``, in the order given.
+
+    ``include-subdirs`` and ``page-includes`` add no compile option. Raises
+    ``ValueError`` naming an unknown name.
+    """
+    options: list[str] = []
+    for name in names:
+        if name not in CPP_COMPAT_NAMES:
+            raise ValueError(
+                f"unknown C++ compat name {name!r}; expected one of {', '.join(CPP_COMPAT_NAMES)}"
+            )
+        option = _CPP_COMPAT_COMPILE_OPTIONS.get(name)
+        if option is not None:
+            options.append(option)
+    return tuple(options)
+
 
 def _validate_cpp_source_subdir(source_subdir: str) -> None:
     """Raise ``ValueError`` unless ``source_subdir`` is a relative path without ``..``."""
@@ -2992,13 +3022,22 @@ def _wrap_cpp_fragment_if_needed(code: str) -> str:
 
 
 def _write_cpp_consumer_project(
-    consumer_dir: Path, library_source_dir: Path, target: str, relax_warnings: bool
+    consumer_dir: Path,
+    library_source_dir: Path,
+    target: str,
+    relax_warnings: bool,
+    *,
+    compile_options: Sequence[str] = (),
+    include_subdirs: bool = False,
 ) -> None:
     """Write the consumer ``CMakeLists.txt`` and a placeholder ``candidate.cpp`` into ``consumer_dir``.
 
     The project adds ``library_source_dir`` as a subdirectory and links the candidate
     executable to ``target``. ``relax_warnings`` appends ``-Wno-error`` to the target's
     private compile options after the library's own ``-Werror``, so it wins.
+    TC-455: non-empty ``compile_options`` are written as one ``add_compile_options(...)``
+    line before ``add_subdirectory``; ``include_subdirs`` adds every directory directly
+    under ``<library_source_dir>/include`` to the candidate's include path.
     Raises ``ValueError`` for a malformed target or a library source directory that
     does not exist.
     """
@@ -3012,12 +3051,22 @@ def _write_cpp_consumer_project(
         "project(foss_mcp_consumer CXX)",
         "set(CMAKE_CXX_STANDARD 20)",
         "set(CMAKE_CXX_STANDARD_REQUIRED ON)",
+    ]
+    if compile_options:
+        lines.append("add_compile_options(" + " ".join(f'"{option}"' for option in compile_options) + ")")
+    lines += [
         f'add_subdirectory("{library_source_dir.as_posix()}" foss_mcp_library EXCLUDE_FROM_ALL)',
     ]
     if relax_warnings:
         lines.append(f"target_compile_options({target} PRIVATE -Wno-error)")
+    lines.append(f"add_executable({_CPP_CONSUMER_TARGET} candidate.cpp)")
+    include_root = library_source_dir / "include"
+    if include_subdirs and include_root.is_dir():
+        subdirs = sorted(entry.as_posix() for entry in include_root.iterdir() if entry.is_dir())
+        if subdirs:
+            quoted = " ".join(f'"{subdir}"' for subdir in subdirs)
+            lines.append(f"target_include_directories({_CPP_CONSUMER_TARGET} PRIVATE {quoted})")
     lines += [
-        f"add_executable({_CPP_CONSUMER_TARGET} candidate.cpp)",
         f"target_link_libraries({_CPP_CONSUMER_TARGET} PRIVATE {target})",
     ]
     (consumer_dir / "CMakeLists.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -3031,11 +3080,21 @@ def _prepare_cpp_consumer(
     source_subdir: str | None,
     target: str,
     relax_warnings: bool,
+    *,
+    compile_options: Sequence[str] = (),
+    include_subdirs: bool = False,
 ) -> Path:
     """Write, configure and build the consumer project; return its build directory."""
     library_source_dir = workdir / source_subdir if source_subdir else workdir
     consumer_dir = workdir / _CPP_CONSUMER_DIRNAME
-    _write_cpp_consumer_project(consumer_dir, library_source_dir, target, relax_warnings)
+    _write_cpp_consumer_project(
+        consumer_dir,
+        library_source_dir,
+        target,
+        relax_warnings,
+        compile_options=compile_options,
+        include_subdirs=include_subdirs,
+    )
     build_dir = consumer_dir / _CPP_LINUX_BUILD_DIRNAME
     build_dir.mkdir(parents=True, exist_ok=True)
 
@@ -3084,6 +3143,8 @@ def prepare_cpp_library_linux(
     source_subdir: str | None = None,
     target: str | None = None,
     relax_warnings: bool = False,
+    compile_options: Sequence[str] = (),
+    include_subdirs: bool = False,
 ) -> Path:
     """Shallow-fetch ``repository`` at exactly ``commit`` into ``workdir``,
     configure it with CMake (Release, g++ as the C++ compiler), and build the
@@ -3104,7 +3165,8 @@ def prepare_cpp_library_linux(
     build directory, ``workdir/_foss_mcp_consumer/_build``. ``relax_warnings``
     appends ``-Wno-error`` to ``target``. Raises ``ValueError`` for a malformed
     ``target``, or a ``source_subdir`` that is absolute, holds ``..``, or does not
-    exist after the clone.
+    exist after the clone. TC-455: ``compile_options`` and ``include_subdirs`` are
+    passed to the consumer project (consumer mode only).
     """
     if target is not None:
         _validate_cpp_target(target)
@@ -3120,7 +3182,16 @@ def prepare_cpp_library_linux(
         raise ExampleEnvironmentError("git", "fetch of the pinned commit failed", str(exc)) from exc
 
     if target is not None:
-        return _prepare_cpp_consumer(repository, commit, workdir, source_subdir, target, relax_warnings)
+        return _prepare_cpp_consumer(
+            repository,
+            commit,
+            workdir,
+            source_subdir,
+            target,
+            relax_warnings,
+            compile_options=compile_options,
+            include_subdirs=include_subdirs,
+        )
 
     build_dir = workdir / _CPP_LINUX_BUILD_DIRNAME
     build_dir.mkdir(parents=True, exist_ok=True)
@@ -3176,6 +3247,7 @@ def verify_cpp_example_linux(
     *,
     consumer: bool = False,
     run: bool = True,
+    page_includes: Sequence[str] = (),
 ) -> VerificationResult:
     """Compile and link ``candidate.code`` as a throwaway ``candidate.cpp``
     against ``library_dir/libaspose_pdf_foss.a`` (``library_dir`` is the
@@ -3192,6 +3264,10 @@ def verify_cpp_example_linux(
     directory; the wrapped code is written to the consumer's ``candidate.cpp`` and built
     through CMake as the ``foss_mcp_candidate`` target. With ``run=False`` a successful
     compile-and-link is the verdict and the executable is not run.
+    TC-455: every ``page_includes`` line that is not already a line of the candidate's
+    code is put in front of the code, in order, before the fragment wrapper runs. The
+    returned result carries the ORIGINAL candidate (that is what is published) and its
+    output begins with ``page includes prefixed: ...`` when anything was prefixed.
     """
     _require_linux_tool(_CPP_LINUX_COMPILER)
     if consumer:
@@ -3199,7 +3275,13 @@ def verify_cpp_example_linux(
 
     project_dir = workdir / "candidate_project"
     project_dir.mkdir(parents=True, exist_ok=True)
-    code = _wrap_cpp_fragment_if_needed(candidate.code)
+    existing_lines = {line.strip() for line in candidate.code.splitlines()}
+    prefixed: list[str] = []
+    for include_line in page_includes:
+        if include_line.strip() not in existing_lines and include_line not in prefixed:
+            prefixed.append(include_line)
+    source_code = "\n".join([*prefixed, candidate.code]) if prefixed else candidate.code
+    code = _wrap_cpp_fragment_if_needed(source_code)
 
     if consumer:
         source_path = library_dir.parent / "candidate.cpp"
@@ -3218,14 +3300,15 @@ def verify_cpp_example_linux(
             str(output_exe),
         ]
     source_path.write_text(code, encoding="utf-8")
+    note = f"page includes prefixed: {' | '.join(prefixed)}\n" if prefixed else ""
 
     compile_result = _run(compile_argv, cwd=project_dir)
     if compile_result.returncode != 0:
-        output = _truncate(f"{compile_result.stdout}\n{compile_result.stderr}")
+        output = note + _truncate(f"{compile_result.stdout}\n{compile_result.stderr}")
         return VerificationResult(candidate=candidate, verified=False, output=output)
 
     if not run:
-        output = _truncate(f"{compile_result.stdout}\n{compile_result.stderr}")
+        output = note + _truncate(f"{compile_result.stdout}\n{compile_result.stderr}")
         return VerificationResult(candidate=candidate, verified=True, output=output)
 
     try:
@@ -3237,14 +3320,14 @@ def verify_cpp_example_linux(
             timeout=_CPP_LINUX_RUN_TIMEOUT_SECONDS,
         )
     except subprocess.TimeoutExpired as exc:
-        output = _truncate(
+        output = note + _truncate(
             f"run exceeded {_CPP_LINUX_RUN_TIMEOUT_SECONDS}s and was stopped\n"
             f"{exc.stdout or ''}\n{exc.stderr or ''}"
         )
         return VerificationResult(candidate=candidate, verified=False, output=output)
 
     verified = run_result.returncode == 0
-    output = _truncate(
+    output = note + _truncate(
         f"{compile_result.stdout}\n{compile_result.stderr}\n{run_result.stdout}\n{run_result.stderr}"
     )
     return VerificationResult(candidate=candidate, verified=verified, output=output)

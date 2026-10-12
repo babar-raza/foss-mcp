@@ -63,7 +63,9 @@ from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
 from foss_mcp.indexing.doc_candidates import extract_doc_sections
 from foss_mcp.indexing.example_candidates import extract_candidate_examples
 from foss_mcp.indexing.example_verifier import (
+    CPP_COMPAT_NAMES,
     ExampleEnvironmentError,
+    cpp_compat_compile_options,
     prepare_cpp_library_linux,
     prepare_go_library,
     prepare_java_library,
@@ -98,8 +100,21 @@ def _prepare_cpp(args: argparse.Namespace, workdir: Path) -> Path:
     source_dir = getattr(args, "library_cpp_source_dir", None)
     target = getattr(args, "library_cpp_target", None)
     warnings = getattr(args, "library_cpp_warnings", None)
+    compat = getattr(args, "library_cpp_compat", None)
     if source_dir is None and target is None and warnings is None:
         return prepare_cpp_library_linux(args.library_repository, args.library_commit, workdir)
+    if compat:
+        # TC-455: the compat keywords appear only when --library-cpp-compat is given.
+        return prepare_cpp_library_linux(
+            args.library_repository,
+            args.library_commit,
+            workdir,
+            source_subdir=source_dir,
+            target=target,
+            relax_warnings=warnings == "relaxed",
+            compile_options=cpp_compat_compile_options(compat),
+            include_subdirs="include-subdirs" in compat,
+        )
     return prepare_cpp_library_linux(
         args.library_repository,
         args.library_commit,
@@ -221,6 +236,12 @@ _PLATFORM_DISPATCH = {
             # cpp flag the dict is exactly pdf/cpp's.
             **({"consumer": True} if getattr(args, "library_cpp_target", None) else {}),
             **({"run": False} if getattr(args, "library_cpp_verify_mode", None) == "compile" else {}),
+            # TC-455: the page's own #include lines go in front of each candidate, opt-in per pilot.
+            **(
+                {"page_includes": _page_cpp_includes(getattr(args, "furnished_page", None))}
+                if "page-includes" in (getattr(args, "library_cpp_compat", None) or ())
+                else {}
+            ),
         },
         "shared_page_workdir": False,
         "verifier_name": "cpp_verifier_linux",
@@ -362,6 +383,39 @@ def _page_java_imports(path: Path | None) -> tuple[str, ...]:
         if line.startswith("import ") and line.endswith(";"):
             imports.append(line)
     return tuple(imports)
+
+
+_CPP_INCLUDE_LINE_RE = re.compile(r'^#\s*include\s*[<"][^>"]+[>"]$')
+
+
+def _page_cpp_includes(path: Path | None) -> tuple[str, ...]:
+    """Return the ``#include`` lines of the furnished page's extracted candidate examples, in
+    document order and de-duplicated (TC-455). Each is a stripped whole line; an inline-code
+    mention in prose is never one of them. With no page (``None``) there are none.
+    """
+    if path is None:
+        return ()
+    includes: list[str] = []
+    for candidate in extract_candidate_examples(_load_furnished_page(path)):
+        for raw_line in candidate.code.splitlines():
+            line = raw_line.strip()
+            if _CPP_INCLUDE_LINE_RE.match(line) and line not in includes:
+                includes.append(line)
+    return tuple(includes)
+
+
+def _cpp_compat_argument(text: str) -> tuple[str, ...]:
+    """argparse type for ``--library-cpp-compat``: a comma-separated list of names from
+    ``CPP_COMPAT_NAMES``; an empty list or an unknown name is a usage error (exit 2)."""
+    names = tuple(part.strip() for part in text.split(",") if part.strip())
+    if not names:
+        raise argparse.ArgumentTypeError("expected at least one C++ compat name")
+    for name in names:
+        if name not in CPP_COMPAT_NAMES:
+            raise argparse.ArgumentTypeError(
+                f"unknown C++ compat name {name!r}; expected one of {', '.join(CPP_COMPAT_NAMES)}"
+            )
+    return names
 
 
 def _write_verification_report(path: Path, records: list[dict]) -> None:
@@ -673,6 +727,13 @@ def main() -> None:
         help="compile makes compile-and-link success the verdict and skips running (cpp only)",
     )
     parser.add_argument(
+        "--library-cpp-compat",
+        type=_cpp_compat_argument,
+        default=None,
+        help="comma-separated C++ compatibility switches (" + ", ".join(CPP_COMPAT_NAMES) + "); "
+        "cpp only; needs --library-cpp-target (TC-455)",
+    )
+    parser.add_argument(
         "--verification-report",
         type=Path,
         default=None,
@@ -682,9 +743,14 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.library_cpp_target is None and (
-        args.library_cpp_source_dir is not None or args.library_cpp_warnings is not None
+        args.library_cpp_source_dir is not None
+        or args.library_cpp_warnings is not None
+        or args.library_cpp_compat is not None
     ):
-        parser.error("--library-cpp-source-dir and --library-cpp-warnings require --library-cpp-target")
+        parser.error(
+            "--library-cpp-source-dir, --library-cpp-warnings and --library-cpp-compat "
+            "require --library-cpp-target"
+        )
 
     furnished_args = (
         args.furnished_page,

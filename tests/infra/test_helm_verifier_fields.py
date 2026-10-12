@@ -39,6 +39,7 @@ VERIFIER_KEYS = {
     "cppTarget": "--library-cpp-target",
     "cppWarnings": "--library-cpp-warnings",
     "cppVerifyMode": "--library-cpp-verify-mode",
+    "cppCompat": "--library-cpp-compat",
 }
 
 # Every library field TC-363 records, per (family, platform), exactly as the card specifies them.
@@ -53,10 +54,19 @@ EXPECTED_LIBRARY_FIELDS: dict[tuple[str, str], dict[str, str]] = {
         "cppSourceDir": "Aspose.Cells.Foss.Cpp",
         "cppTarget": "aspose_cells_foss",
         "cppWarnings": "relaxed",
+        "cppCompat": "no-changes-meaning,include-limits,include-subdirs,page-includes",
     },
     ("slides", "cpp"): {"cppTarget": "AsposeSlidesFoss"},
-    ("email", "cpp"): {"cppTarget": "AsposeEmailFoss", "cppVerifyMode": "compile"},
-    ("jmap", "cpp"): {"cppTarget": "aspose-jmap-foss-cpp", "cppVerifyMode": "compile"},
+    ("email", "cpp"): {
+        "cppTarget": "AsposeEmailFoss",
+        "cppVerifyMode": "compile",
+        "cppCompat": "no-changes-meaning,include-limits,include-subdirs,page-includes",
+    },
+    ("jmap", "cpp"): {
+        "cppTarget": "aspose-jmap-foss-cpp",
+        "cppVerifyMode": "compile",
+        "cppCompat": "no-changes-meaning,include-limits,include-subdirs,page-includes",
+    },
     ("cells", "typescript"): {"packageName": "excel-cells"},
     ("jmap", "typescript"): {"packageName": "aspose-jmap-foss-ts"},
     ("3d", "typescript"): {"packageName": "@aspose/3d"},

@@ -83,6 +83,7 @@ LIBRARY_FLAGS = {
     "--library-cpp-target": "cppTarget",
     "--library-cpp-warnings": "cppWarnings",
     "--library-cpp-verify-mode": "cppVerifyMode",
+    "--library-cpp-compat": "cppCompat",
 }
 
 # Self-extracted pilots whose compose services pass no library flags. Their library block is checked
