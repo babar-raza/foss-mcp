@@ -155,7 +155,7 @@ def test_vcvarsall_missing_under_reported_installation_raises(
 def _record_subprocess_run(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
     calls: list[dict[str, object]] = []
 
-    def fake_subprocess_run(args, *, cwd, capture_output, text, env=None):  # type: ignore[no-untyped-def]
+    def fake_subprocess_run(args, *, cwd, capture_output, text, env=None, timeout=None):  # type: ignore[no-untyped-def]
         calls.append({"args": list(args), "cwd": cwd, "env": env})
         return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
 

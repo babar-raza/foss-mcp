@@ -231,14 +231,38 @@ def _cargo_environment() -> dict[str, str]:
     return env
 
 
+def _decode_partial_output(value: str | bytes | None) -> str:
+    """Return the partial output a killed process carried: decoded if bytes, empty if None."""
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value
+
+
 def _run_cargo_subprocess(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        args,
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        env=_cargo_environment(),
-    )
+    """Run one cargo command bounded by ``_RUN_TIMEOUT_SECONDS``.
+
+    A cargo that overruns is killed and reported with return code ``_TIMEOUT_EXIT_CODE``, the
+    partial output it produced and a final ``[foss-mcp] TIMEOUT`` stderr line. That line is not a
+    network marker, so a timed-out build is simply not verified.
+    """
+    try:
+        return subprocess.run(
+            args,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            env=_cargo_environment(),
+            timeout=_RUN_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as expired:
+        stdout = _decode_partial_output(expired.stdout)
+        stderr = _decode_partial_output(expired.stderr)
+        if stderr and not stderr.endswith("\n"):
+            stderr += "\n"
+        stderr += f"[foss-mcp] TIMEOUT: cargo was killed after {_RUN_TIMEOUT_SECONDS} seconds"
+        return subprocess.CompletedProcess(args, _TIMEOUT_EXIT_CODE, stdout=stdout, stderr=stderr)
 
 
 # Offline fallback. The reference crate has no Cargo.lock, so every fresh clone
@@ -1488,6 +1512,133 @@ def _reference_build_failure(
     )
 
 
+_RUST_FRAGMENT_MAIN_HEADER = "fn main() -> Result<(), Box<dyn std::error::Error>> {"
+_RUST_MAIN_RE = re.compile(r"(?m)^\s*(?:pub\s+)?(?:async\s+)?fn\s+main\s*\(")
+_RUST_USE_RE = re.compile(r"(?m)^[ \t]*(?:pub(?:\([^)]*\))?[ \t]+)?use\s[^;]*;")
+_RUST_INNER_ATTRIBUTE_RE = re.compile(r"(?m)^[ \t]*#!\[.*\][ \t]*$")
+_RUST_USE_PREFIX_RE = re.compile(r"^(?:pub(?:\([^)]*\))?\s+)?use\s+")
+
+
+def _rust_has_main(code: str) -> bool:
+    """Return True when ``code`` defines its own ``fn main``."""
+    return _RUST_MAIN_RE.search(code) is not None
+
+
+def _rust_use_statements(code: str) -> list[str]:
+    """Every ``use ...;`` statement (optionally ``pub``) of ``code``, in order, across lines."""
+    return [match.group(0).strip() for match in _RUST_USE_RE.finditer(code)]
+
+
+def _split_top_level_commas(text: str) -> list[str]:
+    parts: list[str] = []
+    depth = 0
+    start = 0
+    for index, char in enumerate(text):
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+        elif char == "," and depth == 0:
+            parts.append(text[start:index])
+            start = index + 1
+    parts.append(text[start:])
+    return [part.strip() for part in parts if part.strip()]
+
+
+def _rust_use_tree_names(tree: str, parent: str) -> set[str] | None:
+    tree = tree.strip()
+    if "{" in tree:
+        prefix, rest = tree.split("{", 1)
+        inner = rest[: rest.rindex("}")]
+        segments = [segment.strip() for segment in prefix.strip().rstrip(":").split("::")]
+        inner_parent = segments[-1] if segments and segments[-1] else parent
+        names: set[str] = set()
+        for item in _split_top_level_commas(inner):
+            if item == "self":
+                if inner_parent:
+                    names.add(inner_parent)
+                continue
+            sub = _rust_use_tree_names(item, inner_parent)
+            if sub is None:
+                return None
+            names |= sub
+        return names
+    if tree.endswith("*"):
+        return None
+    if re.search(r"\sas\s", tree):
+        alias = re.split(r"\sas\s", tree)[-1].strip()
+        return set() if alias == "_" else {alias}
+    last = tree.split("::")[-1].strip()
+    if last == "self":
+        last = parent
+    return {last} if last else set()
+
+
+def _rust_use_names(statement: str) -> frozenset[str] | None:
+    """The names a ``use`` statement brings into scope; None for a glob.
+
+    That is the last segment of each leaf, or its ``as`` alias, through nested braces; ``self``
+    inside braces counts as the parent segment.
+    """
+    body = _RUST_USE_PREFIX_RE.sub("", statement.strip()).rstrip().removesuffix(";").strip()
+    names = _rust_use_tree_names(" ".join(body.split()), "")
+    return None if names is None else frozenset(names)
+
+
+def _rust_mentions(code: str, name: str) -> bool:
+    return re.search(rf"(?<![A-Za-z0-9_]){re.escape(name)}(?![A-Za-z0-9_])", code) is not None
+
+
+def _rust_page_uses(code: str, page_code: tuple[str, ...]) -> list[str]:
+    """The page's ``use`` statements the block needs: globs, or those naming a word the block uses."""
+    own = {_collapse_whitespace(statement) for statement in _rust_use_statements(code)}
+    seen: set[str] = set()
+    kept: list[str] = []
+    for block in page_code:
+        for statement in _rust_use_statements(block):
+            key = _collapse_whitespace(statement)
+            if key in seen:
+                continue
+            seen.add(key)
+            if key in own:
+                continue
+            names = _rust_use_names(statement)
+            if names is None or any(_rust_mentions(code, name) for name in names):
+                kept.append(statement)
+    return kept
+
+
+def _assemble_rust_source(code: str, page_code: tuple[str, ...]) -> tuple[str, str, tuple[str, ...]]:
+    """Return (source, mode, page uses added) for ``src/main.rs``.
+
+    A block with its own ``fn main`` is compiled exactly as given. Any other block is a statement
+    fragment: it is wrapped in a ``Result``-returning ``main`` so ``?`` works, preceded at crate
+    level by the page ``use`` statements it needs. The block's own ``use`` lines stay inside
+    ``main``, where a block-scoped import shadows a crate-level one instead of colliding.
+    """
+    if _rust_has_main(code):
+        return code, "as-given", ()
+    attributes = [match.group(0).strip() for match in _RUST_INNER_ATTRIBUTE_RE.finditer(code)]
+    body = _RUST_INNER_ATTRIBUTE_RE.sub("", code).strip("\n") if attributes else code
+    added = _rust_page_uses(code, page_code)
+    lines = [*attributes, *added, _RUST_FRAGMENT_MAIN_HEADER, body, "    Ok(())", "}"]
+    return "\n".join(lines) + "\n", "wrapped-fragment", tuple(added)
+
+
+def _rust_serde_json_requirement(library_dir: Path) -> str:
+    """The library's own ``serde_json`` requirement, else ``"1"``. Any error is ignored."""
+    try:
+        manifest = tomllib.loads((library_dir / "Cargo.toml").read_text(encoding="utf-8"))
+        dependency = manifest["dependencies"]["serde_json"]
+        if isinstance(dependency, Mapping):
+            dependency = dependency["version"]
+        if isinstance(dependency, str) and dependency.strip():
+            return dependency.strip()
+    except Exception:
+        pass
+    return "1"
+
+
 def verify_rust_example(
     candidate: CandidateExample,
     *,
@@ -1500,6 +1651,12 @@ def verify_rust_example(
     Cargo path dependency named ``library_crate_name``, and report the
     real ``cargo build`` outcome.
 
+    A block without its own ``fn main`` is a statement fragment: it is wrapped in a
+    ``Result``-returning ``main`` with only the page ``use`` statements it names (see
+    ``_assemble_rust_source``). A block that holds nothing but ``use`` declarations is rejected
+    without calling cargo. ``serde_json`` is declared, at the library's own version requirement,
+    only when the assembled source names it. The first line of the output records the assembly.
+
     Raises ``ExampleEnvironmentError`` when a failed build's output names a
     registry or network failure (see ``_CARGO_NETWORK_FAILURE_MARKERS``) AND
     carries no rustc diagnostic (``error[E<digits>]``). A failed build that
@@ -1509,15 +1666,30 @@ def verify_rust_example(
     The literal comparison determining ``verified`` is intentionally exact
     (``verified = result.returncode == 0``), matching ``verify_dotnet_example``.
     """
+    if not _rust_has_main(candidate.code):
+        statements = _RUST_INNER_ATTRIBUTE_RE.sub("", _RUST_USE_RE.sub("", candidate.code))
+        if not _has_own_statements(statements, preamble_line=None):
+            return VerificationResult(
+                candidate=candidate,
+                verified=False,
+                output=_NO_STATEMENTS_MESSAGE.format(kind="use declarations"),
+            )
+
     project_dir = workdir / "candidate_project"
     (project_dir / "src").mkdir(parents=True, exist_ok=True)
+
+    source, mode, added_uses = _assemble_rust_source(candidate.code, candidate.page_code)
 
     cargo_toml_content = _CANDIDATE_CARGO_TOML_TEMPLATE.format(
         crate_name=library_crate_name,
         library_dir=library_dir.resolve().as_posix(),
     )
+    extra_dependencies = "none"
+    if _rust_mentions(source, "serde_json"):
+        extra_dependencies = f"serde_json = {json.dumps(_rust_serde_json_requirement(library_dir))}"
+        cargo_toml_content += extra_dependencies + "\n"
     (project_dir / "Cargo.toml").write_text(cargo_toml_content, encoding="utf-8")
-    (project_dir / "src" / "main.rs").write_text(candidate.code, encoding="utf-8")
+    (project_dir / "src" / "main.rs").write_text(source, encoding="utf-8")
 
     result = _run_cargo(["cargo", "build"], cwd=project_dir)
     output_text = f"{result.stdout}\n{result.stderr}"
@@ -1531,7 +1703,12 @@ def verify_rust_example(
             raise ExampleEnvironmentError("cargo", marker, _truncate(output_text))
 
     verified = result.returncode == 0
-    output = _truncate(output_text)
+    added = ", ".join(_collapse_whitespace(statement) for statement in added_uses) or "none"
+    assembly_line = (
+        f"[foss-mcp] assembly: rust mode={mode}; page-uses-added={added}; "
+        f"extra-dependencies={extra_dependencies}"
+    )
+    output = f"{assembly_line}\n{_truncate(output_text)}"
 
     return VerificationResult(candidate=candidate, verified=verified, output=output)
 
