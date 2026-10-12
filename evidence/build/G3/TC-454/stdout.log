@@ -1,0 +1,248 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_rust_verifier_assembly.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b6sk22rs\.junit-0.xml"
+--- stdout ---
+......................                                                   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_rust_verifier_assembly.py tests/indexing/test_example_verifier_toolchain.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_rust_reference_env_failure.py tests/indexing/test_build_chunks_env_failure.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_sanitize.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b6sk22rs\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 60%]
+...............................................                          [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_rust_verifier_assembly.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b6sk22rs\.junit-0.xml"
+--- stdout ---
+......................                                                   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_rust_verifier_assembly.py tests/indexing/test_example_verifier_toolchain.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_rust_reference_env_failure.py tests/indexing/test_build_chunks_env_failure.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_sanitize.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b6sk22rs\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 60%]
+...............................................                          [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/example_verifier.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_rust_verifier_assembly.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b6sk22rs\.junit-0.xml"
+--- stdout ---
+FF..F..........FF.....                                                   [100%]
+================================== FAILURES ===================================
+__________ test_quick_start_is_wrapped_with_its_own_use_inside_main ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D83EF169E0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7713/test_quick_start_is_wrapped_wi0')
+
+    def test_quick_start_is_wrapped_with_its_own_use_inside_main(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        candidate = _jmap("Quick Start")
+    
+        result, cargo = _verify(monkeypatch, tmp_path, candidate)
+    
+        source = cargo.main_rs[0]
+>       assert source.startswith(f"{HEADER}\n{OWN_USE}\n")
+E       assert False
+E        +  where False = <built-in method startswith of str object at 0x000001D83EDA7480>('fn main() -> Result<(), Box<dyn std::error::Error>> {\nuse aspose_jmap_foss::{JmapClient, ClientOptions};\n')
+E        +    where <built-in method startswith of str object at 0x000001D83EDA7480> = 'fn main() {\nuse aspose_jmap_foss::{JmapClient, ClientOptions};\n\nlet options = ClientOptions {\n    session_url: "h...   transport: None,\n};\nlet mut client = JmapClient::new(options);\nlet session = client.connect()?;\n    Ok(())\n}\n'.startswith
+
+tests\indexing\test_rust_verifier_assembly.py:92: AssertionError
+__________ test_bearer_token_block_gets_the_page_use_at_crate_level ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D83F09E9E0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7713/test_bearer_token_block_gets_t0')
+
+    def test_bearer_token_block_gets_the_page_use_at_crate_level(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        candidate = _jmap("OAuth 2.0 bearer token authentication")
+    
+        result, cargo = _verify(monkeypatch, tmp_path, candidate)
+    
+        source = cargo.main_rs[0]
+>       assert source.startswith(f"{OWN_USE}\n{HEADER}\n")
+E       assert False
+E        +  where False = <built-in method startswith of str object at 0x000001D83F026DB0>('use aspose_jmap_foss::{JmapClient, ClientOptions};\nfn main() -> Result<(), Box<dyn std::error::Error>> {\n')
+E        +    where <built-in method startswith of str object at 0x000001D83F026DB0> = 'use aspose_jmap_foss::{JmapClient, ClientOptions};\nfn main() {\nlet options = ClientOptions {\n    session_url: "htt...   transport: None,\n};\nlet mut client = JmapClient::new(options);\nlet session = client.connect()?;\n    Ok(())\n}\n'.startswith
+
+tests\indexing\test_rust_verifier_assembly.py:109: AssertionError
+__________ test_third_block_keeps_its_own_uses_and_adds_no_page_use ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D840B75370>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7713/test_third_block_keeps_its_own0')
+
+    def test_third_block_keeps_its_own_uses_and_adds_no_page_use(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        candidate = _jmap("OAuth 2.0 bearer token authentication (2)")
+    
+        result, cargo = _verify(monkeypatch, tmp_path, candidate)
+    
+>       assert cargo.main_rs[0].startswith(f"{HEADER}\nuse aspose_jmap_foss::{{Invocation, ResultReference}};")
+E       assert False
+E        +  where False = <built-in method startswith of str object at 0x000001D83E5725D0>('fn main() -> Result<(), Box<dyn std::error::Error>> {\nuse aspose_jmap_foss::{Invocation, ResultReference};')
+E        +    where <built-in method startswith of str object at 0x000001D83E5725D0> = 'fn main() {\nuse aspose_jmap_foss::{Invocation, ResultReference};\nuse serde_json::json;\nuse std::collections::HashM...};\nlet resp = client.send_request(vec![query, get], vec!["urn:ietf:params:jmap:mail".to_string()])?;\n    Ok(())\n}\n'.startswith
+
+tests\indexing\test_rust_verifier_assembly.py:146: AssertionError
+_______________ test_an_inner_attribute_moves_to_the_first_line _______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D840B10C00>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7713/test_an_inner_attribute_moves_0')
+
+    def test_an_inner_attribute_moves_to_the_first_line(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        candidate = _block("let x = 1;\n#![allow(dead_code)]\nlet y = 2;")
+    
+        _, cargo = _verify(monkeypatch, tmp_path, candidate)
+    
+        lines = cargo.main_rs[0].splitlines()
+        assert lines[0] == "#![allow(dead_code)]"
+>       assert lines[1] == HEADER
+E       AssertionError: assert 'fn main() {' == 'fn main() ->...or::Error>> {'
+E         
+E         - fn main() -> Result<(), Box<dyn std::error::Error>> {
+E         + fn main() {
+
+tests\indexing\test_rust_verifier_assembly.py:207: AssertionError
+_______ test_a_glob_page_use_is_always_added_and_an_unused_name_is_not ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D840B47F70>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7713/test_a_glob_page_use_is_always0')
+
+    def test_a_glob_page_use_is_always_added_and_an_unused_name_is_not(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        page = ("use a::*;", "use b::Unused;", "use c::Used;")
+    
+        _, cargo = _verify(monkeypatch, tmp_path, _block("let v = Used::new();", page))
+    
+        source = cargo.main_rs[0]
+>       assert source.startswith(f"use a::*;\nuse c::Used;\n{HEADER}\n")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x000001D840B26480>('use a::*;\nuse c::Used;\nfn main() -> Result<(), Box<dyn std::error::Error>> {\n')
+E        +    where <built-in method startswith of str object at 0x000001D840B26480> = 'use a::*;\nuse c::Used;\nfn main() {\nlet v = Used::new();\n    Ok(())\n}\n'.startswith
+
+tests\indexing\test_rust_verifier_assembly.py:219: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_rust_verifier_assembly.py::test_quick_start_is_wrapped_with_its_own_use_inside_main
+FAILED tests/indexing/test_rust_verifier_assembly.py::test_bearer_token_block_gets_the_page_use_at_crate_level
+FAILED tests/indexing/test_rust_verifier_assembly.py::test_third_block_keeps_its_own_uses_and_adds_no_page_use
+FAILED tests/indexing/test_rust_verifier_assembly.py::test_an_inner_attribute_moves_to_the_first_line
+FAILED tests/indexing/test_rust_verifier_assembly.py::test_a_glob_page_use_is_always_added_and_an_unused_name_is_not
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_rust_verifier_assembly.py tests/indexing/test_example_verifier_toolchain.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_rust_reference_env_failure.py tests/indexing/test_build_chunks_env_failure.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_sanitize.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b6sk22rs\.junit-1.xml"
+--- stdout ---
+FF..F..........FF....................................................... [ 60%]
+...............................................                          [100%]
+================================== FAILURES ===================================
+__________ test_quick_start_is_wrapped_with_its_own_use_inside_main ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002929136C3E0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7714/test_quick_start_is_wrapped_wi0')
+
+    def test_quick_start_is_wrapped_with_its_own_use_inside_main(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        candidate = _jmap("Quick Start")
+    
+        result, cargo = _verify(monkeypatch, tmp_path, candidate)
+    
+        source = cargo.main_rs[0]
+>       assert source.startswith(f"{HEADER}\n{OWN_USE}\n")
+E       assert False
+E        +  where False = <built-in method startswith of str object at 0x000002928E67B630>('fn main() -> Result<(), Box<dyn std::error::Error>> {\nuse aspose_jmap_foss::{JmapClient, ClientOptions};\n')
+E        +    where <built-in method startswith of str object at 0x000002928E67B630> = 'fn main() {\nuse aspose_jmap_foss::{JmapClient, ClientOptions};\n\nlet options = ClientOptions {\n    session_url: "h...   transport: None,\n};\nlet mut client = JmapClient::new(options);\nlet session = client.connect()?;\n    Ok(())\n}\n'.startswith
+
+tests\indexing\test_rust_verifier_assembly.py:92: AssertionError
+__________ test_bearer_token_block_gets_the_page_use_at_crate_level ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002928E6F68B0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7714/test_bearer_token_block_gets_t0')
+
+    def test_bearer_token_block_gets_the_page_use_at_crate_level(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        candidate = _jmap("OAuth 2.0 bearer token authentication")
+    
+        result, cargo = _verify(monkeypatch, tmp_path, candidate)
+    
+        source = cargo.main_rs[0]
+>       assert source.startswith(f"{OWN_USE}\n{HEADER}\n")
+E       assert False
+E        +  where False = <built-in method startswith of str object at 0x000002928E6AEDB0>('use aspose_jmap_foss::{JmapClient, ClientOptions};\nfn main() -> Result<(), Box<dyn std::error::Error>> {\n')
+E        +    where <built-in method startswith of str object at 0x000002928E6AEDB0> = 'use aspose_jmap_foss::{JmapClient, ClientOptions};\nfn main() {\nlet options = ClientOptions {\n    session_url: "htt...   transport: None,\n};\nlet mut client = JmapClient::new(options);\nlet session = client.connect()?;\n    Ok(())\n}\n'.startswith
+
+tests\indexing\test_rust_verifier_assembly.py:109: AssertionError
+__________ test_third_block_keeps_its_own_uses_and_adds_no_page_use ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000292901BD6A0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7714/test_third_block_keeps_its_own0')
+
+    def test_third_block_keeps_its_own_uses_and_adds_no_page_use(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        candidate = _jmap("OAuth 2.0 bearer token authentication (2)")
+    
+        result, cargo = _verify(monkeypatch, tmp_path, candidate)
+    
+>       assert cargo.main_rs[0].startswith(f"{HEADER}\nuse aspose_jmap_foss::{{Invocation, ResultReference}};")
+E       assert False
+E        +  where False = <built-in method startswith of str object at 0x000002928E3AD550>('fn main() -> Result<(), Box<dyn std::error::Error>> {\nuse aspose_jmap_foss::{Invocation, ResultReference};')
+E        +    where <built-in method startswith of str object at 0x000002928E3AD550> = 'fn main() {\nuse aspose_jmap_foss::{Invocation, ResultReference};\nuse serde_json::json;\nuse std::collections::HashM...};\nlet resp = client.send_request(vec![query, get], vec!["urn:ietf:params:jmap:mail".to_string()])?;\n    Ok(())\n}\n'.startswith
+
+tests\indexing\test_rust_verifier_assembly.py:146: AssertionError
+_______________ test_an_inner_attribute_moves_to_the_first_line _______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000292912ABC20>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7714/test_an_inner_attribute_moves_0')
+
+    def test_an_inner_attribute_moves_to_the_first_line(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        candidate = _block("let x = 1;\n#![allow(dead_code)]\nlet y = 2;")
+    
+        _, cargo = _verify(monkeypatch, tmp_path, candidate)
+    
+        lines = cargo.main_rs[0].splitlines()
+        assert lines[0] == "#![allow(dead_code)]"
+>       assert lines[1] == HEADER
+E       AssertionError: assert 'fn main() {' == 'fn main() ->...or::Error>> {'
+E         
+E         - fn main() -> Result<(), Box<dyn std::error::Error>> {
+E         + fn main() {
+
+tests\indexing\test_rust_verifier_assembly.py:207: AssertionError
+_______ test_a_glob_page_use_is_always_added_and_an_unused_name_is_not ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002929011C9B0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7714/test_a_glob_page_use_is_always0')
+
+    def test_a_glob_page_use_is_always_added_and_an_unused_name_is_not(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        page = ("use a::*;", "use b::Unused;", "use c::Used;")
+    
+        _, cargo = _verify(monkeypatch, tmp_path, _block("let v = Used::new();", page))
+    
+        source = cargo.main_rs[0]
+>       assert source.startswith(f"use a::*;\nuse c::Used;\n{HEADER}\n")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x0000029290141F40>('use a::*;\nuse c::Used;\nfn main() -> Result<(), Box<dyn std::error::Error>> {\n')
+E        +    where <built-in method startswith of str object at 0x0000029290141F40> = 'use a::*;\nuse c::Used;\nfn main() {\nlet v = Used::new();\n    Ok(())\n}\n'.startswith
+
+tests\indexing\test_rust_verifier_assembly.py:219: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_rust_verifier_assembly.py::test_quick_start_is_wrapped_with_its_own_use_inside_main
+FAILED tests/indexing/test_rust_verifier_assembly.py::test_bearer_token_block_gets_the_page_use_at_crate_level
+FAILED tests/indexing/test_rust_verifier_assembly.py::test_third_block_keeps_its_own_uses_and_adds_no_page_use
+FAILED tests/indexing/test_rust_verifier_assembly.py::test_an_inner_attribute_moves_to_the_first_line
+FAILED tests/indexing/test_rust_verifier_assembly.py::test_a_glob_page_use_is_always_added_and_an_unused_name_is_not
+
+--- stderr ---
+
