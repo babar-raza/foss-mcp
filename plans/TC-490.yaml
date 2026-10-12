@@ -16,6 +16,7 @@ depends_on:
 write_paths:
 - docs/RELEASE.md
 - tests/deploy/test_release_deferred_extraction.py
+- tests/deploy/test_release_known_limitations.py
 satisfies:
 - REQ-G3-007
 source_refs:
@@ -42,6 +43,11 @@ inputs:
   improvements` heading placed after the `## 8.` heading; each id appears in bold exactly once inside section 9 with at least 80 characters of
   text after it; section 9 contains no other bold card id; sections 1-8 headings are unchanged; the six plan files exist under plans/ (so the
   deferral names real cards). Parametrize over the ids so a failure names the id. At least 14 tests.
+- >-
+  AN OLD ASSERTION THAT CONTRADICTS THIS CARD (found by the worker): tests/deploy/test_release_known_limitations.py::test_section_8_is_the_last_section_and_follows_section_7
+  asserts that section 8 is the last `##` heading, which any section 9 breaks. The file is now in your write_paths (TC-489 is a dependency and integrated):
+  change ONLY that test so it expects `## 8. Known limitations` to follow section 7 and `## 9. Deferred extraction improvements` to be the last `##`
+  heading directly after section 8 (rename it if its name becomes false, keeping one test), and keep every other test in the file unchanged. Check 2 runs the file.
 - >-
   Run `{python} -m pytest tests/deploy/test_release_deferred_extraction.py -q -rfE`, then once the second check command below. Write commit
   messages as UTF-8 without a byte-order mark.
