@@ -178,6 +178,10 @@ def _python_types_from_surface(surface: python_surface.PublicSurface) -> list[di
             "properties": [],
         }
         entry["bases"] = list(symbol.bases)  # TC-265: real bases
+        if symbol.kind == "function":
+            # TC-473: a module function carries its signature, as a method does.
+            entry["params"] = [{"name": n, "type": t} for n, t in (symbol.params or symbol.param_types)]
+            entry["return_type"] = symbol.return_type or ""
         if symbol.kind == "enum":
             entry["enum_members"] = []
         entries[symbol.qualified_name] = entry

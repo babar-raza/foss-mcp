@@ -265,6 +265,9 @@ def _module_symbols(
     return symbols, unresolved
 
 
+# TC-473: the dunders published as methods besides ``__init__`` - the context-manager protocol.
+PUBLISHED_DUNDERS = ("__enter__", "__exit__", "__aenter__", "__aexit__")
+
 _PROPERTY_DECORATORS = frozenset({"property", "cached_property", "functools.cached_property"})
 
 
@@ -301,7 +304,8 @@ def _methods(node: ast.ClassDef, module: str, relative: str, public_by: PublicBy
     for item in node.body:
         if not isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
-        if (item.name.startswith("_") and item.name != "__init__") or item.name in seen:
+        published = item.name == "__init__" or item.name in PUBLISHED_DUNDERS
+        if (item.name.startswith("_") and not published) or item.name in seen:
             continue
         seen.add(item.name)
         bases, return_type, param_types = _structured_fields(item)
@@ -324,6 +328,87 @@ def _methods(node: ast.ClassDef, module: str, relative: str, public_by: PublicBy
                 writable=(item.name in setters) if is_property else None,
             )
         )
+    if _class_kind(node) != "enum":
+        found.extend(_attribute_members(node, module, relative, public_by, seen))
+    return found
+
+
+def _attribute_symbol(
+    node: ast.ClassDef, module: str, relative: str, public_by: PublicBy, name: str, type_text: str, line: int
+) -> PublicSymbol:
+    return PublicSymbol(
+        f"{module}.{node.name}.{name}",
+        module,
+        name,
+        "property",
+        relative,
+        line,
+        public_by,
+        docstring=None,
+        return_type=type_text or None,
+        writable=True,
+    )
+
+
+def _init_attribute_targets(statements: Sequence[ast.stmt]) -> list[tuple[str, str, int]]:
+    """``(name, type text, line)`` for each ``self.<name> = ...`` / ``self.<name>: T = ...`` found in
+    *statements*, nested blocks included, nested function and class definitions excluded."""
+    found: list[tuple[str, str, int]] = []
+
+    def _self_attr(target: ast.expr) -> str | None:
+        if (
+            isinstance(target, ast.Attribute)
+            and isinstance(target.value, ast.Name)
+            and target.value.id == "self"
+        ):
+            return target.attr
+        return None
+
+    for stmt in statements:
+        if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            continue
+        if isinstance(stmt, ast.Assign):
+            for target in stmt.targets:
+                attr = _self_attr(target)
+                if attr is not None:
+                    found.append((attr, "", stmt.lineno))
+        elif isinstance(stmt, ast.AnnAssign):
+            attr = _self_attr(stmt.target)
+            if attr is not None:
+                found.append((attr, ast.unparse(stmt.annotation), stmt.lineno))
+        for field_name in ("body", "orelse", "finalbody"):
+            nested = getattr(stmt, field_name, None)
+            if isinstance(nested, list):
+                found.extend(_init_attribute_targets(nested))
+        for handler in getattr(stmt, "handlers", []):
+            found.extend(_init_attribute_targets(handler.body))
+        for case in getattr(stmt, "cases", []):
+            found.extend(_init_attribute_targets(case.body))
+    return found
+
+
+def _attribute_members(
+    node: ast.ClassDef, module: str, relative: str, public_by: PublicBy, seen: set[str]
+) -> list[PublicSymbol]:
+    """TC-473: public attribute members - class-body annotated fields and ``__init__`` ``self.<name>``
+    assignments - as writable ``property`` symbols, each name once and never one already in *seen*."""
+    candidates: list[tuple[str, str, int]] = []
+    for item in node.body:
+        if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
+            type_text = ast.unparse(item.annotation)
+            if type_text.startswith("ClassVar") or type_text.startswith(("typing.ClassVar", "t.ClassVar")):
+                continue
+            candidates.append((item.target.id, type_text, item.lineno))
+    for item in node.body:
+        if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef) and item.name == "__init__":
+            candidates.extend(_init_attribute_targets(item.body))
+            break
+    found: list[PublicSymbol] = []
+    for name, type_text, line in candidates:
+        if name.startswith("_") or name in seen:
+            continue
+        seen.add(name)
+        found.append(_attribute_symbol(node, module, relative, public_by, name, type_text, line))
     return found
 
 
