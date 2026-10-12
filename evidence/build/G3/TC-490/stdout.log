@@ -1,0 +1,132 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_deferred_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8kbfhmy5\.junit-0.xml"
+--- stdout ---
+...............................                                          [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_deferred_extraction.py tests/deploy/test_release_known_limitations.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8kbfhmy5\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 50%]
+.......................................................................  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_deferred_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8kbfhmy5\.junit-0.xml"
+--- stdout ---
+...............................                                          [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_deferred_extraction.py tests/deploy/test_release_known_limitations.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8kbfhmy5\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 50%]
+.......................................................................  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M docs/RELEASE.md, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_deferred_extraction.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8kbfhmy5\.junit-0.xml"
+--- stdout ---
+......FF.....F.................                                          [100%]
+================================== FAILURES ===================================
+________________ test_section_9_contains_no_other_bold_card_id ________________
+
+    def test_section_9_contains_no_other_bold_card_id() -> None:
+        found = _BOLD_CARD_RE.findall(_section_9())
+>       assert sorted(found) == sorted(DEFERRED_CARD_IDS)
+E       AssertionError: assert ['TC-3977', '...28', 'TC-475'] == ['TC-397', 'T...28', 'TC-475']
+E         
+E         At index 0 diff: 'TC-3977' != 'TC-397'
+E         Use -v to get more diff
+
+tests\deploy\test_release_deferred_extraction.py:97: AssertionError
+_______ test_card_id_appears_in_bold_exactly_once_in_section_9[TC-397] ________
+
+card_id = 'TC-397'
+
+    @pytest.mark.parametrize("card_id", DEFERRED_CARD_IDS)
+    def test_card_id_appears_in_bold_exactly_once_in_section_9(card_id: str) -> None:
+>       assert _section_9().count(f"**{card_id}**") == 1, f"{card_id} must appear in bold exactly once"
+E       AssertionError: TC-397 must appear in bold exactly once
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x0000025226C4BDD0>('**TC-397**')
+E        +    where <built-in method count of str object at 0x0000025226C4BDD0> = '\n\nThese extractor improvements were planned and are not in this release. The full list of review findings is in `do...arameter types. A peer may see JavaScript parameter types that are empty even though the upstream JSDoc states them.\n'.count
+E        +      where '\n\nThese extractor improvements were planned and are not in this release. The full list of review findings is in `do...arameter types. A peer may see JavaScript parameter types that are empty even though the upstream JSDoc states them.\n' = _section_9()
+
+tests\deploy\test_release_deferred_extraction.py:103: AssertionError
+________________ test_card_id_has_enough_text_after_it[TC-397] ________________
+
+card_id = 'TC-397'
+
+    @pytest.mark.parametrize("card_id", DEFERRED_CARD_IDS)
+    def test_card_id_has_enough_text_after_it(card_id: str) -> None:
+        bullets = [line for line in _section_9().splitlines() if line.startswith(f"- **{card_id}**")]
+>       assert len(bullets) == 1, f"{card_id} must start exactly one bullet"
+E       AssertionError: TC-397 must start exactly one bullet
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\deploy\test_release_deferred_extraction.py:109: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_release_deferred_extraction.py::test_section_9_contains_no_other_bold_card_id
+FAILED tests/deploy/test_release_deferred_extraction.py::test_card_id_appears_in_bold_exactly_once_in_section_9[TC-397]
+FAILED tests/deploy/test_release_deferred_extraction.py::test_card_id_has_enough_text_after_it[TC-397]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_deferred_extraction.py tests/deploy/test_release_known_limitations.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8kbfhmy5\.junit-1.xml"
+--- stdout ---
+......FF.....F.......................................................... [ 50%]
+.......................................................................  [100%]
+================================== FAILURES ===================================
+________________ test_section_9_contains_no_other_bold_card_id ________________
+
+    def test_section_9_contains_no_other_bold_card_id() -> None:
+        found = _BOLD_CARD_RE.findall(_section_9())
+>       assert sorted(found) == sorted(DEFERRED_CARD_IDS)
+E       AssertionError: assert ['TC-3977', '...28', 'TC-475'] == ['TC-397', 'T...28', 'TC-475']
+E         
+E         At index 0 diff: 'TC-3977' != 'TC-397'
+E         Use -v to get more diff
+
+tests\deploy\test_release_deferred_extraction.py:97: AssertionError
+_______ test_card_id_appears_in_bold_exactly_once_in_section_9[TC-397] ________
+
+card_id = 'TC-397'
+
+    @pytest.mark.parametrize("card_id", DEFERRED_CARD_IDS)
+    def test_card_id_appears_in_bold_exactly_once_in_section_9(card_id: str) -> None:
+>       assert _section_9().count(f"**{card_id}**") == 1, f"{card_id} must appear in bold exactly once"
+E       AssertionError: TC-397 must appear in bold exactly once
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x0000018CD92149E0>('**TC-397**')
+E        +    where <built-in method count of str object at 0x0000018CD92149E0> = '\n\nThese extractor improvements were planned and are not in this release. The full list of review findings is in `do...arameter types. A peer may see JavaScript parameter types that are empty even though the upstream JSDoc states them.\n'.count
+E        +      where '\n\nThese extractor improvements were planned and are not in this release. The full list of review findings is in `do...arameter types. A peer may see JavaScript parameter types that are empty even though the upstream JSDoc states them.\n' = _section_9()
+
+tests\deploy\test_release_deferred_extraction.py:103: AssertionError
+________________ test_card_id_has_enough_text_after_it[TC-397] ________________
+
+card_id = 'TC-397'
+
+    @pytest.mark.parametrize("card_id", DEFERRED_CARD_IDS)
+    def test_card_id_has_enough_text_after_it(card_id: str) -> None:
+        bullets = [line for line in _section_9().splitlines() if line.startswith(f"- **{card_id}**")]
+>       assert len(bullets) == 1, f"{card_id} must start exactly one bullet"
+E       AssertionError: TC-397 must start exactly one bullet
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\deploy\test_release_deferred_extraction.py:109: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_release_deferred_extraction.py::test_section_9_contains_no_other_bold_card_id
+FAILED tests/deploy/test_release_deferred_extraction.py::test_card_id_appears_in_bold_exactly_once_in_section_9[TC-397]
+FAILED tests/deploy/test_release_deferred_extraction.py::test_card_id_has_enough_text_after_it[TC-397]
+
+--- stderr ---
+
