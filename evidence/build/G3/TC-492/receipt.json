@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "card": "TC-492",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-12T04:16:12Z",
+  "base_rev": "6a0816476a50daa53dc07c5e0300285fee495d81",
+  "head_rev": "a8e8c0e08f752a4a365ca784c1172404a7ab695f",
+  "card_sha256": "c80e7b7314f3d4d6f2e2bb7d5de477b5650561722c0f0a7aa0b1c91520672a93",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/release/build_review_ledger.py",
+      "tests/deploy/test_build_review_ledger.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_build_review_ledger.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 231.327,
+          "stdout_sha256": "028dd49c08f9ca3151612e7dd2db85e156b2c618b6b2899f2dfec4d2027564ae",
+          "tests": 59,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} scripts/release/build_review_ledger.py --check",
+          "exit_code": 0,
+          "duration_s": 1.899,
+          "stdout_sha256": "b750008c45b4edd65323f4ec1b4a91252dfce72ca2d09bdbabdee08a23b176c6"
+        },
+        {
+          "command": "{python} -m ruff check scripts/release/build_review_ledger.py tests/deploy/test_build_review_ledger.py && {python} -m ruff format --check scripts/release/build_review_ledger.py tests/deploy/test_build_review_ledger.py",
+          "exit_code": 0,
+          "duration_s": 2.47,
+          "stdout_sha256": "afa20b27dacc9bf0aba3c1d265964c21e04ab42f6e39e2dd4769718ceded003a"
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_build_review_ledger.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 2.432,
+          "stdout_sha256": "028dd49c08f9ca3151612e7dd2db85e156b2c618b6b2899f2dfec4d2027564ae",
+          "tests": 59,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} scripts/release/build_review_ledger.py --check",
+          "exit_code": 0,
+          "duration_s": 1.707,
+          "stdout_sha256": "b750008c45b4edd65323f4ec1b4a91252dfce72ca2d09bdbabdee08a23b176c6"
+        },
+        {
+          "command": "{python} -m ruff check scripts/release/build_review_ledger.py tests/deploy/test_build_review_ledger.py && {python} -m ruff format --check scripts/release/build_review_ledger.py tests/deploy/test_build_review_ledger.py",
+          "exit_code": 0,
+          "duration_s": 0.806,
+          "stdout_sha256": "afa20b27dacc9bf0aba3c1d265964c21e04ab42f6e39e2dd4769718ceded003a"
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('scripts/release/build_review_ledger.py');s=p.read_text(encoding='utf-8');q=chr(34);old='status = '+q+'ACCEPTED'+q;assert s.count(old)==1;p.write_text(s.replace(old,'status = '+q+'FIXED'+q),encoding='utf-8')\"\n",
+    "patch_sha256": "0919ae71ec74d91c5f5c381c9e2b5e3c72575fd09c2d78063105b408b20f7002",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0,
+      0
+    ],
+    "tree_changed": [
+      "M scripts/release/build_review_ledger.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
