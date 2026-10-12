@@ -1,0 +1,2404 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_miss_reason.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-00ymc02m\.junit-0.xml"
+--- stdout ---
+....................................................                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_relevance_floor.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/test_search_symbols_honest_miss.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-00ymc02m\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 18%]
+........................................................................ [ 37%]
+........................................................................ [ 56%]
+........................................................................ [ 74%]
+........................................................................ [ 93%]
+.........................                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m ruff check src/foss_mcp/mcp/tools/lookup.py tests/mcp/tools/test_lookup_miss_reason.py && E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m ruff format --check src/foss_mcp/mcp/tools/lookup.py tests/mcp/tools/test_lookup_miss_reason.py
+--- stdout ---
+All checks passed!
+2 files already formatted
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_miss_reason.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-00ymc02m\.junit-0.xml"
+--- stdout ---
+....................................................                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_relevance_floor.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/test_search_symbols_honest_miss.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-00ymc02m\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 18%]
+........................................................................ [ 37%]
+........................................................................ [ 56%]
+........................................................................ [ 74%]
+........................................................................ [ 93%]
+.........................                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m ruff check src/foss_mcp/mcp/tools/lookup.py tests/mcp/tools/test_lookup_miss_reason.py && E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m ruff format --check src/foss_mcp/mcp/tools/lookup.py tests/mcp/tools/test_lookup_miss_reason.py
+--- stdout ---
+All checks passed!
+2 files already formatted
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/lookup.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_miss_reason.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-00ymc02m\.junit-0.xml"
+--- stdout ---
+.FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF.....F.                     [100%]
+================================== FAILURES ===================================
+_ test_nonsense_question_miss_names_everything_searched[3d__java__self_extracted] _
+
+directory = '3d__java__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715BE0>}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[3d__net__self_extracted] _
+
+directory = '3d__net__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...3d__net__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026553A0E850>}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[3d__python__self_extracted] _
+
+directory = '3d__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B..._python__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026553B41810>}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[3d__typescript__self_extracted] _
+
+directory = '3d__typescript__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...escript__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[barcode__python__self_extracted] _
+
+directory = 'barcode__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[cells__cpp__self_extracted] _
+
+directory = 'cells__cpp__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[cells__go__self_extracted] _
+
+directory = 'cells__go__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[cells__java__self_extracted] _
+
+directory = 'cells__java__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[cells__net__self_extracted] _
+
+directory = 'cells__net__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[cells__python__self_extracted] _
+
+directory = 'cells__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[cells__rust__self_extracted] _
+
+directory = 'cells__rust__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[cells__typescript__self_extracted] _
+
+directory = 'cells__typescript__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[email__cpp__self_extracted] _
+
+directory = 'email__cpp__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[email__net__self_extracted] _
+
+directory = 'email__net__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[email__python__self_extracted] _
+
+directory = 'email__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[html__python__self_extracted] _
+
+directory = 'html__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[imaging__net__self_extracted] _
+
+directory = 'imaging__net__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[jmap__cpp__self_extracted] _
+
+directory = 'jmap__cpp__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[jmap__go__self_extracted] _
+
+directory = 'jmap__go__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[jmap__java__self_extracted] _
+
+directory = 'jmap__java__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[jmap__net__self_extracted] _
+
+directory = 'jmap__net__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[jmap__nodejs__self_extracted] _
+
+directory = 'jmap__nodejs__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[jmap__python__self_extracted] _
+
+directory = 'jmap__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[jmap__rust__self_extracted] _
+
+directory = 'jmap__rust__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[jmap__typescript__self_extracted] _
+
+directory = 'jmap__typescript__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[note__python__self_extracted] _
+
+directory = 'note__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[page__python__self_extracted] _
+
+directory = 'page__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[pdf__cpp__self_extracted] _
+
+directory = 'pdf__cpp__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[pdf__go__self_extracted] _
+
+directory = 'pdf__go__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[pdf__java__self_extracted] _
+
+directory = 'pdf__java__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[pdf__net__self_extracted] _
+
+directory = 'pdf__net__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[pdf__python__self_extracted] _
+
+directory = 'pdf__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[pdf__typescript__self_extracted] _
+
+directory = 'pdf__typescript__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[slides__cpp__self_extracted] _
+
+directory = 'slides__cpp__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[slides__java__self_extracted] _
+
+directory = 'slides__java__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[slides__net__self_extracted] _
+
+directory = 'slides__net__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[slides__python__self_extracted] _
+
+directory = 'slides__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[tex__python__self_extracted] _
+
+directory = 'tex__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[words__net__self_extracted] _
+
+directory = 'words__net__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[words__python__self_extracted] _
+
+directory = 'words__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_reviewer_reproduction_task_question_miss[slides__java__self_extracted] _
+
+directory = 'slides__java__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", ["slides__java__self_extracted", "cells__cpp__self_extracted"])
+    def test_reviewer_reproduction_task_question_miss(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        answer = lookup(store, _scope_of(directory), TASK_QUERY)
+        assert isinstance(answer, Miss)
+>       assert answer.reason == _expected_reason(TASK_QUERY)
+E       assert "no symbol ma...presentation'" == "nothing in t...presentation'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'how do I set a password on a presentation'
+E         + no symbol matches 'how do I set a password on a presentation'
+
+tests\mcp\tools\test_lookup_miss_reason.py:130: AssertionError
+__ test_reviewer_reproduction_task_question_miss[cells__cpp__self_extracted] __
+
+directory = 'cells__cpp__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", ["slides__java__self_extracted", "cells__cpp__self_extracted"])
+    def test_reviewer_reproduction_task_question_miss(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        answer = lookup(store, _scope_of(directory), TASK_QUERY)
+        assert isinstance(answer, Miss)
+>       assert answer.reason == _expected_reason(TASK_QUERY)
+E       assert "no symbol ma...presentation'" == "nothing in t...presentation'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'how do I set a password on a presentation'
+E         + no symbol matches 'how do I set a password on a presentation'
+
+tests\mcp\tools\test_lookup_miss_reason.py:130: AssertionError
+_ test_identifier_path_miss_names_everything_searched_while_search_symbols_is_unchanged _
+
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    def test_identifier_path_miss_names_everything_searched_while_search_symbols_is_unchanged(
+        pilot_stores: dict[str, GenerationManifestStore], tmp_path_factory: pytest.TempPathFactory
+    ) -> None:
+        directory = "pdf__net__self_extracted"
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, "Zzqxv")
+        assert isinstance(answer, Miss)
+>       assert answer.reason == _expected_reason("Zzqxv")
+E       assert "no symbol matches 'Zzqxv'" == "nothing in t...tches 'Zzqxv'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'Zzqxv'
+E         + no symbol matches 'Zzqxv'
+
+tests\mcp\tools\test_lookup_miss_reason.py:143: AssertionError
+___________________ test_did_you_mean_suggestions_are_kept ____________________
+
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    def test_did_you_mean_suggestions_are_kept(
+        pilot_stores: dict[str, GenerationManifestStore], tmp_path_factory: pytest.TempPathFactory
+    ) -> None:
+        directory = "pdf__net__self_extracted"
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, "Annotatio")
+        symbol_miss = search_symbols(store, scope, "Annotatio")
+    
+        assert isinstance(answer, Miss)
+        assert isinstance(symbol_miss, Miss)
+>       assert answer.reason == _expected_reason("Annotatio")
+E       assert "no symbol ma...s 'Annotatio'" == "nothing in t...s 'Annotatio'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'Annotatio'
+E         + no symbol matches 'Annotatio'
+
+tests\mcp\tools\test_lookup_miss_reason.py:162: AssertionError
+_________________ test_server_wrapper_carries_the_new_reason __________________
+
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026521715B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000265538F7BB0>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002652199CE90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7814'), _retention_count=3, _retention_policy='all')
+
+    def test_server_wrapper_carries_the_new_reason(
+        pilot_stores: dict[str, GenerationManifestStore], tmp_path_factory: pytest.TempPathFactory
+    ) -> None:
+        directory = "pdf__net__self_extracted"
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        payload = server._to_jsonable(server._wrap_lookup(store, scope)(query="Zzqxv"))
+    
+>       assert payload["reason"] == _expected_reason("Zzqxv")
+E       assert "no symbol matches 'Zzqxv'" == "nothing in t...tches 'Zzqxv'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'Zzqxv'
+E         + no symbol matches 'Zzqxv'
+
+tests\mcp\tools\test_lookup_miss_reason.py:241: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[3d__java__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[3d__net__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[3d__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[3d__typescript__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[barcode__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[cells__cpp__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[cells__go__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[cells__java__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[cells__net__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[cells__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[cells__rust__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[cells__typescript__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[email__cpp__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[email__net__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[email__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[html__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[imaging__net__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[jmap__cpp__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[jmap__go__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[jmap__java__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[jmap__net__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[jmap__nodejs__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[jmap__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[jmap__rust__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[jmap__typescript__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[note__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[page__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[pdf__cpp__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[pdf__go__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[pdf__java__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[pdf__net__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[pdf__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[pdf__typescript__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[slides__cpp__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[slides__java__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[slides__net__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[slides__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[tex__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[words__net__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[words__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_reviewer_reproduction_task_question_miss[slides__java__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_reviewer_reproduction_task_question_miss[cells__cpp__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_identifier_path_miss_names_everything_searched_while_search_symbols_is_unchanged
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_did_you_mean_suggestions_are_kept
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_server_wrapper_carries_the_new_reason
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_relevance_floor.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/test_search_symbols_honest_miss.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-00ymc02m\.junit-1.xml"
+--- stdout ---
+.FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF.....F..................... [ 18%]
+........................................................................ [ 37%]
+........................................................................ [ 56%]
+........................................................................ [ 74%]
+........................................................................ [ 93%]
+.........................                                                [100%]
+================================== FAILURES ===================================
+_ test_nonsense_question_miss_names_everything_searched[3d__java__self_extracted] _
+
+directory = '3d__java__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801BE0>}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[3d__net__self_extracted] _
+
+directory = '3d__net__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...3d__net__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917EE21450>}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[3d__python__self_extracted] _
+
+directory = '3d__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B..._python__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F2C02D0>}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[3d__typescript__self_extracted] _
+
+directory = '3d__typescript__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...escript__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[barcode__python__self_extracted] _
+
+directory = 'barcode__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[cells__cpp__self_extracted] _
+
+directory = 'cells__cpp__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[cells__go__self_extracted] _
+
+directory = 'cells__go__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[cells__java__self_extracted] _
+
+directory = 'cells__java__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[cells__net__self_extracted] _
+
+directory = 'cells__net__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[cells__python__self_extracted] _
+
+directory = 'cells__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[cells__rust__self_extracted] _
+
+directory = 'cells__rust__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[cells__typescript__self_extracted] _
+
+directory = 'cells__typescript__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[email__cpp__self_extracted] _
+
+directory = 'email__cpp__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[email__net__self_extracted] _
+
+directory = 'email__net__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[email__python__self_extracted] _
+
+directory = 'email__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[html__python__self_extracted] _
+
+directory = 'html__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[imaging__net__self_extracted] _
+
+directory = 'imaging__net__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[jmap__cpp__self_extracted] _
+
+directory = 'jmap__cpp__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[jmap__go__self_extracted] _
+
+directory = 'jmap__go__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[jmap__java__self_extracted] _
+
+directory = 'jmap__java__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[jmap__net__self_extracted] _
+
+directory = 'jmap__net__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[jmap__nodejs__self_extracted] _
+
+directory = 'jmap__nodejs__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[jmap__python__self_extracted] _
+
+directory = 'jmap__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[jmap__rust__self_extracted] _
+
+directory = 'jmap__rust__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[jmap__typescript__self_extracted] _
+
+directory = 'jmap__typescript__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[note__python__self_extracted] _
+
+directory = 'note__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[page__python__self_extracted] _
+
+directory = 'page__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[pdf__cpp__self_extracted] _
+
+directory = 'pdf__cpp__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[pdf__go__self_extracted] _
+
+directory = 'pdf__go__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[pdf__java__self_extracted] _
+
+directory = 'pdf__java__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[pdf__net__self_extracted] _
+
+directory = 'pdf__net__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[pdf__python__self_extracted] _
+
+directory = 'pdf__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[pdf__typescript__self_extracted] _
+
+directory = 'pdf__typescript__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[slides__cpp__self_extracted] _
+
+directory = 'slides__cpp__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[slides__java__self_extracted] _
+
+directory = 'slides__java__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[slides__net__self_extracted] _
+
+directory = 'slides__net__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[slides__python__self_extracted] _
+
+directory = 'slides__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[tex__python__self_extracted] _
+
+directory = 'tex__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[words__net__self_extracted] _
+
+directory = 'words__net__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_nonsense_question_miss_names_everything_searched[words__python__self_extracted] _
+
+directory = 'words__python__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", PILOTS)
+    def test_nonsense_question_miss_names_everything_searched(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, NONSENSE_QUERY)
+    
+        assert isinstance(answer, Miss), f"{directory}: answered with {type(answer).__name__}"
+>       assert answer.reason == _expected_reason(NONSENSE_QUERY)
+E       assert "no symbol ma...ax via modem'" == "nothing in t...ax via modem'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'send a fax via modem'
+E         + no symbol matches 'send a fax via modem'
+
+tests\mcp\tools\test_lookup_miss_reason.py:112: AssertionError
+_ test_reviewer_reproduction_task_question_miss[slides__java__self_extracted] _
+
+directory = 'slides__java__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", ["slides__java__self_extracted", "cells__cpp__self_extracted"])
+    def test_reviewer_reproduction_task_question_miss(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        answer = lookup(store, _scope_of(directory), TASK_QUERY)
+        assert isinstance(answer, Miss)
+>       assert answer.reason == _expected_reason(TASK_QUERY)
+E       assert "no symbol ma...presentation'" == "nothing in t...presentation'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'how do I set a password on a presentation'
+E         + no symbol matches 'how do I set a password on a presentation'
+
+tests\mcp\tools\test_lookup_miss_reason.py:130: AssertionError
+__ test_reviewer_reproduction_task_question_miss[cells__cpp__self_extracted] __
+
+directory = 'cells__cpp__self_extracted'
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    @pytest.mark.parametrize("directory", ["slides__java__self_extracted", "cells__cpp__self_extracted"])
+    def test_reviewer_reproduction_task_question_miss(
+        directory: str,
+        pilot_stores: dict[str, GenerationManifestStore],
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        answer = lookup(store, _scope_of(directory), TASK_QUERY)
+        assert isinstance(answer, Miss)
+>       assert answer.reason == _expected_reason(TASK_QUERY)
+E       assert "no symbol ma...presentation'" == "nothing in t...presentation'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'how do I set a password on a presentation'
+E         + no symbol matches 'how do I set a password on a presentation'
+
+tests\mcp\tools\test_lookup_miss_reason.py:130: AssertionError
+_ test_identifier_path_miss_names_everything_searched_while_search_symbols_is_unchanged _
+
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    def test_identifier_path_miss_names_everything_searched_while_search_symbols_is_unchanged(
+        pilot_stores: dict[str, GenerationManifestStore], tmp_path_factory: pytest.TempPathFactory
+    ) -> None:
+        directory = "pdf__net__self_extracted"
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, "Zzqxv")
+        assert isinstance(answer, Miss)
+>       assert answer.reason == _expected_reason("Zzqxv")
+E       assert "no symbol matches 'Zzqxv'" == "nothing in t...tches 'Zzqxv'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'Zzqxv'
+E         + no symbol matches 'Zzqxv'
+
+tests\mcp\tools\test_lookup_miss_reason.py:143: AssertionError
+___________________ test_did_you_mean_suggestions_are_kept ____________________
+
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    def test_did_you_mean_suggestions_are_kept(
+        pilot_stores: dict[str, GenerationManifestStore], tmp_path_factory: pytest.TempPathFactory
+    ) -> None:
+        directory = "pdf__net__self_extracted"
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, "Annotatio")
+        symbol_miss = search_symbols(store, scope, "Annotatio")
+    
+        assert isinstance(answer, Miss)
+        assert isinstance(symbol_miss, Miss)
+>       assert answer.reason == _expected_reason("Annotatio")
+E       assert "no symbol ma...s 'Annotatio'" == "nothing in t...s 'Annotatio'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'Annotatio'
+E         + no symbol matches 'Annotatio'
+
+tests\mcp\tools\test_lookup_miss_reason.py:162: AssertionError
+_________________ test_server_wrapper_carries_the_new_reason __________________
+
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019160801B...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001917F408050>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x0000019160A80E90>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-7815'), _retention_count=3, _retention_policy='all')
+
+    def test_server_wrapper_carries_the_new_reason(
+        pilot_stores: dict[str, GenerationManifestStore], tmp_path_factory: pytest.TempPathFactory
+    ) -> None:
+        directory = "pdf__net__self_extracted"
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        payload = server._to_jsonable(server._wrap_lookup(store, scope)(query="Zzqxv"))
+    
+>       assert payload["reason"] == _expected_reason("Zzqxv")
+E       assert "no symbol matches 'Zzqxv'" == "nothing in t...tches 'Zzqxv'"
+E         
+E         - nothing in the documentation, verified examples or symbols of this pilot matches 'Zzqxv'
+E         + no symbol matches 'Zzqxv'
+
+tests\mcp\tools\test_lookup_miss_reason.py:241: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[3d__java__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[3d__net__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[3d__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[3d__typescript__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[barcode__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[cells__cpp__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[cells__go__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[cells__java__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[cells__net__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[cells__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[cells__rust__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[cells__typescript__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[email__cpp__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[email__net__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[email__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[html__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[imaging__net__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[jmap__cpp__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[jmap__go__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[jmap__java__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[jmap__net__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[jmap__nodejs__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[jmap__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[jmap__rust__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[jmap__typescript__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[note__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[page__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[pdf__cpp__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[pdf__go__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[pdf__java__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[pdf__net__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[pdf__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[pdf__typescript__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[slides__cpp__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[slides__java__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[slides__net__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[slides__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[tex__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[words__net__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_nonsense_question_miss_names_everything_searched[words__python__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_reviewer_reproduction_task_question_miss[slides__java__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_reviewer_reproduction_task_question_miss[cells__cpp__self_extracted]
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_identifier_path_miss_names_everything_searched_while_search_symbols_is_unchanged
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_did_you_mean_suggestions_are_kept
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_server_wrapper_carries_the_new_reason
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m ruff check src/foss_mcp/mcp/tools/lookup.py tests/mcp/tools/test_lookup_miss_reason.py && E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m ruff format --check src/foss_mcp/mcp/tools/lookup.py tests/mcp/tools/test_lookup_miss_reason.py
+--- stdout ---
+All checks passed!
+unformatted: File would be reformatted
+  --> src\foss_mcp\mcp\tools\lookup.py:41:26
+   |
+40 | # What lookup's own honest miss says: lookup searched documentation, verified examples and symbols.
+   - NOTHING_MATCHED_REASON = (
+   -     "no symbol matches {query!r}"
+   - )
+41 + NOTHING_MATCHED_REASON = "no symbol matches {query!r}"
+42 |
+   |
+
+1 file would be reformatted, 1 file already formatted
+
+--- stderr ---
+
