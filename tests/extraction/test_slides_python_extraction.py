@@ -109,7 +109,9 @@ def test_the_highest_centrality_type_survives_the_cut() -> None:
     """
     data = _load_fixture()
     assert data["types"][0]["name"] == "IPresentationComponent"
-    assert data["types"][0]["class_import"] == "aspose.slides_foss.IPresentationComponent.IPresentationComponent"
+    assert (
+        data["types"][0]["class_import"] == "aspose.slides_foss.IPresentationComponent.IPresentationComponent"
+    )
     assert "Presentation" in {entry["name"] for entry in data["types"]}
 
 
