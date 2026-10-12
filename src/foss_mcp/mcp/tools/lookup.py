@@ -18,12 +18,17 @@ often genuinely absent while a real, verified example still exists for the same 
 ``TaskAnswer`` is composed whenever EITHER a doc match OR an example is found - ``doc_matches``
 stays ``()`` and ``example`` stays ``None``, never fabricated, exactly when each is genuinely
 absent. Only when BOTH are empty does lookup fall through to ``search_symbols``.
+
+TC-493 (REQ-G3-005, honest answers): when lookup finds nothing it has searched the documentation,
+the verified examples AND the symbols, so its own miss says that (``NOTHING_MATCHED_REASON``)
+instead of repeating the symbol search's narrower "no symbol matches ..." wording. The ``Miss``
+type, its scope, query and did-you-mean suggestions are kept; ``search_symbols`` itself is untouched.
 """
 
 from __future__ import annotations
 
 import string
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import Scope
@@ -31,6 +36,11 @@ from foss_mcp.mcp.tools.find_examples import ExampleMatch, find_examples
 from foss_mcp.mcp.tools.relevance import DOCUMENTATION, chunk_kind
 from foss_mcp.mcp.tools.search_docs import CONTENT_TYPES, DocMatch, search_docs
 from foss_mcp.mcp.tools.search_symbols import Miss, SymbolMatch, search_symbols
+
+# What lookup's own honest miss says: lookup searched documentation, verified examples and symbols.
+NOTHING_MATCHED_REASON = (
+    "nothing in the documentation, verified examples or symbols of this pilot matches {query!r}"
+)
 
 # A leading question/auxiliary word that marks a query as a natural-language question rather
 # than a bare identifier, even when it is short (e.g. "is AFRelationship a class?" - though in
@@ -90,6 +100,18 @@ def _looks_like_a_task_question(query: str) -> bool:
     return first_word in _QUESTION_OR_AUXILIARY_WORDS
 
 
+def _lookup_miss(symbol_result: list[SymbolMatch] | Miss, query: str) -> list[SymbolMatch] | Miss:
+    """Re-word the symbol search's plain "no symbol matches" miss into lookup's broader miss.
+
+    Only that exact miss is re-worded (scope, query and suggestions unchanged); a symbol list and
+    the other misses ("no published generation for this scope", "published generation has no
+    symbol index") are returned unchanged.
+    """
+    if isinstance(symbol_result, Miss) and symbol_result.reason == f"no symbol matches {query!r}":
+        return replace(symbol_result, reason=NOTHING_MATCHED_REASON.format(query=query))
+    return symbol_result
+
+
 @dataclass(frozen=True)
 class TaskAnswer:
     """A composed answer to a task-oriented query: documentation guidance plus whatever
@@ -127,8 +149,10 @@ def lookup(
       intentional symbol lookup. Either way, the first non-empty doc-category match (if any)
       composes with whatever ``find_examples`` can independently offer for the same query into
       a ``TaskAnswer`` - a doc match and an example are each optional, and a ``TaskAnswer`` is
-      returned as soon as either one is non-empty; if BOTH are empty, the miss from the symbol
-      search is returned, since that is the search a bare query most specifically asked for.
+      returned as soon as either one is non-empty; if BOTH are empty (and no symbol matched
+      either), lookup's own miss is returned: the symbol search's miss (scope, query and
+      did-you-mean suggestions kept) re-worded to say documentation, verified examples and
+      symbols were all searched (``NOTHING_MATCHED_REASON``, TC-493).
     """
     if content_type is not None:
         return search_docs(store, scope, query, content_type, top_k=top_k)
@@ -157,7 +181,7 @@ def lookup(
         task_answer = _compose_from_docs()
         if task_answer is not None:
             return task_answer
-        return search_symbols(store, scope, query, top_k=top_k)
+        return _lookup_miss(search_symbols(store, scope, query, top_k=top_k), query)
 
     symbol_result = search_symbols(store, scope, query, top_k=top_k)
     if isinstance(symbol_result, list) and symbol_result:
@@ -167,4 +191,4 @@ def lookup(
     if task_answer is not None:
         return task_answer
 
-    return symbol_result
+    return _lookup_miss(symbol_result, query)
