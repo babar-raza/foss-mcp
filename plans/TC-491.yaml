@@ -1,0 +1,110 @@
+id: TC-491
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-007 (the definition of done: every review finding FIXED or ACCEPTED with a recorded reason). TC-440 requires every ACCEPTED
+  row of docs/REVIEW_LEDGER.md to be repeated in docs/RELEASE.md, and the ledger generator (scripts/release/build_review_ledger.py,
+  TC-492) prints a WARNING for every ACCEPTED row that section 8 does not carry. On 2026-10-12 ten accepted rows were missing: six
+  accepted limitations (L-022 the stateless protocol revision, L-071 formats and limitations NotAvailable, L-072 no registry check for
+  the C++ pilots, L-133 the jmap/cpp include-path policy of TC-455, and the two findings the supervisor accepted on 2026-10-12 after
+  reading the code: L-054 one-word find_examples queries and L-080 the unauthenticated /readyz probe) and four findings checked and
+  found not to be defects (L-104, L-130, L-131, L-132). This card adds them to section 8 (the four non-defects in a new subsection
+  `### Reported, not defects`) and extends the pinning test. Documentation only: no re-ingest, no image rebuild needed for the text
+  (the image does not bake docs/).
+depends_on:
+- TC-490
+- TC-455
+write_paths:
+- docs/RELEASE.md
+- tests/deploy/test_release_known_limitations.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read docs/RELEASE.md in full and tests/deploy/test_release_known_limitations.py in full. Keep every section and every existing bullet
+  byte-identical, except that the new bullets are inserted where this card says. Never print or log any environment value.
+- >-
+  docs/RELEASE.md, section 8, subsection `### Standalone image`: insert one bullet per id below, in ascending id order among the
+  existing bullets (L-022, L-054, L-071, L-072 and L-080 before L-089; L-133 after L-129). Same shape as the existing bullets: `- **L-0NN**`
+  then the text, continuation lines indented by two spaces, wrapped like the neighbouring bullets, at most four sentences, plain words.
+  Use these texts (you may rewrap; do not add claims): L-022 "A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected.
+  The server accepts only the protocol revisions a client reaches through the `initialize` handshake, and 2026-07-28 is the stateless
+  revision, which has no handshake. A client that starts with `initialize`, as the MCP SDK clients do, is not affected." L-054 "A
+  one-word `find_examples` query returns any verified example whose text uses that word, because one word is fully covered by it:
+  pdf/net "page" returns "Add a Watermark Annotation". This is kept, because a one-word query such as "watermark" is a normal way to ask
+  for a specific example and a committed live test pins that answer. The product-family word no longer counts, and a longer question
+  needs 60% of its other words in the example, so "split a pdf into pages" or "bake a cake" get an honest miss. Ask with a few words to
+  get a specific example." L-071 "`get_product_reference` answers NotAvailable for the `formats` and `limitations` sections on every
+  pilot. No data source reaches these two sections, so the answer says so instead of inventing content; slides/python's unsupported
+  PDF export, for example, is not listed there. A peer has to read the README for supported formats." L-072 "The five C++ pilots
+  (pdf/cpp, cells/cpp, slides/cpp, email/cpp and jmap/cpp) have no package-registry check, because C++ has no package-manager
+  coordinate to check. Their install answer says there is no package-manager install command and points to where the distribution
+  notes are. A committed test requires the registry file to be absent for exactly these five pilots, so the gap cannot hide another
+  one." L-080 "`/readyz` needs no authentication, like any container probe, and answers only `ready` or `not ready`. It reports ready
+  when the pilot's documents are servable and does not judge how much content a pilot has: tex/python is ready with 4 classes, and its
+  extraction notice says why. The probe reads a cached result instead of parsing the generation on every call." L-133 "To compile
+  jmap/cpp's README examples, the example verifier adds the library's `include/aspose_jmap` directory to the include path, so the
+  README's `#include "JmapClient.hpp"` compiles. A reader who builds with the library's documented CMake target must write `#include
+  <aspose_jmap/JmapClient.hpp>` instead. The example still compiles and links against the real pinned library, and nothing but the
+  page's own `#include` lines is ever added to it."
+- >-
+  docs/RELEASE.md, section 8: after the last bullet of `### Kubernetes chart (not part of the standalone release)` and before `## 9.`,
+  add the subsection `### Reported, not defects`, opened by one plain line: "The reviews reported these, and they were checked and are
+  not defects. They are listed so that every reported finding has a published answer." Then one bullet each, same shape: L-104
+  "Reported: a class with a member named X outranks the types named X in `search_symbols`. Not reproduced: `search_symbols` ranks
+  type-name matches above member-name matches, so "PageSize" and "IPresentation" return the type first. The three words/python
+  `Document` results are three real upstream classes." L-130 "Reported: imaging/net serves only 3 types. Its extraction is not
+  truncated (`type_count` 3, `truncated` false), so these three types are the library's whole public surface." L-131 "Three reported
+  problems were false alarms. pdf/net's license is MIT, as its csproj states; `infra/rollback.py` is a tested operator command
+  (tests/infra/test_rollback.py), not dead code; and repeated identical queries give identical answers." L-132 "Reported: `gatectl
+  validate` failed during one audit. It was a transient mismatch while acceptance receipts were being written; `gatectl validate`
+  passes on main and is run again at gate exit." Section 8's opening two sentences stay unchanged. L-059 is NOT added (TC-493 fixes it).
+- >-
+  tests/deploy/test_release_known_limitations.py (owned by TC-489, last edited by TC-490; keep every existing test and its name; offline,
+  deterministic, reads only committed files, no skipped tests, no wall-clock assertions): add L-022, L-054, L-071, L-072, L-080 and L-133
+  to `STANDALONE_IDS` in ascending order; add `NOT_DEFECT_HEADING = "### Reported, not defects"` and `NOT_DEFECT_IDS = ("L-104",
+  "L-130", "L-131", "L-132")`; make `ACCEPTED_LEDGER_IDS = STANDALONE_IDS + KUBERNETES_IDS + NOT_DEFECT_IDS` (the existing parametrized
+  tests then cover the new ids). Add: the not-defects subsection appears exactly once in section 8 and after the Kubernetes subsection;
+  each NOT_DEFECT_IDS id sits under it (parametrized); the subsection's text before its first bullet contains "not defects"; a module
+  dict `KEY_PHRASES` mapping each of the ten new ids to one phrase its bullet must contain (L-022 `2026-07-28`, L-054 `find_examples`,
+  L-071 `limitations`, L-072 `C++`, L-080 `/readyz`, L-133 `include/aspose_jmap`, L-104 `search_symbols`, L-130 `imaging/net`, L-131
+  `MIT`, L-132 `gatectl validate`), checked by one parametrized test over the dict. Do not add any assertion about which `##` section is the last one beyond the existing one. At least 140 tests in the file.
+- >-
+  Run `{python} -m pytest tests/deploy/test_release_known_limitations.py -q -rfE`, then once the second check command below. Write commit
+  messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Publish the remaining accepted and not-a-defect review findings, with their reasons, in the release document peers read.
+checks:
+- command: '{python} -m pytest tests/deploy/test_release_known_limitations.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/deploy/test_release_known_limitations.py tests/deploy/test_release_deferred_extraction.py tests/deploy/test_release_record_contract.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 140
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('docs/RELEASE.md');s=p.read_text(encoding='utf-8');old='**L-054**';assert old in s;p.write_text(s.replace(old,'**L-0544**',1),encoding='utf-8')"
+  rationale: >-
+    Corrupts the id of one finding this card accepts, so the test finds L-054 missing from section 8 and an unknown id present. A real
+    break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-491/receipt.json
+closeout:
+- >-
+  docs/RELEASE.md section 8 carries every accepted and not-a-defect review finding, and a test pins the list.
+recovery: Re-run from a clean tree.

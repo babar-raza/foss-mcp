@@ -1,0 +1,107 @@
+id: TC-492
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-007 (the definition of done). TC-440 requires docs/REVIEW_LEDGER.md, one row per review finding with Status FIXED, ACCEPTED or
+  OPEN, and no OPEN row at release. On 2026-10-12 the supervisor had a generator written that holds the 133 findings as data and computes
+  each Status from project/state.yaml (are the fixing cards ACCEPTED?), docs/RELEASE.md (is an accepted finding published in section 8,
+  or its deferred card in section 9?), supervisor records (a DECISION_LOG entry, the release record) and the commit time of the baked
+  data (is a data-changing fix in infra/demo-manifests yet?). A ledger that a script regenerates from the repository cannot drift from
+  the card states the way a hand-written table does, and a peer can re-run it. Today the script exists only outside the repository and
+  has no tests. This card commits it as scripts/release/build_review_ledger.py with repository-relative behaviour, records the three
+  decisions the supervisor took on 2026-10-12 (L-054 and L-080 ACCEPTED, L-059 fixed by TC-493), and pins its rules with offline tests
+  on synthetic inputs.
+depends_on: []
+depends_on:
+- TC-001
+- TC-223
+write_paths:
+- scripts/release/build_review_ledger.py
+- tests/deploy/test_build_review_ledger.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  The supervisor gives you, in the dispatch instruction, the path of the source script (build_ledger.py, about 1,090 lines, stdlib plus
+  PyYAML). Read it in full, plus project/state.yaml's shape (top-level `generated_at`, `cards` list with `id`, `status`, `receipt`,
+  `release_images`), docs/RELEASE.md sections 8 and 9, and scripts/release/compact_demo_manifests.py with
+  tests/deploy/test_compact_demo_manifests.py (the pattern for a script under scripts/release and its test). Never print or log any
+  environment value.
+- >-
+  scripts/release/build_review_ledger.py: the source script with ONLY these changes. (1) No absolute or machine path anywhere: delete
+  `FALLBACK_REPO`; `find_repo` returns `--repo` when given, else the first parent of the script's own file that holds both
+  project/state.yaml and ops/gatectl.py, else `main` prints `ERROR: repository root not found; pass --repo` to stderr and returns 2.
+  (2) The usage lines in the module docstring name `python scripts/release/build_review_ledger.py`, never `build_ledger.py`, and no
+  text anywhere mentions a scratchpad. (3) Data, in the FINDINGS table: L-054 drops its `gap` and gains `accepted=A8("a one-word query
+  is fully covered by any verified example that uses the word, which is kept because a one-word query such as watermark is a normal
+  way to ask for an example; the family word no longer counts and longer questions need 60% of their other words")`; L-059 becomes
+  cards `"TC-381, TC-386, TC-493"`, drops its `gap`, and gains `note="TC-493 makes lookup's miss reason name the documentation,
+  example and symbol searches it ran"`; L-080 drops its `gap` and gains `accepted=A8("/readyz needs no authentication, like any
+  container probe, and answers only ready or not ready; it does not judge how much content a pilot has (tex/python is ready with 4
+  classes and its extraction notice says why)")`. Every other row, the status rules, the rendering and the options stay exactly as in
+  the source; in particular `compute` keeps exactly one line `status = "ACCEPTED"`. (4) Format and lint clean under the repository's
+  ruff settings (`ruff format` the file; change nothing else to satisfy ruff).
+- >-
+  tests/deploy/test_build_review_ledger.py (NEW, offline, deterministic, no network, no skipped tests, no wall-clock assertions; import
+  the script the way tests/deploy/test_compact_demo_manifests.py imports its script). Build a synthetic repository under tmp_path
+  (project/state.yaml, an empty ops/gatectl.py, docs/RELEASE.md with `## 8.` and `## 9.` sections, docs/DECISION_LOG.md, receipt files
+  under evidence/build/) and monkeypatch the module's `FINDINGS` with small synthetic findings; monkeypatch `last_data_commit` where a
+  test needs a data-commit time instead of calling git. Cover at least: FIXED when every card is ACCEPTED; OPEN with the pending card
+  and its status named in the Evidence; OPEN for a card missing from state.yaml; ACCEPTED for an `A8` row whose id is bold in section 8;
+  ACCEPTED with a fixed part named when its cards are ACCEPTED; OPEN with the accepted part named while a card is pending; a `gap`
+  without an acceptance stays OPEN although every card is ACCEPTED; an `A9` row is ACCEPTED and checked against section 9 card ids;
+  the RELEASE.md WARNING from `post_checks` names an accepted id absent from section 8, names nothing when it is present, and an id bold
+  only in section 7 does not count; a `Record` regex row is OPEN until the DECISION_LOG line exists and FIXED after; a `Record`
+  yaml_key row is OPEN for an empty `release_images` and FIXED for a non-empty one; a not-a-defect acceptance renders `Not a defect:`;
+  `--require-data` keeps a reingest fix OPEN while the data commit is older than the newest receipt and FIXED once it is newer, while
+  the default mode reports it FIXED with the "Not yet in the baked data" text; `validate_data` reports a duplicate id, a bad severity,
+  a bad card id, an id sequence gap and an A9 without cards (parametrized); `render` emits exactly one markdown table with the header
+  `| ID | Finding | Severity | Status | Evidence |`, one row per finding, and escapes `|` in a cell; determinism: `main` writing the
+  ledger twice to two files gives byte-identical files, and the default date is the date part of state.yaml `generated_at`; `main
+  --check` returns 0 and prints the totals line; `main` returns 2 on invalid data and when no repository root is found; on the REAL
+  module (not monkeypatched) `validate_data()` is empty, the ids are L-001 to L-133 in order, L-054 and L-080 carry a section-8
+  acceptance and no gap, L-059 names TC-493 and has no gap, and the script source contains no drive-letter path and no word
+  "scratchpad". At least 30 tests.
+- >-
+  Run `{python} -m pytest tests/deploy/test_build_review_ledger.py -q -rfE`, then once each of the second and third check commands
+  below. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Commit the review-ledger generator with tests, so docs/REVIEW_LEDGER.md is regenerated from the repository and never hand-edited.
+checks:
+- command: '{python} -m pytest tests/deploy/test_build_review_ledger.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} scripts/release/build_review_ledger.py --check'
+  expect: exit 0
+  timeout_seconds: 300
+  proves:
+  - REQ-G3-007
+- command: '{python} -m ruff check scripts/release/build_review_ledger.py tests/deploy/test_build_review_ledger.py && {python} -m ruff format --check scripts/release/build_review_ledger.py tests/deploy/test_build_review_ledger.py'
+  expect: exit 0
+  timeout_seconds: 300
+  proves:
+  - REQ-G3-007
+min_tests: 30
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/release/build_review_ledger.py');s=p.read_text(encoding='utf-8');q=chr(34);old='status = '+q+'ACCEPTED'+q;assert s.count(old)==1;p.write_text(s.replace(old,'status = '+q+'FIXED'+q),encoding='utf-8')"
+  rationale: >-
+    Makes every accepted finding computed as FIXED, so the ACCEPTED-status tests and the not-a-defect rendering test fail. A real break
+    of the generator's central rule.
+evidence:
+- evidence/build/G3/TC-492/receipt.json
+closeout:
+- >-
+  scripts/release/build_review_ledger.py regenerates the review ledger from the repository, and offline tests pin its status rules.
+recovery: Re-run from a clean tree.

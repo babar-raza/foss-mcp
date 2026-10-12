@@ -1,0 +1,99 @@
+id: TC-493
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-005 (honest answers). Review finding L-059 (audit A N-5, QA 15): when lookup finds nothing it says "no symbol matches '<query>'"
+  although it also searched the documentation and the verified examples. Verified on 2026-10-12 in src/foss_mcp/mcp/tools/lookup.py:
+  both fall-through returns of `lookup` (the task-question path after `_compose_from_docs` returns None, and the identifier path after
+  the symbol search and `_compose_from_docs` both found nothing) return search_symbols' `Miss` unchanged, whose reason is built in
+  src/foss_mcp/mcp/tools/search_symbols.py as f"no symbol matches {query!r}". Reproduced on copies of the committed demo manifests:
+  slides/java and cells/cpp `lookup("how do I set a password on a presentation")` and pdf/net `lookup("Zzqxv")` answer that reason. TC-381
+  and TC-386 are accepted but did not cover it. This card makes lookup's own miss reason say what it searched, keeping the `Miss` type,
+  its scope, query and did-you-mean suggestions, and leaving search_symbols, search_docs, find_examples and every relevance rule
+  untouched. Serving code only: no re-ingest; it reaches the image with the serving image rebuild.
+depends_on: []
+depends_on:
+- TC-001
+- TC-017a
+- TC-071
+- TC-074
+- TC-079
+- TC-381
+write_paths:
+- src/foss_mcp/mcp/tools/lookup.py
+- tests/mcp/tools/test_lookup_miss_reason.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read src/foss_mcp/mcp/tools/lookup.py in full, `Miss` and the end of `search_symbols` in src/foss_mcp/mcp/tools/search_symbols.py,
+  `_wrap_lookup` and `_to_jsonable` in src/foss_mcp/mcp/server.py (read only), and tests/mcp/tools/test_nonsense_queries_miss.py (the
+  pattern for copying committed pilot manifests to tmp and for the no-gateway embedding stub). Never print or log any environment value.
+- >-
+  src/foss_mcp/mcp/tools/lookup.py: add a module constant `NOTHING_MATCHED_REASON = "nothing in the documentation, verified examples or
+  symbols of this pilot matches {query!r}"`, kept as ONE string literal, and a private helper that, given the symbol search's result and the query, returns a `Miss`
+  whose reason is `NOTHING_MATCHED_REASON.format(query=query)` (scope, query and suggestions unchanged, via dataclasses.replace) when the
+  result is a `Miss` whose reason equals exactly f"no symbol matches {query!r}", and returns the result unchanged otherwise (a symbol
+  list, or a Miss saying "no published generation for this scope" or "published generation has no symbol index"). Apply it at BOTH
+  fall-through returns of `lookup`, which are reached only after documentation and examples were searched too. The `content_type` path
+  (delegated to search_docs) and every path that returns matches or a TaskAnswer are unchanged. Update the docstrings that say the
+  symbol search's miss is returned. Do not change search_symbols.py, search_docs.py, find_examples.py, relevance.py or server.py.
+- >-
+  tests/mcp/tools/test_lookup_miss_reason.py (NEW, offline, deterministic, no network, no skipped tests, no wall-clock assertions; copy
+  committed infra/demo-manifests pilot directories to tmp, never write the repository; replace find_examples' GatewayEmbeddingProvider
+  with a stub whose embed raises, as test_nonsense_queries_miss.py does): parametrized over every pilot directory with an
+  active_pointer.json (at least 40), `lookup(store, scope, "send a fax via modem")` is a `Miss` whose reason equals the literal
+  expected text, written out in the test file and never imported from lookup.py (`"nothing in the documentation, verified examples
+  or symbols of this pilot matches " + repr(query)`), and does not contain "no symbol matches"; slides/java and cells/cpp `lookup("how do I set a password on a presentation")` answer that
+  reason (the reviewer's reproduction); pdf/net `lookup("Zzqxv")` answers it while `search_symbols(store, scope, "Zzqxv").reason` is
+  still exactly "no symbol matches 'Zzqxv'"; pdf/net `lookup("Annotatio")` keeps the did-you-mean suggestions, equal to and as
+  non-empty as search_symbols' for the same query; the returned object is a search_symbols `Miss` with the same scope and query; with
+  `content_type="faq"` the miss reason equals search_docs' for the same query; an empty store still answers "no published generation
+  for this scope"; controls: pdf/net "how do I add a watermark to a PDF" is still a TaskAnswer and "AFRelationship" still a non-empty
+  symbol list; through the server: `server._wrap_lookup(store, scope)(query="Zzqxv")` serialised with `server._to_jsonable` carries the
+  new reason, and the committed src/foss_mcp/mcp/server.py imports `lookup` from foss_mcp.mcp.tools.lookup (the production call site).
+  At least 50 tests.
+- >-
+  Run `{python} -m pytest tests/mcp/tools/test_lookup_miss_reason.py -q -rfE`, then once each of the second and third check commands
+  below. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Make lookup's honest miss say that documentation, verified examples and symbols were all searched.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_lookup_miss_reason.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m pytest tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_relevance_floor.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/test_search_symbols_honest_miss.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: '{python} -m ruff check src/foss_mcp/mcp/tools/lookup.py tests/mcp/tools/test_lookup_miss_reason.py && {python} -m ruff format --check src/foss_mcp/mcp/tools/lookup.py tests/mcp/tools/test_lookup_miss_reason.py'
+  expect: exit 0
+  timeout_seconds: 300
+  proves:
+  - REQ-G3-005
+min_tests: 50
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/lookup.py');s=p.read_text(encoding='utf-8');old='nothing in the documentation, verified examples or symbols of this pilot matches';assert s.count(old)==1;p.write_text(s.replace(old,'no symbol matches'),encoding='utf-8')"
+  rationale: >-
+    Turns lookup's miss reason back into the symbol search's wording, so every test that expects the new reason fails on all 40 pilots.
+    A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-493/receipt.json
+closeout:
+- >-
+  lookup's miss names everything it searched; search_symbols' own miss, the relevance floor and the nonsense-query pins are unchanged.
+recovery: Re-run from a clean tree.
