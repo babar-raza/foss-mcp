@@ -141,10 +141,11 @@ def test_release_md_has_exactly_one_known_limitations_heading():
     assert lines.count(SECTION_8_HEADING) == 1
 
 
-def test_section_8_is_the_last_section_and_follows_section_7():
+def test_section_8_follows_section_7_and_section_9_is_the_last_section():
     headings = [ln for ln in _heading_lines(_doc()) if re.match(r"## (?!#)", ln)]
-    assert headings[-1] == SECTION_8_HEADING
-    assert headings[-2] == "## 7. How a peer pulls and runs it"
+    assert headings[-1] == "## 9. Deferred extraction improvements"
+    assert headings[-2] == SECTION_8_HEADING
+    assert headings[-3] == "## 7. How a peer pulls and runs it"
 
 
 def test_section_8_has_the_standalone_subsection_once():
