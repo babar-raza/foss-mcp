@@ -61,6 +61,8 @@ import json
 import os
 import re
 import tempfile
+import threading
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -73,6 +75,8 @@ _SEP = "::"
 _SCOPE_COMPONENT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 _SCOPE_COMPONENT_COUNT = 3
 _MAX_VERSION_LENGTH = 128
+# At most this many parsed generation documents are held in process, per store instance.
+_GENERATION_CACHE_MAX_ENTRIES = 8
 
 
 # ---------------------------------------------------------------------
@@ -282,6 +286,9 @@ class GenerationManifestStore:
     def __init__(self, root: Path) -> None:
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
+        # (resolved path, st_mtime_ns, st_size) -> parsed generation document, least recently used first.
+        self._generation_cache: OrderedDict[tuple[str, int, int], dict[str, Any]] = OrderedDict()
+        self._generation_cache_lock = threading.Lock()
 
     # -- filesystem layout ------------------------------------------------
 
@@ -354,6 +361,30 @@ class GenerationManifestStore:
 
     # -- generations: immutable once written ------------------------------
 
+    def _cached_generation_document(self, path: Path) -> dict[str, Any] | None:
+        """The parsed JSON document at ``path`` (``None`` if the file is absent), re-parsed only
+        when the file's identity (resolved path, ``st_mtime_ns``, ``st_size``) changes. A missing
+        file is never cached. Holds at most 8 entries, least recently used evicted."""
+        try:
+            stat = path.stat()
+        except FileNotFoundError:
+            return None
+        key = (str(path.resolve()), stat.st_mtime_ns, stat.st_size)
+        with self._generation_cache_lock:
+            cached = self._generation_cache.get(key)
+            if cached is not None:
+                self._generation_cache.move_to_end(key)
+                return cached
+        doc = self._read_json(path)
+        if doc is None:
+            return None
+        with self._generation_cache_lock:
+            self._generation_cache[key] = doc
+            self._generation_cache.move_to_end(key)
+            while len(self._generation_cache) > _GENERATION_CACHE_MAX_ENTRIES:
+                self._generation_cache.popitem(last=False)
+        return doc
+
     def write_generation(self, manifest: GenerationManifest) -> Path:
         """Persist ``manifest``. Validates first (nothing invalid is ever
         written). Idempotent when the exact same content is written again
@@ -380,7 +411,7 @@ class GenerationManifestStore:
         :class:`UnknownGenerationError` if it was never written for
         ``scope``."""
         path = self._generation_path_for_id(scope, generation_id)
-        doc = self._read_json(path)
+        doc = self._cached_generation_document(path)
         if doc is None or doc.get("generation_id") != generation_id:
             raise UnknownGenerationError(f"no generation {generation_id!r} written for scope {scope!r}")
         key = GenerationKey(

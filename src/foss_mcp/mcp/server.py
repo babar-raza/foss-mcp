@@ -18,6 +18,7 @@ argument, per the reference-system defect this project does not inherit).
 from __future__ import annotations
 
 import dataclasses
+import functools
 import inspect
 import json
 import logging
@@ -31,6 +32,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+import anyio.to_thread
 from mcp.server.lowlevel import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import (
@@ -1024,7 +1026,12 @@ def create_server(
             # CallToolResult instead of whatever a downstream function happens to raise.
             input_model = _INPUT_MODELS[params.name]
             validated_arguments = input_model.model_validate(params.arguments or {})
-            result = handler(**validated_arguments.model_dump())
+            # The handler does CPU and file I/O, so it runs in a worker thread: the event loop
+            # (and /healthz, /readyz, other sessions) stays responsive while it works. Anything it
+            # raises propagates out of run_sync into the same except-branches below.
+            result = await anyio.to_thread.run_sync(
+                functools.partial(handler, **validated_arguments.model_dump())
+            )
         except ValidationError as exc:
             # TC-125's own validation-error path: a malformed argument, always INVALID_ARGUMENT.
             # Built straight from exc.errors() (TC-136) - a plain, safe validation message like
