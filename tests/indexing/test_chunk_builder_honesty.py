@@ -555,12 +555,14 @@ def test_real_slides_python_reexport_lists_the_definitions_methods() -> None:
     texts = _real_texts("slides_python")
     stub = next(t for t in texts if _fqn(t) == "aspose.slides_foss.charts.IChartDataCell")
     assert "Defined-In: aspose.slides_foss.charts.IChartDataCell.IChartDataCell" in stub.splitlines()
-    method_lines = _block(stub, "Methods:")
-    assert len(definition["methods"]) == 4
-    assert len(method_lines) == 4
+    # The python reader now files accessors under ``properties`` (this class's four members are
+    # properties), so the re-export must list the definition's methods and properties alike.
+    member_lines = _block(stub, "Methods:") + _block(stub, "Properties:")
+    assert len(definition["methods"]) + len(definition["properties"]) == 4
+    assert len(member_lines) == 4
     defn = next(t for t in texts if _fqn(t) == "aspose.slides_foss.charts.IChartDataCell.IChartDataCell")
     assert "Exported-As: aspose.slides_foss.charts.IChartDataCell" in defn.splitlines()
-    assert _block(defn, "Methods:") == method_lines
+    assert _block(defn, "Methods:") + _block(defn, "Properties:") == member_lines
 
 
 def test_real_pdf_net_chunks_state_the_coverage() -> None:

@@ -133,8 +133,8 @@ def test_shapes_own_real_method_is_untouched_by_flattening() -> None:
         "IHyperlinkContainer",
         "ABC",
     ]
-    presentation = next(m for m in shape["methods"] if m["name"] == "presentation")
-    assert presentation["return_type"] == "IPresentation"
+    presentation = next(p for p in shape["properties"] if p["name"] == "presentation")
+    assert presentation["type"] == "IPresentation"
     assert "inherited_from" not in presentation
 
 
@@ -161,7 +161,7 @@ def test_a_real_multi_level_inherited_member_carries_the_correct_inherited_from_
         entry for entry in data["types"] if entry["class_import"] == "aspose.slides_foss.charts.IChart.IChart"
     )
     assert ichart["bases"] == ["IGraphicalObject", "IFormattedTextContainer", "IChartComponent", "ABC"]
-    presentation = next(m for m in ichart["methods"] if m["name"] == "presentation")
+    presentation = next(p for p in ichart["properties"] if p["name"] == "presentation")
     assert (
         presentation["inherited_from"] == "aspose.slides_foss.IPresentationComponent.IPresentationComponent"
     )
