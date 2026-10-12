@@ -25,6 +25,7 @@ write_paths:
 - tests/extraction/test_central_classes_indexed.py
 - tests/extraction/test_slides_python_extraction.py
 - tests/extraction/test_words_net_extraction.py
+- tests/indexing/test_chunk_builder_honesty.py
 satisfies:
 - REQ-G3-005
 source_refs:
@@ -53,6 +54,15 @@ inputs:
   `"Presentation" in ...` (its docstring explains the old absence; update that sentence), and any assertion naming the old
   `source_commit`, the old first type, or an exact old count is updated to the re-extracted fact. Every other assertion stays. List
   each changed line in your report. If an assertion fails for any other reason, stop and report it.
+- >-
+  THREE OLD ASSERTIONS THAT ENCODE THE OLD REPRESENTATION (found by the worker; TC-473 now publishes Python attributes and properties, so the fresh
+  extraction puts them under `properties`, not `methods`): tests/extraction/test_slides_python_extraction.py::test_shapes_own_real_method_is_untouched_by_flattening
+  (reads shape["methods"], now only ['__init__'] while `presentation` is a property with `type` IPresentation), ::test_a_real_multi_level_inherited_member_carries_the_correct_inherited_from_tag
+  (reads ichart["methods"], now `presentation` is a property with the expected inherited_from tag) and
+  tests/indexing/test_chunk_builder_honesty.py::test_real_slides_python_reexport_lists_the_definitions_methods (line ~559 asserts len(definition["methods"]) == 4, now 0).
+  All three files are in your write_paths: change ONLY those three tests so they assert the SAME facts against the new shape (look the member up in
+  `properties` and compare its `type`, or keep the method assertion where the member is still a method; for the honesty test assert on the definition's
+  methods plus properties as they now stand and keep the intent that a re-exported definition lists its members). Never delete or skip a test.
 - >-
   Run `{python} -m pytest tests/extraction/test_central_classes_indexed.py -q -rfE`, then once the second check command below. Write
   commit messages as UTF-8 without a byte-order mark.
