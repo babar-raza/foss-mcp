@@ -1,0 +1,150 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/test_central_classes_indexed.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2yvtn6bn\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/test_central_classes_indexed.py tests/extraction/test_slides_python_extraction.py tests/extraction/test_words_net_extraction.py tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2yvtn6bn\.junit-1.xml"
+--- stdout ---
+.......................................................................  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/test_central_classes_indexed.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2yvtn6bn\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/test_central_classes_indexed.py tests/extraction/test_slides_python_extraction.py tests/extraction/test_words_net_extraction.py tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2yvtn6bn\.junit-1.xml"
+--- stdout ---
+.......................................................................  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/slides_python/api_surface.json, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/test_central_classes_indexed.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2yvtn6bn\.junit-0.xml"
+--- stdout ---
+.F.F.......                                                              [100%]
+================================== FAILURES ===================================
+_____ test_every_class_the_examples_use_is_in_the_fixture[slides_python] ______
+
+pilot = 'slides_python'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_every_class_the_examples_use_is_in_the_fixture(pilot: str) -> None:
+        data = _fixture(pilot)
+        present = {entry["name"] for entry in data["types"]}
+        used = names_used_in_examples(_furnished_page(pilot))
+        assert used, f"{pilot}: the furnished page names no classes - the scan is broken"
+        # The artifact is not available offline, so "the library defines it" is read from the fixture
+        # itself: a used name that some kept entry references (as a base or a member type) is a real
+        # library type and must be a kept entry too. The central class is additionally pinned by name.
+        central = _CENTRAL[pilot]
+        assert central in used, f"{pilot}: {central} not found in the furnished page's examples"
+>       assert central in present, f"{pilot}: {central} was cut from the fixture"
+E       AssertionError: slides_python: Presentation was cut from the fixture
+E       assert 'Presentation' in {'AfterAnimationType', 'AnimateTextType', 'AxisPositionType', 'BackgroundType', 'BaseChartValue', 'BaseHandoutNotesSlideHeaderFooterManager', ...}
+
+tests\extraction\test_central_classes_indexed.py:71: AssertionError
+__ test_the_central_class_is_present_by_name_and_has_members[slides_python] ___
+
+pilot = 'slides_python'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_the_central_class_is_present_by_name_and_has_members(pilot: str) -> None:
+        central = _CENTRAL[pilot]
+        entries = [entry for entry in _fixture(pilot)["types"] if entry["name"] == central]
+>       assert entries, f"{pilot}: {central} is not in the committed fixture"
+E       AssertionError: slides_python: Presentation is not in the committed fixture
+E       assert []
+
+tests\extraction\test_central_classes_indexed.py:99: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_central_classes_indexed.py::test_every_class_the_examples_use_is_in_the_fixture[slides_python]
+FAILED tests/extraction/test_central_classes_indexed.py::test_the_central_class_is_present_by_name_and_has_members[slides_python]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/test_central_classes_indexed.py tests/extraction/test_slides_python_extraction.py tests/extraction/test_words_net_extraction.py tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2yvtn6bn\.junit-1.xml"
+--- stdout ---
+.F.F.........F..F......................................................  [100%]
+================================== FAILURES ===================================
+_____ test_every_class_the_examples_use_is_in_the_fixture[slides_python] ______
+
+pilot = 'slides_python'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_every_class_the_examples_use_is_in_the_fixture(pilot: str) -> None:
+        data = _fixture(pilot)
+        present = {entry["name"] for entry in data["types"]}
+        used = names_used_in_examples(_furnished_page(pilot))
+        assert used, f"{pilot}: the furnished page names no classes - the scan is broken"
+        # The artifact is not available offline, so "the library defines it" is read from the fixture
+        # itself: a used name that some kept entry references (as a base or a member type) is a real
+        # library type and must be a kept entry too. The central class is additionally pinned by name.
+        central = _CENTRAL[pilot]
+        assert central in used, f"{pilot}: {central} not found in the furnished page's examples"
+>       assert central in present, f"{pilot}: {central} was cut from the fixture"
+E       AssertionError: slides_python: Presentation was cut from the fixture
+E       assert 'Presentation' in {'AfterAnimationType', 'AnimateTextType', 'AxisPositionType', 'BackgroundType', 'BaseChartValue', 'BaseHandoutNotesSlideHeaderFooterManager', ...}
+
+tests\extraction\test_central_classes_indexed.py:71: AssertionError
+__ test_the_central_class_is_present_by_name_and_has_members[slides_python] ___
+
+pilot = 'slides_python'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_the_central_class_is_present_by_name_and_has_members(pilot: str) -> None:
+        central = _CENTRAL[pilot]
+        entries = [entry for entry in _fixture(pilot)["types"] if entry["name"] == central]
+>       assert entries, f"{pilot}: {central} is not in the committed fixture"
+E       AssertionError: slides_python: Presentation is not in the committed fixture
+E       assert []
+
+tests\extraction\test_central_classes_indexed.py:99: AssertionError
+________________________ test_the_fixture_is_non_empty ________________________
+
+    def test_the_fixture_is_non_empty() -> None:
+        data = _load_fixture()
+        assert len(data["types"]) > 0
+>       assert data["reduced_type_count"] == len(data["types"])
+E       AssertionError: assert 569 == 567
+E        +  where 567 = len([{'bases': ['ABC'], 'canonical_namespace': 'aspose.slides_foss.IPresentationComponent', 'class_import': 'aspose.slides...l_namespace': 'aspose.slides_foss', 'class_import': 'aspose.slides_foss.IPresentation', 'deprecated': False, ...}, ...])
+
+tests\extraction\test_slides_python_extraction.py:73: AssertionError
+______________ test_the_highest_centrality_type_survives_the_cut ______________
+
+    def test_the_highest_centrality_type_survives_the_cut() -> None:
+        """This pilot's own proof TC-265's fix is real and working: the single highest-scoring type
+        over the FULL 1023-type corpus (``IPresentationComponent``, centrality 115 - every other type
+        in the corpus references it by bare name, far more than any other type) is kept, and -
+        because ``reduce_fixture()`` keeps its own full pre-truncation sort order rather than
+        re-sorting afterward - is this fixture's own first entry. "Presentation" itself cannot serve
+        this role for this pilot (it legitimately scores 0), so this is the real, concrete stand-in
+        proof of fix for slides/python. It was absent from the pre-TC-395 cut (see module docstring);
+        TC-395's re-extraction keeps it because it is a class the pilot's own examples use.
+        """
+        data = _load_fixture()
+        assert data["types"][0]["name"] == "IPresentationComponent"
+        assert (
+            data["types"][0]["class_import"] == "aspose.slides_foss.IPresentationComponent.IPresentationComponent"
+        )
+>       assert "Presentation" in {entry["name"] for entry in data["types"]}
+E       AssertionError: assert 'Presentation' in {'AfterAnimationType', 'AnimateTextType', 'AxisPositionType', 'BackgroundType', 'BaseChartValue', 'BaseHandoutNotesSlideHeaderFooterManager', ...}
+
+tests\extraction\test_slides_python_extraction.py:115: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_central_classes_indexed.py::test_every_class_the_examples_use_is_in_the_fixture[slides_python]
+FAILED tests/extraction/test_central_classes_indexed.py::test_the_central_class_is_present_by_name_and_has_members[slides_python]
+FAILED tests/extraction/test_slides_python_extraction.py::test_the_fixture_is_non_empty
+FAILED tests/extraction/test_slides_python_extraction.py::test_the_highest_centrality_type_survives_the_cut
+
+--- stderr ---
+

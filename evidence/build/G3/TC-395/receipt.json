@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "card": "TC-395",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-12T04:10:19Z",
+  "base_rev": "2d555ea23b0a60b0a6abfcca75700850e6c938b0",
+  "head_rev": "24e3dd1a37bc4eb6ae804dabe5515ead86c818ed",
+  "card_sha256": "976036a1bf3ea5fdf2e89611a88393fad3fad13c17736f235c61873c1e5ab6e4",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/extraction/test_central_classes_indexed.py",
+      "tests/extraction/test_slides_python_extraction.py",
+      "tests/fixtures/slides_python/api_surface.json",
+      "tests/fixtures/words_net/api_surface.json",
+      "tests/indexing/test_chunk_builder_honesty.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_central_classes_indexed.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 3.523,
+          "stdout_sha256": "08faea39fd19189f6544839f505d91d76ecb1367e219f5db362cdf22916ef869",
+          "tests": 11,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/test_central_classes_indexed.py tests/extraction/test_slides_python_extraction.py tests/extraction/test_words_net_extraction.py tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 5.389,
+          "stdout_sha256": "302c481d0476715670506a6664542c2cdca3bcb6f6be63ec67b5ba0dde493cf4",
+          "tests": 71,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_central_classes_indexed.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 2.361,
+          "stdout_sha256": "08faea39fd19189f6544839f505d91d76ecb1367e219f5db362cdf22916ef869",
+          "tests": 11,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/test_central_classes_indexed.py tests/extraction/test_slides_python_extraction.py tests/extraction/test_words_net_extraction.py tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 5.328,
+          "stdout_sha256": "302c481d0476715670506a6664542c2cdca3bcb6f6be63ec67b5ba0dde493cf4",
+          "tests": 71,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import json,pathlib;p=pathlib.Path('tests/fixtures/slides_python/api_surface.json');d=json.loads(p.read_text(encoding='utf-8'));n=len(d['types']);d['types']=[t for t in d['types'] if t.get('name')!='Presentation'];assert len(d['types'])<n;p.write_text(json.dumps(d),encoding='utf-8')\"\n",
+    "patch_sha256": "a498d498e23f5f47c574de31ef77e33fdb46d4796dd9763a7fa42b8c96082b12",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M tests/fixtures/slides_python/api_surface.json",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
