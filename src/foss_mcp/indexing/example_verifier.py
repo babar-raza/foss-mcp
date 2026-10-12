@@ -27,10 +27,12 @@ their non-MSVC compile flags), confirmed real and not a preference.
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tomllib
@@ -136,13 +138,78 @@ def _go_required_version(module_path: str) -> str:
     return f"v{major}.0.0"
 
 
-def _run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+# Every verifier subprocess is bounded: a README block that never returns (a server's ``run()``) or a
+# stuck install must not hang the whole ingestion Job. A killed command is recorded as a timeout.
+_RUN_TIMEOUT_SECONDS = 1800
+_PYTHON_CANDIDATE_TIMEOUT_SECONDS = 120
+_TIMEOUT_EXIT_CODE = 124
+_KILL_GRACE_SECONDS = 10
+
+
+def _kill_process_tree(proc: subprocess.Popen[str]) -> None:
+    """Kill ``proc`` and every process it started."""
+    if sys.platform == "win32":
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                capture_output=True,
+                timeout=_KILL_GRACE_SECONDS,
+            )
+        except (OSError, subprocess.SubprocessError):
+            pass
+        try:
+            proc.kill()
+        except OSError:
+            pass
+        return
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+
+
+def _run_bounded(
+    args: list[str],
+    *,
+    cwd: Path,
+    timeout_seconds: float,
+    env: Mapping[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run ``args`` and give up after ``timeout_seconds``, killing the whole process tree.
+
+    A command that overruns is killed and reported with return code ``_TIMEOUT_EXIT_CODE`` and a
+    final stderr line ``[foss-mcp] TIMEOUT: ...``, so a hang can never read as a pass.
+    """
+    proc = subprocess.Popen(
         args,
         cwd=cwd,
-        capture_output=True,
+        env=None if env is None else dict(env),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
+        encoding="utf-8",
+        errors="replace",
+        start_new_session=sys.platform != "win32",
     )
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        _kill_process_tree(proc)
+        try:
+            stdout, stderr = proc.communicate(timeout=_KILL_GRACE_SECONDS)
+        except subprocess.TimeoutExpired:
+            stdout, stderr = "", ""
+        stdout = stdout or ""
+        stderr = stderr or ""
+        if stderr and not stderr.endswith("\n"):
+            stderr += "\n"
+        stderr += f"[foss-mcp] TIMEOUT: {Path(args[0]).name} was killed after {timeout_seconds} seconds"
+        return subprocess.CompletedProcess(args, _TIMEOUT_EXIT_CODE, stdout=stdout, stderr=stderr)
+    return subprocess.CompletedProcess(args, proc.returncode, stdout=stdout, stderr=stderr)
+
+
+def _run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+    return _run_bounded(args, cwd=cwd, timeout_seconds=_RUN_TIMEOUT_SECONDS)
 
 
 # Cargo's crates.io index download is the one network step in the Rust pilot
@@ -1099,20 +1166,104 @@ def _read_requires_python(repo_dir: Path) -> str | None:
     return value if isinstance(value, str) and value.strip() else None
 
 
+# Optional-dependency groups that exist for the library's own development, never for running it.
+_NON_RUNTIME_EXTRAS = frozenset(
+    {
+        "test",
+        "tests",
+        "testing",
+        "dev",
+        "develop",
+        "development",
+        "docs",
+        "doc",
+        "lint",
+        "linting",
+        "typing",
+        "types",
+        "mypy",
+        "ci",
+        "bench",
+        "benchmark",
+        "benchmarks",
+        "all",
+    }
+)
+
+_PTH_FILENAME = "_foss_mcp_source.pth"
+_PURELIB_PROGRAM = "import sysconfig; print(sysconfig.get_paths()['purelib'])"
+
+
+def _read_pyproject(repo_dir: Path) -> dict:
+    """The clone's parsed pyproject.toml, or ``{}`` when it is missing, unreadable or invalid."""
+    try:
+        return tomllib.loads((repo_dir / "pyproject.toml").read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return {}
+
+
+def _optional_dependency_groups(repo_dir: Path) -> dict[str, list[str]]:
+    project = _read_pyproject(repo_dir).get("project")
+    groups = project.get("optional-dependencies") if isinstance(project, dict) else None
+    if not isinstance(groups, dict):
+        return {}
+    return {
+        name: [item for item in value if isinstance(item, str)]
+        for name, value in groups.items()
+        if isinstance(name, str) and isinstance(value, list)
+    }
+
+
+def _python_runtime_extras(repo_dir: Path) -> tuple[str, ...]:
+    """Sorted names of the library's optional-dependency groups that its runtime may need."""
+    return tuple(sorted(set(_optional_dependency_groups(repo_dir)) - _NON_RUNTIME_EXTRAS))
+
+
+def _declared_dependencies(repo_dir: Path, extras: tuple[str, ...]) -> list[str]:
+    """The requirements to install by hand when ``pip install -e`` cannot build the library."""
+    project = _read_pyproject(repo_dir).get("project")
+    declared = project.get("dependencies") if isinstance(project, dict) else None
+    requirements: list[str] = [item for item in declared if isinstance(item, str)] if declared else []
+    groups = _optional_dependency_groups(repo_dir)
+    for extra in extras:
+        requirements.extend(groups.get(extra, []))
+    if not requirements:
+        try:
+            lines = (repo_dir / "requirements.txt").read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            lines = []
+        for raw in lines:
+            line = raw.split(" #", 1)[0].strip()
+            if not line or line.startswith("#") or line.startswith(("-r", "-e")):
+                continue
+            requirements.append(line)
+    return list(dict.fromkeys(requirements))
+
+
+def _install_failure(label: str, result: subprocess.CompletedProcess[str]) -> str:
+    output = _truncate(f"{result.stdout}\n{result.stderr}")
+    return f"{label} (exit {result.returncode}):\n{output}"
+
+
 def prepare_python_library(
     repository: str,
     commit: str,
     workdir: Path,
 ) -> Path:
     """Shallow-clone ``repository`` into ``workdir`` at exactly ``commit``,
-    create a fresh venv alongside it, and ``pip install -e`` the real
-    library into that venv once. Returns the venv's own python executable,
-    for ``verify_python_example`` to run candidates against.
+    create a fresh venv alongside it, and install the real library into
+    that venv once. Returns the venv's own python executable, for
+    ``verify_python_example`` to run candidates against.
 
     Python has no separate compile step, so this is the Python pilot's
     equivalent of ``prepare_reference_library`` building the reference
     library once: a real, disposable environment that genuinely has the
     real library installed and importable, never assumed.
+
+    The install is ``pip install -e`` with the library's runtime extras; without the extras when
+    that fails; and, when the library still cannot be built (a pyproject naming a missing build
+    backend, a setup.py reading a git-ignored file), its declared dependencies plus a ``.pth`` path
+    entry to the source tree.
 
     Raises ``RuntimeError`` on any real failure (clone, checkout, venv
     creation, or install).
@@ -1130,17 +1281,108 @@ def prepare_python_library(
 
     venv_python = _venv_python_executable(venv_dir)
 
-    install_result = _run(
-        [str(venv_python), "-m", "pip", "install", "-e", str(repo_dir)],
-        cwd=workdir,
-    )
-    if install_result.returncode != 0:
-        raise RuntimeError(
-            f"pip install -e {repo_dir} into venv {venv_dir} failed:\n"
-            f"{install_result.stdout}\n{install_result.stderr}"
+    extras = _python_runtime_extras(repo_dir)
+    attempts: list[str] = []
+    targets = [f"{repo_dir}[{','.join(extras)}]", str(repo_dir)] if extras else [str(repo_dir)]
+    for target in targets:
+        install_result = _run([str(venv_python), "-m", "pip", "install", "-e", target], cwd=workdir)
+        if install_result.returncode == 0:
+            return venv_python
+        attempts.append(
+            _install_failure(f"pip install -e {target} into venv {venv_dir} failed", install_result)
         )
+        if install_result.returncode == _TIMEOUT_EXIT_CODE:
+            raise RuntimeError("\n".join(attempts))
 
+    dependencies = _declared_dependencies(repo_dir, extras)
+    if dependencies:
+        deps_result = _run([str(venv_python), "-m", "pip", "install", *dependencies], cwd=workdir)
+        if deps_result.returncode != 0:
+            attempts.append(
+                _install_failure(
+                    f"pip install of the declared dependencies {dependencies} into venv {venv_dir} failed",
+                    deps_result,
+                )
+            )
+            raise RuntimeError("\n".join(attempts))
+
+    purelib_result = _run([str(venv_python), "-c", _PURELIB_PROGRAM], cwd=workdir)
+    purelib_text = purelib_result.stdout.strip()
+    if purelib_result.returncode != 0 or not purelib_text or not Path(purelib_text).is_dir():
+        attempts.append(_install_failure("querying the venv purelib directory failed", purelib_result))
+        raise RuntimeError("\n".join(attempts))
+
+    source_root = repo_dir / "src" if (repo_dir / "src").is_dir() else repo_dir
+    (Path(purelib_text) / _PTH_FILENAME).write_text(f"{source_root.resolve()}\n", encoding="utf-8")
+    print(
+        f"[foss-mcp] pip install -e failed for {repo_dir}; installed its declared dependencies and "
+        f"put {source_root} on sys.path through {_PTH_FILENAME}",
+        file=sys.stderr,
+    )
     return venv_python
+
+
+_STAGED_NAME_RE = re.compile(r"""["']([\w.\- ]+\.\w{1,5})["']""")
+_STAGING_SKIPPED_DIRS = frozenset({".git", "venv", ".venv", "node_modules", "__pycache__"})
+_STAGING_REFUSED_EXTENSIONS = frozenset({"py", "pyc", "pyd", "pyi", "pth", "so", "dll", "exe"})
+_STAGING_MAX_BYTES = 50 * 1024 * 1024
+
+
+def _stage_named_repository_files(code: str, repo_dir: Path, script_dir: Path) -> list[str]:
+    """Copy the repository files a block names by bare file name into ``script_dir``.
+
+    A block that opens ``"SimpleTable.one"`` expects that sample next to it; the pinned repository
+    keeps it somewhere below ``testfiles/``. For each quoted bare file name the first repository file
+    (by repo-relative posix path) of exactly that name is copied: never a Python file or binary
+    library, a symlink, a file under a VCS, environment or cache directory, or one above 50 MiB; and
+    never over a file already in ``script_dir``. Returns the repo-relative paths copied.
+    """
+    names = [
+        name
+        for name in dict.fromkeys(_STAGED_NAME_RE.findall(code))
+        if name.rsplit(".", 1)[-1].lower() not in _STAGING_REFUSED_EXTENSIONS
+        and not (script_dir / name).exists()
+    ]
+    if not names:
+        return []
+    wanted = set(names)
+    found: dict[str, list[str]] = {}
+    for root, dirnames, filenames in os.walk(repo_dir):
+        dirnames[:] = [d for d in dirnames if d not in _STAGING_SKIPPED_DIRS]
+        for filename in filenames:
+            if filename in wanted:
+                relative = (Path(root) / filename).relative_to(repo_dir).as_posix()
+                found.setdefault(filename, []).append(relative)
+    copied: list[str] = []
+    for name in names:
+        for relative in sorted(found.get(name, [])):
+            source = repo_dir / relative
+            try:
+                if source.is_symlink() or not source.is_file() or source.stat().st_size > _STAGING_MAX_BYTES:
+                    continue
+                shutil.copyfile(source, script_dir / name)
+            except OSError:
+                continue
+            copied.append(relative)
+            break
+    return copied
+
+
+def _is_import_only(code: str) -> bool:
+    """True when ``code`` parses and holds only imports, ``pass`` and bare strings (or nothing)."""
+    try:
+        tree = ast.parse(code)
+    except (SyntaxError, ValueError):
+        return False
+    return all(
+        isinstance(node, ast.Import | ast.ImportFrom | ast.Pass)
+        or (
+            isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        )
+        for node in tree.body
+    )
 
 
 def verify_python_example(
@@ -1148,6 +1390,7 @@ def verify_python_example(
     *,
     venv_python: Path,
     workdir: Path,
+    repo_dir: Path | None = None,
 ) -> VerificationResult:
     """Run ``candidate.code`` as a real, disposable script with
     ``venv_python`` (a venv that already has the reference library
@@ -1159,16 +1402,38 @@ def verify_python_example(
     error for the other languages. ``verified`` is the literal exit-code
     comparison (``verified = result.returncode == 0``), so forcing it to
     always be true is a detectable, meaningful negative control.
+
+    A block that only imports is rejected without running (an import proves nothing about use). The
+    repository files the block names are staged beside it, and the run is bounded to
+    ``_PYTHON_CANDIDATE_TIMEOUT_SECONDS``: a killed block is not verified.
     """
+    if _is_import_only(candidate.code):
+        return VerificationResult(
+            candidate=candidate,
+            verified=False,
+            output=_NO_STATEMENTS_MESSAGE.format(kind="import statements"),
+        )
+
     script_dir = workdir / "candidate_script"
     script_dir.mkdir(parents=True, exist_ok=True)
     script_path = script_dir / "candidate.py"
     script_path.write_text(candidate.code, encoding="utf-8")
 
-    result = _run([str(venv_python), str(script_path)], cwd=script_dir)
+    if repo_dir is None:
+        default_repo = venv_python.parent.parent.parent / "repo"
+        repo_dir = default_repo if default_repo.is_dir() else None
+    staged = _stage_named_repository_files(candidate.code, repo_dir, script_dir) if repo_dir else []
+
+    result = _run_bounded(
+        [str(venv_python), str(script_path)],
+        cwd=script_dir,
+        timeout_seconds=_PYTHON_CANDIDATE_TIMEOUT_SECONDS,
+    )
 
     verified = result.returncode == 0
-    output = _truncate(f"{result.stdout}\n{result.stderr}")
+    assembly = f"[foss-mcp] assembly: python staged-files={','.join(staged) if staged else 'none'}"
+    run_output = _truncate(f"{result.stdout}\n{result.stderr}")
+    output = f"{assembly}\n{run_output}"
 
     return VerificationResult(candidate=candidate, verified=verified, output=output)
 
