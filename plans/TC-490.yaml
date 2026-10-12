@@ -1,0 +1,79 @@
+id: TC-490
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-007 (the definition of done). At the 2026-10-12 07:40 decision point (DECISION_LOG entry added with this card) the supervisor cut the
+  C++, Go, Rust and TypeScript extractor-improvement and re-extraction cards from the Monday release: TC-397 (C++ parameters, header-only free
+  functions, out-of-line members), TC-398 (Go, Rust and TypeScript export-only rules and import paths), TC-428 (their extraction tests), TC-475
+  (JSDoc types for JavaScript parameters) and the two data cards that would have re-extracted the fixtures, TC-402 (C++) and TC-403 (Go, Rust,
+  TypeScript). Reasons: the C++ change contradicts seven older tests that publish functions defined only in .cpp files, the re-extraction needs
+  the GitHub API for more than ten repositories, and the single serial chain behind api_surface.py cannot be reviewed, integrated, re-extracted
+  and re-ingested before the Monday evening push. The .NET and Python improvements (TC-396, TC-400, TC-401, TC-395, TC-473, TC-429) stay in
+  scope. This card publishes what the cut means for a peer in docs/RELEASE.md (`## 9. Deferred extraction improvements`) and pins it with a
+  committed test, so the deferral is a recorded, visible decision. Once this card is accepted the supervisor supersedes the six cut cards with it.
+depends_on:
+- TC-489
+write_paths:
+- docs/RELEASE.md
+- tests/deploy/test_release_deferred_extraction.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read docs/RELEASE.md in full (keep sections 1-8 byte-identical) and plans/TC-397.yaml, TC-398.yaml, TC-428.yaml, TC-475.yaml, TC-402.yaml,
+  TC-403.yaml (their purpose lines only). Never print or log any environment value.
+- >-
+  docs/RELEASE.md: append `## 9. Deferred extraction improvements` after section 8. Open with two plain sentences: these extractor improvements
+  were planned and are not in this release, and the full list of review findings is in docs/REVIEW_LEDGER.md. Then exactly six bullets, each
+  starting with the card id in bold (`**TC-397**`, `**TC-398**`, `**TC-402**`, `**TC-403**`, `**TC-428**`, `**TC-475**`), each in at most four
+  short sentences saying: what would have improved, which pilots are affected (C++ pilots: pdf, cells, slides, email, jmap and the other C++
+  libraries in infra/helm/foss-mcp/values.yaml whose platform is cpp; Go pilots; Rust pilots; TypeScript and Node pilots), and what a peer will
+  notice (C++ parameter types may omit qualifiers and defaults, constructors may be missing, some free functions defined in headers may be
+  missing, Go and Rust symbol names are not import paths, JavaScript parameter types may be empty, and for these pilots the 300-type extraction
+  cap may still hide central types). Derive the affected pilots from values.yaml, do not retype from memory. Add no claim you cannot check in
+  the repository.
+- >-
+  tests/deploy/test_release_deferred_extraction.py (NEW, offline, deterministic, reads only committed files, no skipped tests, no wall-clock
+  assertions): a module-level tuple `DEFERRED_CARD_IDS` holding exactly the six ids; RELEASE.md has exactly one `## 9. Deferred extraction
+  improvements` heading placed after the `## 8.` heading; each id appears in bold exactly once inside section 9 with at least 80 characters of
+  text after it; section 9 contains no other bold card id; sections 1-8 headings are unchanged; the six plan files exist under plans/ (so the
+  deferral names real cards). Parametrize over the ids so a failure names the id. At least 14 tests.
+- >-
+  Run `{python} -m pytest tests/deploy/test_release_deferred_extraction.py -q -rfE`, then once the second check command below. Write commit
+  messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Publish the deferred extractor improvements and their consequences in the release document peers read.
+checks:
+- command: '{python} -m pytest tests/deploy/test_release_deferred_extraction.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/deploy/test_release_deferred_extraction.py tests/deploy/test_release_known_limitations.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 14
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('docs/RELEASE.md');s=p.read_text(encoding='utf-8');old='**TC-397**';assert old in s;p.write_text(s.replace(old,'**TC-3977**'),encoding='utf-8')"
+  rationale: >-
+    Corrupts the id of the first deferred card everywhere, so the test finds TC-397 missing from section 9 and an unknown id present. A real
+    break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-490/receipt.json
+closeout:
+- >-
+  docs/RELEASE.md section 9 lists the six deferred extractor cards and what a peer will notice; a test pins the list.
+recovery: Re-run from a clean tree.
