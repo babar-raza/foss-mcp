@@ -3,6 +3,52 @@
 This file owns decisions made during execution (see `AGENTS.md`). Entries are
 append-only: never rewrite or remove a past entry, only add new ones below it.
 
+## 2026-10-12 — Operator-supplied weekly report (2026-10-05 to 2026-10-11) validated against the live state machine
+
+The operator pasted an independently generated weekly repository report (HEAD `c66dcca3`) and asked that every
+gap/risk it raised be verified and entered into the governed state machine, without resuming dispatch/review/
+integrate. Each finding in the report's "Risks, Gaps, and Follow-ups" section was checked against the committed
+record, not re-asserted on trust:
+
+- **OQ-007, OQ-008, OQ-009, OQ-010, OQ-011** (Linux C++ live verification; its apt/network build risk; the
+  source_ref grandfather rule; documentation pages beyond the sealed five; the offline-embedding decision) all
+  exist in `ops/open_questions.jsonl`, all `status: OPEN`, exactly as the report states. No new question needed;
+  already correctly tracked.
+- **OWNER-12** (stale Kubernetes ingestion Jobs never re-running the newer install-verification chain) and
+  **OWNER-13** (internal registry host/login, REQ-G3-003) both exist in `ops/owner_items.yaml`, both `status:
+  OPEN`, exactly as the report states. No new item needed; already correctly tracked.
+- **"Ready pods did not imply passing workflows"** (the 2026-10-11 cluster checkpoint: 25 of 40 pilots passing
+  the eleven-check proof, 15 failing check 7, documentation checks N/A for 14 pilots) is a snapshot, not a
+  standing gap: REQ-G3-001 already makes a full, fresh pre-deployment workflow gate run on the exact image that
+  would ship a hard requirement before any release, so a stale pass-rate from five days earlier does not need a
+  second requirement. Recorded here so the fresh run is not skipped on the (false) assumption the Oct-11 numbers
+  still describe the current build - a great deal has landed since (TC-380/381/425/427, the whole verifier
+  chain) and the gate must be re-run from scratch on the final image, not inferred from this snapshot.
+- **"Four distinct worker changes outside reviewed HEAD"** (`0dc50073` search-mode reporting / TC-444,
+  `72f13329` nonsense-query tests / TC-399, `1dcff27c` documented release limitations / TC-489, `de0467e9`
+  root-owned demo data / TC-472) are now RESOLVED: all four are confirmed ancestors of `main` via
+  `git log --oneline main`, each reviewed and integrated (with their own `chore(evidence): record ... acceptance
+  receipt` commits) earlier in this execution window. The report's HEAD (`c66dcca3`) already postdates all four
+  integrations.
+- **tex/python's upstream syntax-error limitation** (`d2f565d2`) is an already-accepted, already-documented
+  limitation (TC-426 publishes an explicit extraction notice for the unparseable private module); consistent,
+  no action.
+- **"Evidence needs reconciliation"** (dirty `evidence/build/G3/TC-490/*` files, untracked
+  `evidence/build/G3/TC-391/`): investigated directly. The TC-490 diff was a byte-identical re-verification run
+  (same `card_sha256`, `base_rev`, `head_rev`, test counts, exit codes; only the receipt's own timestamp and
+  measured duration differed) left over from a duplicate review pass - reverted to the already-committed,
+  already-ACCEPTED version, nothing lost. The TC-391 directory is in-flight evidence for a card that has not yet
+  reached ACCEPTED (its review most recently returned REWORK REQUIRED) - correctly uncommitted per AGENTS.md
+  (evidence commits happen at acceptance, not before); left exactly as-is.
+- **OWNER-09** ("git push credential expired, cannot push") is corrected to `SATISFIED`: `origin/main`'s HEAD
+  (`48be4c47`) is a commit authored well after OWNER-09 was recorded on 2026-10-06, proving a push succeeded
+  since - the same resolution pattern already used for OWNER-03's identical credential class. Local `main` is
+  122 commits ahead of `origin/main` now, so the next push should still be watched for a fresh failure before
+  being assumed to work; the owner item's note says to re-open with new evidence if it does.
+
+No card was dispatched, reviewed, accepted or integrated to produce this entry; no worker was spawned. This is a
+record-keeping pass only, per the operator's explicit instruction not to resume the taskcard loop.
+
 ## 2026-09-10 — Storage topology decision (TC-004, REQ-G0-006)
 Decision: **embedded** (in-process index) for product pdf/net.
 Measured via `foss_mcp.indexing.topology_spike`, one common interface, 15-doc fixture corpus, 30 labelled queries, top_k=5:

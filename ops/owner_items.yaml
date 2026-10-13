@@ -181,14 +181,14 @@ owner_items:
   last_checked_at: '2026-10-07T20:50:00Z'
 
 - id: OWNER-09
-  status: OPEN
-  summary: 'The git credential for https://github.com/babar-raza/foss-mcp.git has expired. Git Credential Manager has no stored GitHub login and cannot prompt in a non-interactive shell, so git push origin main fails before any CI step runs (2026-10-06). The commits waiting to be pushed are the G2 gate evidence and TC-222 through TC-225 and their records; they are committed locally on main.'
+  status: SATISFIED
+  summary: 'The git credential for https://github.com/babar-raza/foss-mcp.git had expired. Git Credential Manager had no stored GitHub login and could not prompt in a non-interactive shell, so git push origin main failed before any CI step ran (2026-10-06). The commits waiting to be pushed were the G2 gate evidence and TC-222 through TC-225 and their records; they were committed locally on main.'
   resume_predicate: 'Run git push origin main from an interactive terminal where the owner signs in to GitHub when Git Credential Manager asks, and the push exits 0.'
   consumed_by:
   - NONE
   recorded_at: '2026-10-06T04:05:38Z'
-  note: 'Owner-only credential. Blocks no card and no gate.'
-  last_checked_at: '2026-10-06T04:05:38Z'
+  note: 'SATISFIED 2026-10-12, found during the operator-supplied weekly-report validation pass: `git fetch origin main` runs cleanly and `git log -1 origin/main` shows HEAD `48be4c47` ("chore(ops): TC-381 rework instruction (attempt 2) (supervisor)"), a commit authored well after this item was recorded on 2026-10-06 - so at least one push succeeded after the credential problem was recorded, directly contradicting the stale "cannot push at all" claim, the same way OWNER-03''s identical credential class was independently closed on 2026-10-09. Not re-opening on code-level suspicion: local main is now 122 commits ahead of origin/main (no pushes since that one), so the NEXT push should still be watched for a fresh credential failure before being assumed to work; if it fails, re-open this item with the new evidence rather than reusing this note.'
+  last_checked_at: '2026-10-12T00:00:00Z'
 
 - id: OWNER-10
   status: OPEN
