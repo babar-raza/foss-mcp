@@ -167,6 +167,25 @@ ledger is `docs/REVIEW_LEDGER.md`; each entry below repeats one accepted finding
 
 ### Standalone image
 
+- **L-022** A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected. The server accepts only the
+  protocol revisions a client reaches through the `initialize` handshake, and 2026-07-28 is the stateless revision,
+  which has no handshake. A client that starts with `initialize`, as the MCP SDK clients do, is not affected.
+- **L-054** A one-word `find_examples` query returns any verified example whose text uses that word, because one word
+  is fully covered by it: pdf/net "page" returns "Add a Watermark Annotation". This is kept, because a one-word query
+  such as "watermark" is a normal way to ask for a specific example and a committed live test pins that answer. The
+  product-family word no longer counts, and a longer question needs 60% of its other words in the example, so "split
+  a pdf into pages" or "bake a cake" get an honest miss. Ask with a few words to get a specific example.
+- **L-071** `get_product_reference` answers NotAvailable for the `formats` and `limitations` sections on every pilot.
+  No data source reaches these two sections, so the answer says so instead of inventing content; slides/python's
+  unsupported PDF export, for example, is not listed there. A peer has to read the README for supported formats.
+- **L-072** The five C++ pilots (pdf/cpp, cells/cpp, slides/cpp, email/cpp and jmap/cpp) have no package-registry
+  check, because C++ has no package-manager coordinate to check. Their install answer says there is no
+  package-manager install command and points to where the distribution notes are. A committed test requires the
+  registry file to be absent for exactly these five pilots, so the gap cannot hide another one.
+- **L-080** `/readyz` needs no authentication, like any container probe, and answers only `ready` or `not ready`. It
+  reports ready when the pilot's documents are servable and does not judge how much content a pilot has: tex/python
+  is ready with 4 classes, and its extraction notice says why. The probe reads a cached result instead of parsing the
+  generation on every call.
 - **L-089** The server describes each library at one pinned commit, but the install command installs the registry's
   current release, which can be older or newer. pdf/go's index is 66 commits past v0.9.0 and slides/python is 50
   commits past PyPI 26.8.0, so a peer may find a type in `search_symbols` that the installed package lacks. Every
@@ -246,6 +265,11 @@ ledger is `docs/REVIEW_LEDGER.md`; each entry below repeats one accepted finding
   Search results can therefore show the same title more than once.
 - **L-129** A repeated `initialize` on an open HTTP session is accepted and replaces that session's client information
   (MCP SDK behaviour). It does not affect other sessions.
+- **L-133** To compile jmap/cpp's README examples, the example verifier adds the library's `include/aspose_jmap`
+  directory to the include path, so the README's `#include "JmapClient.hpp"` compiles. A reader who builds with the
+  library's documented CMake target must write `#include <aspose_jmap/JmapClient.hpp>` instead. The example still
+  compiles and links against the real pinned library, and nothing but the page's own `#include` lines is ever added
+  to it.
 
 ### Kubernetes chart (not part of the standalone release)
 
@@ -257,6 +281,22 @@ ledger is `docs/REVIEW_LEDGER.md`; each entry below repeats one accepted finding
   other. The standalone image runs one pilot per container.
 - **L-118** The chart does not `required()` the family and platform values, so an unset release falls back to pdf/net.
   The standalone entrypoint refuses to start without a valid pilot.
+
+### Reported, not defects
+
+The reviews reported these, and they were checked and are not defects. They are listed so that every reported
+finding has a published answer.
+
+- **L-104** Reported: a class with a member named X outranks the types named X in `search_symbols`. Not reproduced:
+  `search_symbols` ranks type-name matches above member-name matches, so "PageSize" and "IPresentation" return the
+  type first. The three words/python `Document` results are three real upstream classes.
+- **L-130** Reported: imaging/net serves only 3 types. Its extraction is not truncated (`type_count` 3, `truncated`
+  false), so these three types are the library's whole public surface.
+- **L-131** Three reported problems were false alarms. pdf/net's license is MIT, as its csproj states;
+  `infra/rollback.py` is a tested operator command (tests/infra/test_rollback.py), not dead code; and repeated
+  identical queries give identical answers.
+- **L-132** Reported: `gatectl validate` failed during one audit. It was a transient mismatch while acceptance
+  receipts were being written; `gatectl validate` passes on main and is run again at gate exit.
 
 ## 9. Deferred extraction improvements
 
