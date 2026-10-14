@@ -1,0 +1,93 @@
+id: TC-502
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-007 (at least two verified examples for every pilot). The 2026-10-14 cluster re-ingest left words/net with ZERO verified
+  examples because the reference library does not build in the Linux ingestion image: `dotnet build Aspose.Words/Aspose.Words.csproj` fails with
+  hundreds of `error CS1589: Unable to include XML fragment 'Topics/Topic[@name="..."]/*' of file '..\Docs\Text.xml' -- File not found`. The
+  upstream library documents its API with `<include file="..\Docs\Text.xml" .../>` (a Windows backslash path that resolves only on Windows)
+  and its csproj sets `GenerateDocumentationFile` true with `TreatWarningsAsErrors` true, so the unresolved include is a build error on Linux.
+  The git-lfs diagnosis (TC-456) was a different, already fixed defect. Measured in the ingestion image foss-mcp-ingestion:rev-719bbd6 against
+  aspose-words-foss/Aspose.Words-FOSS-for-.NET at 0d3f1add: the unmodified build fails; the same build with `-p:GenerateDocumentationFile=false`
+  succeeds with 0 errors. XML documentation files are irrelevant to compiling and running an example, so the verifier turns them off for every
+  .NET library build and for the candidate project that references the library (a global property reaches the referenced project). This card
+  adds that one property to the two `dotnet build` calls of src/foss_mcp/indexing/example_verifier.py and updates the one existing test that pins
+  the exact argument list.
+depends_on:
+- TC-450
+- TC-456
+- TC-459
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- tests/indexing/test_dotnet_verifier_assembly.py
+- tests/indexing/test_dotnet_doc_generation_off.py
+satisfies:
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read src/foss_mcp/indexing/example_verifier.py: `prepare_dotnet_library` (the `_run(["dotnet", "build", str(csproj_path)], cwd=workdir)`
+  call and the RuntimeError that quotes its output) and `verify_dotnet_example` (`_run(["dotnet", "build"], cwd=project_dir)`), plus
+  tests/indexing/test_dotnet_verifier_assembly.py (the assertion `argv == ["dotnet", "build"]`) and tests/indexing/test_dotnet_lfs_pull.py
+  (it asserts only `recorder.calls[-1][:2] == ["dotnet", "build"]`, which stays true). Never print or log any environment value.
+- >-
+  src/foss_mcp/indexing/example_verifier.py: define a module-level constant `DOTNET_BUILD_PROPERTIES: tuple[str, ...] =
+  ("-p:GenerateDocumentationFile=false",)` with a comment saying why (the upstream Windows-path `<include>` doc fragments break the Linux
+  build and documentation files are not needed to verify an example). Use it in BOTH calls: `["dotnet", "build", str(csproj_path),
+  *DOTNET_BUILD_PROPERTIES]` and `["dotnet", "build", *DOTNET_BUILD_PROPERTIES]`. Change nothing else: not the csproj template, not the
+  target-framework logic, not the lfs pull, not any other platform.
+- >-
+  tests/indexing/test_dotnet_verifier_assembly.py: change ONLY the assertion on the exact argument list to
+  `argv == ["dotnet", "build", *DOTNET_BUILD_PROPERTIES]` (import the constant from the module). Never delete, skip or weaken a test.
+- >-
+  tests/indexing/test_dotnet_doc_generation_off.py (NEW, offline, deterministic, no skipped tests, no network, no real dotnet): with the
+  module's `_run` monkeypatched to a recorder, assert that `prepare_dotnet_library` (with the git steps also faked, copy the pattern of
+  tests/indexing/test_dotnet_lfs_pull.py) and `verify_dotnet_example` each issue a `dotnet build` whose argv contains
+  `-p:GenerateDocumentationFile=false`; that the constant has exactly that one entry; that the property appears nowhere in the csproj
+  template text (the fix is a build argument, not a project edit); that the committed source of example_verifier.py contains the string
+  `DOTNET_BUILD_PROPERTIES` at both call sites (a source assertion, count at least 3 occurrences); and that the non-.NET verifiers' argv
+  lists are unchanged by comparing nothing to the constant. At least 6 tests.
+- >-
+  Run `{python} -m pytest tests/indexing/test_dotnet_doc_generation_off.py -q -rfE`, then once the second check command below. Do NOT run
+  any ingestion or cluster command. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Turn off XML documentation generation in the two .NET build calls of the example verifier.
+- >-
+  Pin both call sites with an offline test and re-pin the one exact-argv assertion.
+checks:
+- command: '{python} -m pytest tests/indexing/test_dotnet_doc_generation_off.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-007
+- command: '{python} -m pytest tests/indexing/test_dotnet_doc_generation_off.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_dotnet_lfs_pull.py tests/indexing/test_example_verifier.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 6
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');old='-p:GenerateDocumentationFile=false';assert old in s;p.write_text(s.replace(old,'-p:GenerateDocumentationFile=true'),encoding='utf-8')"
+  rationale: >-
+    Turns documentation generation back on in the build argument, so the argv assertions in both the new test and the re-pinned assembly test
+    fail. A real break of the card's central claim (the Linux build must not generate the upstream documentation fragments).
+evidence:
+- evidence/build/G3/TC-502/receipt.json
+closeout:
+- >-
+  Both .NET builds of the example verifier pass -p:GenerateDocumentationFile=false. Cluster proof (supervisor, after a rebuilt ingestion
+  image): re-ingest words_net with `python scripts/deploy/install_pilots.py --namespace foss-mcp --image-tag rev-<sha7>
+  --embedding-gateway-secret foss-mcp-embedding-gateway --github-token-secret foss-mcp-github-token --parallel 1 --timeout 40m --only
+  words_net` and read the Job log for `verified <V>/<N> candidate examples` with V at least 2. If the library then builds but the
+  README examples still fail, their full compiler output is in the verification report.
+recovery: Re-run from a clean tree.
