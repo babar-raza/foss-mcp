@@ -144,6 +144,21 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends g++ cmake \
     && rm -rf /var/lib/apt/lists/*
 
+# REQ-G3-007 (TC-456): words/net's reference library ships its binary dependencies
+# (packages/Aspose.JavaAttributes, packages/Aspose.CodePorting) as Git LFS objects, and this
+# repository's root .gitattributes declares `filter=lfs` for them. Without git-lfs, `git
+# checkout` leaves 129-byte LFS pointer files where the real .dll belongs, and `dotnet build`
+# then fails with NETSDK1049 ("bad image") followed by thousands of missing-type errors that say
+# nothing about the real cause. git-lfs comes from Debian trixie's own apt repo (not a curl
+# download), so it floats with the digest-pinned base exactly as git, g++ and cmake do above.
+# `git lfs install` is run with `--local` (never `--system`/`--global`) per repository, by the
+# verifier itself (example_verifier.py's prepare_reference_library) - never here - so a global
+# smudge filter never turns an unrelated clone into a surprise LFS fetch.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git-lfs \
+    && rm -rf /var/lib/apt/lists/* \
+    && git lfs version
+
 # Hash-verified install: every dependency, and its transitive closure, is pinned by exact
 # sha256 in requirements.lock. --require-hashes refuses to install anything that isn't.
 COPY requirements.lock ./requirements.lock

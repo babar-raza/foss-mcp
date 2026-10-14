@@ -394,6 +394,81 @@ class VerificationResult:
     output: str
 
 
+# TC-456 (REQ-G3-007): words/net's packages/ (Aspose.JavaAttributes, Aspose.CodePorting) are
+# Git LFS objects, declared by `filter=lfs` in the repository's root .gitattributes. A clone
+# without git-lfs - or one where the LFS host is unreachable - leaves 129-byte pointer files in
+# their place, and `dotnet build` then fails with thousands of missing-type errors that say
+# nothing about the real cause. Every failure below is a RuntimeError (never
+# ExampleEnvironmentError: one pilot's missing binary packages must never cost it its
+# documentation, the whole ingestion Job included) whose message starts with exactly this
+# prefix, so build_chunks.py's degradation path records one clear reason instead.
+LFS_UNAVAILABLE_REASON = "not verified (LFS unavailable)"
+_LFS_INCLUDE_PATTERN = "packages/**"
+_LFS_POINTER_PREFIX = "version https://git-lfs.github.com/spec/v1"
+_LFS_POINTER_HEAD_BYTES = len(_LFS_POINTER_PREFIX) + 16
+
+
+def _repository_declares_lfs(workdir: Path) -> bool:
+    """Return True when ``<workdir>/.gitattributes`` declares an LFS filter.
+
+    A repository without ``filter=lfs`` runs exactly today's five commands, in today's order -
+    no .gitattributes file at all included.
+    """
+    gitattributes = workdir / ".gitattributes"
+    if not gitattributes.exists():
+        return False
+    try:
+        text = gitattributes.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return "filter=lfs" in text
+
+
+def _count_remaining_lfs_pointers(packages_dir: Path) -> int:
+    """Return how many files under ``packages_dir`` are still LFS pointer files."""
+    if not packages_dir.exists():
+        return 0
+    remaining = 0
+    for path in sorted(packages_dir.rglob("*")):
+        if not path.is_file():
+            continue
+        try:
+            with path.open("rb") as handle:
+                head = handle.read(_LFS_POINTER_HEAD_BYTES)
+        except OSError:
+            continue
+        if head.decode("utf-8", errors="replace").startswith(_LFS_POINTER_PREFIX):
+            remaining += 1
+    return remaining
+
+
+def _pull_lfs_packages(workdir: Path) -> None:
+    """Fetch exactly the ``packages/**`` LFS objects into ``workdir``, after checkout.
+
+    Runs ``git lfs install --local`` then ``git lfs pull --include packages/**``, both with
+    ``cwd=workdir``. Raises ``RuntimeError`` (never ``ExampleEnvironmentError``), its message
+    starting with ``LFS_UNAVAILABLE_REASON``, when: git-lfs is not installed (the install step
+    fails); the pull itself fails (network, LFS host unreachable); or the pull exits zero but a
+    pointer file is still present under ``<workdir>/packages/``.
+    """
+    install_result = _run(["git", "lfs", "install", "--local"], cwd=workdir)
+    if install_result.returncode != 0:
+        cause = f"{install_result.stdout}\n{install_result.stderr}".strip()
+        raise RuntimeError(f"{LFS_UNAVAILABLE_REASON}: {cause}")
+
+    pull_result = _run(["git", "lfs", "pull", "--include", _LFS_INCLUDE_PATTERN], cwd=workdir)
+    if pull_result.returncode != 0:
+        combined = f"{pull_result.stdout}\n{pull_result.stderr}"
+        raise RuntimeError(f"{LFS_UNAVAILABLE_REASON}: {combined[-600:]}")
+
+    remaining = _count_remaining_lfs_pointers(workdir / "packages")
+    if remaining:
+        raise RuntimeError(
+            f"{LFS_UNAVAILABLE_REASON}: {remaining} file(s) under packages/ are still LFS "
+            "pointer files after `git lfs pull`"
+        )
+
+
 def prepare_reference_library(
     repository: str,
     commit: str,
@@ -406,11 +481,15 @@ def prepare_reference_library(
     A plain shallow clone only gets the default branch tip, so the specific
     historical commit is fetched explicitly: ``git init`` + ``git remote
     add`` + ``git fetch --depth 1 origin <commit>`` + ``git checkout
-    <commit>``.
+    <commit>``. When the checked-out repository declares LFS (``filter=lfs``
+    in its root ``.gitattributes``), the ``packages/**`` LFS objects are
+    pulled next (TC-456, REQ-G3-007) - a repository without LFS runs exactly
+    today's five commands, in today's order.
 
-    Raises ``RuntimeError`` on any real failure (clone, fetch, checkout, or
-    build) - the reference library itself must always build clean, and a
-    failure here is a real, reportable defect, never silently swallowed.
+    Raises ``RuntimeError`` on any real failure (clone, fetch, checkout,
+    build, or an LFS pull) - the reference library itself must always build
+    clean, and a failure here is a real, reportable defect, never silently
+    swallowed.
     """
     workdir.mkdir(parents=True, exist_ok=True)
     repo_url = f"https://github.com/{repository}.git"
@@ -437,6 +516,9 @@ def prepare_reference_library(
         raise RuntimeError(
             f"git checkout of commit {commit} failed:\n{checkout_result.stdout}\n{checkout_result.stderr}"
         )
+
+    if _repository_declares_lfs(workdir):
+        _pull_lfs_packages(workdir)
 
     csproj_path = workdir / csproj_relative_path
     build_result = _run(["dotnet", "build", str(csproj_path)], cwd=workdir)
