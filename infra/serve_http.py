@@ -54,6 +54,7 @@ from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.health import DeploymentGenerationStore, is_alive, round_trip_check
 from foss_mcp.mcp.routing import DeploymentConfig, resolve_scope
 from foss_mcp.mcp.server import create_server
+from foss_mcp.mcp.tools.example_search_mode import EXAMPLE_SEARCH_LEXICAL_ONLY, example_search_mode
 from foss_mcp.mcp.tools.get_product_reference import ProductReferenceInputs
 from foss_mcp.mcp.transport_security import reject_request
 from foss_mcp.telemetry.usage_recorder import UsageRecorder
@@ -70,6 +71,13 @@ DEFAULT_MANIFESTS_DIR = "/data/manifests"
 HEALTHZ_PATH = "/healthz"
 READYZ_PATH = "/readyz"
 METRICS_PATH = "/metrics"
+
+# How this container searches verified examples (G3/TC-443, REQ-G3-007): stated in one startup log
+# record and in this /readyz response header, from the same helper report_index_freshness uses.
+EXAMPLE_SEARCH_HEADER = "X-Example-Search"
+REASON_NO_ACTIVE_GENERATION = "no active generation"
+REASON_MODE_UNKNOWN = "example search mode could not be determined"
+LOG = logging.getLogger(__name__)
 
 LOG_LEVEL_ENV = "FOSS_MCP_LOG_LEVEL"
 DEFAULT_LOG_LEVEL = "INFO"
@@ -327,11 +335,50 @@ def _readyz_route(deployment_config: DeploymentConfig, manifest_store: Generatio
 
     async def readyz(request: Request) -> PlainTextResponse:
         del request  # nothing about the request influences readiness - see module docstring.
+        # The mode is read at request time, from the generation active now. It never decides the
+        # status: a failure computing it is already folded into ``lexical-only`` by the helper.
+        headers = {EXAMPLE_SEARCH_HEADER: _active_example_search_mode(generation_store)[0]}
         if round_trip_check(generation_store):
-            return PlainTextResponse("ready", status_code=200)
-        return PlainTextResponse("not ready", status_code=503)
+            return PlainTextResponse("ready", status_code=200, headers=headers)
+        return PlainTextResponse("not ready", status_code=503, headers=headers)
 
     return Route(READYZ_PATH, readyz, methods=["GET"])
+
+
+def _active_example_search_mode(generation_store: DeploymentGenerationStore) -> tuple[str, str]:
+    """``(mode, reason)`` of the deployment scope's active generation, from the one helper
+    ``report_index_freshness`` also uses (``example_search_mode``), so the startup record, the
+    ``/readyz`` header and the freshness report can never disagree.
+
+    No active generation counts as lexical-only with the reason ``no active generation``. Any
+    failure while reading the generation is also lexical-only: this is a statement about search,
+    never a readiness decision, so it must not raise. The reason never carries an environment
+    value or an exception message.
+    """
+    try:
+        generation_id = generation_store.active_generation_id()
+        if generation_id is None:
+            return EXAMPLE_SEARCH_LEXICAL_ONLY, REASON_NO_ACTIVE_GENERATION
+        manifest = generation_store.manifest_store.read_generation(generation_store.scope_key, generation_id)
+        return example_search_mode(manifest.payload)
+    except Exception:
+        return EXAMPLE_SEARCH_LEXICAL_ONLY, REASON_MODE_UNKNOWN
+
+
+def _log_example_search_mode(
+    generation_store: DeploymentGenerationStore, deployment_config: DeploymentConfig
+) -> None:
+    """The one startup INFO record that states how this container searches verified examples."""
+    mode, reason = _active_example_search_mode(generation_store)
+    LOG.info(
+        "example search mode",
+        extra={
+            "example_search": mode,
+            "example_search_reason": reason,
+            "family": deployment_config.family,
+            "platform": deployment_config.platform,
+        },
+    )
 
 
 def _metrics_route(usage_recorder: UsageRecorder) -> Route:
@@ -472,6 +519,13 @@ def build_app(
         manifest_store if manifest_store is not None else GenerationManifestStore(resolved_manifests_dir)
     )
     resolved_usage_recorder = usage_recorder if usage_recorder is not None else UsageRecorder()
+    readyz_route = _readyz_route(deployment_config, resolved_store)
+    _log_example_search_mode(
+        DeploymentGenerationStore.for_scope(
+            resolved_store, resolve_scope(deployment_config, request=None), deployment_config.source_kind
+        ),
+        deployment_config,
+    )
     server = create_server(
         deployment_config,
         resolved_store,
@@ -486,7 +540,7 @@ def build_app(
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
         custom_starlette_routes=[
             _healthz_route(),
-            _readyz_route(deployment_config, resolved_store),
+            readyz_route,
             _metrics_route(resolved_usage_recorder),
         ],
     )

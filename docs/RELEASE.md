@@ -165,6 +165,33 @@ are the budget the image was gated under, not a minimum.
 These are findings of the independent adversarial reviews that this release accepts rather than fixes. The full
 ledger is `docs/REVIEW_LEDGER.md`; each entry below repeats one accepted finding with its reason.
 
+### Example search without the embedding gateway
+
+`find_examples` searches the verified examples lexically first. Its vector stage needs the embedding gateway at run
+time to embed the query, because the example vectors baked into the image come from the 4096-dimension gateway model.
+Without `FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT` and `FOSS_MCP_EMBEDDING_GATEWAY_API_KEY` the container searches
+examples lexically only, and the mode is `lexical-only`. With both set, and a configured dimension that matches the
+stored vectors, the mode is `lexical+vector(gateway)`. The mode means configured, not reachable: nothing checks that
+the gateway answers.
+
+You can see the mode in three places, and all three come from the same helper, so they cannot disagree:
+
+- the `example_search` field (with `example_search_reason`) of `report_index_freshness`;
+- one startup log record with the message `example search mode`, which carries `example_search`,
+  `example_search_reason`, `family` and `platform`;
+- the `X-Example-Search` response header on `/readyz`, on both the 200 and the 503 answer, read from the generation
+  that is active when the request arrives.
+
+There is no offline fallback, and this is measured, not assumed. The obvious candidate was the hashing embedding
+provider, which needs no network. On the 14 verified example chunks of the six pilots that have them, at 64, 256 and
+1024 dimensions, the examples' own titles scored 0.159 to 0.599, while unrelated queries such as "bake a chocolate
+cake" and "send a fax via modem" scored up to 0.507 at 64 dimensions and up to 0.267 at 1024. No similarity floor
+separates the two. Every true query already has full lexical coverage, so the lexical path answers it before a
+vector stage would run. A hashed bag of words sees only the tokens the lexical path already sees, so the only extra
+queries it could answer are the partial-overlap ones that the lexical coverage floor rejects on purpose, and that
+would bring back confident answers to nonsense. So a container without the gateway answers examples lexically, and
+says so.
+
 ### Standalone image
 
 - **L-022** A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected. The server accepts only the
