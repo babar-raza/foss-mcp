@@ -3028,3 +3028,13 @@ Two entries of 2026-10-09 ("Remediation wave closed: C1, C2, C3, C5 fully closed
 
 The current status of each of these defects is in docs/REVIEW_LEDGER.md, which scripts/release/build_review_ledger.py generates from project/state.yaml. Lesson: an accepted card is not proof that a finding is closed. Closure is claimed only after the defect is checked on live data, as AGENTS.md requires for gate exit.
 
+
+## 2026-10-14 — tex/python cannot reach two verified examples; words/net and cells/rust get fixes, not exceptions (supervisor)
+
+The cluster re-ingest on foss-mcp-ingestion:rev-719bbd6 (HEAD 719bbd62) served 176 verified examples across the 40 pilots (73 before) and left three pilots under the two-example floor of REQ-G3-007:
+
+- **cells/rust (1)**: two of its three README examples use undeclared variables and types (E0425, E0433). Fix, not an exception: TC-501 authors three labelled examples against the real API.
+- **words/net (0)**: the reference library does not build on Linux because its XML documentation includes use a Windows backslash path (..\Docs\Text.xml, error CS1589, with TreatWarningsAsErrors on). Measured in the ingestion image: the unmodified build fails, the same build with -p:GenerateDocumentationFile=false succeeds. Fix, not an exception: TC-502 passes that property in both .NET verifier builds.
+- **tex/python (1)**: the pinned upstream library (aspose-tex-foss/Aspose.TeX-FOSS-for-Python at 181015d2, which is also the upstream head on 2026-10-14) has an IndentationError in src/aspose_tex/_input/catcode.py (line 66; the loop body is not indented), so no example that imports aspose_tex can run. An authored example cannot help and a different pin is not available. This is the one DOCUMENTED EXCEPTION: TC-440's coverage test requires tex_python to keep at least its measured 1 verified example, every other pilot at least 2, and docs/RELEASE.md section 8 states the limitation and that the fix is upstream. If upstream fixes the file, the exception is removed (the test fails an exception that no longer lowers anything).
+
+Also recorded: the GitHub releases fetch returned HTTP 401 for almost every pilot, so the previous recent-release sidecars were kept and .failed markers written. The foss-mcp-github-token secret looks expired or invalid; replacing it is an owner action (OWNER-14). Clones for verification still worked.

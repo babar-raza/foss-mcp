@@ -31,6 +31,7 @@ depends_on:
 write_paths:
 - tests/deploy/test_verified_examples_coverage.py
 - docs/REVIEW_LEDGER.md
+- docs/RELEASE.md
 satisfies:
 - REQ-G3-007
 source_refs:
@@ -53,6 +54,20 @@ inputs:
   `Verification: passed`; examples without the verified kind never count. Add a test that the number of pilots found is exactly 40 and a test
   that no chunk is both kinds of provenance. Add tests of the counting helper itself on synthetic generations (zero, one, two, an authored chunk
   without `Verification: passed`, a documentation chunk that merely mentions the word verified).
+- >-
+  DOCUMENTED EXCEPTION (supervisor decision 2026-10-14, see docs/DECISION_LOG.md "tex/python cannot reach two verified examples"):
+  tex_python is the one pilot allowed fewer than two. The pinned upstream library (aspose-tex-foss/Aspose.TeX-FOSS-for-Python, commit
+  181015d2, also the upstream head) has a syntax error in src/aspose_tex/_input/catcode.py (IndentationError at line 66), so no example that
+  imports aspose_tex can run and an authored example cannot help. In the test define a module-level mapping `DOCUMENTED_EXCEPTIONS =
+  {"tex_python": 1}` (pilot -> the minimum that pilot must still reach, its measured count on 2026-10-14) and use it as the required
+  minimum for that pilot only; every other pilot keeps `MIN_VERIFIED_EXAMPLES`. Add tests that the exception mapping holds only
+  tex_python, that its value is below MIN_VERIFIED_EXAMPLES (an exception that no longer lowers anything is stale and must be removed),
+  and that docs/RELEASE.md mentions the pilot as a known limitation. In docs/RELEASE.md section 8 append ONE bullet in the same format as
+  the existing bullets there, stating plainly that tex/python serves one verified example because its pinned upstream library does not
+  import (catcode.py IndentationError at the upstream head), that the other tex/python content is documentation and API symbols, and that
+  the fix is upstream. Change no other line of RELEASE.md and keep tests/deploy/test_release_known_limitations.py green. If words_net or
+  cells_rust still serve fewer than two after the final re-ingest the supervisor will say so in the dispatch instruction; do not add
+  exceptions on your own.
 - >-
   docs/REVIEW_LEDGER.md: the ledger of every finding of the four raw adversarial review rounds in review/raw-adversral-review.md plus the later
   independent re-reviews (regression audits A, B, C and the four prompt re-runs, and the peer-style QA). One markdown table with the columns
