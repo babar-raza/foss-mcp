@@ -1,0 +1,88 @@
+id: TC-505
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-001 and the product's central promise (an agent that asks for a code example gets a real verified one). A dry run of the reviewer
+  harnesses on the final demo image (2026-10-14, image foss-mcp-serving:demo-f5422e1) found that find_examples misses in 15 pilots; a
+  read-only diagnosis classified 13 as honest misses or lexical-only vocabulary gaps (documented, L-054) and found two small, real defects in
+  `query_terms` (src/foss_mcp/mcp/tools/relevance.py): a possessive such as "element's" tokenises to a junk one-letter term "s" that no chunk
+  can contain, and a mixed-case family word such as "TeX" leaves junk one-letter terms ("te", "x") because the family-word exclusion does not
+  catch them. Each junk term adds to the denominator of the 60 percent coverage rule, so html/python "how do I parse an HTML string and change
+  an element's text" misses at 0.50 where the same query without the apostrophe hits at 0.60. This card removes exactly those two sources of
+  unmatchable terms from the QUERY side and nothing else: no change to the 0.6 threshold, to document tokenisation, to stemming, or to the
+  camelCase splitting of identifiers.
+depends_on:
+- TC-465
+- TC-504
+write_paths:
+- src/foss_mcp/mcp/tools/relevance.py
+- tests/mcp/tools/test_relevance_floor.py
+- tests/mcp/tools/test_relevance_query_terms.py
+satisfies:
+- REQ-G3-001
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read src/foss_mcp/mcp/tools/relevance.py (`query_terms`, `coverage`, `RELEVANCE_THRESHOLD`, `_GENERIC_WORDS`, and the `tokenize` / `stem_token`
+  it imports), its two callers src/foss_mcp/mcp/tools/find_examples.py and search_docs.py, and tests/mcp/tools/test_relevance_floor.py (12 uses of
+  `query_terms`). Never print or log any environment value.
+- >-
+  Change `query_terms` ONLY as follows: after tokenising the query, (1) remove a possessive suffix, so a token produced from "element's" or
+  "element’s" contributes "element" and never the one-letter fragment "s" (handle both the ASCII apostrophe and U+2019 by normalising the
+  query text before tokenising: replace an apostrophe-s at a word end with nothing); (2) drop tokens that are a single alphabetic character, except
+  that if dropping them would leave the set empty the previous behaviour (the bare stemmed set) is kept so a one-letter query still works. Digits
+  and identifiers longer than one character are untouched. The family-word exclusion, `_GENERIC_WORDS`, stemming and the camelCase sub-word
+  expansion of the query stay exactly as they are. Do not change `coverage`, `RELEVANCE_THRESHOLD` or any caller.
+- >-
+  tests/mcp/tools/test_relevance_query_terms.py (NEW, offline, deterministic, no skipped tests): `query_terms("how do I change an element's text",
+  "html")` contains no one-letter term and contains the stem of "element"; the same query with U+2019 gives the same set; `query_terms("TeX
+  logging", "tex")` contains neither "te" nor "x"; a single-letter query ("x") still returns a non-empty set; a query with a digit token ("sha256
+  hash") keeps it; identifiers keep their previous sub-word expansion (assert `query_terms("PostScript", "page")` equals the set before this
+  change, by computing the expectation from `tokenize` and `stem_token` in the test, not from a literal); and a coverage test using
+  `coverage(query_terms(...), tokens)` showing the html example (a chunk token list that holds change, element, text, parse, html, string)
+  now reaches the threshold for the apostrophe query. At least 8 tests.
+- >-
+  tests/mcp/tools/test_relevance_floor.py: run it first; if any existing test pins the old one-letter-term behaviour, change ONLY that assertion
+  with a comment saying why; never delete, skip or xfail a test. Keep every other assertion.
+- >-
+  Run `{python} -m pytest tests/mcp/tools/test_relevance_query_terms.py tests/mcp/tools/test_relevance_floor.py -q -rfE`, then once the second
+  check command below. Write commit messages as UTF-8 without a byte-order mark. Preserve each file's line endings and encoding.
+actions:
+- >-
+  Stop the query side from producing unmatchable one-letter terms (possessive suffix and one-letter fragments) without touching the threshold or
+  document tokenisation.
+- >-
+  Pin the behaviour with an offline test and a coverage example taken from the diagnosed html/python miss.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_relevance_query_terms.py tests/mcp/tools/test_relevance_floor.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-001
+- command: '{python} -m pytest tests/mcp/tools tests/mcp/test_server_wiring.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-001
+min_tests: 8
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/relevance.py');s=p.read_text(encoding='utf-8');old='return remaining if remaining else stemmed';assert old in s;p.write_text(s.replace(old,'return stemmed',1),encoding='utf-8')"
+  rationale: >-
+    Makes query_terms return the whole stemmed query, with no family-word or generic-word exclusion, so the existing floor tests and the new tests
+    that assert the exclusion still happens fail. A real break of the function the card changes (the query side must drop terms that cannot match).
+evidence:
+- evidence/build/G3/TC-505/receipt.json
+closeout:
+- >-
+  find_examples and search_docs no longer lose a match because a query contains a possessive or a mixed-case family word; the 60 percent rule,
+  document tokenisation and every other ranking behaviour are unchanged.
+recovery: Re-run from a clean tree.
