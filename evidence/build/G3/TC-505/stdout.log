@@ -1,0 +1,360 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_query_terms.py tests/mcp/tools/test_relevance_floor.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-t_6o_z6u\.junit-0.xml"
+--- stdout ---
+...................................................................      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools tests/mcp/test_server_wiring.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-t_6o_z6u\.junit-1.xml"
+--- stdout ---
+........................................................................ [  6%]
+........................................................................ [ 12%]
+........................................................................ [ 19%]
+........................................................................ [ 25%]
+........................................................................ [ 32%]
+........................................................................ [ 38%]
+........................................................................ [ 44%]
+........................................................................ [ 51%]
+........................................................................ [ 57%]
+........................................................................ [ 64%]
+........................................................................ [ 70%]
+........................................................................ [ 77%]
+........................................................................ [ 83%]
+........................................................................ [ 89%]
+........................................................................ [ 96%]
+..........................................                               [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_query_terms.py tests/mcp/tools/test_relevance_floor.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-t_6o_z6u\.junit-0.xml"
+--- stdout ---
+...................................................................      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools tests/mcp/test_server_wiring.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-t_6o_z6u\.junit-1.xml"
+--- stdout ---
+........................................................................ [  6%]
+........................................................................ [ 12%]
+........................................................................ [ 19%]
+........................................................................ [ 25%]
+........................................................................ [ 32%]
+........................................................................ [ 38%]
+........................................................................ [ 44%]
+........................................................................ [ 51%]
+........................................................................ [ 57%]
+........................................................................ [ 64%]
+........................................................................ [ 70%]
+........................................................................ [ 77%]
+........................................................................ [ 83%]
+........................................................................ [ 89%]
+........................................................................ [ 96%]
+..........................................                               [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/relevance.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_query_terms.py tests/mcp/tools/test_relevance_floor.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-t_6o_z6u\.junit-0.xml"
+--- stdout ---
+.........F................FFF.................F..FFF........F......      [100%]
+================================== FAILURES ===================================
+_____________________ test_family_word_is_still_excluded ______________________
+
+    def test_family_word_is_still_excluded() -> None:
+>       assert "html" not in query_terms("html element text", "html")
+E       AssertionError: assert 'html' not in frozenset({'element', 'html', 'text'})
+E        +  where frozenset({'element', 'html', 'text'}) = query_terms('html element text', 'html')
+
+tests\mcp\tools\test_relevance_query_terms.py:78: AssertionError
+___________________ test_query_terms_drops_the_family_word ____________________
+
+    def test_query_terms_drops_the_family_word() -> None:
+>       assert query_terms("split a pdf into pages", "pdf") == frozenset({"split", "page"})
+E       AssertionError: assert frozenset({'p...df', 'split'}) == frozenset({'page', 'split'})
+E         
+E         Extra items in the left set:
+E         'pdf'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_relevance_floor.py:137: AssertionError
+____________________ test_query_terms_drops_generic_words _____________________
+
+    def test_query_terms_drops_generic_words() -> None:
+>       assert query_terms("Aspose FOSS library api for watermarks", "pdf") == frozenset({"watermark"})
+E       AssertionError: assert frozenset({'a... 'watermark'}) == frozenset({'watermark'})
+E         
+E         Extra items in the left set:
+E         'aspose'
+E         'library'
+E         'api'
+E         'foss'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_relevance_floor.py:141: AssertionError
+____________ test_query_terms_stems_both_the_query_and_the_family _____________
+
+    def test_query_terms_stems_both_the_query_and_the_family() -> None:
+>       assert query_terms("installing cells", "cells") == frozenset({"install"})
+E       AssertionError: assert frozenset({'cell', 'install'}) == frozenset({'install'})
+E         
+E         Extra items in the left set:
+E         'cell'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_relevance_floor.py:145: AssertionError
+_ test_go_lookup_never_answers_with_split_and_merge_or_fill_acroform[how do I extract text from a pdf] _
+
+go_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000210384C9950>
+query = 'how do I extract text from a pdf'
+
+    @pytest.mark.parametrize(
+        "query", ["rotate a page", "convert a pdf to images", "how do I extract text from a pdf"]
+    )
+    def test_go_lookup_never_answers_with_split_and_merge_or_fill_acroform(
+        go_store: GenerationManifestStore, query: str
+    ) -> None:
+        result = lookup(go_store, PDF_GO, query)
+    
+        assert not any("Example: Split and Merge PDFs" in text for text in _doc_match_texts(result))
+        assert not any(chunk_kind(text) != "documentation" for text in _doc_match_texts(result))
+>       assert "Example: Fill AcroForm Fields" not in _example_fqns(result)
+E       assert 'Example: Fill AcroForm Fields' not in ['Example: Fill AcroForm Fields']
+E        +  where ['Example: Fill AcroForm Fields'] = _example_fqns(TaskAnswer(scope=Scope(family='pdf', platform='go', source_kind='self_extracted'), doc_matches=(DocMatch(scope=Scope(f...lected(true)\ndoc.Save("filled.pdf")', coverage=0.6666666666666666, source='lexical', found=True, provenance='readme')))
+
+tests\mcp\tools\test_relevance_floor.py:244: AssertionError
+___________ test_go_find_examples_extract_text_is_not_fill_acroform ___________
+
+go_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000210384C9950>
+
+    def test_go_find_examples_extract_text_is_not_fill_acroform(go_store: GenerationManifestStore) -> None:
+        result = find_examples(go_store, PDF_GO, "how do I extract text from a pdf")
+    
+>       assert "Example: Fill AcroForm Fields" not in _example_fqns(result)
+E       assert 'Example: Fill AcroForm Fields' not in ['Example: Fill AcroForm Fields', 'Example: Installation, Dependencies, and Quick Start (part 2)']
+E        +  where ['Example: Fill AcroForm Fields', 'Example: Installation, Dependencies, and Quick Start (part 2)'] = _example_fqns([ExampleMatch(scope=Scope(family='pdf', platform='go', source_kind='self_extracted'), generation_id='pdf::go::self_ext...rr)\n}\nfmt.Println("pages:", pages)', coverage=0.6666666666666666, source='lexical', found=True, provenance='readme')])
+
+tests\mcp\tools\test_relevance_floor.py:261: AssertionError
+_______ test_net_find_examples_split_a_pdf_is_not_the_watermark_example _______
+
+net_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000021037F9D940>
+
+    def test_net_find_examples_split_a_pdf_is_not_the_watermark_example(
+        net_store: GenerationManifestStore,
+    ) -> None:
+        result = find_examples(net_store, PDF_NET, "split a pdf into pages")
+    
+>       assert "Example: Add a Watermark Annotation" not in _example_fqns(result)
+E       assert 'Example: Add a Watermark Annotation' not in ['Example: Installation, Dependencies, and Quick Start', 'Example: Extract Text Fragments from a Page', 'Example: Add a Watermark Annotation']
+E        +  where ['Example: Installation, Dependencies, and Quick Start', 'Example: Extract Text Fragments from a Page', 'Example: Add a Watermark Annotation'] = _example_fqns([ExampleMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_e...eAllBytes("watermarked.pdf", saved);', coverage=0.6666666666666666, source='lexical', found=True, provenance='readme')])
+
+tests\mcp\tools\test_relevance_floor.py:269: AssertionError
+_____ test_typescript_find_examples_extract_text_is_not_create_a_new_pdf ______
+
+typescript_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000210386A9F30>
+
+    def test_typescript_find_examples_extract_text_is_not_create_a_new_pdf(
+        typescript_store: GenerationManifestStore,
+    ) -> None:
+        result = find_examples(typescript_store, PDF_TYPESCRIPT, "how do I extract text from a pdf")
+    
+>       assert "Example: Create a New PDF from Scratch" not in _example_fqns(result)
+E       assert 'Example: Create a New PDF from Scratch' not in ['Example: Create a New PDF from Scratch']
+E        +  where ['Example: Create a New PDF from Scratch'] = _example_fqns([ExampleMatch(scope=Scope(family='pdf', platform='typescript', source_kind='self_extracted'), generation_id='pdf::type... you go\ndoc.WriteTo('scratch.pdf');", coverage=0.6666666666666666, source='lexical', found=True, provenance='readme')])
+
+tests\mcp\tools\test_relevance_floor.py:278: AssertionError
+___________ test_no_example_found_carries_found_false_and_a_reason ____________
+
+net_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000021037F9D940>
+
+    def test_no_example_found_carries_found_false_and_a_reason(net_store: GenerationManifestStore) -> None:
+        result = find_examples(net_store, PDF_NET, "split a pdf into pages")
+    
+>       assert isinstance(result, NoExampleFound)
+E       assert False
+E        +  where False = isinstance([ExampleMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_e...eAllBytes("watermarked.pdf", saved);', coverage=0.6666666666666666, source='lexical', found=True, provenance='readme')], NoExampleFound)
+
+tests\mcp\tools\test_relevance_floor.py:379: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_relevance_query_terms.py::test_family_word_is_still_excluded
+FAILED tests/mcp/tools/test_relevance_floor.py::test_query_terms_drops_the_family_word
+FAILED tests/mcp/tools/test_relevance_floor.py::test_query_terms_drops_generic_words
+FAILED tests/mcp/tools/test_relevance_floor.py::test_query_terms_stems_both_the_query_and_the_family
+FAILED tests/mcp/tools/test_relevance_floor.py::test_go_lookup_never_answers_with_split_and_merge_or_fill_acroform[how do I extract text from a pdf]
+FAILED tests/mcp/tools/test_relevance_floor.py::test_go_find_examples_extract_text_is_not_fill_acroform
+FAILED tests/mcp/tools/test_relevance_floor.py::test_net_find_examples_split_a_pdf_is_not_the_watermark_example
+FAILED tests/mcp/tools/test_relevance_floor.py::test_typescript_find_examples_extract_text_is_not_create_a_new_pdf
+FAILED tests/mcp/tools/test_relevance_floor.py::test_no_example_found_carries_found_false_and_a_reason
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools tests/mcp/test_server_wiring.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-t_6o_z6u\.junit-1.xml"
+--- stdout ---
+........................................................................ [  6%]
+........................................................................ [ 12%]
+........................................................................ [ 19%]
+........................................................................ [ 25%]
+........................................................................ [ 32%]
+........................................................................ [ 38%]
+........................................................................ [ 44%]
+........................................................................ [ 51%]
+........................................................................ [ 57%]
+........................................................................ [ 64%]
+........................................................................ [ 70%]
+........................................................................ [ 77%]
+........................................................................ [ 83%]
+......FFF.................F..FFF........F...............F............... [ 89%]
+........................................................................ [ 96%]
+..........................................                               [100%]
+================================== FAILURES ===================================
+___________________ test_query_terms_drops_the_family_word ____________________
+
+    def test_query_terms_drops_the_family_word() -> None:
+>       assert query_terms("split a pdf into pages", "pdf") == frozenset({"split", "page"})
+E       AssertionError: assert frozenset({'p...df', 'split'}) == frozenset({'page', 'split'})
+E         
+E         Extra items in the left set:
+E         'pdf'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_relevance_floor.py:137: AssertionError
+____________________ test_query_terms_drops_generic_words _____________________
+
+    def test_query_terms_drops_generic_words() -> None:
+>       assert query_terms("Aspose FOSS library api for watermarks", "pdf") == frozenset({"watermark"})
+E       AssertionError: assert frozenset({'a... 'watermark'}) == frozenset({'watermark'})
+E         
+E         Extra items in the left set:
+E         'aspose'
+E         'library'
+E         'api'
+E         'foss'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_relevance_floor.py:141: AssertionError
+____________ test_query_terms_stems_both_the_query_and_the_family _____________
+
+    def test_query_terms_stems_both_the_query_and_the_family() -> None:
+>       assert query_terms("installing cells", "cells") == frozenset({"install"})
+E       AssertionError: assert frozenset({'cell', 'install'}) == frozenset({'install'})
+E         
+E         Extra items in the left set:
+E         'cell'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_relevance_floor.py:145: AssertionError
+_ test_go_lookup_never_answers_with_split_and_merge_or_fill_acroform[how do I extract text from a pdf] _
+
+go_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019344C3C1D0>
+query = 'how do I extract text from a pdf'
+
+    @pytest.mark.parametrize(
+        "query", ["rotate a page", "convert a pdf to images", "how do I extract text from a pdf"]
+    )
+    def test_go_lookup_never_answers_with_split_and_merge_or_fill_acroform(
+        go_store: GenerationManifestStore, query: str
+    ) -> None:
+        result = lookup(go_store, PDF_GO, query)
+    
+        assert not any("Example: Split and Merge PDFs" in text for text in _doc_match_texts(result))
+        assert not any(chunk_kind(text) != "documentation" for text in _doc_match_texts(result))
+>       assert "Example: Fill AcroForm Fields" not in _example_fqns(result)
+E       assert 'Example: Fill AcroForm Fields' not in ['Example: Fill AcroForm Fields']
+E        +  where ['Example: Fill AcroForm Fields'] = _example_fqns(TaskAnswer(scope=Scope(family='pdf', platform='go', source_kind='self_extracted'), doc_matches=(DocMatch(scope=Scope(f...lected(true)\ndoc.Save("filled.pdf")', coverage=0.6666666666666666, source='lexical', found=True, provenance='readme')))
+
+tests\mcp\tools\test_relevance_floor.py:244: AssertionError
+___________ test_go_find_examples_extract_text_is_not_fill_acroform ___________
+
+go_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019344C3C1D0>
+
+    def test_go_find_examples_extract_text_is_not_fill_acroform(go_store: GenerationManifestStore) -> None:
+        result = find_examples(go_store, PDF_GO, "how do I extract text from a pdf")
+    
+>       assert "Example: Fill AcroForm Fields" not in _example_fqns(result)
+E       assert 'Example: Fill AcroForm Fields' not in ['Example: Fill AcroForm Fields', 'Example: Installation, Dependencies, and Quick Start (part 2)']
+E        +  where ['Example: Fill AcroForm Fields', 'Example: Installation, Dependencies, and Quick Start (part 2)'] = _example_fqns([ExampleMatch(scope=Scope(family='pdf', platform='go', source_kind='self_extracted'), generation_id='pdf::go::self_ext...rr)\n}\nfmt.Println("pages:", pages)', coverage=0.6666666666666666, source='lexical', found=True, provenance='readme')])
+
+tests\mcp\tools\test_relevance_floor.py:261: AssertionError
+_______ test_net_find_examples_split_a_pdf_is_not_the_watermark_example _______
+
+net_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019343FC9250>
+
+    def test_net_find_examples_split_a_pdf_is_not_the_watermark_example(
+        net_store: GenerationManifestStore,
+    ) -> None:
+        result = find_examples(net_store, PDF_NET, "split a pdf into pages")
+    
+>       assert "Example: Add a Watermark Annotation" not in _example_fqns(result)
+E       assert 'Example: Add a Watermark Annotation' not in ['Example: Installation, Dependencies, and Quick Start', 'Example: Extract Text Fragments from a Page', 'Example: Add a Watermark Annotation']
+E        +  where ['Example: Installation, Dependencies, and Quick Start', 'Example: Extract Text Fragments from a Page', 'Example: Add a Watermark Annotation'] = _example_fqns([ExampleMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_e...eAllBytes("watermarked.pdf", saved);', coverage=0.6666666666666666, source='lexical', found=True, provenance='readme')])
+
+tests\mcp\tools\test_relevance_floor.py:269: AssertionError
+_____ test_typescript_find_examples_extract_text_is_not_create_a_new_pdf ______
+
+typescript_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019344FB3410>
+
+    def test_typescript_find_examples_extract_text_is_not_create_a_new_pdf(
+        typescript_store: GenerationManifestStore,
+    ) -> None:
+        result = find_examples(typescript_store, PDF_TYPESCRIPT, "how do I extract text from a pdf")
+    
+>       assert "Example: Create a New PDF from Scratch" not in _example_fqns(result)
+E       assert 'Example: Create a New PDF from Scratch' not in ['Example: Create a New PDF from Scratch']
+E        +  where ['Example: Create a New PDF from Scratch'] = _example_fqns([ExampleMatch(scope=Scope(family='pdf', platform='typescript', source_kind='self_extracted'), generation_id='pdf::type... you go\ndoc.WriteTo('scratch.pdf');", coverage=0.6666666666666666, source='lexical', found=True, provenance='readme')])
+
+tests\mcp\tools\test_relevance_floor.py:278: AssertionError
+___________ test_no_example_found_carries_found_false_and_a_reason ____________
+
+net_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000019343FC9250>
+
+    def test_no_example_found_carries_found_false_and_a_reason(net_store: GenerationManifestStore) -> None:
+        result = find_examples(net_store, PDF_NET, "split a pdf into pages")
+    
+>       assert isinstance(result, NoExampleFound)
+E       assert False
+E        +  where False = isinstance([ExampleMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_e...eAllBytes("watermarked.pdf", saved);', coverage=0.6666666666666666, source='lexical', found=True, provenance='readme')], NoExampleFound)
+
+tests\mcp\tools\test_relevance_floor.py:379: AssertionError
+_____________________ test_family_word_is_still_excluded ______________________
+
+    def test_family_word_is_still_excluded() -> None:
+>       assert "html" not in query_terms("html element text", "html")
+E       AssertionError: assert 'html' not in frozenset({'element', 'html', 'text'})
+E        +  where frozenset({'element', 'html', 'text'}) = query_terms('html element text', 'html')
+
+tests\mcp\tools\test_relevance_query_terms.py:78: AssertionError
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_relevance_floor.py::test_query_terms_drops_the_family_word
+FAILED tests/mcp/tools/test_relevance_floor.py::test_query_terms_drops_generic_words
+FAILED tests/mcp/tools/test_relevance_floor.py::test_query_terms_stems_both_the_query_and_the_family
+FAILED tests/mcp/tools/test_relevance_floor.py::test_go_lookup_never_answers_with_split_and_merge_or_fill_acroform[how do I extract text from a pdf]
+FAILED tests/mcp/tools/test_relevance_floor.py::test_go_find_examples_extract_text_is_not_fill_acroform
+FAILED tests/mcp/tools/test_relevance_floor.py::test_net_find_examples_split_a_pdf_is_not_the_watermark_example
+FAILED tests/mcp/tools/test_relevance_floor.py::test_typescript_find_examples_extract_text_is_not_create_a_new_pdf
+FAILED tests/mcp/tools/test_relevance_floor.py::test_no_example_found_carries_found_false_and_a_reason
+FAILED tests/mcp/tools/test_relevance_query_terms.py::test_family_word_is_still_excluded
+
+--- stderr ---
+
