@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "card": "TC-442",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-14T12:13:08Z",
+  "base_rev": "83fc490e4c0af6eebb9915611079cdac4d46a80e",
+  "head_rev": "dd459a6fda03fe0718e14599c2a86d43fe1023f4",
+  "card_sha256": "155eead6e4431f733197b90a5d1153d59848e1f6485f3495b864f31071bd71cd",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "docker-compose.yml",
+      "infra/helm/foss-mcp/templates/ingestion-job.yaml",
+      "infra/ingest.py",
+      "src/foss_mcp/indexing/publisher.py",
+      "src/foss_mcp/indexing/vector_index_writer.py",
+      "tests/deploy/test_verified_example_vectors.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_verified_example_vectors.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 4.338,
+          "stdout_sha256": "1aef39059ce6dd7cd09b917b31d94600f82d86b88a265beb9272edf52f651799",
+          "tests": 195,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/deploy/test_verified_example_vectors.py tests/indexing/test_index_writers.py tests/indexing/test_vector_scope.py tests/indexing/test_publisher.py tests/infra/test_ingest.py tests/infra/test_ingest_vector_scope.py tests/infra/test_helm_vector_scope_probes.py tests/deploy/test_compact_demo_manifests.py tests/test_unwired_modules.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 20.413,
+          "stdout_sha256": "d452456c42804766d0ab571ea3c9b753d6eb50460d5e654d93715e21092082d3",
+          "tests": 288,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_verified_example_vectors.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 2.932,
+          "stdout_sha256": "1aef39059ce6dd7cd09b917b31d94600f82d86b88a265beb9272edf52f651799",
+          "tests": 195,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/deploy/test_verified_example_vectors.py tests/indexing/test_index_writers.py tests/indexing/test_vector_scope.py tests/indexing/test_publisher.py tests/infra/test_ingest.py tests/infra/test_ingest_vector_scope.py tests/infra/test_helm_vector_scope_probes.py tests/deploy/test_compact_demo_manifests.py tests/test_unwired_modules.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 16.224,
+          "stdout_sha256": "d452456c42804766d0ab571ea3c9b753d6eb50460d5e654d93715e21092082d3",
+          "tests": 288,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/indexing/vector_index_writer.py');s=p.read_text(encoding='utf-8');old='def quantize_vector(';assert old in s;p.write_text(s.replace(old,'def quantize_vectorX(',1),encoding='utf-8')\"\n",
+    "patch_sha256": "6a8f1bcd1875b35820c37c600cc2d273d3902f0340e17b68046b43821dae41be",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      2,
+      2
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/indexing/vector_index_writer.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
