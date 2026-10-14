@@ -1,0 +1,245 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_known_limitations.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d5prk3j7\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 46%]
+........................................................................ [ 92%]
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_known_limitations.py tests/deploy/test_release_deferred_extraction.py tests/deploy/test_release_record_contract.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d5prk3j7\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 34%]
+........................................................................ [ 69%]
+..............................................................           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_known_limitations.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d5prk3j7\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 46%]
+........................................................................ [ 92%]
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_known_limitations.py tests/deploy/test_release_deferred_extraction.py tests/deploy/test_release_record_contract.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d5prk3j7\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 34%]
+........................................................................ [ 69%]
+..............................................................           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M docs/RELEASE.md, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_known_limitations.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d5prk3j7\.junit-0.xml"
+--- stdout ---
+....................F........................................F.......... [ 46%]
+..............................F........................................F [ 92%]
+........FFF                                                              [100%]
+================================== FAILURES ===================================
+______ test_accepted_id_appears_in_bold_exactly_once_in_section_8[L-054] ______
+
+ledger_id = 'L-054'
+
+    @pytest.mark.parametrize("ledger_id", ACCEPTED_LEDGER_IDS)
+    def test_accepted_id_appears_in_bold_exactly_once_in_section_8(ledger_id: str):
+        found = _BOLD_ID.findall(_section_8())
+>       assert found.count(ledger_id) == 1, (
+            f"{ledger_id} appears in bold {found.count(ledger_id)} times in section 8"
+        )
+E       AssertionError: L-054 appears in bold 0 times in section 8
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x00000226FEDE2000>('L-054')
+E        +    where <built-in method count of list object at 0x00000226FEDE2000> = ['L-022', 'L-0544', 'L-071', 'L-072', 'L-080', 'L-089', ...].count
+
+tests\deploy\test_release_known_limitations.py:227: AssertionError
+_____________ test_accepted_id_has_a_bullet_with_a_reason[L-054] ______________
+
+ledger_id = 'L-054'
+
+    @pytest.mark.parametrize("ledger_id", ACCEPTED_LEDGER_IDS)
+    def test_accepted_id_has_a_bullet_with_a_reason(ledger_id: str):
+        bullets = _bullets(_section_8())
+>       assert ledger_id in bullets, f"{ledger_id} has no bullet that opens with its bold id"
+E       AssertionError: L-054 has no bullet that opens with its bold id
+E       assert 'L-054' in {'L-022': 'A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected. The server accepts only the prot... test requires the registry file to be absent for exactly these five pilots, so the gap cannot hide another one.', ...}
+
+tests\deploy\test_release_known_limitations.py:235: AssertionError
+_______ test_standalone_id_sits_under_the_standalone_subsection[L-054] ________
+
+ledger_id = 'L-054'
+
+    @pytest.mark.parametrize("ledger_id", STANDALONE_IDS)
+    def test_standalone_id_sits_under_the_standalone_subsection(ledger_id: str):
+>       assert ledger_id in _bullets(_subsection(STANDALONE_HEADING))
+E       assert 'L-054' in {'L-022': 'A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected. The server accepts only the prot... test requires the registry file to be absent for exactly these five pilots, so the gap cannot hide another one.', ...}
+E        +  where {'L-022': 'A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected. The server accepts only the prot... test requires the registry file to be absent for exactly these five pilots, so the gap cannot hide another one.', ...} = _bullets("\n- **L-022** A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected. The server accepts only the\...s and links against the real pinned library, and nothing but the page's own `#include` lines is ever added\n  to it.\n")
+E        +    where "\n- **L-022** A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected. The server accepts only the\...s and links against the real pinned library, and nothing but the page's own `#include` lines is ever added\n  to it.\n" = _subsection('### Standalone image')
+
+tests\deploy\test_release_known_limitations.py:242: AssertionError
+__________ test_bullet_contains_its_key_phrase[L-054-find_examples] ___________
+
+ledger_id = 'L-054', phrase = 'find_examples'
+
+    @pytest.mark.parametrize("ledger_id, phrase", sorted(KEY_PHRASES.items()))
+    def test_bullet_contains_its_key_phrase(ledger_id: str, phrase: str):
+        bullets = _bullets(_section_8())
+>       assert ledger_id in bullets, f"{ledger_id} has no bullet that opens with its bold id"
+E       AssertionError: L-054 has no bullet that opens with its bold id
+E       assert 'L-054' in {'L-022': 'A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected. The server accepts only the prot... test requires the registry file to be absent for exactly these five pilots, so the gap cannot hide another one.', ...}
+
+tests\deploy\test_release_known_limitations.py:258: AssertionError
+_____________ test_section_8_names_no_ledger_id_outside_the_tuple _____________
+
+    def test_section_8_names_no_ledger_id_outside_the_tuple():
+        unknown = sorted(set(_LEDGER_ID.findall(_section_8())) - set(ACCEPTED_LEDGER_IDS))
+>       assert unknown == [], f"section 8 names ledger ids that are not in ACCEPTED_LEDGER_IDS: {unknown}"
+E       AssertionError: section 8 names ledger ids that are not in ACCEPTED_LEDGER_IDS: ['L-0544']
+E       assert ['L-0544'] == []
+E         
+E         Left contains one more item: 'L-0544'
+E         Use -v to get more diff
+
+tests\deploy\test_release_known_limitations.py:267: AssertionError
+______________ test_every_section_8_bullet_belongs_to_the_tuple _______________
+
+    def test_every_section_8_bullet_belongs_to_the_tuple():
+        bullets = _bullets(_section_8())
+>       assert sorted(set(bullets) - set(ACCEPTED_LEDGER_IDS)) == []
+E       AssertionError: assert ['L-0544'] == []
+E         
+E         Left contains one more item: 'L-0544'
+E         Use -v to get more diff
+
+tests\deploy\test_release_known_limitations.py:272: AssertionError
+____________ test_section_8_has_exactly_one_bullet_per_accepted_id ____________
+
+    def test_section_8_has_exactly_one_bullet_per_accepted_id():
+        openers = re.findall(r"^- \*\*(L-\d+)\*\*", _section_8(), re.M)
+>       assert sorted(openers) == sorted(ACCEPTED_LEDGER_IDS)
+E       AssertionError: assert ['L-022', 'L-... 'L-089', ...] == ['L-022', 'L-... 'L-089', ...]
+E         
+E         At index 1 diff: 'L-0544' != 'L-054'
+E         Use -v to get more diff
+
+tests\deploy\test_release_known_limitations.py:277: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_release_known_limitations.py::test_accepted_id_appears_in_bold_exactly_once_in_section_8[L-054]
+FAILED tests/deploy/test_release_known_limitations.py::test_accepted_id_has_a_bullet_with_a_reason[L-054]
+FAILED tests/deploy/test_release_known_limitations.py::test_standalone_id_sits_under_the_standalone_subsection[L-054]
+FAILED tests/deploy/test_release_known_limitations.py::test_bullet_contains_its_key_phrase[L-054-find_examples]
+FAILED tests/deploy/test_release_known_limitations.py::test_section_8_names_no_ledger_id_outside_the_tuple
+FAILED tests/deploy/test_release_known_limitations.py::test_every_section_8_bullet_belongs_to_the_tuple
+FAILED tests/deploy/test_release_known_limitations.py::test_section_8_has_exactly_one_bullet_per_accepted_id
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_release_known_limitations.py tests/deploy/test_release_deferred_extraction.py tests/deploy/test_release_record_contract.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d5prk3j7\.junit-1.xml"
+--- stdout ---
+....................F........................................F.......... [ 34%]
+..............................F........................................F [ 69%]
+........FFF...................................................           [100%]
+================================== FAILURES ===================================
+______ test_accepted_id_appears_in_bold_exactly_once_in_section_8[L-054] ______
+
+ledger_id = 'L-054'
+
+    @pytest.mark.parametrize("ledger_id", ACCEPTED_LEDGER_IDS)
+    def test_accepted_id_appears_in_bold_exactly_once_in_section_8(ledger_id: str):
+        found = _BOLD_ID.findall(_section_8())
+>       assert found.count(ledger_id) == 1, (
+            f"{ledger_id} appears in bold {found.count(ledger_id)} times in section 8"
+        )
+E       AssertionError: L-054 appears in bold 0 times in section 8
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x00000184EA84CA40>('L-054')
+E        +    where <built-in method count of list object at 0x00000184EA84CA40> = ['L-022', 'L-0544', 'L-071', 'L-072', 'L-080', 'L-089', ...].count
+
+tests\deploy\test_release_known_limitations.py:227: AssertionError
+_____________ test_accepted_id_has_a_bullet_with_a_reason[L-054] ______________
+
+ledger_id = 'L-054'
+
+    @pytest.mark.parametrize("ledger_id", ACCEPTED_LEDGER_IDS)
+    def test_accepted_id_has_a_bullet_with_a_reason(ledger_id: str):
+        bullets = _bullets(_section_8())
+>       assert ledger_id in bullets, f"{ledger_id} has no bullet that opens with its bold id"
+E       AssertionError: L-054 has no bullet that opens with its bold id
+E       assert 'L-054' in {'L-022': 'A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected. The server accepts only the prot... test requires the registry file to be absent for exactly these five pilots, so the gap cannot hide another one.', ...}
+
+tests\deploy\test_release_known_limitations.py:235: AssertionError
+_______ test_standalone_id_sits_under_the_standalone_subsection[L-054] ________
+
+ledger_id = 'L-054'
+
+    @pytest.mark.parametrize("ledger_id", STANDALONE_IDS)
+    def test_standalone_id_sits_under_the_standalone_subsection(ledger_id: str):
+>       assert ledger_id in _bullets(_subsection(STANDALONE_HEADING))
+E       assert 'L-054' in {'L-022': 'A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected. The server accepts only the prot... test requires the registry file to be absent for exactly these five pilots, so the gap cannot hide another one.', ...}
+E        +  where {'L-022': 'A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected. The server accepts only the prot... test requires the registry file to be absent for exactly these five pilots, so the gap cannot hide another one.', ...} = _bullets("\n- **L-022** A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected. The server accepts only the\...s and links against the real pinned library, and nothing but the page's own `#include` lines is ever added\n  to it.\n")
+E        +    where "\n- **L-022** A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected. The server accepts only the\...s and links against the real pinned library, and nothing but the page's own `#include` lines is ever added\n  to it.\n" = _subsection('### Standalone image')
+
+tests\deploy\test_release_known_limitations.py:242: AssertionError
+__________ test_bullet_contains_its_key_phrase[L-054-find_examples] ___________
+
+ledger_id = 'L-054', phrase = 'find_examples'
+
+    @pytest.mark.parametrize("ledger_id, phrase", sorted(KEY_PHRASES.items()))
+    def test_bullet_contains_its_key_phrase(ledger_id: str, phrase: str):
+        bullets = _bullets(_section_8())
+>       assert ledger_id in bullets, f"{ledger_id} has no bullet that opens with its bold id"
+E       AssertionError: L-054 has no bullet that opens with its bold id
+E       assert 'L-054' in {'L-022': 'A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected. The server accepts only the prot... test requires the registry file to be absent for exactly these five pilots, so the gap cannot hide another one.', ...}
+
+tests\deploy\test_release_known_limitations.py:258: AssertionError
+_____________ test_section_8_names_no_ledger_id_outside_the_tuple _____________
+
+    def test_section_8_names_no_ledger_id_outside_the_tuple():
+        unknown = sorted(set(_LEDGER_ID.findall(_section_8())) - set(ACCEPTED_LEDGER_IDS))
+>       assert unknown == [], f"section 8 names ledger ids that are not in ACCEPTED_LEDGER_IDS: {unknown}"
+E       AssertionError: section 8 names ledger ids that are not in ACCEPTED_LEDGER_IDS: ['L-0544']
+E       assert ['L-0544'] == []
+E         
+E         Left contains one more item: 'L-0544'
+E         Use -v to get more diff
+
+tests\deploy\test_release_known_limitations.py:267: AssertionError
+______________ test_every_section_8_bullet_belongs_to_the_tuple _______________
+
+    def test_every_section_8_bullet_belongs_to_the_tuple():
+        bullets = _bullets(_section_8())
+>       assert sorted(set(bullets) - set(ACCEPTED_LEDGER_IDS)) == []
+E       AssertionError: assert ['L-0544'] == []
+E         
+E         Left contains one more item: 'L-0544'
+E         Use -v to get more diff
+
+tests\deploy\test_release_known_limitations.py:272: AssertionError
+____________ test_section_8_has_exactly_one_bullet_per_accepted_id ____________
+
+    def test_section_8_has_exactly_one_bullet_per_accepted_id():
+        openers = re.findall(r"^- \*\*(L-\d+)\*\*", _section_8(), re.M)
+>       assert sorted(openers) == sorted(ACCEPTED_LEDGER_IDS)
+E       AssertionError: assert ['L-022', 'L-... 'L-089', ...] == ['L-022', 'L-... 'L-089', ...]
+E         
+E         At index 1 diff: 'L-0544' != 'L-054'
+E         Use -v to get more diff
+
+tests\deploy\test_release_known_limitations.py:277: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_release_known_limitations.py::test_accepted_id_appears_in_bold_exactly_once_in_section_8[L-054]
+FAILED tests/deploy/test_release_known_limitations.py::test_accepted_id_has_a_bullet_with_a_reason[L-054]
+FAILED tests/deploy/test_release_known_limitations.py::test_standalone_id_sits_under_the_standalone_subsection[L-054]
+FAILED tests/deploy/test_release_known_limitations.py::test_bullet_contains_its_key_phrase[L-054-find_examples]
+FAILED tests/deploy/test_release_known_limitations.py::test_section_8_names_no_ledger_id_outside_the_tuple
+FAILED tests/deploy/test_release_known_limitations.py::test_every_section_8_bullet_belongs_to_the_tuple
+FAILED tests/deploy/test_release_known_limitations.py::test_section_8_has_exactly_one_bullet_per_accepted_id
+
+--- stderr ---
+
