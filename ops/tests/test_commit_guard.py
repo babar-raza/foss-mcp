@@ -54,6 +54,9 @@ def repo(tmp_path, monkeypatch):
     ops.mkdir()
     monkeypatch.setattr(G, "REPO", r)
     monkeypatch.setattr(G, "OPS", ops)
+    # The release records live under G.EVIDENCE; left at the real repository they are found by
+    # rebuild_state() and are outside this tmp repo (ops/release.py relative_to(G.REPO)).
+    monkeypatch.setattr(G, "EVIDENCE", r / "evidence")
     monkeypatch.setattr(G, "INSTRUCTIONS_JSONL", ops / "instructions.jsonl")
     monkeypatch.setattr(G, "STATUS_JSONL", ops / "status.jsonl")
     return r
