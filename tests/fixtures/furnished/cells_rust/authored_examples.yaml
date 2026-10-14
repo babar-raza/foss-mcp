@@ -1,0 +1,139 @@
+schema_version: 1
+pilot: cells_rust
+library_repository: aspose-cells-foss/Aspose.Cells-FOSS-for-Rust
+library_commit: 1a6004af47b1ef15385f9d36d381a8172428cc7e
+language: rust
+examples:
+- title: Store typed values in memory and read them back
+  description: Writes a text, an integer, a decimal and a boolean into a new workbook, serialises it to XLSX bytes, loads the bytes back and checks each cell's stored type and value without touching the disk.
+  symbols:
+  - Workbook
+  - Workbook.save_xlsx_to_bytes
+  - Workbook.load_xlsx_from_bytes
+  - CellMut.put_value_string
+  - CellMut.put_value_decimal
+  - Cell.value_type
+  - CellValueType
+  code: |
+    // Authored example: write text, number and boolean values into a new workbook and read them back from memory.
+    use aspose_cells_foss_rust::{CellValueType, Workbook};
+    use std::error::Error;
+
+    fn main() -> Result<(), Box<dyn Error>> {
+        let mut workbook = Workbook::new();
+        {
+            let mut worksheets = workbook.get_worksheets_mut();
+            let sheet = worksheets.get(0)?;
+            let mut cells = sheet.get_cells_mut();
+            cells.get("A1")?.put_value_string("Widgets")?;
+            cells.get("B1")?.put_value_i32(42)?;
+            cells.get("C1")?.put_value_decimal(19.99)?;
+            cells.get("D1")?.put_value_bool(true)?;
+        }
+
+        // Serialise the workbook to XLSX bytes and load those bytes back; nothing touches the disk.
+        let bytes = workbook.save_xlsx_to_bytes()?;
+        let loaded = Workbook::load_xlsx_from_bytes(&bytes)?;
+        let sheet = loaded.worksheet("Sheet1")?;
+        let cells = sheet.get_cells();
+
+        for address in ["A1", "B1", "C1", "D1"] {
+            let cell = cells.get(address)?;
+            println!("{} {:?} {}", address, cell.value_type(), cell.display_string_value());
+        }
+
+        assert_eq!(cells.get("A1")?.string_value(), Some("Widgets"));
+        assert_eq!(cells.get("B1")?.int_value(), Some(42));
+        assert_eq!(cells.get("D1")?.bool_value(), Some(true));
+        assert_eq!(cells.get("C1")?.value_type(), CellValueType::IsNumeric);
+        Ok(())
+    }
+  code_sha256: 5cac3b629aaf9f63435c05bf574d687d7f16fe99cfabb229578a0fa94e4eef9d
+- title: Format numbers as thousands and percentages
+  description: Applies a thousands-separator format and a percentage format to two numeric cells, saves the workbook to a temporary file, reloads it and reads the formatted text of both cells before deleting the file.
+  symbols:
+  - Workbook.save
+  - Workbook.load_xlsx
+  - CellMut.apply_number_format
+  - CellMut.put_value_decimal
+  - Cell.formatted_string_value
+  code: |
+    // Authored example: apply number formats to cells and read the formatted text after a save and reload.
+    use aspose_cells_foss_rust::Workbook;
+    use std::error::Error;
+
+    fn main() -> Result<(), Box<dyn Error>> {
+        let mut workbook = Workbook::new();
+        {
+            let mut worksheets = workbook.get_worksheets_mut();
+            let sheet = worksheets.get(0)?;
+            let mut cells = sheet.get_cells_mut();
+            let mut price = cells.get("A1")?;
+            price.put_value_decimal(1234.5)?;
+            price.apply_number_format("#,##0.00")?;
+            let mut rate = cells.get("B1")?;
+            rate.put_value_decimal(0.256)?;
+            rate.apply_number_format("0.0%")?;
+        }
+
+        // Save to a temporary file, reload it, then delete the file again.
+        let path = std::env::temp_dir().join("authored_number_format_example.xlsx");
+        workbook.save(&path)?;
+        let loaded = Workbook::load_xlsx(&path)?;
+        std::fs::remove_file(&path)?;
+
+        let sheet = loaded.worksheet("Sheet1")?;
+        let cells = sheet.get_cells();
+        let price = cells.get("A1")?;
+        let rate = cells.get("B1")?;
+        println!("price: {} -> {}", price.raw_string_value(), price.formatted_string_value());
+        println!("rate: {} -> {}", rate.raw_string_value(), rate.formatted_string_value());
+
+        assert_eq!(price.double_value(), Some(1234.5));
+        assert_eq!(price.formatted_string_value(), "1,234.50");
+        assert_eq!(rate.formatted_string_value(), "25.6%");
+        Ok(())
+    }
+  code_sha256: 37f587d9ab676d062cf3a2a4f6314657ae79f967bb1ebfdb882a5d359266b4c1
+- title: Add a named worksheet and read it after reload
+  description: Adds a second worksheet called Totals, fills a small table on it, round-trips the workbook through XLSX bytes and reads a value back from the reloaded Totals sheet.
+  symbols:
+  - Workbook.add_worksheet
+  - Workbook.get_worksheets
+  - WorksheetsMut.get_by_name
+  - Worksheets.count
+  - Worksheet.get_name
+  code: |
+    // Authored example: add a second worksheet, fill it with data and read a cell back after reloading the workbook.
+    use aspose_cells_foss_rust::Workbook;
+    use std::error::Error;
+
+    fn main() -> Result<(), Box<dyn Error>> {
+        let mut workbook = Workbook::new();
+        workbook.add_worksheet("Totals")?;
+        {
+            let mut worksheets = workbook.get_worksheets_mut();
+            let sheet = worksheets.get_by_name("Totals")?;
+            let mut cells = sheet.get_cells_mut();
+            cells.get("A1")?.put_value_string("Quarter")?;
+            cells.get("B1")?.put_value_string("Revenue")?;
+            cells.get("A2")?.put_value_string("Q1")?;
+            cells.get("B2")?.put_value_i32(1500)?;
+        }
+
+        let bytes = workbook.save_xlsx_to_bytes()?;
+        let loaded = Workbook::load_xlsx_from_bytes(&bytes)?;
+
+        let worksheets = loaded.get_worksheets();
+        println!("worksheets: {}", worksheets.count());
+
+        let totals = loaded.worksheet("Totals")?;
+        let cells = totals.get_cells();
+        println!("{} = {}", cells.get("B1")?.display_string_value(), cells.get("B2")?.display_string_value());
+
+        assert_eq!(worksheets.count(), 2);
+        assert_eq!(totals.get_name(), "Totals");
+        assert_eq!(cells.get("B2")?.int_value(), Some(1500));
+        Ok(())
+    }
+  code_sha256: aef1a852cfd3551a0a14d948b87c8574f985790044ce9e9d3bc2720c47114376
