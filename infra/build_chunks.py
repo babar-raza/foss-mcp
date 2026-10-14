@@ -38,6 +38,12 @@ REQ-G2-048 (TC-091) generalizes that path with a new required ``--library-platfo
 original pdf/net-only behavior byte-for-byte; the other five platforms were previously
 unreachable from this CLI even though their prepare/verify functions already existed.
 
+REQ-G3-007 (TC-458) widens that path's candidate supply (every same-language fence of the example
+blocks and the README content blocks, de-duplicated) and makes it publish exactly the program the
+toolchain compiled: ``_published_program`` names what the harness added in a ``Harness:`` line, an
+import-only block is never an example on cpp, java and nodejs, and the verification cache is keyed on
+the published program.
+
 REQ-G2-047 (TC-112) adds a THIRD, additive path alongside the two above: real documentation
 chunks built from ``--furnished-page``'s own ``overview``/``content``/``faq`` front-matter
 sections (``foss_mcp.indexing.doc_candidates.extract_doc_sections``, TC-110). Unlike the
@@ -51,12 +57,12 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
-import hashlib
 import json
 import re
 import subprocess
 import sys
 import tempfile
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -64,10 +70,23 @@ import yaml
 
 from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
 from foss_mcp.indexing.doc_candidates import extract_doc_sections
-from foss_mcp.indexing.example_candidates import extract_candidate_examples
+from foss_mcp.indexing.example_candidates import (
+    CHAIN_PREFIX_PLATFORMS,
+    IMPORT_ONLY_GUARD_PLATFORMS,
+    CandidateExample,
+    effective_candidate,
+    extract_candidate_examples,
+    extract_candidate_supply,
+    import_like_lines,
+)
+from foss_mcp.indexing.example_candidates import normalised_code_sha256 as _candidate_code_sha256
+from foss_mcp.indexing.example_fixtures import input_literals
 from foss_mcp.indexing.example_verifier import (
     CPP_COMPAT_NAMES,
     ExampleEnvironmentError,
+    _assemble_dotnet_source,
+    _assemble_rust_source,
+    _wrap_cpp_fragment_if_needed,
     cpp_compat_compile_options,
     prepare_cpp_library_linux,
     prepare_go_library,
@@ -507,14 +526,11 @@ def normalised_code_sha256(code: str) -> str:
 
     In order: CRLF and CR become LF; trailing whitespace is stripped from every line; leading and
     trailing blank lines are dropped; then the UTF-8 bytes of what remains are hashed.
+
+    TC-458: the rule now lives in ``foss_mcp.indexing.example_candidates`` (a candidate records its
+    own hash there); this function returns that module's result, so there is exactly one rule.
     """
-    text = code.replace("\r\n", "\n").replace("\r", "\n")
-    lines = [line.rstrip() for line in text.split("\n")]
-    while lines and lines[0] == "":
-        lines.pop(0)
-    while lines and lines[-1] == "":
-        lines.pop()
-    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
+    return _candidate_code_sha256(code)
 
 
 def verification_cache_key(
@@ -648,6 +664,124 @@ def write_verification_cache_if_changed(path: Path, entries: list[dict]) -> bool
     return True
 
 
+def _display_units(units: Iterable[str]) -> str:
+    """Import units for a Harness part: each LF inside a unit is shown as a space, units joined by ' | '."""
+    return " | ".join(unit.replace("\n", " ") for unit in units)
+
+
+def _published_program(
+    effective: CandidateExample,
+    args: argparse.Namespace,
+    applied_prefix: tuple[str, ...] = (),
+) -> tuple[str, list[str]]:
+    """TC-458 (REQ-G3-007): the program the toolchain compiled for ``effective``, and what was added.
+
+    Returns ``(program, harness_parts)``. ``program`` is the text the example chunk publishes and
+    the verification cache is keyed on; each part names one thing the harness added around the
+    README block. ``applied_prefix`` is the chain import units ``effective_candidate`` put in front
+    of the code (``effective`` itself has none left). The result depends only on the candidate, the
+    page and the arguments, so a cached and a fresh verdict publish identical text.
+
+    - python, typescript, nodejs: ``effective.code`` (its chain imports already in it).
+    - dotnet: the verifier's assembled source (the page's using directives the block lacks).
+    - rust: the verifier's assembled source (``fn main`` wrapper, the page's ``use`` statements).
+    - cpp: the page ``#include`` lines the block lacks in front, then the ``int main`` wrapper.
+    - go, java: ``effective.code``; their assembly needs the built library and stays in the
+      verification report.
+    """
+    platform = args.library_platform
+    code = effective.code
+    program = code
+    parts: list[str] = []
+
+    if platform in CHAIN_PREFIX_PLATFORMS:
+        if applied_prefix:
+            parts.append(
+                f"import lines prepended from earlier examples on this page: {_display_units(applied_prefix)}"
+            )
+    elif platform == "dotnet":
+        program, added_usings = _assemble_dotnet_source(code, effective.page_code)
+        if added_usings:
+            parts.append(
+                "using directives from other blocks on this page added by the verifier: "
+                f"{_display_units(added_usings)}"
+            )
+    elif platform == "rust":
+        program, mode, added_uses = _assemble_rust_source(code, effective.page_code)
+        if mode == "wrapped-fragment":
+            parts.append("wrapped by the verifier in fn main() -> Result<(), Box<dyn std::error::Error>>")
+        if added_uses:
+            parts.append(
+                "use statements from other blocks on this page added by the verifier: "
+                f"{_display_units(added_uses)}"
+            )
+    elif platform == "cpp":
+        page_includes: tuple[str, ...] = ()
+        if "page-includes" in (getattr(args, "library_cpp_compat", None) or ()):
+            page_includes = _page_cpp_includes(getattr(args, "furnished_page", None))
+        existing_lines = {line.strip() for line in code.splitlines()}
+        prefixed: list[str] = []
+        for include_line in page_includes:
+            if include_line.strip() not in existing_lines and include_line not in prefixed:
+                prefixed.append(include_line)
+        source = "\n".join([*prefixed, code]) if prefixed else code
+        program = _wrap_cpp_fragment_if_needed(source)
+        if prefixed:
+            parts.append(
+                f"#include lines from other blocks on this page added by the verifier: {_display_units(prefixed)}"
+            )
+        if program != source:
+            parts.append("wrapped by the verifier in int main()")
+
+    if platform == "python" or (
+        platform == "cpp" and getattr(args, "library_cpp_verify_mode", None) != "compile"
+    ):
+        names = input_literals(program, platform)
+        if names:
+            parts.append(
+                "input files named in the code are placed in the working directory by the verifier when it "
+                "can (kept if already there, otherwise copied by name from the pinned repository or "
+                f"generated as a minimal file): {', '.join(names)}"
+            )
+    return program, parts
+
+
+_MARKDOWN_HEADING_RE = re.compile(r"^#{1,6}[ \t]+", re.MULTILINE)
+
+
+def _chunkable_description(description: str) -> str:
+    """TC-458: ``description`` without markdown heading syntax. A README content block's prose before
+    its first fence is a whole section (``### Installation``, ``### Quick Start``): left as is, the
+    chunker splits the example body at every such heading and the code lands in a chunk without the
+    ``FQN:`` and ``Kind: verified_example`` lines, so the example could no longer be recognised. The
+    text of each heading is kept; a description with no heading line is returned unchanged."""
+    return _MARKDOWN_HEADING_RE.sub("", description)
+
+
+def _cache_key_text(effective: CandidateExample, program: str, platform: str) -> str:
+    """TC-458: the text a verdict's cache key is the hash of. The published program, except for go
+    and java, whose assembly needs the built library: there it is the candidate's code plus the
+    page's import units (de-duplicated, sorted), so a changed import elsewhere on the page
+    invalidates a recorded verdict."""
+    if platform in ("go", "java"):
+        units = sorted({unit for entry in effective.page_code for unit in import_like_lines(entry, platform)})
+        return effective.code + "\n" + "\n".join(units)
+    return program
+
+
+@dataclasses.dataclass(frozen=True)
+class _CandidatePlan:
+    """Everything decided about one candidate before any toolchain runs (TC-458)."""
+
+    index: int
+    candidate: CandidateExample
+    skipped: bool
+    effective: CandidateExample
+    program: str
+    harness: str
+    key_candidate: CandidateExample
+
+
 def _build_verified_example_chunks(
     args: argparse.Namespace,
     verification_records: list[dict] | None = None,
@@ -684,15 +818,55 @@ def _build_verified_example_chunks(
     verified, so a fully cached page publishes with no network at all. Every real (non-cached)
     verdict is appended to ``new_cache_entries`` (when given) for the caller to merge and write
     out; a ``library_unavailable`` record or an environment failure is never written as an entry.
+
+    TC-458 (REQ-G3-007): the candidates are ``extract_candidate_supply(page, platform)`` - every
+    same-language fence of the example blocks and the README content blocks, de-duplicated - or, on a
+    page with no fence in the pilot's language, the legacy first fence of each example block. On cpp,
+    java and nodejs an import-only block is neither verified nor published (record ``kind``
+    ``imports_only``). The verifier is handed ``effective_candidate`` (a continuation gets the import
+    lines of its chain where no verifier borrows page imports); the chunk publishes
+    ``_published_program`` - what the toolchain compiled - with a ``Harness:`` line naming what was
+    added, and the verification cache is keyed on that program.
     """
     page = _load_furnished_page(args.furnished_page)
-    candidates = extract_candidate_examples(page)
-
-    platform_dispatch = _PLATFORM_DISPATCH[args.library_platform]
     platform = args.library_platform
+    supply = extract_candidate_supply(page, platform)
+    candidates = extract_candidate_examples(page) if supply.fallback else list(supply.candidates)
+    if supply.fallback:
+        print(
+            f"candidate supply: no {platform} code fences on the page; "
+            "using the first fence of every example block unfiltered"
+        )
+    else:
+        print(
+            f"candidate supply: {len(supply.candidates)} candidates for {platform} "
+            f"({supply.from_single_blocks} from example blocks, {supply.from_content_blocks} from content "
+            f"blocks; dropped {supply.duplicates_dropped} duplicates and {supply.other_language_dropped} "
+            f"fences in other languages; {supply.imports_only} import-only blocks)"
+        )
+
+    platform_dispatch = _PLATFORM_DISPATCH[platform]
     library_commit = args.library_commit
 
+    plans: list[_CandidatePlan] = []
+    for index, candidate in enumerate(candidates):
+        if platform in IMPORT_ONLY_GUARD_PLATFORMS and candidate.imports_only:
+            plans.append(_CandidatePlan(index, candidate, True, candidate, candidate.code, "", candidate))
+            continue
+        effective = effective_candidate(candidate, platform)
+        program, parts = _published_program(
+            effective, args, candidate.import_prefix if effective is not candidate else ()
+        )
+        key_text = _cache_key_text(effective, program, platform)
+        key_candidate = dataclasses.replace(
+            effective, code=key_text, code_sha256=normalised_code_sha256(key_text)
+        )
+        harness = "; ".join(parts).replace("Example:", "Example :")
+        plans.append(_CandidatePlan(index, candidate, False, effective, program, harness, key_candidate))
+    active = [plan for plan in plans if not plan.skipped]
+
     cache_active = verification_cache is not None
+    hit_entries: list[dict | None] = [None] * len(plans)
     if cache_active:
         # Both are guaranteed together by the caller (main()): a non-None verification_cache is
         # passed only alongside a toolchain_id that itself returned non-None.
@@ -706,17 +880,16 @@ def _build_verified_example_chunks(
             entry = cache.get(key)
             return entry if entry is not None and entry.get("verified") is True else None
 
-        hit_entries = [_cache_hit(candidate) for candidate in candidates]
+        for plan in active:
+            hit_entries[plan.index] = _cache_hit(plan.key_candidate)
         if platform_dispatch["shared_page_workdir"] and not (
-            candidates and all(hit is not None for hit in hit_entries)
+            active and all(hit_entries[plan.index] is not None for plan in active)
         ):
             # TC-441: a shared-workdir page (python) is reused only as a whole; a partial hit
             # re-verifies every candidate for real, in document order, and marks none cached.
-            hit_entries = [None] * len(candidates)
-    else:
-        hit_entries = [None] * len(candidates)
+            hit_entries = [None] * len(plans)
 
-    needs_real_verification = any(hit is None for hit in hit_entries)
+    needs_real_verification = any(hit_entries[plan.index] is None for plan in active)
 
     prepared_library = None
     verify_kwargs: dict = {}
@@ -762,8 +935,33 @@ def _build_verified_example_chunks(
     verified_chunks: list[Chunk] = []
     verified_count = 0
     cached_count = 0
-    for index, candidate in enumerate(candidates):
+    for plan in plans:
+        candidate = plan.candidate
+        index = plan.index
+
+        if plan.skipped:
+            # TC-458: a block that holds nothing but imports is not an example on a platform whose
+            # verifier would compile and count it. It is recorded, never verified or published.
+            if verification_records is not None:
+                skipped_record: dict = {
+                    "title": candidate.title,
+                    "platform": platform,
+                    "verified": False,
+                    "output": "import-only block: not an example by itself",
+                    "index": index,
+                    "kind": "imports_only",
+                    "cached": False,
+                    "source": candidate.source,
+                    "starts_example": candidate.starts_example,
+                    "harness": "",
+                    "status": "",
+                    "fixtures": [],
+                }
+                verification_records.append(skipped_record)
+            continue
+
         hit_entry = hit_entries[index]
+        verification_result = None
         if hit_entry is not None:
             verified = True
             output = hit_entry.get("output", "")
@@ -774,7 +972,7 @@ def _build_verified_example_chunks(
                 candidate_workdir = shared_candidate_workdir
             else:
                 candidate_workdir = Path(tempfile.mkdtemp(prefix="build_chunks_candidate_"))
-            verification_result = verify(candidate, workdir=candidate_workdir, **verify_kwargs)
+            verification_result = verify(plan.effective, workdir=candidate_workdir, **verify_kwargs)
             verified = verification_result.verified
             output = verification_result.output
             cached = False
@@ -790,8 +988,15 @@ def _build_verified_example_chunks(
             }
             if cache_active:
                 record["cached"] = cached
-                record["code_sha256"] = normalised_code_sha256(candidate.code)
+                record["code_sha256"] = plan.key_candidate.code_sha256
                 record["toolchain"] = toolchain
+            record["source"] = candidate.source
+            record["starts_example"] = candidate.starts_example
+            record["harness"] = plan.harness
+            record["status"] = getattr(verification_result, "status", "")
+            record["fixtures"] = [
+                fixture.as_dict() for fixture in getattr(verification_result, "fixtures", ())
+            ]
             verification_records.append(record)
 
         if cache_active and new_cache_entries is not None and not cached:
@@ -799,7 +1004,7 @@ def _build_verified_example_chunks(
                 {
                     "provenance": getattr(candidate, "provenance", "readme"),
                     "title": candidate.title,
-                    "code_sha256": normalised_code_sha256(candidate.code),
+                    "code_sha256": plan.key_candidate.code_sha256,
                     "library_commit": library_commit,
                     "platform": platform,
                     "toolchain": toolchain,
@@ -810,6 +1015,7 @@ def _build_verified_example_chunks(
 
         if verified:
             verified_count += 1
+            harness_line = f"Harness: {plan.harness}\n" if plan.harness else ""
             doc = make_document(
                 source_kind=SourceKind.FURNISHED,
                 content_type="example",
@@ -824,14 +1030,15 @@ def _build_verified_example_chunks(
                     f"# Example: {candidate.title}\n\n"
                     f"FQN: Example: {candidate.title}\n"
                     f"Kind: verified_example\n"
-                    f"{candidate.description}\n\n"
-                    f"Example:\n{candidate.code}"
+                    f"{harness_line}"
+                    f"{_chunkable_description(candidate.description)}\n\n"
+                    f"Example:\n{plan.program}"
                 ),
             )
             verified_chunks.extend(chunk_document(doc))
 
     cache_suffix = f" ({cached_count} from cache)" if cache_active else ""
-    print(f"verified {verified_count}/{len(candidates)} candidate examples{cache_suffix}")
+    print(f"verified {verified_count}/{len(active)} candidate examples{cache_suffix}")
     return verified_chunks
 
 
