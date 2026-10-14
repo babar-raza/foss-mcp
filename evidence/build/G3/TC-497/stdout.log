@@ -1,0 +1,92 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ittt2qz1\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 83%]
+..............                                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py tests/deploy/test_image_workflow_gate.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ittt2qz1\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 45%]
+........................................................................ [ 90%]
+................                                                         [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ittt2qz1\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 83%]
+..............                                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py tests/deploy/test_image_workflow_gate.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ittt2qz1\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 45%]
+........................................................................ [ 90%]
+................                                                         [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/deploy/test_adversarial_suite.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ittt2qz1\.junit-0.xml"
+--- stdout ---
+.......................................................................F [ 83%]
+..............                                                           [100%]
+================================== FAILURES ===================================
+_ test_the_ready_timeout_given_to_run_main_has_real_margin_above_five_seconds _
+
+    def test_the_ready_timeout_given_to_run_main_has_real_margin_above_five_seconds() -> None:
+        source = inspect.getsource(run_main)
+        match = re.search(r'"--ready-timeout",\s*\n\s*"(\d+)"', source)
+        assert match is not None, "run_main must pass --ready-timeout as a literal"
+>       assert int(match.group(1)) > 5, (
+            "the ready-timeout literal regressed back to a value with no real margin for a slow "
+            "clean-room subprocess spawn"
+        )
+E       AssertionError: the ready-timeout literal regressed back to a value with no real margin for a slow clean-room subprocess spawn
+E       assert 5 > 5
+E        +  where 5 = int('5')
+E        +    where '5' = <built-in method group of re.Match object at 0x0000024746C86D40>(1)
+E        +      where <built-in method group of re.Match object at 0x0000024746C86D40> = <re.Match object; span=(492, 522), match='"--ready-timeout",\n        "5"'>.group
+
+tests\deploy\test_adversarial_suite.py:1139: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_adversarial_suite.py::test_the_ready_timeout_given_to_run_main_has_real_margin_above_five_seconds
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py tests/deploy/test_image_workflow_gate.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ittt2qz1\.junit-1.xml"
+--- stdout ---
+.......................................................................F [ 45%]
+........................................................................ [ 90%]
+................                                                         [100%]
+================================== FAILURES ===================================
+_ test_the_ready_timeout_given_to_run_main_has_real_margin_above_five_seconds _
+
+    def test_the_ready_timeout_given_to_run_main_has_real_margin_above_five_seconds() -> None:
+        source = inspect.getsource(run_main)
+        match = re.search(r'"--ready-timeout",\s*\n\s*"(\d+)"', source)
+        assert match is not None, "run_main must pass --ready-timeout as a literal"
+>       assert int(match.group(1)) > 5, (
+            "the ready-timeout literal regressed back to a value with no real margin for a slow "
+            "clean-room subprocess spawn"
+        )
+E       AssertionError: the ready-timeout literal regressed back to a value with no real margin for a slow clean-room subprocess spawn
+E       assert 5 > 5
+E        +  where 5 = int('5')
+E        +    where '5' = <built-in method group of re.Match object at 0x000001FDE9253640>(1)
+E        +      where <built-in method group of re.Match object at 0x000001FDE9253640> = <re.Match object; span=(492, 522), match='"--ready-timeout",\n        "5"'>.group
+
+tests\deploy\test_adversarial_suite.py:1139: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_adversarial_suite.py::test_the_ready_timeout_given_to_run_main_has_real_margin_above_five_seconds
+
+--- stderr ---
+
