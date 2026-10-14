@@ -22,6 +22,12 @@ Two modes (TC-458, REQ-G3-007):
   example-starting, a continuation or import-only, and a continuation given the import lines of its
   chain (``import_prefix``) for the platforms whose verifier borrows no page imports
   (``effective_candidate``).
+
+Authored examples (TC-460, REQ-G3-007): a pilot whose README cannot supply two verifiable examples
+may carry a committed sidecar of reviewed, worker-written ones (``authored_examples.py`` loads and
+validates it). ``merge_authored_candidates`` appends them AFTER every README candidate, each marked
+``provenance == "authored"``, and both extraction functions take a keyword-only ``authored=()`` that
+applies it. With ``authored`` empty every result is identical to before.
 """
 
 from __future__ import annotations
@@ -29,7 +35,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 
 __all__ = [
@@ -42,6 +48,7 @@ __all__ = [
     "extract_candidate_examples",
     "extract_candidate_supply",
     "import_like_lines",
+    "merge_authored_candidates",
     "normalised_code_sha256",
 ]
 
@@ -108,6 +115,9 @@ class CandidateExample:
     ``"content"`` for a README content block), ``starts_example`` (the first line of code is an
     import or package line), ``imports_only`` (the code holds nothing but imports and package
     lines) and ``import_prefix`` (the import units of the chain this continuation belongs to).
+
+    TC-460 adds ``provenance`` (``"readme"`` for everything extracted from a page, ``"authored"``
+    for a sidecar example), also excluded from equality.
     """
 
     title: str
@@ -120,6 +130,7 @@ class CandidateExample:
     starts_example: bool = field(default=False, compare=False, repr=False)
     imports_only: bool = field(default=False, compare=False, repr=False)
     import_prefix: tuple[str, ...] = field(default=(), compare=False, repr=False)
+    provenance: str = field(default="readme", compare=False, repr=False)
 
 
 @dataclass(frozen=True)
@@ -606,7 +617,7 @@ def _chain_prefixes(
     ]
 
 
-def extract_candidate_supply(page: Mapping[str, object], platform: str) -> CandidateSupply:
+def _readme_candidate_supply(page: Mapping[str, object], platform: str) -> CandidateSupply:
     """Every same-language fence of ``page``, cleaned and annotated (TC-458, platform mode).
 
     Candidates come from every fence of every ``single.block`` entry and then from the
@@ -694,8 +705,68 @@ def extract_candidate_supply(page: Mapping[str, object], platform: str) -> Candi
     )
 
 
+def merge_authored_candidates(
+    candidates: Iterable[CandidateExample], authored: Iterable[CandidateExample]
+) -> tuple[list[CandidateExample], list[str]]:
+    """The README ``candidates`` followed by the ``authored`` ones, and the titles skipped (TC-460).
+
+    The README candidates come first, unchanged and in order (their ``page_code`` never includes
+    authored code). Each authored candidate whose title is not already a candidate title (README or
+    an earlier authored one) is appended in the given order, normalised so that it stands alone:
+    ``provenance`` ``"authored"``, ``source`` ``"sidecar"``, ``starts_example`` True,
+    ``imports_only`` False, ``import_prefix`` empty (so ``effective_candidate`` returns it unchanged
+    and no chain prefix is ever added) and ``page_code`` holding only its own code, so no verifier
+    can borrow README using / include / import lines for it. Its ``code_sha256`` is kept (the
+    sidecar's) or computed when empty. Returns ``(merged, skipped_titles)``; there are never two
+    candidates with one title.
+    """
+    merged = list(candidates)
+    used_titles = {candidate.title for candidate in merged}
+    skipped: list[str] = []
+    for candidate in authored:
+        if candidate.title in used_titles:
+            skipped.append(candidate.title)
+            continue
+        used_titles.add(candidate.title)
+        merged.append(
+            dataclasses.replace(
+                candidate,
+                page_code=(candidate.code,),
+                code_sha256=candidate.code_sha256 or normalised_code_sha256(candidate.code),
+                source="sidecar",
+                starts_example=True,
+                imports_only=False,
+                import_prefix=(),
+                provenance="authored",
+            )
+        )
+    return merged, skipped
+
+
+def extract_candidate_supply(
+    page: Mapping[str, object], platform: str, *, authored: Iterable[CandidateExample] = ()
+) -> CandidateSupply:
+    """The README supply of ``_readme_candidate_supply`` plus the ``authored`` candidates (TC-460).
+
+    ``authored`` (sidecar candidates, see ``merge_authored_candidates``) are appended after every
+    README candidate, on the fallback list too. The counters (``from_single_blocks``,
+    ``from_content_blocks``, ``duplicates_dropped``, ``other_language_dropped``, ``imports_only``)
+    never count authored candidates. With ``authored`` empty the result is identical to the README
+    supply. Raises ``ValueError`` for an unknown ``platform``.
+    """
+    supply = _readme_candidate_supply(page, platform)
+    authored = tuple(authored)
+    if not authored:
+        return supply
+    merged, _ = merge_authored_candidates(supply.candidates, authored)
+    return dataclasses.replace(supply, candidates=tuple(merged))
+
+
 def extract_candidate_examples(
-    page: Mapping[str, object], *, platform: str | None = None
+    page: Mapping[str, object],
+    *,
+    platform: str | None = None,
+    authored: Iterable[CandidateExample] = (),
 ) -> list[CandidateExample]:
     """Extract candidate examples from an already-parsed furnished page dict.
 
@@ -711,12 +782,20 @@ def extract_candidate_examples(
 
     PLATFORM MODE: the candidates of ``extract_candidate_supply(page, platform)``.
 
-    Every returned candidate carries ``page_code``: the code of all returned candidates, in
-    document order, including its own, and ``code_sha256``.
+    Every returned README candidate carries ``page_code``: the code of all returned README
+    candidates, in document order, including its own, and ``code_sha256``.
+
+    TC-460: ``authored`` (keyword-only, default empty) appends sidecar candidates after all of the
+    above through ``merge_authored_candidates``; an authored candidate's ``page_code`` is its own
+    code alone.
     """
     if platform is None:
-        return _legacy_candidates(page)
-    return list(extract_candidate_supply(page, platform).candidates)
+        candidates = _legacy_candidates(page)
+        authored = tuple(authored)
+        if authored:
+            candidates, _ = merge_authored_candidates(candidates, authored)
+        return candidates
+    return list(extract_candidate_supply(page, platform, authored=authored).candidates)
 
 
 # --- effective candidate -------------------------------------------------------------------------

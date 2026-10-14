@@ -68,6 +68,12 @@ from typing import Any
 
 import yaml
 
+from foss_mcp.indexing.authored_examples import (
+    AUTHORED_LABEL,
+    SIDECAR_NAME,
+    AuthoredExamplesError,
+    load_authored_examples,
+)
 from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
 from foss_mcp.indexing.doc_candidates import extract_doc_sections
 from foss_mcp.indexing.example_candidates import (
@@ -78,6 +84,7 @@ from foss_mcp.indexing.example_candidates import (
     extract_candidate_examples,
     extract_candidate_supply,
     import_like_lines,
+    merge_authored_candidates,
 )
 from foss_mcp.indexing.example_candidates import normalised_code_sha256 as _candidate_code_sha256
 from foss_mcp.indexing.example_fixtures import input_literals
@@ -390,6 +397,38 @@ def _load_furnished_page(path: Path) -> dict:
     parsed = yaml.safe_load(front_matter)
     assert isinstance(parsed, dict)
     return parsed
+
+
+def _load_authored_candidates(args: argparse.Namespace) -> tuple[CandidateExample, ...]:
+    """TC-460 (REQ-G3-007): the authored examples of the pilot whose furnished page is ``--furnished-page``.
+
+    A sidecar is looked for only when the page sits at ``<pilot dir>/pages/<page>``: then
+    ``<pilot dir>/authored_examples.yaml`` is loaded (pilot = the directory's name; platform and
+    commit from the arguments; api types from ``--api-surface``). No sidecar gives an empty tuple.
+    An invalid or stale sidecar never stops the build and never publishes any authored example: one
+    ``authored examples ignored: ...`` line is printed and the README candidates alone are used.
+    """
+    page_path = Path(args.furnished_page)
+    if page_path.parent.name != "pages":
+        return ()
+    sidecar = page_path.parent.parent / SIDECAR_NAME
+    if not sidecar.is_file():
+        return ()
+    try:
+        fixture = json.loads(Path(args.api_surface).read_text(encoding="utf-8"))
+        api_types = fixture["types"]
+        if not isinstance(api_types, list):
+            raise TypeError("the api_surface types entry is not a list")
+        return load_authored_examples(
+            sidecar,
+            pilot=page_path.parent.parent.name,
+            library_platform=args.library_platform,
+            library_commit=args.library_commit,
+            api_types=api_types,
+        )
+    except (AuthoredExamplesError, OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+        print(f"authored examples ignored: {str(exc)[:600]}")
+        return ()
 
 
 def _page_java_imports(path: Path | None) -> tuple[str, ...]:
@@ -830,8 +869,14 @@ def _build_verified_example_chunks(
     """
     page = _load_furnished_page(args.furnished_page)
     platform = args.library_platform
-    supply = extract_candidate_supply(page, platform)
-    candidates = extract_candidate_examples(page) if supply.fallback else list(supply.candidates)
+    authored = _load_authored_candidates(args)
+    supply = extract_candidate_supply(page, platform, authored=authored)
+    if supply.fallback:
+        # The legacy first fence of every example block, then the authored ones (the same list
+        # ``supply.candidates`` holds, which ``authored=`` above already merged).
+        candidates, _ = merge_authored_candidates(extract_candidate_examples(page), authored)
+    else:
+        candidates = list(supply.candidates)
     if supply.fallback:
         print(
             f"candidate supply: no {platform} code fences on the page; "
@@ -934,6 +979,7 @@ def _build_verified_example_chunks(
 
     verified_chunks: list[Chunk] = []
     verified_count = 0
+    authored_verified = 0
     cached_count = 0
     for plan in plans:
         candidate = plan.candidate
@@ -984,7 +1030,7 @@ def _build_verified_example_chunks(
                 "verified": verified,
                 "output": output,
                 "index": index,
-                "kind": "candidate",
+                "kind": "authored" if candidate.provenance == "authored" else "candidate",
             }
             if cache_active:
                 record["cached"] = cached
@@ -1002,7 +1048,7 @@ def _build_verified_example_chunks(
         if cache_active and new_cache_entries is not None and not cached:
             new_cache_entries.append(
                 {
-                    "provenance": getattr(candidate, "provenance", "readme"),
+                    "provenance": candidate.provenance,
                     "title": candidate.title,
                     "code_sha256": plan.key_candidate.code_sha256,
                     "library_commit": library_commit,
@@ -1016,6 +1062,11 @@ def _build_verified_example_chunks(
         if verified:
             verified_count += 1
             harness_line = f"Harness: {plan.harness}\n" if plan.harness else ""
+            authored_lines = ""
+            if candidate.provenance == "authored":
+                authored_verified += 1
+                # TC-460: a verified authored example says so, in three lines directly after Kind.
+                authored_lines = f"Provenance: authored\nVerification: passed\n{AUTHORED_LABEL}\n"
             doc = make_document(
                 source_kind=SourceKind.FURNISHED,
                 content_type="example",
@@ -1030,15 +1081,27 @@ def _build_verified_example_chunks(
                     f"# Example: {candidate.title}\n\n"
                     f"FQN: Example: {candidate.title}\n"
                     f"Kind: verified_example\n"
+                    f"{authored_lines}"
                     f"{harness_line}"
                     f"{_chunkable_description(candidate.description)}\n\n"
                     f"Example:\n{plan.program}"
                 ),
             )
-            verified_chunks.extend(chunk_document(doc))
+            example_chunks = chunk_document(doc)
+            if candidate.provenance == "authored" and len(example_chunks) > 1:
+                # TC-460: a Python authored example must open with a ``#`` comment (sidecar rule 7), and
+                # the chunker reads a column-0 ``#`` line as a markdown heading: it would cut the
+                # code away from the FQN / Kind / Provenance lines and drop that comment. An authored
+                # example is published as ONE chunk, the whole body after its own title heading. A
+                # README example is never touched, so its chunk text and id do not move.
+                _, _, section_text = doc.body.partition("\n")
+                example_chunks = [dataclasses.replace(example_chunks[0], text=section_text.strip())]
+            verified_chunks.extend(example_chunks)
 
     cache_suffix = f" ({cached_count} from cache)" if cache_active else ""
     print(f"verified {verified_count}/{len(active)} candidate examples{cache_suffix}")
+    if authored:
+        print(f"authored examples: {authored_verified} of {len(authored)} verified")
     return verified_chunks
 
 
