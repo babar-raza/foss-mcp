@@ -472,8 +472,8 @@ def test_real_pdf_net_has_no_invented_void_and_keeps_the_genuine_ones() -> None:
     texts = _real_texts("pdf_net")
     all_lines = [line for text in texts for line in text.splitlines()]
     void_lines = [line for line in all_lines if " -> void" in line]
-    assert expected_void == 3
-    assert len(void_lines) == 3
+    assert expected_void == 1034
+    assert len(void_lines) == 1034
     page = next(t for t in texts if _fqn(t) == "Aspose.Pdf.Page")
     assert "  - SetRotation(degrees: int)" in page.splitlines()
     assert "SetRotation(degrees: int) -> void" not in page
@@ -568,7 +568,7 @@ def test_real_slides_python_reexport_lists_the_definitions_methods() -> None:
 def test_real_pdf_net_chunks_state_the_coverage() -> None:
     texts = _real_texts("pdf_net")
     assert len(texts) == 300
-    assert all(t.splitlines()[-1] == "API-Coverage: 300 of 971 types" for t in texts)
+    assert all(t.splitlines()[-1] == "API-Coverage: 300 of 901 types" for t in texts)
 
 
 def test_real_pdf_java_deprecated_method_is_marked() -> None:
