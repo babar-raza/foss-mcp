@@ -1,0 +1,246 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_authored_examples_cells_rust.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7m9qsr0w\.junit-0.xml"
+--- stdout ---
+...............................                                          [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_authored_examples_cells_rust.py tests/infra/test_authored_examples_fixtures.py tests/infra/test_furnished_fixtures_valid.py tests/indexing/test_example_candidates.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7m9qsr0w\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 28%]
+........................................................................ [ 57%]
+........................................................................ [ 86%]
+...................................                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_authored_examples_cells_rust.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7m9qsr0w\.junit-0.xml"
+--- stdout ---
+...............................                                          [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_authored_examples_cells_rust.py tests/infra/test_authored_examples_fixtures.py tests/infra/test_furnished_fixtures_valid.py tests/indexing/test_example_candidates.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7m9qsr0w\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 28%]
+........................................................................ [ 57%]
+........................................................................ [ 86%]
+...................................                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/furnished/cells_rust/authored_examples.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_authored_examples_cells_rust.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7m9qsr0w\.junit-0.xml"
+--- stdout ---
+FFF............................                                          [100%]
+================================== FAILURES ===================================
+_____ test_the_sidecar_loads_and_yields_exactly_three_authored_candidates _____
+
+    def test_the_sidecar_loads_and_yields_exactly_three_authored_candidates() -> None:
+>       candidates = _candidates()
+                     ^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_cells_rust.py:100: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_authored_examples_cells_rust.py:82: in _candidates
+    return load_authored_examples(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-7m9qsr0w/tests/fixtures/furnished/cells_rust/authored_examples.yaml')
+pilot = 'cells_rust', library_platform = 'rust'
+library_commit = '1a6004af47b1ef15385f9d36d381a8172428cc7e'
+api_types = [{'bases': ['Debug', 'Clone', 'PartialEq', 'Display'], 'class_import': 'CellsError', 'deprecated': False, 'deprecated_... ['Debug', 'Clone', 'PartialEq'], 'class_import': 'CellValue', 'deprecated': False, 'deprecated_reason': '', ...}, ...]
+
+    def load_authored_examples(
+        path: Path,
+        *,
+        pilot: str,
+        library_platform: str,
+        library_commit: str,
+        api_types: Sequence[Mapping[str, object]],
+    ) -> tuple[CandidateExample, ...]:
+        """Load and validate the sidecar at ``path``; one authored ``CandidateExample`` per example.
+    
+        The candidates are in file order, with ``provenance`` ``"authored"``, ``source`` ``"sidecar"``,
+        ``starts_example`` True, ``imports_only`` False, an empty ``import_prefix``, a ``page_code``
+        holding only their own code and the sidecar's ``code_sha256``. Raises ``AuthoredExamplesError``
+        whose message lists every problem when the file cannot be read or parsed or any rule of
+        ``validate_authored_examples`` fails. The code is never imported, compiled or run here.
+        """
+        try:
+            text = Path(path).read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise AuthoredExamplesError(f"cannot read {SIDECAR_NAME}: {type(exc).__name__}") from exc
+        try:
+            document = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise AuthoredExamplesError(f"{SIDECAR_NAME} is not valid YAML: {type(exc).__name__}") from exc
+    
+        problems = validate_authored_examples(
+            document,
+            pilot=pilot,
+            library_platform=library_platform,
+            library_commit=library_commit,
+            api_types=api_types,
+        )
+        if problems:
+>           raise AuthoredExamplesError("; ".join(problems))
+E           foss_mcp.indexing.authored_examples.AuthoredExamplesError: rule 1 (structure): library_commit must be 40 lowercase hex characters; rule 3 (commit): library_commit is 0, expected '1a6004af47b1ef15385f9d36d381a8172428cc7e'
+
+src\foss_mcp\indexing\authored_examples.py:340: AuthoredExamplesError
+________________ test_the_sidecar_header_matches_the_chart_pin ________________
+
+    def test_the_sidecar_header_matches_the_chart_pin() -> None:
+        library = _pilot_library()
+        document = _document()
+        assert document["schema_version"] == 1
+        assert document["pilot"] == PILOT
+        assert document["library_repository"] == library["repository"]
+>       assert document["library_commit"] == library["commit"]
+E       AssertionError: assert 0 == '1a6004af47b1ef15385f9d36d381a8172428cc7e'
+
+tests\indexing\test_authored_examples_cells_rust.py:112: AssertionError
+_________________ test_the_sidecar_has_no_validation_problems _________________
+
+    def test_the_sidecar_has_no_validation_problems() -> None:
+        library = _pilot_library()
+        problems = validate_authored_examples(
+            _document(),
+            pilot=PILOT,
+            library_platform=library["platform"],
+            library_commit=library["commit"],
+            api_types=_api_types(),
+        )
+>       assert problems == []
+E       assert ['rule 1 (str...8172428cc7e'"] == []
+E         
+E         Left contains 2 more items, first extra item: 'rule 1 (structure): library_commit must be 40 lowercase hex characters'
+E         Use -v to get more diff
+
+tests\indexing\test_authored_examples_cells_rust.py:126: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_authored_examples_cells_rust.py::test_the_sidecar_loads_and_yields_exactly_three_authored_candidates
+FAILED tests/indexing/test_authored_examples_cells_rust.py::test_the_sidecar_header_matches_the_chart_pin
+FAILED tests/indexing/test_authored_examples_cells_rust.py::test_the_sidecar_has_no_validation_problems
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_authored_examples_cells_rust.py tests/infra/test_authored_examples_fixtures.py tests/infra/test_furnished_fixtures_valid.py tests/indexing/test_example_candidates.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7m9qsr0w\.junit-1.xml"
+--- stdout ---
+FFF............................F........................................ [ 28%]
+........................................................................ [ 57%]
+........................................................................ [ 86%]
+...................................                                      [100%]
+================================== FAILURES ===================================
+_____ test_the_sidecar_loads_and_yields_exactly_three_authored_candidates _____
+
+    def test_the_sidecar_loads_and_yields_exactly_three_authored_candidates() -> None:
+>       candidates = _candidates()
+                     ^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_cells_rust.py:100: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_authored_examples_cells_rust.py:82: in _candidates
+    return load_authored_examples(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-7m9qsr0w/tests/fixtures/furnished/cells_rust/authored_examples.yaml')
+pilot = 'cells_rust', library_platform = 'rust'
+library_commit = '1a6004af47b1ef15385f9d36d381a8172428cc7e'
+api_types = [{'bases': ['Debug', 'Clone', 'PartialEq', 'Display'], 'class_import': 'CellsError', 'deprecated': False, 'deprecated_... ['Debug', 'Clone', 'PartialEq'], 'class_import': 'CellValue', 'deprecated': False, 'deprecated_reason': '', ...}, ...]
+
+    def load_authored_examples(
+        path: Path,
+        *,
+        pilot: str,
+        library_platform: str,
+        library_commit: str,
+        api_types: Sequence[Mapping[str, object]],
+    ) -> tuple[CandidateExample, ...]:
+        """Load and validate the sidecar at ``path``; one authored ``CandidateExample`` per example.
+    
+        The candidates are in file order, with ``provenance`` ``"authored"``, ``source`` ``"sidecar"``,
+        ``starts_example`` True, ``imports_only`` False, an empty ``import_prefix``, a ``page_code``
+        holding only their own code and the sidecar's ``code_sha256``. Raises ``AuthoredExamplesError``
+        whose message lists every problem when the file cannot be read or parsed or any rule of
+        ``validate_authored_examples`` fails. The code is never imported, compiled or run here.
+        """
+        try:
+            text = Path(path).read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise AuthoredExamplesError(f"cannot read {SIDECAR_NAME}: {type(exc).__name__}") from exc
+        try:
+            document = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise AuthoredExamplesError(f"{SIDECAR_NAME} is not valid YAML: {type(exc).__name__}") from exc
+    
+        problems = validate_authored_examples(
+            document,
+            pilot=pilot,
+            library_platform=library_platform,
+            library_commit=library_commit,
+            api_types=api_types,
+        )
+        if problems:
+>           raise AuthoredExamplesError("; ".join(problems))
+E           foss_mcp.indexing.authored_examples.AuthoredExamplesError: rule 1 (structure): library_commit must be 40 lowercase hex characters; rule 3 (commit): library_commit is 0, expected '1a6004af47b1ef15385f9d36d381a8172428cc7e'
+
+src\foss_mcp\indexing\authored_examples.py:340: AuthoredExamplesError
+________________ test_the_sidecar_header_matches_the_chart_pin ________________
+
+    def test_the_sidecar_header_matches_the_chart_pin() -> None:
+        library = _pilot_library()
+        document = _document()
+        assert document["schema_version"] == 1
+        assert document["pilot"] == PILOT
+        assert document["library_repository"] == library["repository"]
+>       assert document["library_commit"] == library["commit"]
+E       AssertionError: assert 0 == '1a6004af47b1ef15385f9d36d381a8172428cc7e'
+
+tests\indexing\test_authored_examples_cells_rust.py:112: AssertionError
+_________________ test_the_sidecar_has_no_validation_problems _________________
+
+    def test_the_sidecar_has_no_validation_problems() -> None:
+        library = _pilot_library()
+        problems = validate_authored_examples(
+            _document(),
+            pilot=PILOT,
+            library_platform=library["platform"],
+            library_commit=library["commit"],
+            api_types=_api_types(),
+        )
+>       assert problems == []
+E       assert ['rule 1 (str...8172428cc7e'"] == []
+E         
+E         Left contains 2 more items, first extra item: 'rule 1 (structure): library_commit must be 40 lowercase hex characters'
+E         Use -v to get more diff
+
+tests\indexing\test_authored_examples_cells_rust.py:126: AssertionError
+_____________ test_every_committed_sidecar_is_valid_for_its_pilot _____________
+
+    def test_every_committed_sidecar_is_valid_for_its_pilot() -> None:
+        failures: list[str] = []
+        for path in sorted(FURNISHED.glob(f"*/{SIDECAR_NAME}")):
+            pilot_name = path.parent.name
+            failures += [f"{pilot_name}: {problem}" for problem in sidecar_problems(path, pilot_name)]
+>       assert not failures, "invalid authored-example sidecars:\n" + "\n".join(failures)
+E       AssertionError: invalid authored-example sidecars:
+E         cells_rust: schema: library_commit: 0 is not of type 'string'
+E         cells_rust: rule 1 (structure): library_commit must be 40 lowercase hex characters
+E         cells_rust: rule 3 (commit): library_commit is 0, expected '1a6004af47b1ef15385f9d36d381a8172428cc7e'
+E       assert not ["cells_rust: schema: library_commit: 0 is not of type 'string'", 'cells_rust: rule 1 (structure): library_commit must...x characters', "cells_rust: rule 3 (commit): library_commit is 0, expected '1a6004af47b1ef15385f9d36d381a8172428cc7e'"]
+
+tests\infra\test_authored_examples_fixtures.py:98: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_authored_examples_cells_rust.py::test_the_sidecar_loads_and_yields_exactly_three_authored_candidates
+FAILED tests/indexing/test_authored_examples_cells_rust.py::test_the_sidecar_header_matches_the_chart_pin
+FAILED tests/indexing/test_authored_examples_cells_rust.py::test_the_sidecar_has_no_validation_problems
+FAILED tests/infra/test_authored_examples_fixtures.py::test_every_committed_sidecar_is_valid_for_its_pilot
+
+--- stderr ---
+
