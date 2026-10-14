@@ -198,6 +198,11 @@ COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
 # below.) tests/infra/test_ingestion_image_fixtures.py still fails if a fixture the chart or compose
 # references is covered by no COPY, or lands at the wrong destination.
 COPY tests/fixtures/furnished/ ./fixtures/furnished/
+# REQ-G3-007 (TC-441): the committed per-pilot verification cache (verdicts only, never example
+# code - see infra/build_chunks.py's own module docstring). A pilot with no cache file yet still
+# builds: build_chunks.py treats a missing --verification-cache path as an empty cache. The
+# directory is committed with a .gitkeep so this COPY source always exists.
+COPY tests/fixtures/verified_examples/ ./fixtures/verified_examples/
 
 # REQ-G2-050 (TC-103): the same api_surface.json as pdf/net above, for each of the 5
 # remaining original pilots - TC-098's own worker found that this image only ever COPYed

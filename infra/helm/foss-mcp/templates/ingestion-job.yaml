@@ -103,6 +103,15 @@ spec:
               {{- with $lib.cppCompat }}
               --library-cpp-compat {{ . }}
               {{- end }}
+              {{- /*
+              G3/TC-441: the committed per-pilot verification cache. Read from the image's own
+              baked-in fixtures (so a pilot gets its last-committed verdicts even before any Job
+              has ever run against this chart), merged with this run's own verdicts, and written
+              out to the manifests volume for scripts/release/pull_verification_cache.py to pull
+              back into the repository and commit.
+              */}}
+              --verification-cache /app/fixtures/verified_examples/{{ $p.family }}_{{ $p.platform }}.json
+              --verification-cache-out {{ $.Values.manifests.mountPath }}/{{ printf "verification_cache_%s_%s.json" $p.family $p.platform }}
               {{- end }}
               --out {{ $chunk }}
               &&

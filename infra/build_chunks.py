@@ -51,11 +51,14 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import hashlib
 import json
 import re
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -429,8 +432,228 @@ def _write_verification_report(path: Path, records: list[dict]) -> None:
     path.write_text(json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+# REQ-G3-007 (TC-441): the persistent, committed VERIFICATION CACHE. Every real compile/run verdict
+# a toolchain produces is thrown away today - the ingestion Job builds --out under /tmp (an
+# emptyDir) and every re-ingestion clones, builds and compiles everything again, even a candidate
+# whose code, library commit, verifier platform and toolchain have not changed since it was last
+# verified true. The cache holds VERDICTS ONLY, never example code (the single source of authored
+# example code is TC-460's own sidecar); a cached verdict is reused only when the normalised code
+# hash, the library commit, the verifier platform and the toolchain id all match.
+CACHE_SCHEMA_VERSION = 1
+_CACHE_ENTRY_FIELDS = frozenset(
+    {"provenance", "title", "code_sha256", "library_commit", "platform", "toolchain", "verified", "output"}
+)
+# The last N characters of a verifier's output kept in a cache entry - the FULL output stays in the
+# .verification.json report; the cache is meant to be read by a person skimming a diff, not to
+# reproduce a rejection from scratch.
+_CACHE_OUTPUT_TAIL_CHARS = 2000
+
+# Which real executable(s) each --library-platform's verify function invokes (example_verifier.py):
+# dotnet build -> dotnet; the venv python verify_python_example runs candidates with -> this
+# interpreter (the running one, matching _pick_python_interpreter's own default with no
+# requires-python narrowing it); cargo build -> cargo; go build/mod tidy/vet -> go; javac -> javac;
+# node running the library's own bundled tsc.js -> node (typescript and nodejs alike); g++ -> g++
+# (the cpp consumer-project mode's extra cmake invocation is opt-in per pilot, not probed here).
+_TOOLCHAIN_VERSION_COMMAND: dict[str, tuple[str, ...]] = {
+    "dotnet": ("dotnet", "--version"),
+    "python": (sys.executable, "--version"),
+    "rust": ("cargo", "--version"),
+    "go": ("go", "version"),
+    "java": ("javac", "-version"),
+    "typescript": ("node", "--version"),
+    "nodejs": ("node", "--version"),
+    "cpp": ("g++", "--version"),
+}
+_TOOLCHAIN_PROBE_TIMEOUT_SECONDS = 30
+
+
+def toolchain_id(platform: str) -> str | None:
+    """One string identifying the real toolchain ``--library-platform platform``'s verify function
+    invokes (TC-441): the first line of its executable's version output (``--version``, or the
+    platform's own equivalent, e.g. ``go version``, ``javac -version``). Run with subprocess, a
+    timeout, no shell and no network.
+
+    Returns ``None`` for an unknown platform, a missing executable, a command that fails or times
+    out, or output with no usable line - a run where this returns ``None`` reuses nothing and
+    writes nothing to the cache. Tests monkeypatch this function; it never runs a real toolchain
+    under test.
+    """
+    command = _TOOLCHAIN_VERSION_COMMAND.get(platform)
+    if command is None:
+        return None
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=_TOOLCHAIN_PROBE_TIMEOUT_SECONDS,
+            shell=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    for line in f"{result.stdout}\n{result.stderr}".splitlines():
+        stripped = line.strip()
+        if stripped:
+            return stripped
+    return None
+
+
+def normalised_code_sha256(code: str) -> str:
+    """sha256 (lowercase hex) of ``code`` after normalising incidental whitespace (TC-441), so a
+    CRLF/CR save, a trailing-space edit, or a surrounding blank line never changes a verified
+    verdict's cache key, while a changed statement always does.
+
+    In order: CRLF and CR become LF; trailing whitespace is stripped from every line; leading and
+    trailing blank lines are dropped; then the UTF-8 bytes of what remains are hashed.
+    """
+    text = code.replace("\r\n", "\n").replace("\r", "\n")
+    lines = [line.rstrip() for line in text.split("\n")]
+    while lines and lines[0] == "":
+        lines.pop(0)
+    while lines and lines[-1] == "":
+        lines.pop()
+    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
+
+
+def verification_cache_key(
+    candidate: Any, library_commit: str, platform: str, toolchain: str
+) -> tuple[str, str, str, str, str]:
+    """The lookup/write key for one candidate's verification verdict (TC-441): ``(provenance,
+    code_sha256, library_commit, platform, toolchain)``. Title plays no part in matching, only in
+    the record kept for history.
+
+    ``provenance`` is ``getattr(candidate, "provenance", "readme")``, so a candidate predating
+    TC-460's own field (or a test-local frozen-dataclass stand-in without it) keys as ``"readme"``:
+    an authored candidate's verdict is never mistaken for a README candidate's, even with
+    identical code, and the reverse.
+    """
+    provenance = getattr(candidate, "provenance", "readme")
+    return (provenance, normalised_code_sha256(candidate.code), library_commit, platform, toolchain)
+
+
+def _cache_entry_key(entry: dict) -> tuple[str, str, str, str, str]:
+    """The same 5-field key as ``verification_cache_key``, read back from a written cache entry."""
+    return (
+        entry["provenance"],
+        entry["code_sha256"],
+        entry["library_commit"],
+        entry["platform"],
+        entry["toolchain"],
+    )
+
+
+def parse_verification_cache(text: str) -> list[dict]:
+    """Parse a verification cache document's TEXT into its ``entries`` list (TC-441).
+
+    Raises ``ValueError``, with a one-line message naming what is wrong (never a traceback), for
+    anything that is not exactly ``{"schema_version": 1, "entries": [...]}`` with every entry
+    carrying exactly the eight documented fields - an ``"authored"`` key, any other extra top-level
+    key, or a wrong ``schema_version``, included.
+    """
+    try:
+        data = json.loads(text)
+    except ValueError as exc:
+        raise ValueError(f"not valid JSON ({exc})") from exc
+    if not isinstance(data, dict) or set(data) != {"schema_version", "entries"}:
+        raise ValueError("must have exactly the top-level keys schema_version and entries")
+    if data.get("schema_version") != CACHE_SCHEMA_VERSION:
+        raise ValueError(f"schema_version is {data.get('schema_version')!r}, expected {CACHE_SCHEMA_VERSION}")
+    entries = data["entries"]
+    if not isinstance(entries, list):
+        raise ValueError("entries is not a list")
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) != _CACHE_ENTRY_FIELDS:
+            raise ValueError("an entry does not have exactly the eight documented fields")
+    return entries
+
+
+def load_verification_cache(path: Path) -> list[dict]:
+    """The ``entries`` of the verification cache at ``path`` (TC-441); ``[]`` (with one printed
+    line) when ``path`` does not exist. Raises ``ValueError``, with a one-line message naming
+    ``path``, for anything malformed - ``main()`` turns that into exit code 2.
+    """
+    if not path.exists():
+        print(f"verification cache: no file at {path}; starting with an empty cache")
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError(f"verification cache {path} could not be read: {exc}") from exc
+    try:
+        return parse_verification_cache(text)
+    except ValueError as exc:
+        raise ValueError(f"verification cache {path} is malformed: {exc}") from exc
+
+
+def merge_verification_cache(existing: list[dict], new: list[dict]) -> list[dict]:
+    """Merge ``new`` onto ``existing`` (TC-441): every entry of ``existing`` is kept (other commits
+    and toolchains included, so history is never lost), and ``new``'s verdict replaces any entry
+    with the identical ``(provenance, code_sha256, library_commit, platform, toolchain)`` key.
+
+    Returned sorted by ``(provenance, title, code_sha256, library_commit, platform, toolchain)`` -
+    the cache's own committed, deterministic order, so an unchanged run writes identical bytes.
+    """
+    merged: dict[tuple[str, str, str, str, str], dict] = {
+        _cache_entry_key(entry): entry for entry in existing
+    }
+    for entry in new:
+        merged[_cache_entry_key(entry)] = entry
+    return sorted(
+        merged.values(),
+        key=lambda e: (
+            e["provenance"],
+            e["title"],
+            e["code_sha256"],
+            e["library_commit"],
+            e["platform"],
+            e["toolchain"],
+        ),
+    )
+
+
+def verification_cache_document(entries: list[dict]) -> str:
+    """The exact committed text of a verification cache holding ``entries`` (TC-441): UTF-8 JSON,
+    ``schema_version`` 1, ``sort_keys=True``, ``ensure_ascii=False``, one trailing newline.
+    """
+    return (
+        json.dumps(
+            {"schema_version": CACHE_SCHEMA_VERSION, "entries": entries},
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+        )
+        + "\n"
+    )
+
+
+def write_verification_cache_if_changed(path: Path, entries: list[dict]) -> bool:
+    """Write ``entries`` to ``path`` as a verification cache, atomically (a sibling ``.tmp`` file
+    then renamed over ``path``), creating parent directories as needed, only when the resulting
+    bytes differ from what is already there (TC-441). Returns ``True`` iff ``path``'s content
+    changed, so a caller can print ``written``/``unchanged``.
+    """
+    payload = verification_cache_document(entries)
+    if path.exists():
+        try:
+            if path.read_text(encoding="utf-8") == payload:
+                return False
+        except OSError:
+            pass
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(path.name + ".tmp")
+    tmp_path.write_text(payload, encoding="utf-8")
+    tmp_path.replace(path)
+    return True
+
+
 def _build_verified_example_chunks(
-    args: argparse.Namespace, verification_records: list[dict] | None = None
+    args: argparse.Namespace,
+    verification_records: list[dict] | None = None,
+    verification_cache: dict[tuple[str, str, str, str, str], dict] | None = None,
+    toolchain: str | None = None,
+    new_cache_entries: list[dict] | None = None,
 ) -> list[Chunk]:
     """Extract, really compile-verify, and chunk every candidate example from
     ``--furnished-page`` - an unverified candidate is silently excluded, never published,
@@ -450,70 +673,142 @@ def _build_verified_example_chunks(
     TC-379: when the platform's ``prepare`` raises a ``RuntimeError`` that is not an
     ``ExampleEnvironmentError``, one record of ``kind`` ``library_unavailable`` (``index`` -1, the
     full message as ``output``) is appended instead and an empty list is returned.
+
+    TC-441 (REQ-G3-007): when ``verification_cache`` is given (not ``None``, possibly empty), a
+    candidate is a cache HIT only when it has a ``verified: true`` entry with the identical
+    ``verification_cache_key``; a hit is not verified again, and its record (and the published
+    chunk, byte-identical either way) comes from the cache. A platform with
+    ``shared_page_workdir`` True reuses the whole page only when EVERY candidate is a hit -
+    otherwise every candidate on that page is verified for real and none is marked cached. The
+    platform's ``prepare`` runs only when at least one candidate on the page must really be
+    verified, so a fully cached page publishes with no network at all. Every real (non-cached)
+    verdict is appended to ``new_cache_entries`` (when given) for the caller to merge and write
+    out; a ``library_unavailable`` record or an environment failure is never written as an entry.
     """
     page = _load_furnished_page(args.furnished_page)
     candidates = extract_candidate_examples(page)
 
     platform_dispatch = _PLATFORM_DISPATCH[args.library_platform]
+    platform = args.library_platform
+    library_commit = args.library_commit
 
-    library_workdir = Path(tempfile.mkdtemp(prefix="build_chunks_library_"))
-    try:
-        prepared_library = platform_dispatch["prepare"](args, library_workdir)
-    except ExampleEnvironmentError:
-        # An environment failure stays fatal: main() ends the build with ENVIRONMENT_FAILURE_EXIT.
-        raise
-    except RuntimeError as exc:
-        # TC-379 (REQ-G3-005): a reference library that cannot be built is a reason to publish no
-        # verified examples, not a reason to publish no documentation. Only the platform's prepare
-        # call is covered; the caller still adds the documentation chunks and writes the output.
-        message = str(exc)
-        print(
-            f"reference library unavailable: {message[:600]}; "
-            "publishing documentation without verified examples",
-            file=sys.stderr,
-        )
-        if verification_records is not None:
-            verification_records.append(
-                {
-                    "title": "(reference library preparation)",
-                    "platform": args.library_platform,
-                    "verified": False,
-                    "output": message,
-                    "index": -1,
-                    "kind": "library_unavailable",
-                }
+    cache_active = verification_cache is not None
+    if cache_active:
+        # Both are guaranteed together by the caller (main()): a non-None verification_cache is
+        # passed only alongside a toolchain_id that itself returned non-None.
+        assert verification_cache is not None
+        assert toolchain is not None
+        cache = verification_cache
+        resolved_toolchain = toolchain
+
+        def _cache_hit(candidate: Any) -> dict | None:
+            key = verification_cache_key(candidate, library_commit, platform, resolved_toolchain)
+            entry = cache.get(key)
+            return entry if entry is not None and entry.get("verified") is True else None
+
+        hit_entries = [_cache_hit(candidate) for candidate in candidates]
+        if platform_dispatch["shared_page_workdir"] and not (
+            candidates and all(hit is not None for hit in hit_entries)
+        ):
+            # TC-441: a shared-workdir page (python) is reused only as a whole; a partial hit
+            # re-verifies every candidate for real, in document order, and marks none cached.
+            hit_entries = [None] * len(candidates)
+    else:
+        hit_entries = [None] * len(candidates)
+
+    needs_real_verification = any(hit is None for hit in hit_entries)
+
+    prepared_library = None
+    verify_kwargs: dict = {}
+    if needs_real_verification:
+        library_workdir = Path(tempfile.mkdtemp(prefix="build_chunks_library_"))
+        try:
+            prepared_library = platform_dispatch["prepare"](args, library_workdir)
+        except ExampleEnvironmentError:
+            # An environment failure stays fatal: main() ends the build with ENVIRONMENT_FAILURE_EXIT.
+            raise
+        except RuntimeError as exc:
+            # TC-379 (REQ-G3-005): a reference library that cannot be built is a reason to publish no
+            # verified examples, not a reason to publish no documentation. Only the platform's prepare
+            # call is covered; the caller still adds the documentation chunks and writes the output.
+            message = str(exc)
+            print(
+                f"reference library unavailable: {message[:600]}; "
+                "publishing documentation without verified examples",
+                file=sys.stderr,
             )
-        return []
-    verify_kwargs = platform_dispatch["verify_kwargs"](prepared_library, args)
+            if verification_records is not None:
+                verification_records.append(
+                    {
+                        "title": "(reference library preparation)",
+                        "platform": platform,
+                        "verified": False,
+                        "output": message,
+                        "index": -1,
+                        "kind": "library_unavailable",
+                    }
+                )
+            return []
+        verify_kwargs = platform_dispatch["verify_kwargs"](prepared_library, args)
     verify = platform_dispatch["verify"]
 
     # TC-190: a platform whose candidates are sequential tutorials shares one candidate workdir
     # across every candidate of the page (created once, before the loop, in document order).
     # Every other platform gets a fresh, isolated workdir per candidate, as before.
     shared_candidate_workdir: Path | None = None
-    if platform_dispatch["shared_page_workdir"]:
+    if platform_dispatch["shared_page_workdir"] and needs_real_verification:
         shared_candidate_workdir = Path(tempfile.mkdtemp(prefix="build_chunks_page_"))
 
     verified_chunks: list[Chunk] = []
     verified_count = 0
+    cached_count = 0
     for index, candidate in enumerate(candidates):
-        if shared_candidate_workdir is not None:
-            candidate_workdir = shared_candidate_workdir
+        hit_entry = hit_entries[index]
+        if hit_entry is not None:
+            verified = True
+            output = hit_entry.get("output", "")
+            cached = True
+            cached_count += 1
         else:
-            candidate_workdir = Path(tempfile.mkdtemp(prefix="build_chunks_candidate_"))
-        verification_result = verify(candidate, workdir=candidate_workdir, **verify_kwargs)
+            if shared_candidate_workdir is not None:
+                candidate_workdir = shared_candidate_workdir
+            else:
+                candidate_workdir = Path(tempfile.mkdtemp(prefix="build_chunks_candidate_"))
+            verification_result = verify(candidate, workdir=candidate_workdir, **verify_kwargs)
+            verified = verification_result.verified
+            output = verification_result.output
+            cached = False
+
         if verification_records is not None:
-            verification_records.append(
+            record = {
+                "title": candidate.title,
+                "platform": platform,
+                "verified": verified,
+                "output": output,
+                "index": index,
+                "kind": "candidate",
+            }
+            if cache_active:
+                record["cached"] = cached
+                record["code_sha256"] = normalised_code_sha256(candidate.code)
+                record["toolchain"] = toolchain
+            verification_records.append(record)
+
+        if cache_active and new_cache_entries is not None and not cached:
+            new_cache_entries.append(
                 {
+                    "provenance": getattr(candidate, "provenance", "readme"),
                     "title": candidate.title,
-                    "platform": args.library_platform,
-                    "verified": verification_result.verified,
-                    "output": verification_result.output,
-                    "index": index,
-                    "kind": "candidate",
+                    "code_sha256": normalised_code_sha256(candidate.code),
+                    "library_commit": library_commit,
+                    "platform": platform,
+                    "toolchain": toolchain,
+                    "verified": verified,
+                    "output": output[-_CACHE_OUTPUT_TAIL_CHARS:],
                 }
             )
-        if verification_result.verified:
+
+        if verified:
             verified_count += 1
             doc = make_document(
                 source_kind=SourceKind.FURNISHED,
@@ -535,7 +830,8 @@ def _build_verified_example_chunks(
             )
             verified_chunks.extend(chunk_document(doc))
 
-    print(f"verified {verified_count}/{len(candidates)} candidate examples")
+    cache_suffix = f" ({cached_count} from cache)" if cache_active else ""
+    print(f"verified {verified_count}/{len(candidates)} candidate examples{cache_suffix}")
     return verified_chunks
 
 
@@ -740,6 +1036,27 @@ def main() -> None:
         help="where to write every candidate's verification result (verified or not, output in full) "
         "as a JSON array; defaults to --out with the suffix .verification.json (REQ-G2-048, TC-191)",
     )
+    parser.add_argument(
+        "--verification-cache",
+        type=Path,
+        default=None,
+        help="a committed per-pilot verification cache (REQ-G3-007, TC-441) to reuse a matching "
+        "verified: true verdict from, keyed by code hash, library commit, platform and toolchain; "
+        "a missing file is an empty cache",
+    )
+    parser.add_argument(
+        "--no-verification-cache",
+        action="store_true",
+        help="ignore every recorded verdict in --verification-cache: every candidate is really "
+        "verified (TC-441)",
+    )
+    parser.add_argument(
+        "--verification-cache-out",
+        type=Path,
+        default=None,
+        help="write the verification cache merged with this run's own verdicts here (TC-441); "
+        "written atomically and only when its bytes change",
+    )
     args = parser.parse_args()
 
     if args.library_cpp_target is None and (
@@ -782,11 +1099,49 @@ def main() -> None:
         # is a real, deliberately-accepted duplicate parse, not an oversight.
         page = _load_furnished_page(args.furnished_page)
         report_path = args.verification_report or args.out.with_suffix(".verification.json")
+
+        # REQ-G3-007 (TC-441): both cache flags are optional and inert when absent - with neither
+        # given, everything below is skipped and behaviour is byte-identical to before this cache
+        # existed.
+        cache_enabled = args.verification_cache is not None or args.verification_cache_out is not None
+        existing_cache_entries: list[dict] = []
+        cache_lookup: dict[tuple[str, str, str, str, str], dict] | None = None
+        toolchain: str | None = None
+        new_cache_entries: list[dict] = []
+        if cache_enabled:
+            if args.verification_cache is not None:
+                try:
+                    existing_cache_entries = load_verification_cache(args.verification_cache)
+                except ValueError as exc:
+                    print(str(exc), file=sys.stderr)
+                    sys.exit(2)
+            toolchain = toolchain_id(args.library_platform)
+            if toolchain is None:
+                print(
+                    f"verification cache: no {args.library_platform} toolchain detected; "
+                    "nothing will be reused or recorded this run",
+                    file=sys.stderr,
+                )
+            else:
+                cache_lookup = {}
+                if not args.no_verification_cache:
+                    cache_lookup = {
+                        _cache_entry_key(entry): entry
+                        for entry in existing_cache_entries
+                        if entry.get("verified") is True
+                    }
+
         try:
             try:
                 chunks = (
                     chunks
-                    + _build_verified_example_chunks(args, verification_records)
+                    + _build_verified_example_chunks(
+                        args,
+                        verification_records,
+                        verification_cache=cache_lookup,
+                        toolchain=toolchain,
+                        new_cache_entries=new_cache_entries,
+                    )
                     + _build_doc_chunks(page, args)
                 )
             except ExampleEnvironmentError as exc:
@@ -803,6 +1158,12 @@ def main() -> None:
             # TC-191: the report is written on every exit from this block (success, environment
             # failure, or any other error), so the verdicts already reached are never lost.
             _write_verification_report(report_path, verification_records)
+            # TC-441: likewise, the merged cache is written on every exit, so a run that ends with
+            # an environment failure or a configuration error never loses a verdict a previous run
+            # already recorded.
+            if cache_enabled and args.verification_cache_out is not None:
+                merged_cache = merge_verification_cache(existing_cache_entries, new_cache_entries)
+                write_verification_cache_if_changed(args.verification_cache_out, merged_cache)
 
     # TC-385: sanitise first, so the Source-Commit line is always the last line and is never cut.
     chunks = [
