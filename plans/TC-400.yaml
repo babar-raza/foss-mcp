@@ -41,6 +41,7 @@ write_paths:
 - tests/extraction/test_pdf_net_extraction.py
 - tests/extraction/test_slides_net_extraction.py
 - tests/extraction/test_central_classes_dotnet.py
+- tests/indexing/test_chunk_builder_honesty.py
 satisfies:
 - REQ-G3-005
 source_refs:
@@ -78,6 +79,14 @@ inputs:
   changed line with its reason in your report. If any test OUTSIDE write_paths fails because it pins a fact of an old fixture (for
   example tests/mcp/tools/test_retrieval_tools.py or tests/indexing/test_chunk_builder.py reading pdf_net, pdf_go, pdf_typescript
   or cells_rust), stop and report the test and the fact; do not edit it.
+- >-
+  TWO OLD ASSERTIONS THAT PIN THE PRE-FIX FIXTURE (found by the worker, now in your write_paths):
+  tests/indexing/test_chunk_builder_honesty.py::test_real_pdf_net_has_no_invented_void_and_keeps_the_genuine_ones (line ~475) hard-codes
+  `assert expected_void == 3`; the re-extracted pdf_net fixture now correctly populates return_type for void-returning C# methods (TC-396),
+  giving 1034 real void methods, not 3 invented ones. Change ONLY that literal to 1034, keeping the test's intent (no INVENTED void, only
+  genuine ones). ::test_real_pdf_net_chunks_state_the_coverage (line ~571) hard-codes the string `API-Coverage: 300 of 971 types`; the
+  re-extracted fixture's real upstream type_count is 901 (TC-392's test-file exclusion and other fixes changed the real count). Change
+  ONLY that literal string to `API-Coverage: 300 of 901 types`. Never delete or skip a test; change no other assertion in the file.
 - >-
   Run `{python} -m pytest tests/extraction/test_central_classes_dotnet.py -q -rfE`, then once the second check command below. Write commit messages as UTF-8 without a
   byte-order mark.
