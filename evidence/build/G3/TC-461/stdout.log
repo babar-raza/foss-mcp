@@ -1,0 +1,566 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_authored_examples_imaging_net.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pad5oe04\.junit-0.xml"
+--- stdout ---
+..........................                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_authored_examples_imaging_net.py tests/infra/test_authored_examples_fixtures.py tests/infra/test_furnished_fixtures_valid.py tests/indexing/test_example_candidates.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pad5oe04\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 29%]
+........................................................................ [ 58%]
+........................................................................ [ 87%]
+..............................                                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_authored_examples_imaging_net.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pad5oe04\.junit-0.xml"
+--- stdout ---
+..........................                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_authored_examples_imaging_net.py tests/infra/test_authored_examples_fixtures.py tests/infra/test_furnished_fixtures_valid.py tests/indexing/test_example_candidates.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pad5oe04\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 29%]
+........................................................................ [ 58%]
+........................................................................ [ 87%]
+..............................                                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/furnished/imaging_net/authored_examples.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_authored_examples_imaging_net.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pad5oe04\.junit-0.xml"
+--- stdout ---
+FFFFF.....................                                               [100%]
+================================== FAILURES ===================================
+_____ test_the_sidecar_loads_and_yields_exactly_three_authored_candidates _____
+
+    def test_the_sidecar_loads_and_yields_exactly_three_authored_candidates() -> None:
+>       candidates = _load()
+                     ^^^^^^^
+
+tests\indexing\test_authored_examples_imaging_net.py:99: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_authored_examples_imaging_net.py:70: in _load
+    return load_authored_examples(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-pad5oe04/tests/fixtures/furnished/imaging_net/authored_examples.yaml')
+pilot = 'imaging_net', library_platform = 'dotnet'
+library_commit = 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+api_types = [{'bases': [], 'canonical_namespace': 'Aspose.Imaging.Foss', 'class_import': 'Aspose.Imaging.Foss.ImageFormat', 'depre...nonical_namespace': 'Aspose.Imaging.Foss', 'class_import': 'Aspose.Imaging.Foss.ImageProbe', 'deprecated': False, ...}]
+
+    def load_authored_examples(
+        path: Path,
+        *,
+        pilot: str,
+        library_platform: str,
+        library_commit: str,
+        api_types: Sequence[Mapping[str, object]],
+    ) -> tuple[CandidateExample, ...]:
+        """Load and validate the sidecar at ``path``; one authored ``CandidateExample`` per example.
+    
+        The candidates are in file order, with ``provenance`` ``"authored"``, ``source`` ``"sidecar"``,
+        ``starts_example`` True, ``imports_only`` False, an empty ``import_prefix``, a ``page_code``
+        holding only their own code and the sidecar's ``code_sha256``. Raises ``AuthoredExamplesError``
+        whose message lists every problem when the file cannot be read or parsed or any rule of
+        ``validate_authored_examples`` fails. The code is never imported, compiled or run here.
+        """
+        try:
+            text = Path(path).read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise AuthoredExamplesError(f"cannot read {SIDECAR_NAME}: {type(exc).__name__}") from exc
+        try:
+            document = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise AuthoredExamplesError(f"{SIDECAR_NAME} is not valid YAML: {type(exc).__name__}") from exc
+    
+        problems = validate_authored_examples(
+            document,
+            pilot=pilot,
+            library_platform=library_platform,
+            library_commit=library_commit,
+            api_types=api_types,
+        )
+        if problems:
+>           raise AuthoredExamplesError("; ".join(problems))
+E           foss_mcp.indexing.authored_examples.AuthoredExamplesError: rule 1 (structure): library_commit must be 40 lowercase hex characters; rule 3 (commit): library_commit is 0, expected 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+
+src\foss_mcp\indexing\authored_examples.py:340: AuthoredExamplesError
+____________ test_the_sidecar_is_tied_to_the_charts_pinned_library ____________
+
+    def test_the_sidecar_is_tied_to_the_charts_pinned_library() -> None:
+        document = _document()
+        library = _pilot()["library"]
+        assert document["pilot"] == PILOT
+        assert document["library_repository"] == library["repository"]
+>       assert document["library_commit"] == library["commit"]
+E       AssertionError: assert 0 == 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+
+tests\indexing\test_authored_examples_imaging_net.py:111: AssertionError
+________________________ test_the_code_hash_matches[0] ________________________
+
+index = 0
+
+    @pytest.mark.parametrize("index", INDEXES)
+    def test_the_code_hash_matches(index: int) -> None:
+        example = _document()["examples"][index]
+        assert example["code_sha256"] == normalised_code_sha256(example["code"])
+>       assert _load()[index].code_sha256 == example["code_sha256"]
+               ^^^^^^^
+
+tests\indexing\test_authored_examples_imaging_net.py:121: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_authored_examples_imaging_net.py:70: in _load
+    return load_authored_examples(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-pad5oe04/tests/fixtures/furnished/imaging_net/authored_examples.yaml')
+pilot = 'imaging_net', library_platform = 'dotnet'
+library_commit = 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+api_types = [{'bases': [], 'canonical_namespace': 'Aspose.Imaging.Foss', 'class_import': 'Aspose.Imaging.Foss.ImageFormat', 'depre...nonical_namespace': 'Aspose.Imaging.Foss', 'class_import': 'Aspose.Imaging.Foss.ImageProbe', 'deprecated': False, ...}]
+
+    def load_authored_examples(
+        path: Path,
+        *,
+        pilot: str,
+        library_platform: str,
+        library_commit: str,
+        api_types: Sequence[Mapping[str, object]],
+    ) -> tuple[CandidateExample, ...]:
+        """Load and validate the sidecar at ``path``; one authored ``CandidateExample`` per example.
+    
+        The candidates are in file order, with ``provenance`` ``"authored"``, ``source`` ``"sidecar"``,
+        ``starts_example`` True, ``imports_only`` False, an empty ``import_prefix``, a ``page_code``
+        holding only their own code and the sidecar's ``code_sha256``. Raises ``AuthoredExamplesError``
+        whose message lists every problem when the file cannot be read or parsed or any rule of
+        ``validate_authored_examples`` fails. The code is never imported, compiled or run here.
+        """
+        try:
+            text = Path(path).read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise AuthoredExamplesError(f"cannot read {SIDECAR_NAME}: {type(exc).__name__}") from exc
+        try:
+            document = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise AuthoredExamplesError(f"{SIDECAR_NAME} is not valid YAML: {type(exc).__name__}") from exc
+    
+        problems = validate_authored_examples(
+            document,
+            pilot=pilot,
+            library_platform=library_platform,
+            library_commit=library_commit,
+            api_types=api_types,
+        )
+        if problems:
+>           raise AuthoredExamplesError("; ".join(problems))
+E           foss_mcp.indexing.authored_examples.AuthoredExamplesError: rule 1 (structure): library_commit must be 40 lowercase hex characters; rule 3 (commit): library_commit is 0, expected 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+
+src\foss_mcp\indexing\authored_examples.py:340: AuthoredExamplesError
+________________________ test_the_code_hash_matches[1] ________________________
+
+index = 1
+
+    @pytest.mark.parametrize("index", INDEXES)
+    def test_the_code_hash_matches(index: int) -> None:
+        example = _document()["examples"][index]
+        assert example["code_sha256"] == normalised_code_sha256(example["code"])
+>       assert _load()[index].code_sha256 == example["code_sha256"]
+               ^^^^^^^
+
+tests\indexing\test_authored_examples_imaging_net.py:121: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_authored_examples_imaging_net.py:70: in _load
+    return load_authored_examples(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-pad5oe04/tests/fixtures/furnished/imaging_net/authored_examples.yaml')
+pilot = 'imaging_net', library_platform = 'dotnet'
+library_commit = 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+api_types = [{'bases': [], 'canonical_namespace': 'Aspose.Imaging.Foss', 'class_import': 'Aspose.Imaging.Foss.ImageFormat', 'depre...nonical_namespace': 'Aspose.Imaging.Foss', 'class_import': 'Aspose.Imaging.Foss.ImageProbe', 'deprecated': False, ...}]
+
+    def load_authored_examples(
+        path: Path,
+        *,
+        pilot: str,
+        library_platform: str,
+        library_commit: str,
+        api_types: Sequence[Mapping[str, object]],
+    ) -> tuple[CandidateExample, ...]:
+        """Load and validate the sidecar at ``path``; one authored ``CandidateExample`` per example.
+    
+        The candidates are in file order, with ``provenance`` ``"authored"``, ``source`` ``"sidecar"``,
+        ``starts_example`` True, ``imports_only`` False, an empty ``import_prefix``, a ``page_code``
+        holding only their own code and the sidecar's ``code_sha256``. Raises ``AuthoredExamplesError``
+        whose message lists every problem when the file cannot be read or parsed or any rule of
+        ``validate_authored_examples`` fails. The code is never imported, compiled or run here.
+        """
+        try:
+            text = Path(path).read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise AuthoredExamplesError(f"cannot read {SIDECAR_NAME}: {type(exc).__name__}") from exc
+        try:
+            document = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise AuthoredExamplesError(f"{SIDECAR_NAME} is not valid YAML: {type(exc).__name__}") from exc
+    
+        problems = validate_authored_examples(
+            document,
+            pilot=pilot,
+            library_platform=library_platform,
+            library_commit=library_commit,
+            api_types=api_types,
+        )
+        if problems:
+>           raise AuthoredExamplesError("; ".join(problems))
+E           foss_mcp.indexing.authored_examples.AuthoredExamplesError: rule 1 (structure): library_commit must be 40 lowercase hex characters; rule 3 (commit): library_commit is 0, expected 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+
+src\foss_mcp\indexing\authored_examples.py:340: AuthoredExamplesError
+________________________ test_the_code_hash_matches[2] ________________________
+
+index = 2
+
+    @pytest.mark.parametrize("index", INDEXES)
+    def test_the_code_hash_matches(index: int) -> None:
+        example = _document()["examples"][index]
+        assert example["code_sha256"] == normalised_code_sha256(example["code"])
+>       assert _load()[index].code_sha256 == example["code_sha256"]
+               ^^^^^^^
+
+tests\indexing\test_authored_examples_imaging_net.py:121: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_authored_examples_imaging_net.py:70: in _load
+    return load_authored_examples(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-pad5oe04/tests/fixtures/furnished/imaging_net/authored_examples.yaml')
+pilot = 'imaging_net', library_platform = 'dotnet'
+library_commit = 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+api_types = [{'bases': [], 'canonical_namespace': 'Aspose.Imaging.Foss', 'class_import': 'Aspose.Imaging.Foss.ImageFormat', 'depre...nonical_namespace': 'Aspose.Imaging.Foss', 'class_import': 'Aspose.Imaging.Foss.ImageProbe', 'deprecated': False, ...}]
+
+    def load_authored_examples(
+        path: Path,
+        *,
+        pilot: str,
+        library_platform: str,
+        library_commit: str,
+        api_types: Sequence[Mapping[str, object]],
+    ) -> tuple[CandidateExample, ...]:
+        """Load and validate the sidecar at ``path``; one authored ``CandidateExample`` per example.
+    
+        The candidates are in file order, with ``provenance`` ``"authored"``, ``source`` ``"sidecar"``,
+        ``starts_example`` True, ``imports_only`` False, an empty ``import_prefix``, a ``page_code``
+        holding only their own code and the sidecar's ``code_sha256``. Raises ``AuthoredExamplesError``
+        whose message lists every problem when the file cannot be read or parsed or any rule of
+        ``validate_authored_examples`` fails. The code is never imported, compiled or run here.
+        """
+        try:
+            text = Path(path).read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise AuthoredExamplesError(f"cannot read {SIDECAR_NAME}: {type(exc).__name__}") from exc
+        try:
+            document = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise AuthoredExamplesError(f"{SIDECAR_NAME} is not valid YAML: {type(exc).__name__}") from exc
+    
+        problems = validate_authored_examples(
+            document,
+            pilot=pilot,
+            library_platform=library_platform,
+            library_commit=library_commit,
+            api_types=api_types,
+        )
+        if problems:
+>           raise AuthoredExamplesError("; ".join(problems))
+E           foss_mcp.indexing.authored_examples.AuthoredExamplesError: rule 1 (structure): library_commit must be 40 lowercase hex characters; rule 3 (commit): library_commit is 0, expected 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+
+src\foss_mcp\indexing\authored_examples.py:340: AuthoredExamplesError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_authored_examples_imaging_net.py::test_the_sidecar_loads_and_yields_exactly_three_authored_candidates
+FAILED tests/indexing/test_authored_examples_imaging_net.py::test_the_sidecar_is_tied_to_the_charts_pinned_library
+FAILED tests/indexing/test_authored_examples_imaging_net.py::test_the_code_hash_matches[0]
+FAILED tests/indexing/test_authored_examples_imaging_net.py::test_the_code_hash_matches[1]
+FAILED tests/indexing/test_authored_examples_imaging_net.py::test_the_code_hash_matches[2]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_authored_examples_imaging_net.py tests/infra/test_authored_examples_fixtures.py tests/infra/test_furnished_fixtures_valid.py tests/indexing/test_example_candidates.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pad5oe04\.junit-1.xml"
+--- stdout ---
+FFFFF.....................F............................................. [ 29%]
+........................................................................ [ 58%]
+........................................................................ [ 87%]
+..............................                                           [100%]
+================================== FAILURES ===================================
+_____ test_the_sidecar_loads_and_yields_exactly_three_authored_candidates _____
+
+    def test_the_sidecar_loads_and_yields_exactly_three_authored_candidates() -> None:
+>       candidates = _load()
+                     ^^^^^^^
+
+tests\indexing\test_authored_examples_imaging_net.py:99: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_authored_examples_imaging_net.py:70: in _load
+    return load_authored_examples(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-pad5oe04/tests/fixtures/furnished/imaging_net/authored_examples.yaml')
+pilot = 'imaging_net', library_platform = 'dotnet'
+library_commit = 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+api_types = [{'bases': [], 'canonical_namespace': 'Aspose.Imaging.Foss', 'class_import': 'Aspose.Imaging.Foss.ImageFormat', 'depre...nonical_namespace': 'Aspose.Imaging.Foss', 'class_import': 'Aspose.Imaging.Foss.ImageProbe', 'deprecated': False, ...}]
+
+    def load_authored_examples(
+        path: Path,
+        *,
+        pilot: str,
+        library_platform: str,
+        library_commit: str,
+        api_types: Sequence[Mapping[str, object]],
+    ) -> tuple[CandidateExample, ...]:
+        """Load and validate the sidecar at ``path``; one authored ``CandidateExample`` per example.
+    
+        The candidates are in file order, with ``provenance`` ``"authored"``, ``source`` ``"sidecar"``,
+        ``starts_example`` True, ``imports_only`` False, an empty ``import_prefix``, a ``page_code``
+        holding only their own code and the sidecar's ``code_sha256``. Raises ``AuthoredExamplesError``
+        whose message lists every problem when the file cannot be read or parsed or any rule of
+        ``validate_authored_examples`` fails. The code is never imported, compiled or run here.
+        """
+        try:
+            text = Path(path).read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise AuthoredExamplesError(f"cannot read {SIDECAR_NAME}: {type(exc).__name__}") from exc
+        try:
+            document = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise AuthoredExamplesError(f"{SIDECAR_NAME} is not valid YAML: {type(exc).__name__}") from exc
+    
+        problems = validate_authored_examples(
+            document,
+            pilot=pilot,
+            library_platform=library_platform,
+            library_commit=library_commit,
+            api_types=api_types,
+        )
+        if problems:
+>           raise AuthoredExamplesError("; ".join(problems))
+E           foss_mcp.indexing.authored_examples.AuthoredExamplesError: rule 1 (structure): library_commit must be 40 lowercase hex characters; rule 3 (commit): library_commit is 0, expected 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+
+src\foss_mcp\indexing\authored_examples.py:340: AuthoredExamplesError
+____________ test_the_sidecar_is_tied_to_the_charts_pinned_library ____________
+
+    def test_the_sidecar_is_tied_to_the_charts_pinned_library() -> None:
+        document = _document()
+        library = _pilot()["library"]
+        assert document["pilot"] == PILOT
+        assert document["library_repository"] == library["repository"]
+>       assert document["library_commit"] == library["commit"]
+E       AssertionError: assert 0 == 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+
+tests\indexing\test_authored_examples_imaging_net.py:111: AssertionError
+________________________ test_the_code_hash_matches[0] ________________________
+
+index = 0
+
+    @pytest.mark.parametrize("index", INDEXES)
+    def test_the_code_hash_matches(index: int) -> None:
+        example = _document()["examples"][index]
+        assert example["code_sha256"] == normalised_code_sha256(example["code"])
+>       assert _load()[index].code_sha256 == example["code_sha256"]
+               ^^^^^^^
+
+tests\indexing\test_authored_examples_imaging_net.py:121: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_authored_examples_imaging_net.py:70: in _load
+    return load_authored_examples(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-pad5oe04/tests/fixtures/furnished/imaging_net/authored_examples.yaml')
+pilot = 'imaging_net', library_platform = 'dotnet'
+library_commit = 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+api_types = [{'bases': [], 'canonical_namespace': 'Aspose.Imaging.Foss', 'class_import': 'Aspose.Imaging.Foss.ImageFormat', 'depre...nonical_namespace': 'Aspose.Imaging.Foss', 'class_import': 'Aspose.Imaging.Foss.ImageProbe', 'deprecated': False, ...}]
+
+    def load_authored_examples(
+        path: Path,
+        *,
+        pilot: str,
+        library_platform: str,
+        library_commit: str,
+        api_types: Sequence[Mapping[str, object]],
+    ) -> tuple[CandidateExample, ...]:
+        """Load and validate the sidecar at ``path``; one authored ``CandidateExample`` per example.
+    
+        The candidates are in file order, with ``provenance`` ``"authored"``, ``source`` ``"sidecar"``,
+        ``starts_example`` True, ``imports_only`` False, an empty ``import_prefix``, a ``page_code``
+        holding only their own code and the sidecar's ``code_sha256``. Raises ``AuthoredExamplesError``
+        whose message lists every problem when the file cannot be read or parsed or any rule of
+        ``validate_authored_examples`` fails. The code is never imported, compiled or run here.
+        """
+        try:
+            text = Path(path).read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise AuthoredExamplesError(f"cannot read {SIDECAR_NAME}: {type(exc).__name__}") from exc
+        try:
+            document = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise AuthoredExamplesError(f"{SIDECAR_NAME} is not valid YAML: {type(exc).__name__}") from exc
+    
+        problems = validate_authored_examples(
+            document,
+            pilot=pilot,
+            library_platform=library_platform,
+            library_commit=library_commit,
+            api_types=api_types,
+        )
+        if problems:
+>           raise AuthoredExamplesError("; ".join(problems))
+E           foss_mcp.indexing.authored_examples.AuthoredExamplesError: rule 1 (structure): library_commit must be 40 lowercase hex characters; rule 3 (commit): library_commit is 0, expected 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+
+src\foss_mcp\indexing\authored_examples.py:340: AuthoredExamplesError
+________________________ test_the_code_hash_matches[1] ________________________
+
+index = 1
+
+    @pytest.mark.parametrize("index", INDEXES)
+    def test_the_code_hash_matches(index: int) -> None:
+        example = _document()["examples"][index]
+        assert example["code_sha256"] == normalised_code_sha256(example["code"])
+>       assert _load()[index].code_sha256 == example["code_sha256"]
+               ^^^^^^^
+
+tests\indexing\test_authored_examples_imaging_net.py:121: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_authored_examples_imaging_net.py:70: in _load
+    return load_authored_examples(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-pad5oe04/tests/fixtures/furnished/imaging_net/authored_examples.yaml')
+pilot = 'imaging_net', library_platform = 'dotnet'
+library_commit = 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+api_types = [{'bases': [], 'canonical_namespace': 'Aspose.Imaging.Foss', 'class_import': 'Aspose.Imaging.Foss.ImageFormat', 'depre...nonical_namespace': 'Aspose.Imaging.Foss', 'class_import': 'Aspose.Imaging.Foss.ImageProbe', 'deprecated': False, ...}]
+
+    def load_authored_examples(
+        path: Path,
+        *,
+        pilot: str,
+        library_platform: str,
+        library_commit: str,
+        api_types: Sequence[Mapping[str, object]],
+    ) -> tuple[CandidateExample, ...]:
+        """Load and validate the sidecar at ``path``; one authored ``CandidateExample`` per example.
+    
+        The candidates are in file order, with ``provenance`` ``"authored"``, ``source`` ``"sidecar"``,
+        ``starts_example`` True, ``imports_only`` False, an empty ``import_prefix``, a ``page_code``
+        holding only their own code and the sidecar's ``code_sha256``. Raises ``AuthoredExamplesError``
+        whose message lists every problem when the file cannot be read or parsed or any rule of
+        ``validate_authored_examples`` fails. The code is never imported, compiled or run here.
+        """
+        try:
+            text = Path(path).read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise AuthoredExamplesError(f"cannot read {SIDECAR_NAME}: {type(exc).__name__}") from exc
+        try:
+            document = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise AuthoredExamplesError(f"{SIDECAR_NAME} is not valid YAML: {type(exc).__name__}") from exc
+    
+        problems = validate_authored_examples(
+            document,
+            pilot=pilot,
+            library_platform=library_platform,
+            library_commit=library_commit,
+            api_types=api_types,
+        )
+        if problems:
+>           raise AuthoredExamplesError("; ".join(problems))
+E           foss_mcp.indexing.authored_examples.AuthoredExamplesError: rule 1 (structure): library_commit must be 40 lowercase hex characters; rule 3 (commit): library_commit is 0, expected 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+
+src\foss_mcp\indexing\authored_examples.py:340: AuthoredExamplesError
+________________________ test_the_code_hash_matches[2] ________________________
+
+index = 2
+
+    @pytest.mark.parametrize("index", INDEXES)
+    def test_the_code_hash_matches(index: int) -> None:
+        example = _document()["examples"][index]
+        assert example["code_sha256"] == normalised_code_sha256(example["code"])
+>       assert _load()[index].code_sha256 == example["code_sha256"]
+               ^^^^^^^
+
+tests\indexing\test_authored_examples_imaging_net.py:121: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_authored_examples_imaging_net.py:70: in _load
+    return load_authored_examples(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-pad5oe04/tests/fixtures/furnished/imaging_net/authored_examples.yaml')
+pilot = 'imaging_net', library_platform = 'dotnet'
+library_commit = 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+api_types = [{'bases': [], 'canonical_namespace': 'Aspose.Imaging.Foss', 'class_import': 'Aspose.Imaging.Foss.ImageFormat', 'depre...nonical_namespace': 'Aspose.Imaging.Foss', 'class_import': 'Aspose.Imaging.Foss.ImageProbe', 'deprecated': False, ...}]
+
+    def load_authored_examples(
+        path: Path,
+        *,
+        pilot: str,
+        library_platform: str,
+        library_commit: str,
+        api_types: Sequence[Mapping[str, object]],
+    ) -> tuple[CandidateExample, ...]:
+        """Load and validate the sidecar at ``path``; one authored ``CandidateExample`` per example.
+    
+        The candidates are in file order, with ``provenance`` ``"authored"``, ``source`` ``"sidecar"``,
+        ``starts_example`` True, ``imports_only`` False, an empty ``import_prefix``, a ``page_code``
+        holding only their own code and the sidecar's ``code_sha256``. Raises ``AuthoredExamplesError``
+        whose message lists every problem when the file cannot be read or parsed or any rule of
+        ``validate_authored_examples`` fails. The code is never imported, compiled or run here.
+        """
+        try:
+            text = Path(path).read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise AuthoredExamplesError(f"cannot read {SIDECAR_NAME}: {type(exc).__name__}") from exc
+        try:
+            document = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise AuthoredExamplesError(f"{SIDECAR_NAME} is not valid YAML: {type(exc).__name__}") from exc
+    
+        problems = validate_authored_examples(
+            document,
+            pilot=pilot,
+            library_platform=library_platform,
+            library_commit=library_commit,
+            api_types=api_types,
+        )
+        if problems:
+>           raise AuthoredExamplesError("; ".join(problems))
+E           foss_mcp.indexing.authored_examples.AuthoredExamplesError: rule 1 (structure): library_commit must be 40 lowercase hex characters; rule 3 (commit): library_commit is 0, expected 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+
+src\foss_mcp\indexing\authored_examples.py:340: AuthoredExamplesError
+_____________ test_every_committed_sidecar_is_valid_for_its_pilot _____________
+
+    def test_every_committed_sidecar_is_valid_for_its_pilot() -> None:
+        failures: list[str] = []
+        for path in sorted(FURNISHED.glob(f"*/{SIDECAR_NAME}")):
+            pilot_name = path.parent.name
+            failures += [f"{pilot_name}: {problem}" for problem in sidecar_problems(path, pilot_name)]
+>       assert not failures, "invalid authored-example sidecars:\n" + "\n".join(failures)
+E       AssertionError: invalid authored-example sidecars:
+E         imaging_net: schema: library_commit: 0 is not of type 'string'
+E         imaging_net: rule 1 (structure): library_commit must be 40 lowercase hex characters
+E         imaging_net: rule 3 (commit): library_commit is 0, expected 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'
+E       assert not ["imaging_net: schema: library_commit: 0 is not of type 'string'", 'imaging_net: rule 1 (structure): library_commit mu... characters', "imaging_net: rule 3 (commit): library_commit is 0, expected 'c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa'"]
+
+tests\infra\test_authored_examples_fixtures.py:98: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_authored_examples_imaging_net.py::test_the_sidecar_loads_and_yields_exactly_three_authored_candidates
+FAILED tests/indexing/test_authored_examples_imaging_net.py::test_the_sidecar_is_tied_to_the_charts_pinned_library
+FAILED tests/indexing/test_authored_examples_imaging_net.py::test_the_code_hash_matches[0]
+FAILED tests/indexing/test_authored_examples_imaging_net.py::test_the_code_hash_matches[1]
+FAILED tests/indexing/test_authored_examples_imaging_net.py::test_the_code_hash_matches[2]
+FAILED tests/infra/test_authored_examples_fixtures.py::test_every_committed_sidecar_is_valid_for_its_pilot
+
+--- stderr ---
+
