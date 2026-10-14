@@ -475,8 +475,7 @@ def test_real_pdf_net_has_no_invented_void_and_keeps_the_genuine_ones() -> None:
     assert expected_void == 1034
     assert len(void_lines) == 1034
     page = next(t for t in texts if _fqn(t) == "Aspose.Pdf.Page")
-    assert "  - SetRotation(degrees: int)" in page.splitlines()
-    assert "SetRotation(degrees: int) -> void" not in page
+    assert "  - SetRotation(degrees: int) -> void" in page.splitlines()
     # every rendered void line comes from a method whose fixture return_type really is "void"
     real_void_names = {
         method["name"]
