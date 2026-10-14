@@ -1,0 +1,80 @@
+id: TC-497
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-001 (a green, trustworthy suite). tests/deploy/test_adversarial_suite.py's shared `run_main` test helper
+  hard-codes `--ready-timeout 5` seconds, a pure test-speed shortcut with no bearing on any requirement: the real
+  tool's own default (scripts/release/adversarial_suite.py's `DEFAULT_READY_TIMEOUT`) is 120 seconds, and the
+  gate that actually matters (image_workflow_gate.py) uses its own separate, much longer wait. This 5-second test
+  budget has now made TC-391's review fail identically four times: the fake endpoint genuinely answers, but not
+  within 5 real wall-clock seconds, inside `gatectl review`'s own clean-room subprocess chain (confirmed by a
+  TC-391 worker bisection: the exact same 8-file combined command passes 3/3 times in a normal worktree, and
+  test_adversarial_suite.py alone passes cleanly in under 90 seconds; only the combination, inside gatectl's own
+  review harness, is affected). This is not a TC-391 defect and not a real product requirement; it is a brittle
+  test constant. This card raises it to a value with real margin, changing no assertion, no production code and
+  no production default.
+depends_on:
+- TC-223
+- TC-355
+- TC-365
+write_paths:
+- tests/deploy/test_adversarial_suite.py
+satisfies:
+- REQ-G3-001
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Peers will try to break the shipped image: an adversarial suite is a requirement, not an extra (operator, supervisor, pre-TC-355)'
+  sha256: d2caef724bdb4ebdd6139a6775d2e46c22527150b512d2f09d15225ba6375268
+inputs:
+- >-
+  Read tests/deploy/test_adversarial_suite.py's `run_main` helper in full (the one place `"--ready-timeout", "5"`
+  appears) and scripts/release/adversarial_suite.py's `DEFAULT_READY_TIMEOUT` and `wait_url_ready` (the real
+  polling loop every test in this file exercises through `run_main`). Never print or log any environment value.
+- >-
+  Change ONLY the literal `"5"` passed as `--ready-timeout` in `run_main` to `"30"`. Change nothing else in the
+  file: no assertion, no other constant, no test name, no skip/xfail marker. The fake server fixture the tests use
+  already answers almost immediately in the common case; this only widens the margin for a slow clean-room
+  subprocess spawn, it does not make a genuinely-unready server pass.
+- >-
+  Add one new regression test, `test_the_ready_timeout_given_to_run_main_has_real_margin_above_five_seconds`, that
+  reads the file's own source (or re-uses `run_main`'s argv construction directly) and asserts the `--ready-timeout`
+  value passed is a number strictly greater than 5, so this constant can never silently regress back to the value
+  that caused this card. Keep every existing test in the file passing unmodified.
+- >-
+  Run `{python} -m pytest tests/deploy/test_adversarial_suite.py -q -rfE`, then once
+  `{python} -m pytest tests/deploy/test_adversarial_suite.py tests/deploy/test_image_workflow_gate.py -q -rfE`.
+  Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Give the adversarial-suite test's ready-timeout real margin so it stops colliding with slow clean-room subprocess
+  spawns, without touching any production default or assertion.
+checks:
+- command: '{python} -m pytest tests/deploy/test_adversarial_suite.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-001
+- command: '{python} -m pytest tests/deploy/test_adversarial_suite.py tests/deploy/test_image_workflow_gate.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-001
+min_tests: 60
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;q=chr(34);nl=chr(10);p=pathlib.Path('tests/deploy/test_adversarial_suite.py');s=p.read_text(encoding='utf-8');old='        '+q+'30'+q+','+nl;assert old in s;p.write_text(s.replace(old,'        '+q+'5'+q+','+nl,1),encoding='utf-8')"
+  rationale: >-
+    Puts the brittle 5-second value back, so the new regression test (which asserts the value is strictly greater
+    than 5) fails. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-497/receipt.json
+closeout:
+- >-
+  The adversarial-suite test suite no longer collides with slow clean-room subprocess spawns inside gatectl
+  review; TC-391 can be re-reviewed without this interference.
+recovery: Re-run from a clean tree.
