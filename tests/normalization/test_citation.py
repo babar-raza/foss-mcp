@@ -14,8 +14,9 @@ a citable fact - it does not have to resolve whether 805 was ever right.
 TC-263 (rework attempt 2): the api_surface.json fixture itself was later regenerated again,
 with TC-252's centrality-ranked ``reduce_fixture()`` in place of the old alphabetical one.
 The real upstream repository has also grown since TC-011's original onboarding, so the real
-live ``type_count`` is now 971 (up from 899) - a real, independent fact about the real
-repository, unrelated to the selection-algorithm fix.
+live ``type_count`` is now 901 (up from 899; it read 971 before TC-400's re-extraction at the
+pinned commit) - a real, independent fact about the real repository, unrelated to the
+selection-algorithm fix.
 """
 
 from __future__ import annotations
@@ -107,12 +108,13 @@ def test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count(
 
     TC-263 (rework attempt 2): ``known_counts["types"]`` is a live read off the committed
     ``api_surface.json`` fixture, which TC-263 regenerated for real against the pinned
-    upstream repository - it now reports 971 (real upstream growth since TC-011's original
-    899, unrelated to the TC-252 selection-algorithm fix this fixture regeneration proves).
+    upstream repository - it now reports 901 (real upstream growth since TC-011's original
+    899, unrelated to the TC-252 selection-algorithm fix this fixture regeneration proves;
+    TC-400's re-extraction at the pinned commit is why it changed from 971).
     """
     known_counts = known_counts_from_fixture(_api_surface_fixture())
     assert "classes" not in known_counts
-    assert known_counts["types"] == 971
+    assert known_counts["types"] == 901
 
     historical_805_classes_sentence = "The library exposes 805 classes."
 
