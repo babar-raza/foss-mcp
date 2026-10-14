@@ -40,10 +40,16 @@ import urllib.request
 import xml.etree.ElementTree as ElementTree
 import zipfile
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from foss_mcp.indexing.example_candidates import CandidateExample
+from foss_mcp.indexing.example_fixtures import (
+    FIXTURE_UNAVAILABLE,
+    FixtureRecord,
+    fixture_unavailable,
+    provide_fixtures,
+)
 
 __all__ = [
     "VerificationResult",
@@ -392,6 +398,8 @@ class VerificationResult:
     candidate: CandidateExample
     verified: bool
     output: str
+    status: str = ""
+    fixtures: tuple[FixtureRecord, ...] = field(default=(), compare=False)
 
 
 # TC-456 (REQ-G3-007): words/net's packages/ (Aspose.JavaAttributes, Aspose.CodePorting) are
@@ -1094,6 +1102,20 @@ def _clone_pinned_commit(repository: str, commit: str, workdir: Path) -> None:
         )
 
 
+def _cpp_clone_root(library_dir: Path) -> Path | None:
+    """The first directory, from ``library_dir`` upward (inclusive), holding a ``.git`` entry.
+
+    ``None`` when no ancestor of ``library_dir`` (including itself) holds one.
+    """
+    directory = library_dir.resolve()
+    while True:
+        if (directory / ".git").exists():
+            return directory
+        if directory.parent == directory:
+            return None
+        directory = directory.parent
+
+
 def _venv_python_executable(venv_dir: Path) -> Path:
     """Return the real python executable inside ``venv_dir``, on whichever
     of the two standard venv layouts the current platform actually used
@@ -1530,6 +1552,10 @@ def verify_python_example(
         repo_dir = default_repo if default_repo.is_dir() else None
     staged = _stage_named_repository_files(candidate.code, repo_dir, script_dir) if repo_dir else []
 
+    plan = provide_fixtures(
+        candidate.code, "python", run_dir=script_dir, repo_dir=repo_dir, staged=tuple(staged)
+    )
+
     result = _run_bounded(
         [str(venv_python), str(script_path)],
         cwd=script_dir,
@@ -1538,10 +1564,17 @@ def verify_python_example(
 
     verified = result.returncode == 0
     assembly = f"[foss-mcp] assembly: python staged-files={','.join(staged) if staged else 'none'}"
-    run_output = _truncate(f"{result.stdout}\n{result.stderr}")
+    raw_output = f"{result.stdout}\n{result.stderr}"
+    run_output = _truncate(raw_output)
     output = f"{assembly}\n{run_output}"
+    status = ""
+    if not verified and fixture_unavailable(raw_output, plan.missing, "python"):
+        status = FIXTURE_UNAVAILABLE
+        output += f"\n[foss-mcp] fixture unavailable: {', '.join(plan.missing)}"
 
-    return VerificationResult(candidate=candidate, verified=verified, output=output)
+    return VerificationResult(
+        candidate=candidate, verified=verified, output=output, status=status, fixtures=plan.records
+    )
 
 
 def prepare_rust_library(
@@ -3393,6 +3426,12 @@ def verify_cpp_example_linux(
         output = note + _truncate(f"{compile_result.stdout}\n{compile_result.stderr}")
         return VerificationResult(candidate=candidate, verified=True, output=output)
 
+    clone_root = _cpp_clone_root(library_dir)
+    cpp_staged = _stage_named_repository_files(candidate.code, clone_root, project_dir) if clone_root else []
+    plan = provide_fixtures(
+        candidate.code, "cpp", run_dir=project_dir, repo_dir=clone_root, staged=tuple(cpp_staged)
+    )
+
     try:
         run_result = subprocess.run(
             [str(output_exe)],
@@ -3402,14 +3441,26 @@ def verify_cpp_example_linux(
             timeout=_CPP_LINUX_RUN_TIMEOUT_SECONDS,
         )
     except subprocess.TimeoutExpired as exc:
-        output = note + _truncate(
+        raw_output = (
             f"run exceeded {_CPP_LINUX_RUN_TIMEOUT_SECONDS}s and was stopped\n"
             f"{exc.stdout or ''}\n{exc.stderr or ''}"
         )
-        return VerificationResult(candidate=candidate, verified=False, output=output)
+        output = note + _truncate(raw_output)
+        status = ""
+        if fixture_unavailable(raw_output, plan.missing, "cpp"):
+            status = FIXTURE_UNAVAILABLE
+            output += f"\n[foss-mcp] fixture unavailable: {', '.join(plan.missing)}"
+        return VerificationResult(
+            candidate=candidate, verified=False, output=output, status=status, fixtures=plan.records
+        )
 
     verified = run_result.returncode == 0
-    output = note + _truncate(
-        f"{compile_result.stdout}\n{compile_result.stderr}\n{run_result.stdout}\n{run_result.stderr}"
+    raw_output = f"{compile_result.stdout}\n{compile_result.stderr}\n{run_result.stdout}\n{run_result.stderr}"
+    output = note + _truncate(raw_output)
+    status = ""
+    if not verified and fixture_unavailable(raw_output, plan.missing, "cpp"):
+        status = FIXTURE_UNAVAILABLE
+        output += f"\n[foss-mcp] fixture unavailable: {', '.join(plan.missing)}"
+    return VerificationResult(
+        candidate=candidate, verified=verified, output=output, status=status, fixtures=plan.records
     )
-    return VerificationResult(candidate=candidate, verified=verified, output=output)
