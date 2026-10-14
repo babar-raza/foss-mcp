@@ -32,9 +32,12 @@ from foss_mcp.indexing.vector_index_writer import EXAMPLE_MARKER  # noqa: E402
 # median generation file 209,084 bytes, largest 2,344,171 bytes (before: 967.6 MiB, up to 45 MB per file).
 # Each bound carries about 25% headroom over its measurement.
 EXPECTED_SCOPES = 40
-TREE_BYTES_BUDGET = 22_000_000
+# Re-pinned 2026-10-14 (TC-503, rev-b487453): the final re-ingest grew the tree to 28_069_555 bytes total, median 577_817, largest 2_944_920
+# (the largest-file budget above still holds), because of complete API extraction plus quantised vectors for verified-example chunks.
+TREE_BYTES_BUDGET = 29_500_000
 LARGEST_FILE_BYTES_BUDGET = 2_950_000
-MEDIAN_FILE_BYTES_BUDGET = 262_000
+# TC-503: median re-measured at 577_817 bytes on 2026-10-14 (rev-b487453), see the note above TREE_BYTES_BUDGET.
+MEDIAN_FILE_BYTES_BUDGET = 640_000
 
 FAMILY, PLATFORM, SOURCE_KIND = "pdf", "go", "self_extracted"
 SCOPE_DIR_NAME = f"{FAMILY}__{PLATFORM}__{SOURCE_KIND}"

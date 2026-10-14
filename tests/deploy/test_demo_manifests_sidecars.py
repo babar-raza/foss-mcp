@@ -35,7 +35,9 @@ EXPECTED_PILOTS = 40
 NO_REGISTRY_PLATFORM = "cpp"
 # Measured 18,091,213 bytes (17.3 MiB) at TC-354: 40 generations (17,501,743 bytes) plus 115 sidecars
 # (586,028 bytes) plus 40 pointers. The bound carries about 25% headroom.
-TREE_BYTES_BUDGET = 22_600_000
+# Re-pinned 2026-10-14 (TC-503, rev-b487453): total 28_069_555 bytes (median generation 577_817, largest 2_944_920), grown by complete
+# API extraction plus quantised vectors for verified-example chunks. The bound carries about 5% headroom.
+TREE_BYTES_BUDGET = 29_500_000
 
 # The same credential shapes ops/secretscan.py refuses in a commit.
 CREDENTIAL_SHAPES: dict[str, re.Pattern[str]] = {
