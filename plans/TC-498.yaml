@@ -9,11 +9,16 @@ purpose: >-
   command per pilot) has been red on main since TC-441 integrated ("At index 18 diff: '--verification-cache' != '--out'"). It also turns the local
   pre-push gate red and makes every later card whose review runs that test fail for a reason that is not theirs (TC-391 was refused for exactly this).
   This card brings docker-compose.yml in line with the chart: for every ingest service whose pilot has a furnished page, add the same two flags, with
-  the same values and in the same position the chart renders them, so the parity test passes again. Nothing else changes.
+  the same values and in the same position the chart renders them, so the parity test passes again. The compose flags name a cache file per pilot under
+  /app/fixtures/verified_examples/, and tests/infra/test_ingestion_image_fixtures.py::test_compose_fixture_is_in_the_ingestion_image requires every such
+  path to exist in the repository, so the card also commits one valid, empty seed cache document per pilot (the persistent starting point that
+  scripts/release/pull_verification_cache.py later merges real verdicts into).
 depends_on:
 - TC-441
 write_paths:
 - docker-compose.yml
+- tests/fixtures/verified_examples/*.json
+- tests/infra/test_verification_cache_seed_files.py
 satisfies:
 - REQ-G3-001
 source_refs:
@@ -35,6 +40,15 @@ inputs:
   flags and their order byte-identical, keep the YAML valid (docker compose config must still parse; run `docker compose -f docker-compose.yml config -q`
   if docker is available, otherwise a yaml.safe_load), keep LF line endings.
 - >-
+  SEED CACHE FILES (found by the worker): after the compose edit, `test_compose_fixture_is_in_the_ingestion_image[fixtures/verified_examples/<family>_<platform>.json]`
+  fails for every pilot because only tests/fixtures/verified_examples/.gitkeep is tracked. Create `tests/fixtures/verified_examples/<family>_<platform>.json` for
+  every pilot whose compose ingest service now passes `--verification-cache` (derive the list from docker-compose.yml, never retype), each holding the EMPTY
+  verification-cache document in exactly the shape infra/build_chunks.py writes and accepts (use that module's own `verification_cache_document` or the
+  documented empty form, then confirm `load_verification_cache` / `parse_verification_cache` accepts the file and returns zero entries). Deterministic JSON, no
+  timestamps, LF endings, trailing newline. Add tests/infra/test_verification_cache_seed_files.py (offline, no skips): one test per pilot (parametrized so a
+  failure names the pilot) that the seed file exists and parses with the project's own loader, plus a test that the set of seed files equals the set of
+  cache paths named in docker-compose.yml and in the rendered chart. At least 82 tests. Do not edit test_ingestion_image_fixtures.py.
+- >-
   Run `{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_verifier_fields.py -q -rfE`
   twice (identical results), then the second check command below. Write commit messages as UTF-8 without a byte-order mark.
 actions:
@@ -42,7 +56,7 @@ actions:
   Make the docker-compose ingest services run the same verification-cache flags as the Kubernetes ingestion Jobs, so the chart-versus-compose parity
   test is green again.
 checks:
-- command: '{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_verifier_fields.py -q -rfE'
+- command: '{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_verifier_fields.py tests/infra/test_ingestion_image_fixtures.py tests/infra/test_verification_cache_seed_files.py -q -rfE'
   expect: exit 0
   timeout_seconds: 1200
   junitxml: true
@@ -54,7 +68,7 @@ checks:
   junitxml: true
   proves:
   - REQ-G3-001
-min_tests: 90
+min_tests: 200
 network: false
 requires:
 - python
