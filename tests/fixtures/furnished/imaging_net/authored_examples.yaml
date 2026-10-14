@@ -1,0 +1,92 @@
+schema_version: 1
+pilot: imaging_net
+library_repository: aspose-imaging-foss/Aspose.Imaging-FOSS-for-.NET
+library_commit: c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa
+language: csharp
+examples:
+- title: Detect an image format from PNG signature bytes
+  description: >-
+    Holds the eight-byte PNG signature in a byte array and passes it to ImageProbe.DetectFormat, which
+    returns the matching ImageFormat without decoding any pixels.
+  symbols:
+  - ImageProbe
+  - ImageProbe.DetectFormat
+  - ImageFormat
+  code: |
+    // Authored example: detect an image format from its signature bytes
+    using System;
+    using Aspose.Imaging.Foss;
+
+    byte[] pngSignature = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+
+    ImageFormat format = ImageProbe.DetectFormat(pngSignature);
+    Console.WriteLine(format);
+  code_sha256: 739ef15a8c5478b2568b704f3c2b6186a2a3fafdc477adb9a7664e0d41efd215
+- title: Read the size of a one-pixel BMP file
+  description: >-
+    Builds a one-pixel 24-bit BMP in memory, writes it to a temporary file, reads its width, height and bit
+    depth with ImageProbe.ProbeFile and then deletes the file.
+  symbols:
+  - ImageProbe
+  - ImageProbe.ProbeFile
+  - ImageInfo
+  code: |
+    // Authored example: read the size of a BMP file with ProbeFile
+    using System;
+    using System.IO;
+    using Aspose.Imaging.Foss;
+
+    byte[] bmp =
+    {
+        // File header: "BM", file size (58), reserved, pixel data offset (54).
+        0x42, 0x4D, 0x3A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x36, 0x00, 0x00, 0x00,
+        // Info header: size (40), width (1), height (1), planes (1), bits per pixel (24).
+        0x28, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x18, 0x00,
+        // Compression, image size (4), resolution and palette fields.
+        0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        // One blue-green-red pixel plus one byte of row padding.
+        0xFF, 0x00, 0x00, 0x00,
+    };
+
+    string path = Path.Combine(Path.GetTempPath(), "one-pixel-sample.bmp");
+    File.WriteAllBytes(path, bmp);
+    try
+    {
+        ImageInfo info = ImageProbe.ProbeFile(path);
+        Console.WriteLine($"{info.Format}: {info.Width}x{info.Height}, {info.BitDepth}-bit");
+    }
+    finally
+    {
+        File.Delete(path);
+    }
+  code_sha256: 74da168aeecbf76b89fa0517494861d2d04cb96922dda7142d927eaecde8c20b
+- title: Probe a PNG stream asynchronously
+  description: >-
+    Wraps a minimal PNG header in a MemoryStream and awaits ImageProbe.ProbeAsync with top-level await,
+    then prints the format and size it reports.
+  symbols:
+  - ImageProbe
+  - ImageProbe.ProbeAsync
+  - ImageInfo
+  code: |
+    // Authored example: probe a stream asynchronously with ProbeAsync
+    using System;
+    using System.IO;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using Aspose.Imaging.Foss;
+
+    byte[] png =
+    {
+        // PNG signature.
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+        // IHDR chunk: length (13), type, width (2), height (3), bit depth (8), color type (6).
+        0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+        0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x03, 0x08, 0x06,
+    };
+
+    using var stream = new MemoryStream(png);
+    ImageInfo info = await ImageProbe.ProbeAsync(stream, CancellationToken.None);
+    Console.WriteLine($"{info.Format}: {info.Width}x{info.Height}, {info.BitDepth}-bit");
+  code_sha256: c4af202efa5e88e9dd946876152eae547c84ce2a31d890c0261f276462fcc987
