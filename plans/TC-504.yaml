@@ -1,0 +1,104 @@
+id: TC-504
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-001 (a green, trustworthy suite) and REQ-G3-007. The full local CI run on main 738a3f6b (27 min, 7542 passed) has nine tests red
+  that were all written against the pre-2026-10-14 demo data. Commit fa805276 refreshed the baked manifests from the validated cluster (image
+  rev-b487453): every one of the 40 pilots now carries at least one verified example (183 in total), several pilots changed source commit, and
+  the indexes are fuller. The tests below pinned facts of the old data (a pilot with no example points; the only "Example:" text in 3d/java
+  being the Draco Javadoc chunk; two source commits in pdf/net; slides/java having no answer to a password question; and so on). Each reproduced
+  on a second run, so none is a load flake. This card re-pins them to the new data WITHOUT changing what each test is for: it replaces a pin of an
+  old fact with the new fact, or with a property that stays true however the data is refreshed. Nothing is deleted, skipped or xfailed.
+depends_on:
+- TC-465
+- TC-493
+- TC-503
+write_paths:
+- tests/mcp/tools/test_example_search_mode.py
+- tests/mcp/tools/test_find_examples_verified_only.py
+- tests/mcp/tools/test_freshness_provenance.py
+- tests/mcp/tools/test_lookup_miss_reason.py
+- tests/e2e/test_pdf_net_live_content.py
+- tests/e2e/test_pdf_typescript_live_content.py
+- tests/e2e/test_slides_python_live_content.py
+satisfies:
+- REQ-G3-001
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Reproduce first: run `{python} -m pytest tests/mcp/tools/test_example_search_mode.py tests/mcp/tools/test_find_examples_verified_only.py
+  tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_lookup_miss_reason.py -q -rfE -p no:cacheprovider` and each e2e
+  file named below, and confirm the nine failures, which are exactly these ids (read each test and the committed data it loads from
+  infra/demo-manifests before changing it; the generation files are the source of truth, never copy a number from this card without checking it):
+  (1) tests/mcp/tools/test_example_search_mode.py::test_the_committed_demo_generations_include_pilots_with_and_without_example_points -
+  `any(count == 0 ...)` is False because every committed pilot now has example points; keep the half that proves pilots with example points
+  exist and take the no-example case from a small synthetic payload built in the test (the example-search-mode logic is what is under test).
+  (2) tests/mcp/tools/test_find_examples_verified_only.py::test_find_examples_by_the_draco_fqn_is_not_an_example_match and (3)
+  ::test_the_vector_path_no_longer_serves_the_draco_point - 3d/java now holds genuine verified README examples, so `find_examples` legitimately
+  returns matches; change the assertions to what the tests are about: the DracoFormat Javadoc chunk (an API doc chunk whose text merely starts
+  with "Example:") is never returned as an example match on either the lexical or the vector path, while a returned match must pass the verified-example
+  check.
+  (4) tests/mcp/tools/test_freshness_provenance.py::test_real_pdf_net_generation_reports_both_commits - the refreshed pdf/net generation has ONE
+  source commit (b7172877...) where it had two; read the committed generation, re-pin the expected commit(s) to what it really carries, and keep
+  the test's purpose (report_index_freshness reports exactly the commits the generation records); if a mixed-commit real generation exists among the 40
+  committed pilots (pdf_typescript reports API symbols from c672b3918318 and documentation from 155bfc7a33f0) it may be used for the two-commit case.
+  (5) tests/mcp/tools/test_lookup_miss_reason.py::test_reviewer_reproduction_task_question_miss[slides__java__self_extracted] - slides/java now has
+  11 verified examples, so the reviewer's password question is answered; pick another query for that pilot that is genuinely absent from its committed
+  content (verify it by running `lookup` against the committed generation) or remove only that parameter's pilot from the miss list while keeping the
+  cells__cpp case, and say which in the commit message.
+  (6) tests/e2e/test_pdf_net_live_content.py::test_report_index_freshness_reports_the_real_fresh_generation - re-pin `REAL_SOURCE_COMMIT` to the
+  commit the committed pdf/net generation records.
+  (7) tests/e2e/test_pdf_typescript_live_content.py::test_report_index_freshness_reports_the_real_fresh_generation - the index is mixed (API symbols from
+  one commit, documentation and examples from another, as TC-383 reports); pass the commits the generation really records and assert the freshness
+  report accordingly, keeping the check that a fresh generation is reported fresh.
+  (8) tests/e2e/test_slides_python_live_content.py::test_get_symbol_returns_the_real_type_spec_for_shape - `presentation() -> IPresentation` is no
+  longer in the Shape spec; read the committed Shape chunk and re-pin REAL_METHOD_FRAGMENT to a method line the current text carries.
+  (9) tests/e2e/test_slides_python_live_content.py::test_lookup_returns_real_doc_matches_for_an_api_naive_query - the pipeline now publishes verified
+  README examples for slides/python, so `example` is no longer None for the installation query; relax only that one `example is None` assertion
+  (assert instead that when an example is present it is a verified example) and keep every doc_matches assertion.
+- >-
+  The e2e tests start docker compose stacks of the serving image: read how the sibling e2e tests are run in tests/e2e and run these three files
+  one at a time. The compose image is `foss-mcp-serving:local` unless the test builds its own; if the stack cannot start in your environment,
+  report that precisely instead of guessing, and still make the pins match the committed data. Never print or log any environment value.
+- >-
+  Keep every other assertion and test untouched; never delete, skip or xfail a test; preserve each file's line endings and encoding. Write commit
+  messages as UTF-8 without a byte-order mark.
+- >-
+  Run the two check commands below, each twice.
+actions:
+- >-
+  Re-pin the nine data-dependent tests to the refreshed demo data, keeping each test's purpose.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_example_search_mode.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_lookup_miss_reason.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-001
+- command: '{python} -m pytest tests/e2e/test_pdf_net_live_content.py tests/e2e/test_pdf_typescript_live_content.py tests/e2e/test_slides_python_live_content.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 15
+network: true
+requires:
+- python
+- docker
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/e2e/test_pdf_net_live_content.py');s=p.read_text(encoding='utf-8');old='b7172877651413cff57a8bfe41fb8a8befb2406b';assert old in s;p.write_text(s.replace(old,'0'*40,1),encoding='utf-8')"
+  rationale: >-
+    Replaces the re-pinned pdf/net source commit with a commit the committed generation does not record, so the freshness assertion fails. A real
+    break of the card's central claim (the pins must match the committed data).
+evidence:
+- evidence/build/G3/TC-504/receipt.json
+closeout:
+- >-
+  The nine data-dependent tests match the refreshed demo data and the local CI pytest step is green except for the environment-only hooksPath test.
+recovery: Re-run from a clean tree.
