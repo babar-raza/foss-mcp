@@ -53,7 +53,7 @@ from foss_mcp.extraction.github_release_reader import Release
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.health import DeploymentGenerationStore, is_alive, round_trip_check
 from foss_mcp.mcp.routing import DeploymentConfig, resolve_scope
-from foss_mcp.mcp.server import _default_manifest_store, create_server
+from foss_mcp.mcp.server import create_server
 from foss_mcp.mcp.tools.get_product_reference import ProductReferenceInputs
 from foss_mcp.mcp.transport_security import reject_request
 from foss_mcp.telemetry.usage_recorder import UsageRecorder
@@ -93,6 +93,9 @@ _STANDARD_RECORD_ATTRS = frozenset(vars(logging.LogRecord("", 0, "", 0, "", None
     "message",
     "asctime",
 }
+# Extras that must never reach the JSON line. uvicorn logs with ``extra={"color_message": ...}``, a
+# second copy of the message with ANSI colour escapes (G3/TC-474).
+DROPPED_LOG_ATTRS = frozenset({"color_message"})
 _JSON_HANDLER_MARK = "_foss_mcp_json_stdout"
 
 
@@ -112,7 +115,7 @@ class JsonLogFormatter(logging.Formatter):
             "message": record.getMessage(),
         }
         for key, value in record.__dict__.items():
-            if key not in _STANDARD_RECORD_ATTRS and key not in payload:
+            if key not in _STANDARD_RECORD_ATTRS and key not in DROPPED_LOG_ATTRS and key not in payload:
                 payload[key] = value
         if record.exc_info:
             payload["exc_info"] = self.formatException(record.exc_info)
@@ -438,7 +441,7 @@ def build_app(
     why).
 
     ``manifest_store``, ``allowed_origins``, and ``usage_recorder`` default to the real
-    deployment's own store (``foss_mcp.mcp.server``'s ``/data/manifests``), the
+    deployment's own store (built over ``manifests_dir``, below), the
     ``FOSS_MCP_ALLOWED_ORIGINS`` env var, and a fresh real ``UsageRecorder()`` respectively; all
     three are overridable so tests never touch any of them. ``manifests_dir`` defaults to
     ``FOSS_MCP_MANIFESTS_DIR`` or ``/data/manifests``; the product reference sidecar in it, when
@@ -459,13 +462,16 @@ def build_app(
         session_idle_timeout if session_idle_timeout is not None else session_idle_timeout_seconds()
     )
     resolved_max_sessions = max_session_count if max_session_count is not None else max_sessions()
-    resolved_store = manifest_store if manifest_store is not None else _default_manifest_store()
-    resolved_usage_recorder = usage_recorder if usage_recorder is not None else UsageRecorder()
     resolved_manifests_dir = (
         manifests_dir
         if manifests_dir is not None
         else Path(os.environ.get(MANIFESTS_DIR_ENV, DEFAULT_MANIFESTS_DIR))
     )
+    # One directory for symbols, documents and sidecars (G3/TC-474).
+    resolved_store = (
+        manifest_store if manifest_store is not None else GenerationManifestStore(resolved_manifests_dir)
+    )
+    resolved_usage_recorder = usage_recorder if usage_recorder is not None else UsageRecorder()
     server = create_server(
         deployment_config,
         resolved_store,

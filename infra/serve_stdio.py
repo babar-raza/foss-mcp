@@ -42,7 +42,7 @@ from serve_http import (  # noqa: E402
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import DeploymentConfig
-from foss_mcp.mcp.server import _default_manifest_store, create_server
+from foss_mcp.mcp.server import create_server
 
 
 def build_stdio_server(
@@ -60,7 +60,7 @@ def build_stdio_server(
     )
     return create_server(
         deployment_config,
-        manifest_store if manifest_store is not None else _default_manifest_store(),
+        manifest_store if manifest_store is not None else GenerationManifestStore(resolved_dir),
         product_reference_inputs=_serving_product_reference_inputs(resolved_dir, deployment_config),
         recent_releases=_serving_recent_releases(resolved_dir, deployment_config),
     )
