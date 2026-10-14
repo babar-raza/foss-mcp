@@ -1,0 +1,73 @@
+id: TC-498
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-001 (a green, trustworthy suite). TC-441 added `--verification-cache <fixtures>/verified_examples/<family>_<platform>.json` and
+  `--verification-cache-out <mountPath>/verification_cache_<family>_<platform>.json` to the Kubernetes ingestion Job arguments
+  (infra/helm/foss-mcp/templates/ingestion-job.yaml, inside the `furnishedPage` block) but not to the matching docker-compose ingest services, so
+  tests/infra/test_helm_chart.py::test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose (chart and compose must run the identical
+  command per pilot) has been red on main since TC-441 integrated ("At index 18 diff: '--verification-cache' != '--out'"). It also turns the local
+  pre-push gate red and makes every later card whose review runs that test fail for a reason that is not theirs (TC-391 was refused for exactly this).
+  This card brings docker-compose.yml in line with the chart: for every ingest service whose pilot has a furnished page, add the same two flags, with
+  the same values and in the same position the chart renders them, so the parity test passes again. Nothing else changes.
+depends_on:
+- TC-441
+write_paths:
+- docker-compose.yml
+satisfies:
+- REQ-G3-001
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Peers will try to break the shipped image: an adversarial suite is a requirement, not an extra (operator, supervisor, pre-TC-355)'
+  sha256: d2caef724bdb4ebdd6139a6775d2e46c22527150b512d2f09d15225ba6375268
+inputs:
+- >-
+  Read infra/helm/foss-mcp/templates/ingestion-job.yaml (find `--verification-cache` and `--verification-cache-out`: their exact text, their position
+  relative to `--furnished-page`, `--out` and the library flags, and the `manifests.mountPath` they use), docker-compose.yml (every `ingest-*` service
+  and its multi-line `command`), and the failing test tests/infra/test_helm_chart.py::test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose
+  plus tests/infra/test_helm_pilots_match_compose.py (the existing parity tests; do not edit any test). Never print or log any environment value.
+- >-
+  Run the failing test first to see the exact expected argument order (`python -m pytest tests/infra/test_helm_chart.py -q -k two_step_chain`); the
+  assertion compares shlex.split of the rendered Job args with shlex.split of the compose command, so the order and values must match exactly. Then add
+  to EVERY compose `ingest-<family>-<platform>` service that passes `--furnished-page` the two flags in the position and with the values the chart
+  renders for that same pilot (the fixtures path is /app/fixtures/verified_examples/<family>_<platform>.json, the out path is under /data/manifests as the
+  chart renders it; derive both from the chart, never retype from memory). Services without `--furnished-page` get nothing. Keep each service's other
+  flags and their order byte-identical, keep the YAML valid (docker compose config must still parse; run `docker compose -f docker-compose.yml config -q`
+  if docker is available, otherwise a yaml.safe_load), keep LF line endings.
+- >-
+  Run `{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_verifier_fields.py -q -rfE`
+  twice (identical results), then the second check command below. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Make the docker-compose ingest services run the same verification-cache flags as the Kubernetes ingestion Jobs, so the chart-versus-compose parity
+  test is green again.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_verifier_fields.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-001
+- command: '{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_verifier_fields.py tests/infra/test_build_chunks_verification_cache.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-001
+min_tests: 90
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('docker-compose.yml');s=p.read_text(encoding='utf-8');old='--verification-cache-out';assert old in s;p.write_text(s.replace(old,'--verification-cache-outx',1),encoding='utf-8')"
+  rationale: >-
+    Corrupts the first compose service's verification-cache-out flag, so the chart-versus-compose parity test finds that pilot's commands different and
+    fails. A real break of the card's central claim (compose and chart run the same command).
+evidence:
+- evidence/build/G3/TC-498/receipt.json
+closeout:
+- >-
+  docker-compose and the Helm chart run the same ingestion command for every pilot again, so the parity test, the local pre-push gate and the reviews
+  of later cards are no longer red for this reason.
+recovery: Re-run from a clean tree.
