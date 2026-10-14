@@ -29,7 +29,7 @@ import yaml
 
 import infra.build_chunks as build_chunks
 from foss_mcp.indexing.doc_candidates import extract_doc_sections
-from foss_mcp.indexing.example_candidates import extract_candidate_examples
+from foss_mcp.indexing.example_candidates import extract_candidate_supply
 from foss_mcp.indexing.example_verifier import prepare_reference_library, verify_dotnet_example
 from foss_mcp.normalization.citation import (
     citable_chunks,
@@ -55,6 +55,7 @@ _DISTINCTIVE_CODE_MARKER = {
     "Open a PDF, Add a Link Annotation, and Save": "AddLinkAnnotation",
     "Add a Watermark Annotation": "AddWatermarkAnnotation",
     "Extract Text Fragments from a Page": "TextFragmentAbsorber",
+    "Installation, Dependencies, and Quick Start": "Document.Create()",
 }
 
 
@@ -141,7 +142,7 @@ def test_furnished_page_adds_real_compile_verified_example_chunks(
     is a real, detected failure, not merely "some chunk with an Example: marker exists".
     """
     page = _load_real_page()
-    candidates = extract_candidate_examples(page)
+    candidates = list(extract_candidate_supply(page, "dotnet").candidates)
     assert {c.title for c in candidates} == set(_DISTINCTIVE_CODE_MARKER)
 
     ground_truth_library_workdir = tmp_path_factory.mktemp("tc068_ground_truth_library")
@@ -254,7 +255,9 @@ def test_furnished_page_adds_real_compile_verified_example_chunks(
             continue
         marker = _DISTINCTIVE_CODE_MARKER[candidate.title]
         atomic_chunks = [
-            c for c in example_chunks if marker in c["text"] and candidate.description in c["text"]
+            c
+            for c in example_chunks
+            if marker in c["text"] and build_chunks._chunkable_description(candidate.description) in c["text"]
         ]
         assert len(atomic_chunks) == 1, (
             f"expected exactly one chunk containing BOTH {candidate.title!r}'s "
