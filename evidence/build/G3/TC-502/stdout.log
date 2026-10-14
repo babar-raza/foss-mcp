@@ -1,0 +1,194 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_dotnet_doc_generation_off.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hg75wxwb\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_dotnet_doc_generation_off.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_dotnet_lfs_pull.py tests/indexing/test_example_verifier.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hg75wxwb\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 85%]
+............                                                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_dotnet_doc_generation_off.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hg75wxwb\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_dotnet_doc_generation_off.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_dotnet_lfs_pull.py tests/indexing/test_example_verifier.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hg75wxwb\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 85%]
+............                                                             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/example_verifier.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_dotnet_doc_generation_off.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hg75wxwb\.junit-0.xml"
+--- stdout ---
+FFF...F.                                                                 [100%]
+================================== FAILURES ===================================
+_____________ test_constant_has_exactly_the_one_documented_entry ______________
+
+    def test_constant_has_exactly_the_one_documented_entry() -> None:
+>       assert DOTNET_BUILD_PROPERTIES == (PROPERTY,)
+E       AssertionError: assert ('-p:Generate...onFile=true',) == ('-p:Generate...nFile=false',)
+E         
+E         At index 0 diff: '-p:GenerateDocumentationFile=true' != '-p:GenerateDocumentationFile=false'
+E         Use -v to get more diff
+
+tests\indexing\test_dotnet_doc_generation_off.py:64: AssertionError
+___ test_prepare_reference_library_build_turns_documentation_generation_off ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8344/test_prepare_reference_library0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000020274675CD0>
+
+    def test_prepare_reference_library_build_turns_documentation_generation_off(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        recorder = _Recorder()
+        monkeypatch.setattr(example_verifier, "_run", recorder)
+        workdir = tmp_path / "workdir"
+    
+        csproj_path = prepare_reference_library(REPOSITORY, COMMIT, CSPROJ_RELATIVE_PATH, workdir)
+    
+        builds = _dotnet_builds(recorder)
+        assert len(builds) == 1
+>       assert builds[0] == ["dotnet", "build", str(csproj_path), PROPERTY]
+E       AssertionError: assert ['dotnet', 'b...ionFile=true'] == ['dotnet', 'b...onFile=false']
+E         
+E         At index 3 diff: '-p:GenerateDocumentationFile=true' != '-p:GenerateDocumentationFile=false'
+E         Use -v to get more diff
+
+tests\indexing\test_dotnet_doc_generation_off.py:79: AssertionError
+_____ test_verify_dotnet_example_build_turns_documentation_generation_off _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8344/test_verify_dotnet_example_bui0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002027472E330>
+
+    def test_verify_dotnet_example_build_turns_documentation_generation_off(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        recorder = _Recorder()
+        monkeypatch.setattr(example_verifier, "_run", recorder)
+        candidate = CandidateExample(
+            title="Hello", description="", language="csharp", code='Console.WriteLine("hello");'
+        )
+    
+        result = verify_dotnet_example(
+            candidate, library_csproj=_library_csproj(tmp_path), workdir=tmp_path / "work"
+        )
+    
+>       assert recorder.calls == [["dotnet", "build", PROPERTY]]
+E       AssertionError: assert [['dotnet', '...onFile=true']] == [['dotnet', '...nFile=false']]
+E         
+E         At index 0 diff: ['dotnet', 'build', '-p:GenerateDocumentationFile=true'] != ['dotnet', 'build', '-p:GenerateDocumentationFile=false']
+E         Use -v to get more diff
+
+tests\indexing\test_dotnet_doc_generation_off.py:96: AssertionError
+______ test_the_property_literal_is_defined_once_in_the_committed_source ______
+
+    def test_the_property_literal_is_defined_once_in_the_committed_source() -> None:
+        text = SOURCE_FILE.read_text(encoding="utf-8")
+>       assert text.count(PROPERTY) == 1
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x0000020273D1CE00>('-p:GenerateDocumentationFile=false')
+E        +    where <built-in method count of str object at 0x0000020273D1CE00> = '"""Real, isolated compile/execute-verification sandbox for candidate\nexamples (REQ-G2-048).\n\nThis module never tru...nResult(\n        candidate=candidate, verified=verified, output=output, status=status, fixtures=plan.records\n    )\n'.count
+
+tests\indexing\test_dotnet_doc_generation_off.py:130: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_dotnet_doc_generation_off.py::test_constant_has_exactly_the_one_documented_entry
+FAILED tests/indexing/test_dotnet_doc_generation_off.py::test_prepare_reference_library_build_turns_documentation_generation_off
+FAILED tests/indexing/test_dotnet_doc_generation_off.py::test_verify_dotnet_example_build_turns_documentation_generation_off
+FAILED tests/indexing/test_dotnet_doc_generation_off.py::test_the_property_literal_is_defined_once_in_the_committed_source
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_dotnet_doc_generation_off.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_dotnet_lfs_pull.py tests/indexing/test_example_verifier.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hg75wxwb\.junit-1.xml"
+--- stdout ---
+FFF...F................................................................. [ 85%]
+............                                                             [100%]
+================================== FAILURES ===================================
+_____________ test_constant_has_exactly_the_one_documented_entry ______________
+
+    def test_constant_has_exactly_the_one_documented_entry() -> None:
+>       assert DOTNET_BUILD_PROPERTIES == (PROPERTY,)
+E       AssertionError: assert ('-p:Generate...onFile=true',) == ('-p:Generate...nFile=false',)
+E         
+E         At index 0 diff: '-p:GenerateDocumentationFile=true' != '-p:GenerateDocumentationFile=false'
+E         Use -v to get more diff
+
+tests\indexing\test_dotnet_doc_generation_off.py:64: AssertionError
+___ test_prepare_reference_library_build_turns_documentation_generation_off ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8345/test_prepare_reference_library0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000027B74E53820>
+
+    def test_prepare_reference_library_build_turns_documentation_generation_off(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        recorder = _Recorder()
+        monkeypatch.setattr(example_verifier, "_run", recorder)
+        workdir = tmp_path / "workdir"
+    
+        csproj_path = prepare_reference_library(REPOSITORY, COMMIT, CSPROJ_RELATIVE_PATH, workdir)
+    
+        builds = _dotnet_builds(recorder)
+        assert len(builds) == 1
+>       assert builds[0] == ["dotnet", "build", str(csproj_path), PROPERTY]
+E       AssertionError: assert ['dotnet', 'b...ionFile=true'] == ['dotnet', 'b...onFile=false']
+E         
+E         At index 3 diff: '-p:GenerateDocumentationFile=true' != '-p:GenerateDocumentationFile=false'
+E         Use -v to get more diff
+
+tests\indexing\test_dotnet_doc_generation_off.py:79: AssertionError
+_____ test_verify_dotnet_example_build_turns_documentation_generation_off _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8345/test_verify_dotnet_example_bui0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000027B74F56D50>
+
+    def test_verify_dotnet_example_build_turns_documentation_generation_off(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        recorder = _Recorder()
+        monkeypatch.setattr(example_verifier, "_run", recorder)
+        candidate = CandidateExample(
+            title="Hello", description="", language="csharp", code='Console.WriteLine("hello");'
+        )
+    
+        result = verify_dotnet_example(
+            candidate, library_csproj=_library_csproj(tmp_path), workdir=tmp_path / "work"
+        )
+    
+>       assert recorder.calls == [["dotnet", "build", PROPERTY]]
+E       AssertionError: assert [['dotnet', '...onFile=true']] == [['dotnet', '...nFile=false']]
+E         
+E         At index 0 diff: ['dotnet', 'build', '-p:GenerateDocumentationFile=true'] != ['dotnet', 'build', '-p:GenerateDocumentationFile=false']
+E         Use -v to get more diff
+
+tests\indexing\test_dotnet_doc_generation_off.py:96: AssertionError
+______ test_the_property_literal_is_defined_once_in_the_committed_source ______
+
+    def test_the_property_literal_is_defined_once_in_the_committed_source() -> None:
+        text = SOURCE_FILE.read_text(encoding="utf-8")
+>       assert text.count(PROPERTY) == 1
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x0000027B71976560>('-p:GenerateDocumentationFile=false')
+E        +    where <built-in method count of str object at 0x0000027B71976560> = '"""Real, isolated compile/execute-verification sandbox for candidate\nexamples (REQ-G2-048).\n\nThis module never tru...nResult(\n        candidate=candidate, verified=verified, output=output, status=status, fixtures=plan.records\n    )\n'.count
+
+tests\indexing\test_dotnet_doc_generation_off.py:130: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_dotnet_doc_generation_off.py::test_constant_has_exactly_the_one_documented_entry
+FAILED tests/indexing/test_dotnet_doc_generation_off.py::test_prepare_reference_library_build_turns_documentation_generation_off
+FAILED tests/indexing/test_dotnet_doc_generation_off.py::test_verify_dotnet_example_build_turns_documentation_generation_off
+FAILED tests/indexing/test_dotnet_doc_generation_off.py::test_the_property_literal_is_defined_once_in_the_committed_source
+
+--- stderr ---
+
