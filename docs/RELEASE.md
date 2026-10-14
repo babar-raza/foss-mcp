@@ -297,6 +297,15 @@ says so.
   library's documented CMake target must write `#include <aspose_jmap/JmapClient.hpp>` instead. The example still
   compiles and links against the real pinned library, and nothing but the page's own `#include` lines is ever added
   to it.
+- **tex/python** serves one verified example, not two. The pinned upstream library (aspose-tex-foss, commit 181015d2,
+  which is also the upstream head) does not import: `src/aspose_tex/_input/catcode.py` has an IndentationError at line
+  66, so no example that imports `aspose_tex` can run and none can be verified. The rest of the tex/python content is
+  documentation and API symbols. The fix is upstream; the acceptance test holds this one pilot to its measured count
+  and requires every other pilot to serve at least two.
+- **pdf/typescript** has a MIXED index, by design of the cut of card TC-403: its API symbols come from commit
+  c672b3918318, and its documentation and examples come from 155bfc7a33f0. `report_index_freshness` says so and reports
+  the index stale against either single commit. The symbol re-extraction at the newer commit is deferred; see the
+  TC-403 entry in section 9.
 
 ### Kubernetes chart (not part of the standalone release)
 
