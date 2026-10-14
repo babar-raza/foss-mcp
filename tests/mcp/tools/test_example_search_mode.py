@@ -608,9 +608,14 @@ def test_there_are_forty_pilots() -> None:
 
 
 def test_the_committed_demo_generations_include_pilots_with_and_without_example_points() -> None:
+    # Since the 2026-10-14 refresh every committed pilot carries example points, so the pilots-with-
+    # example-points half is read from the committed data and the no-example half is a small synthetic
+    # payload (the example-search-mode logic is what is under test, not which pilots happen to lack them).
     counts = [_example_point_count(_demo_payload(*pilot)) for pilot in PILOTS]
     assert any(count > 0 for count in counts)
-    assert any(count == 0 for count in counts)
+    synthetic = _payload([SYMBOL_TEXT, "FQN: Doc: Install\nDocumentation page."])
+    assert _example_point_count(synthetic) == 0
+    assert example_search_mode(synthetic, _env(dimension="4096")) == (EXAMPLE_SEARCH_LEXICAL_ONLY, NO_VECTORS)
 
 
 @pytest.mark.parametrize("pilot", PILOTS, ids=PILOT_IDS)

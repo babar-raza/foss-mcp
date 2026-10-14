@@ -190,7 +190,10 @@ REAL_SOURCE_COMMIT = "4e63447ba79d1c27a5192844847d9f872c5b92ad"
 # class_import values are dotted paths, unlike pdf/go's bare-name fixture) and its own real
 # Methods:/Bases: lines are asserted directly in get_symbol's test below instead.
 REAL_SYMBOL_FQN = "aspose.slides_foss.Shape.Shape"
-REAL_METHOD_FRAGMENT = "presentation() -> IPresentation"
+# TC-504: the refreshed slides/python Shape chunk lists ``presentation`` among its Properties
+# (``presentation: IPresentation (read-only)``), no longer as a method; its Methods: section now carries
+# the constructor line, which is what the distinctive-Methods: assertion pins.
+REAL_METHOD_FRAGMENT = "Methods:\n  - __init__()"
 # TC-265's real base-class data reaching this live container for real, not just the offline
 # fixture test: confirmed directly, "Shape"'s own real "bases" list is
 # ["StrictAttributes", "IShape", "ISlideComponent", "IPresentationComponent",
@@ -567,9 +570,9 @@ def test_lookup_returns_real_doc_matches_for_an_api_naive_query(session: _McpSes
     earlier comprehensive live verification pass (see ``lookup.py``'s own module docstring,
     REQ-G2-049).
 
-    This real query matches no real verified example (confirmed live: ``example`` is ``None``),
-    so this is also a real, live instance of a ``TaskAnswer`` composed from a doc match alone,
-    never fabricated.
+    This real query may also carry a real verified README example (TC-504: confirmed live, the
+    installation example), so only the doc match is required and any example present is checked to
+    be a verified example, never fabricated.
     """
     body = session.call_tool("lookup", {"query": REAL_DOC_TASK_QUERY})
     result = body["result"]["structuredContent"]["result"]
@@ -578,4 +581,13 @@ def test_lookup_returns_real_doc_matches_for_an_api_naive_query(session: _McpSes
     doc_matches = result["doc_matches"]
     assert isinstance(doc_matches, list) and doc_matches, f"expected real doc_matches, got none: {result}"
     assert any(REAL_DOC_FRAGMENT in match["text"] for match in doc_matches), doc_matches
-    assert result["example"] is None, f"expected no verified example for this query, got: {result['example']}"
+    # TC-504: the pipeline now publishes verified README examples for slides/python, so this query may
+    # legitimately carry one next to the doc match; when it does, it must be a verified example.
+    example = result["example"]
+    if example is not None:
+        assert example["fqn"].startswith("Example: "), example
+        assert example["provenance"] in ("readme", "authored"), example
+        assert example["snippet"].strip(), example
+        assert not any(
+            line.startswith(("Kind:", "Source-Commit:", "FQN:")) for line in example["snippet"].splitlines()
+        ), example

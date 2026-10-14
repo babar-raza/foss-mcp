@@ -33,6 +33,7 @@ MIN_PILOTS = 40
 
 NONSENSE_QUERY = "send a fax via modem"
 TASK_QUERY = "how do I set a password on a presentation"
+UNANSWERABLE_TASK_QUERY = "how do I send a fax via modem"
 
 
 def _expected_reason(query: str) -> str:
@@ -118,16 +119,26 @@ def test_nonsense_question_miss_names_everything_searched(
 # ---- the reviewer's reproductions -----------------------------------------------------------------
 
 
-@pytest.mark.parametrize("directory", ["slides__java__self_extracted", "cells__cpp__self_extracted"])
+# slides/java now holds verified README examples that answer the password question, so its reproduction
+# uses a task question that is genuinely absent from its committed content (UNANSWERABLE_TASK_QUERY).
+@pytest.mark.parametrize(
+    ("directory", "query"),
+    [
+        ("slides__java__self_extracted", UNANSWERABLE_TASK_QUERY),
+        ("cells__cpp__self_extracted", TASK_QUERY),
+    ],
+    ids=["slides__java__self_extracted", "cells__cpp__self_extracted"],
+)
 def test_reviewer_reproduction_task_question_miss(
     directory: str,
+    query: str,
     pilot_stores: dict[str, GenerationManifestStore],
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
     store = _store_for(pilot_stores, tmp_path_factory, directory)
-    answer = lookup(store, _scope_of(directory), TASK_QUERY)
+    answer = lookup(store, _scope_of(directory), query)
     assert isinstance(answer, Miss)
-    assert answer.reason == _expected_reason(TASK_QUERY)
+    assert answer.reason == _expected_reason(query)
     assert "no symbol matches" not in answer.reason
 
 

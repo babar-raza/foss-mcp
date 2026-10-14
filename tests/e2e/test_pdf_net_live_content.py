@@ -68,7 +68,11 @@ PROTOCOL_VERSION = "2025-06-18"
 # is_exact_symbol_hit (search_symbols.py) matches it unambiguously, and "Page" literally appears
 # in its own chunk's FQN line, so it is genuine, falsifiable proof of real content, never a guess.
 REAL_SYMBOL = "Page"
-REAL_SOURCE_COMMIT = "10a363830fea952c29df20fdb37d35ad3a881433"
+# TC-504: pdf/net is now built from ONE source commit - the committed api_surface fixture and the
+# committed demo generation (rev-b487453) both record b717287... for every chunk (API symbols as well
+# as the example and the documentation), so the freshness report records that commit; the 10a36383...
+# value quoted above is the earlier fixture pin and is no longer what the live generation records.
+REAL_SOURCE_COMMIT = "b7172877651413cff57a8bfe41fb8a8befb2406b"
 
 # REQ-G2-048 (TC-069): the real, compile-verified example this card's real containerized
 # ingestion run produces - of the 3 real candidates in tests/fixtures/furnished/pdf_net's

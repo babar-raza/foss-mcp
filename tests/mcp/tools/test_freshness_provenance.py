@@ -1,9 +1,9 @@
 """G3/TC-383: report_index_freshness lists EVERY source commit a generation was built from.
 
 Offline. Synthetic generations are published through the real ``publish_generation`` (the same
-helper the consumer-tools tests use); one real-data test copies the committed pdf/net demo
-generation, which genuinely mixes two commits (300 API-symbol chunks at one commit, the
-documentation and example chunks at the library's pinned commit).
+helper the consumer-tools tests use); the real-data tests copy committed demo generations:
+pdf/typescript genuinely mixes two commits (300 API-symbol chunks at one commit, the documentation
+and example chunks at the library's pinned commit) and pdf/net records exactly one.
 """
 
 from __future__ import annotations
@@ -384,28 +384,62 @@ def test_api_coverage_on_a_documentation_chunk_is_ignored(tmp_path: Path) -> Non
 # --- real data ------------------------------------------------------------------------------
 
 
-def test_real_pdf_net_generation_reports_both_commits(tmp_path: Path) -> None:
-    manifests = tmp_path / "manifests"
-    shutil.copytree(DEMO_MANIFESTS / "pdf__net__self_extracted", manifests / "pdf__net__self_extracted")
-    store = GenerationManifestStore(manifests)
+# The refreshed (2026-10-14) committed pilots: pdf/net was rebuilt from ONE source commit, and pdf/typescript
+# is the committed generation that still genuinely mixes two (API symbols at one commit, documentation and
+# examples at the library's pinned commit). Both are read from the committed generations, never retyped.
+PDF_NET_COMMIT = "b7172877651413cff57a8bfe41fb8a8befb2406b"
+TS_SYMBOL_COMMIT = "c672b3918318ccd0c13bc9dc619620cac2674c9e"
+TS_PINNED_COMMIT = "155bfc7a33f0ba23fb4252b6ba201828b02a5b9d"
 
-    by_symbols = _report(store, SYMBOL_COMMIT)
-    by_pinned = _report(store, PINNED_COMMIT)
+
+def _real_store(tmp_path: Path, directory: str) -> GenerationManifestStore:
+    manifests = tmp_path / "manifests"
+    shutil.copytree(DEMO_MANIFESTS / directory, manifests / directory)
+    return GenerationManifestStore(manifests)
+
+
+def test_real_pdf_net_generation_reports_its_one_commit(tmp_path: Path) -> None:
+    store = _real_store(tmp_path, "pdf__net__self_extracted")
+
+    report = _report(store, PDF_NET_COMMIT)
+
+    commits = {entry.commit: entry for entry in report.source_commits}
+    assert set(commits) == {PDF_NET_COMMIT}
+    assert commits[PDF_NET_COMMIT].symbol_chunks >= 300
+    assert commits[PDF_NET_COMMIT].documentation_chunks + commits[PDF_NET_COMMIT].example_chunks >= 1
+    assert report.indexed_source_commit == PDF_NET_COMMIT
+    assert report.chunks_without_commit == 0
+    assert report.stale is False
+    assert "index is mixed" not in report.reason
+    assert _report(store, SYMBOL_COMMIT).stale is True
+
+
+def test_real_pdf_typescript_generation_reports_both_commits(tmp_path: Path) -> None:
+    store = _real_store(tmp_path, "pdf__typescript__self_extracted")
+    ts_scope = Scope(family="pdf", platform="typescript")
+
+    def report(current: str | None, pinned_library_commit: str | None = None) -> FreshnessReport:
+        return report_index_freshness(
+            store, ts_scope, "self_extracted", current, pinned_library_commit=pinned_library_commit
+        )
+
+    by_symbols = report(TS_SYMBOL_COMMIT)
+    by_pinned = report(TS_PINNED_COMMIT)
 
     commits = {entry.commit: entry for entry in by_symbols.source_commits}
-    assert len(commits) >= 2
-    assert commits[SYMBOL_COMMIT].symbol_chunks >= 300
-    assert commits[SYMBOL_COMMIT].documentation_chunks == 0
-    assert commits[PINNED_COMMIT].symbol_chunks == 0
-    assert commits[PINNED_COMMIT].documentation_chunks + commits[PINNED_COMMIT].example_chunks >= 1
-    assert by_symbols.indexed_source_commit == SYMBOL_COMMIT
-    for report in (by_symbols, by_pinned):
-        assert report.stale is True
-        assert "index is mixed" in report.reason
-        assert SYMBOL_COMMIT[:12] in report.reason
-        assert PINNED_COMMIT[:12] in report.reason
-    assert f"current {PINNED_COMMIT[:12]} matches documentation and examples only" in by_pinned.reason
-    assert f"current {SYMBOL_COMMIT[:12]} matches API symbols only" in by_symbols.reason
+    assert set(commits) == {TS_SYMBOL_COMMIT, TS_PINNED_COMMIT}
+    assert commits[TS_SYMBOL_COMMIT].symbol_chunks >= 300
+    assert commits[TS_SYMBOL_COMMIT].documentation_chunks == 0
+    assert commits[TS_PINNED_COMMIT].symbol_chunks == 0
+    assert commits[TS_PINNED_COMMIT].documentation_chunks + commits[TS_PINNED_COMMIT].example_chunks >= 1
+    assert by_symbols.indexed_source_commit == TS_SYMBOL_COMMIT
+    for item in (by_symbols, by_pinned):
+        assert item.stale is True
+        assert "index is mixed" in item.reason
+        assert TS_SYMBOL_COMMIT[:12] in item.reason
+        assert TS_PINNED_COMMIT[:12] in item.reason
+    assert f"current {TS_PINNED_COMMIT[:12]} matches documentation and examples only" in by_pinned.reason
+    assert f"current {TS_SYMBOL_COMMIT[:12]} matches API symbols only" in by_symbols.reason
 
-    pinned = _report(store, PINNED_COMMIT, pinned_library_commit=PINNED_COMMIT)
+    pinned = report(TS_PINNED_COMMIT, pinned_library_commit=TS_PINNED_COMMIT)
     assert pinned.pinned_matches_symbols is False

@@ -231,18 +231,39 @@ def test_the_draco_javadoc_chunk_is_the_defect_shaped_case(tmp_path: Path) -> No
     assert point["chunk_id"] in lexical_chunk_ids
 
 
+def _assert_matches_are_verified_and_never_the_draco_chunk(
+    result: object, payload: dict, point: dict
+) -> None:
+    """Whatever ``find_examples`` returns, no match is the DracoFormat Javadoc chunk and every match is a
+    chunk that passes the verified-example check. 3d/java now holds genuine verified README examples, so
+    a list of matches is legitimate; a NoExampleFound is legitimate too."""
+    if isinstance(result, NoExampleFound):
+        return
+    assert isinstance(result, list) and result, result
+    verified_fqns = {
+        document["text"].splitlines()[0].removeprefix("FQN: ")
+        for document in payload["lexical_index"]["documents"].values()
+        if is_verified_example_text(document["text"])
+    }
+    for match in result:
+        assert isinstance(match, ExampleMatch)
+        assert match.fqn != DRACO_FQN
+        assert match.fqn.startswith("Example: ")
+        assert match.fqn in verified_fqns, f"{match.fqn!r} is not a verified-example chunk"
+        assert match.fqn != point["text"].splitlines()[0].removeprefix("FQN: ")
+
+
 def test_find_examples_by_the_draco_fqn_is_not_an_example_match(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store = _copied_store(tmp_path, THREED_JAVA)
-    point = _draco_point(_generation_payload(store, THREED_JAVA))
+    payload = _generation_payload(store, THREED_JAVA)
+    point = _draco_point(payload)
     _use_query_vector(monkeypatch, point["vector"])
 
     result = find_examples(store, THREED_JAVA, DRACO_FQN)
 
-    assert not isinstance(result, ExampleMatch)
-    assert not (isinstance(result, list) and any(isinstance(match, ExampleMatch) for match in result))
-    assert isinstance(result, NoExampleFound)
+    _assert_matches_are_verified_and_never_the_draco_chunk(result, payload, point)
 
 
 def test_the_vector_path_no_longer_serves_the_draco_point(
@@ -260,8 +281,13 @@ def test_the_vector_path_no_longer_serves_the_draco_point(
 
     result = find_examples(store, THREED_JAVA, NO_LEXICAL_HIT_QUERY)
 
-    assert isinstance(result, NoExampleFound)
-    assert result.found is False
+    # The Draco point is the closest vector (cosine 1.0) yet it is not served; 3d/java now has genuine
+    # verified README examples, so the vector stage may return those (and only those).
+    _assert_matches_are_verified_and_never_the_draco_chunk(result, payload, point)
+    if isinstance(result, NoExampleFound):
+        assert result.found is False
+    else:
+        assert all(match.source == "vector" for match in result)
 
 
 # ---- (c) real data: all pilots ----------------------------------------------------------------

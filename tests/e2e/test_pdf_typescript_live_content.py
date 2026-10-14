@@ -328,15 +328,44 @@ def test_readyz_is_ready_after_the_real_ingestion_publish(real_generation: None)
 
 
 def test_report_index_freshness_reports_the_real_fresh_generation(session: _McpSession) -> None:
-    """A real generation id, and ``stale=False`` once the real indexed commit (recorded via the
-    ``Source-Commit:`` line ``infra/build_chunks.py`` appends to each chunk's text) is compared
-    against the real fixture's own real commit sha.
+    """A real generation id, and a freshness report that states exactly the commits the generation
+    really records (the ``Source-Commit:`` line ``infra/build_chunks.py`` appends to each chunk's
+    text).
+
+    TC-504: this index is MIXED by construction (TC-383) - the API symbols come from the api_surface
+    fixture's commit (``REAL_SOURCE_COMMIT``) while the documentation and examples are compile-verified
+    at the pinned library commit (``REAL_EXAMPLE_SOURCE_COMMIT``) - and a mixed index is fresh only when
+    EVERY recorded commit matches the caller's one commit, which two different commits never can. So
+    the report is stale against either commit, says which kinds of chunk that commit matches, and lists
+    both real commits; it is never a bare "never published" or an unqualified fresh/stale answer.
     """
     body = session.call_tool("report_index_freshness", {"current_source_commit": REAL_SOURCE_COMMIT})
     result = body["result"]["structuredContent"]["result"]
     assert result["indexed_generation_id"] is not None
     assert result["indexed_generation_id"].startswith("pdf::typescript::self_extracted::")
-    assert result["stale"] is False, result["reason"]
+    recorded = {entry["commit"]: entry for entry in result["source_commits"]}
+    assert set(recorded) == {REAL_SOURCE_COMMIT, REAL_EXAMPLE_SOURCE_COMMIT}, result
+    assert recorded[REAL_SOURCE_COMMIT]["symbol_chunks"] >= 300, result
+    assert recorded[REAL_EXAMPLE_SOURCE_COMMIT]["symbol_chunks"] == 0, result
+    assert (
+        recorded[REAL_EXAMPLE_SOURCE_COMMIT]["documentation_chunks"]
+        + recorded[REAL_EXAMPLE_SOURCE_COMMIT]["example_chunks"]
+        >= 1
+    ), result
+    assert result["indexed_source_commit"] == REAL_SOURCE_COMMIT, result
+    assert result["chunks_without_commit"] == 0, result
+    assert result["stale"] is True, result["reason"]
+    assert "index is mixed" in result["reason"], result["reason"]
+    assert f"current {REAL_SOURCE_COMMIT[:12]} matches API symbols only" in result["reason"], result["reason"]
+
+    pinned = session.call_tool(
+        "report_index_freshness", {"current_source_commit": REAL_EXAMPLE_SOURCE_COMMIT}, request_id=2
+    )["result"]["structuredContent"]["result"]
+    assert pinned["stale"] is True, pinned["reason"]
+    assert (
+        f"current {REAL_EXAMPLE_SOURCE_COMMIT[:12]} matches documentation and examples only"
+        in pinned["reason"]
+    ), pinned["reason"]
 
 
 def test_search_symbols_returns_real_content_from_the_real_fixture(session: _McpSession) -> None:
