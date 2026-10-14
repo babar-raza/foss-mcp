@@ -214,20 +214,43 @@ def test_inherited_from_is_genuinely_absent_despite_real_inheritance() -> None:
     ``PngRenderer``, and ``SvgRenderer`` each *override* ``Renderer``'s single abstract
     ``render`` method with their own real implementation (confirmed in each module's own
     source) rather than inheriting it, so ``_flatten_inheritance`` has nothing left
-    uncopied to tag; and ``EncodeOptions``/its seven subclasses are frozen dataclasses
-    whose fields are ``ast.AnnAssign`` statements that ``python_surface.py``'s own
-    ``_methods()`` never records as a ``property`` at all (confirmed below: every entry's
-    ``properties`` list is empty, fixture-wide), leaving nothing for ``inherited_from`` to
-    attach to.
+    uncopied to tag.
+
+    TC-401's own re-run (TC-473 on main now, not when TC-318 last regenerated this
+    fixture): ``EncodeOptions`` and its seven subclasses ARE frozen dataclasses whose
+    fields are ``ast.AnnAssign`` statements, and TC-473 now recovers an annotated
+    class-body field as a writable ``property`` - so ``properties`` is no longer empty
+    fixture-wide. But because ``_internal/models/options.py`` is itself an
+    underscore-path module, TC-429's own "public class built from a non-public-module
+    base" rehoming (not ``_flatten_inheritance``) is what gives each subclass its own
+    direct copy of the base's fields, re-homed to the subclass itself - so even these
+    real, non-empty properties never carry "inherited_from" either: still a genuine
+    absence, just for one more reason than TC-318 originally recorded.
     """
     data = _load_fixture()
 
     for entry in data["types"]:
-        assert entry["properties"] == [], entry["class_import"]
         for method in entry.get("methods", []):
             assert "inherited_from" not in method, (entry["class_import"], method["name"])
         for prop in entry.get("properties", []):
             assert "inherited_from" not in prop, (entry["class_import"], prop["name"])
+
+
+def test_encode_options_subclasses_now_carry_real_dataclass_field_properties() -> None:
+    """TC-473's own live effect on this pilot, re-run under TC-401: an annotated dataclass
+    field in a class body is now a real, writable ``property`` entry (previously every
+    entry's ``properties`` list was empty, fixture-wide, per TC-318's own hand-verification
+    that ``python_surface.py``'s ``_methods()`` never recorded one). ``Code128Options``
+    genuinely re-declares (via TC-429's non-public-base rehoming, not inheritance
+    flattening) the three real fields its frozen-dataclass base ``EncodeOptions``
+    declares, plus its own ``encode_mode``.
+    """
+    data = _load_fixture()
+    by_import = {entry["class_import"]: entry for entry in data["types"] if entry.get("class_import")}
+    code128 = by_import["aspose_barcode_foss.Code128Options"]
+    names = {p["name"] for p in code128["properties"]}
+    assert {"eci_assignment_number", "gs1_enabled", "encode_mode"} <= names
+    assert all(p["writable"] for p in code128["properties"])
 
     # `Renderer`'s own abstract `render` and each subclass's own overriding `render` are
     # real, distinct method entries (not copies) - confirmed by their shared signature

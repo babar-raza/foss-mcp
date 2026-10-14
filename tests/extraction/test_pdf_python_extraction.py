@@ -79,10 +79,12 @@ def test_every_entry_is_a_real_python_surface_kind() -> None:
     data = _load_fixture()
     kinds = {entry["kind"] for entry in data["types"]}
     # Observed directly from the live pure-ast reader's output for this repository - not
-    # a tree-sitter grammar's node-type vocabulary, and not guessed. Unlike the pre-TC-268
-    # fixture, this centrality-ranked 300-entry sample keeps only classes and enums; no
-    # top-level function scored highly enough to survive the cut.
-    assert kinds == {"class", "enum"}
+    # a tree-sitter grammar's node-type vocabulary, and not guessed. TC-401's own re-run
+    # (TC-394's must-keep selection, keeping every class the furnished page's examples use,
+    # plus TC-394's own-group-per-re-export-pair accounting) now keeps 82 top-level
+    # "function" entries alongside "class"/"enum" - unlike the pre-TC-394 fixture this
+    # replaces, where no top-level function scored highly enough to survive the cut.
+    assert kinds == {"class", "enum", "function"}
 
 
 def test_the_fixture_keeps_page_after_centrality_ranking() -> None:

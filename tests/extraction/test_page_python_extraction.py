@@ -148,23 +148,36 @@ def test_a_real_subclass_carries_correct_inherited_from_provenance() -> None:
     assert all(not m.get("inherited_from") for m in own_entries)
 
 
-def test_no_multi_level_inherited_from_chain_exists_in_this_fixture() -> None:
-    # Hand-verified against this run's own live output (not assumed): the one real
-    # multi-level base chain present in this pilot's reduced surface is
-    # PsIOError -> PsError -> Exception. It carries no actual inherited DATA to propagate
-    # transitively, because PsError itself declares zero methods/properties of its own, and
-    # "Exception" is a Python builtin, never a type present in this fixture at all. So every
-    # inherited_from tag observed anywhere in this fixture points at a member's own real,
-    # immediate declaring parent - there is no case here where a member is copied through an
-    # intermediate class and must stay rooted to a grandparent instead (the scenario
-    # TC-261's own multi-level fix targets), because no such chain with real data exists in
-    # this pilot's real upstream source.
+def test_the_ps_error_chain_now_carries_real_inherited_properties() -> None:
+    # TC-401's own re-run: TC-393 (``__init__`` is the constructor, every declared
+    # parameter kept) and TC-473 (a ``self.<name>`` assignment inside ``__init__`` is a
+    # writable ``property``) are both now on main, neither of them when G2/TC-323 last
+    # regenerated this fixture and hand-verified that PsError declared zero
+    # methods/properties of its own. This live re-run recovers PsError's real
+    # ``__init__(self, code, message)``, which assigns both names onto ``self`` - so
+    # PsIOError (``bases == ["PsError"]``) now genuinely inherits both as real properties,
+    # correctly rooted to PsError, while declaring its own overriding ``__init__`` (never
+    # inheriting the base constructor - TC-392's constructors-are-never-inherited rule).
+    # "Exception" is still a Python builtin, never itself a type present in this fixture,
+    # so PsError's own constructor still carries no "inherited_from" tag.
     data = _load_fixture()
     by_import = {entry["class_import"]: entry for entry in data["types"]}
     ps_error = by_import["aspose.page.ps.errors.PsError"]
     assert ps_error["bases"] == ["Exception"]
-    assert ps_error["methods"] == []
-    assert ps_error["properties"] == []
+    assert [m["name"] for m in ps_error["methods"]] == ["__init__"]
+    assert ps_error["methods"][0]["is_constructor"] is True
+    assert not any(m.get("inherited_from") for m in ps_error["methods"])
+    assert {p["name"] for p in ps_error["properties"]} == {"code", "message"}
+    assert not any(p.get("inherited_from") for p in ps_error["properties"])
+
     ps_io_error = by_import["aspose.page.ps.errors.PsIOError"]
     assert ps_io_error["bases"] == ["PsError"]
-    assert ps_io_error["methods"] == []
+    assert [m["name"] for m in ps_io_error["methods"]] == ["__init__"]
+    assert not any(m.get("inherited_from") for m in ps_io_error["methods"])
+    inherited_properties = {
+        p["name"]: p["inherited_from"] for p in ps_io_error["properties"] if p.get("inherited_from")
+    }
+    assert inherited_properties == {
+        "code": "aspose.page.ps.errors.PsError",
+        "message": "aspose.page.ps.errors.PsError",
+    }

@@ -25,16 +25,18 @@ subclasses (real Python-stdlib bases, never themselves kept types in this fixtur
 ``StandardEncryptionParameters``, both real subclasses of this pilot's own
 ``EncryptionParameters`` (``aspose.cells_foss.encryption_params``).
 
-Unlike html/python's ``HTMLElement`` chain (TC-294) or slides/python's ``IChart`` chain
-(TC-291/TC-293), this pilot's own real upstream source
-(``aspose/cells_foss/encryption_params.py`` at the pinned commit, hand-verified directly, not
-assumed) shows ``EncryptionParameters`` declares exactly one method, ``__init__`` - excluded
-from the public surface by ``python_surface.py``'s own underscore-name filter (the same filter
-that drops every dunder) - and both subclasses define their own ``__init__`` anyway, so there
-is no public member left for either subclass to inherit. Zero ``inherited_from`` tags anywhere
-in this fixture is therefore a verified-genuine absence for this pilot, not a pipeline no-op:
-mirrors the TC-301/TC-303/TC-312 tree-sitter-wave precedent for locking in a real absence
-instead of fabricating a positive assertion.
+Regenerated again under TC-401 (G3 pilot-completeness re-extraction) now that TC-393
+(``__init__`` is the constructor, every declared parameter kept) and TC-473 (a
+``self.<name>`` assignment inside ``__init__`` is a writable ``property``) are both on
+main - neither existed when TC-319 last regenerated this fixture and hand-verified that
+``EncryptionParameters`` declared no public member to inherit at all. This live re-run
+against the same pinned commit (still unchanged) now recovers a real
+``__init__(self, encryption_type, cipher_algorithm, hash_algorithm, spin_count)``
+constructor and four real properties on ``EncryptionParameters`` - genuinely inherited by
+both ``AgileEncryptionParameters`` and ``StandardEncryptionParameters``, each correctly
+tagged "inherited_from" the base. Both subclasses still define their own ``__init__``
+(overriding, never inheriting, the base constructor), so that one member alone stays
+untagged.
 """
 
 from __future__ import annotations
@@ -118,33 +120,48 @@ def test_the_fixture_now_carries_real_bases_under_the_full_inheritance_pipeline(
     )
 
 
-def test_encryption_parameters_subclasses_have_a_hand_verified_genuine_absence_of_inherited_from() -> None:
-    # Unlike html/python's HTMLElement chain (TC-294) or slides/python's IChart chain
-    # (TC-291/TC-293), this pilot's own real upstream source
-    # (aspose/cells_foss/encryption_params.py at the pinned commit, read directly - not
-    # assumed) shows EncryptionParameters declares exactly one method, __init__, which
-    # python_surface.py's own underscore-name filter excludes from the public surface (the
-    # same filter that drops every dunder everywhere else in this pipeline) - and both real
-    # subclasses below define their own __init__ anyway, overriding rather than inheriting it.
-    # There is therefore no public member left for either subclass to inherit: zero
-    # inherited_from tags for this base relationship is a verified-genuine absence, not a
-    # pipeline no-op.
+def test_encryption_parameters_subclasses_now_inherit_real_properties_with_provenance() -> None:
+    # TC-401's own re-run, under TC-393 (``__init__`` is the constructor, every declared
+    # parameter kept) and TC-473 (a ``self.<name>`` assignment inside ``__init__`` is a
+    # writable ``property``) - neither on main when this fixture was last regenerated.
+    # This pilot's own real upstream source (aspose/cells_foss/encryption_params.py at the
+    # pinned commit, read directly - not assumed) shows EncryptionParameters declares a
+    # real ``__init__(self, encryption_type, cipher_algorithm, hash_algorithm, spin_count)``
+    # that assigns exactly those four names onto ``self`` - previously invisible entirely
+    # (the dunder-name filter excluded ``__init__``, and no property-recovery existed), now
+    # a real constructor plus four real properties, inherited by both real subclasses with
+    # correct "inherited_from" provenance. Each subclass still declares its own ``__init__``
+    # (overriding, never inheriting it), exactly as before.
     data = _load_fixture()
-    by_name = {entry["name"]: entry for entry in data["types"]}
-    encryption_parameters = by_name["EncryptionParameters"]
-    assert encryption_parameters["methods"] == []
-    assert encryption_parameters["properties"] == []
+    by_import = {entry["class_import"]: entry for entry in data["types"] if entry.get("class_import")}
+    encryption_parameters = by_import["aspose.cells_foss.encryption_params.EncryptionParameters"]
+    assert [m["name"] for m in encryption_parameters["methods"]] == ["__init__"]
+    assert encryption_parameters["methods"][0]["is_constructor"] is True
+    assert [p["name"] for p in encryption_parameters["methods"][0]["params"]] == [
+        "encryption_type",
+        "cipher_algorithm",
+        "hash_algorithm",
+        "spin_count",
+    ]
+    base_property_names = {"cipher_algorithm", "encryption_type", "hash_algorithm", "spin_count"}
+    assert {p["name"] for p in encryption_parameters["properties"]} == base_property_names
+    assert not any(method.get("inherited_from") for method in encryption_parameters["methods"])
+    assert not any(prop.get("inherited_from") for prop in encryption_parameters["properties"])
+
     for subclass_name in ("AgileEncryptionParameters", "StandardEncryptionParameters"):
-        subclass = by_name[subclass_name]
+        subclass = by_import[f"aspose.cells_foss.encryption_params.{subclass_name}"]
         assert subclass["bases"] == ["EncryptionParameters"]
+        # The subclass's own __init__ overrides, never inherits, the base constructor.
+        own_methods = {m["name"] for m in subclass["methods"] if not m.get("inherited_from")}
+        assert own_methods == {"__init__"}
         assert not any(method.get("inherited_from") for method in subclass["methods"])
-        assert not any(prop.get("inherited_from") for prop in subclass["properties"])
-    # And genuinely nowhere else in this fixture either - this pilot's only non-stdlib base
-    # relationship is the one hand-verified above, and every stdlib Enum/IntEnum base is never
-    # itself a kept type in this fixture, so it can never seed an inherited_from tag either.
-    assert not any(
-        method.get("inherited_from") for entry in data["types"] for method in entry.get("methods", [])
-    )
-    assert not any(
-        prop.get("inherited_from") for entry in data["types"] for prop in entry.get("properties", [])
-    )
+        # The four base properties ARE genuinely inherited now, each correctly rooted to
+        # EncryptionParameters - never fabricated, never left untagged.
+        inherited_properties = {
+            prop["name"]: prop["inherited_from"]
+            for prop in subclass["properties"]
+            if prop.get("inherited_from")
+        }
+        assert base_property_names <= set(inherited_properties)
+        for name in base_property_names:
+            assert inherited_properties[name] == "aspose.cells_foss.encryption_params.EncryptionParameters"

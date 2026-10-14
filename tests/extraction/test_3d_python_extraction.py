@@ -148,17 +148,26 @@ def test_a_real_inherited_member_carries_the_correct_inherited_from_tag() -> Non
     way the real source actually writes it) and now really does inherit ``A3DObject``'s own
     real members, each tagged "inherited_from" the real, member-bearing definition
     (``aspose.threed.A3DObject.A3DObject``) - never the empty re-export shell
-    (``aspose.threed.A3DObject``) that used to win this exact resolution before TC-293."""
+    (``aspose.threed.A3DObject``) that used to win this exact resolution before TC-293.
+
+    TC-401's own re-run (the TC-393/TC-473 constructor/property pipeline, not on main when
+    TC-288/TC-293 last regenerated this fixture): ``A3DObject``'s own ``name`` and
+    ``properties`` accessors are real ``@property`` getters, so they are now correctly
+    recovered as ``properties`` entries rather than plain ``methods`` - still copied onto
+    ``AssetInfo`` with the same "inherited_from" provenance, just under the sibling list."""
     data = _load_fixture()
     by_class_import = {entry["class_import"]: entry for entry in data["types"]}
     asset_info = by_class_import["aspose.threed.AssetInfo.AssetInfo"]
     assert asset_info["bases"] == ["A3DObject"]
 
-    inherited = {m["name"]: m for m in asset_info["methods"] if "inherited_from" in m}
-    assert {"find_property", "get_property", "name", "properties", "remove_property", "set_property"} <= set(
-        inherited
-    )
-    for member in inherited.values():
+    inherited_methods = {m["name"]: m for m in asset_info["methods"] if "inherited_from" in m}
+    assert {"find_property", "get_property", "remove_property", "set_property"} <= set(inherited_methods)
+    for member in inherited_methods.values():
+        assert member["inherited_from"] == "aspose.threed.A3DObject.A3DObject"
+
+    inherited_properties = {p["name"]: p for p in asset_info["properties"] if "inherited_from" in p}
+    assert {"name", "properties"} <= set(inherited_properties)
+    for member in inherited_properties.values():
         assert member["inherited_from"] == "aspose.threed.A3DObject.A3DObject"
 
 

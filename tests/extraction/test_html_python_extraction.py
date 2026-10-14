@@ -126,25 +126,42 @@ def test_html_element_now_carries_real_own_methods() -> None:
     # python_surface.py's per-file scan never reached its class body at all. TC-294 fixed
     # that; this is HTMLElement's own live, observed method list from THIS run, not an
     # invented or assumed one.
+    #
+    # TC-401's own re-run: TC-473 (on main now, not when TC-297 last regenerated this
+    # fixture) recognizes an annotated ``@property`` getter as a ``property`` rather than a
+    # plain method - "title" and "tab_index" are real ``@property`` getters in
+    # dom/_html_element.py (lines 137/185), so they now correctly land in ``properties``
+    # instead of ``methods``; only "click"/"focus"/"blur" stay as real own methods.
     data = _load_fixture()
     html_element = next(entry for entry in data["types"] if entry["name"] == "HTMLElement")
     assert html_element["class_import"] == "aspose_html.dom.HTMLElement"
     own_methods = [m for m in html_element["methods"] if not m.get("inherited_from")]
     own_names = {m["name"] for m in own_methods}
-    # Real, observed upstream members of dom/_html_element.py's own HTMLElement class -
-    # not guessed: TC-289's own prior investigation of the live upstream source named
-    # exactly this set as the expected recovery target.
-    assert {"click", "focus", "blur", "title", "tab_index"} <= own_names
+    assert {"click", "focus", "blur"} <= own_names
+    assert {"title", "tab_index"}.isdisjoint(own_names)
+    own_properties = [p for p in html_element["properties"] if not p.get("inherited_from")]
+    own_property_names = {p["name"] for p in own_properties}
+    assert {"title", "tab_index"} <= own_property_names
     # Near-zero before TC-294 (0 observed by TC-289); comfortably non-trivial now.
     assert len(own_methods) >= 20
 
 
 def test_a_real_subclass_carries_correct_inherited_from_provenance() -> None:
     # TC-261's inherited_from tagging only matters if a real member actually gets copied
-    # down from a real base - which TC-293's short-name-collision fix and TC-294's method
-    # recovery are what make possible for HTMLElement's own subclasses for the first time.
-    # HTMLMediaElement is a real, concrete Aspose.HTML-FOSS-for-Python class (dom/__init__.py
-    # re-exports it from dom/_html_media_element.py) that lists HTMLElement as a base.
+    # down from a real base by ``_flatten_inheritance`` - but TC-401's own re-run shows
+    # TC-429 (on main now, not when TC-297 last regenerated this fixture) now reaches this
+    # relationship FIRST: ``_html_element.py`` is itself an underscore-path module, so
+    # TC-429's "public class built from a non-public-module base" rehoming gives
+    # HTMLMediaElement its own direct copy of every HTMLElement method (including "click"),
+    # re-homed to HTMLMediaElement itself - never tagged "inherited_from", because it was
+    # never copied by ``_flatten_inheritance`` at all; by the time that pass runs, the
+    # method key is already present as HTMLMediaElement's "own".
+    #
+    # ``_flatten_inheritance`` still fires at least once in this same fixture:
+    # HTMLSelectElement(_ConstraintValidationMixin, HTMLElement) inherits "remove" from
+    # HTMLElement through the ordinary flattening path (confirmed live, the one surviving
+    # inherited_from tag anywhere in this fixture) - proving the tagging mechanism itself
+    # is still reachable for this pilot, just for a different concrete pair than before.
     data = _load_fixture()
     media_element = next(
         entry
@@ -153,8 +170,23 @@ def test_a_real_subclass_carries_correct_inherited_from_provenance() -> None:
     )
     assert "HTMLElement" in media_element["bases"]
     click_entries = [m for m in media_element["methods"] if m["name"] == "click"]
-    assert click_entries, "expected HTMLMediaElement to have inherited HTMLElement.click"
-    # The tag names the real, original declaring class's public qualified name - never the
-    # intermediate subclass, and never left absent (which is how a silently-uncredited
-    # inherited member looked before TC-261).
-    assert click_entries[0]["inherited_from"] == "aspose_html.dom.HTMLElement"
+    assert click_entries, "expected HTMLMediaElement to carry HTMLElement's click"
+    assert "inherited_from" not in click_entries[0]
+
+    select_element = next(
+        entry
+        for entry in data["types"]
+        if entry["name"] == "HTMLSelectElement" and entry["class_import"] == "aspose_html.dom.HTMLSelectElement"
+    )
+    assert "HTMLElement" in select_element["bases"]
+    # HTMLSelectElement declares its OWN "remove(index)" (removing an <option>, a real,
+    # locally-declared overload sharing the bare name but not the signature) alongside the
+    # separately-kept, no-argument "remove()" it inherits from HTMLElement (removing the
+    # element itself) - TC-261's own param-type-aware dedup key keeps both as distinct
+    # entries rather than conflating them.
+    remove_entries = [m for m in select_element["methods"] if m["name"] == "remove" and not m["params"]]
+    assert remove_entries, "expected HTMLSelectElement to have inherited HTMLElement.remove()"
+    assert remove_entries[0]["inherited_from"] == "aspose_html.dom.HTMLElement"
+    own_remove = [m for m in select_element["methods"] if m["name"] == "remove" and m["params"]]
+    assert own_remove, "expected HTMLSelectElement's own remove(index) to survive alongside it"
+    assert "inherited_from" not in own_remove[0]

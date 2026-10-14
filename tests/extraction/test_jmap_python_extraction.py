@@ -37,17 +37,22 @@ broken run:
 - ``JmapClient`` (``__init__.py``) is composed from three real mixins -
   ``_CoreClientMixin`` (``client_core.py``), ``_MailClientMixin`` (``client_mail.py``),
   ``_SubmissionClientMixin`` (``client_submission.py``) - each carrying real public
-  methods (``connect``, ``send_request``, ``list_mailboxes``, ``send``, etc.), but every
+  methods (``connect``, ``send_request``, ``list_mailboxes``, ``send``, etc.), and every
   one of those three names is leading-underscore and never exported under any public
-  alias anywhere in the repository, so the engine's own public-surface filtering
-  (``python_surface._public_name``) correctly excludes them from this fixture entirely -
-  there is no public symbol for ``_flatten_inheritance`` to resolve a base reference
-  against. This is the exact same structural pattern already confirmed and accepted,
-  unmodified, for pdf/python's ``_BoundFacade``, html/python's
-  ``_ConstraintValidationMixin``, words/python's ``_StyleMixin``/``_ListMixin``, and
-  imaging/net's ``internal``-declared ``IFormatHandler`` implementers (see
-  docs/DECISION_LOG.md's 2026-10-10 "genuinely flat" entry) - never previously flagged
-  as a defect in any of those already-accepted pilots, and not one here either.
+  alias anywhere in the repository, so none of the three is ever its own public symbol in
+  this fixture (unchanged, re-confirmed below). TC-321 recorded that as the reason
+  ``_flatten_inheritance`` had no base entry to resolve against, so ``JmapClient`` came
+  back with zero methods - a real, structural gap, not a defect in any already-accepted
+  pilot's own (still correct) pattern of excluding a private mixin from being its own
+  public symbol.
+
+  TC-401's own re-run closes that gap: TC-429 ("give a public Python class its private
+  mixins' public methods") is now on main and reads each private mixin's class body
+  directly off disk, re-homing its real public methods onto ``JmapClient`` itself - never
+  through ``_flatten_inheritance``, so none of them carries "inherited_from". This is the
+  concrete, live proof the fix reaches this pilot: ``JmapClient`` now carries 21 real
+  methods (``connect``, ``send_request``, ``list_mailboxes``, ``send`` among them),
+  observed directly from this run, not guessed.
 """
 
 from __future__ import annotations
@@ -125,18 +130,29 @@ def test_the_fixture_now_carries_real_bases() -> None:
     ]
 
 
-def test_inherited_from_is_a_verified_absence_not_a_stale_or_broken_run() -> None:
+def test_jmap_client_now_carries_its_private_mixins_real_public_methods() -> None:
+    # TC-401's own re-run: TC-429 ("give a public Python class its private mixins' public
+    # methods") is now on main, which did not exist when TC-321 last regenerated this
+    # fixture - JmapClient's own real ``methods`` list was ``[]`` then, hand-verified as a
+    # genuine absence because its three mixin bases are never public anywhere in this
+    # fixture (still true, re-confirmed below) so ``_flatten_inheritance()`` had no base
+    # entry to copy from. TC-429 closes exactly this gap: a public class built from
+    # non-public bases now gets their real public methods re-homed directly onto itself -
+    # never through ``_flatten_inheritance``, so none of these carry "inherited_from".
     data = _load_fixture()
-    # Falsifier guard matching the pdf/python (TC-281/TC-290) precedent's own
-    # "test_inherited_from_tags_are_not_vacuous": a fixture that genuinely has zero
-    # inherited_from tags must be distinguished from one where the pipeline silently
-    # failed to run at all. Here that distinction is drawn by confirming the three real
-    # mixin names JmapClient's own bases name are themselves never public anywhere in
-    # this fixture - the exact reason _flatten_inheritance() has no base entry to copy
-    # from, hand-verified against the real pinned source (see module docstring) rather
-    # than assumed.
     names = {entry["name"] for entry in data["types"]}
     assert not ({"_CoreClientMixin", "_MailClientMixin", "_SubmissionClientMixin"} & names)
+    jmap_client = next(entry for entry in data["types"] if entry["name"] == "JmapClient")
+    assert jmap_client["bases"] == ["_CoreClientMixin", "_MailClientMixin", "_SubmissionClientMixin"]
+    method_names = {m["name"] for m in jmap_client["methods"]}
+    # Real public methods of the three mixins, named directly in this module's own
+    # docstring (``connect``, ``send_request``, ``list_mailboxes``, ``send``) plus the
+    # constructor and context-manager dunders TC-393/TC-473 now also recover - observed
+    # directly from this live run, not guessed.
+    assert {"connect", "send_request", "list_mailboxes", "send", "__init__"} <= method_names
+    assert all("inherited_from" not in m for m in jmap_client["methods"])
+    # _flatten_inheritance's own tagging mechanism is still untouched for this pilot:
+    # these are re-homed as JmapClient's own methods, never copied-and-tagged.
     total_inherited = sum(
         1
         for entry in data["types"]
@@ -144,9 +160,3 @@ def test_inherited_from_is_a_verified_absence_not_a_stale_or_broken_run() -> Non
         if "inherited_from" in member
     )
     assert total_inherited == 0
-    # Guards against a regression on the other side too: JmapClient's own composition
-    # bases must stay real (non-builtin) - an engine fix that someday resolves private
-    # mixin bases should fail this test loudly rather than pass it silently vacuous.
-    jmap_client = next(entry for entry in data["types"] if entry["name"] == "JmapClient")
-    assert jmap_client["bases"] == ["_CoreClientMixin", "_MailClientMixin", "_SubmissionClientMixin"]
-    assert jmap_client["methods"] == []

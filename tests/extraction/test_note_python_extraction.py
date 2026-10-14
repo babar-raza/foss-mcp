@@ -115,10 +115,14 @@ def test_the_real_node_hierarchy_carries_real_bases() -> None:
 
 def test_composite_node_inherits_real_node_methods_with_inherited_from_tag() -> None:
     # CompositeNode's own locally-declared child-management methods must never carry an
-    # ``inherited_from`` tag, while the three methods it never redeclares (``Accept``,
-    # ``Document``, ``ParentNode``) are real members of ``Node`` - copied down by
-    # ``api_surface._flatten_inheritance`` (reached for a Python-sourced pilot at all only
-    # since TC-281) and tagged with their true declaring class.
+    # ``inherited_from`` tag, while the methods it never redeclares (``Accept``) are real
+    # members of ``Node`` - copied down by ``api_surface._flatten_inheritance`` (reached
+    # for a Python-sourced pilot at all only since TC-281) and tagged with their true
+    # declaring class. TC-401's own re-run: TC-473 (on main now, not when TC-322 last
+    # regenerated this fixture) recognizes ``FirstChild``/``LastChild`` as real
+    # ``@property`` getters rather than plain methods, and likewise for ``Node``'s own
+    # ``Document``/``ParentNode`` - so those four now land in ``properties``, inherited
+    # with the same provenance, rather than in ``methods``.
     data = _load_fixture()
     composite_node = next(
         entry
@@ -130,16 +134,21 @@ def test_composite_node_inherits_real_node_methods_with_inherited_from_tag() -> 
     assert {
         "AppendChildFirst",
         "AppendChildLast",
-        "FirstChild",
         "GetChildNodes",
         "GetEnumerator",
         "InsertChild",
-        "LastChild",
         "RemoveChild",
     } <= own_methods
-    inherited = {m["name"]: m["inherited_from"] for m in composite_node["methods"] if m.get("inherited_from")}
-    assert inherited == {
-        "Accept": "aspose.note.model.Node",
+    own_properties = {p["name"] for p in composite_node["properties"] if not p.get("inherited_from")}
+    assert {"FirstChild", "LastChild"} <= own_properties
+    inherited_methods = {
+        m["name"]: m["inherited_from"] for m in composite_node["methods"] if m.get("inherited_from")
+    }
+    assert inherited_methods == {"Accept": "aspose.note.model.Node"}
+    inherited_properties = {
+        p["name"]: p["inherited_from"] for p in composite_node["properties"] if p.get("inherited_from")
+    }
+    assert inherited_properties == {
         "Document": "aspose.note.model.Node",
         "ParentNode": "aspose.note.model.Node",
     }
@@ -147,14 +156,20 @@ def test_composite_node_inherits_real_node_methods_with_inherited_from_tag() -> 
 
 def test_document_inherits_real_multi_level_provenance_from_both_ancestors() -> None:
     # The real multi-level-chain proof this card exists to produce: Document's own real
-    # methods (declared directly on Document itself) carry no ``inherited_from`` tag; its 8
+    # methods (declared directly on Document itself) carry no ``inherited_from`` tag; its
     # methods real-declared on its IMMEDIATE parent CompositeNode are tagged
-    # "aspose.note.model.CompositeNode"; and its 3 methods real-declared on its GRANDPARENT
-    # Node are tagged "aspose.note.model.Node" directly - not mis-rooted to the intermediate
-    # CompositeNode, which never redeclares them either. Confirmed live against the real
+    # "aspose.note.model.CompositeNode"; and its method real-declared on its GRANDPARENT
+    # Node is tagged "aspose.note.model.Node" directly - not mis-rooted to the intermediate
+    # CompositeNode, which never redeclares it either. Confirmed live against the real
     # upstream source: ``Node.Accept``/``Node.ParentNode`` are declared inside ``class Node``
     # (model.py lines 134-168) and ``CompositeNode.AppendChildFirst`` is declared inside
     # ``class CompositeNode`` (model.py line 190) - Document (line 1257) redeclares neither.
+    #
+    # TC-401's own re-run: TC-393 now recovers Document's real ``__init__`` constructor
+    # (excluded entirely before), and TC-473 recognizes ``FileFormat`` as a real
+    # ``@property`` getter rather than a plain method, moving it (and the inherited
+    # ``FirstChild``/``LastChild``/``ParentNode``/own-``Document``-the-property, see
+    # below) into ``properties``.
     data = _load_fixture()
     document = next(
         entry
@@ -163,18 +178,25 @@ def test_document_inherits_real_multi_level_provenance_from_both_ancestors() -> 
     )
     assert document["bases"] == ["CompositeNode"]
     own_methods = {m["name"] for m in document["methods"] if not m.get("inherited_from")}
-    assert own_methods == {"DetectLayoutChanges", "FileFormat", "GetPageHistory", "Save"}
-    inherited = {m["name"]: m["inherited_from"] for m in document["methods"] if m.get("inherited_from")}
-    assert inherited == {
+    assert own_methods == {"DetectLayoutChanges", "GetPageHistory", "Save", "__init__"}
+    own_properties = {p["name"] for p in document["properties"] if not p.get("inherited_from")}
+    assert own_properties == {"CreationTime", "DisplayName", "FileFormat"}
+    inherited_methods = {m["name"]: m["inherited_from"] for m in document["methods"] if m.get("inherited_from")}
+    assert inherited_methods == {
         "AppendChildFirst": "aspose.note.model.CompositeNode",
         "AppendChildLast": "aspose.note.model.CompositeNode",
-        "FirstChild": "aspose.note.model.CompositeNode",
         "GetChildNodes": "aspose.note.model.CompositeNode",
         "GetEnumerator": "aspose.note.model.CompositeNode",
         "InsertChild": "aspose.note.model.CompositeNode",
-        "LastChild": "aspose.note.model.CompositeNode",
         "RemoveChild": "aspose.note.model.CompositeNode",
         "Accept": "aspose.note.model.Node",
+    }
+    inherited_properties = {
+        p["name"]: p["inherited_from"] for p in document["properties"] if p.get("inherited_from")
+    }
+    assert inherited_properties == {
+        "FirstChild": "aspose.note.model.CompositeNode",
+        "LastChild": "aspose.note.model.CompositeNode",
         "Document": "aspose.note.model.Node",
         "ParentNode": "aspose.note.model.Node",
     }
