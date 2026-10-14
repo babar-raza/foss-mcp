@@ -20,7 +20,11 @@ import pytest
 import infra.build_chunks as build_chunks
 from foss_mcp.indexing import example_verifier
 from foss_mcp.indexing.example_candidates import CandidateExample, extract_candidate_examples
-from foss_mcp.indexing.example_verifier import VerificationResult, verify_dotnet_example
+from foss_mcp.indexing.example_verifier import (
+    DOTNET_BUILD_PROPERTIES,
+    VerificationResult,
+    verify_dotnet_example,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FURNISHED = REPO_ROOT / "tests/fixtures/furnished"
@@ -269,7 +273,7 @@ def test_verify_text_and_formatting_builds_against_the_library_framework(
 
     assert len(fake.calls) == 1
     argv, cwd = fake.calls[0]
-    assert argv == ["dotnet", "build"]
+    assert argv == ["dotnet", "build", *DOTNET_BUILD_PROPERTIES]
     assert cwd == tmp_path / "work" / "candidate_project"
     assert "<TargetFramework>net10.0</TargetFramework>" in fake.csproj[0]
     assert "<ImplicitUsings>enable</ImplicitUsings>" in fake.csproj[0]

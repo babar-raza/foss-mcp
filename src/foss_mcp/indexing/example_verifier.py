@@ -88,6 +88,13 @@ _NO_STATEMENTS_MESSAGE = (
 # The target framework used when the library's own project files declare no usable one.
 _DEFAULT_DOTNET_TARGET_FRAMEWORK = "net8.0"
 
+# Global MSBuild properties added to every `dotnet build`. Upstream libraries document their API with
+# `<include file="..\Docs\Text.xml" />` (a Windows backslash path) while their csproj sets
+# GenerateDocumentationFile and TreatWarningsAsErrors, so on Linux the unresolved include is a build
+# error (CS1589). XML documentation files are not needed to compile and run an example, so they are
+# turned off; a global property also reaches the referenced library project.
+DOTNET_BUILD_PROPERTIES: tuple[str, ...] = ("-p:GenerateDocumentationFile=false",)
+
 _CANDIDATE_CSPROJ_TEMPLATE = """<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -529,7 +536,7 @@ def prepare_reference_library(
         _pull_lfs_packages(workdir)
 
     csproj_path = workdir / csproj_relative_path
-    build_result = _run(["dotnet", "build", str(csproj_path)], cwd=workdir)
+    build_result = _run(["dotnet", "build", str(csproj_path), *DOTNET_BUILD_PROPERTIES], cwd=workdir)
     if build_result.returncode != 0:
         raise RuntimeError(
             f"reference library at {repository}@{commit} "
@@ -675,7 +682,7 @@ def verify_dotnet_example(
     (project_dir / "candidate.csproj").write_text(csproj_content, encoding="utf-8")
     (project_dir / "Program.cs").write_text(source, encoding="utf-8")
 
-    result = _run(["dotnet", "build"], cwd=project_dir)
+    result = _run(["dotnet", "build", *DOTNET_BUILD_PROPERTIES], cwd=project_dir)
 
     verified = result.returncode == 0
     prepended = ", ".join(added_usings) or "none"
