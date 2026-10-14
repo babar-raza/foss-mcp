@@ -250,6 +250,16 @@ def select_publishable_chunks(
     return selected, report
 
 
+def _vector_decimals(value: str) -> int:
+    try:
+        decimals = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"--vector-decimals must be an integer, got {value!r}") from None
+    if not 1 <= decimals <= 12:
+        raise argparse.ArgumentTypeError(f"--vector-decimals must be between 1 and 12, got {decimals}")
+    return decimals
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--family", required=True)
@@ -282,6 +292,17 @@ def main() -> None:
             "holds every chunk either way."
         ),
     )
+    parser.add_argument(
+        "--vector-decimals",
+        type=_vector_decimals,
+        default=None,
+        metavar="N",
+        help=(
+            "round every stored vector component to N decimal places (integer 1 to 12). Unset "
+            "(default) stores vectors unrounded. 5 cuts a 4096-dimension point from ~88 KB to ~34 KB "
+            "with a cosine change below 1e-5."
+        ),
+    )
     args = parser.parse_args()
 
     store = GenerationManifestStore(args.manifest_store)
@@ -312,6 +333,7 @@ def main() -> None:
         embedding_provider=embedding_provider,
         lease=lease,
         vector_chunk_filter=is_example_chunk if args.vector_scope == "examples" else None,
+        vector_decimals=args.vector_decimals,
     )
     print(f"published {generation_id}")
 

@@ -64,6 +64,7 @@ def publish_generation(
     lease: Lease,
     version: str | None = None,
     vector_chunk_filter: Callable[[Chunk], bool] | None = None,
+    vector_decimals: int | None = None,
 ) -> str:
     """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
     generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
@@ -72,6 +73,9 @@ def publish_generation(
     ``build_vector_index`` as ``include``: ``None`` (the default) embeds and stores every chunk;
     a predicate embeds and stores only the chunks it accepts. The lexical index always holds
     every chunk either way.
+
+    ``vector_decimals`` is passed straight to ``build_vector_index`` as ``decimals``: ``None`` (the
+    default) stores vectors unrounded, an integer rounds every stored component to that many places.
     """
     version = version or new_version()
     # The generation_id is needed to build the payload itself (it is folded into every
@@ -83,7 +87,12 @@ def publish_generation(
     chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
     payload = {
         "vector_index": build_vector_index(
-            chunks, chunk_ids, embedding_provider, generation_id, include=vector_chunk_filter
+            chunks,
+            chunk_ids,
+            embedding_provider,
+            generation_id,
+            include=vector_chunk_filter,
+            decimals=vector_decimals,
         ),
         "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
     }

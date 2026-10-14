@@ -31,6 +31,16 @@ def is_example_chunk(chunk: Chunk) -> bool:
     return EXAMPLE_MARKER in chunk.text
 
 
+def quantize_vector(vector: Sequence[float], decimals: int) -> tuple[float, ...]:
+    """``vector`` with every component rounded to ``decimals`` decimal places.
+
+    Opt-in size control for the baked vector index: a 4096-dimension gateway vector serialised as
+    JSON costs ~88 KB a point at full precision and ~34 KB rounded to 5 decimals, with a cosine
+    change far below find_examples' similarity floor.
+    """
+    return tuple(round(float(component), decimals) for component in vector)
+
+
 def point_id(generation_id: str, chunk_id: str) -> str:
     """A vector point's identity - always generation-qualified, never chunk_id alone."""
     return f"{generation_id}::point::{chunk_id}"
@@ -51,6 +61,7 @@ def build_vector_index(
     generation_id: str,
     *,
     include: Callable[[Chunk], bool] | None = None,
+    decimals: int | None = None,
 ) -> dict:
     """The vector-index payload for ``generation_id``: one point per chunk.
 
@@ -64,6 +75,9 @@ def build_vector_index(
     each kept chunk stays paired with its own ``chunk_id``, and when nothing is selected ``embed``
     is not called at all and ``points`` is ``[]``. ``dimension`` and ``generation_id`` keep their
     meaning either way.
+
+    ``decimals`` is an opt-in size control: ``None`` (the default) stores the provider's vectors
+    exactly as before, an integer stores every vector through ``quantize_vector(vector, decimals)``.
     """
     if len(chunks) != len(chunk_ids):
         raise ValueError("chunks and chunk_ids must be the same length, pairwise")
@@ -80,6 +94,8 @@ def build_vector_index(
         vectors: list[Vector] = []
     else:
         vectors = embedding_provider.embed([chunk.text for chunk in selected_chunks])
+    if decimals is not None:
+        vectors = [quantize_vector(vector, decimals) for vector in vectors]
     points = [
         VectorPoint(
             point_id=point_id(generation_id, chunk_id),
