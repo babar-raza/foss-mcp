@@ -1,0 +1,168 @@
+schema_version: 1
+pilot: jmap_net
+library_repository: aspose-email-foss/Aspose.JMAP-FOSS-for-.NET
+library_commit: 0d5cf17e0e9ee185eea2847f6587b918ac0eb016
+language: csharp
+examples:
+- title: Serialise a Mailbox/get request envelope
+  description: Builds a JmapRequestEnvelope holding one Invocation for Mailbox/get and prints the JSON it serialises to; no
+    connection is made.
+  symbols:
+  - Invocation
+  - JmapRequestEnvelope
+  code: |
+    // Authored example: build a JMAP request envelope for Mailbox/get and print its JSON
+    using System;
+    using System.Collections.Generic;
+    using System.Text.Json;
+    using Aspose.Jmap;
+
+    var getMailboxes = new Invocation
+    {
+        Name = "Mailbox/get",
+        Arguments = new Dictionary<string, object> { ["accountId"] = "A1" },
+        MethodCallId = "c1",
+    };
+
+    var envelope = new JmapRequestEnvelope
+    {
+        Using = new[] { "urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail" },
+        MethodCalls = new[] { getMailboxes },
+    };
+
+    Console.WriteLine(JsonSerializer.Serialize(envelope));
+  code_sha256: 16a379188e5b9e0db6f403ea08089b630a3ca81c47f996a6a18ab3ae0ae39668
+- title: Connect through an in-memory transport
+  description: Implements IJmapTransport with a class that returns a canned session document, passes it to JmapClientOptions
+    and prints the account ids after ConnectAsync.
+  symbols:
+  - JmapClient
+  - JmapClient.ConnectAsync
+  - JmapClientOptions
+  - IJmapTransport
+  - JmapHttpResponse
+  code: |
+    // Authored example: connect a JmapClient through an in-memory transport and list the account ids
+    using System;
+    using System.Text;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using Aspose.Jmap;
+
+    var options = new JmapClientOptions
+    {
+        SessionUrl = new Uri("https://jmap.example.invalid/.well-known/jmap"),
+        Username = "user@example.invalid",
+        Password = "placeholder",
+        Transport = new CannedSessionTransport(),
+    };
+
+    using var client = new JmapClient(options);
+    await client.ConnectAsync();
+
+    foreach (var accountId in client.Session!.Accounts.Keys)
+    {
+        Console.WriteLine(accountId);
+    }
+
+    class CannedSessionTransport : IJmapTransport
+    {
+        private const string SessionJson = """
+            {
+              "capabilities": { "urn:ietf:params:jmap:core": {} },
+              "accounts": { "A1": { "name": "user@example.invalid", "isPersonal": true } },
+              "primaryAccounts": { "urn:ietf:params:jmap:mail": "A1" },
+              "username": "user@example.invalid",
+              "apiUrl": "https://jmap.example.invalid/api",
+              "downloadUrl": "https://jmap.example.invalid/download/{accountId}/{blobId}/{name}",
+              "uploadUrl": "https://jmap.example.invalid/upload/{accountId}",
+              "eventSourceUrl": "https://jmap.example.invalid/events",
+              "state": "s1"
+            }
+            """;
+
+        public Task<JmapHttpResponse> SendAsync(JmapHttpRequest request, CancellationToken cancellationToken = default)
+        {
+            var response = new JmapHttpResponse { StatusCode = 200, Body = Encoding.UTF8.GetBytes(SessionJson) };
+            return Task.FromResult(response);
+        }
+    }
+  code_sha256: c2951edfe3d7687a307ea4c7f55bf309189acdc576a90d6f7ac9b312cade8001
+- title: List mailbox names from a canned response
+  description: Uses the same kind of in-memory IJmapTransport and calls ListMailboxesAsync with an account id; prints the
+    Name of each Mailbox it returns.
+  symbols:
+  - JmapClient
+  - JmapClientMailExtensions.ListMailboxesAsync
+  - IJmapTransport
+  - JmapHttpRequest
+  - Mailbox
+  code: |
+    // Authored example: list mailbox names with ListMailboxesAsync against canned JMAP responses
+    using System;
+    using System.Collections.Generic;
+    using System.Text;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using Aspose.Jmap;
+
+    var options = new JmapClientOptions
+    {
+        SessionUrl = new Uri("https://jmap.example.invalid/.well-known/jmap"),
+        Username = "user@example.invalid",
+        Password = "placeholder",
+        Transport = new CannedMailTransport(),
+    };
+
+    using var client = new JmapClient(options);
+    await client.ConnectAsync();
+
+    string accountId = "A1";
+    IReadOnlyList<Mailbox> mailboxes = await client.ListMailboxesAsync(accountId);
+
+    foreach (var mailbox in mailboxes)
+    {
+        Console.WriteLine(mailbox.Name);
+    }
+
+    class CannedMailTransport : IJmapTransport
+    {
+        private const string SessionJson = """
+            {
+              "capabilities": { "urn:ietf:params:jmap:core": {} },
+              "accounts": { "A1": { "name": "user@example.invalid", "isPersonal": true } },
+              "primaryAccounts": { "urn:ietf:params:jmap:mail": "A1" },
+              "username": "user@example.invalid",
+              "apiUrl": "https://jmap.example.invalid/api",
+              "downloadUrl": "https://jmap.example.invalid/download/{accountId}/{blobId}/{name}",
+              "uploadUrl": "https://jmap.example.invalid/upload/{accountId}",
+              "eventSourceUrl": "https://jmap.example.invalid/events",
+              "state": "s1"
+            }
+            """;
+
+        private const string MailboxGetJson = """
+            {
+              "sessionState": "s1",
+              "methodResponses": [
+                ["Mailbox/get", {
+                  "accountId": "A1",
+                  "state": "m1",
+                  "list": [
+                    { "id": "mb1", "name": "Inbox", "role": "inbox" },
+                    { "id": "mb2", "name": "Archive" }
+                  ],
+                  "notFound": []
+                }, "c1"]
+              ]
+            }
+            """;
+
+        public Task<JmapHttpResponse> SendAsync(JmapHttpRequest request, CancellationToken cancellationToken = default)
+        {
+            string body = request.Method == "GET" ? SessionJson : MailboxGetJson;
+            var response = new JmapHttpResponse { StatusCode = 200, Body = Encoding.UTF8.GetBytes(body) };
+            return Task.FromResult(response);
+        }
+    }
+  code_sha256: 4fab5ca21fe04e2250b79aabf09ba33538d197b2cd8fbec0ed4ec2ccf6623772
