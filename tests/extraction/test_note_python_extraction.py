@@ -181,7 +181,9 @@ def test_document_inherits_real_multi_level_provenance_from_both_ancestors() -> 
     assert own_methods == {"DetectLayoutChanges", "GetPageHistory", "Save", "__init__"}
     own_properties = {p["name"] for p in document["properties"] if not p.get("inherited_from")}
     assert own_properties == {"CreationTime", "DisplayName", "FileFormat"}
-    inherited_methods = {m["name"]: m["inherited_from"] for m in document["methods"] if m.get("inherited_from")}
+    inherited_methods = {
+        m["name"]: m["inherited_from"] for m in document["methods"] if m.get("inherited_from")
+    }
     assert inherited_methods == {
         "AppendChildFirst": "aspose.note.model.CompositeNode",
         "AppendChildLast": "aspose.note.model.CompositeNode",

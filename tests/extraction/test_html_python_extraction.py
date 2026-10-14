@@ -176,7 +176,8 @@ def test_a_real_subclass_carries_correct_inherited_from_provenance() -> None:
     select_element = next(
         entry
         for entry in data["types"]
-        if entry["name"] == "HTMLSelectElement" and entry["class_import"] == "aspose_html.dom.HTMLSelectElement"
+        if entry["name"] == "HTMLSelectElement"
+        and entry["class_import"] == "aspose_html.dom.HTMLSelectElement"
     )
     assert "HTMLElement" in select_element["bases"]
     # HTMLSelectElement declares its OWN "remove(index)" (removing an <option>, a real,
