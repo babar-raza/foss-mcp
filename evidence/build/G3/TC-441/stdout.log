@@ -1,0 +1,1420 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-x66rvlmj\.junit-0.xml"
+--- stdout ---
+.....................................                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py tests/indexing/test_build_chunks_verification_report.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_platforms.py tests/infra/test_ingestion_image_fixtures.py tests/infra/test_helm_manifest_step.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-x66rvlmj\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 28%]
+........................................................................ [ 56%]
+........................................................................ [ 85%]
+.....................................                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-x66rvlmj\.junit-0.xml"
+--- stdout ---
+.....................................                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py tests/indexing/test_build_chunks_verification_report.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_platforms.py tests/infra/test_ingestion_image_fixtures.py tests/infra/test_helm_manifest_step.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-x66rvlmj\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 28%]
+........................................................................ [ 56%]
+........................................................................ [ 85%]
+.....................................                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/build_chunks.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-x66rvlmj\.junit-0.xml"
+--- stdout ---
+FFFFFFFFFFFFFF...FFFFFFFF............                                    [100%]
+================================== FAILURES ===================================
+_ test_normalised_code_sha256_ignores_crlf_trailing_whitespace_and_blank_lines _
+
+    def test_normalised_code_sha256_ignores_crlf_trailing_whitespace_and_blank_lines() -> None:
+        a = 'fn main() {\n    println!("ok");   \n}\n\n'
+        b = '\r\nfn main() {\r\n    println!("ok");\r\n}\r\n'
+>       assert build_chunks.normalised_code_sha256(a) == build_chunks.normalised_code_sha256(b)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:230: AttributeError
+_________ test_normalised_code_sha256_changes_for_a_changed_statement _________
+
+    def test_normalised_code_sha256_changes_for_a_changed_statement() -> None:
+        a = 'fn main() {\n    println!("ok");\n}\n'
+        b = 'fn main() {\n    println!("no");\n}\n'
+>       assert build_chunks.normalised_code_sha256(a) != build_chunks.normalised_code_sha256(b)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:236: AttributeError
+___ test_a_full_hit_calls_neither_prepare_nor_verify_and_marks_cached_true ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_a_full_hit_calls_neither_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1FE9FAD50>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001B1F39CDBE0>
+
+    def test_a_full_hit_calls_neither_prepare_nor_verify_and_marks_cached_true(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        prepare_calls, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:250: AttributeError
+____________ test_a_candidate_with_no_cache_entry_at_all_is_a_miss ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_a_candidate_with_no_cache0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1FEA6D040>
+
+    def test_a_candidate_with_no_cache_entry_at_all_is_a_miss(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        prepare_calls, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+        cache_path = tmp_path / "cache.json"
+        _write_cache(cache_path, [])
+    
+>       _run_main(_argv_rust(tmp_path, page_path, ["--verification-cache", str(cache_path)]))
+
+tests\infra\test_build_chunks_verification_cache.py:290: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_verification_cache.py:132: in _run_main
+    build_chunks.main()
+infra\build_chunks.py:1138: in main
+    + _build_verified_example_chunks(
+infra\build_chunks.py:709: in _build_verified_example_chunks
+    hit_entries = [_cache_hit(candidate) for candidate in candidates]
+                   ^^^^^^^^^^^^^^^^^^^^^
+infra\build_chunks.py:705: in _cache_hit
+    key = verification_cache_key(candidate, library_commit, platform, resolved_toolchain)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = CandidateExample(title='Build a document', description='Prose for Build a document.', language='rust', code='fn main() {\n    println!("ok");\n}')
+library_commit = '1111111111111111111111111111111111111111', platform = 'rust'
+toolchain = 'rustc 1.99.0 (abcdef123 2026-01-01)'
+
+    def verification_cache_key(
+        candidate: Any, library_commit: str, platform: str, toolchain: str
+    ) -> tuple[str, str, str, str, str]:
+        """The lookup/write key for one candidate's verification verdict (TC-441): ``(provenance,
+        code_sha256, library_commit, platform, toolchain)``. Title plays no part in matching, only in
+        the record kept for history.
+    
+        ``provenance`` is ``getattr(candidate, "provenance", "readme")``, so a candidate predating
+        TC-460's own field (or a test-local frozen-dataclass stand-in without it) keys as ``"readme"``:
+        an authored candidate's verdict is never mistaken for a README candidate's, even with
+        identical code, and the reverse.
+        """
+        provenance = getattr(candidate, "provenance", "readme")
+>       return (provenance, normalised_code_sha256(candidate.code), library_commit, platform, toolchain)
+                            ^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'normalised_code_sha256' is not defined
+
+infra\build_chunks.py:533: NameError
+___________ test_a_mismatch_in_any_key_field_is_a_miss[code_sha256] ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_a_mismatch_in_any_key_fie0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1FEA6CAF0>
+field = 'code_sha256'
+
+    @pytest.mark.parametrize("field", ["code_sha256", "library_commit", "platform", "toolchain"])
+    def test_a_mismatch_in_any_key_field_is_a_miss(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, field: str
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:303: AttributeError
+_________ test_a_mismatch_in_any_key_field_is_a_miss[library_commit] __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_a_mismatch_in_any_key_fie1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1FEA36F50>
+field = 'library_commit'
+
+    @pytest.mark.parametrize("field", ["code_sha256", "library_commit", "platform", "toolchain"])
+    def test_a_mismatch_in_any_key_field_is_a_miss(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, field: str
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:303: AttributeError
+____________ test_a_mismatch_in_any_key_field_is_a_miss[platform] _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_a_mismatch_in_any_key_fie2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1FEC39750>
+field = 'platform'
+
+    @pytest.mark.parametrize("field", ["code_sha256", "library_commit", "platform", "toolchain"])
+    def test_a_mismatch_in_any_key_field_is_a_miss(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, field: str
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:303: AttributeError
+____________ test_a_mismatch_in_any_key_field_is_a_miss[toolchain] ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_a_mismatch_in_any_key_fie3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1FF0CCD70>
+field = 'toolchain'
+
+    @pytest.mark.parametrize("field", ["code_sha256", "library_commit", "platform", "toolchain"])
+    def test_a_mismatch_in_any_key_field_is_a_miss(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, field: str
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:303: AttributeError
+______________ test_a_verified_false_cache_entry_is_never_reused ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_a_verified_false_cache_en0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1FF0CD220>
+
+    def test_a_verified_false_cache_entry_is_never_reused(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:328: AttributeError
+______ test_no_verification_cache_flag_reverifies_despite_a_matching_hit ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_no_verification_cache_fla0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1FEEA0130>
+
+    def test_no_verification_cache_flag_reverifies_despite_a_matching_hit(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:356: AttributeError
+______ test_toolchain_id_none_reuses_nothing_and_adds_no_new_cache_entry ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_toolchain_id_none_reuses_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1FEEA0F30>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001B1FE9E2FD0>
+
+    def test_toolchain_id_none_reuses_nothing_and_adds_no_new_cache_entry(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: None)
+        _, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:386: AttributeError
+_________________ test_python_full_hit_verifies_no_candidate __________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_python_full_hit_verifies_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1FEAB9230>
+
+    def test_python_full_hit_verifies_no_candidate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: PY_TOOLCHAIN)
+        prepare_calls, verify_calls = _install_tracking_python(
+            monkeypatch, verified_titles={FIRST_TITLE, SECOND_TITLE}
+        )
+        page_path = _write_python_page(tmp_path / "_index.md")
+        entries = [
+            _entry(
+                title=FIRST_TITLE,
+>               code_sha256=build_chunks.normalised_code_sha256(FIRST_CODE),
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                library_commit=PY_LIBRARY_COMMIT,
+                platform="python",
+                toolchain=PY_TOOLCHAIN,
+                verified=True,
+                output="cached first",
+            ),
+            _entry(
+                title=SECOND_TITLE,
+                code_sha256=build_chunks.normalised_code_sha256(SECOND_CODE),
+                library_commit=PY_LIBRARY_COMMIT,
+                platform="python",
+                toolchain=PY_TOOLCHAIN,
+                verified=True,
+                output="cached second",
+            ),
+        ]
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:435: AttributeError
+__ test_python_partial_hit_reverifies_every_candidate_and_marks_none_cached ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_python_partial_hit_reveri0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1FEEB0110>
+
+    def test_python_partial_hit_reverifies_every_candidate_and_marks_none_cached(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: PY_TOOLCHAIN)
+        prepare_calls, verify_calls = _install_tracking_python(
+            monkeypatch, verified_titles={FIRST_TITLE, SECOND_TITLE}
+        )
+        page_path = _write_python_page(tmp_path / "_index.md")
+        # Only FIRST_TITLE has a cache entry: a partial hit reuses nothing on a shared-workdir page.
+        entries = [
+            _entry(
+                title=FIRST_TITLE,
+>               code_sha256=build_chunks.normalised_code_sha256(FIRST_CODE),
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                library_commit=PY_LIBRARY_COMMIT,
+                platform="python",
+                toolchain=PY_TOOLCHAIN,
+                verified=True,
+                output="cached first",
+            )
+        ]
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:476: AttributeError
+____________________ test_missing_cache_file_starts_empty _____________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_missing_cache_file_starts0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1FEEB0350>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001B1FE9E3250>
+
+    def test_missing_cache_file_starts_empty(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+        missing = tmp_path / "does-not-exist.json"
+    
+>       _run_main(_argv_rust(tmp_path, page_path, ["--verification-cache", str(missing)]))
+
+tests\infra\test_build_chunks_verification_cache.py:509: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_verification_cache.py:132: in _run_main
+    build_chunks.main()
+infra\build_chunks.py:1138: in main
+    + _build_verified_example_chunks(
+infra\build_chunks.py:709: in _build_verified_example_chunks
+    hit_entries = [_cache_hit(candidate) for candidate in candidates]
+                   ^^^^^^^^^^^^^^^^^^^^^
+infra\build_chunks.py:705: in _cache_hit
+    key = verification_cache_key(candidate, library_commit, platform, resolved_toolchain)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = CandidateExample(title='Build a document', description='Prose for Build a document.', language='rust', code='fn main() {\n    println!("ok");\n}')
+library_commit = '1111111111111111111111111111111111111111', platform = 'rust'
+toolchain = 'rustc 1.99.0 (abcdef123 2026-01-01)'
+
+    def verification_cache_key(
+        candidate: Any, library_commit: str, platform: str, toolchain: str
+    ) -> tuple[str, str, str, str, str]:
+        """The lookup/write key for one candidate's verification verdict (TC-441): ``(provenance,
+        code_sha256, library_commit, platform, toolchain)``. Title plays no part in matching, only in
+        the record kept for history.
+    
+        ``provenance`` is ``getattr(candidate, "provenance", "readme")``, so a candidate predating
+        TC-460's own field (or a test-local frozen-dataclass stand-in without it) keys as ``"readme"``:
+        an authored candidate's verdict is never mistaken for a README candidate's, even with
+        identical code, and the reverse.
+        """
+        provenance = getattr(candidate, "provenance", "readme")
+>       return (provenance, normalised_code_sha256(candidate.code), library_commit, platform, toolchain)
+                            ^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'normalised_code_sha256' is not defined
+
+infra\build_chunks.py:533: NameError
+---------------------------- Captured stdout call -----------------------------
+verification cache: no file at C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-8116\test_missing_cache_file_starts0\does-not-exist.json; starting with an empty cache
+_________________ test_written_cache_is_sorted_by_key_fields __________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_written_cache_is_sorted_b0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1FFEEC050>
+
+    def test_written_cache_is_sorted_by_key_fields(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        blocks = [
+            ("Zebra example", 'fn main() { println!("z"); }'),
+            ("Alpha example", 'fn main() { println!("a"); }'),
+        ]
+        _install_tracking_rust(monkeypatch, verified_titles={title for title, _ in blocks})
+        page_path = _write_rust_page(tmp_path / "_index.md", blocks)
+        cache_out = tmp_path / "cache_out.json"
+    
+>       _run_main(_argv_rust(tmp_path, page_path, ["--verification-cache-out", str(cache_out)]))
+
+tests\infra\test_build_chunks_verification_cache.py:571: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_verification_cache.py:132: in _run_main
+    build_chunks.main()
+infra\build_chunks.py:1138: in main
+    + _build_verified_example_chunks(
+infra\build_chunks.py:709: in _build_verified_example_chunks
+    hit_entries = [_cache_hit(candidate) for candidate in candidates]
+                   ^^^^^^^^^^^^^^^^^^^^^
+infra\build_chunks.py:705: in _cache_hit
+    key = verification_cache_key(candidate, library_commit, platform, resolved_toolchain)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = CandidateExample(title='Zebra example', description='Prose for Zebra example.', language='rust', code='fn main() { println!("z"); }')
+library_commit = '1111111111111111111111111111111111111111', platform = 'rust'
+toolchain = 'rustc 1.99.0 (abcdef123 2026-01-01)'
+
+    def verification_cache_key(
+        candidate: Any, library_commit: str, platform: str, toolchain: str
+    ) -> tuple[str, str, str, str, str]:
+        """The lookup/write key for one candidate's verification verdict (TC-441): ``(provenance,
+        code_sha256, library_commit, platform, toolchain)``. Title plays no part in matching, only in
+        the record kept for history.
+    
+        ``provenance`` is ``getattr(candidate, "provenance", "readme")``, so a candidate predating
+        TC-460's own field (or a test-local frozen-dataclass stand-in without it) keys as ``"readme"``:
+        an authored candidate's verdict is never mistaken for a README candidate's, even with
+        identical code, and the reverse.
+        """
+        provenance = getattr(candidate, "provenance", "readme")
+>       return (provenance, normalised_code_sha256(candidate.code), library_commit, platform, toolchain)
+                            ^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'normalised_code_sha256' is not defined
+
+infra\build_chunks.py:533: NameError
+______ test_written_cache_keeps_entries_of_other_commits_and_toolchains _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_written_cache_keeps_entri0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1A63A8200>
+
+    def test_written_cache_keeps_entries_of_other_commits_and_toolchains(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+        old_entry = _entry(
+            title=TITLE,
+>           code_sha256=build_chunks.normalised_code_sha256(CODE),
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            library_commit="0" * 40,
+            platform="rust",
+            toolchain="rustc 1.0.0 (old)",
+            verified=True,
+            output="old run",
+        )
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:586: AttributeError
+___________ test_cache_entry_output_is_truncated_to_2000_characters ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_cache_entry_output_is_tru0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1A68238D0>
+
+    def test_cache_entry_output_is_truncated_to_2000_characters(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        long_output = "x" * 5000
+    
+        def fake_prepare(repository: str, commit: str, workdir: Path) -> Path:
+            return workdir
+    
+        def fake_verify(
+            candidate, *, workdir: Path, library_crate_name: str, library_dir: Path
+        ) -> VerificationResult:
+            return VerificationResult(candidate=candidate, verified=True, output=long_output)
+    
+        monkeypatch.setattr(build_chunks, "prepare_rust_library", fake_prepare)
+        monkeypatch.setitem(build_chunks._PLATFORM_DISPATCH["rust"], "verify", fake_verify)
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+        cache_out = tmp_path / "cache_out.json"
+    
+>       _run_main(_argv_rust(tmp_path, page_path, ["--verification-cache-out", str(cache_out)]))
+
+tests\infra\test_build_chunks_verification_cache.py:631: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_verification_cache.py:132: in _run_main
+    build_chunks.main()
+infra\build_chunks.py:1138: in main
+    + _build_verified_example_chunks(
+infra\build_chunks.py:709: in _build_verified_example_chunks
+    hit_entries = [_cache_hit(candidate) for candidate in candidates]
+                   ^^^^^^^^^^^^^^^^^^^^^
+infra\build_chunks.py:705: in _cache_hit
+    key = verification_cache_key(candidate, library_commit, platform, resolved_toolchain)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = CandidateExample(title='Build a document', description='Prose for Build a document.', language='rust', code='fn main() {\n    println!("ok");\n}')
+library_commit = '1111111111111111111111111111111111111111', platform = 'rust'
+toolchain = 'rustc 1.99.0 (abcdef123 2026-01-01)'
+
+    def verification_cache_key(
+        candidate: Any, library_commit: str, platform: str, toolchain: str
+    ) -> tuple[str, str, str, str, str]:
+        """The lookup/write key for one candidate's verification verdict (TC-441): ``(provenance,
+        code_sha256, library_commit, platform, toolchain)``. Title plays no part in matching, only in
+        the record kept for history.
+    
+        ``provenance`` is ``getattr(candidate, "provenance", "readme")``, so a candidate predating
+        TC-460's own field (or a test-local frozen-dataclass stand-in without it) keys as ``"readme"``:
+        an authored candidate's verdict is never mistaken for a README candidate's, even with
+        identical code, and the reverse.
+        """
+        provenance = getattr(candidate, "provenance", "readme")
+>       return (provenance, normalised_code_sha256(candidate.code), library_commit, platform, toolchain)
+                            ^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'normalised_code_sha256' is not defined
+
+infra\build_chunks.py:533: NameError
+______________ test_second_identical_run_writes_identical_bytes _______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_second_identical_run_writ0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1A6823DD0>
+
+    def test_second_identical_run_writes_identical_bytes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+        cache_out = tmp_path / "cache_out.json"
+    
+>       _run_main(_argv_rust(tmp_path, page_path, ["--verification-cache-out", str(cache_out)]))
+
+tests\infra\test_build_chunks_verification_cache.py:646: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_verification_cache.py:132: in _run_main
+    build_chunks.main()
+infra\build_chunks.py:1138: in main
+    + _build_verified_example_chunks(
+infra\build_chunks.py:709: in _build_verified_example_chunks
+    hit_entries = [_cache_hit(candidate) for candidate in candidates]
+                   ^^^^^^^^^^^^^^^^^^^^^
+infra\build_chunks.py:705: in _cache_hit
+    key = verification_cache_key(candidate, library_commit, platform, resolved_toolchain)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = CandidateExample(title='Build a document', description='Prose for Build a document.', language='rust', code='fn main() {\n    println!("ok");\n}')
+library_commit = '1111111111111111111111111111111111111111', platform = 'rust'
+toolchain = 'rustc 1.99.0 (abcdef123 2026-01-01)'
+
+    def verification_cache_key(
+        candidate: Any, library_commit: str, platform: str, toolchain: str
+    ) -> tuple[str, str, str, str, str]:
+        """The lookup/write key for one candidate's verification verdict (TC-441): ``(provenance,
+        code_sha256, library_commit, platform, toolchain)``. Title plays no part in matching, only in
+        the record kept for history.
+    
+        ``provenance`` is ``getattr(candidate, "provenance", "readme")``, so a candidate predating
+        TC-460's own field (or a test-local frozen-dataclass stand-in without it) keys as ``"readme"``:
+        an authored candidate's verdict is never mistaken for a README candidate's, even with
+        identical code, and the reverse.
+        """
+        provenance = getattr(candidate, "provenance", "readme")
+>       return (provenance, normalised_code_sha256(candidate.code), library_commit, platform, toolchain)
+                            ^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'normalised_code_sha256' is not defined
+
+infra\build_chunks.py:533: NameError
+__ test_verification_cache_key_distinguishes_authored_from_readme_same_code ___
+
+    def test_verification_cache_key_distinguishes_authored_from_readme_same_code() -> None:
+        readme = _ReadmeStub(title=TITLE, code=CODE)
+        authored = _AuthoredStub(title=TITLE, code=CODE, provenance="authored")
+    
+>       readme_key = build_chunks.verification_cache_key(readme, LIBRARY_COMMIT, "rust", TOOLCHAIN)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_build_chunks_verification_cache.py:683: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = _ReadmeStub(title='Build a document', code='fn main() {\n    println!("ok");\n}')
+library_commit = '1111111111111111111111111111111111111111', platform = 'rust'
+toolchain = 'rustc 1.99.0 (abcdef123 2026-01-01)'
+
+    def verification_cache_key(
+        candidate: Any, library_commit: str, platform: str, toolchain: str
+    ) -> tuple[str, str, str, str, str]:
+        """The lookup/write key for one candidate's verification verdict (TC-441): ``(provenance,
+        code_sha256, library_commit, platform, toolchain)``. Title plays no part in matching, only in
+        the record kept for history.
+    
+        ``provenance`` is ``getattr(candidate, "provenance", "readme")``, so a candidate predating
+        TC-460's own field (or a test-local frozen-dataclass stand-in without it) keys as ``"readme"``:
+        an authored candidate's verdict is never mistaken for a README candidate's, even with
+        identical code, and the reverse.
+        """
+        provenance = getattr(candidate, "provenance", "readme")
+>       return (provenance, normalised_code_sha256(candidate.code), library_commit, platform, toolchain)
+                            ^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'normalised_code_sha256' is not defined
+
+infra\build_chunks.py:533: NameError
+__________________ test_verification_cache_key_ignores_title __________________
+
+    def test_verification_cache_key_ignores_title() -> None:
+        a = _ReadmeStub(title="Title A", code=CODE)
+        b = _ReadmeStub(title="Title B", code=CODE)
+    
+>       key_a = build_chunks.verification_cache_key(a, LIBRARY_COMMIT, "rust", TOOLCHAIN)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_build_chunks_verification_cache.py:695: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = _ReadmeStub(title='Title A', code='fn main() {\n    println!("ok");\n}')
+library_commit = '1111111111111111111111111111111111111111', platform = 'rust'
+toolchain = 'rustc 1.99.0 (abcdef123 2026-01-01)'
+
+    def verification_cache_key(
+        candidate: Any, library_commit: str, platform: str, toolchain: str
+    ) -> tuple[str, str, str, str, str]:
+        """The lookup/write key for one candidate's verification verdict (TC-441): ``(provenance,
+        code_sha256, library_commit, platform, toolchain)``. Title plays no part in matching, only in
+        the record kept for history.
+    
+        ``provenance`` is ``getattr(candidate, "provenance", "readme")``, so a candidate predating
+        TC-460's own field (or a test-local frozen-dataclass stand-in without it) keys as ``"readme"``:
+        an authored candidate's verdict is never mistaken for a README candidate's, even with
+        identical code, and the reverse.
+        """
+        provenance = getattr(candidate, "provenance", "readme")
+>       return (provenance, normalised_code_sha256(candidate.code), library_commit, platform, toolchain)
+                            ^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'normalised_code_sha256' is not defined
+
+infra\build_chunks.py:533: NameError
+______________ test_chunk_text_identical_with_and_without_cache _______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_chunk_text_identical_with0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1A67CAC10>
+
+    def test_chunk_text_identical_with_and_without_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+    
+        without_dir = tmp_path / "without"
+        without_dir.mkdir()
+        _run_main(_argv_rust(without_dir, page_path))
+        without_texts = _example_chunk_texts(_read_chunks(without_dir))
+    
+        with_dir = tmp_path / "with"
+        with_dir.mkdir()
+        cache_path = tmp_path / "cache.json"
+        _write_cache(cache_path, [])
+>       _run_main(_argv_rust(with_dir, page_path, ["--verification-cache", str(cache_path)]))
+
+tests\infra\test_build_chunks_verification_cache.py:720: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_verification_cache.py:132: in _run_main
+    build_chunks.main()
+infra\build_chunks.py:1138: in main
+    + _build_verified_example_chunks(
+infra\build_chunks.py:709: in _build_verified_example_chunks
+    hit_entries = [_cache_hit(candidate) for candidate in candidates]
+                   ^^^^^^^^^^^^^^^^^^^^^
+infra\build_chunks.py:705: in _cache_hit
+    key = verification_cache_key(candidate, library_commit, platform, resolved_toolchain)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = CandidateExample(title='Build a document', description='Prose for Build a document.', language='rust', code='fn main() {\n    println!("ok");\n}')
+library_commit = '1111111111111111111111111111111111111111', platform = 'rust'
+toolchain = 'rustc 1.99.0 (abcdef123 2026-01-01)'
+
+    def verification_cache_key(
+        candidate: Any, library_commit: str, platform: str, toolchain: str
+    ) -> tuple[str, str, str, str, str]:
+        """The lookup/write key for one candidate's verification verdict (TC-441): ``(provenance,
+        code_sha256, library_commit, platform, toolchain)``. Title plays no part in matching, only in
+        the record kept for history.
+    
+        ``provenance`` is ``getattr(candidate, "provenance", "readme")``, so a candidate predating
+        TC-460's own field (or a test-local frozen-dataclass stand-in without it) keys as ``"readme"``:
+        an authored candidate's verdict is never mistaken for a README candidate's, even with
+        identical code, and the reverse.
+        """
+        provenance = getattr(candidate, "provenance", "readme")
+>       return (provenance, normalised_code_sha256(candidate.code), library_commit, platform, toolchain)
+                            ^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'normalised_code_sha256' is not defined
+
+infra\build_chunks.py:533: NameError
+---------------------------- Captured stdout call -----------------------------
+verified 1/1 candidate examples
+built 0 doc chunks from 0 doc candidates
+wrote 301 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-8116\test_chunk_text_identical_with0\without\chunks.json
+___________ test_chunk_text_identical_for_cached_and_fresh_verdict ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8116/test_chunk_text_identical_for_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B1A67C8280>
+
+    def test_chunk_text_identical_for_cached_and_fresh_verdict(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:732: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_normalised_code_sha256_ignores_crlf_trailing_whitespace_and_blank_lines
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_normalised_code_sha256_changes_for_a_changed_statement
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_a_full_hit_calls_neither_prepare_nor_verify_and_marks_cached_true
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_a_candidate_with_no_cache_entry_at_all_is_a_miss
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_a_mismatch_in_any_key_field_is_a_miss[code_sha256]
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_a_mismatch_in_any_key_field_is_a_miss[library_commit]
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_a_mismatch_in_any_key_field_is_a_miss[platform]
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_a_mismatch_in_any_key_field_is_a_miss[toolchain]
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_a_verified_false_cache_entry_is_never_reused
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_no_verification_cache_flag_reverifies_despite_a_matching_hit
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_toolchain_id_none_reuses_nothing_and_adds_no_new_cache_entry
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_python_full_hit_verifies_no_candidate
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_python_partial_hit_reverifies_every_candidate_and_marks_none_cached
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_missing_cache_file_starts_empty
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_written_cache_is_sorted_by_key_fields
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_written_cache_keeps_entries_of_other_commits_and_toolchains
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_cache_entry_output_is_truncated_to_2000_characters
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_second_identical_run_writes_identical_bytes
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_verification_cache_key_distinguishes_authored_from_readme_same_code
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_verification_cache_key_ignores_title
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_chunk_text_identical_with_and_without_cache
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_chunk_text_identical_for_cached_and_fresh_verdict
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py tests/indexing/test_build_chunks_verification_report.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_platforms.py tests/infra/test_ingestion_image_fixtures.py tests/infra/test_helm_manifest_step.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-x66rvlmj\.junit-1.xml"
+--- stdout ---
+FFFFFFFFFFFFFF...FFFFFFFF............................................... [ 28%]
+........................................................................ [ 56%]
+........................................................................ [ 85%]
+.....................................                                    [100%]
+================================== FAILURES ===================================
+_ test_normalised_code_sha256_ignores_crlf_trailing_whitespace_and_blank_lines _
+
+    def test_normalised_code_sha256_ignores_crlf_trailing_whitespace_and_blank_lines() -> None:
+        a = 'fn main() {\n    println!("ok");   \n}\n\n'
+        b = '\r\nfn main() {\r\n    println!("ok");\r\n}\r\n'
+>       assert build_chunks.normalised_code_sha256(a) == build_chunks.normalised_code_sha256(b)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:230: AttributeError
+_________ test_normalised_code_sha256_changes_for_a_changed_statement _________
+
+    def test_normalised_code_sha256_changes_for_a_changed_statement() -> None:
+        a = 'fn main() {\n    println!("ok");\n}\n'
+        b = 'fn main() {\n    println!("no");\n}\n'
+>       assert build_chunks.normalised_code_sha256(a) != build_chunks.normalised_code_sha256(b)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:236: AttributeError
+___ test_a_full_hit_calls_neither_prepare_nor_verify_and_marks_cached_true ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_a_full_hit_calls_neither_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227F906B530>
+capsys = <_pytest.capture.CaptureFixture object at 0x00000227C6B99BE0>
+
+    def test_a_full_hit_calls_neither_prepare_nor_verify_and_marks_cached_true(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        prepare_calls, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:250: AttributeError
+____________ test_a_candidate_with_no_cache_entry_at_all_is_a_miss ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_a_candidate_with_no_cache0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227F8FB2470>
+
+    def test_a_candidate_with_no_cache_entry_at_all_is_a_miss(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        prepare_calls, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+        cache_path = tmp_path / "cache.json"
+        _write_cache(cache_path, [])
+    
+>       _run_main(_argv_rust(tmp_path, page_path, ["--verification-cache", str(cache_path)]))
+
+tests\infra\test_build_chunks_verification_cache.py:290: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_verification_cache.py:132: in _run_main
+    build_chunks.main()
+infra\build_chunks.py:1138: in main
+    + _build_verified_example_chunks(
+infra\build_chunks.py:709: in _build_verified_example_chunks
+    hit_entries = [_cache_hit(candidate) for candidate in candidates]
+                   ^^^^^^^^^^^^^^^^^^^^^
+infra\build_chunks.py:705: in _cache_hit
+    key = verification_cache_key(candidate, library_commit, platform, resolved_toolchain)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = CandidateExample(title='Build a document', description='Prose for Build a document.', language='rust', code='fn main() {\n    println!("ok");\n}')
+library_commit = '1111111111111111111111111111111111111111', platform = 'rust'
+toolchain = 'rustc 1.99.0 (abcdef123 2026-01-01)'
+
+    def verification_cache_key(
+        candidate: Any, library_commit: str, platform: str, toolchain: str
+    ) -> tuple[str, str, str, str, str]:
+        """The lookup/write key for one candidate's verification verdict (TC-441): ``(provenance,
+        code_sha256, library_commit, platform, toolchain)``. Title plays no part in matching, only in
+        the record kept for history.
+    
+        ``provenance`` is ``getattr(candidate, "provenance", "readme")``, so a candidate predating
+        TC-460's own field (or a test-local frozen-dataclass stand-in without it) keys as ``"readme"``:
+        an authored candidate's verdict is never mistaken for a README candidate's, even with
+        identical code, and the reverse.
+        """
+        provenance = getattr(candidate, "provenance", "readme")
+>       return (provenance, normalised_code_sha256(candidate.code), library_commit, platform, toolchain)
+                            ^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'normalised_code_sha256' is not defined
+
+infra\build_chunks.py:533: NameError
+___________ test_a_mismatch_in_any_key_field_is_a_miss[code_sha256] ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_a_mismatch_in_any_key_fie0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227F973E470>
+field = 'code_sha256'
+
+    @pytest.mark.parametrize("field", ["code_sha256", "library_commit", "platform", "toolchain"])
+    def test_a_mismatch_in_any_key_field_is_a_miss(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, field: str
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:303: AttributeError
+_________ test_a_mismatch_in_any_key_field_is_a_miss[library_commit] __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_a_mismatch_in_any_key_fie1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227F9791250>
+field = 'library_commit'
+
+    @pytest.mark.parametrize("field", ["code_sha256", "library_commit", "platform", "toolchain"])
+    def test_a_mismatch_in_any_key_field_is_a_miss(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, field: str
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:303: AttributeError
+____________ test_a_mismatch_in_any_key_field_is_a_miss[platform] _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_a_mismatch_in_any_key_fie2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227F9791550>
+field = 'platform'
+
+    @pytest.mark.parametrize("field", ["code_sha256", "library_commit", "platform", "toolchain"])
+    def test_a_mismatch_in_any_key_field_is_a_miss(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, field: str
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:303: AttributeError
+____________ test_a_mismatch_in_any_key_field_is_a_miss[toolchain] ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_a_mismatch_in_any_key_fie3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227F97D8500>
+field = 'toolchain'
+
+    @pytest.mark.parametrize("field", ["code_sha256", "library_commit", "platform", "toolchain"])
+    def test_a_mismatch_in_any_key_field_is_a_miss(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, field: str
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:303: AttributeError
+______________ test_a_verified_false_cache_entry_is_never_reused ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_a_verified_false_cache_en0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227F97D89B0>
+
+    def test_a_verified_false_cache_entry_is_never_reused(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:328: AttributeError
+______ test_no_verification_cache_flag_reverifies_despite_a_matching_hit ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_no_verification_cache_fla0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227F97EC050>
+
+    def test_no_verification_cache_flag_reverifies_despite_a_matching_hit(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:356: AttributeError
+______ test_toolchain_id_none_reuses_nothing_and_adds_no_new_cache_entry ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_toolchain_id_none_reuses_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227F97ECBB0>
+capsys = <_pytest.capture.CaptureFixture object at 0x00000227F91025D0>
+
+    def test_toolchain_id_none_reuses_nothing_and_adds_no_new_cache_entry(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: None)
+        _, verify_calls = _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:386: AttributeError
+_________________ test_python_full_hit_verifies_no_candidate __________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_python_full_hit_verifies_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227F977A1A0>
+
+    def test_python_full_hit_verifies_no_candidate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: PY_TOOLCHAIN)
+        prepare_calls, verify_calls = _install_tracking_python(
+            monkeypatch, verified_titles={FIRST_TITLE, SECOND_TITLE}
+        )
+        page_path = _write_python_page(tmp_path / "_index.md")
+        entries = [
+            _entry(
+                title=FIRST_TITLE,
+>               code_sha256=build_chunks.normalised_code_sha256(FIRST_CODE),
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                library_commit=PY_LIBRARY_COMMIT,
+                platform="python",
+                toolchain=PY_TOOLCHAIN,
+                verified=True,
+                output="cached first",
+            ),
+            _entry(
+                title=SECOND_TITLE,
+                code_sha256=build_chunks.normalised_code_sha256(SECOND_CODE),
+                library_commit=PY_LIBRARY_COMMIT,
+                platform="python",
+                toolchain=PY_TOOLCHAIN,
+                verified=True,
+                output="cached second",
+            ),
+        ]
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:435: AttributeError
+__ test_python_partial_hit_reverifies_every_candidate_and_marks_none_cached ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_python_partial_hit_reveri0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227F9018D10>
+
+    def test_python_partial_hit_reverifies_every_candidate_and_marks_none_cached(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: PY_TOOLCHAIN)
+        prepare_calls, verify_calls = _install_tracking_python(
+            monkeypatch, verified_titles={FIRST_TITLE, SECOND_TITLE}
+        )
+        page_path = _write_python_page(tmp_path / "_index.md")
+        # Only FIRST_TITLE has a cache entry: a partial hit reuses nothing on a shared-workdir page.
+        entries = [
+            _entry(
+                title=FIRST_TITLE,
+>               code_sha256=build_chunks.normalised_code_sha256(FIRST_CODE),
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                library_commit=PY_LIBRARY_COMMIT,
+                platform="python",
+                toolchain=PY_TOOLCHAIN,
+                verified=True,
+                output="cached first",
+            )
+        ]
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:476: AttributeError
+____________________ test_missing_cache_file_starts_empty _____________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_missing_cache_file_starts0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227F9019910>
+capsys = <_pytest.capture.CaptureFixture object at 0x00000227F9102990>
+
+    def test_missing_cache_file_starts_empty(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+        missing = tmp_path / "does-not-exist.json"
+    
+>       _run_main(_argv_rust(tmp_path, page_path, ["--verification-cache", str(missing)]))
+
+tests\infra\test_build_chunks_verification_cache.py:509: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_verification_cache.py:132: in _run_main
+    build_chunks.main()
+infra\build_chunks.py:1138: in main
+    + _build_verified_example_chunks(
+infra\build_chunks.py:709: in _build_verified_example_chunks
+    hit_entries = [_cache_hit(candidate) for candidate in candidates]
+                   ^^^^^^^^^^^^^^^^^^^^^
+infra\build_chunks.py:705: in _cache_hit
+    key = verification_cache_key(candidate, library_commit, platform, resolved_toolchain)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = CandidateExample(title='Build a document', description='Prose for Build a document.', language='rust', code='fn main() {\n    println!("ok");\n}')
+library_commit = '1111111111111111111111111111111111111111', platform = 'rust'
+toolchain = 'rustc 1.99.0 (abcdef123 2026-01-01)'
+
+    def verification_cache_key(
+        candidate: Any, library_commit: str, platform: str, toolchain: str
+    ) -> tuple[str, str, str, str, str]:
+        """The lookup/write key for one candidate's verification verdict (TC-441): ``(provenance,
+        code_sha256, library_commit, platform, toolchain)``. Title plays no part in matching, only in
+        the record kept for history.
+    
+        ``provenance`` is ``getattr(candidate, "provenance", "readme")``, so a candidate predating
+        TC-460's own field (or a test-local frozen-dataclass stand-in without it) keys as ``"readme"``:
+        an authored candidate's verdict is never mistaken for a README candidate's, even with
+        identical code, and the reverse.
+        """
+        provenance = getattr(candidate, "provenance", "readme")
+>       return (provenance, normalised_code_sha256(candidate.code), library_commit, platform, toolchain)
+                            ^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'normalised_code_sha256' is not defined
+
+infra\build_chunks.py:533: NameError
+---------------------------- Captured stdout call -----------------------------
+verification cache: no file at C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-8117\test_missing_cache_file_starts0\does-not-exist.json; starting with an empty cache
+_________________ test_written_cache_is_sorted_by_key_fields __________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_written_cache_is_sorted_b0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227F9F9D450>
+
+    def test_written_cache_is_sorted_by_key_fields(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        blocks = [
+            ("Zebra example", 'fn main() { println!("z"); }'),
+            ("Alpha example", 'fn main() { println!("a"); }'),
+        ]
+        _install_tracking_rust(monkeypatch, verified_titles={title for title, _ in blocks})
+        page_path = _write_rust_page(tmp_path / "_index.md", blocks)
+        cache_out = tmp_path / "cache_out.json"
+    
+>       _run_main(_argv_rust(tmp_path, page_path, ["--verification-cache-out", str(cache_out)]))
+
+tests\infra\test_build_chunks_verification_cache.py:571: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_verification_cache.py:132: in _run_main
+    build_chunks.main()
+infra\build_chunks.py:1138: in main
+    + _build_verified_example_chunks(
+infra\build_chunks.py:709: in _build_verified_example_chunks
+    hit_entries = [_cache_hit(candidate) for candidate in candidates]
+                   ^^^^^^^^^^^^^^^^^^^^^
+infra\build_chunks.py:705: in _cache_hit
+    key = verification_cache_key(candidate, library_commit, platform, resolved_toolchain)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = CandidateExample(title='Zebra example', description='Prose for Zebra example.', language='rust', code='fn main() { println!("z"); }')
+library_commit = '1111111111111111111111111111111111111111', platform = 'rust'
+toolchain = 'rustc 1.99.0 (abcdef123 2026-01-01)'
+
+    def verification_cache_key(
+        candidate: Any, library_commit: str, platform: str, toolchain: str
+    ) -> tuple[str, str, str, str, str]:
+        """The lookup/write key for one candidate's verification verdict (TC-441): ``(provenance,
+        code_sha256, library_commit, platform, toolchain)``. Title plays no part in matching, only in
+        the record kept for history.
+    
+        ``provenance`` is ``getattr(candidate, "provenance", "readme")``, so a candidate predating
+        TC-460's own field (or a test-local frozen-dataclass stand-in without it) keys as ``"readme"``:
+        an authored candidate's verdict is never mistaken for a README candidate's, even with
+        identical code, and the reverse.
+        """
+        provenance = getattr(candidate, "provenance", "readme")
+>       return (provenance, normalised_code_sha256(candidate.code), library_commit, platform, toolchain)
+                            ^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'normalised_code_sha256' is not defined
+
+infra\build_chunks.py:533: NameError
+______ test_written_cache_keeps_entries_of_other_commits_and_toolchains _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_written_cache_keeps_entri0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227FA40B140>
+
+    def test_written_cache_keeps_entries_of_other_commits_and_toolchains(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+        old_entry = _entry(
+            title=TITLE,
+>           code_sha256=build_chunks.normalised_code_sha256(CODE),
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            library_commit="0" * 40,
+            platform="rust",
+            toolchain="rustc 1.0.0 (old)",
+            verified=True,
+            output="old run",
+        )
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:586: AttributeError
+___________ test_cache_entry_output_is_truncated_to_2000_characters ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_cache_entry_output_is_tru0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227FA9199D0>
+
+    def test_cache_entry_output_is_truncated_to_2000_characters(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        long_output = "x" * 5000
+    
+        def fake_prepare(repository: str, commit: str, workdir: Path) -> Path:
+            return workdir
+    
+        def fake_verify(
+            candidate, *, workdir: Path, library_crate_name: str, library_dir: Path
+        ) -> VerificationResult:
+            return VerificationResult(candidate=candidate, verified=True, output=long_output)
+    
+        monkeypatch.setattr(build_chunks, "prepare_rust_library", fake_prepare)
+        monkeypatch.setitem(build_chunks._PLATFORM_DISPATCH["rust"], "verify", fake_verify)
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+        cache_out = tmp_path / "cache_out.json"
+    
+>       _run_main(_argv_rust(tmp_path, page_path, ["--verification-cache-out", str(cache_out)]))
+
+tests\infra\test_build_chunks_verification_cache.py:631: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_verification_cache.py:132: in _run_main
+    build_chunks.main()
+infra\build_chunks.py:1138: in main
+    + _build_verified_example_chunks(
+infra\build_chunks.py:709: in _build_verified_example_chunks
+    hit_entries = [_cache_hit(candidate) for candidate in candidates]
+                   ^^^^^^^^^^^^^^^^^^^^^
+infra\build_chunks.py:705: in _cache_hit
+    key = verification_cache_key(candidate, library_commit, platform, resolved_toolchain)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = CandidateExample(title='Build a document', description='Prose for Build a document.', language='rust', code='fn main() {\n    println!("ok");\n}')
+library_commit = '1111111111111111111111111111111111111111', platform = 'rust'
+toolchain = 'rustc 1.99.0 (abcdef123 2026-01-01)'
+
+    def verification_cache_key(
+        candidate: Any, library_commit: str, platform: str, toolchain: str
+    ) -> tuple[str, str, str, str, str]:
+        """The lookup/write key for one candidate's verification verdict (TC-441): ``(provenance,
+        code_sha256, library_commit, platform, toolchain)``. Title plays no part in matching, only in
+        the record kept for history.
+    
+        ``provenance`` is ``getattr(candidate, "provenance", "readme")``, so a candidate predating
+        TC-460's own field (or a test-local frozen-dataclass stand-in without it) keys as ``"readme"``:
+        an authored candidate's verdict is never mistaken for a README candidate's, even with
+        identical code, and the reverse.
+        """
+        provenance = getattr(candidate, "provenance", "readme")
+>       return (provenance, normalised_code_sha256(candidate.code), library_commit, platform, toolchain)
+                            ^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'normalised_code_sha256' is not defined
+
+infra\build_chunks.py:533: NameError
+______________ test_second_identical_run_writes_identical_bytes _______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_second_identical_run_writ0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227FA01FCD0>
+
+    def test_second_identical_run_writes_identical_bytes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+        cache_out = tmp_path / "cache_out.json"
+    
+>       _run_main(_argv_rust(tmp_path, page_path, ["--verification-cache-out", str(cache_out)]))
+
+tests\infra\test_build_chunks_verification_cache.py:646: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_verification_cache.py:132: in _run_main
+    build_chunks.main()
+infra\build_chunks.py:1138: in main
+    + _build_verified_example_chunks(
+infra\build_chunks.py:709: in _build_verified_example_chunks
+    hit_entries = [_cache_hit(candidate) for candidate in candidates]
+                   ^^^^^^^^^^^^^^^^^^^^^
+infra\build_chunks.py:705: in _cache_hit
+    key = verification_cache_key(candidate, library_commit, platform, resolved_toolchain)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = CandidateExample(title='Build a document', description='Prose for Build a document.', language='rust', code='fn main() {\n    println!("ok");\n}')
+library_commit = '1111111111111111111111111111111111111111', platform = 'rust'
+toolchain = 'rustc 1.99.0 (abcdef123 2026-01-01)'
+
+    def verification_cache_key(
+        candidate: Any, library_commit: str, platform: str, toolchain: str
+    ) -> tuple[str, str, str, str, str]:
+        """The lookup/write key for one candidate's verification verdict (TC-441): ``(provenance,
+        code_sha256, library_commit, platform, toolchain)``. Title plays no part in matching, only in
+        the record kept for history.
+    
+        ``provenance`` is ``getattr(candidate, "provenance", "readme")``, so a candidate predating
+        TC-460's own field (or a test-local frozen-dataclass stand-in without it) keys as ``"readme"``:
+        an authored candidate's verdict is never mistaken for a README candidate's, even with
+        identical code, and the reverse.
+        """
+        provenance = getattr(candidate, "provenance", "readme")
+>       return (provenance, normalised_code_sha256(candidate.code), library_commit, platform, toolchain)
+                            ^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'normalised_code_sha256' is not defined
+
+infra\build_chunks.py:533: NameError
+__ test_verification_cache_key_distinguishes_authored_from_readme_same_code ___
+
+    def test_verification_cache_key_distinguishes_authored_from_readme_same_code() -> None:
+        readme = _ReadmeStub(title=TITLE, code=CODE)
+        authored = _AuthoredStub(title=TITLE, code=CODE, provenance="authored")
+    
+>       readme_key = build_chunks.verification_cache_key(readme, LIBRARY_COMMIT, "rust", TOOLCHAIN)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_build_chunks_verification_cache.py:683: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = _ReadmeStub(title='Build a document', code='fn main() {\n    println!("ok");\n}')
+library_commit = '1111111111111111111111111111111111111111', platform = 'rust'
+toolchain = 'rustc 1.99.0 (abcdef123 2026-01-01)'
+
+    def verification_cache_key(
+        candidate: Any, library_commit: str, platform: str, toolchain: str
+    ) -> tuple[str, str, str, str, str]:
+        """The lookup/write key for one candidate's verification verdict (TC-441): ``(provenance,
+        code_sha256, library_commit, platform, toolchain)``. Title plays no part in matching, only in
+        the record kept for history.
+    
+        ``provenance`` is ``getattr(candidate, "provenance", "readme")``, so a candidate predating
+        TC-460's own field (or a test-local frozen-dataclass stand-in without it) keys as ``"readme"``:
+        an authored candidate's verdict is never mistaken for a README candidate's, even with
+        identical code, and the reverse.
+        """
+        provenance = getattr(candidate, "provenance", "readme")
+>       return (provenance, normalised_code_sha256(candidate.code), library_commit, platform, toolchain)
+                            ^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'normalised_code_sha256' is not defined
+
+infra\build_chunks.py:533: NameError
+__________________ test_verification_cache_key_ignores_title __________________
+
+    def test_verification_cache_key_ignores_title() -> None:
+        a = _ReadmeStub(title="Title A", code=CODE)
+        b = _ReadmeStub(title="Title B", code=CODE)
+    
+>       key_a = build_chunks.verification_cache_key(a, LIBRARY_COMMIT, "rust", TOOLCHAIN)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_build_chunks_verification_cache.py:695: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = _ReadmeStub(title='Title A', code='fn main() {\n    println!("ok");\n}')
+library_commit = '1111111111111111111111111111111111111111', platform = 'rust'
+toolchain = 'rustc 1.99.0 (abcdef123 2026-01-01)'
+
+    def verification_cache_key(
+        candidate: Any, library_commit: str, platform: str, toolchain: str
+    ) -> tuple[str, str, str, str, str]:
+        """The lookup/write key for one candidate's verification verdict (TC-441): ``(provenance,
+        code_sha256, library_commit, platform, toolchain)``. Title plays no part in matching, only in
+        the record kept for history.
+    
+        ``provenance`` is ``getattr(candidate, "provenance", "readme")``, so a candidate predating
+        TC-460's own field (or a test-local frozen-dataclass stand-in without it) keys as ``"readme"``:
+        an authored candidate's verdict is never mistaken for a README candidate's, even with
+        identical code, and the reverse.
+        """
+        provenance = getattr(candidate, "provenance", "readme")
+>       return (provenance, normalised_code_sha256(candidate.code), library_commit, platform, toolchain)
+                            ^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'normalised_code_sha256' is not defined
+
+infra\build_chunks.py:533: NameError
+______________ test_chunk_text_identical_with_and_without_cache _______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_chunk_text_identical_with0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227FA877D20>
+
+    def test_chunk_text_identical_with_and_without_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        _install_tracking_rust(monkeypatch, verified_titles={TITLE})
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+    
+        without_dir = tmp_path / "without"
+        without_dir.mkdir()
+        _run_main(_argv_rust(without_dir, page_path))
+        without_texts = _example_chunk_texts(_read_chunks(without_dir))
+    
+        with_dir = tmp_path / "with"
+        with_dir.mkdir()
+        cache_path = tmp_path / "cache.json"
+        _write_cache(cache_path, [])
+>       _run_main(_argv_rust(with_dir, page_path, ["--verification-cache", str(cache_path)]))
+
+tests\infra\test_build_chunks_verification_cache.py:720: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_build_chunks_verification_cache.py:132: in _run_main
+    build_chunks.main()
+infra\build_chunks.py:1138: in main
+    + _build_verified_example_chunks(
+infra\build_chunks.py:709: in _build_verified_example_chunks
+    hit_entries = [_cache_hit(candidate) for candidate in candidates]
+                   ^^^^^^^^^^^^^^^^^^^^^
+infra\build_chunks.py:705: in _cache_hit
+    key = verification_cache_key(candidate, library_commit, platform, resolved_toolchain)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate = CandidateExample(title='Build a document', description='Prose for Build a document.', language='rust', code='fn main() {\n    println!("ok");\n}')
+library_commit = '1111111111111111111111111111111111111111', platform = 'rust'
+toolchain = 'rustc 1.99.0 (abcdef123 2026-01-01)'
+
+    def verification_cache_key(
+        candidate: Any, library_commit: str, platform: str, toolchain: str
+    ) -> tuple[str, str, str, str, str]:
+        """The lookup/write key for one candidate's verification verdict (TC-441): ``(provenance,
+        code_sha256, library_commit, platform, toolchain)``. Title plays no part in matching, only in
+        the record kept for history.
+    
+        ``provenance`` is ``getattr(candidate, "provenance", "readme")``, so a candidate predating
+        TC-460's own field (or a test-local frozen-dataclass stand-in without it) keys as ``"readme"``:
+        an authored candidate's verdict is never mistaken for a README candidate's, even with
+        identical code, and the reverse.
+        """
+        provenance = getattr(candidate, "provenance", "readme")
+>       return (provenance, normalised_code_sha256(candidate.code), library_commit, platform, toolchain)
+                            ^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'normalised_code_sha256' is not defined
+
+infra\build_chunks.py:533: NameError
+---------------------------- Captured stdout call -----------------------------
+verified 1/1 candidate examples
+built 0 doc chunks from 0 doc candidates
+wrote 301 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-8117\test_chunk_text_identical_with0\without\chunks.json
+___________ test_chunk_text_identical_for_cached_and_fresh_verdict ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8117/test_chunk_text_identical_for_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000227FA3C0C90>
+
+    def test_chunk_text_identical_for_cached_and_fresh_verdict(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: TOOLCHAIN)
+        page_path = _write_rust_page(tmp_path / "_index.md", [(TITLE, CODE)])
+>       code_hash = build_chunks.normalised_code_sha256(CODE)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute 'normalised_code_sha256'. Did you mean: 'normalised_code_sha256X'?
+
+tests\infra\test_build_chunks_verification_cache.py:732: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_normalised_code_sha256_ignores_crlf_trailing_whitespace_and_blank_lines
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_normalised_code_sha256_changes_for_a_changed_statement
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_a_full_hit_calls_neither_prepare_nor_verify_and_marks_cached_true
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_a_candidate_with_no_cache_entry_at_all_is_a_miss
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_a_mismatch_in_any_key_field_is_a_miss[code_sha256]
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_a_mismatch_in_any_key_field_is_a_miss[library_commit]
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_a_mismatch_in_any_key_field_is_a_miss[platform]
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_a_mismatch_in_any_key_field_is_a_miss[toolchain]
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_a_verified_false_cache_entry_is_never_reused
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_no_verification_cache_flag_reverifies_despite_a_matching_hit
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_toolchain_id_none_reuses_nothing_and_adds_no_new_cache_entry
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_python_full_hit_verifies_no_candidate
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_python_partial_hit_reverifies_every_candidate_and_marks_none_cached
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_missing_cache_file_starts_empty
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_written_cache_is_sorted_by_key_fields
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_written_cache_keeps_entries_of_other_commits_and_toolchains
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_cache_entry_output_is_truncated_to_2000_characters
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_second_identical_run_writes_identical_bytes
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_verification_cache_key_distinguishes_authored_from_readme_same_code
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_verification_cache_key_ignores_title
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_chunk_text_identical_with_and_without_cache
+FAILED tests/infra/test_build_chunks_verification_cache.py::test_chunk_text_identical_for_cached_and_fresh_verdict
+
+--- stderr ---
+
