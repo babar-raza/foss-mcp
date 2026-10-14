@@ -70,26 +70,23 @@ def _by_name(data: dict) -> dict:
 
 
 def test_real_inherited_members_carry_provenance_rooted_to_the_true_declaring_class() -> None:
-    # TC-261 (G2/TC-305): this fixture predates provenance tagging and was
-    # regenerated live. Unlike cells_rust/jmap_go (genuinely flat upstreams -
-    # see docs/DECISION_LOG.md), this pilot's real upstream commit has two
-    # genuine in-repo inheritance edges with real members to copy:
+    # TC-400 re-extraction (with TC-392 "constructors are not inherited" on main): this
+    # pilot's real upstream commit has two genuine in-repo inheritance edges:
     # FormulaException/InvalidFileFormatException/StyleException/
     # UnsupportedFeatureException/WorkbookLoadException/WorkbookSaveException
-    # -> CellsException, and PdfSaveOptions -> SaveOptions. Neither CellsException
-    # nor SaveOptions themselves have an in-repo base (CellsException's own base
-    # is the BCL's System.Exception; SaveOptions has no base at all), so this
-    # pilot has no multi-level in-repo chain to root through - every inherited
-    # member's "inherited_from" must point directly at that real, immediate
-    # declaring ancestor.
+    # -> CellsException, and PdfSaveOptions -> SaveOptions. Each exception subclass
+    # declares its own constructor directly in the real source (verified against the
+    # pinned commit) - a constructor is never a copied/inherited member, so
+    # FormulaException's own constructor must carry no "inherited_from" tag. Neither
+    # CellsException nor SaveOptions themselves have an in-repo base (CellsException's
+    # own base is the BCL's System.Exception; SaveOptions has no base at all).
     data = _load_fixture()
     by_name = _by_name(data)
 
     formula_exc = by_name["FormulaException"]
-    inherited_ctors = [m for m in formula_exc["methods"] if m.get("inherited_from")]
-    assert len(inherited_ctors) == 2
-    assert all(m["inherited_from"] == "Aspose.Cells_FOSS.CellsException" for m in inherited_ctors)
-    assert all(m["name"] == "CellsException" and m["is_constructor"] for m in inherited_ctors)
+    assert formula_exc["bases"] == ["CellsException"]
+    formula_ctor = next(m for m in formula_exc["methods"] if m["is_constructor"])
+    assert "inherited_from" not in formula_ctor
 
     # The root itself must carry no "inherited_from" on its own members - it is
     # the genuine declaring class, not another copy.
@@ -113,9 +110,11 @@ def test_real_inherited_members_carry_provenance_rooted_to_the_true_declaring_cl
     assert all(not p.get("inherited_from") for p in save_options["properties"])
 
 
-def test_other_cellsexception_subclasses_also_inherit_the_same_constructors() -> None:
-    # Confirms the tagging is systematic across every real subclass sharing
-    # the same base, not a one-off on a single hand-picked type.
+def test_other_cellsexception_subclasses_declare_their_own_constructors() -> None:
+    # Confirms the "constructors are not inherited" fix (TC-392) holds systematically
+    # across every real sibling subclass sharing the same base, not a one-off on a
+    # single hand-picked type: each subclass's own constructor carries no
+    # "inherited_from" tag.
     data = _load_fixture()
     by_name = _by_name(data)
     siblings = [
@@ -128,6 +127,6 @@ def test_other_cellsexception_subclasses_also_inherit_the_same_constructors() ->
     for name in siblings:
         cls = by_name[name]
         assert cls["bases"] == ["CellsException"]
+        assert any(m["is_constructor"] for m in cls["methods"]), name
         inherited = [m for m in cls["methods"] if m.get("inherited_from")]
-        assert len(inherited) == 2, name
-        assert all(m["inherited_from"] == "Aspose.Cells_FOSS.CellsException" for m in inherited), name
+        assert inherited == [], name

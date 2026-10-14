@@ -16,6 +16,16 @@ is a pure, purely-additive re-pin: same 264 types, same source commit
 TC-301/TC-303 "genuinely flat" case - slides/net has real, non-trivial base classes and the
 live re-run proves it.
 
+TC-400 (2026-10-14) re-extracted this fixture again at the same pinned commit, now with
+TC-392's "constructors are not inherited; test files are not API" and TC-396's C# return-type/
+params-array/modifier/indexer fixes also on main. Same 264 types, same source commit; the
+``inherited_from`` tag count moved from 580 to 584, a net +4 from two real, legitimate
+changes: TC-396's indexer fix adds 5 new flattened ``this[int]`` indexer properties
+(Column/IColumn/IMasterLayoutSlideCollection/IRow/Row, each correctly rooted to the real
+declaring collection interface/class), and TC-392's constructor fix removes 1 false tag -
+``PortionFormat``'s own constructor, named identically to its base ``BasePortionFormat``, was
+previously miscounted as an inherited member instead of PortionFormat's own declared one.
+
 See ``test_a_real_inherited_member_carries_the_correct_inherited_from_tag`` below for a
 genuine 4-level chain (``Table`` -> ``GraphicalObject`` -> ``Shape`` -> ``PVIObject``)
 proving the tag is rooted to the real original declaring class, not an intermediate one
@@ -107,8 +117,9 @@ def test_real_inheritance_is_present_and_was_actually_flattened() -> None:
         for m in t.get("methods", []) + t.get("properties", [])
         if m.get("inherited_from")
     )
-    # 580 real copied members carry the tag (verified live during this card's run).
-    assert total_inherited_tags == 580
+    # 584 real copied members carry the tag (verified live during TC-400's re-extraction;
+    # see this module's docstring for the net +4 versus the prior 580).
+    assert total_inherited_tags == 584
 
     table = by_name["Table"]
     assert table["bases"] == ["GraphicalObject", "ITable"]
