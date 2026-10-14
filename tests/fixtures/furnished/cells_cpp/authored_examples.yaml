@@ -1,0 +1,109 @@
+schema_version: 1
+pilot: cells_cpp
+library_repository: aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp
+library_commit: 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2
+language: cpp
+examples:
+- title: Write Text and Numbers into the First Worksheet
+  description: Creates a new workbook, writes a small table of text and numeric values into the first worksheet and saves it as an .xlsx file in the current directory.
+  symbols:
+  - Workbook
+  - Workbook.Save
+  - WorksheetCollection
+  - Cells
+  - Cell.PutValue
+  code: |
+    // Authored example: write text and numbers into the first worksheet and save an .xlsx file.
+    #include "aspose/cells_foss/Workbook.h"
+    #include "aspose/cells_foss/WorksheetCollection.h"
+    #include "aspose/cells_foss/Worksheet.h"
+    #include "aspose/cells_foss/Cells.h"
+    #include "aspose/cells_foss/Cell.h"
+
+    using namespace Aspose::Cells_FOSS;
+
+    int main() {
+        Workbook workbook;
+        Worksheet& sheet = workbook.GetWorksheets()[0];
+        Cells& cells = sheet.GetCells();
+        cells["A1"].PutValue("Item");
+        cells["B1"].PutValue("Quantity");
+        cells["A2"].PutValue("Pencil");
+        cells["B2"].PutValue(12);
+        cells["A3"].PutValue("Notebook");
+        cells["B3"].PutValue(4.5);
+        workbook.Save("authored_values.xlsx");
+        return 0;
+    }
+  code_sha256: d1dc28bea250ada00e0c55ecb04ca6366b3de9b32e924d6d89ea6cf2e1fb027e
+- title: Bold Header and Number Format on Cells
+  description: Reads a cell's style, switches its font to bold, applies a two-decimal number format to another cell and saves the workbook.
+  symbols:
+  - Style
+  - Style.SetFont
+  - Style.SetNumberFormat
+  - Font.SetBold
+  - Cell.SetStyle
+  code: |
+    // Authored example: give a header cell a bold font and a number format, then save.
+    #include "aspose/cells_foss/Workbook.h"
+    #include "aspose/cells_foss/WorksheetCollection.h"
+    #include "aspose/cells_foss/Worksheet.h"
+    #include "aspose/cells_foss/Cells.h"
+    #include "aspose/cells_foss/Cell.h"
+    #include "aspose/cells_foss/Style.h"
+    #include "aspose/cells_foss/Font.h"
+
+    using namespace Aspose::Cells_FOSS;
+
+    int main() {
+        Workbook workbook;
+        Worksheet& sheet = workbook.GetWorksheets()[0];
+        Cell title = sheet.GetCells()["A1"];
+        title.PutValue("Total");
+        Style titleStyle = title.GetStyle();
+        Font font = titleStyle.GetFont();
+        font.SetBold(true);
+        titleStyle.SetFont(font);
+        title.SetStyle(titleStyle);
+
+        Cell amount = sheet.GetCells()["A2"];
+        amount.PutValue(1234.5);
+        Style amountStyle = amount.GetStyle();
+        amountStyle.SetNumberFormat("0.00");
+        amount.SetStyle(amountStyle);
+
+        workbook.Save("authored_styles.xlsx");
+        return 0;
+    }
+  code_sha256: eba172a5d1b5723a64fcd5af262d9c9fec656c423f0ceca92933c11dbca06077
+- title: Save a Workbook and Read a Cell Back
+  description: Saves a workbook, opens the saved file with the Workbook file-name constructor and prints the text of a cell read back from it.
+  symbols:
+  - Workbook
+  - Workbook.Save
+  - Cell.GetStringValue
+  - Worksheet.GetCells
+  code: |
+    // Authored example: save a workbook, open the saved file again and read a cell back.
+    #include <iostream>
+    #include "aspose/cells_foss/Workbook.h"
+    #include "aspose/cells_foss/WorksheetCollection.h"
+    #include "aspose/cells_foss/Worksheet.h"
+    #include "aspose/cells_foss/Cells.h"
+    #include "aspose/cells_foss/Cell.h"
+
+    using namespace Aspose::Cells_FOSS;
+
+    int main() {
+        {
+            Workbook workbook;
+            workbook.GetWorksheets()[0].GetCells()["A1"].PutValue("Hello workbook");
+            workbook.Save("authored_roundtrip.xlsx");
+        }
+        Workbook loaded("authored_roundtrip.xlsx");
+        Worksheet& sheet = loaded.GetWorksheets()[0];
+        std::cout << sheet.GetCells()["A1"].GetStringValue() << std::endl;
+        return 0;
+    }
+  code_sha256: 0ef730539669f5498fdfd65e0d915ee411c9e604927f1e80aa893f0fa6524b3a
