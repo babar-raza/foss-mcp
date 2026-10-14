@@ -1,0 +1,63 @@
+id: TC-500
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-001 (a green, trustworthy suite). TC-400 re-extracted the .NET fixtures at their pinned commits, and the pdf/net fixture now reports its real
+  upstream type count as 901 (it reported 971 before; TC-392's test-file exclusion and the corrected extractor changed what is counted). The related
+  test tests/normalization/test_citation.py::test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count pins `known_counts["types"] == 971`,
+  so it has been red on main since TC-400 integrated (its review did not run the normalization tests), which also turns the local pre-push gate red. This
+  card changes only that pinned number to the fixture's real current count and the two docstring sentences that quote it; the test's purpose (the historical
+  805-classes sentence must still be classified as insufficient evidence, never as a corroborated count) is unchanged.
+depends_on:
+- TC-400
+write_paths:
+- tests/normalization/test_citation.py
+satisfies:
+- REQ-G3-001
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Peers will try to break the shipped image: an adversarial suite is a requirement, not an extra (operator, supervisor, pre-TC-355)'
+  sha256: d2caef724bdb4ebdd6139a6775d2e46c22527150b512d2f09d15225ba6375268
+inputs:
+- >-
+  Read tests/normalization/test_citation.py in full (the module docstring, `test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count`
+  and `_api_surface_fixture`) and the pdf/net fixture's `type_count` in tests/fixtures/pdf_net/api_surface.json. Never print or log any environment value.
+- >-
+  Change ONLY the literal `971` in `assert known_counts["types"] == 971` to the fixture's real `type_count` (read it from the fixture, it is 901 at the
+  time of writing), and update the module docstring and the test docstring sentences that say "now 971" / "now reports 971" to the new number with one added
+  clause that TC-400's re-extraction at the pinned commit is why it changed. Change no other assertion, no other test, no skip or xfail.
+- >-
+  Run `{python} -m pytest tests/normalization/test_citation.py -q -rfE`, then once `{python} -m pytest tests/normalization -q -rfE`. Write commit messages
+  as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Re-pin the one stale pdf/net type-count assertion to the re-extracted fixture's real count.
+checks:
+- command: '{python} -m pytest tests/normalization/test_citation.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-001
+- command: '{python} -m pytest tests/normalization -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-001
+min_tests: 20
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/normalization/test_citation.py');s=p.read_text(encoding='utf-8');t=s.replace('== 901','== 9010',1);assert t!=s;p.write_text(t,encoding='utf-8')"
+  rationale: >-
+    Changes the pinned count to a value the fixture does not have, so the assertion fails. A real break of the card's central claim (the pinned count must
+    be the fixture's real count).
+evidence:
+- evidence/build/G3/TC-500/receipt.json
+closeout:
+- >-
+  The pdf/net type-count pin matches the re-extracted fixture, so tests/normalization is green and the local pre-push gate is no longer red for this reason.
+recovery: Re-run from a clean tree.

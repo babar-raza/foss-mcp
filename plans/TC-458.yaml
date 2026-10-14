@@ -27,11 +27,13 @@ depends_on:
 - TC-450
 - TC-455
 - TC-459
+- TC-247
 write_paths:
 - src/foss_mcp/indexing/example_candidates.py
 - infra/build_chunks.py
 - tests/indexing/test_example_candidates_supply.py
 - tests/infra/test_build_chunks_candidate_chains.py
+- tests/infra/test_build_chunks.py
 satisfies:
 - REQ-G3-007
 source_refs:
@@ -181,6 +183,13 @@ inputs:
   agrees with example_candidates'; on the pdf_net page with `--library-platform rust` verify is called once per legacy candidate in
   legacy order. Wiring (AGENTS.md integration rule) - `inspect.getsource(build_chunks._build_verified_example_chunks)` contains
   `extract_candidate_supply(`, `effective_candidate(` and `_published_program(`. At least 30 tests across the two files, none skipped.
+- >-
+  A REAL-COMPILE TEST THAT PINS THE OLD CANDIDATE LIST (found by the worker): tests/infra/test_build_chunks.py::test_furnished_page_adds_real_compile_verified_example_chunks
+  builds its ground truth from the legacy 3-candidate list and asserts the number of example chunks equals the number of verified ground-truth titles. The supply now adds
+  a 4th candidate (the README Quick Start, which also verifies), so the count cannot hold. The file is now in your write_paths: change ONLY that test so its ground truth
+  is built from the same supply the code under test uses (`extract_candidate_supply(page, platform=...)` or the effective candidates), keeping its purpose (every
+  verified candidate yields exactly one example chunk, real dotnet compile, nothing unverified published). Never delete or skip a test; change no other assertion.
+  Rebase onto main first (TC-499 fixed the chart/compose parity test and TC-400 re-extracted the pdf/net fixture).
 - >-
   Run `{python} -m pytest tests/indexing/test_example_candidates_supply.py tests/infra/test_build_chunks_candidate_chains.py -q -rfE`,
   then once the second check command below. Do NOT build images or re-ingest any pilot (the supervisor's step). Write commit messages
