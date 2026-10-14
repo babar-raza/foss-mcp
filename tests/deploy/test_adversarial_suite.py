@@ -9,6 +9,7 @@ attack, a memory jump, a generation change after a restart), and the matching sc
 
 from __future__ import annotations
 
+import inspect
 import json
 import re
 import subprocess
@@ -1125,10 +1126,20 @@ def run_main(
         "--report-dir",
         str(report_dir),
         "--ready-timeout",
-        "5",
+        "30",
         *extra,
     ]
     return suite.main(argv, deps, limits), docker, report_dir
+
+
+def test_the_ready_timeout_given_to_run_main_has_real_margin_above_five_seconds() -> None:
+    source = inspect.getsource(run_main)
+    match = re.search(r'"--ready-timeout",\s*\n\s*"(\d+)"', source)
+    assert match is not None, "run_main must pass --ready-timeout as a literal"
+    assert int(match.group(1)) > 5, (
+        "the ready-timeout literal regressed back to a value with no real margin for a slow "
+        "clean-room subprocess spawn"
+    )
 
 
 def load(report_dir: Path, name: str) -> dict[str, Any]:
