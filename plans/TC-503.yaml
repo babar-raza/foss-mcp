@@ -1,0 +1,75 @@
+id: TC-503
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-001 (a green, trustworthy suite) and REQ-G3-007. The final cluster re-ingest and demo-manifest snapshot (commit fa805276, image
+  revision rev-b487453) legitimately grew infra/demo-manifests from 17.25 MB to 28.07 MB: the C#/Python/other re-extractions added the real
+  API symbols to pilots that were flat before (for example cells_go 31 KB to 354 KB, 3d_python 302 KB to 1.00 MB), and 183 verified example
+  chunks now carry their quantised vectors (185 points kept, TC-442). The tree is still tiny next to the 374 MB serving image. Two committed
+  size-budget tests were written for the smaller tree and now fail: tests/deploy/test_compact_demo_manifests.py (TREE_BYTES_BUDGET =
+  22_000_000 and MEDIAN_FILE_BYTES_BUDGET = 262_000; the largest-file budget 2_950_000 still holds with the measured 2_944_920) and
+  tests/deploy/test_demo_manifests_sidecars.py (its own TREE_BYTES_BUDGET = 22_600_000). Measured on the committed tree: total 28_069_555
+  bytes, 40 generation files, largest 2_944_920, median 577_817.5, smallest 71_132. This card raises exactly those budgets to the measured
+  values plus a small stated headroom, with the numbers in a comment; the purpose of each test (a lean, bounded tree, not an unbounded one)
+  is unchanged.
+depends_on:
+- TC-442
+write_paths:
+- tests/deploy/test_compact_demo_manifests.py
+- tests/deploy/test_demo_manifests_sidecars.py
+satisfies:
+- REQ-G3-001
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-11 — Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
+  sha256: 77723bf0640aeedae5ba2b31dd032efbef57da10bdb08f8b493140af66710d52
+inputs:
+- >-
+  Read tests/deploy/test_compact_demo_manifests.py (TREE_BYTES_BUDGET, LARGEST_FILE_BYTES_BUDGET, MEDIAN_FILE_BYTES_BUDGET and
+  `test_real_tree_is_within_the_lean_budget`) and tests/deploy/test_demo_manifests_sidecars.py (its TREE_BYTES_BUDGET and
+  `test_the_whole_tree_is_within_the_size_budget`). Measure the real tree yourself first with a one-off command (sum of every file under
+  infra/demo-manifests, and the size of each pilot's generation__*.json) and confirm the numbers in the purpose before changing anything.
+  Never print or log any environment value.
+- >-
+  Change ONLY these constants: in test_compact_demo_manifests.py `TREE_BYTES_BUDGET = 29_500_000` and `MEDIAN_FILE_BYTES_BUDGET = 640_000`
+  (leave LARGEST_FILE_BYTES_BUDGET at 2_950_000, it still holds); in test_demo_manifests_sidecars.py `TREE_BYTES_BUDGET = 29_500_000`. Put a
+  comment next to each changed constant that states the measured values (28_069_555 total, median 577_817, largest 2_944_920, 2026-10-14,
+  rev-b487453) and why the tree grew (complete API extraction plus quantised vectors for verified-example chunks). Do not edit any other
+  assertion, do not delete, skip or xfail any test, and do not touch infra/demo-manifests.
+- >-
+  Run `{python} -m pytest tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_manifests_sidecars.py -q -rfE`, then once
+  `{python} -m pytest tests/deploy -q -rfE -k "demo_manifests or compact or manifest"`. Write commit messages as UTF-8 without a byte-order
+  mark. Preserve each file's existing line endings and encoding.
+actions:
+- >-
+  Re-pin the three size-budget constants to the measured size of the refreshed demo-manifest tree, with the numbers recorded beside them.
+checks:
+- command: '{python} -m pytest tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_manifests_sidecars.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-001
+- command: '{python} -m pytest tests/deploy -q -rfE -k "demo_manifests or compact or manifest"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-007
+min_tests: 20
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/deploy/test_demo_manifests_sidecars.py');s=p.read_text(encoding='utf-8');old='TREE_BYTES_BUDGET = 29_500_000';assert old in s;p.write_text(s.replace(old,'TREE_BYTES_BUDGET = 22_600_000',1),encoding='utf-8')"
+  rationale: >-
+    Puts the sidecars test's tree budget back to the old 22.6 MB, which the 28.07 MB tree exceeds, so the size test fails. A real break of the
+    card's central claim (the budget must cover the real committed tree).
+evidence:
+- evidence/build/G3/TC-503/receipt.json
+closeout:
+- >-
+  The size budgets match the refreshed demo-manifest tree, so tests/deploy is green for the data now committed.
+recovery: Re-run from a clean tree.
