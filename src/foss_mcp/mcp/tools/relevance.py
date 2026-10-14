@@ -22,6 +22,7 @@ Pure functions only: no I/O, no clock, no randomness.
 from __future__ import annotations
 
 import functools
+import re
 from collections.abc import Collection, Iterable
 
 from foss_mcp.indexing.lexical_index_writer import tokenize
@@ -42,6 +43,10 @@ RELEVANCE_THRESHOLD = 0.6
 # Words that name the vendor/product line rather than a task; like the scope's own family word
 # they appear in nearly every chunk of a pilot, so they must not count towards relevance.
 _GENERIC_WORDS = frozenset({"aspose", "foss", "library", "api"})
+
+# A possessive (ASCII apostrophe or U+2019 followed by "s") at a word end; removed from the QUERY
+# before it is tokenised so it can never leave the one-letter fragment "s" that no chunk contains.
+_POSSESSIVE_RE = re.compile(r"(?<=\w)['\u2019]s\b", re.IGNORECASE)
 
 
 def chunk_kind(text: str) -> str:
@@ -87,9 +92,16 @@ def stem_token(token: str) -> str:
 
 def query_terms(query: str, family: str) -> frozenset[str]:
     """The query's stemmed term set, minus the scope's family word and the generic set; when that
-    leaves nothing, the stemmed set before removal (so the bare query "pdf" still works).
+    leaves nothing, the stemmed set before removal (so the bare query "pdf" still works). A
+    possessive suffix is removed and one-letter alphabetic terms are dropped (unless nothing else
+    remains), so the query side never carries terms no chunk can contain.
     """
-    stemmed = frozenset(stem_token(token) for token in tokenize(query))
+    stemmed = frozenset(stem_token(token) for token in tokenize(_POSSESSIVE_RE.sub("", query)))
+    # A single alphabetic character (a possessive or case-split fragment such as the "x" of "TeX")
+    # cannot be matched meaningfully and only inflates the coverage denominator; drop it unless that
+    # would empty the set (a one-letter query such as "x" still works).
+    multi_character = frozenset(term for term in stemmed if not (len(term) == 1 and term.isalpha()))
+    stemmed = multi_character if multi_character else stemmed
     excluded = {stem_token(token) for token in tokenize(family)}
     excluded.add(stem_token(family))
     excluded.update(stem_token(word) for word in _GENERIC_WORDS)
