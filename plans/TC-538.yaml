@@ -1,0 +1,88 @@
+id: TC-538
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-008 and REQ-G3-001 (a green, trustworthy suite). TC-506 (integrated) changed the body of `/readyz` from the plain text `ready` to a JSON
+  object `{"ready": true, "reasons": [], "composition": {...}, "generation_id": "...", "warnings": []}` (status codes and the X-Example-Search header are
+  unchanged). Seven live-content e2e tests still assert the old body, `assert response.text == "ready"`, in `test_readyz_is_ready_after_the_real_..._publish`:
+  tests/e2e/test_pdf_go_live_content.py:338, test_pdf_typescript_live_content.py:327, test_pdf_net_live_content.py:290, test_pdf_java_live_content.py:320,
+  test_pdf_cpp_live_content.py:193, test_cells_rust_live_content.py:391, test_slides_python_live_content.py:413. They were not caught when TC-506 landed because
+  its related-tests step did not include the live-content files; the review of TC-510 and TC-521 found the failure on main, and `gatectl gate-exit G3` runs
+  `tests/e2e -k live_content`, so it would also fail there. This card changes only that one assertion in each file to the JSON contract, and adds one offline
+  test that pins the contract for every e2e file so a stale plain-text assertion can never come back unnoticed.
+depends_on:
+- TC-506
+- TC-504
+- TC-513
+write_paths:
+- tests/e2e/test_pdf_go_live_content.py
+- tests/e2e/test_pdf_typescript_live_content.py
+- tests/e2e/test_pdf_net_live_content.py
+- tests/e2e/test_pdf_java_live_content.py
+- tests/e2e/test_pdf_cpp_live_content.py
+- tests/e2e/test_cells_rust_live_content.py
+- tests/e2e/test_slides_python_live_content.py
+- tests/infra/test_e2e_readyz_contract.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-001
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read the readiness code merged by TC-506 (src/foss_mcp/mcp/health.py `ReadinessReport.to_dict`, infra/serve_http.py `/readyz`) and the seven e2e tests
+  named in the purpose (each has a `test_readyz_is_ready_after_the_real_..._publish` test that does `response = httpx.get(f"{BASE_URL}{READYZ_PATH}", timeout=5)`,
+  `assert response.status_code == 200`, `assert response.text == "ready"`). Never print or log any environment value.
+- >-
+  In each of the seven files replace ONLY the line `assert response.text == "ready"` with these lines (same indentation): `body = response.json()`,
+  `assert body["ready"] is True`, `assert body["reasons"] == []`. Do not change any other line of those files, no other test, and do not add skips. The
+  docstrings of these tests may keep saying "ready"; leave them.
+- >-
+  tests/infra/test_e2e_readyz_contract.py (NEW, offline, deterministic, no docker, no skips): (1) parametrized over the seven files listed above, the file
+  text contains neither `response.text == "ready"` nor `.text == 'ready'` and contains `body["ready"] is True`; (2) one test over EVERY `tests/e2e/*.py` file
+  asserting none contains the substring `.text == "ready"` (so a new e2e file cannot reintroduce the plain-text contract); (3) one test that builds the
+  `/readyz` JSON through the real code (use the same helpers the TC-506 tests use: tests/infra/readiness_support.py `ready_chunks` and a TestClient on
+  `infra.serve_http.build_app`, see tests/infra/test_serve_readyz_depth.py for the pattern) and asserts `response.json()["ready"] is True` and `["reasons"] == []`
+  for a ready store, so the shape the e2e tests assert is the shape the server really returns. At least 10 tests.
+- >-
+  Run check 1 (the seven readyz e2e tests; they start docker compose stacks of the serving image, run them one file at a time with the repo venv python and the
+  toolchain activated, docker is available) and check 2 (the offline contract test), each twice. Write commit messages as UTF-8 without a byte-order mark.
+  Preserve each file's line endings and encoding (UTF-8, LF, no BOM).
+actions:
+- >-
+  Update the seven stale plain-text `/readyz` assertions to the JSON contract of TC-506.
+- >-
+  Pin the contract for all e2e files with an offline test.
+checks:
+- command: '{python} -m pytest tests/e2e/test_pdf_go_live_content.py tests/e2e/test_pdf_typescript_live_content.py tests/e2e/test_pdf_net_live_content.py tests/e2e/test_pdf_java_live_content.py tests/e2e/test_pdf_cpp_live_content.py tests/e2e/test_cells_rust_live_content.py tests/e2e/test_slides_python_live_content.py -k readyz -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-001
+- command: '{python} -m pytest tests/infra/test_e2e_readyz_contract.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-008
+min_tests: 7
+network: true
+requires:
+- python
+- docker
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/e2e/test_pdf_go_live_content.py');s=p.read_text(encoding='utf-8');p.write_text(s+chr(10)+'# response.text == '+chr(34)+'ready'+chr(34)+chr(10),encoding='utf-8')"
+  rationale: >-
+    Appends the retired plain-text assertion text to one e2e file, so the offline contract test that forbids it in every e2e file fails. A real break of
+    the card's central claim (no e2e test may pin the old `/readyz` body).
+evidence:
+- evidence/build/G3/TC-538/receipt.json
+closeout:
+- >-
+  All live-content e2e tests assert the JSON readiness contract, so `tests/e2e -k live_content` (the live-content smoke test of gate exit) no longer fails on
+  the `/readyz` body, and TC-510 and TC-521 can be re-reviewed unchanged.
+recovery: Re-run from a clean tree.
