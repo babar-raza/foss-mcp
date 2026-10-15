@@ -18,6 +18,7 @@ import argparse
 import dataclasses
 import importlib
 import json
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,7 +33,10 @@ from foss_mcp.indexing.embedding_provider import EmbeddingProvider
 # The name is kept importable from here so nothing outside this card's write_paths (this
 # module's own existing callers/tests importing it as `ingest.PublishSafetyError`) breaks.
 from foss_mcp.indexing.generation_manifest import (  # noqa: F401
+    PRODUCTION_MIN_DOCS,
+    PRODUCTION_MIN_SYMBOLS,
     GenerationManifestStore,
+    PublishPolicy,
     PublishSafetyError,
 )
 from foss_mcp.indexing.publisher import publish_generation
@@ -260,6 +264,32 @@ def _vector_decimals(value: str) -> int:
     return decimals
 
 
+_ACCEPT_REGRESSION_KINDS = ("symbols", "docs", "examples", "total")
+_ACCEPT_REGRESSION_ENV = "FOSS_MCP_ACCEPT_REGRESSION"
+_ACCEPT_REGRESSION_REASON_ENV = "FOSS_MCP_ACCEPT_REGRESSION_REASON"
+
+
+def _accept_regression(value: str) -> tuple[str, int, int]:
+    """Parse ``KIND:OLD->NEW`` (KIND one of symbols, docs, examples, total; OLD and NEW non-negative
+    integers) into ``(kind, old, new)``."""
+    kind, colon, rest = value.strip().partition(":")
+    old_text, arrow, new_text = rest.partition("->")
+    if (
+        not colon
+        or not arrow
+        or kind not in _ACCEPT_REGRESSION_KINDS
+        or not old_text.isascii()
+        or not old_text.isdigit()
+        or not new_text.isascii()
+        or not new_text.isdigit()
+    ):
+        raise argparse.ArgumentTypeError(
+            f"--accept-regression must be KIND:OLD->NEW with KIND one of "
+            f"{'|'.join(_ACCEPT_REGRESSION_KINDS)} and OLD, NEW non-negative integers, got {value!r}"
+        )
+    return kind, int(old_text), int(new_text)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--family", required=True)
@@ -303,7 +333,63 @@ def main() -> None:
             "with a cosine change below 1e-5."
         ),
     )
+    parser.add_argument(
+        "--min-symbols",
+        type=int,
+        default=PRODUCTION_MIN_SYMBOLS,
+        help=(
+            "the fewest symbol chunks a generation may carry. It exists for tiny test fixtures and "
+            "must not be lowered for a pilot."
+        ),
+    )
+    parser.add_argument(
+        "--min-docs",
+        type=int,
+        default=PRODUCTION_MIN_DOCS,
+        help=(
+            "the fewest documentation chunks a generation may carry. It exists for tiny test fixtures "
+            "and must not be lowered for a pilot."
+        ),
+    )
+    parser.add_argument(
+        "--accept-regression",
+        type=_accept_regression,
+        action="append",
+        default=None,
+        metavar="KIND:OLD->NEW",
+        help=(
+            "accept a deliberate shrink of one kind (symbols, docs, examples or total) whose observed "
+            "baseline is OLD and new value is NEW; repeatable, needs --reason, never waives a floor, "
+            "duplicates, empty text or a repository change. Also read from FOSS_MCP_ACCEPT_REGRESSION "
+            "(items separated by ';') when the flag is not given."
+        ),
+    )
+    parser.add_argument(
+        "--reason",
+        default=None,
+        help="why the shrink is accepted; also read from FOSS_MCP_ACCEPT_REGRESSION_REASON",
+    )
     args = parser.parse_args()
+
+    accept_regressions: list[tuple[str, int, int]] = list(args.accept_regression or [])
+    if args.accept_regression is None:
+        for item in os.environ.get(_ACCEPT_REGRESSION_ENV, "").split(";"):
+            if not item.strip():
+                continue
+            try:
+                accept_regressions.append(_accept_regression(item))
+            except argparse.ArgumentTypeError as error:
+                parser.error(f"{_ACCEPT_REGRESSION_ENV}: {error}")
+    reason = args.reason if args.reason is not None else os.environ.get(_ACCEPT_REGRESSION_REASON_ENV)
+    if accept_regressions and not (reason and reason.strip()):
+        parser.error("--accept-regression needs a non-blank --reason (or FOSS_MCP_ACCEPT_REGRESSION_REASON)")
+    policy = PublishPolicy(
+        min_symbols=args.min_symbols,
+        min_docs=args.min_docs,
+        accept_regressions=tuple(accept_regressions),
+        reason=reason,
+        held_by=args.held_by,
+    )
 
     store = GenerationManifestStore(args.manifest_store)
     scope = "::".join((args.family, args.platform, args.source_kind))
@@ -334,6 +420,7 @@ def main() -> None:
         lease=lease,
         vector_chunk_filter=is_example_chunk if args.vector_scope == "examples" else None,
         vector_decimals=args.vector_decimals,
+        policy=policy,
     )
     print(f"published {generation_id}")
 

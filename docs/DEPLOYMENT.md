@@ -328,6 +328,40 @@ Helm removes everything the release created, including its manifests volume clai
 generation is lost with it. To remove all fourteen, list the releases with `helm list -n foss-mcp` and
 uninstall each one. The namespace is left in place.
 
+## Accepting an intentional shrink
+
+Every ingestion publishes through a production policy. A publish is refused, nothing is activated and the
+previous generation keeps serving, when any of these holds:
+
+- the generation has fewer than 3 symbol chunks or fewer than 1 documentation chunk (a floor);
+- a kind (symbols, docs, examples or the total) fell too far below the maximum of the last three
+  generations of that scope: symbols by more than 20 percent, docs, examples and the total by more than
+  50 percent, and examples going from 3 or more to none (a baseline under 5 is not subject to the percent
+  rule);
+- two chunks have the same id, or a chunk has empty or blank text;
+- the provenance repository differs from the one the active generation was built from. This is never
+  overridable: a deliberate repository change needs a new store.
+
+The refusal message ends with the exact flags that would accept a percent refusal, for example
+`to accept deliberately: --accept-regression symbols:100->46 --reason TEXT`. When the shrink is intended
+(upstream removed a vendored directory, say), run the ingestion again with the numbers from that message:
+
+```text
+python /app/infra/ingest.py ... --accept-regression symbols:100->46 --accept-regression total:153->58 --reason "upstream removed the vendored directory"
+```
+
+The override must match the observed numbers exactly (the baseline before the arrow, the new value after it),
+otherwise the publish is refused again. It never waives the floors, duplicate or empty chunks, or the
+repository identity check. Every publish and every refusal is appended to `publish_log.jsonl` in the scope's
+directory beside the active pointer, and an accepted shrink is recorded there with its reason; the next
+ordinary publish at the new size is then compared with the new size, not with the old one. Renaming
+`active_pointer.json` aside is no longer needed and must not be done: it disables every guard.
+
+A Kubernetes ingestion Job cannot take extra flags, so the same override is read from two environment
+variables: `FOSS_MCP_ACCEPT_REGRESSION="symbols:100->46;total:153->58"` and
+`FOSS_MCP_ACCEPT_REGRESSION_REASON`. The chart sets them from the chart value `ingestion.acceptRegression`.
+That value applies to one pilot release and must be removed again after the publish.
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |

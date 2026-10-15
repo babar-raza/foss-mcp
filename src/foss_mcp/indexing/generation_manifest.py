@@ -66,7 +66,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 _SEP = "::"
 
@@ -75,6 +75,12 @@ _SEP = "::"
 _SCOPE_COMPONENT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 _SCOPE_COMPONENT_COUNT = 3
 _MAX_VERSION_LENGTH = 128
+# TC-510: the production publish policy (see PublishPolicy below). One constant per line.
+PRODUCTION_MIN_SYMBOLS = 3
+PRODUCTION_MIN_DOCS = 1
+RETENTION_KEEP_LAST = 3
+MIN_BASELINE_FOR_PERCENT_RULE = 5
+PUBLISH_LOG_NAME = "publish_log.jsonl"
 # At most this many parsed generation documents are held in process, per store instance.
 _GENERATION_CACHE_MAX_ENTRIES = 8
 
@@ -517,6 +523,39 @@ class GenerationManifestStore:
         """Whether ``generation_id`` was ever written for ``scope``."""
         return self._read_json(self._generation_path_for_id(scope, generation_id)) is not None
 
+    # -- publish log (TC-510) ---------------------------------------------
+
+    def append_publish_log(self, scope: str, entry: dict[str, Any]) -> None:
+        """Append ``entry`` as one key-sorted JSON line to the scope's ``publish_log.jsonl``,
+        then flush and fsync it. Creates the (contained) scope directory if needed."""
+        scope_dir = self._scope_dir(scope)
+        # os.makedirs, not Path.mkdir: the scope directory comes from the contained _scope_dir, and
+        # the containment test pins exactly two Path.mkdir sites (the store root and the atomic write).
+        os.makedirs(scope_dir, exist_ok=True)
+        line = json.dumps(entry, sort_keys=True, default=str)
+        with open(scope_dir / PUBLISH_LOG_NAME, "a", encoding="utf-8", newline="\n") as fh:
+            fh.write(line + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+
+    def read_publish_log(self, scope: str) -> list[dict[str, Any]]:
+        """Every well-formed entry of the scope's publish log, oldest first. A missing file is
+        ``[]``; a malformed line (or a line that is not a JSON object) is skipped."""
+        path = self._scope_dir(scope) / PUBLISH_LOG_NAME
+        if not path.exists():
+            return []
+        entries: list[dict[str, Any]] = []
+        for line in path.read_text(encoding="utf-8-sig").splitlines():
+            if not line.strip():
+                continue
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(entry, dict):
+                entries.append(entry)
+        return entries
+
 
 # ---------------------------------------------------------------------
 # The one authority path: publish and rollback
@@ -574,12 +613,304 @@ def _document_count(payload: dict[str, Any]) -> int:
     return len((payload.get("lexical_index") or {}).get("documents") or {})
 
 
+# ---------------------------------------------------------------------
+# TC-510: production publish policy
+# ---------------------------------------------------------------------
+#
+# ``publish(..., policy=None)`` is the legacy behaviour, byte for byte. A caller that opts into a
+# ``PublishPolicy`` (infra/ingest.py does) additionally gets per-kind statistics, hard floors,
+# per-kind regression limits against the maximum of the last few generations, refusal of
+# duplicate / empty chunks and of a changed provenance repository, an explicit, exactly-matching,
+# logged override for a deliberate shrink, and a ``publish_log.jsonl`` beside the active pointer.
+
+# The first ``FQN:`` line of a chunk (the same expression ``get_symbol.extract_fqn`` uses). It is
+# repeated here, not imported, because ``foss_mcp.mcp`` imports this module.
+_FQN_LINE = re.compile(r"^FQN:\s*(.+)$", re.MULTILINE)
+_EXAMPLE_FQN_PREFIX = "Example: "
+_DOC_FQN_PREFIX = "Doc: "
+_KINDS = ("symbols", "docs", "examples", "total")
+_FLOAT_SLACK = 1e-9
+
+
+def classify_chunk_text(text: str) -> str:
+    """``"example"``, ``"doc"`` or ``"symbol"`` for one chunk's text, exactly as
+    ``foss_mcp.mcp.tools.relevance.chunk_kind`` decides it: no ``FQN:`` line -> doc; a value
+    starting ``Example: `` -> example; starting ``Doc: `` -> doc; anything else -> symbol."""
+    match = _FQN_LINE.search(text)
+    if match is None:
+        return "doc"
+    fqn = match.group(1).strip()
+    if fqn.startswith(_EXAMPLE_FQN_PREFIX):
+        return "example"
+    if fqn.startswith(_DOC_FQN_PREFIX):
+        return "doc"
+    return "symbol"
+
+
+def payload_stats(payload: dict[str, Any]) -> dict[str, int]:
+    """``{"symbols", "docs", "examples", "total"}`` over a payload's lexical-index documents. A
+    payload without a lexical index yields zeros; a document whose text is not a string counts
+    as a doc."""
+    documents = (payload.get("lexical_index") or {}).get("documents") or {}
+    items = documents.values() if isinstance(documents, dict) else documents
+    symbols = docs = examples = 0
+    for document in items:
+        text = document.get("text") if isinstance(document, dict) else None
+        kind = classify_chunk_text(text) if isinstance(text, str) else "doc"
+        if kind == "symbol":
+            symbols += 1
+        elif kind == "example":
+            examples += 1
+        else:
+            docs += 1
+    return {"symbols": symbols, "docs": docs, "examples": examples, "total": symbols + docs + examples}
+
+
+def _counts(stats: object) -> dict[str, int]:
+    """The four per-kind counts of a stats dict; anything missing or not an int is 0."""
+    source = stats if isinstance(stats, dict) else {}
+    counts: dict[str, int] = {}
+    for kind in _KINDS:
+        value = source.get(kind, 0)
+        counts[kind] = value if isinstance(value, int) and not isinstance(value, bool) else 0
+    return counts
+
+
+def _stats_of(payload: dict[str, Any]) -> dict[str, Any]:
+    """The persisted ``payload.stats`` when it carries the four counts, else the stats computed
+    from the payload itself (a legacy generation)."""
+    stats = payload.get("stats")
+    if isinstance(stats, dict) and all(kind in stats for kind in _KINDS):
+        return stats
+    return payload_stats(payload)
+
+
+@dataclass(frozen=True)
+class PublishPolicy:
+    """What a production publish refuses. ``PublishPolicy()`` IS the production policy; the legacy
+    behaviour is ``policy=None``.
+
+    ``accept_regressions`` is a tuple of ``(kind, old, new)`` that waives exactly the percent
+    refusal of ``kind`` when ``old`` and ``new`` equal the observed baseline and new value; it
+    needs a ``reason`` and never waives a floor, a duplicate, empty text or a repository change.
+    """
+
+    min_symbols: int = PRODUCTION_MIN_SYMBOLS
+    min_docs: int = PRODUCTION_MIN_DOCS
+    max_drop: float = 0.5
+    max_symbol_drop: float = 0.2
+    history: int = RETENTION_KEEP_LAST
+    accept_regressions: tuple[tuple[str, int, int], ...] = ()
+    reason: str | None = None
+    held_by: str = ""
+
+
+def integrity_refusal_message(duplicate_chunk_ids: int, empty_text_chunks: int) -> str | None:
+    """The refusal message for duplicate chunk ids and/or empty-text chunks, or ``None``."""
+    problems = []
+    if duplicate_chunk_ids > 0:
+        problems.append(f"{duplicate_chunk_ids} duplicate chunk id(s)")
+    if empty_text_chunks > 0:
+        problems.append(f"{empty_text_chunks} chunk(s) with empty text")
+    if not problems:
+        return None
+    return "refusing to publish: " + " and ".join(problems)
+
+
+def refuse_publish(
+    store: GenerationManifestStore,
+    scope: str,
+    generation_id: str,
+    message: str,
+    *,
+    expected_active: str | None = None,
+    held_by: str = "",
+    stats: dict[str, Any] | None = None,
+) -> NoReturn:
+    """Append one ``refused`` line to the scope's publish log, then raise
+    :class:`PublishSafetyError` with ``message``. The one place a policy refusal is written."""
+    try:
+        store.append_publish_log(
+            scope,
+            {
+                "ts": _iso_now(),
+                "event": "refused",
+                "scope": scope,
+                "generation_id": generation_id,
+                "previous_active": expected_active,
+                "held_by": held_by,
+                "stats": stats,
+                "reason": message,
+            },
+        )
+    except OSError:
+        pass  # a log that cannot be written must not turn a refusal into an activation
+    raise PublishSafetyError(message)
+
+
+def _baseline(
+    store: GenerationManifestStore, scope: str, active_stats: dict[str, Any] | None, history: int
+) -> dict[str, int]:
+    """Per-kind MAX over the active generation's stats and the last ``history`` ``published`` log
+    entries, scanning newest to oldest and stopping after the first entry that carries overrides
+    (an accepted shrink resets history)."""
+    sources: list[dict[str, int]] = []
+    if active_stats is not None:
+        sources.append(_counts(active_stats))
+    published = [entry for entry in store.read_publish_log(scope) if entry.get("event") == "published"]
+    taken = 0
+    for entry in reversed(published):
+        if taken >= history:
+            break
+        taken += 1
+        sources.append(_counts(entry.get("stats")))
+        if entry.get("overrides"):
+            break
+    return {kind: max((source[kind] for source in sources), default=0) for kind in _KINDS}
+
+
+def _publish_with_policy(
+    store: GenerationManifestStore,
+    scope: str,
+    expected_active: str | None,
+    generation: GenerationManifest,
+    lease: Lease,
+    policy: PublishPolicy,
+) -> str:
+    generation_id = generation.generation_id
+    stats = _stats_of(generation.payload)
+    new = _counts(stats)
+
+    def refuse(message: str) -> NoReturn:
+        refuse_publish(
+            store,
+            scope,
+            generation_id,
+            message,
+            expected_active=expected_active,
+            held_by=policy.held_by,
+            stats=stats,
+        )
+
+    if policy.accept_regressions and not (policy.reason and policy.reason.strip()):
+        refuse("refusing to publish: --accept-regression needs a non-blank --reason")
+
+    active_stats: dict[str, Any] | None = None
+    active_repositories: object = None
+    active_generation_id = store.read_active(scope)
+    if active_generation_id is not None:
+        try:
+            active_manifest = store.read_generation(scope, active_generation_id)
+        except UnknownGenerationError:
+            active_manifest = None
+        if active_manifest is not None:
+            active_stats = _stats_of(active_manifest.payload)
+            persisted = active_manifest.payload.get("stats")
+            if isinstance(persisted, dict):
+                active_repositories = persisted.get("repositories")
+    baseline = _baseline(store, scope, active_stats, policy.history)
+
+    # Refusals that no override can waive.
+    if new["total"] == 0:
+        refuse("refusing to publish an empty generation (0 chunks)")
+    if new["symbols"] < policy.min_symbols:
+        refuse(
+            f"refusing to publish: {new['symbols']} symbol chunk(s) is below the production floor of "
+            f"{policy.min_symbols}"
+        )
+    if new["docs"] < policy.min_docs:
+        refuse(
+            f"refusing to publish: {new['docs']} documentation chunk(s) is below the production floor of "
+            f"{policy.min_docs}"
+        )
+    duplicates = stats.get("duplicate_chunk_ids", 0)
+    empties = stats.get("empty_text_chunks", 0)
+    integrity = integrity_refusal_message(
+        duplicates if isinstance(duplicates, int) else 0, empties if isinstance(empties, int) else 0
+    )
+    if integrity is not None:
+        refuse(integrity)
+    new_repositories = stats.get("repositories")
+    if isinstance(new_repositories, list) and isinstance(active_repositories, list):
+        if sorted(map(str, new_repositories)) != sorted(map(str, active_repositories)):
+            refuse(
+                "refusing to publish: the provenance repository changed from "
+                f"{sorted(map(str, active_repositories))} to {sorted(map(str, new_repositories))}; "
+                "a deliberate repository change needs a new store"
+            )
+
+    # Per-kind regression limits against the baseline (overridable).
+    regressions: dict[str, str] = {}
+    for kind in _KINDS:
+        old, current = baseline[kind], new[kind]
+        limit = policy.max_symbol_drop if kind == "symbols" else policy.max_drop
+        if old >= MIN_BASELINE_FOR_PERCENT_RULE and current < old * (1 - limit) - _FLOAT_SLACK:
+            regressions[kind] = (
+                f"{kind} fell from {old} to {current}, more than {limit:.0%} below the maximum of the last "
+                f"{policy.history} generation(s)"
+            )
+        elif kind == "examples" and old >= 3 and current == 0:
+            regressions[kind] = f"examples fell from {old} to 0"
+
+    # The legacy total guard (more than 50 percent below the ACTIVE generation) still applies where the
+    # percent rule does not (a baseline under MIN_BASELINE_FOR_PERCENT_RULE); a total override waives it.
+    if "total" not in regressions:
+        active_total = _counts(active_stats)["total"] if active_stats is not None else None
+        try:
+            assert_publish_is_safe(new["total"], active_total)
+        except PublishSafetyError:
+            regressions["total"] = (
+                f"total fell from {baseline['total']} to {new['total']}, more than 50% below the currently "
+                f"active generation's {active_total}"
+            )
+
+    waived: set[str] = set()
+    for kind, old, current in policy.accept_regressions:
+        if kind not in _KINDS:
+            refuse(f"refusing to publish: --accept-regression names an unknown kind {kind!r}")
+        if old != baseline[kind] or current != new[kind]:
+            refuse(
+                f"refusing to publish: --accept-regression {kind}:{old}->{current} does not match the observed "
+                f"{kind}:{baseline[kind]}->{new[kind]}"
+            )
+        waived.add(kind)
+    unwaived = [kind for kind in regressions if kind not in waived]
+    if unwaived:
+        flags = " ".join(f"--accept-regression {kind}:{baseline[kind]}->{new[kind]}" for kind in regressions)
+        refuse(
+            "refusing to publish: "
+            + "; ".join(regressions[kind] for kind in unwaived)
+            + f"; to accept deliberately: {flags} --reason TEXT"
+        )
+
+    result = store.cas_activate(scope, expected_active, store.write_and_validate(generation), lease)
+    overrides = [f"{kind}:{old}->{current}" for kind, old, current in policy.accept_regressions]
+    store.append_publish_log(
+        scope,
+        {
+            "ts": _iso_now(),
+            "event": "published",
+            "scope": scope,
+            "generation_id": generation_id,
+            "previous_active": expected_active,
+            "held_by": policy.held_by,
+            "stats": stats,
+            "baseline": baseline,
+            "overrides": overrides,
+            "reason": policy.reason,
+            "floors": {"symbols": policy.min_symbols, "docs": policy.min_docs},
+        },
+    )
+    return result
+
+
 def publish(
     store: GenerationManifestStore,
     scope: str,
     expected_active: str | None,
     generation: GenerationManifest,
     lease: Lease,
+    policy: PublishPolicy | None = None,
 ):
     """Validate, safety-check, then write-and-activate ``generation`` - the one authority
     path. Enforces :func:`validate_manifest` first (so a structurally-invalid payload
@@ -597,8 +928,14 @@ def publish(
     legitimately name a generation that was never written when a caller is deliberately
     testing a CAS mismatch) - falling back to ``None`` when nothing is active yet, or when
     that lookup can't resolve to a real generation.
+
+    ``policy`` (TC-510) is opt-in: ``None`` keeps exactly the behaviour above and writes no log;
+    a :class:`PublishPolicy` runs :func:`_publish_with_policy` instead (stats, floors, per-kind
+    limits, identity, the logged override, and the ``published`` log line).
     """
     validate_manifest(generation)
+    if policy is not None:
+        return _publish_with_policy(store, scope, expected_active, generation, lease, policy)
 
     active_document_count: int | None = None
     active_generation_id = store.read_active(scope)

@@ -250,6 +250,10 @@ def _run_main(tmp_path: Path, monkeypatch, entries: list[dict], *, with_api_surf
         str(manifest_store_path),
         "--embedding-provider",
         EMBEDDING_PROVIDER_SPEC,
+        "--min-symbols",
+        "0",
+        "--min-docs",
+        "0",
     ]
     if with_api_surface:
         argv += ["--api-surface", str(api_surface_path)]

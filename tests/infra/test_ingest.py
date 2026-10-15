@@ -87,6 +87,10 @@ def _base_argv(chunks_path: Path, manifest_store_path: Path) -> list[str]:
         str(manifest_store_path),
         "--embedding-provider",
         EMBEDDING_PROVIDER_SPEC,
+        "--min-symbols",
+        "0",
+        "--min-docs",
+        "0",
     ]
 
 

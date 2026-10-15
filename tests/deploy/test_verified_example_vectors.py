@@ -344,6 +344,10 @@ def _ingest_argv(tmp_path: Path, *extra: str) -> list[str]:
         "foss_mcp.indexing.hashing_embedding_provider:HashingEmbeddingProvider",
         "--vector-scope",
         "examples",
+        "--min-symbols",
+        "0",
+        "--min-docs",
+        "0",
         *extra,
     ]
 

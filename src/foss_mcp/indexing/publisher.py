@@ -15,12 +15,17 @@ import hashlib
 import uuid
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
+from typing import Any
 
 from foss_mcp.indexing.embedding_provider import EmbeddingProvider
 from foss_mcp.indexing.generation_manifest import (
     GenerationManifestStore,
     Lease,
+    PublishPolicy,
     build_manifest,
+    integrity_refusal_message,
+    payload_stats,
+    refuse_publish,
 )
 from foss_mcp.indexing.generation_manifest import publish as manifest_publish
 from foss_mcp.indexing.generation_manifest import rollback as manifest_rollback
@@ -52,6 +57,24 @@ def new_version() -> str:
     return f"{timestamp}-{uuid.uuid4().hex[:8]}"
 
 
+def build_generation_stats(chunks: Sequence[Chunk], chunk_ids: Sequence[str]) -> dict[str, Any]:
+    """The per-generation statistics persisted as ``payload.stats`` (TC-510): the per-kind counts
+    of the lexical index this generation carries (one document per distinct chunk id), plus the
+    duplicate-chunk-id count, the count of chunks whose text is not a string or is blank, and the
+    sorted provenance repositories."""
+    documents = {chunk_id: {"text": chunk.text} for chunk_id, chunk in zip(chunk_ids, chunks, strict=True)}
+    return {
+        **payload_stats({"lexical_index": {"documents": documents}}),
+        "duplicate_chunk_ids": len(chunk_ids) - len(set(chunk_ids)),
+        "empty_text_chunks": _empty_text_count(chunks),
+        "repositories": sorted({chunk.provenance.repository for chunk in chunks}),
+    }
+
+
+def _empty_text_count(chunks: Sequence[Chunk]) -> int:
+    return sum(1 for chunk in chunks if not isinstance(chunk.text, str) or not chunk.text.strip())
+
+
 def publish_generation(
     store: GenerationManifestStore,
     *,
@@ -65,6 +88,7 @@ def publish_generation(
     version: str | None = None,
     vector_chunk_filter: Callable[[Chunk], bool] | None = None,
     vector_decimals: int | None = None,
+    policy: PublishPolicy | None = None,
 ) -> str:
     """Build the vector and lexical index payloads over ``chunks`` and publish them as one new
     generation for ``(family, platform, source_kind)``. Returns the newly active generation_id.
@@ -76,6 +100,10 @@ def publish_generation(
 
     ``vector_decimals`` is passed straight to ``build_vector_index`` as ``decimals``: ``None`` (the
     default) stores vectors unrounded, an integer rounds every stored component to that many places.
+
+    ``policy`` (TC-510) is opt-in: ``None`` changes nothing. A :class:`PublishPolicy` makes the
+    payload carry ``stats``, refuses duplicate or empty chunks before any index is built, and is
+    handed to the manifest ``publish`` that enforces floors, limits and identity.
     """
     version = version or new_version()
     # The generation_id is needed to build the payload itself (it is folded into every
@@ -85,7 +113,22 @@ def publish_generation(
     # re-implements GenerationKey/GenerationManifest construction locally.
     generation_id = build_manifest(family, platform, source_kind, version).generation_id
     chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
-    payload = {
+    if policy is not None:
+        integrity = integrity_refusal_message(len(chunk_ids) - len(set(chunk_ids)), _empty_text_count(chunks))
+        if integrity is not None:
+            refuse_publish(
+                store,
+                build_manifest(family, platform, source_kind, version).key.scope,
+                generation_id,
+                integrity,
+                expected_active=expected_active,
+                held_by=policy.held_by,
+                stats={
+                    "duplicate_chunk_ids": len(chunk_ids) - len(set(chunk_ids)),
+                    "empty_text_chunks": _empty_text_count(chunks),
+                },
+            )
+    payload: dict[str, Any] = {
         "vector_index": build_vector_index(
             chunks,
             chunk_ids,
@@ -96,8 +139,12 @@ def publish_generation(
         ),
         "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
     }
+    if policy is not None:
+        payload["stats"] = build_generation_stats(chunks, chunk_ids)
     manifest = build_manifest(family, platform, source_kind, version, payload)
-    return manifest_publish(store, manifest.key.scope, expected_active, manifest, lease)
+    if policy is None:
+        return manifest_publish(store, manifest.key.scope, expected_active, manifest, lease)
+    return manifest_publish(store, manifest.key.scope, expected_active, manifest, lease, policy)
 
 
 def rollback_generation(
