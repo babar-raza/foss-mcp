@@ -1,0 +1,280 @@
+id: TC-525
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-008 (independent pre-production review, finding RST-08; carries the Go half of the cut card TC-398). GO FIDELITY on pdf/go. The reviewer
+  diffed the served pdf/go symbol chunks against the upstream source at the indexed commit. Measured: upstream has 98 exported package-level
+  functions and only 16 are indexed (`Open`, `OpenWithPassword`, `OpenStream`, `NewDocument`, `NewDocumentFromFormat`, `NewTable` all MISS), because
+  the 300-entry selection (`reduce_fixture` in src/foss_mcp/extraction/run_extraction.py) ranks entries by CENTRALITY, which counts references from
+  other types' signatures, and a package function is referenced by no type, so it scores zero and is cut; of the 45 `Kind: function` chunks 29 are
+  NOT package-level functions (9 confirmed methods such as `FillStroke`, `Flatten`, `InteriorColor`, `CurveTo`, `Error`, plus 20 methods or
+  interface members) and read as package functions with no receiver; 28 receiver types (113 methods) have no chunk at all (their receivers are
+  unexported types like `annotationBase`, whose methods the extractor leaves behind as bare functions: `_associate_go_methods` only moves a method
+  whose receiver type was itself extracted); 48 of 48 basic-type enums (`type HAlign int` plus `const ( HAlignLeft HAlign = iota ... )`) are served
+  with an empty body, so `HAlignCenter` is undiscoverable; and `API-Coverage: 261 of 2313 types` counts methods as types (about 259 exported
+  types upstream; by arithmetic the other 2,054 entries are mostly receiver methods left as functions). cells/go is clean (methods 23 of 23, functions 15 of 15), so the
+  fault is specific to how pdf/go is laid out. Reproduced on this checkout with a small package (`go_sample`, below) and `extract_api_surface`: a
+  `const (...)` group produces no member on its type, the `Save` method of `*Document` is attached correctly, a method on the unexported type
+  `helper` is returned as a top-level `function` entry named `Flatten` with `receiver_type: helper` and nothing marks it as a method, and a method
+  on a generic receiver `func (p *Pair[T]) Swap()` is returned as a plain function with NO receiver at all because `_extract_go_receiver_type`
+  (api_surface.py L645) looks for a `type_identifier` directly under the pointer and misses the `generic_type` in between. This card makes the Go
+  extraction fold exported constant groups into the Members of their owning type, drop methods whose receiver is an unexported type, keep a
+  receiver mark on any exported method that cannot be attached, resolve generic receivers, select exported package-level functions into the
+  fixture by source order instead of centrality (a bounded quota), and record separate counts of types, functions and methods in the artifact so
+  the coverage line can stop counting methods as types. It does NOT change any other language, the committed fixtures, the coverage line text
+  (TC-520 owns the line format and reads the counts this card provides), or the struct-field type handling (`_extract_go_struct_fields`).
+depends_on:
+- TC-524
+- TC-473
+- TC-394
+- TC-396
+- TC-382
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- src/foss_mcp/extraction/run_extraction.py
+- tests/extraction/tree_sitter_engine/test_api_surface_go_fidelity.py
+- tests/extraction/tree_sitter_engine/test_go_fidelity_gate.py
+- tests/extraction/test_run_extraction_go_functions.py
+- tests/indexing/test_chunk_builder_go_members.py
+- tests/fixtures/go_sample/**
+satisfies:
+- REQ-G3-008
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  ORDER. This card is the second of the fidelity chain TC-524, TC-525, TC-526, TC-527, TC-528 (each depends_on the previous; all edit api_surface.py).
+  TC-520 to TC-523 (sibling extractor cards, also on api_surface.py / run_extraction.py / chunk_builder.py) precede TC-524. Start from a clean tree at
+  the commit the supervisor issues. Never print or log any environment value. api_surface.py contains pre-existing mojibake in comments; edit it in
+  place with targeted replacements, never re-encode or reformat it.
+- >-
+  Read, in full: src/foss_mcp/extraction/tree_sitter_engine/api_surface.py `_extract_go_receiver_type` (L645), `_extract_go_struct_fields` (L1988),
+  `_extract_go_interface_methods` (L2058), `_associate_go_methods` (L2277-2320), `consolidate_classes` (L2425, note its handling of `type_spec`) and
+  in `extract_api_surface` (L3262) the Go-specific sites: the per-file loop (L3405 onward), the top-level function loop (search `receiver_type =
+  _extract_go_receiver_type(fnode)`, about L4329) and the post-loop `if language == "go": classes = _associate_go_methods(classes)` (about L4391).
+  Read src/foss_mcp/extraction/run_extraction.py `extract_pinned_repository` (L332: `type_count` is `len(types)` there), `_centrality_scores`,
+  `_alias_groups`, `reduce_fixture` (L499-548) and `main` (L674). Read src/foss_mcp/indexing/chunk_builder.py `_method_line`, `_member_line`,
+  `_format_type_text` (a `kind: function` entry with `params` renders as its own single method; `enum_members` render as `Members:` lines
+  `  - Name = value`). Read tests/extraction/test_run_extraction_selection.py (the existing reduce_fixture tests; they must pass unchanged),
+  tests/extraction/test_pdf_go_extraction.py, test_cells_go_extraction.py, test_jmap_go_extraction.py (they read committed fixtures only and must stay
+  green), tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py (Go cases) and tests/indexing/test_chunk_builder_honesty.py (a
+  `receiver_type` entry in the FQN-collision test). Confirm every Go node shape named below with `get_parser("go")` before relying on it: a
+  `const_declaration` holds `const_spec` children with fields `name`, `type`, `value` (an `expression_list`); a spec after the first in a group may
+  have neither type nor value (implicit repetition); a `method_declaration` has the field `receiver` (a `parameter_list`).
+- |-
+  FIXTURE TREE (create exactly these files under tests/fixtures/go_sample/; the extraction root is that directory).
+
+  document.go:
+  // Package pdf reads and writes PDF documents.
+  package pdf
+
+  import "io"
+
+  // HAlign is the horizontal alignment of text.
+  type HAlign int
+
+  // Horizontal alignments.
+  const (
+  	// HAlignLeft aligns text to the left edge.
+  	HAlignLeft HAlign = iota
+  	// HAlignCenter centres text.
+  	HAlignCenter
+  	HAlignRight
+  )
+
+  // SaveFormat selects the output format.
+  type SaveFormat string
+
+  const (
+  	SaveFormatPDF  SaveFormat = "pdf"
+  	SaveFormatHTML SaveFormat = "html"
+  )
+
+  // Flags is a bit set.
+  type Flags uint
+
+  const (
+  	FlagA Flags = 1 << iota
+  	FlagB
+  	flagHidden
+  )
+
+  // Document is an open PDF document.
+  type Document struct {
+  	// Title is the document title.
+  	Title string
+  	pages []int
+  }
+
+  // Open opens the PDF at path. It returns an error if the file cannot be read.
+  func Open(path string) (*Document, error) { return nil, nil }
+
+  // OpenWithPassword opens an encrypted PDF at path using password.
+  func OpenWithPassword(path, password string) (*Document, error) { return nil, nil }
+
+  // NewDocument creates an empty document.
+  func NewDocument() *Document { return &Document{} }
+
+  // NewDocumentFromFormat creates an empty document for format.
+  func NewDocumentFromFormat(format SaveFormat) *Document { return &Document{} }
+
+  // Save writes the document to w, for example a file or a buffer.
+  func (d *Document) Save(w io.Writer, format SaveFormat) error { return nil }
+
+  func (d Document) pageCount() int { return 0 }
+
+  type helper struct{}
+
+  // Flatten flattens helper.
+  func (h *helper) Flatten() {}
+
+  func unexported() {}
+
+  document_io.go:
+  package pdf
+
+  // Close releases the document.
+  func (d *Document) Close() error { return nil }
+
+  // Run runs a job of a type this package does not declare.
+  func (m *Missing) Run() {}
+
+  generic.go:
+  package pdf
+
+  // Pair holds two values.
+  type Pair[T any] struct {
+  	// First is the first value.
+  	First T
+  }
+
+  // Swap swaps the pair.
+  func (p *Pair[T]) Swap() {}
+- >-
+  EXPECTED RESULT of `extract_api_surface(get_parser("go"), "go", root, root, "pdf")` on that tree. Type entries (kind `type_spec`): `HAlign` with
+  `enum_members` [(HAlignLeft, 0), (HAlignCenter, 1), (HAlignRight, 2)]; `SaveFormat` with [(SaveFormatPDF, "pdf"), (SaveFormatHTML, "html")] (the
+  value is the literal source text, quotes included); `Flags` with [(FlagA, 1), (FlagB, 2)] (`flagHidden` is unexported and absent); `Document` with
+  the methods `Save` and `Close` (the second file's method attaches) and the property `Title` only; `Pair` with the method `Swap` and the property
+  `First`. Function entries (kind `function`, no `receiver_type`): exactly `Open`, `OpenWithPassword`, `NewDocument`, `NewDocumentFromFormat`. One
+  more function entry: `Run`, with `receiver_type: Missing` and `modifiers: ["receiver *Missing"]`, because its receiver is an exported name that no
+  extracted type owns (an honest, marked method, never a bare function). NOT present at all: `Flatten` (unexported receiver `helper`), `pageCount`,
+  `unexported`, `helper`. The value rule for a constant is: an explicit literal is its source text; the expression `iota` is the zero-based position of
+  the spec in its group; `iota + N`, `N + iota` and `1 << iota` are evaluated to an integer; a spec with no value repeats the previous expression
+  at its own position; any other expression is kept as its source text. Only constants whose owning type is an extracted exported type are folded;
+  an untyped constant (`const Max = 100`) is not attached anywhere in this card.
+- >-
+  CHANGE 1, receivers (api_surface.py). (a) `_extract_go_receiver_type`: also resolve a receiver whose type is a `generic_type` (`*Pair[T]` or
+  `Pair[T]`) to its bare type name, and keep returning the bare name for the existing pointer and value forms. (b) Add `_go_receiver_text(fnode)`
+  returning the receiver type as written without the variable name (`*Document`, `Document`, `*Pair[T]`). (c) Rewrite `_associate_go_methods` so that,
+  for a `function` entry with a `receiver_type`: when an extracted type of that name exists the method moves into it (unchanged); otherwise, when the
+  receiver name starts with a lower-case letter, the entry is DROPPED (a method of an unexported type is not public API); otherwise the entry is KEPT
+  as a function entry with `modifiers: ["receiver <receiver text>"]` added (chunk_builder already renders `[receiver *Missing]` after the signature
+  through `_modifiers_suffix`, so no chunk_builder change). Method dicts moved into a type are unchanged except that a `modifiers` key is NOT added.
+- >-
+  CHANGE 2, constants. Add `def _extract_go_const_groups(` (exact name: the negative control renames it) returning, for one parsed file, a list of
+  `(type_name, member_dict)` pairs in source order, where a member dict is `{"name": ..., "value": ...}` and the type name is the spec's explicit
+  type or, for a spec without one, the type of the nearest earlier spec of the same group that had one; only exported names (first letter
+  upper-case) are returned; the value follows the rule in the expected-result note. Call it from the per-file loop for `language == "go"`, collect
+  the pairs for the whole package, and after `_associate_go_methods` call a new `_associate_go_consts(classes, pairs)` that sets `enum_members`
+  (list of those dicts, in order, no duplicates by name) on the matching `type_spec` entry whose underlying type is not a struct or interface; a pair
+  whose type is not extracted is ignored. Existing entries without constants keep no `enum_members` key.
+- >-
+  CHANGE 3, selection and counts (run_extraction.py). In `reduce_fixture`, when `artifact.get("language") == "go"`, reserve slots for the
+  exported package-level functions: from the entries that have `kind == "function"` and no `receiver_type`, take the first `min(n, max_types * 40 //
+  100)` in `(file, line)` order, place them right after the `must_keep` groups and before the centrality fill, and let the centrality fill use the
+  rest of the budget; the final sort keeps its current rank order. Export the quota as the module constant `GO_FUNCTION_QUOTA_PERCENT = 40` on one
+  line. Every other language, and a go artifact without functions, selects exactly as before (the existing tests are the proof). Add a module-level
+  function `api_counts(types)` returning `{"types": <entries whose kind is not "function">, "functions": <entries whose kind is "function">,
+  "methods": <total len of every entry's methods list>}` and add `"counts": api_counts(types)` to the artifact built in `extract_pinned_repository`
+  next to the unchanged `type_count`. Do not edit `chunk_builder.py`, `citation.py` or the coverage line: TC-520 reads these counts.
+- >-
+  tests/extraction/tree_sitter_engine/test_api_surface_go_fidelity.py (NEW, offline, no skips; extracts the committed go_sample and small tmp_path
+  trees). Tests: `test_const_group_is_folded_into_the_owning_type_members`, `test_iota_values_are_positions`, `test_shifted_iota_values_are_evaluated`,
+  `test_string_constants_keep_their_literal_text`, `test_implicit_repetition_uses_the_previous_expression_at_its_own_position`,
+  `test_unexported_constant_is_not_a_member`, `test_untyped_constant_is_not_attached`, `test_constant_of_an_unextracted_type_is_ignored`,
+  `test_method_of_an_exported_receiver_attaches_to_its_type`, `test_method_in_a_second_file_attaches_to_the_same_type`,
+  `test_pointer_receiver_method_is_attached_with_its_signature`, `test_generic_receiver_method_attaches_to_its_generic_type`,
+  `test_method_of_an_unexported_receiver_is_dropped`, `test_exported_method_of_an_undeclared_receiver_keeps_a_receiver_mark`,
+  `test_exported_package_functions_are_functions_without_a_receiver`, `test_unexported_function_is_absent`, `test_unexported_field_is_absent`,
+  `test_e2e_receiver_names_never_appear_as_bare_functions` (no `function` entry named `Save`, `Close`, `Swap` or `Flatten`),
+  `test_go_sample_matches_the_expected_entry_set`, and `test_other_languages_are_unchanged` (one Rust and one Java snippet: same entries as before).
+- >-
+  tests/extraction/tree_sitter_engine/test_go_fidelity_gate.py (NEW): the GATE, mirroring the reviewer's go_audit.py. An independent audit inside
+  the test reads the Go SOURCE TEXT of go_sample (not the extractor): regexes for `^func Name(` (exported package functions), `^func (recv T)
+  Name(` (methods, receiver and name both exported), `^type Name (struct|interface|\w)` and the typed constants of each `const (` group. Tests:
+  `test_every_exported_package_function_is_extracted` (audit set equals the extractor's function-without-receiver names),
+  `test_every_exported_method_is_attached_or_marked` (audit methods equal attached methods plus receiver-marked functions),
+  `test_no_method_is_published_as_a_receiverless_function`, `test_every_exported_type_is_extracted`,
+  `test_every_typed_exported_constant_is_a_member_of_its_type` (audit constants equal the folded members), and
+  `test_gate_audit_rejects_an_extraction_without_constants` (remove every `enum_members` from a copy of the output and assert the comparison FAILS:
+  the gate can fail).
+- >-
+  tests/extraction/test_run_extraction_go_functions.py (NEW, offline): synthetic artifacts built in the test. Tests:
+  `test_go_functions_are_selected_by_source_order_not_centrality` (40 type entries that reference one another plus 12 functions with no references,
+  `max_types=30`: all 12 functions are in the result), `test_go_function_quota_is_bounded` (100 functions, `max_types=20`: exactly 8 functions, the
+  first 8 by file and line, and 12 types), `test_must_keep_types_still_come_first_for_go`, `test_methods_with_a_receiver_are_not_counted_as_package_functions`,
+  `test_a_non_go_artifact_selects_exactly_as_before` (the same entries with `language: "typescript"` select by centrality only and drop the functions),
+  `test_reduce_is_deterministic_for_go`, `test_api_counts_separates_types_functions_and_methods`, and
+  `test_extract_pinned_repository_records_the_counts` (monkeypatch `run_extraction.clone_shallow` and `run_extraction.extract_from_clone`, write a
+  tmp manifest yaml with `repository`, `family`, `platform: go`, and assert `artifact["counts"]` and the unchanged `type_count`).
+- >-
+  tests/indexing/test_chunk_builder_go_members.py (NEW, offline): extract go_sample, wrap as a fixture dict and call `build_chunks_from_api_surface`;
+  tests `test_enum_constants_render_as_members_lines` (`  - HAlignCenter = 1` under `Members:` of the HAlign chunk, `  - SaveFormatPDF = "pdf"`),
+  `test_pointer_receiver_method_renders_with_its_signature` (`  - Save(w: io.Writer, format: SaveFormat) -> error` in the Document chunk),
+  `test_unattached_method_renders_its_receiver` (the `Run` chunk contains `[receiver *Missing]`), `test_unexported_receiver_method_has_no_chunk`
+  (no chunk text contains `Flatten`).
+- >-
+  Run `{python} -m pytest tests/extraction/tree_sitter_engine/test_api_surface_go_fidelity.py tests/extraction/tree_sitter_engine/test_go_fidelity_gate.py tests/extraction/test_run_extraction_go_functions.py tests/indexing/test_chunk_builder_go_members.py -q -rfE`
+  first, then the second check command below. If an existing test fails because it asserts one of the defects above, stop and report its name; do
+  not edit it. Keep ruff, ruff format and mypy clean (the local pre-push gate). Write commit messages as UTF-8 without a byte-order mark. Preserve each
+  file's line endings and encoding. Do not run a re-extraction, an ingestion, a cluster or a docker command, and do not edit any committed
+  tests/fixtures/*/api_surface.json.
+actions:
+- >-
+  Fold exported Go constant groups into the Members of their owning type, resolve generic receivers, drop methods of unexported receivers and mark
+  exported methods that cannot be attached.
+- >-
+  Select exported package-level functions by source order within a bounded quota and record separate type, function and method counts.
+- >-
+  Pin it with a committed Go package, an audit-style gate that can fail and selection tests.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_api_surface_go_fidelity.py tests/extraction/tree_sitter_engine/test_go_fidelity_gate.py tests/extraction/test_run_extraction_go_functions.py tests/indexing/test_chunk_builder_go_members.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_go_members.py tests/infra/test_build_chunks.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+min_tests: 30
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='def _extract_go_const_groups(';assert s.count(old)==1;p.write_text(s.replace(old,'def _extract_go_const_groupsX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the function that reads Go constant groups, so Go extraction raises NameError: the new Go fidelity tests, the gate and the chunk tests
+    fail. A real break of the card's central claim (a basic-type enum's constants are discoverable as its Members).
+evidence:
+- evidence/build/G3/TC-525/receipt.json
+closeout:
+- >-
+  Go extraction folds exported constant groups into their owning type, drops methods of unexported receivers, marks unattachable exported methods and
+  selects exported package functions by source order within a 40 percent quota; the artifact carries separate counts. NOTHING a peer sees changes
+  until the Go fixtures are re-extracted. LATER CARDS NEEDED: (1) a Go fixture re-extraction card for pdf_go, cells_go, jmap_go at their pinned
+  commits (network; after TC-520 to TC-528). It must verify on pdf_go: all 98 upstream exported package functions (or the quota of 120 of them if more)
+  are present with `Open`, `OpenWithPassword`, `NewDocument` among them; at least 40 of the 48 basic-type enums show their constants under `Members:`;
+  no `Kind: function` entry is an unattached method of an unexported receiver; `counts.types` is near the 259 exported types upstream instead of
+  2313; cells_go stays at 23 of 23 methods and 15 of 15 functions. (2) Whoever owns the coverage line (TC-520) must render it from `counts` once the
+  re-extracted fixtures carry it. (3) The final re-ingest of the three Go pilots.
+recovery: Re-run from a clean tree.

@@ -1,0 +1,354 @@
+id: TC-524
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-008 (independent pre-production review, finding RST-06; carries the scope of the cut cards TC-397 and TC-475's C++ half, which were
+  SUPERSEDED). C++ FIDELITY. The reviewer diffed the served cells/cpp and pdf/cpp symbol chunks against the upstream public headers. Measured:
+  constructors upstream/served 166/71 (cells) and 383/75 (pdf), so 96 of 165 and 104 of 217 classes lose ALL their constructors; parameters
+  declared by reference upstream 351 and 673 but served with a `&` or `*` on 0 and 4 lines; const methods 781 and 805 upstream, 0 marked; static
+  methods 192 and 197 upstream, 0 marked; 247 (13 percent) and 425 (18 percent) methods missing. Concretely `Workbook` serves only `Workbook()`:
+  `explicit Workbook(std::string_view)`, `Workbook(const std::vector<uint8_t>&)` and the LoadOptions overloads are absent;
+  `void Save(std::vector<std::uint8_t>& stream, SaveFormat) const` is served `Save(stream: std::vector<std::uint8_t>, format: SaveFormat) -> void`
+  and `WorksheetCollection& GetWorksheets()` is served `-> WorksheetCollection`, so an agent writes `auto x = wb.GetWorksheets()`, which does not
+  compile (the copy constructor is deleted). 100 of the 300 cells/cpp symbol chunks (33 percent) are `Kind: function`; 93 of them are file-static
+  helpers defined in `.cpp` files (`GetElapsedMinutes`, `IsNumericFormatChar`, `EscapeTextContent`, `IsWhitespaceOrEmpty`, `MakeElem`), all with zero
+  parameters, and `get_symbol` serves them as public API. The cells/cpp headers document with `/// <summary>` while the C++ doc reader accepts only
+  `/** */`, so 0 of 300 chunks carry a description. Reproduced on this checkout with `get_parser("cpp")` and `extract_api_surface`: on the
+  vendored, checksummed cells/cpp snapshot (tests/fixtures/cells_cpp_pinned_source, commit 9f852d0) the extractor returns 146 free-function entries,
+  ALL 146 from `.cpp` files, 0 from a header, and 1815 methods of which 0 are marked as constructors; on a small header with the reviewer's cases
+  the tree-sitter node shapes are: constructors and destructors inside a class parse as `declaration` (not `field_declaration`) nodes, deleted and
+  defaulted members as `function_definition` nodes with a `delete_method_clause` or `default_method_clause`, free functions declared in a header as
+  `declaration` nodes whose parent is the namespace `declaration_list` or the `translation_unit`, operators carry an `operator_name` declarator, and
+  the reference or pointer of a return or parameter type lives in a `reference_declarator` or `pointer_declarator` wrapper, which the extractor drops
+  because it reads only the declarator-less `type` field. The same C++ adapter serves slides/cpp, jmap/cpp and email/cpp (untested by the reviewer).
+  This card changes the C++ extraction in src/foss_mcp/extraction/tree_sitter_engine/api_surface.py and one rendering rule in
+  src/foss_mcp/indexing/chunk_builder.py so that: parameters and return types keep the full declarator text (references, pointers, const, default
+  arguments); constructors, destructors, operator overloads and deleted or defaulted special members are collected; static, const, virtual, explicit,
+  noexcept, override, final, pure and constexpr are recorded in the existing additive `modifiers` list that chunk_builder already renders as
+  `[static, const]`; a free function is published only when it is declared or defined inline in a PUBLIC header (never a function that only a `.cpp`
+  defines, never `static`, never in an anonymous or `detail` or `internal` scope); and `///` comments (including `/// <summary>` blocks) are read as
+  doc comments. It does NOT change any other language, the committed tests/fixtures/*/api_surface.json files (they change only when the C++ pilots are
+  re-extracted by a later card), the selection of which types are kept (TC-520 to TC-523), or the coverage line.
+depends_on:
+- TC-396
+- TC-382
+- TC-392
+- TC-259
+- TC-276
+- TC-473
+- TC-520
+- TC-521
+- TC-522
+- TC-523
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- src/foss_mcp/indexing/chunk_builder.py
+- tests/extraction/tree_sitter_engine/test_api_surface_cpp_fidelity.py
+- tests/extraction/tree_sitter_engine/test_cpp_fidelity_gate.py
+- tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py
+- tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py
+- tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py
+- tests/indexing/test_chunk_builder_cpp_signatures.py
+- tests/fixtures/cpp_sample/**
+satisfies:
+- REQ-G3-008
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  ORDER. TC-520 to TC-523 (sibling extractor cards) are chained BEFORE this card because they also edit api_surface.py and/or chunk_builder.py; this
+  card, TC-525, TC-526, TC-527 and TC-528 are one chain in that order (each depends_on the previous). Start from a clean tree at the commit the
+  supervisor issues. Never print or log any environment value. api_surface.py contains pre-existing mojibake inside comments (for example the
+  sequence that renders as a-circumflex euro quote); edit the file in place with targeted replacements and never re-encode or reformat it.
+- >-
+  Read, in full: src/foss_mcp/extraction/tree_sitter_engine/api_surface.py `_extract_method_params` (L357-448: a C++ `parameter_declaration` gets its
+  name from the declarator chain and its type only from the `type` field, which is why `&`, `*` and `const` vanish), `_extract_return_type` (L525-556),
+  `_extract_doc_comment` (L759-869; the javadoc branch accepts only a comment starting with `/**`, the xml_doc branch already walks consecutive `///`
+  comment lines and strips tags), `_synthesize_cpp_properties` (L1638), `_is_cpp_stub` (L1830), `_dedupe_same_name_functions_by_file` (L2379),
+  `consolidate_classes` (L2425), `_is_constructor_like` (L2620), and in `extract_api_surface` (L3262) the C++ member block (search for
+  `# C++ field_declaration: method declarations (no body) AND public data members`, about L3838-3959) and the top-level function loop (search for
+  `# top-level functions (not inside classes)`, about L4296-4373). Read src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py `_FUNC_TYPES` (cpp
+  is only `function_definition`), `_HEADER_EXTENSIONS` (cpp: `.h`, `.hpp`), `_node_name`, `_cpp_free_function_name`, `_cpp_is_free_function`,
+  `is_public`, `_collect_source_files`; and src/foss_mcp/indexing/chunk_builder.py `_param_text` (L117), `_modifiers_suffix` (L127), `_method_line`
+  (L137), `_method_lines` (L185). Read the existing tests that pin related behaviour and must keep passing except where listed below:
+  tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py, test_cpp_reference_return_member_naming.py,
+  test_consolidate_classes_free_functions.py, test_extractor_public_surface_only.py (the C++ subclass test pins that a base constructor and
+  destructor are NOT inherited; with constructors now extracted that filter, `_is_constructor_like`, must still hold), tests/indexing/test_chunk_builder.py,
+  test_chunk_builder_honesty.py, test_chunk_builder_modifiers.py. Confirm every node shape named below with `get_parser("cpp")` on a short snippet
+  before relying on it.
+- |-
+  FIXTURE TREE (create exactly these four files; the sample is committed so the gate is offline and deterministic). Paths are relative to
+  tests/fixtures/cpp_sample/ and the extraction root is that directory.
+
+  include/cells/Workbook.h:
+  #pragma once
+  #include <cstdint>
+  #include <string>
+  #include <string_view>
+  #include <vector>
+
+  namespace Aspose::Cells {
+
+  enum class SaveFormat { Xlsx, Csv };
+
+  class WorksheetCollection;
+
+  /// <summary>
+  /// Represents an Excel workbook. Entry point of the library.
+  /// </summary>
+  class Workbook {
+  public:
+      /// <summary>Creates an empty workbook.</summary>
+      Workbook();
+      /// <summary>Opens the workbook stored at the given path.</summary>
+      explicit Workbook(std::string_view path);
+      Workbook(const std::vector<std::uint8_t>& data, int flags = 0);
+      Workbook(const Workbook&) = delete;
+      Workbook& operator=(const Workbook&) = delete;
+      Workbook(Workbook&&) noexcept = default;
+      virtual ~Workbook();
+
+      /// <summary>Saves the workbook to a stream.</summary>
+      void Save(std::vector<std::uint8_t>& stream, SaveFormat format) const;
+      /// <summary>Gets the worksheets.</summary>
+      WorksheetCollection& GetWorksheets();
+      const WorksheetCollection& GetWorksheets() const;
+      static Workbook Open(const std::string& path, const char* password = nullptr) noexcept;
+      bool operator==(const Workbook& other) const;
+      Workbook& operator[](int index);
+      int Count() const noexcept { return count_; }
+      std::string name;
+
+  private:
+      void Helper();
+      int count_ = 0;
+  };
+
+  /// Returns true for a leap year.
+  bool IsLeapYear(int year);
+  std::string ToUpper(const std::string& s);
+
+  }  // namespace Aspose::Cells
+
+  include/cells/Util.h:
+  #pragma once
+  #include <string>
+  namespace Aspose::Cells {
+  /// Converts a value to text.
+  std::string ToString(int value);
+  std::string ToString(double value);
+  inline int Clamp(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
+  static int FileLocal(int v) { return v; }
+  namespace {
+  int AnonymousHelper(int v) { return v; }
+  }
+  }
+
+  include/cells/detail/Hidden.h:
+  #pragma once
+  namespace Aspose::Cells {
+  inline int HiddenHelper(int v) { return v; }
+  }
+
+  src/Workbook.cpp (private implementation file; none of its free functions may be published):
+  #include "cells/Workbook.h"
+  namespace Aspose::Cells {
+  namespace {
+  double GetElapsedMinutes(double d) { return d / 60; }
+  }
+  static bool IsNumericFormatChar(char c) noexcept { return c == '0'; }
+  std::string EscapeTextContent(const std::string& s) { return s; }
+  Workbook::Workbook() {}
+  void Workbook::Save(std::vector<std::uint8_t>& stream, SaveFormat format) const {}
+  bool IsLeapYear(int year) { return year % 4 == 0; }
+  }
+- >-
+  EXPECTED RESULT on that tree (the worker pins these in the tests and the gate). `Workbook` methods, in source order, as (name, parameters as
+  `name: type [= default]`, return type, modifiers): `Workbook` () ctor; `Workbook` (path: std::string_view) ctor [explicit]; `Workbook`
+  (data: const std::vector<std::uint8_t>&, flags: int = 0) ctor; `Workbook` (const Workbook& with an EMPTY name) ctor [deleted]; `operator=`
+  (const Workbook& unnamed) -> Workbook& [deleted]; `Workbook` (Workbook&& unnamed) ctor [noexcept, defaulted]; `~Workbook` () [virtual]; `Save`
+  (stream: std::vector<std::uint8_t>&, format: SaveFormat) -> void [const]; `GetWorksheets` () -> WorksheetCollection&; `GetWorksheets` () -> const
+  WorksheetCollection& [const]; `Open` (path: const std::string&, password: const char* = nullptr) -> Workbook [static, noexcept]; `operator==`
+  (other: const Workbook&) -> bool [const]; `operator[]` (index: int) -> Workbook&; `Count` () -> int [const, noexcept]. That is 14 methods, 5
+  entries with `is_constructor` true (the destructor is not a constructor), 1 static, 4 const (Save, GetWorksheets const, operator==, Count), the
+  property `name: std::string`, and nothing named `Helper` or `count_`. Class `Workbook` has the description `Represents an Excel workbook.`, the
+  default constructor `Creates an empty workbook.`, `Save` has `Saves the workbook to a stream.`. Published free functions (kind `function`, with
+  `params`, `return_type` and `file` ending in `.h`): exactly `IsLeapYear` (year: int) -> bool with description `Returns true for a leap year.`,
+  `ToUpper` (s: const std::string&) -> std::string, `ToString` twice (value: int, value: double), `Clamp` (v: int, lo: int, hi: int) -> int, all with
+  `class_import` carrying the `Aspose::Cells` namespace like a class does; NOT published: `HiddenHelper` (defined inline in a header under a `detail` directory, so only the path rule excludes it),
+  `FileLocal` (static), `AnonymousHelper` (anonymous namespace), `GetElapsedMinutes`, `IsNumericFormatChar`, `EscapeTextContent` and the `.cpp`
+  definition of `IsLeapYear` (a `.cpp` file contributes no free function at all, even for a function it defines that a header declares; the header
+  declaration is the published entry and it is not duplicated). `Workbook::Workbook() {}` and `Workbook::Save(...)` in the `.cpp` stay unpublished
+  (TC-276: out-of-line members).
+- >-
+  CHANGE 1, parameters (api_surface.py). Add `def _cpp_param_type_text(` (name exactly this: the negative control renames it) and
+  `_cpp_declarator_params(param_list)`; make `_extract_method_params` call the latter when `language == "cpp"` (keep every other language path
+  byte-identical). For each `parameter_declaration`, `optional_parameter_declaration` and `variadic_parameter_declaration` child of the parameter
+  list: `name` is the identifier at the end of the declarator chain (the existing loop) or "" when the parameter is unnamed (today an unnamed
+  parameter is silently dropped: keep it, so `Workbook(const Workbook&)` has one parameter); `type` is the source text from the start of the
+  parameter to the start of the name identifier (or, when unnamed, to the default value or the end), whitespace-collapsed and trimmed, plus any array
+  suffix that follows the name, so `const std::vector<std::uint8_t>& data` gives `const std::vector<std::uint8_t>&` and `const char* password =
+  nullptr` gives type `const char*`; `default` (additive key, as TC-396 does for C#) is the text after `=`. A parameter list that is exactly `(void)`
+  yields no parameters. Do not touch the C#, Java, Go, Rust, TypeScript or Python parameter paths.
+- >-
+  CHANGE 2, return type and modifiers. Add `_cpp_return_type_text(member, fdecl)`: the source text from the start of the member to the start of the
+  function name node (identifier, field_identifier, destructor_name or operator_name), whitespace-collapsed, with a leading run of the specifier words
+  `static`, `virtual`, `inline`, `explicit`, `constexpr`, `consteval`, `friend`, `extern` and any `[[...]]` attribute removed, so a reference or pointer
+  declarator and a leading `const` stay: `WorksheetCollection&`, `const WorksheetCollection&`, `Workbook`, `char*`, and "" for a constructor or
+  destructor. Use it in place of `_extract_return_type(member, "cpp")` at every C++ member and free-function site. Add `_cpp_member_modifiers(member,
+  fdecl)` returning the subset of this fixed order that applies: `static`, `virtual`, `explicit`, `constexpr`, `const` (a trailing `const` after the
+  parameter list, a `type_qualifier` child of the function declarator that follows the parameters), `noexcept`, `override`, `final`, `pure` (`= 0`),
+  `deleted` (`delete_method_clause`), `defaulted` (`default_method_clause`). Put the list in the method dict as `modifiers` only when non-empty
+  (chunk_builder `_modifiers_suffix` already renders it as `[static, const]`).
+- >-
+  CHANGE 3, members. Replace the inline C++ member block with a helper named `_extract_cpp_members(cnode, cname, rel, family)` returning
+  `(methods, properties, claims)` and call it from the same place. It walks the class body (`field_declaration_list`) tracking `access_specifier` (a
+  `class` starts private, a `struct` public: unchanged) and handles, for PUBLIC members only: `field_declaration` with a function declarator (method
+  declaration, including the reference and pointer wrapped forms the old code handled, and an `operator_name` declarator), `declaration` with a
+  function declarator (constructors, destructors, `explicit` constructors: this is the missing shape), `function_definition` (inline methods and the
+  deleted and defaulted special members), and `field_declaration` without a function declarator (public data member, as before). A member named like
+  the class gets `is_constructor: true`; a name starting with `~` is a destructor (kept name `~Name`, `is_constructor` false). The method dict has
+  the same keys as today (`name`, `params`, `return_type`, `doc`, `line`, `is_constructor`) plus `modifiers` when non-empty; keep the claims the
+  old block produced. Nested `class`/`struct`/`enum` members and `template_declaration` members are still not collected. Leave `_is_cpp_stub` use as
+  it is. In `_synthesize_cpp_properties` add guards so a constructor, a destructor, an operator and a static method never become a synthesized
+  property (every existing getter case is unchanged).
+- >-
+  CHANGE 4, free functions. In `extract_api_surface`, for `language == "cpp"` stop publishing free functions from the generic top-level loop (which
+  walks `function_definition` nodes only, so it publishes `.cpp`-defined helpers and misses every header declaration) and publish them from a new
+  helper `_extract_cpp_free_functions(root, fpath, pkg_root, rel, family, reachable)` instead. It returns function entries (same keys as today's
+  entries: `name`, `kind: "function"`, `doc`, `file`, `line`, `bases: []`, `methods: []`, `properties: []`, `params`, `return_type`, `reachable`, plus
+  `modifiers` when non-empty and `canonical_namespace` / `class_import` built with `_cpp_canonical_namespace` exactly as classes do) only when
+  `fpath` is a public header: suffix `.h` or `.hpp`, and no path component relative to `pkg_root` whose lower-cased name is `internal`, `detail`,
+  `details`, `impl`, `private`, `src` or starts with `internal`. Candidates are `declaration` nodes with a function declarator and `function_definition`
+  nodes whose parent is a `translation_unit` or a named `namespace_definition` body, excluding: any `static` storage class; anything inside an
+  anonymous namespace (a `namespace_definition` with no name) or a namespace named `detail` or `internal`; a declarator that is a
+  `qualified_identifier` (out-of-line members, TC-276); `template_declaration` wrappers; and `friend` declarations. A `.cpp` file contributes no free
+  function. Update `_dedupe_same_name_functions_by_file` so that two entries are duplicates only when file AND parameter type list are equal, so
+  `ToString(int)` and `ToString(double)` in one header both survive (its existing unit tests use entries whose `params` are all the empty list, which stay duplicates of each other).
+- >-
+  CHANGE 5, docs. In `_extract_doc_comment`, for `language == "cpp"` treat a preceding comment that starts with `///` exactly like the xml_doc branch
+  (consecutive line comments, the adjacency check, tag stripping, first sentence) and keep the `/** */` behaviour; no other language changes. A blank
+  line between the comment and the declaration still means no doc (the existing adjacency rule).
+- >-
+  CHANGE 6, chunk_builder.py `_param_text`: when the parameter name is empty render just the type (`const Workbook&`), never `: const Workbook&`;
+  every named parameter renders exactly as before. No other rendering change in this card.
+- >-
+  EXISTING TESTS that pin the defect or the old file layout, and the ONLY edits allowed (state each in the report; never delete, skip or xfail a test).
+  (a) tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py: `test_cpp_free_function_at_namespace_scope_is_extracted_as_function`,
+  `test_cpp_free_function_returning_bare_user_type_by_value_is_named_correctly` and `test_cpp_free_function_operator_overload_is_named_correctly`
+  write their C++ source to `widget.cpp`; those shapes are real pdf/cpp HEADER functions, so write the same source to `widget.h` instead and keep
+  every assertion. (b) tests/extraction/tree_sitter_engine/test_cpp_reference_return_member_naming.py: `_extract` gets an optional `filename`
+  parameter defaulting to `widget.cpp`; only `test_cpp_free_function_with_reference_return_type_is_unaffected` passes `widget.h`; assertions unchanged.
+  (c) tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py: the two real-data tests
+  `test_real_cells_cpp_isnullorwhitespace_no_longer_collapsed` (asserts the helper survives from at least 5 `.cpp` files) and
+  `test_real_cells_cpp_free_function_count_increases_substantially` (asserts at least 140 free functions) pin exactly the reviewer's defect (every
+  one of those entries is a file-static `.cpp` helper). Change them to the corrected invariant, keep their names, and keep the unit tests above them
+  untouched: every surviving free-function entry in the vendored snapshot has a `file` ending in `.h` or `.hpp`; none comes from a `.cpp`;
+  `IsNullOrWhiteSpace` is not published; and the surviving count equals the number you MEASURE on the snapshot after the change (the snapshot is
+  checksummed, so pin that exact integer with a comment giving how it was measured). If any other existing test fails, stop and report its name and
+  the assertion; do not edit it.
+- >-
+  tests/extraction/tree_sitter_engine/test_api_surface_cpp_fidelity.py (NEW, offline, deterministic, no skips; helper `_extract(tmp_path, files)`
+  writes a dict of relative path -> source into `tmp_path/src` and calls `extract_api_surface(get_parser("cpp"), "cpp", pkg, tmp_path, "widget")`;
+  the sample tests extract tests/fixtures/cpp_sample directly). Tests, by name: `test_constructors_are_collected_with_their_parameters`,
+  `test_explicit_constructor_is_marked_explicit`, `test_default_argument_is_kept_on_the_parameter`,
+  `test_reference_parameter_keeps_ampersand_and_const`, `test_pointer_parameter_keeps_star`, `test_reference_return_type_keeps_the_ampersand`,
+  `test_const_and_non_const_overloads_are_both_present_and_distinguishable`, `test_const_method_is_marked_const`,
+  `test_static_method_is_marked_static`, `test_noexcept_is_recorded`, `test_deleted_and_defaulted_special_members_are_marked`,
+  `test_destructor_is_collected_with_tilde_name`, `test_operator_overloads_are_collected_as_members`,
+  `test_inline_defined_method_keeps_const_and_noexcept`, `test_unnamed_parameter_is_kept_with_an_empty_name`,
+  `test_void_parameter_list_is_empty`, `test_public_data_member_is_still_a_property`, `test_private_members_are_not_collected`,
+  `test_struct_members_are_public_by_default`, `test_free_function_declared_in_public_header_is_published_with_params`,
+  `test_free_function_defined_inline_in_header_is_published`, `test_function_defined_only_in_cpp_is_not_published`,
+  `test_static_function_in_cpp_is_not_published`, `test_static_function_in_header_is_not_published`,
+  `test_anonymous_namespace_function_in_header_is_not_published`, `test_header_under_detail_directory_publishes_no_free_function`,
+  `test_overloaded_free_functions_in_one_header_all_survive`, `test_free_function_class_import_carries_the_namespace`,
+  `test_out_of_line_member_definition_is_still_not_a_free_function`, `test_triple_slash_summary_documents_a_member`,
+  `test_triple_slash_summary_documents_the_class`, `test_block_comment_doc_still_documents_a_member`,
+  `test_blank_line_between_comment_and_declaration_gives_no_doc`, `test_reviewer_cases_on_the_committed_cpp_sample`,
+  `test_getter_synthesis_skips_constructors_operators_and_statics`, `test_subclass_still_does_not_inherit_base_constructors`,
+  `test_csharp_snippet_output_is_unchanged` and `test_java_snippet_output_is_unchanged` (each extracts a short snippet and asserts the exact
+  `methods`/`properties` names and params the previous extractor gave, copied from running the unmodified code before the change).
+- >-
+  tests/extraction/tree_sitter_engine/test_cpp_fidelity_gate.py (NEW): the GATE, mirroring the reviewer's cpp_audit.py. Write a small independent
+  audit inside the test file that reads the HEADER TEXT, not the extractor: strip comments and string literals, find each `class|struct Name {` body
+  with brace matching, split the body into depth-0 statements honouring `public:`/`private:`/`protected:` (class default private, struct default
+  public), skip inline bodies, skip statements that are `using`, `typedef`, `friend`, `static_assert`, nested type definitions, and anything with
+  `= delete`; parse each remaining statement with a regex for `[specifiers] <return> <name>(<params>) <tail>`; count per class: constructors (name
+  equals the class name), static, trailing-const, methods with `&` or `*` in the parameter list, methods whose return text ends with `&` or `*`.
+  Apply the same five counters to the extractor's output for the same classes (a constructor is `is_constructor` true and not `deleted`; static and
+  const are read from `modifiers`; reference or pointer parameter means `&` or `*` in a parameter `type`; return means the `return_type` ends in `&`
+  or `*`). Tests: `test_cpp_sample_counts_equal_the_hand_counted_expectation` (constructors 4, static 1, const 4, reference-or-pointer parameters 5,
+  reference-or-pointer returns 3, methods 12, all excluding deleted members, on the committed sample), `test_cpp_sample_counts_match_the_audit_within_five_percent`
+  (each counter within 5 percent of the audit), `test_vendored_snapshot_counts_match_the_audit_within_five_percent` (the same five counters summed over
+  every class in tests/fixtures/cells_cpp_pinned_source, each within 5 percent; run the vendored snapshot integrity check the existing real-data tests
+  use before reading it),
+  `test_vendored_snapshot_free_functions_come_only_from_public_headers`, `test_vendored_snapshot_workbook_constructors_are_complete` (the number
+  of non-deleted `Workbook` constructors extracted equals the number the audit finds in Workbook.h, and is greater than 1) and
+  `test_gate_audit_rejects_a_constructor_less_extraction` (feed the comparison a copy of the extractor output with every constructor removed and
+  assert the five-percent comparison FAILS: proves the gate can fail). If the audit and the extractor disagree on the snapshot by more than 5 percent
+  for a reason that is the audit's own parsing (templates, macros), say which header in the report and narrow only the audit's input to the headers
+  directly under include/aspose/cells_foss; never widen the tolerance and never touch the cpp_sample gate.
+- >-
+  tests/indexing/test_chunk_builder_cpp_signatures.py (NEW, offline): build a fixture dict from the real extraction of the committed cpp_sample
+  (extract, wrap as `{"source_repository": ..., "source_commit": ..., "types": [...]}`) and call `build_chunks_from_api_surface`; tests
+  `test_chunk_renders_reference_const_and_static_for_cpp` (the lines `  - Save(stream: std::vector<std::uint8_t>&, format: SaveFormat) -> void [const]`,
+  `  - GetWorksheets() -> WorksheetCollection&` and `  - Open(path: const std::string&, password: const char* = nullptr) -> Workbook [static, noexcept]`
+  are present), `test_chunk_renders_explicit_constructor_without_arrow` (`  - Workbook(path: std::string_view) [explicit]`),
+  `test_chunk_renders_unnamed_parameter_as_type_only` (`  - Workbook(const Workbook&) [deleted]`), `test_chunk_for_a_cpp_helper_never_exists`
+  (no chunk text contains `GetElapsedMinutes`).
+- >-
+  Run `{python} -m pytest tests/extraction/tree_sitter_engine/test_api_surface_cpp_fidelity.py tests/extraction/tree_sitter_engine/test_cpp_fidelity_gate.py tests/indexing/test_chunk_builder_cpp_signatures.py -q -rfE`
+  first, then the second check command below. Keep ruff, ruff format and mypy clean (the local pre-push gate). Write commit messages as UTF-8
+  without a byte-order mark. Preserve each file's line endings and encoding. Do not run an ingestion, a re-extraction, a cluster or a docker command,
+  and do not edit any committed tests/fixtures/*/api_surface.json.
+actions:
+- >-
+  Make the C++ extraction keep the full declarator text, collect constructors, destructors, operators and deleted or defaulted members, mark
+  static and const, and read `///` doc comments.
+- >-
+  Publish free functions only from public headers and drop every function that only a `.cpp` file defines.
+- >-
+  Pin it with a committed header sample, a hand-counted expectation and an audit-style gate that can fail.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_api_surface_cpp_fidelity.py tests/extraction/tree_sitter_engine/test_cpp_fidelity_gate.py tests/indexing/test_chunk_builder_cpp_signatures.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_cpp_signatures.py tests/infra/test_build_chunks.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+min_tests: 40
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='def _cpp_param_type_text(';assert s.count(old)==1;p.write_text(s.replace(old,'def _cpp_param_type_textX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the helper that rebuilds a C++ parameter's full type text, so every C++ parameter extraction raises NameError: the new fidelity tests,
+    the gate and the chunk tests fail, and so do the existing C++ extraction tests. A real break of the card's central claim (parameter types keep
+    their reference, pointer and const text).
+evidence:
+- evidence/build/G3/TC-524/receipt.json
+closeout:
+- >-
+  The C++ extractor keeps `&`, `*`, `const` and default arguments, lists every declared constructor, destructor and operator, marks static and const
+  and publishes free functions only from public headers; `///` comments describe members. NOTHING a peer sees changes until the five C++ fixtures are
+  re-extracted. LATER CARDS NEEDED: (1) a C++ fixture re-extraction card for cells_cpp, pdf_cpp, slides_cpp, jmap_cpp, email_cpp at their pinned
+  commits (network; it must run after TC-520 to TC-528 so one re-extraction picks everything up). It must verify, on the new fixtures: cells_cpp
+  `Workbook` has at least 5 constructors including `explicit Workbook(std::string_view)`; no `Kind: function` entry has a `.cpp` file (cells_cpp had 93
+  of 100); `Save` has `&` on its stream parameter and `[const]`; at least 80 percent of cells_cpp classes carry a description; constructors served per
+  pilot are within 5 percent of the upstream header count (the reviewer's 166 and 383). (2) The planned final re-ingest of the five C++ pilots and the
+  data card that re-pins the demo-manifests budgets (see TC-527).
+recovery: Re-run from a clean tree.

@@ -1,0 +1,396 @@
+id: TC-526
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-008 (independent pre-production review, findings RST-10 and RST-11). JAVA AND RUST FIDELITY. JAVA (3d/java, pdf/java; same adapter for
+  cells/java, slides/java, jmap/java). Measured by the reviewer against upstream: varargs are dropped in 6 of 6 cases (`setPages(int... pages)` is
+  served `setPages()`), because the Java grammar gives a varargs parameter its own `spread_parameter` node that `_extract_method_params` does not
+  list; generic bounds (`<T extends Deformer>`) and `throws` clauses are never rendered; public fields are not exposed (`Quaternion.x/y/z/w` and
+  `Vector3.x/y/z`, public doubles: 34 properties missing in 3d/java), because only `final` fields are read by `_extract_const_fields`; the
+  getter-derived pseudo-properties `identity`, `zero` and `length` (synthesized from `isIdentity()`, `isZero()`, `getLength()` by
+  `_synthesize_java_properties`) are listed exactly like fields and suggest an invalid `Quaternion.identity`; and `static` is marked on 0 of
+  71/76/159 methods, so the static `multiply(a, b)` and the instance `multiply(q)` are indistinguishable. Everything else is exact (cells/java 99.7
+  percent, 3d/java 97.7, pdf/java 96.9). Reproduced on this checkout with a small package and `extract_api_surface`: `setPages` comes back with
+  `params: []`, `apply` with `return_type: T` and no bound or throws, the constructor `Document(String path) throws IOException` without its throws,
+  the public field `x` absent, and `length`/`zero` present as properties. RUST (cells/rust, jmap/rust). cells/rust has all 1693 inherent public
+  methods but 0 `self` markers, so 259 associated functions and 1434 methods look identical (an agent cannot tell `Workbook::new(path)` from
+  `workbook.save()`); jmap/rust `JmapClient` shows 9 methods while the mail methods defined in `impl JmapClient` in client_mail.rs are 10 separate
+  receiver-less `Kind: function` chunks, because `_extract_rust_impl_context` (api_surface.py L2185) keeps a path-qualified impl target such as
+  `crate::JmapClient` verbatim and `_associate_rust_impl_methods` (L2219) then cannot match it to the extracted type (reproduced: an `impl
+  crate::JmapClient` block leaves `list_mailboxes` and `mailbox_count` as top-level functions with `receiver_type: crate::JmapClient`); and cells/rust
+  carries 6 noise chunks from standard-trait boilerplate (`eq`, `fmt`, `hash`, `default`). This card makes Java render varargs as `pages: int...`,
+  generic type parameters, throws clauses, static, abstract and default marks, public fields as properties, and getter-derived properties with an
+  explicit accessor mark that never reads as a field; and makes Rust record `&self`, `&mut self` and `self` receivers and mark associated functions,
+  attach path-qualified and generic impl blocks (in any file) to their type, exclude the std derive-style trait impls (`Debug`, `Display`,
+  `Clone`, `Copy`, `PartialEq`, `Eq`, `PartialOrd`, `Ord`, `Hash`, `Default`, `Drop`) from the members while still listing the trait under the
+  type's bases, attach every other trait impl under the type with an `impl <Trait>` mark, and drop impl members whose type is not an extracted
+  public type. It does NOT change any other language, the committed fixtures, the type selection (TC-520 to TC-523) or the coverage line.
+depends_on:
+- TC-525
+- TC-524
+- TC-396
+- TC-382
+- TC-473
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py
+- src/foss_mcp/indexing/chunk_builder.py
+- tests/extraction/tree_sitter_engine/test_api_surface_java_fidelity.py
+- tests/extraction/tree_sitter_engine/test_api_surface_rust_fidelity.py
+- tests/extraction/tree_sitter_engine/test_java_rust_fidelity_gate.py
+- tests/indexing/test_chunk_builder_java_rust_signatures.py
+- tests/fixtures/java_sample/**
+- tests/fixtures/rust_sample/**
+satisfies:
+- REQ-G3-008
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  ORDER. Third card of the fidelity chain TC-524, TC-525, TC-526, TC-527, TC-528 (each depends_on the previous; all edit api_surface.py; TC-526 and
+  TC-527 also edit chunk_builder.py). TC-520 to TC-523 precede TC-524. Start from a clean tree at the commit the supervisor issues. Never print or
+  log any environment value. api_surface.py contains pre-existing mojibake in comments; edit it in place with targeted replacements, never
+  re-encode or reformat it.
+- >-
+  Read, in full: src/foss_mcp/extraction/tree_sitter_engine/api_surface.py `_extract_method_params` (L357-448: the child-type tuple at L373 lacks
+  `spread_parameter`; a Java varargs node has children [type, `...`, `variable_declarator`]), `_extract_return_type`, `_synthesize_java_properties`
+  (L1308-1355), `_extract_const_fields` (L1358-1476), `_extract_rust_impl_context` (L2185), `_associate_rust_impl_methods` (L2219-2269),
+  `_flatten_inheritance`, and in `extract_api_surface` (L3262): the class-method loop (search `method_entry: dict[str, Any] = {`, about L3752, where
+  C# modifiers are added for `language == "csharp"` through `_csharp_modifiers`: follow that pattern), the Java property block (`# Java properties via
+  getter/setter synthesis`, about L3818 and `_extract_const_fields` at about L3833), the class record (`cls_record`, about L4040) and the
+  top-level function loop (`rust_trait = ""`, `receiver_type, rust_trait = _extract_rust_impl_context(fnode)`, about L4329-4361). Read
+  src/foss_mcp/indexing/chunk_builder.py `_method_line` (L137), `_format_type_text` (L226-305) and `_modifiers_suffix` (L127; it renders any
+  `modifiers` list as ` [a, b]`). Read the existing tests that must keep passing: tests/extraction/tree_sitter_engine/test_api_surface_java.py,
+  test_extractor_public_surface_only.py (Java and Rust cases), test_api_surface_other_languages.py (Rust case), tests/extraction/test_jmap_rust_extraction.py,
+  test_cells_rust_extraction.py, test_3d_java_extraction.py (fixture based), tests/indexing/test_chunk_builder.py (note the exact substring
+  `  - fmt(f: &mut Formatter<'_>) -> std::fmt::Result` it expects from the committed cells_rust fixture: a new suffix may only be APPENDED after the
+  signature, never inserted before it). Confirm the Java node shapes named below (`spread_parameter`, `type_parameters`, `throws`, `modifiers`) and
+  the Rust ones (`self_parameter`, `impl_item` fields `type` and `trait`, `scoped_type_identifier`, `generic_type`) with a parse probe before
+  relying on them.
+- |-
+  FIXTURE TREE, Java (create exactly these files under tests/fixtures/java_sample/; the extraction root is that directory).
+
+  com/aspose/pdf/Document.java:
+  package com.aspose.pdf;
+
+  import java.io.IOException;
+  import java.util.List;
+
+  /**
+   * Represents a PDF document.
+   */
+  public class Document {
+      public static final int MAX_PAGES = 100;
+      private int hidden;
+
+      /**
+       * Opens a document.
+       */
+      public Document(String path) throws IOException { }
+
+      /**
+       * Sets the pages to process.
+       */
+      public void setPages(int... pages) { }
+
+      public void addNames(String prefix, String... names) { }
+
+      /**
+       * Applies a deformer.
+       */
+      public <T extends Deformer> T apply(T deformer, List<? extends Number> weights) throws IOException, IllegalStateException { return deformer; }
+
+      public <R> R convert(R input) { return input; }
+
+      public static Document multiply(Document a, Document b) { return a; }
+
+      public Document multiply(Document q) { return q; }
+
+      public double getLength() { return 0; }
+      public boolean isZero() { return true; }
+      public int getPageCount() { return 0; }
+      public void setPageCount(int n) { }
+  }
+
+  com/aspose/pdf/Deformer.java:
+  package com.aspose.pdf;
+
+  public interface Deformer<K extends Comparable<K>> {
+      <R> R transform(R input);
+      default String describe() { return "d"; }
+      static Deformer<String> none() { return null; }
+  }
+
+  com/aspose/pdf/Quaternion.java:
+  package com.aspose.pdf;
+
+  /** A rotation quaternion. */
+  public class Quaternion {
+      /** X component. */
+      public double x;
+      public double y, z, w;
+      public static double epsilon = 1e-9;
+      protected double hidden;
+      private double secret;
+
+      public double getX() { return x; }
+      public boolean isIdentity() { return x == 0; }
+      public static Quaternion getZero() { return new Quaternion(); }
+      public double getLength() { return 0; }
+  }
+
+  com/aspose/pdf/Shape.java:
+  package com.aspose.pdf;
+
+  public abstract class Shape {
+      public abstract double area();
+      public double perimeter() { return 0; }
+  }
+- |-
+  FIXTURE TREE, Rust (create exactly these files under tests/fixtures/rust_sample/; the extraction root is rust_sample/src).
+
+  src/lib.rs:
+  //! Crate docs.
+  mod client_mail;
+
+  /// A JMAP client.
+  #[derive(Debug, Clone, PartialEq, Default)]
+  pub struct JmapClient {
+      /// The server URL.
+      pub url: String,
+      token: String,
+  }
+
+  impl JmapClient {
+      /// Creates a client.
+      pub fn new(url: String) -> Self { JmapClient { url, token: String::new() } }
+      /// Gets the session id.
+      pub fn session(&self) -> u32 { 0 }
+      /// Sets the token.
+      pub fn set_token(&mut self, token: &str) {}
+      /// Consumes the client.
+      pub fn into_inner(self) -> String { self.url }
+      pub(crate) fn hidden(&self) {}
+  }
+
+  impl std::fmt::Display for JmapClient {
+      fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { Ok(()) }
+  }
+
+  pub trait Mailer {
+      fn send(&self, to: &str) -> bool;
+      fn name() -> String;
+  }
+
+  impl Mailer for JmapClient {
+      fn send(&self, to: &str) -> bool { true }
+      fn name() -> String { String::new() }
+  }
+
+  pub struct Other;
+
+  impl Default for Other {
+      fn default() -> Self { Other }
+  }
+
+  impl Clone for Other {
+      fn clone(&self) -> Self { Other }
+  }
+
+  impl PartialEq for Other {
+      fn eq(&self, other: &Self) -> bool { true }
+  }
+
+  impl std::hash::Hash for Other {
+      fn hash<H: std::hash::Hasher>(&self, state: &mut H) {}
+  }
+
+  pub struct Wrapper<T> {
+      pub inner: T,
+  }
+
+  impl<T> Wrapper<T> {
+      pub fn get(&self) -> &T { &self.inner }
+  }
+
+  struct Hidden;
+
+  impl Hidden {
+      pub fn run(&self) {}
+  }
+
+  /// Adds one.
+  pub fn free_function(x: i32) -> i32 { x + 1 }
+
+  src/client_mail.rs:
+  use crate::JmapClient;
+
+  impl crate::JmapClient {
+      /// Lists mailboxes.
+      pub fn list_mailboxes(&mut self, limit: usize) -> Vec<String> { vec![] }
+      pub fn mailbox_count(&self) -> usize { 0 }
+      pub(crate) fn internal_only(&self) {}
+  }
+
+  impl super::Wrapper<u8> {
+      pub fn byte(&self) -> u8 { 0 }
+  }
+- >-
+  EXPECTED RESULT, Java (`extract_api_surface(get_parser("java"), "java", root, root, "pdf")`). `Document` methods: `Document` (path: String) with
+  `is_constructor` true and `throws: ["IOException"]`; `setPages` with ONE parameter (name `pages`, type `int...`); `addNames` with two parameters
+  (`prefix: String`, `names: String...`); `apply` with `type_parameters: "<T extends Deformer>"`, parameters (deformer: T, weights: List<? extends
+  Number>), return `T`, `throws: ["IOException", "IllegalStateException"]`; `convert` with `type_parameters: "<R>"`; the static `multiply(a, b)` with
+  `modifiers: ["static"]` and the instance `multiply(q)` with NO `modifiers` key; the getters and setter as before (no throws, no modifiers key). Class
+  `Deformer`: `type_parameters: "<K extends Comparable<K>>"`; methods `transform` (type_parameters `<R>`), `describe` (`modifiers: ["default"]`),
+  `none` (`modifiers: ["static"]`) (the extractor today returns only `transform` for this interface: a Java interface member that has a modifier but not `public` is wrongly judged non-public by `tree_helpers.is_public`, see CHANGE 1 (g)). `Shape.area` has `modifiers: ["abstract"]` and `Shape.perimeter` has no `modifiers` key. `Quaternion` properties: `x` (type double, `writable` true, doc `X component.`), `y`, `z`, `w` (the
+  multi-declarator line gives three), `epsilon` (type double, `writable` true, `modifiers: ["static"]`), and the accessor-derived ones `identity`
+  (type boolean, `modifiers: ["accessor isIdentity()"]`), `zero` (type Quaternion, `modifiers: ["static", "accessor getZero()"]`) and `length`
+  (type double, `modifiers: ["accessor getLength()"]`); there is NO second `x` from `getX()` (a real field wins) and NO `hidden` or `secret`.
+  `Document` keeps `MAX_PAGES` exactly as today (the existing final-field path) and gains accessor-marked `length`, `zero`, `pageCount` properties
+  (`pageCount` is read-write: `setPageCount` exists; keep whatever writable flag the synthesis sets today, add only the mark).
+- >-
+  EXPECTED RESULT, Rust (`extract_api_surface(get_parser("rust"), "rust", root_src, root, "jmap")`). `JmapClient` methods, with `modifiers`: `new`
+  (url: String) -> Self `["associated"]` and `is_constructor` true; `session` `["&self"]`; `set_token` (token: &str) `["&mut self"]`; `into_inner`
+  `["self"]`; `list_mailboxes` (limit: usize) -> Vec<String> `["&mut self"]` and `mailbox_count` `["&self"]` (from the second file, through the
+  PATH-QUALIFIED `impl crate::JmapClient`); `send` (to: &str) -> bool `["&self", "impl Mailer"]` and `name` () -> String `["associated", "impl
+  Mailer"]`. That is 8 methods; NOT present: `hidden`, `internal_only` (pub(crate)), `fmt` (Display impl). `JmapClient.bases` contains `std::fmt::Display` and
+  `Mailer` (the trait names are still recorded). Property `url` only. `Other` has NO methods (`default`, `clone`, `eq`, `hash` are all excluded) and its
+  bases hold `Default`, `Clone`, `PartialEq` and `std::hash::Hash`. `Wrapper` has `get` `["&self"]` and `byte` `["&self"]` (the `impl super::Wrapper<u8>`
+  and the generic `impl<T> Wrapper<T>` both resolve to `Wrapper`) and the property `inner`. `Mailer` (kind trait_item) has `send` `["&self"]` and
+  `name` `["associated"]`. `Hidden` is absent and `run` appears nowhere (a method of an unextracted type is dropped, never left as a receiver-less
+  function). The only top-level function entry is `free_function`, with no `modifiers` key. The names `fmt`, `eq`, `hash`, `default`, `clone`,
+  `list_mailboxes`, `mailbox_count`, `byte`, `get`, `run` never appear as `function` entries.
+- >-
+  CHANGE 1, Java (api_surface.py). (a) Add `def _java_spread_param(` (exact name: the negative control renames it) returning
+  `{"name": <identifier>, "type": <element type text> + "..."}` for a `spread_parameter` node, and make `_extract_method_params` use it for Java
+  (add `spread_parameter` to the handled child types; formal_parameter handling is unchanged). (b) Add `_java_type_parameters(node)` returning the
+  source text of a `type_parameters` child (`<T extends Deformer>`) or ""; set `type_parameters` on the method dict (methods, constructors and
+  interface methods) and on the class record for `language == "java"`, only when non-empty. (c) Add `_java_throws(node)` returning the list of
+  exception type names of a `throws` child (comma separated, source order) and set `throws` on the method dict only when non-empty. (d) Add
+  `_java_modifiers(node)` returning the subset of `static`, `abstract`, `default` found in the `modifiers` child, in that order, and set `modifiers`
+  on the method dict only when non-empty (the same additive key and rendering as C#). (e) Add `_extract_java_public_fields(cnode, cname, rel,
+  family)` returning property dicts (`name`, `type`, `doc` via `_extract_doc_comment`, `line`, `writable`: True, and `modifiers: ["static"]` for a
+  static field) for every PUBLIC field that is NOT `final` (one per declarator in `double y, z, w;`), plus claims; call it next to
+  `_extract_const_fields`. (f) In `_synthesize_java_properties` take the set of existing property names and skip any synthesized name that matches
+  one, and put `modifiers` on each synthesized property: `["accessor <getterName>()"]`, prefixed by `"static"` when the getter has `static` in its
+  `modifiers`. (g) In src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py `is_public` (the `java`, `csharp`, `cpp` branch, which returns `"public" in <modifier text>` as soon as any modifier child exists): for `language == "java"`, a method or field whose parent chain is an `interface_body` of an `interface_declaration` is public unless its modifiers contain `private` (interface members are implicitly public; the sample's `default String describe()` and `static Deformer<String> none()` carry modifiers without `public` and are lost today). Nothing else about Java extraction changes (no new filtering); C# and C++ visibility are untouched.
+- >-
+  CHANGE 2, Java rendering (chunk_builder.py), all additive, no change for an entry without the new keys. In `_method_line` render the method name as
+  `name` plus `type_parameters` immediately before the parenthesis (`apply<T extends Deformer>(deformer: T, ...)`) and, when `throws` is a
+  non-empty list, append ` throws A, B` after the return arrow and BEFORE the modifiers suffix. In `_format_type_text` emit the line
+  `Type-Parameters: <K extends Comparable<K>>` directly after the `Kind:` line when the entry has `type_parameters`. A varargs parameter needs no
+  rendering change: `_param_text` already prints `pages: int...`.
+- >-
+  CHANGE 3, Rust (api_surface.py). (a) Add `def _rust_self_receiver(` (returns "" when there is none, else the `self_parameter` text collapsed:
+  `&self`, `&mut self`, `self`, `mut self`) and use it for BOTH the top-level function loop and the trait-method path in the class loop, adding
+  `modifiers` to the method dict as `[<receiver>]` or `["associated"]` when there is no receiver. (b) `_extract_rust_impl_context`: normalise the impl
+  target to its last path segment with generic arguments removed (`crate::JmapClient` -> `JmapClient`, `super::Wrapper<u8>` -> `Wrapper`, `Wrapper<T>`
+  -> `Wrapper`, `&Foo` -> `Foo`); keep the trait text exactly as today (it is appended to `bases`). (c) Rewrite the placement rules of
+  `_associate_rust_impl_methods`: the receiver is looked up in the extracted type map; when absent the entry is DROPPED (inherent or trait impl); a
+  member of a trait impl whose trait's last path segment is in the module constant `_RUST_STD_BOILERPLATE_TRAITS` (`Debug`, `Display`, `Clone`,
+  `Copy`, `PartialEq`, `Eq`, `PartialOrd`, `Ord`, `Hash`, `Default`, `Drop`) is dropped but the trait name is still added to the type's `bases`; any
+  other trait-impl member is attached with `impl <TraitLastSegment>` appended to its `modifiers`; an inherent member is attached as today. The
+  attached method dict gains `modifiers` (and keeps `is_constructor` true for `new`). A `pub(crate)` member stays excluded (the existing
+  `is_public` rule). Add `_RUST_STD_BOILERPLATE_TRAITS` on one line.
+- >-
+  tests/extraction/tree_sitter_engine/test_api_surface_java_fidelity.py (NEW, offline, no skips; extracts the committed java_sample and tmp_path
+  snippets). Tests: `test_varargs_parameter_keeps_the_ellipsis_type`, `test_varargs_after_regular_parameters`, `test_varargs_of_a_generic_element_type`,
+  `test_method_type_parameters_with_a_bound_are_recorded`, `test_unbounded_type_parameter_is_recorded`, `test_class_type_parameters_are_recorded`,
+  `test_interface_type_parameters_are_recorded`, `test_throws_clause_is_recorded`, `test_multiple_throws_are_listed_in_source_order`,
+  `test_constructor_throws_is_recorded`, `test_method_without_throws_has_no_throws_key`, `test_static_method_is_marked_static`,
+  `test_instance_overload_of_a_static_method_is_not_static`, `test_interface_default_method_is_marked_default`,
+  `test_abstract_method_is_marked_abstract`, `test_interface_default_and_static_methods_are_public`, `test_public_instance_field_is_a_writable_property`,
+  `test_multi_declarator_public_fields_are_all_properties`, `test_public_static_field_is_marked_static`,
+  `test_protected_and_private_fields_are_not_properties`, `test_public_final_constant_is_unchanged`,
+  `test_getter_derived_property_is_marked_as_an_accessor`, `test_static_getter_derived_property_is_marked_static_accessor`,
+  `test_getter_property_is_not_added_when_a_field_of_that_name_exists`, `test_java_sample_matches_the_expected_entries`,
+  `test_other_languages_are_unchanged` (one C# and one Go snippet: the same entries the unmodified extractor gave, captured before the change).
+- >-
+  tests/extraction/tree_sitter_engine/test_api_surface_rust_fidelity.py (NEW, offline): `test_shared_ref_self_receiver_is_recorded`,
+  `test_mut_ref_self_receiver_is_recorded`, `test_by_value_self_receiver_is_recorded`, `test_associated_function_is_marked_associated`,
+  `test_new_is_an_associated_constructor`, `test_trait_method_signature_receiver_is_recorded`, `test_inherent_impl_in_a_second_file_attaches_to_its_type`,
+  `test_path_qualified_impl_target_attaches`, `test_super_qualified_generic_impl_target_attaches`, `test_generic_impl_block_attaches`,
+  `test_display_impl_member_is_excluded`, `test_partial_eq_impl_member_is_excluded`, `test_default_clone_hash_impl_members_are_excluded`,
+  `test_non_boilerplate_trait_impl_member_is_attached_with_an_impl_mark`, `test_excluded_trait_is_still_listed_in_bases`,
+  `test_impl_on_an_unextracted_type_is_dropped`, `test_pub_crate_member_is_not_published`, `test_free_function_is_unchanged`,
+  `test_derive_attribute_adds_no_member`, `test_no_impl_member_is_left_as_a_receiverless_function`, `test_rust_sample_matches_the_expected_entries`,
+  `test_other_languages_are_unchanged` (one Go and one C# snippet).
+- >-
+  tests/extraction/tree_sitter_engine/test_java_rust_fidelity_gate.py (NEW): the GATE, mirroring the reviewer's rust_audit.py and sigexact.py. An
+  independent audit in the test reads SOURCE TEXT only: for Rust, regexes over `impl [<..>] [Trait for] [path::]Type[<..>] {` blocks collect per
+  type the `pub fn` names with their self kind (`&self`, `&mut self`, `self`, or associated) for inherent impls and the member names of trait impls;
+  for Java, regexes over the sample sources count varargs parameters, methods with `throws`, generic methods, static methods and public non-final
+  fields. Tests: `test_rust_inherent_methods_match_the_audit_exactly` (per type, served name set == audit name set, none missing, none extra),
+  `test_rust_receiver_kinds_match_the_audit` (counts of `&self`, `&mut self`, `self` and associated equal the audit's),
+  `test_rust_no_std_boilerplate_and_no_impl_member_is_a_function_entry` (the rust_audit counters `func_chunk_is_inherent_method` and
+  `func_chunk_is_trait_impl_method` are 0), `test_java_counts_match_the_audit_within_five_percent` (varargs, throws, generic, static, public fields:
+  each within 5 percent of the audit; on the committed sample this is exact), and `test_gate_audit_rejects_an_extraction_without_varargs` (drop
+  every `...`-typed parameter from a copy of the output and assert the comparison FAILS: the gate can fail).
+- >-
+  tests/indexing/test_chunk_builder_java_rust_signatures.py (NEW, offline): extract the two samples, wrap as fixture dicts, call
+  `build_chunks_from_api_surface`; tests `test_varargs_renders_as_name_colon_type_ellipsis` (`  - setPages(pages: int...) -> void`),
+  `test_generic_method_renders_bound_and_throws` (`  - apply<T extends Deformer>(deformer: T, weights: List<? extends Number>) -> T throws IOException, IllegalStateException`),
+  `test_static_method_renders_the_static_mark` (`  - multiply(a: Document, b: Document) -> Document [static]` and the instance line without a mark),
+  `test_class_type_parameters_render_a_header_line` (`Type-Parameters: <K extends Comparable<K>>` directly under `Kind:` in the Deformer chunk),
+  `test_accessor_property_never_reads_as_a_field` (`  - length: double [accessor getLength()]`), `test_public_field_renders_as_a_writable_property`,
+  `test_rust_receivers_render` (`  - set_token(token: &str) [&mut self]`, `  - new(url: String) -> Self [associated]`,
+  `  - send(to: &str) -> bool [&self, impl Mailer]`), `test_rust_boilerplate_is_absent_from_every_chunk`, and
+  `test_entries_without_the_new_keys_render_exactly_as_before` (a plain method and a plain property line, byte for byte).
+- >-
+  Run `{python} -m pytest tests/extraction/tree_sitter_engine/test_api_surface_java_fidelity.py tests/extraction/tree_sitter_engine/test_api_surface_rust_fidelity.py tests/extraction/tree_sitter_engine/test_java_rust_fidelity_gate.py tests/indexing/test_chunk_builder_java_rust_signatures.py -q -rfE`
+  first, then the second check command below. If an existing test fails because it asserts one of the defects above, stop and report its name; do
+  not edit it. Keep ruff, ruff format and mypy clean (the local pre-push gate). Write commit messages as UTF-8 without a byte-order mark. Preserve each
+  file's line endings and encoding. Do not run a re-extraction, an ingestion, a cluster or a docker command, and do not edit any committed
+  tests/fixtures/*/api_surface.json.
+actions:
+- >-
+  Make Java extraction keep varargs, type-parameter bounds, throws clauses, static, abstract and default marks and public fields, and mark
+  getter-derived properties as accessors.
+- >-
+  Make Rust extraction record self receivers, mark associated functions, attach path-qualified and generic impl blocks from any file, exclude std
+  boilerplate trait impls and drop members of unextracted types.
+- >-
+  Pin both with committed sample trees, audit-style gates that can fail and chunk-rendering tests.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_api_surface_java_fidelity.py tests/extraction/tree_sitter_engine/test_api_surface_rust_fidelity.py tests/extraction/tree_sitter_engine/test_java_rust_fidelity_gate.py tests/indexing/test_chunk_builder_java_rust_signatures.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_java_rust_signatures.py tests/infra/test_build_chunks.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+min_tests: 45
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='def _java_spread_param(';assert s.count(old)==1;p.write_text(s.replace(old,'def _java_spread_paramX(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the function that turns a Java varargs node into a parameter, so Java parameter extraction raises NameError for every varargs method: the
+    new Java fidelity tests, the Java half of the gate and the chunk tests fail. A real break of the card's central claim (varargs parameters are
+    kept as `name: type...`).
+evidence:
+- evidence/build/G3/TC-526/receipt.json
+closeout:
+- >-
+  Java extraction keeps varargs, generic bounds, throws, static, abstract and default marks and public fields and marks getter-derived properties as
+  accessors; Rust extraction records self receivers, marks associated functions, attaches path-qualified and generic impl blocks from any file, and
+  excludes std boilerplate trait impls. NOTHING a peer sees changes until the affected fixtures are re-extracted. LATER CARDS NEEDED: (1) a Java
+  fixture re-extraction card for 3d_java, cells_java, jmap_java, pdf_java, slides_java and a Rust one for cells_rust, jmap_rust, at their pinned
+  commits (network; after TC-520 to TC-528). It must verify: 3d_java `Quaternion` and `Vector3` expose x, y, z, w as properties (34 missing before)
+  and `identity`, `zero`, `length` carry the accessor mark; every pdf_java and 3d_java varargs method (6 of 6) has its `...` parameter; static
+  methods are marked (the 71, 76 and 159 the reviewer counted); cells_rust `modifiers` carry a receiver or `associated` on all 1693 methods (259
+  associated, 1434 receivers) and no `Kind: function` entry named `eq`, `fmt`, `hash` or `default` remains; jmap_rust `JmapClient` lists the mail
+  methods from client_mail.rs (9 methods plus the 10). (2) The final re-ingest of those pilots.
+recovery: Re-run from a clean tree.
