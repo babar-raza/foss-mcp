@@ -134,7 +134,8 @@ def test_initialize_reports_the_stamped_version_and_instructions(
     result = _initialize(tmp_path)
     assert result["serverInfo"]["name"] == "foss-mcp"
     assert result["serverInfo"]["version"] == "0.1.0+" + HEX40[:12]
-    assert result["instructions"] == SERVER_INSTRUCTIONS
+    # The instructions now append the deployment paragraph (G3/TC-514) to the generic base.
+    assert result["instructions"].startswith(SERVER_INSTRUCTIONS)
 
 
 def test_initialize_without_a_stamp_reports_unknown_and_never_0_0_0(tmp_path: Path) -> None:

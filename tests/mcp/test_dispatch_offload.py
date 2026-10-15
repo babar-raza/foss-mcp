@@ -44,6 +44,20 @@ VALID_ARGUMENTS: dict[str, dict[str, Any]] = {
 }
 
 
+_ENVELOPE_KEYS = ("scope", "content_origin", "untrusted_upstream_content")
+
+
+def _without_envelope(value: Any) -> Any:
+    """*value* without the keys the additive response envelope (G3/TC-514) puts on a result: the
+    served payload now carries a scope, a content origin and an untrusted marker that a direct call
+    of the handler does not."""
+    if isinstance(value, dict):
+        return {key: item for key, item in value.items() if key not in _ENVELOPE_KEYS}
+    if isinstance(value, list):
+        return [_without_envelope(item) for item in value]
+    return value
+
+
 def _publish_pdf(store: GenerationManifestStore) -> None:
     doc = make_document(
         source_kind=SourceKind.SELF_EXTRACTED,
@@ -178,7 +192,8 @@ def test_the_event_loop_runs_while_a_handler_is_blocked(
 
     result = anyio.run(scenario)
     assert result.is_error is False
-    assert result.structured_content == {"result": {"blocked": True}}
+    # The response envelope adds scope keys to a dict result (G3/TC-514); the handler's own payload is unchanged.
+    assert _without_envelope(result.structured_content["result"]) == {"blocked": True}
     assert order == ["handler-started", "loop-ran", "handler-finished"]
 
 
@@ -305,7 +320,9 @@ def test_a_valid_call_returns_the_same_structured_content_as_a_direct_call(
     direct = registry[tool_name](**arguments)
     result = _call(server, tool_name, VALID_ARGUMENTS[tool_name])
     assert result.is_error is False, result
-    assert result.structured_content == {"result": _to_jsonable(direct)}
+    # The response envelope adds scope keys beside and inside the result (G3/TC-514); the payload is unchanged.
+    assert _without_envelope(result.structured_content["result"]) == _without_envelope(_to_jsonable(direct))
+    assert type(result.structured_content["result"]) is type(_to_jsonable(direct))
 
 
 # ---------------------------------------------------------------- the adversarial-suite scenario

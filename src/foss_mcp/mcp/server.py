@@ -48,6 +48,14 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from foss_mcp.extraction.github_release_reader import Release
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.health import GENERATION_UNAVAILABLE_MESSAGE, generation_unavailable_reason
+from foss_mcp.mcp.identity import (
+    DeploymentFacts,
+    deployment_instructions,
+    deployment_title,
+    read_deployment_facts,
+    render_description,
+)
+from foss_mcp.mcp.response_envelope import annotate_result, origin_of, scope_object
 from foss_mcp.mcp.routing import DeploymentConfig, Scope, resolve_scope
 from foss_mcp.mcp.sidecar_state import (
     RELEASES_FETCH_FAILED_MESSAGE,
@@ -206,11 +214,11 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "lookup": (
         "Forgiving one-shot entry point that dispatches to search_docs and/or search_symbols "
         "so you don't have to pick the right index yourself. PREFERRED for a natural-language "
-        "task question with no known symbol name, e.g. query='how do I add a watermark to a "
-        "PDF' or query='why does saving fail with a font error' - it tries documentation first "
+        "task question with no known symbol name, e.g. query='how do I {task_example}' or "
+        "query='known issues' - it tries documentation first "
         "and composes it with any verified code example find_examples has for the same query, "
         "falling back to a symbol search only if nothing matches. For a bare, identifier-like "
-        "query (a type name such as 'Document' in the pdf/net index), it tries search_symbols "
+        "query (a type name such as '{example_short}' in this index), it tries search_symbols "
         "first instead - no need to call search_symbols yourself first in that case. Pass "
         "content_type explicitly (one of 'getting_started', 'developer_guide', "
         "'troubleshooting', 'faq') only if you already know which documentation category you "
@@ -224,14 +232,14 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "REQUIRED here; there is no 'search every category' mode on this tool - use lookup "
         "with content_type omitted for that). Call this directly instead of lookup when you "
         "already know which category applies, e.g. content_type='troubleshooting', "
-        "query='save fails with a font error'. A query that matches only under a DIFFERENT "
+        "query='known issues'. A query that matches only under a DIFFERENT "
         "content_type than requested returns an explicit miss, never a widened cross-category "
         "result - do not treat a miss here as proof the topic is undocumented anywhere; retry "
         "with a different content_type if you are unsure which one applies."
     ),
     "search_symbols": (
         "Search this deployment's self-extracted API surface by type name or fragment, e.g. "
-        "query='Document' (a pdf/net example), or by the exact name of a method or property, "
+        "query='{example_short}', or by the exact name of a method or property, "
         "which finds the type that declares it - a member has no FQN of its own, so this is "
         "how you find one. PREFERRED over lookup when you already know you want a "
         "symbol/class/method rather than documentation prose. Returns an explicit miss (never a "
@@ -245,7 +253,7 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     ),
     "get_symbol": (
         "Return the exact signature - kind, bases, methods, properties, members - for ONE "
-        "fully-qualified TYPE name, e.g. fqn='Aspose.Pdf.Document' (a pdf/net example). Only a "
+        "fully-qualified TYPE name, e.g. fqn='{example_fqn}'. Only a "
         "type has an FQN: a method or property has none of its own, so find one with "
         "search_symbols by its member name and read it in the owning type's signature. Matching "
         "is exact string equality against the indexed FQN, never a substring or fuzzy match, "
@@ -261,7 +269,7 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "list_members": (
         "List every method, property, and enum member a TYPE declares, in declaration order "
         "(methods first, then properties, then enum members) - the same exact type-FQN lookup "
-        "get_symbol uses under the hood, e.g. fqn='Aspose.Pdf.Document' (a pdf/net example). "
+        "get_symbol uses under the hood, e.g. fqn='{example_fqn}'. "
         "Call this instead of get_symbol when you only want the member names for a known type, "
         "not its full signature block. A method or property has no FQN of its own, so it "
         "cannot be passed here. Base types are NOT included - a base class is not a member of "
@@ -273,8 +281,8 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "Return a verified code snippet for a natural-language query. It takes only query and "
         "top_k. A query equal to an example's title prefixed with the literal text Example: "
         "(the title exactly as an example is listed) is an exact match and is answered first; "
-        "any other query is a lexical/semantic search over every example-bearing chunk, e.g. "
-        "query='add a digital signature to a PDF'. Never executes any snippet itself - it only "
+        "any other query searches every example-bearing chunk ({example_search_clause}), e.g. "
+        "query='{task_example}'. Never executes any snippet itself - it only "
         "returns text a human or another process may choose to run. Returns an explicit "
         "NoExampleFound miss (found false, with a reason) when nothing verified exists; never "
         "fabricates or improvises an example. Prefer lookup instead when you also want "
@@ -311,8 +319,10 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "current_source_commit you supply, for this deployment's active scope; the report also "
         "carries the product's pinned library commit when it is known, and how many of the "
         "library's types the API index holds when the index states it. Pass "
-        "source_kind='self_extracted' (the default, and currently the only source kind "
-        "self-extracted symbols use) unless you specifically need a different index. If "
+        "source_kind='self_extracted' (the default). Only 'self_extracted' holds an index in "
+        "this product: the other three values (furnished, repo_native_manifest, "
+        'repo_native_release_notes) always answer "never published", so there is no reason '
+        "to pass them. If "
         "current_source_commit is omitted, staleness cannot be ruled out and the report says "
         "so explicitly rather than assuming freshness - it never guesses. Check this before "
         "relying heavily on search results if you need to know whether the index reflects the "
@@ -321,12 +331,16 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
 }
 
 
-def tool_description(name: str) -> str:
+def tool_description(name: str, facts: DeploymentFacts | None = None) -> str:
     """The real, agent-facing description for tool *name*: what it does, when to prefer it
     over a sibling tool, concrete real example values, and what not to guess. Raises
     ``KeyError`` for an unregistered name - there is no silent placeholder fallback.
+
+    ``TOOL_DESCRIPTIONS`` holds templates (G3/TC-514). *facts* are the deployment's own example
+    values (``read_deployment_facts``); ``None`` renders the legacy pdf/net example values, so a
+    static caller sees today's text and a deployment sees its own.
     """
-    return TOOL_DESCRIPTIONS[name]
+    return render_description(TOOL_DESCRIPTIONS[name], facts)
 
 
 # Shared per-field-name schema descriptions, reused everywhere a field of that name appears
@@ -348,8 +362,8 @@ _FIELD_DESCRIPTIONS: dict[str, str] = {
         "non-positive or absurdly large value is rejected rather than silently truncated."
     ),
     "fqn": (
-        "The exact, fully-qualified TYPE name to match verbatim, e.g. 'Aspose.Pdf.Document' "
-        "(a pdf/net example) - case-sensitive exact match only, never a substring or fuzzy "
+        "The exact, fully-qualified TYPE name to match verbatim, e.g. '{example_fqn}' "
+        "- case-sensitive exact match only, never a substring or fuzzy "
         "match. A method or property has no FQN of its own. Verify the exact FQN via "
         "search_symbols first if you are not certain of it - do not guess it."
     ),
@@ -585,8 +599,8 @@ def schema_for(func: Callable[..., Any]) -> dict[str, Any]:
 _TOOL_FIELD_DESCRIPTIONS: dict[str, dict[str, str]] = {
     "lookup": {
         "query": (
-            "What you want to know, as a natural-language task question (e.g. 'how do I add a "
-            "watermark to a PDF') or a bare type name; lookup chooses the index to search. "
+            "What you want to know, as a natural-language task question (e.g. 'how do I "
+            "{task_example}') or a bare type name; lookup chooses the index to search. "
             "Must be non-empty."
         ),
         "content_type": (
@@ -597,7 +611,7 @@ _TOOL_FIELD_DESCRIPTIONS: dict[str, dict[str, str]] = {
     },
     "search_docs": {
         "query": (
-            "Documentation search text (e.g. 'save fails with a font error'), matched only "
+            "Documentation search text (e.g. 'known issues'), matched only "
             "within the chosen content_type. Must be non-empty."
         ),
         "content_type": (
@@ -608,29 +622,29 @@ _TOOL_FIELD_DESCRIPTIONS: dict[str, dict[str, str]] = {
     },
     "search_symbols": {
         "query": (
-            "A type name or fragment (e.g. 'Document' in the pdf/net index), or the exact name "
+            "A type name or fragment (e.g. '{example_short}' in this index), or the exact name "
             "of a method or property to find the type that declares it. Must be non-empty."
         ),
         "top_k": "Maximum number of symbol matches to return, from 1 to 100 (default 10).",
     },
     "get_symbol": {
         "fqn": (
-            "The exact, fully-qualified TYPE name, e.g. 'Aspose.Pdf.Document' (a pdf/net "
-            "example). Case-sensitive; a method or property has no FQN of its own. Verify it "
+            "The exact, fully-qualified TYPE name, e.g. '{example_fqn}'. "
+            "Case-sensitive; a method or property has no FQN of its own. Verify it "
             "with search_symbols if unsure."
         ),
     },
     "list_members": {
         "fqn": (
             "The exact, fully-qualified TYPE name whose members to list, e.g. "
-            "'Aspose.Pdf.Document' (a pdf/net example). Case-sensitive; a method or property "
+            "'{example_fqn}'. Case-sensitive; a method or property "
             "has no FQN of its own. Verify it with search_symbols if unsure."
         ),
     },
     "find_examples": {
         "query": (
-            "What the example should do, as a natural-language request (e.g. 'add a digital "
-            "signature to a PDF'), or an example's exact title prefixed with the literal text "
+            "What the example should do, as a natural-language request (e.g. "
+            "'{task_example}'), or an example's exact title prefixed with the literal text "
             "Example: for an exact match. Must be non-empty."
         ),
         "top_k": "Maximum number of examples to return, from 1 to 100 (default 5).",
@@ -642,7 +656,10 @@ _TOOL_FIELD_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "limit": "Maximum number of recent releases to return, newest first, from 1 to 100 (default 10).",
     },
     "report_index_freshness": {
-        "source_kind": "Which indexed source to check freshness for; 'self_extracted' is this project's own API-surface index.",
+        "source_kind": (
+            "Which indexed source to check freshness for; only 'self_extracted' holds an index "
+            'in this product, and the other three values always answer "never published".'
+        ),
         "current_source_commit": (
             "The current upstream source commit as 7 to 64 hexadecimal characters, if known; "
             "omit it if unknown - staleness then cannot be ruled out and the report says so."
@@ -672,14 +689,16 @@ def _strip_none(annotation: object) -> object:
     return annotation
 
 
-def _advertised_property(tool_name: str, field_name: str, field: Any) -> dict[str, Any]:
+def _advertised_property(
+    tool_name: str, field_name: str, field: Any, facts: DeploymentFacts | None = None
+) -> dict[str, Any]:
     annotation = _strip_none(field.annotation)
     prop: dict[str, Any]
     if typing.get_origin(annotation) is typing.Literal:
         prop = {"type": "string", "enum": list(typing.get_args(annotation))}
     else:
         prop = dict(_json_type(annotation))
-    prop["description"] = _TOOL_FIELD_DESCRIPTIONS[tool_name][field_name]
+    prop["description"] = render_description(_TOOL_FIELD_DESCRIPTIONS[tool_name][field_name], facts)
     for constraint in field.metadata:
         max_length = getattr(constraint, "max_length", None)
         if max_length is not None:
@@ -702,16 +721,21 @@ def _advertised_property(tool_name: str, field_name: str, field: Any) -> dict[st
     return prop
 
 
-def tool_input_schema(tool_name: str) -> dict[str, Any]:
+def tool_input_schema(tool_name: str, facts: DeploymentFacts | None = None) -> dict[str, Any]:
     """The JSON Schema advertised in ``tools/list`` for *tool_name*, built from its Pydantic
     input model in ``_INPUT_MODELS`` - the model the call is validated against, so the two cannot
     drift. Flat on purpose (clients build calls from it): ``type`` on every property, no
     ``anyOf``/``$ref``, an optional field simply absent from ``required``. Wherever the model
     states them: ``enum``, ``default``, ``minimum``, ``maximum``, ``maxLength``, ``pattern``.
+
+    The field descriptions are templates (G3/TC-514), rendered with *facts* exactly as
+    ``tool_description`` renders the tool descriptions: ``None`` is the legacy pdf/net example
+    values, a deployment passes its own.
     """
     model = _INPUT_MODELS[tool_name]
     properties = {
-        name: _advertised_property(tool_name, name, field) for name, field in model.model_fields.items()
+        name: _advertised_property(tool_name, name, field, facts)
+        for name, field in model.model_fields.items()
     }
     schema: dict[str, Any] = {"type": "object", "properties": properties, "additionalProperties": False}
     required = [name for name, field in model.model_fields.items() if field.is_required()]
@@ -831,7 +855,9 @@ def public_error_message(exc: Exception, *, fallback: str, correlation_id: str |
     return text
 
 
-def public_validation_error_message(exc: ValidationError) -> str:
+def public_validation_error_message(
+    exc: ValidationError, valid_arguments: Sequence[str] | None = None
+) -> str:
     """A safe, specific client-facing message built directly from *exc*'s own structured error
     list (``exc.errors()``) - never its raw ``str()``, which routinely spans multiple lines and
     easily trips ``public_error_message``'s length/newline safety filter on totally safe
@@ -840,20 +866,40 @@ def public_validation_error_message(exc: ValidationError) -> str:
     must not be empty'``, ``'top_k: Input should be greater than 0'``) - never a file path, a
     library internal, or anything resembling what that filter exists to catch. This is a
     different, narrower, independently-safe path, not a weakening of the existing one.
+
+    G3/TC-514: given *valid_arguments* (the tool's own argument names, in declaration order) an
+    unknown argument is named and the valid ones are listed, so a caller can correct the call. The
+    name is client-chosen, so it is sanitised (every character outside ``[A-Za-z0-9_.-]`` becomes
+    ``?``) and a name longer than 40 characters is not echoed at all, only its limit.
     """
-    return "; ".join(f"{_error_location(error)}: {error['msg']}" for error in exc.errors())
+    return "; ".join(_error_text(error, valid_arguments) for error in exc.errors())
 
 
 _UNEXPECTED_ARGUMENT_LOCATION = "unexpected argument"
+# An unknown argument name is client-chosen: echoed only when it is at most this long.
+_ARGUMENT_NAME_ECHO_MAX = 40
+_ARGUMENT_NAME_UNSAFE = re.compile(r"[^A-Za-z0-9_.-]")
 
 
-def _error_location(error: Any) -> str:
-    """The ``loc`` of one pydantic error for a client-facing message. For an unknown argument
-    pydantic's ``loc`` is the CLIENT-CHOSEN argument name - arbitrary and possibly huge - so
-    it is never echoed back; every other ``loc`` is one of this project's own field names."""
+def _unexpected_argument_text(error: Any, valid_arguments: Sequence[str]) -> str:
+    name = str(error["loc"][0]) if error["loc"] else ""
+    if len(name) > _ARGUMENT_NAME_ECHO_MAX:
+        shown = f"(name longer than {_ARGUMENT_NAME_ECHO_MAX} characters)"
+    else:
+        shown = "'" + _ARGUMENT_NAME_UNSAFE.sub("?", name) + "'"
+    return f"{_UNEXPECTED_ARGUMENT_LOCATION} {shown}; valid arguments: {', '.join(valid_arguments)}"
+
+
+def _error_text(error: Any, valid_arguments: Sequence[str] | None) -> str:
+    """One pydantic error for a client-facing message. For an unknown argument pydantic's ``loc``
+    is the CLIENT-CHOSEN argument name - arbitrary and possibly huge - so it is named only when the
+    caller supplies the valid names (and then sanitised and bounded); every other ``loc`` is one of
+    this project's own field names."""
     if error["type"] == "extra_forbidden":
-        return _UNEXPECTED_ARGUMENT_LOCATION
-    return ".".join(str(part) for part in error["loc"])
+        if valid_arguments is not None:
+            return _unexpected_argument_text(error, valid_arguments)
+        return f"{_UNEXPECTED_ARGUMENT_LOCATION}: {error['msg']}"
+    return f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}"
 
 
 # An unknown tool name is client-chosen: never echo more than this many characters of it.
@@ -1057,6 +1103,27 @@ def _build_tool_registry(
     }
 
 
+class _DeploymentServer(Server):
+    """A ``Server`` whose ``instructions`` are rendered when the handshake is built, not when the
+    server is constructed (G3/TC-514).
+
+    The instructions name a real symbol of the deployment's active generation, so rendering them
+    reads that generation. Doing that in ``create_server`` would make a server started before its
+    first generation is published say "nothing is readable" for its whole life, and would put a
+    generation read in front of every call that never needed one. The constructor is handed a
+    provider (a zero-argument callable) instead of a string; each read of ``instructions`` calls it,
+    so a handshake always reflects the generation that is active now."""
+
+    @property
+    def instructions(self) -> str | None:
+        provider = self._instructions_provider
+        return provider() if provider is not None else None
+
+    @instructions.setter
+    def instructions(self, value: Any) -> None:
+        self._instructions_provider = value if callable(value) or value is None else (lambda: value)
+
+
 def create_server(
     deployment_config: DeploymentConfig,
     manifest_store: GenerationManifestStore | None = None,
@@ -1106,13 +1173,19 @@ def create_server(
     for name, handler in registry.items():
         _assert_schema_matches_wrapper(name, schemas[name], schema_for(handler))
 
+    def _facts() -> DeploymentFacts:
+        return read_deployment_facts(store, scope)
+
     async def _list_tools(context: Any, params: Any) -> ListToolsResult:
+        # The deployment's own example values are read once per call (not per tool), in a worker
+        # thread like the tool handlers, because reading the generation is file I/O.
+        facts = await anyio.to_thread.run_sync(_facts)
         return ListToolsResult(
             tools=[
                 Tool(
                     name=name,
-                    description=tool_description(name),
-                    input_schema=schemas[name],
+                    description=tool_description(name, facts),
+                    input_schema=tool_input_schema(name, facts),
                     annotations=_TOOL_ANNOTATIONS,
                 )
                 for name in registry
@@ -1224,7 +1297,7 @@ def create_server(
             # Built straight from exc.errors() (TC-136) - a plain, safe validation message like
             # 'query: Value error, query must not be empty' never needs to go through the
             # generic sanitizer at all, let alone be swallowed by it on totally safe content.
-            text = public_validation_error_message(exc)
+            text = public_validation_error_message(exc, tuple(_INPUT_MODELS[params.name].model_fields))
             _finish(
                 params.name,
                 correlation_id,
@@ -1365,16 +1438,27 @@ def create_server(
             result,
             validated_arguments.model_dump(),
         )
+        # The envelope is additive (G3/TC-514): the result keeps its shape, a dict without a scope
+        # gains one, repository text is marked untrusted, and the scope also rides beside the result.
+        payload = annotate_result(params.name, _to_jsonable(result), scope)
         return CallToolResult(
-            content=[TextContent(type="text", text=render_result_text(result))],
-            structured_content={"result": _to_jsonable(result)},
+            content=[TextContent(type="text", text=render_result_text(payload))],
+            structured_content={
+                "result": payload,
+                "scope": scope_object(scope),
+                "content_origin": origin_of(params.name),
+            },
             is_error=False,
         )
 
-    return Server(
+    def _instructions() -> str:
+        return deployment_instructions(SERVER_INSTRUCTIONS, scope, _facts())
+
+    return _DeploymentServer(  # type: ignore[call-overload]
         name=SERVER_NAME,
         version=server_version(),
-        instructions=SERVER_INSTRUCTIONS,
+        title=deployment_title(scope),
+        instructions=_instructions,  # a provider, see _DeploymentServer
         on_list_tools=_list_tools,
         on_call_tool=_call_tool,
     )

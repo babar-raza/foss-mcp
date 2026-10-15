@@ -23,6 +23,7 @@ from mcp import ClientSession
 from mcp.shared.memory import create_client_server_memory_streams
 
 from foss_mcp.indexing.lexical_index_writer import build_lexical_index
+from foss_mcp.mcp.identity import read_deployment_facts
 from foss_mcp.mcp.routing import DeploymentConfig, Scope
 from foss_mcp.mcp.server import (
     _INPUT_MODELS,
@@ -264,10 +265,13 @@ def test_the_query_description_differs_per_tool_and_names_only_its_own_tool() ->
 
 
 def test_tools_list_advertises_the_built_schemas_and_read_only_annotations() -> None:
-    advertised = _advertised(create_server(PDF_NET_CONFIG, _store()))
+    store = _store()
+    advertised = _advertised(create_server(PDF_NET_CONFIG, store))
     assert set(advertised) == set(TOOL_NAMES)
+    # The field descriptions are rendered from the deployment's own generation (G3/TC-514).
+    facts = read_deployment_facts(store, PDF_NET_SCOPE)
     for name, tool in advertised.items():
-        assert tool.input_schema == tool_input_schema(name)
+        assert tool.input_schema == tool_input_schema(name, facts)
         assert tool.annotations is not None
         assert tool.annotations.read_only_hint is True
         assert tool.annotations.destructive_hint is False
