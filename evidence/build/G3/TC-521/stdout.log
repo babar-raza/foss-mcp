@@ -1,0 +1,672 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_js_mixins.py tests/extraction/test_docs_identifiers_resolve.py tests/indexing/test_chunk_builder_mixin_suffix.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-idvqe9p0\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 70%]
+..............................                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/test_unwired_modules.py tests/test_layout.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-idvqe9p0\.junit-1.xml"
+--- stdout ---
+........................................................................ [  6%]
+........................................................................ [ 13%]
+........................................................................ [ 19%]
+........................................................................ [ 26%]
+........................................................................ [ 32%]
+........................................................................ [ 39%]
+........................................................................ [ 45%]
+........................................................................ [ 52%]
+........................................................................ [ 58%]
+........................................................................ [ 65%]
+........................................................................ [ 71%]
+........................................................................ [ 78%]
+........................................................................ [ 84%]
+........................................................................ [ 91%]
+........................................................................ [ 97%]
+...........................                                              [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_js_mixins.py tests/extraction/test_docs_identifiers_resolve.py tests/indexing/test_chunk_builder_mixin_suffix.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-idvqe9p0\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 70%]
+..............................                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/test_unwired_modules.py tests/test_layout.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-idvqe9p0\.junit-1.xml"
+--- stdout ---
+........................................................................ [  6%]
+........................................................................ [ 13%]
+........................................................................ [ 19%]
+........................................................................ [ 26%]
+........................................................................ [ 32%]
+........................................................................ [ 39%]
+........................................................................ [ 45%]
+........................................................................ [ 52%]
+........................................................................ [ 58%]
+........................................................................ [ 65%]
+........................................................................ [ 71%]
+........................................................................ [ 78%]
+........................................................................ [ 84%]
+........................................................................ [ 91%]
+........................................................................ [ 97%]
+...........................                                              [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/api_surface.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_js_mixins.py tests/extraction/test_docs_identifiers_resolve.py tests/indexing/test_chunk_builder_mixin_suffix.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-idvqe9p0\.junit-0.xml"
+--- stdout ---
+FFFF....FF.FF.F.........FFFF....FF...................................... [ 70%]
+..............................                                           [100%]
+================================== FAILURES ===================================
+__________________ test_wrapper_class_gets_the_mixin_methods __________________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_wrapper_class_gets_the_mixin_methods(sample_types: list[dict[str, Any]]) -> None:
+        methods = _methods(_wrapper(sample_types))
+        for name in MAIL_METHODS + SUBMISSION_METHODS:
+>           assert name in methods, name
+E           AssertionError: listMailboxes
+E           assert 'listMailboxes' in {'connect': {'name': 'connect', 'params': [], 'return_type': '', 'doc': 'Open the session.', ...}, 'close': {'name': '...': 'sendRequest', 'params': [{'name': 'request', 'type': ''}], 'return_type': '', 'doc': 'Send one raw request.', ...}}
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:71: AssertionError
+_______________ test_mixin_method_keeps_the_mixin_file_and_name _______________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_mixin_method_keeps_the_mixin_file_and_name(sample_types: list[dict[str, Any]]) -> None:
+        methods = _methods(_wrapper(sample_types))
+>       assert methods["listMailboxes"]["mixin"] == "MailClientMixin"
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'listMailboxes'
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:76: KeyError
+_______________________ test_mixin_async_is_a_modifier ________________________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_mixin_async_is_a_modifier(sample_types: list[dict[str, Any]]) -> None:
+        methods = _methods(_wrapper(sample_types))
+>       assert methods["listMailboxes"]["modifiers"] == ["async"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'listMailboxes'
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:89: KeyError
+________________ test_mixin_defaults_and_params_are_extracted _________________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_mixin_defaults_and_params_are_extracted(sample_types: list[dict[str, Any]]) -> None:
+        methods = _methods(_wrapper(sample_types))
+>       params = methods["listMailboxes"]["params"]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'listMailboxes'
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:97: KeyError
+______________________ test_multi_argument_object_assign ______________________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_multi_argument_object_assign(sample_types: list[dict[str, Any]]) -> None:
+        hub = _by_file(sample_types, "Hub", "src/multi.js")
+        names = [m["name"] for m in hub["methods"]]
+        # declared method first, then mixin argument order (A then B), then the inline literal
+>       assert names == ["start", "alpha", "beta", "ping"]
+E       AssertionError: assert ['start'] == ['start', 'al...beta', 'ping']
+E         
+E         Right contains 3 more items, first extra item: 'alpha'
+E         Use -v to get more diff
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:151: AssertionError
+______________________ test_inline_object_literal_assign ______________________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_inline_object_literal_assign(sample_types: list[dict[str, Any]]) -> None:
+>       ping = _methods(_by_file(sample_types, "Hub", "src/multi.js"))["ping"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'ping'
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:158: KeyError
+_______________ test_application_in_another_file_than_the_mixin _______________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_application_in_another_file_than_the_mixin(sample_types: list[dict[str, Any]]) -> None:
+        # src/client-mail.js defines MailClientMixin, src/index.js applies it: the member keeps the
+        # defining file and the class keeps its own file
+        wrapper = _wrapper(sample_types)
+        assert wrapper["file"] == "src/index.js"
+>       assert {m["file"] for m in wrapper["methods"] if m.get("mixin")} == {
+            "src/client-mail.js",
+            "src/client-submission.js",
+        }
+E       AssertionError: assert set() == {'src/client-...ubmission.js'}
+E         
+E         Extra items in the right set:
+E         'src/client-submission.js'
+E         'src/client-mail.js'
+E         Use -v to get more diff
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:186: AssertionError
+_____________ test_application_resolves_through_an_aliased_import _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8691/test_application_resolves_thro0')
+
+    def test_application_resolves_through_an_aliased_import(tmp_path: Path) -> None:
+        root = _write_tree(
+            tmp_path,
+            {
+                "mixins/one.js": "export const Shared = { shared() {} };\n",
+                "mixins/two.js": "export const Shared = { other() {} };\n",
+                "main.js": (
+                    'import { Shared as Chosen } from "./mixins/two.js";\n'
+                    "export class Host {}\n"
+                    "Object.assign(Host.prototype, Chosen);\n"
+                ),
+            },
+        )
+        host = _by_file(_extract(root), "Host", "src/main.js")
+>       assert [m["name"] for m in host["methods"]] == ["other"]
+E       AssertionError: assert [] == ['other']
+E         
+E         Right contains one more item: 'other'
+E         Use -v to get more diff
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:206: AssertionError
+___________ test_wrapper_inherits_core_methods_with_inherited_from ____________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_wrapper_inherits_core_methods_with_inherited_from(sample_types: list[dict[str, Any]]) -> None:
+        wrapper = _wrapper(sample_types)
+        inherited = {m["name"]: m for m in wrapper["methods"] if m.get("inherited_from")}
+        assert set(inherited) == {"connect", "close", "sendRequest"}
+        assert all(m["inherited_from"] == "client-core.JmapClient" for m in inherited.values())
+        # constructors are never inherited, and the private member never reached the core entry
+        assert "constructor" not in _methods(wrapper)
+>       assert len(wrapper["methods"]) == 4 + 1 + 2 + 3  # mail + arrow member + submission + inherited
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 3 == (((4 + 1) + 2) + 3)
+E        +  where 3 = len([{'name': 'connect', 'params': [], 'return_type': '', 'doc': 'Open the session.', ...}, {'name': 'close', 'params': []...': 'sendRequest', 'params': [{'name': 'request', 'type': ''}], 'return_type': '', 'doc': 'Send one raw request.', ...}])
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:227: AssertionError
+_________________ test_existing_member_name_is_never_replaced _________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8691/test_existing_member_name_is_n0')
+
+    def test_existing_member_name_is_never_replaced(tmp_path: Path) -> None:
+        root = _write_tree(
+            tmp_path,
+            {
+                "a.js": (
+                    "const M = { run() {}, extra() {} };\n"
+                    "export class A {\n  /** Own. */\n  run() {}\n}\n"
+                    "Object.assign(A.prototype, M);\n"
+                )
+            },
+        )
+        methods = _by_file(_extract(root), "A", "src/a.js")["methods"]
+>       assert [m["name"] for m in methods] == ["run", "extra"]
+E       AssertionError: assert ['run'] == ['run', 'extra']
+E         
+E         Right contains one more item: 'extra'
+E         Use -v to get more diff
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:358: AssertionError
+___________ test_getters_setters_and_computed_keys_are_not_methods ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8691/test_getters_setters_and_compu0')
+
+    def test_getters_setters_and_computed_keys_are_not_methods(tmp_path: Path) -> None:
+        root = _write_tree(
+            tmp_path,
+            {
+                "g.js": (
+                    "const M = {\n  get size() { return 1; },\n  set size(v) {},\n  ['dyn' + 1]() {},\n"
+                    "  value: 5,\n  #hidden() {},\n  ok() {},\n  constructor() {},\n};\n"
+                    "export class G {}\nObject.assign(G.prototype, M);\n"
+                )
+            },
+        )
+>       assert [m["name"] for m in _by_file(_extract(root), "G", "src/g.js")["methods"]] == ["ok"]
+E       AssertionError: assert [] == ['ok']
+E         
+E         Right contains one more item: 'ok'
+E         Use -v to get more diff
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:374: AssertionError
+____________ test_function_expression_pair_and_single_arrow_param _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8691/test_function_expression_pair_0')
+
+    def test_function_expression_pair_and_single_arrow_param(tmp_path: Path) -> None:
+        root = _write_tree(
+            tmp_path,
+            {
+                "h.js": (
+                    "export const M = {\n  viaFn: function (a, b = 1) {},\n  viaArrow: x => x,\n"
+                    "  later: async (y) => y,\n};\n"
+                    "export class H {}\nObject.assign(H.prototype, M);\n"
+                )
+            },
+        )
+        methods = _methods(_by_file(_extract(root), "H", "src/h.js"))
+>       assert methods["viaFn"]["params"] == [
+               ^^^^^^^^^^^^^^^^
+            {"name": "a", "type": ""},
+            {"name": "b", "type": "", "default": "1"},
+        ]
+E       KeyError: 'viaFn'
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:389: KeyError
+___________________ test_mixin_methods_are_copies_per_class ___________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8691/test_mixin_methods_are_copies_0')
+
+    def test_mixin_methods_are_copies_per_class(tmp_path: Path) -> None:
+        root = _write_tree(
+            tmp_path,
+            {
+                "c.js": (
+                    "const M = { shared() {} };\nexport class One {}\nexport class Two {}\n"
+                    "Object.assign(One.prototype, M);\nObject.assign(Two.prototype, M);\n"
+                )
+            },
+        )
+        types = _extract(root)
+        one, two = _by_file(types, "One", "src/c.js"), _by_file(types, "Two", "src/c.js")
+        assert one["methods"] == two["methods"]
+>       assert one["methods"][0] is not two["methods"][0]
+               ^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:410: IndexError
+________________________ test_mixin_claims_are_emitted ________________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8691/test_mixin_claims_are_emitted0')
+
+    def test_mixin_claims_are_emitted(tmp_path: Path) -> None:
+        root = tmp_path / "claims"
+        shutil.copytree(SAMPLE, root)
+        from tree_sitter_language_pack import get_parser
+    
+        result = api_surface.extract_api_surface(
+            get_parser("javascript"), "javascript", root / "src", root, "jmap"
+        )
+        texts = [claim["text"] for claim in result[1]]
+>       assert any(text.startswith("JmapClient.listMailboxes(accountId, ids, properties)") for text in texts)
+E       assert False
+E        +  where False = any(<generator object test_mixin_claims_are_emitted.<locals>.<genexpr> at 0x000001E12CFE3B90>)
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:481: AssertionError
+_________________ test_list_members_of_the_owner_is_not_empty _________________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_list_members_of_the_owner_is_not_empty(sample_types: list[dict[str, Any]]) -> None:
+        """The exact failure of the committed jmap_nodejs fixture is gone for the sample: the wrapper's
+        ``Methods:`` block lists the mixin methods and the inherited core methods."""
+        fixture = {
+            "source_repository": "x/y",
+            "source_commit": "0" * 40,
+            "type_count": len(sample_types),
+            "types": sample_types,
+        }
+        chunks = build_chunks_from_api_surface(fixture, title="sample", max_types=10_000)
+        owner = next(chunk for chunk in chunks if chunk.text.splitlines()[0] == "FQN: JmapClient")
+        lines = owner.text.splitlines()
+        methods_block: list[str] = []
+        for line in lines[lines.index("Methods:") + 1 :]:
+            if not line.startswith("  - "):
+                break
+            methods_block.append(line[len("  - ") :].strip())
+        names = {re.split(r"\(|:", item)[0].strip() for item in methods_block}
+>       assert {"listMailboxes", "createMailbox", "connect"} <= names
+E       AssertionError: assert {'connect', '...istMailboxes'} <= {'close', 'co...'sendRequest'}
+E         
+E         Extra items in the left set:
+E         'createMailbox'
+E         'listMailboxes'
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:503: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_wrapper_class_gets_the_mixin_methods
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_mixin_method_keeps_the_mixin_file_and_name
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_mixin_async_is_a_modifier
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_mixin_defaults_and_params_are_extracted
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_multi_argument_object_assign
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_inline_object_literal_assign
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_application_in_another_file_than_the_mixin
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_application_resolves_through_an_aliased_import
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_wrapper_inherits_core_methods_with_inherited_from
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_existing_member_name_is_never_replaced
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_getters_setters_and_computed_keys_are_not_methods
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_function_expression_pair_and_single_arrow_param
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_mixin_methods_are_copies_per_class
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_mixin_claims_are_emitted
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_list_members_of_the_owner_is_not_empty
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/test_unwired_modules.py tests/test_layout.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-idvqe9p0\.junit-1.xml"
+--- stdout ---
+........................................................................ [  6%]
+........................................................................ [ 13%]
+........................................................................ [ 19%]
+........................................................................ [ 26%]
+........................................................................ [ 32%]
+........................................................................ [ 39%]
+........................................................................ [ 45%]
+........................................................................ [ 52%]
+........................................................................ [ 58%]
+........................................................................ [ 65%]
+........................................................................ [ 71%]
+.......................................................................F [ 78%]
+FFF....FF.FF.F.........FFFF....FF....................................... [ 84%]
+........................................................................ [ 91%]
+........................................................................ [ 97%]
+...........................                                              [100%]
+================================== FAILURES ===================================
+__________________ test_wrapper_class_gets_the_mixin_methods __________________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_wrapper_class_gets_the_mixin_methods(sample_types: list[dict[str, Any]]) -> None:
+        methods = _methods(_wrapper(sample_types))
+        for name in MAIL_METHODS + SUBMISSION_METHODS:
+>           assert name in methods, name
+E           AssertionError: listMailboxes
+E           assert 'listMailboxes' in {'connect': {'name': 'connect', 'params': [], 'return_type': '', 'doc': 'Open the session.', ...}, 'close': {'name': '...': 'sendRequest', 'params': [{'name': 'request', 'type': ''}], 'return_type': '', 'doc': 'Send one raw request.', ...}}
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:71: AssertionError
+_______________ test_mixin_method_keeps_the_mixin_file_and_name _______________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_mixin_method_keeps_the_mixin_file_and_name(sample_types: list[dict[str, Any]]) -> None:
+        methods = _methods(_wrapper(sample_types))
+>       assert methods["listMailboxes"]["mixin"] == "MailClientMixin"
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'listMailboxes'
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:76: KeyError
+_______________________ test_mixin_async_is_a_modifier ________________________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_mixin_async_is_a_modifier(sample_types: list[dict[str, Any]]) -> None:
+        methods = _methods(_wrapper(sample_types))
+>       assert methods["listMailboxes"]["modifiers"] == ["async"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'listMailboxes'
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:89: KeyError
+________________ test_mixin_defaults_and_params_are_extracted _________________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_mixin_defaults_and_params_are_extracted(sample_types: list[dict[str, Any]]) -> None:
+        methods = _methods(_wrapper(sample_types))
+>       params = methods["listMailboxes"]["params"]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'listMailboxes'
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:97: KeyError
+______________________ test_multi_argument_object_assign ______________________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_multi_argument_object_assign(sample_types: list[dict[str, Any]]) -> None:
+        hub = _by_file(sample_types, "Hub", "src/multi.js")
+        names = [m["name"] for m in hub["methods"]]
+        # declared method first, then mixin argument order (A then B), then the inline literal
+>       assert names == ["start", "alpha", "beta", "ping"]
+E       AssertionError: assert ['start'] == ['start', 'al...beta', 'ping']
+E         
+E         Right contains 3 more items, first extra item: 'alpha'
+E         Use -v to get more diff
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:151: AssertionError
+______________________ test_inline_object_literal_assign ______________________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_inline_object_literal_assign(sample_types: list[dict[str, Any]]) -> None:
+>       ping = _methods(_by_file(sample_types, "Hub", "src/multi.js"))["ping"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'ping'
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:158: KeyError
+_______________ test_application_in_another_file_than_the_mixin _______________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_application_in_another_file_than_the_mixin(sample_types: list[dict[str, Any]]) -> None:
+        # src/client-mail.js defines MailClientMixin, src/index.js applies it: the member keeps the
+        # defining file and the class keeps its own file
+        wrapper = _wrapper(sample_types)
+        assert wrapper["file"] == "src/index.js"
+>       assert {m["file"] for m in wrapper["methods"] if m.get("mixin")} == {
+            "src/client-mail.js",
+            "src/client-submission.js",
+        }
+E       AssertionError: assert set() == {'src/client-...ubmission.js'}
+E         
+E         Extra items in the right set:
+E         'src/client-submission.js'
+E         'src/client-mail.js'
+E         Use -v to get more diff
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:186: AssertionError
+_____________ test_application_resolves_through_an_aliased_import _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8692/test_application_resolves_thro0')
+
+    def test_application_resolves_through_an_aliased_import(tmp_path: Path) -> None:
+        root = _write_tree(
+            tmp_path,
+            {
+                "mixins/one.js": "export const Shared = { shared() {} };\n",
+                "mixins/two.js": "export const Shared = { other() {} };\n",
+                "main.js": (
+                    'import { Shared as Chosen } from "./mixins/two.js";\n'
+                    "export class Host {}\n"
+                    "Object.assign(Host.prototype, Chosen);\n"
+                ),
+            },
+        )
+        host = _by_file(_extract(root), "Host", "src/main.js")
+>       assert [m["name"] for m in host["methods"]] == ["other"]
+E       AssertionError: assert [] == ['other']
+E         
+E         Right contains one more item: 'other'
+E         Use -v to get more diff
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:206: AssertionError
+___________ test_wrapper_inherits_core_methods_with_inherited_from ____________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_wrapper_inherits_core_methods_with_inherited_from(sample_types: list[dict[str, Any]]) -> None:
+        wrapper = _wrapper(sample_types)
+        inherited = {m["name"]: m for m in wrapper["methods"] if m.get("inherited_from")}
+        assert set(inherited) == {"connect", "close", "sendRequest"}
+        assert all(m["inherited_from"] == "client-core.JmapClient" for m in inherited.values())
+        # constructors are never inherited, and the private member never reached the core entry
+        assert "constructor" not in _methods(wrapper)
+>       assert len(wrapper["methods"]) == 4 + 1 + 2 + 3  # mail + arrow member + submission + inherited
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 3 == (((4 + 1) + 2) + 3)
+E        +  where 3 = len([{'name': 'connect', 'params': [], 'return_type': '', 'doc': 'Open the session.', ...}, {'name': 'close', 'params': []...': 'sendRequest', 'params': [{'name': 'request', 'type': ''}], 'return_type': '', 'doc': 'Send one raw request.', ...}])
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:227: AssertionError
+_________________ test_existing_member_name_is_never_replaced _________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8692/test_existing_member_name_is_n0')
+
+    def test_existing_member_name_is_never_replaced(tmp_path: Path) -> None:
+        root = _write_tree(
+            tmp_path,
+            {
+                "a.js": (
+                    "const M = { run() {}, extra() {} };\n"
+                    "export class A {\n  /** Own. */\n  run() {}\n}\n"
+                    "Object.assign(A.prototype, M);\n"
+                )
+            },
+        )
+        methods = _by_file(_extract(root), "A", "src/a.js")["methods"]
+>       assert [m["name"] for m in methods] == ["run", "extra"]
+E       AssertionError: assert ['run'] == ['run', 'extra']
+E         
+E         Right contains one more item: 'extra'
+E         Use -v to get more diff
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:358: AssertionError
+___________ test_getters_setters_and_computed_keys_are_not_methods ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8692/test_getters_setters_and_compu0')
+
+    def test_getters_setters_and_computed_keys_are_not_methods(tmp_path: Path) -> None:
+        root = _write_tree(
+            tmp_path,
+            {
+                "g.js": (
+                    "const M = {\n  get size() { return 1; },\n  set size(v) {},\n  ['dyn' + 1]() {},\n"
+                    "  value: 5,\n  #hidden() {},\n  ok() {},\n  constructor() {},\n};\n"
+                    "export class G {}\nObject.assign(G.prototype, M);\n"
+                )
+            },
+        )
+>       assert [m["name"] for m in _by_file(_extract(root), "G", "src/g.js")["methods"]] == ["ok"]
+E       AssertionError: assert [] == ['ok']
+E         
+E         Right contains one more item: 'ok'
+E         Use -v to get more diff
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:374: AssertionError
+____________ test_function_expression_pair_and_single_arrow_param _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8692/test_function_expression_pair_0')
+
+    def test_function_expression_pair_and_single_arrow_param(tmp_path: Path) -> None:
+        root = _write_tree(
+            tmp_path,
+            {
+                "h.js": (
+                    "export const M = {\n  viaFn: function (a, b = 1) {},\n  viaArrow: x => x,\n"
+                    "  later: async (y) => y,\n};\n"
+                    "export class H {}\nObject.assign(H.prototype, M);\n"
+                )
+            },
+        )
+        methods = _methods(_by_file(_extract(root), "H", "src/h.js"))
+>       assert methods["viaFn"]["params"] == [
+               ^^^^^^^^^^^^^^^^
+            {"name": "a", "type": ""},
+            {"name": "b", "type": "", "default": "1"},
+        ]
+E       KeyError: 'viaFn'
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:389: KeyError
+___________________ test_mixin_methods_are_copies_per_class ___________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8692/test_mixin_methods_are_copies_0')
+
+    def test_mixin_methods_are_copies_per_class(tmp_path: Path) -> None:
+        root = _write_tree(
+            tmp_path,
+            {
+                "c.js": (
+                    "const M = { shared() {} };\nexport class One {}\nexport class Two {}\n"
+                    "Object.assign(One.prototype, M);\nObject.assign(Two.prototype, M);\n"
+                )
+            },
+        )
+        types = _extract(root)
+        one, two = _by_file(types, "One", "src/c.js"), _by_file(types, "Two", "src/c.js")
+        assert one["methods"] == two["methods"]
+>       assert one["methods"][0] is not two["methods"][0]
+               ^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:410: IndexError
+________________________ test_mixin_claims_are_emitted ________________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8692/test_mixin_claims_are_emitted0')
+
+    def test_mixin_claims_are_emitted(tmp_path: Path) -> None:
+        root = tmp_path / "claims"
+        shutil.copytree(SAMPLE, root)
+        from tree_sitter_language_pack import get_parser
+    
+        result = api_surface.extract_api_surface(
+            get_parser("javascript"), "javascript", root / "src", root, "jmap"
+        )
+        texts = [claim["text"] for claim in result[1]]
+>       assert any(text.startswith("JmapClient.listMailboxes(accountId, ids, properties)") for text in texts)
+E       assert False
+E        +  where False = any(<generator object test_mixin_claims_are_emitted.<locals>.<genexpr> at 0x00000269C1560450>)
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:481: AssertionError
+_________________ test_list_members_of_the_owner_is_not_empty _________________
+
+sample_types = [{'name': 'JmapClient', 'kind': 'class_declaration', 'doc': 'Core client that opens a session and sends raw requests.'...'name': 'Hub', 'kind': 'class_declaration', 'doc': 'A hub composed from several mixins.', 'file': 'src/multi.js', ...}]
+
+    def test_list_members_of_the_owner_is_not_empty(sample_types: list[dict[str, Any]]) -> None:
+        """The exact failure of the committed jmap_nodejs fixture is gone for the sample: the wrapper's
+        ``Methods:`` block lists the mixin methods and the inherited core methods."""
+        fixture = {
+            "source_repository": "x/y",
+            "source_commit": "0" * 40,
+            "type_count": len(sample_types),
+            "types": sample_types,
+        }
+        chunks = build_chunks_from_api_surface(fixture, title="sample", max_types=10_000)
+        owner = next(chunk for chunk in chunks if chunk.text.splitlines()[0] == "FQN: JmapClient")
+        lines = owner.text.splitlines()
+        methods_block: list[str] = []
+        for line in lines[lines.index("Methods:") + 1 :]:
+            if not line.startswith("  - "):
+                break
+            methods_block.append(line[len("  - ") :].strip())
+        names = {re.split(r"\(|:", item)[0].strip() for item in methods_block}
+>       assert {"listMailboxes", "createMailbox", "connect"} <= names
+E       AssertionError: assert {'connect', '...istMailboxes'} <= {'close', 'co...'sendRequest'}
+E         
+E         Extra items in the left set:
+E         'createMailbox'
+E         'listMailboxes'
+
+tests\extraction\tree_sitter_engine\test_js_mixins.py:503: AssertionError
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_wrapper_class_gets_the_mixin_methods
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_mixin_method_keeps_the_mixin_file_and_name
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_mixin_async_is_a_modifier
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_mixin_defaults_and_params_are_extracted
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_multi_argument_object_assign
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_inline_object_literal_assign
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_application_in_another_file_than_the_mixin
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_application_resolves_through_an_aliased_import
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_wrapper_inherits_core_methods_with_inherited_from
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_existing_member_name_is_never_replaced
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_getters_setters_and_computed_keys_are_not_methods
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_function_expression_pair_and_single_arrow_param
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_mixin_methods_are_copies_per_class
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_mixin_claims_are_emitted
+FAILED tests/extraction/tree_sitter_engine/test_js_mixins.py::test_list_members_of_the_owner_is_not_empty
+
+--- stderr ---
+
