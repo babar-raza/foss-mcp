@@ -86,10 +86,11 @@ file itself builds, starts and tears down.
 
 from __future__ import annotations
 
+import itertools
 import json
 import subprocess
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 
 import httpx2 as httpx
@@ -102,6 +103,7 @@ COMPOSE_FILE = REPO_ROOT / "docker-compose.yml"
 PROJECT_NAME = "foss-mcp-e2e-tc102"
 BASE_URL = "http://127.0.0.1:8086"
 MCP_PATH = "/mcp"
+DEFAULT_CALL_TIMEOUT_SECONDS = 15.0
 READYZ_PATH = "/readyz"
 # Matches pdf/net's own TC-069 budget: this pilot's ingestion container also does a real git
 # clone, a real `cargo build` of the pinned reference crate (which pulls its own real
@@ -306,7 +308,17 @@ class _McpSession:
     needs.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        call_timeout: float = DEFAULT_CALL_TIMEOUT_SECONDS,
+        tool_timeouts: Mapping[str, float] | None = None,
+    ) -> None:
+        self.call_timeout = call_timeout
+        self.tool_timeouts: dict[str, float] = dict(tool_timeouts or {})
+        # One id per request within this session, across tools: an answer to an earlier (for
+        # example timed-out) call can never carry the id of the call that is waiting now.
+        self._request_ids = itertools.count(1)
         response = httpx.post(
             f"{BASE_URL}{MCP_PATH}", json=_initialize_body(), headers=VALID_HEADERS, timeout=10
         )
@@ -320,20 +332,44 @@ class _McpSession:
             timeout=10,
         )
 
-    def call_tool(self, name: str, arguments: dict, *, request_id: int = 1) -> dict:
+    def next_request_id(self) -> int:
+        return next(self._request_ids)
+
+    def timeout_for(self, name: str, timeout: float | None = None) -> float:
+        """The explicit timeout, else this tool's own, else the session's call timeout."""
+        if timeout is not None:
+            return timeout
+        return self.tool_timeouts.get(name, self.call_timeout)
+
+    def call_tool(
+        self,
+        name: str,
+        arguments: dict,
+        *,
+        request_id: int | None = None,
+        timeout: float | None = None,
+    ) -> dict:
+        sent = request_id if request_id is not None else self.next_request_id()
         response = httpx.post(
             f"{BASE_URL}{MCP_PATH}",
             json={
                 "jsonrpc": "2.0",
-                "id": request_id,
+                "id": sent,
                 "method": "tools/call",
                 "params": {"name": name, "arguments": arguments},
             },
             headers=self.headers,
-            timeout=15,
+            timeout=self.timeout_for(name, timeout),
         )
         assert response.status_code == 200, response.text
-        return _sse_json(response.text)
+        body = _sse_json(response.text)
+        got = body.get("id")
+        if got != sent:
+            raise AssertionError(
+                f"JSON-RPC response id {got!r} does not answer request id {sent!r} "
+                f"(tools/call {name}): a late or foreign answer is never taken for this call"
+            )
+        return body
 
 
 @pytest.fixture()

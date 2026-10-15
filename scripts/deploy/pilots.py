@@ -1,4 +1,4 @@
-"""The fourteen pilot releases of the foss-mcp Helm chart (G2/TC-223).
+"""The pilot releases of the foss-mcp Helm chart, one per ingestion.pilots entry (G2/TC-223).
 
 A release serves one pilot. Its values set the deployment identity (family, platform, sourceKind)
 and replace the chart's ingestion.pilots list with that pilot's single entry; a list replaces the

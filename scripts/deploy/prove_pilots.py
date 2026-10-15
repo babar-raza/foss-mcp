@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
-"""Prove the fourteen pilot releases of the foss-mcp chart (G2/TC-223).
+"""Prove the pilot releases of the foss-mcp chart (40 today) (G2/TC-223).
 
 Usage:
     python scripts/deploy/prove_pilots.py --namespace foss-mcp [--base-port 8401] [--only pdf_net]
+        [--call-timeout SECONDS] [--find-examples-timeout SECONDS] [--min-content]
 
 For each selected pilot, one at a time, it starts `kubectl port-forward` to that release's Service on
 its own local port (base-port plus the pilot's position), waits up to 30 s for /healthz and /readyz to
 answer 200, runs scripts/poc/pilot_workflow_proof.py against the forwarded endpoint, and always stops
-the port-forward. It prints one row per pilot with the healthz, readyz, passed, failed and not
+the port-forward. The workflow proof (eleven checks, twelve with --min-content) takes its time limits
+and the opt-in minimum-content check from the three flags above; without them its argv is unchanged. It prints one row per pilot with the healthz, readyz, passed, failed and not
 applicable counts. It exits 0 only if every pilot passed every applicable check. A pilot with no
-applicable check is not a pass, and is named in the output.
+applicable check is not a pass, and is named in the output. Warnings the proof reports (for example
+unresolved symbols in a fixture) are printed as WARNING lines after the table and never change the
+exit code.
 
 Per-pilot logs and proof reports go to --report-dir. The default is a temporary directory, so no
 evidence is written into the repository.
@@ -25,6 +29,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -95,9 +100,17 @@ def stop_port_forward(proc: Any) -> None:
 
 
 def run_proof(
-    pilot: dict[str, Any], url: str, report_path: Path, log_path: Path
+    pilot: dict[str, Any],
+    url: str,
+    report_path: Path,
+    log_path: Path,
+    *,
+    extra_args: Sequence[str] = (),
 ) -> tuple[int, dict[str, Any]]:
-    """Run the eleven-check proof for one pilot. Returns its exit code and the report's summary."""
+    """Run the workflow proof for one pilot. Returns its exit code and the report's summary.
+
+    extra_args is appended to the proof's argv as given; with none, the argv is the long-standing one.
+    """
     cmd = [
         sys.executable,
         str(PROOF_SCRIPT),
@@ -109,6 +122,7 @@ def run_proof(
         str(FIXTURES),
         "--report",
         str(report_path),
+        *extra_args,
     ]
     with log_path.open("w", encoding="utf-8") as log:
         proc = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, check=False)
@@ -116,7 +130,14 @@ def run_proof(
     return proc.returncode, report["summary"]
 
 
-def prove_one(pilot: dict[str, Any], namespace: str, port: int, report_dir: Path) -> ProofRow:
+def prove_one(
+    pilot: dict[str, Any],
+    namespace: str,
+    port: int,
+    report_dir: Path,
+    *,
+    extra_args: Sequence[str] = (),
+) -> ProofRow:
     key = pilots.pilot_key(pilot)
     release = pilots.release_name(pilot)
     row = ProofRow(pilot=key, release=release, port=port)
@@ -148,6 +169,7 @@ def prove_one(pilot: dict[str, Any], namespace: str, port: int, report_dir: Path
             base,
             report_dir / f"{key}.json",
             report_dir / f"{key}.proof.log",
+            extra_args=extra_args,
         )
         row.proof_exit = rc
         row.applicable = int(summary["applicable"])
@@ -177,7 +199,7 @@ def format_table(rows: list[ProofRow]) -> str:
 
 
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Prove the fourteen foss-mcp pilot releases.")
+    parser = argparse.ArgumentParser(description="Prove the pilot releases of the foss-mcp chart (40 today).")
     parser.add_argument("--namespace", required=True, help="Kubernetes namespace of the releases")
     parser.add_argument(
         "--base-port", type=int, default=DEFAULT_BASE_PORT, help="first local port for the port-forwards"
@@ -195,7 +217,48 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         default=DEFAULT_REPORT_DIR,
         help="where the per-pilot proof reports and logs are written",
     )
+    parser.add_argument(
+        "--call-timeout",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="forward to the proof: HTTP limit per MCP call (the proof's default is 15)",
+    )
+    parser.add_argument(
+        "--find-examples-timeout",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="forward to the proof: HTTP limit for find_examples alone",
+    )
+    parser.add_argument(
+        "--min-content",
+        action="store_true",
+        help="forward to the proof: also run check 12, the minimum-content floor",
+    )
     return parser.parse_args(argv)
+
+
+def proof_extra_args(args: argparse.Namespace) -> list[str]:
+    """The proof flags the caller asked for, and nothing else: no flag given means today's argv."""
+    extra: list[str] = []
+    if args.call_timeout is not None:
+        extra += ["--call-timeout", str(args.call_timeout)]
+    if args.find_examples_timeout is not None:
+        extra += ["--find-examples-timeout", str(args.find_examples_timeout)]
+    if args.min_content:
+        extra.append("--min-content")
+    return extra
+
+
+def report_warnings(report_path: Path) -> list[str]:
+    """The proof report's warnings list; none when the report is absent or unreadable."""
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    warnings = report.get("warnings") if isinstance(report, dict) else None
+    return [str(w) for w in warnings] if isinstance(warnings, list) else []
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -207,8 +270,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     args.report_dir.mkdir(parents=True, exist_ok=True)
 
+    extra_args = proof_extra_args(args)
     rows = [
-        prove_one(pilot, args.namespace, args.base_port + index, args.report_dir)
+        prove_one(pilot, args.namespace, args.base_port + index, args.report_dir, extra_args=extra_args)
         for index, pilot in enumerate(selected)
     ]
 
@@ -216,6 +280,9 @@ def main(argv: list[str] | None = None) -> int:
     for r in rows:
         if r.error:
             print(f"{r.release}: {r.error}")
+    for r in rows:
+        for warning in report_warnings(args.report_dir / f"{r.pilot}.json"):
+            print(f"WARNING {r.release}: {warning}")
     no_applicable = [r.release for r in rows if r.applicable == 0]
     if no_applicable:
         print(f"no applicable checks ran for: {', '.join(no_applicable)}")

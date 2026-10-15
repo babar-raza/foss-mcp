@@ -1,11 +1,22 @@
 """G2/TC-197: a full MCP workflow proof for one POC pilot, against a live serving endpoint.
 
 The earlier live POC check called search_symbols once per pilot. That shows a symbol exists.
-This script runs eleven checks, in order, against one pilot's live /mcp endpoint. The checks
+This script runs eleven checks (twelve with --min-content), in order, against one pilot's live /mcp endpoint. The checks
 cover lookup, symbol detail, members, documentation, examples, install guidance, freshness,
 recent changes, honest misses and scope isolation. Every answer is checked against that pilot's
 own fixtures: tests/fixtures/<pilot>/api_surface.json and, when one exists,
 tests/fixtures/furnished/<pilot>/pages/_index.md. No expected value is chosen by hand.
+
+--min-content adds check 12, the minimum-content floor: at least three indexed types, a served
+coverage that equals the fixture's type count, and documentation reachable where a furnished page
+exists. It is opt-in, so the default run is still the eleven checks. Whatever passes the checks but
+is not a clean fixture (today: symbols the extraction left unresolved) is listed under "warnings" in
+the report and printed as WARNING lines. A warning never changes the exit code.
+
+Every JSON-RPC request carries its own increasing id, and a response whose id is not the request's
+is an error. --call-timeout SECONDS (default 15) is the per-call HTTP limit, and
+--find-examples-timeout SECONDS (default: the call timeout) overrides it for find_examples alone,
+so a run behind a slow embedding gateway can be given more time without editing this file.
 
 Each check records pass, fail or not_applicable with its evidence. A check that cannot run is a
 fail with its reason, never a silent skip. The script writes one JSON report and exits 0 only
@@ -23,10 +34,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import re
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -51,6 +63,10 @@ CONTENT_TYPES = ("getting_started", "developer_guide", "troubleshooting", "faq")
 # build_chunks_from_api_surface's default max_types: the leading slice of a fixture a generation
 # publishes. A probe symbol must come from this slice, or the live index cannot contain it.
 INDEXED_TYPE_LIMIT = 300
+# --min-content: a served generation indexes at least this many types.
+MIN_INDEXED_TYPES = 3
+# The per-call HTTP limit the proof has always used; it changes only through parameters.
+DEFAULT_CALL_TIMEOUT_SECONDS = 15.0
 # A name no fixture declares. Searching for it must produce an honest miss.
 ABSENT_SYMBOL = "Tc197AbsentSymbolProbe"
 # Title words that name the vendor or the shape of the title, not the product.
@@ -74,6 +90,7 @@ CHECK_TITLES: dict[int, str] = {
     9: "list_recent_changes returns a well-formed list",
     10: "an absent symbol returns an honest miss, never a match",
     11: "a symbol from another pilot's fixture returns no exact match on this endpoint",
+    12: "minimum content: at least 3 indexed types, served coverage equals the fixture, documentation reachable",
 }
 
 
@@ -163,6 +180,8 @@ class Pilot:
     furnished_page: Path | None
     furnished_title: str | None
     probe_error: str | None
+    type_count: int | None = None
+    unresolved_count: int = 0
 
 
 def choose_probe(types: list[Any], fixture: str = "the fixture") -> str:
@@ -264,6 +283,11 @@ def load_pilot(name: str, fixtures: Path, *, chart_values: Path | None = None) -
     except ValueError as exc:
         symbol, probe_error = None, str(exc)
     probe = next((t for t in types if isinstance(t, dict) and t.get("name") == symbol), {})
+    raw_type_count = api_surface.get("type_count")
+    type_count = (
+        raw_type_count if isinstance(raw_type_count, int) and not isinstance(raw_type_count, bool) else None
+    )
+    unresolved = api_surface.get("unresolved")
     other = other_pilot_symbol(fixtures, name, own_names)
     page = fixtures / "furnished" / name / "pages" / "_index.md"
     furnished = page if page.is_file() else None
@@ -282,7 +306,22 @@ def load_pilot(name: str, fixtures: Path, *, chart_values: Path | None = None) -
         furnished_page=furnished,
         furnished_title=furnished_title(page.read_text(encoding="utf-8")) if furnished else None,
         probe_error=probe_error,
+        type_count=type_count,
+        unresolved_count=len(unresolved) if isinstance(unresolved, list) else 0,
     )
+
+
+def pilot_warnings(pilot: Pilot | None) -> list[str]:
+    """Facts that pass the checks but are not a clean fixture. A warning never fails a run."""
+    if pilot is None:
+        return []
+    warnings: list[str] = []
+    if pilot.unresolved_count > 0:
+        warnings.append(
+            f"{pilot.name}: the extraction left {pilot.unresolved_count} unresolved symbol(s) "
+            "(see the fixture's unresolved list)"
+        )
+    return warnings
 
 
 def check_arguments(schemas: dict[str, dict[str, Any]], tool: str, arguments: dict[str, Any]) -> None:
@@ -606,6 +645,55 @@ def check_11(run: _Run) -> dict[str, Any]:
     return evidence
 
 
+def check_12(run: _Run) -> dict[str, Any]:
+    """--min-content: the served generation is not a stub, and it covers what the fixture declares."""
+    pilot = run.pilot
+    if not pilot.source_commit:
+        raise CheckFailed("the fixture's api_surface.json records no source_commit to ask freshness with")
+    report = run.call("report_index_freshness", {"current_source_commit": pilot.source_commit})
+    evidence: dict[str, Any] = {"result_kind": shape(report)}
+    if not isinstance(report, dict):
+        raise CheckFailed(f"report_index_freshness returned {shape(report)}", evidence)
+    indexed = report.get("indexed_types")
+    total = report.get("total_types")
+    evidence.update(
+        indexed_types=indexed,
+        total_types=total,
+        fixture_type_count=pilot.type_count,
+        minimum_indexed_types=MIN_INDEXED_TYPES,
+    )
+    if isinstance(indexed, bool) or not isinstance(indexed, int) or indexed < MIN_INDEXED_TYPES:
+        raise CheckFailed(
+            f"report_index_freshness reports indexed_types {indexed!r}, below the minimum of "
+            f"{MIN_INDEXED_TYPES}",
+            evidence,
+        )
+    if pilot.type_count is not None and total != pilot.type_count:
+        raise CheckFailed(
+            f"report_index_freshness reports total_types {total!r}, the fixture declares {pilot.type_count}",
+            evidence,
+        )
+    if pilot.furnished_page is None or not pilot.furnished_title:
+        evidence["documentation"] = (
+            "not probed: this pilot has no furnished page; the documentation floor is enforced offline "
+            "by tests/deploy/test_fleet_consistency.py"
+        )
+        return evidence
+    # search_docs takes a required content_type, so the furnished title is tried under each in turn.
+    attempts: list[dict[str, Any]] = []
+    evidence["documentation_attempts"] = attempts
+    for content_type in CONTENT_TYPES:
+        docs = run.call("search_docs", {"query": pilot.furnished_title, "content_type": content_type})
+        attempts.append({"content_type": content_type, "result": shape(docs)})
+        if isinstance(docs, list) and docs:
+            evidence.update(documentation_content_type=content_type, documentation_match_count=len(docs))
+            return evidence
+    raise CheckFailed(
+        f"search_docs for the furnished title {pilot.furnished_title!r} returned an empty list under every content_type",
+        evidence,
+    )
+
+
 CHECKS: tuple[tuple[int, Callable[[_Run], dict[str, Any]]], ...] = (
     (1, check_1),
     (2, check_2),
@@ -619,6 +707,8 @@ CHECKS: tuple[tuple[int, Callable[[_Run], dict[str, Any]]], ...] = (
     (10, check_10),
     (11, check_11),
 )
+# Registered only by --min-content; CHECKS, and so the default run, stays the eleven checks.
+CHECKS_MIN_CONTENT: tuple[tuple[int, Callable[[_Run], dict[str, Any]]], ...] = ((12, check_12),)
 
 
 def _record(number: int, status: str, evidence: dict[str, Any], reason: str | None) -> dict[str, Any]:
@@ -642,14 +732,18 @@ def _execute(number: int, check: Callable[[_Run], dict[str, Any]], run: _Run) ->
         return _record(number, "fail", {}, f"check could not run: {type(exc).__name__}: {exc}")
 
 
-def run_checks(client: Any, pilot: Pilot) -> list[dict[str, Any]]:
+def _checks_for(min_content: bool) -> tuple[tuple[int, Callable[[_Run], dict[str, Any]]], ...]:
+    return CHECKS + CHECKS_MIN_CONTENT if min_content else CHECKS
+
+
+def run_checks(client: Any, pilot: Pilot, *, min_content: bool = False) -> list[dict[str, Any]]:
     run = _Run(client, pilot)
-    return [_execute(number, check, run) for number, check in CHECKS]
+    return [_execute(number, check, run) for number, check in _checks_for(min_content)]
 
 
-def unrunnable_checks(reason: str) -> list[dict[str, Any]]:
+def unrunnable_checks(reason: str, *, min_content: bool = False) -> list[dict[str, Any]]:
     """Every check recorded as a fail with the same reason, for when nothing can run at all."""
-    return [_record(number, "fail", {}, reason) for number, _ in CHECKS]
+    return [_record(number, "fail", {}, reason) for number, _ in _checks_for(min_content)]
 
 
 class _UnavailableClient:
@@ -675,10 +769,18 @@ class LiveMcpClient:
     headers and SSE parsing as _McpSession.
     """
 
-    def __init__(self, e2e: Any, url: str) -> None:
+    def __init__(
+        self,
+        e2e: Any,
+        url: str,
+        *,
+        call_timeout: float = DEFAULT_CALL_TIMEOUT_SECONDS,
+        tool_timeouts: Mapping[str, float] | None = None,
+    ) -> None:
         e2e.BASE_URL = url  # _McpSession reads this module global at call time
         self._e2e = e2e
-        self._session = e2e._McpSession()
+        self._call_timeout = call_timeout
+        self._session = e2e._McpSession(call_timeout=call_timeout, tool_timeouts=tool_timeouts)
 
     def handshake(self) -> dict[str, Any]:
         response = self._e2e.httpx.post(
@@ -705,26 +807,34 @@ class LiveMcpClient:
         return result["structuredContent"]["result"]
 
     def _rpc(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+        sent = self._session.next_request_id()
         response = self._e2e.httpx.post(
             f"{self._e2e.BASE_URL}{self._e2e.MCP_PATH}",
-            json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
+            json={"jsonrpc": "2.0", "id": sent, "method": method, "params": params},
             headers=self._session.headers,
-            timeout=15,
+            timeout=self._call_timeout,
         )
         if response.status_code != 200:
             raise RuntimeError(f"{method} returned HTTP {response.status_code}: {response.text[:200]}")
         body = self._e2e._sse_json(response.text)
+        if body.get("id") != sent:
+            raise RuntimeError(f"{method} response id {body.get('id')!r} does not answer request id {sent!r}")
         if "error" in body:
             raise RuntimeError(f"{method} returned a JSON-RPC error: {body['error']}")
         return body
 
 
-def open_live_client(url: str) -> LiveMcpClient:
+def open_live_client(
+    url: str,
+    *,
+    call_timeout: float = DEFAULT_CALL_TIMEOUT_SECONDS,
+    tool_timeouts: Mapping[str, float] | None = None,
+) -> LiveMcpClient:
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
     from tests.e2e import test_cells_rust_live_content as e2e
 
-    return LiveMcpClient(e2e, url)
+    return LiveMcpClient(e2e, url, call_timeout=call_timeout, tool_timeouts=tool_timeouts)
 
 
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -735,6 +845,25 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     parser.add_argument("--fixtures", required=True, type=Path, help="fixtures root, e.g. tests/fixtures")
     parser.add_argument("--report", required=True, type=Path, help="where to write the JSON report")
+    parser.add_argument(
+        "--call-timeout",
+        type=float,
+        default=DEFAULT_CALL_TIMEOUT_SECONDS,
+        metavar="SECONDS",
+        help="HTTP limit for each tools/call and tools/list request (default 15)",
+    )
+    parser.add_argument(
+        "--find-examples-timeout",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="HTTP limit for find_examples alone (default: the call timeout)",
+    )
+    parser.add_argument(
+        "--min-content",
+        action="store_true",
+        help="also run check 12, the minimum-content floor (off by default)",
+    )
     return parser.parse_args(argv)
 
 
@@ -753,6 +882,7 @@ def build_report(
         "absent_symbol": ABSENT_SYMBOL,
         "other_pilot_symbol": {"pilot": pilot.other_pilot, "symbol": pilot.other_symbol} if pilot else None,
         "checks": checks,
+        "warnings": pilot_warnings(pilot),
         "summary": {
             "applicable": len(applicable),
             "pass": passed,
@@ -774,16 +904,26 @@ def main(argv: list[str] | None = None, client_factory: Callable[[str], Any] | N
             args.pilot, args.fixtures, chart_values=REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
         )
     except Exception as exc:
-        checks = unrunnable_checks(f"pilot fixtures could not be loaded: {type(exc).__name__}: {exc}")
+        checks = unrunnable_checks(
+            f"pilot fixtures could not be loaded: {type(exc).__name__}: {exc}", min_content=args.min_content
+        )
     else:
-        factory = client_factory or open_live_client
+        factory = client_factory or functools.partial(
+            open_live_client,
+            call_timeout=args.call_timeout,
+            tool_timeouts=(
+                {"find_examples": args.find_examples_timeout}
+                if args.find_examples_timeout is not None
+                else None
+            ),
+        )
         try:
             client = factory(url)
         except Exception as exc:
             client = _UnavailableClient(
                 f"MCP session could not be opened at {url}: {type(exc).__name__}: {exc}"
             )
-        checks = run_checks(client, pilot)
+        checks = run_checks(client, pilot, min_content=args.min_content)
 
     report = build_report(args.pilot, url, pilot, checks)
     args.report.parent.mkdir(parents=True, exist_ok=True)
@@ -792,6 +932,8 @@ def main(argv: list[str] | None = None, client_factory: Callable[[str], Any] | N
         print(f"[{check['status'].upper():14}] {check['id']:>2} {check['name']}")
         if check["reason"]:
             print(f"                 reason: {check['reason']}")
+    for warning in report["warnings"]:
+        print(f"WARNING {warning}")
     summary = report["summary"]
     print(
         f"{args.pilot}: {summary['pass']} of {summary['applicable']} applicable checks passed, "
