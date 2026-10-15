@@ -28,10 +28,15 @@ purpose: >-
   recorded per release. What does NOT change: serving (infra/serve_http.py, the MCP tools: the tri-state answer, tolerance of corrupt sidecars and
   the wrong-family check are other cards), the Helm chart and docker-compose.yml (the Job tail keeps `|| true`; the init gate bound is TC-512), the
   baked demo-manifests, commit-pinned raw.githubusercontent.com reads (D-11 item 4), the Job parallelism, tags-only repositories, relevance. No
-  schema changes: `schemas/` holds only governance schemas and three product-manifest schemas, none describes a sidecar. Dependency note: today the
-  loader `load_manifest_sidecar` indexes `data["manifest_text"]` and would crash serving on a placeholder, so this card makes the loader return None for
-  a `fetch_failed` placeholder (today's "no sidecar" answer, which TC-507 then refines into a distinct state).
+  schema changes: `schemas/` holds only governance schemas and three product-manifest schemas, none describes a sidecar. ORDERING DEPENDENCY: this card
+  depends on TC-507 (serving). Today the loader `load_manifest_sidecar` indexes `data["manifest_text"]` and serve_http raises on any malformed sidecar by
+  design, so a placeholder WITHOUT those keys would turn an Init:0/1 hang into a CrashLoopBackOff if it landed first. TC-507 degrades any sidecar
+  problem, including a top-level `"state": "fetch_failed"` placeholder, a `.failed` marker with no data and a family/platform/repository mismatch, to a
+  distinct fetch_failed answer and reads `fetched_at` and `family` from the file. The placeholder below therefore carries the key `state` (what TC-507
+  reads) AND the key `status` (the name the review brief used), both equal to `fetch_failed`. The loaders in this card's files are deliberately NOT
+  changed and still raise on a placeholder; serving's tolerance is TC-507's job.
 depends_on:
+- TC-507
 - TC-220
 - TC-388
 - TC-427
@@ -104,25 +109,28 @@ inputs:
   `os.fsync`, then `os.replace(tmp, path)`; remove the temp file in a `finally` when anything fails; create no other file; keep the compact
   `json.dumps` separators used today. Replace every `write_text(json.dumps(...))` of a sidecar in infra/fetch_product_reference.py,
   infra/fetch_recent_releases.py (both L198 and L209, plus the new meta file), infra/verify_package_registry.py and
-  infra/verify_product_reference_install.py with it (the three siblings `from fetch_product_reference import atomic_write_json`, the same
-  sibling-import style infra/verify_product_reference_install.py already uses; both Dockerfiles copy these files together). The `.failed`
-  marker text file may keep `write_text`.
+  infra/verify_product_reference_install.py with it. infra/verify_product_reference_install.py imports it from fetch_product_reference (it
+  already does `from fetch_product_reference import ...`); infra/fetch_recent_releases.py and infra/verify_package_registry.py each carry their OWN
+  identical copy (the convention these modules already state: "duplicated rather than imported so this module stays inside its own write scope").
+  Do NOT add a sibling import to those two: tests/infra/test_helm_sidecar_gate.py and tests/deploy/test_snapshot_demo_from_cluster.py load
+  fetch_recent_releases.py with `importlib.util.spec_from_file_location` while infra/ is not on sys.path, so a sibling import would break them. A
+  test asserts the three definitions are identical (compare `inspect.getsource`). The `.failed` marker text file may keep `write_text`.
 - >-
   fetch_product_reference.py, FAILURE AND PROVENANCE. Add the one-line constant `FETCH_FAILED_STATUS = "fetch_failed"`. `main`: wrap
   `build_sidecar` in `try/except Exception`. On failure: (1) write `<output>.failed` containing `<ExceptionClass> <UTC timestamp>` (class name only,
   the same convention as the releases marker); (2) only when the existing output is NOT a good sidecar (absent, unparseable, not an object, or itself
-  a placeholder) write `atomic_write_json(output, {"status": FETCH_FAILED_STATUS, "reason": failure_reason(exc), "error_class": type(exc).__name__,
-  "fetched_at": <UTC ISO>, "family", "platform", "source_repository", "source_ref"})`, where unknown values are null; a good existing file (an
-  object without `status`) is left byte for byte untouched; (3) print one line to stderr that starts with `ERROR ` and names the class, the
+  a placeholder) write `atomic_write_json(output, {"state": FETCH_FAILED_STATUS, "status": FETCH_FAILED_STATUS, "reason": failure_reason(exc),
+  "error_class": type(exc).__name__, "fetched_at": <UTC ISO>, "family", "platform", "source_repository", "source_ref"})`, where unknown values are null; a good existing file (an
+  object with neither `state` nor `status` equal to `fetch_failed`) is left byte for byte untouched; (3) print one line to stderr that starts with `ERROR ` and names the class, the
   reason, the repository and whether a placeholder was written or a good file kept, never a URL, token or exception message (the existing stdout
   lines stay); (4) `raise SystemExit(1)` (the Job step's `|| true` still keeps the Job green; the failure is now visible in the log and by the marker).
   On success: write the sidecar through `atomic_write_json` with the existing keys plus `fetched_at` (UTC, `...Z` seconds precision), `family` and
   `platform` (identity: `--family` when given, else parsed from an `--output` file name of the exact form `product_reference_<family>_<platform>.json`,
   else null; `platform` keeps its existing meaning) and delete the `.failed` marker. Add an optional `--family`. `_existing_sidecar_source` returns None
   for a placeholder and, so the pin-unchanged skip can never preserve a failure, `main` also refuses to skip while a `.failed` marker exists.
-  `load_manifest_sidecar` returns None for a placeholder (`status == FETCH_FAILED_STATUS`) and ignores the additive keys; add
-  `read_sidecar_state(path) -> dict` returning `{"state": "absent" | "ok" | "fetch_failed" | "unreadable", "fetched_at": str | None, "reason":
-  str | None}` for the serving card to use; it never raises.
+  Add `is_fetch_failed_placeholder(data: object) -> bool` (a dict whose `state` or `status` equals `FETCH_FAILED_STATUS`) and use it in
+  `_existing_sidecar_source`, in the good-file test above and in infra/verify_product_reference_install.py. `load_manifest_sidecar` is unchanged (it
+  ignores the additive keys of a good sidecar).
 - >-
   fetch_recent_releases.py. The sidecar stays a JSON list. New sibling `<output>.meta.json` (helper `releases_meta_path(output)`), written
   atomically after the list: `{"schema": 1, "state": "ok", "fetched_at", "family", "platform", "source_repository", "release_count", "etag"}`;
@@ -134,15 +142,15 @@ inputs:
   stale (older than 24 h) or `--force` is given, call `fetch_releases(repository, etag=<stored>, meta=<dict>)`; when `meta["not_modified"]` is
   set keep the list bytes, refresh the file mtime (`os.utime`) and the meta `fetched_at`, delete the marker, and print `not modified`; otherwise
   write as usual with the new ETag. A call without a stored ETag is a plain `fetch_releases(repository, meta=<dict>)` so the first fetch stores one.
-  `_serialize_release` writes `target_commitish` and `created_at` only when not None; `_deserialize_release` reads them with `.get`. Add
-  `read_releases_state(output) -> dict`: `{"state": "absent" | "ok" | "fetch_failed", "fetched_at": str | None, "refresh_failed": bool}` (meta state,
-  marker present -> `refresh_failed`); never raises. The freshness cache logic and `load_recent_releases_sidecar` are otherwise unchanged.
+  `_serialize_release` writes `target_commitish` and `created_at` only when not None; `_deserialize_release` reads them with `.get`. The
+  meta file has one production reader, this module's own ETag logic; serving does not read it (TC-507 judges the releases sidecar by the list, its release
+  URLs and the `.failed` marker, all unchanged). The freshness cache logic and `load_recent_releases_sidecar` are otherwise unchanged.
 - >-
   verify_package_registry.py `main` and verify_product_reference_install.py `main`: write through `atomic_write_json` and add `family`, `platform`
   and `fetched_at` (equal to the existing `checked_at` string) to the sidecar; verify_product_reference_install additionally adds
   `source_repository` and `source_ref` from the product-reference inputs it just loaded. `load_package_registry_sidecar` and its four required keys
-  are unchanged. A placeholder product-reference sidecar makes verify_product_reference_install print `nothing to verify ...` and exit 0 (it already
-  does when `load_manifest_sidecar` returns None).
+  are unchanged. A placeholder product-reference sidecar (`is_fetch_failed_placeholder`) makes verify_product_reference_install print `nothing to verify:
+  the product reference fetch failed` and exit 0 BEFORE it calls `load_manifest_sidecar`, which would raise on it.
 - >-
   EXISTING TESTS TO RE-PIN (change ONLY the named assertions, say why in a comment, never delete, skip or xfail): tests/extraction/test_github_http.py:
   `test_a_wait_that_exceeds_the_budget_re_raises_the_original_error_without_sleeping`, `test_the_total_wait_budget_is_cumulative_across_attempts` and
@@ -176,19 +184,19 @@ inputs:
   tests/infra/test_sidecar_writers.py: `test_atomic_write_leaves_the_old_file_when_replace_fails_and_no_temp_file_remains`;
   `test_atomic_write_leaves_the_old_file_when_serialisation_fails`; `test_atomic_write_fsyncs_before_replace` (record os.fsync then os.replace order);
   parametrised over the four writer files `test_no_writer_uses_a_bare_write_text_for_a_sidecar` (source assertion: `atomic_write_json` is referenced and
-  no `write_text(json.dumps` remains); `test_failed_product_reference_fetch_with_no_file_writes_the_typed_placeholder`;
+  no match of the regular expression `write_text\(\s*json\.dumps` remains, which also catches the two-line form at fetch_recent_releases.py L209); `test_the_three_atomic_writer_definitions_are_identical`; `test_fetch_recent_releases_loads_without_infra_on_sys_path` (load it with `importlib.util.spec_from_file_location` in a subprocess-free way after removing infra/ from sys.path); `test_failed_product_reference_fetch_with_no_file_writes_the_typed_placeholder`;
   parametrised over 401, 403 with remaining 0 and a one-hour reset, secondary 403 with a long Retry-After, 502, a timeout
   `test_the_placeholder_reason_matches_the_failure_class` (reasons auth_failed, rate_limited, rate_limited, http_502, network);
   `test_failed_fetch_never_overwrites_a_good_sidecar` (bytes equal before and after) ; `test_failed_fetch_over_a_malformed_file_writes_the_placeholder`;
   `test_failed_fetch_exits_one_writes_the_marker_and_logs_an_error_line`; `test_the_placeholder_and_the_log_line_contain_no_url_token_or_message`;
   `test_a_placeholder_never_triggers_the_pin_unchanged_skip`; `test_a_failed_marker_forces_a_refetch_even_with_an_unchanged_pin`;
   `test_success_removes_the_marker_and_records_provenance` (fetched_at `...Z`, family and platform parsed from the file name, `--family` override,
-  source_repository, source_ref); `test_load_manifest_sidecar_returns_none_for_the_placeholder`; parametrised `test_read_sidecar_state` (absent, ok,
-  fetch_failed, unreadable); `test_verify_product_reference_install_skips_a_placeholder`; `test_verify_product_reference_install_writes_provenance_atomically`;
+  source_repository, source_ref); `test_the_placeholder_carries_state_and_status_both_fetch_failed_and_is_recognised` (including `is_fetch_failed_placeholder` on a good
+  sidecar, a list, None and junk); `test_verify_product_reference_install_skips_a_placeholder_without_calling_the_loader`; `test_verify_product_reference_install_writes_provenance_atomically`;
   `test_verify_package_registry_writes_provenance_atomically`; `test_releases_success_writes_the_list_and_a_meta_with_identity_and_etag`;
   `test_releases_failure_with_nothing_usable_writes_empty_list_marker_and_a_fetch_failed_meta`; `test_releases_failure_keeps_a_good_list_and_logs_an_error_line`;
   `test_releases_etag_304_keeps_the_bytes_and_refreshes_mtime_and_meta`; `test_releases_without_a_stored_etag_does_a_plain_fetch`;
-  `test_read_releases_state`. min 55 tests in the three new files together.
+  min 55 tests in the three new files together.
 - >-
   Run `{python} -m pytest tests/extraction/test_github_http_classification.py tests/extraction/test_github_release_commit.py
   tests/infra/test_sidecar_writers.py -q -rfE` first, then the second check command below. Write commit messages as UTF-8 without a byte-order
@@ -231,7 +239,7 @@ closeout:
   A failed product-reference fetch now leaves a typed placeholder, a marker and an ERROR log line (exit status 1, swallowed by the Job's `|| true`),
   never overwrites good data, and every sidecar write is atomic and carries fetched_at and identity. The GitHub client stops loudly on 401, reports
   the reset time of a long rate limit, honours secondary limits, retries 5xx and timeouts with backoff and jitter, and stops before the limit.
-  Follow-ups owned elsewhere: serving must use `read_sidecar_state` / `read_releases_state` to answer fetch_failed distinctly and survive a corrupt
-  sidecar (TC-507); the chart must bound the init gate and may pass `--family`/`--platform` (TC-512); `in_index` for releases needs a tag-to-commit
+  Follow-ups owned elsewhere: serving answering fetch_failed distinctly and surviving a corrupt sidecar (TC-507, which must be accepted before this card is
+  dispatched); the chart must bound the init gate and may pass `--family`/`--platform` (TC-512); `in_index` for releases needs a tag-to-commit
   resolution that this card deliberately does not perform.
 recovery: Re-run from a clean tree.

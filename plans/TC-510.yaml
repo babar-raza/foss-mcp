@@ -2,33 +2,29 @@ id: TC-510
 gate: G3
 lane: storage-retrieval
 purpose: >-
-  REQ-G3-008 (independent pre-production review, findings GRR-05, GRR-06, GRR-07, GRR-08, GRR-09, GRR-14). PUBLISH SAFETY. The reviewer drove the real
-  publisher (`publish_generation`) with synthetic generations on a scratch store. The guard in src/foss_mcp/indexing/generation_manifest.py
-  (`assert_publish_is_safe`, called from `publish`) compares only the TOTAL document count with the active generation. Measured: a generation that
-  lost ALL symbols (40 symbols, 50 docs, 10 examples -> 0/50/10), or ALL docs, or ALL examples, or went 40 -> 1 symbols, was ACTIVATED; a generation
-  with the same count but wholly different content (another product) was ACTIVATED; 50 chunks with empty text were ACTIVATED; 50 chunks of unrelated
-  prose with no FQN line were ACTIVATED; 100 identical chunks collapsed into 1 document and were ACTIVATED on a fresh scope; a first publish of ONE
-  trivial chunk was ACTIVATED; repeated 50 percent cuts erode a scope without ever tripping the check (each is compared only to the previous
-  generation). There is no supported way to accept a legitimate shrink: the jmap_go pilot shrank 153 -> 58 documents and was published only by
-  renaming active_pointer.json aside by hand, which disables every guard, and a PowerShell-written pointer with a UTF-8 byte-order mark makes
-  /readyz answer 500. infra/rollback.py can name any generation id: a foreign-prefix id with an existing version suffix was accepted and left the
-  pointer on content that does not exist (GRR-08), and nothing lists the retained generations. The lease/CAS pair is unlocked: in 3 of 30 concurrent
-  two-process trials both publishers held fencing token 2 (GRR-07). No write is fsynced (0 occurrences of fsync in the module), nothing deletes
-  orphans (.tmp-* files, unactivated generation files) or old generations (PVCs retain 3 to 5 each) (GRR-09), and the pointer is read whole on every
-  probe (a 20 MB file was read per call) (GRR-14). Verified GOOD and preserved: the current total-count behaviour (empty refused, more than 50 percent
-  regression refused, exactly half accepted), refused publishes are never written (TC-253), CAS and fencing order, atomic pointer flip. Also
-  measured on the 39 inspected cluster ingest logs: `citation: published N` equals the baked generation document count for 39 of 39 pilots, so no real
-  pilot contains duplicate chunk ids, and every one of the 40 baked generations has at least 3 symbol chunks and at least 2 documentation chunks (the
-  smallest are imaging/net with 3 symbols and 4 docs and tex/python with 4 symbols), so the floors below produce no false positive on the shipped
-  fleet. This card adds a `PublishPolicy` that production opts into (infra/ingest.py does; `policy=None` keeps today's behaviour byte for byte so every
-  existing caller and test is unchanged): per-kind statistics persisted in the generation (`payload.stats`, additive) and appended to a
-  `publish_log.jsonl` beside the pointer; hard floors (symbols at least 3, documentation at least 1); per-kind regression limits against the MAX of the
-  last 3 retained generations; refusal of duplicate chunk ids, empty text and a changed provenance repository; an explicit, logged, exactly-matching
-  `--accept-regression kind:old->new --reason TEXT` override that never waives the floors, identity, duplicates or empty text; `infra/rollback.py
-  --list / --previous` and a validated rollback target; an exclusive lock around lease acquisition and CAS; fsync of files and directories; retention
-  (active + previous + last 3, stale .tmp-* removed after 1 hour); a 64 KiB BOM-tolerant pointer read; and the runbook procedures. What does NOT
-  change: the sync/async behaviour of serving, any serving code, the Helm chart, docker-compose.yml, the extraction, the shape of lexical_index and
-  vector_index, `PublishSafetyError` as the single refusal type, `publish_generation`/`publish`/`rollback` called without the new arguments.
+  REQ-G3-008 (independent pre-production review, findings GRR-05 and GRR-06 override part). PUBLISH SAFETY, first half (the store hardening and the
+  rollback tooling are TC-529, which depends on this card). The reviewer drove the real publisher (`publish_generation`) with synthetic generations on a
+  scratch store. The guard in src/foss_mcp/indexing/generation_manifest.py (`assert_publish_is_safe`, called from `publish`) compares only the TOTAL
+  document count with the active generation. Measured: a generation that lost ALL symbols (40 symbols, 50 docs, 10 examples -> 0/50/10), or ALL docs,
+  or ALL examples, or went 40 -> 1 symbols, was ACTIVATED; a generation with the same count but wholly different content (another product) was
+  ACTIVATED; 50 chunks with empty text were ACTIVATED; 50 chunks of unrelated prose with no FQN line were ACTIVATED; 100 identical chunks collapsed
+  into 1 document and were ACTIVATED on a fresh scope; a first publish of ONE trivial chunk was ACTIVATED; repeated 50 percent cuts erode a scope
+  without ever tripping the check (each is compared only to the previous generation). There is no supported way to accept a legitimate shrink: the
+  jmap_go pilot shrank 153 -> 58 documents and was published only by renaming active_pointer.json aside by hand, which disables every guard. Verified
+  GOOD and preserved: the current total-count behaviour (empty refused, more than 50 percent regression refused, exactly half accepted), refused
+  publishes are never written (TC-253), CAS and fencing order, atomic pointer flip. Also measured on the 39 inspected cluster ingest logs: `citation:
+  published N` equals the baked generation document count for 39 of 39 pilots, so no real pilot contains duplicate chunk ids, and every one of the 40
+  baked generations has at least 3 symbol chunks and at least 2 documentation chunks (the smallest are imaging/net with 3 symbols and 4 docs and
+  tex/python with 4 symbols), so the floors below produce no false positive on the shipped fleet. This card adds a `PublishPolicy` that production opts
+  into (infra/ingest.py does; `policy=None` keeps today's behaviour byte for byte so every existing caller and test is unchanged): per-kind statistics
+  persisted in the generation (`payload.stats`, additive) and appended to a `publish_log.jsonl` beside the pointer; hard floors (symbols at least 3,
+  documentation at least 1); per-kind regression limits against the MAX of the last 3 retained generations; refusal of duplicate chunk ids, empty text
+  and a changed provenance repository (never overridable: a deliberate repository change needs a new store); an explicit, logged, exactly-matching
+  `--accept-regression kind:old->new --reason TEXT` override (also readable from two environment variables so a Kubernetes Job can receive it) that never
+  waives the floors, identity, duplicates or empty text; and the runbook section for the override. What does NOT change: serving, the Helm chart,
+  docker-compose.yml, the extraction, the shape of lexical_index and vector_index, `PublishSafetyError` as the single refusal type,
+  `publish_generation`/`publish` called without the new argument. Not in this card (TC-529): the scope lock, fsync, retention, the 64 KiB pointer cap,
+  validated rollback, `rollback.py --list/--previous`.
 depends_on:
 - TC-506
 - TC-389
@@ -43,12 +39,9 @@ write_paths:
 - src/foss_mcp/indexing/generation_manifest.py
 - src/foss_mcp/indexing/publisher.py
 - infra/ingest.py
-- infra/rollback.py
 - docs/DEPLOYMENT.md
 - tests/indexing/test_publish_safety.py
-- tests/indexing/test_store_durability.py
 - tests/infra/test_ingest_publish_safety.py
-- tests/infra/test_rollback_cli.py
 - tests/infra/test_ingest.py
 - tests/infra/test_ingest_furnished_survival.py
 - tests/infra/test_ingest_symbol_survival.py
@@ -62,34 +55,36 @@ source_refs:
   sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
 inputs:
 - >-
-  Read, in full, src/foss_mcp/indexing/generation_manifest.py (`GenerationManifestStore._read_json` / `_atomic_write_json` / `acquire_lease` /
-  `cas_activate` / `read_active` / `generation_exists`, `assert_publish_is_safe`, `_document_count`, `publish`, `rollback`),
-  src/foss_mcp/indexing/publisher.py (`publish_generation`, `rollback_generation`), infra/ingest.py (`main`, argparse block L263-306),
-  infra/rollback.py, and the section headings of docs/DEPLOYMENT.md. Read the existing tests that pin what must stay true:
-  tests/indexing/test_generation_manifest.py (TC-242 / TC-253 guard tests: `assert_publish_is_safe(0, None)` raises, `(1, 4)` raises, `(2, 4)` and
+  Read, in full, src/foss_mcp/indexing/generation_manifest.py (`GenerationManifestStore._read_json` / `_atomic_write_json` / `read_active` /
+  `generation_exists`, `assert_publish_is_safe`, `_document_count`, `publish`), src/foss_mcp/indexing/publisher.py (`publish_generation`),
+  infra/ingest.py (`main`, argparse block L263-306), and the section headings of docs/DEPLOYMENT.md. Read the existing tests that pin what must stay
+  true: tests/indexing/test_generation_manifest.py (TC-242 / TC-253 guard tests: `assert_publish_is_safe(0, None)` raises, `(1, 4)` raises, `(2, 4)` and
   `(5, 4)` pass; a refused publish writes no generation file), tests/indexing/test_generation_manifest_containment.py (L196-214 pins the exact
   scope-directory listing `active_pointer.json, generation__v1.json, lease_state.json` after a plain `publish(...)`: so a `publish` WITHOUT a policy
-  must write no `publish_log.jsonl` and must leave no lock file behind), tests/indexing/test_publisher.py (L648-689 compares the published payload with
-  `{vector_index, lexical_index}` exactly: so `payload.stats` is added ONLY when a policy is given), tests/infra/test_ingest.py and tests/infra/test_rollback.py.
-  The reviewer's working prototypes are the base for the new tests and are NOT importable by the worker: the scenarios are P1-P12 of a script that
+  must write no `publish_log.jsonl`), tests/indexing/test_publisher.py (L648-689 compares the published payload with `{vector_index, lexical_index}`
+  exactly: so `payload.stats` is added ONLY when a policy is given), tests/infra/test_ingest.py and tests/infra/test_rollback.py.
+  The reviewer's working prototypes are the base for the new tests and are NOT importable by the worker: the scenarios are P1-P7 of a script that
   builds chunks `mk(kind, i)` in three kinds (symbol: text starts `FQN: Sym<i>` / `Kind: type_spec`; doc: `FQN: Doc: Guide<i>`; example:
   `FQN: Example: Demo<i>`), publishes them with `publish_generation` and a `HashingEmbeddingProvider`, and then checks the pointer. Rebuild that
   helper inside the new test files. Never print or log any environment value.
 - >-
   KIND CLASSIFICATION (one function, used for new and for legacy generations so baselines are comparable). In generation_manifest.py define
-  `classify_chunk_text(text: str) -> str` returning "example" when the text starts with `FQN: Example: `, "doc" when it starts with `FQN: Doc: `,
-  "symbol" for any other text starting with `FQN: `, else "other". Verified on the 40 baked generations (infra/demo-manifests/*/generation__*.json):
-  6840 symbol, 748 doc, 183 example, 12 other documents in total. Define `payload_stats(payload) -> dict` returning
-  `{"symbols", "docs", "examples", "other", "total"}` computed from `payload["lexical_index"]["documents"][*]["text"]` (a payload without a lexical
-  index yields all zeros). A document whose `text` is not a str counts as "other".
+  `classify_chunk_text(text: str) -> str` with exactly the semantics of `foss_mcp.mcp.tools.relevance.chunk_kind` (which TC-506's readiness uses), but
+  WITHOUT importing from foss_mcp.mcp (that package imports this module: an import cycle): take the first match of the regular expression
+  `^FQN:\s*(.+)$` (MULTILINE, the one `get_symbol.extract_fqn` uses); no match -> "doc"; a value starting `Example: ` -> "example"; starting `Doc: `
+  -> "doc"; anything else -> "symbol". Verified on the 40 baked generations (infra/demo-manifests/*/generation__*.json): 6840 symbol, 760 doc
+  (748 with a `Doc: ` FQN and 12 with no FQN line), 183 example documents in total. Define `payload_stats(payload) -> dict` returning
+  `{"symbols", "docs", "examples", "total"}` computed from `payload["lexical_index"]["documents"][*]["text"]` (a payload without a lexical index
+  yields all zeros). A document whose `text` is not a str counts as "doc" for the total and is also what `empty_text_chunks` reports on the chunk
+  side.
 - >-
   POLICY AND CONSTANTS in generation_manifest.py, each on ONE line exactly as written (the negative control edits the first): `PRODUCTION_MIN_SYMBOLS = 3`,
-  `PRODUCTION_MIN_DOCS = 1`, `RETENTION_KEEP_LAST = 3`, `MIN_BASELINE_FOR_PERCENT_RULE = 5`, `POINTER_MAX_BYTES = 64 * 1024`,
-  `PUBLISH_LOG_NAME = "publish_log.jsonl"`. Add `@dataclass(frozen=True) class PublishPolicy` with fields and defaults:
-  `min_symbols: int = PRODUCTION_MIN_SYMBOLS`, `min_docs: int = PRODUCTION_MIN_DOCS`, `max_drop: float = 0.5`, `max_symbol_drop: float = 0.2`,
+  `PRODUCTION_MIN_DOCS = 1`, `RETENTION_KEEP_LAST = 3`, `MIN_BASELINE_FOR_PERCENT_RULE = 5`, `PUBLISH_LOG_NAME = "publish_log.jsonl"`
+  (RETENTION_KEEP_LAST is the history length here; TC-529 reuses it for retention). Add `@dataclass(frozen=True) class PublishPolicy` with fields and
+  defaults: `min_symbols: int = PRODUCTION_MIN_SYMBOLS`, `min_docs: int = PRODUCTION_MIN_DOCS`, `max_drop: float = 0.5`, `max_symbol_drop: float = 0.2`,
   `history: int = RETENTION_KEEP_LAST`, `accept_regressions: tuple[tuple[str, int, int], ...] = ()`, `reason: str | None = None`,
-  `held_by: str = ""`, `prune: bool = True`, `generation_min_age_seconds: float = 3600.0`. `PublishPolicy()` IS the production policy; the legacy
-  behaviour is `policy=None`. Add no new exception type: the single existing `PublishSafetyError` is raised for every refusal.
+  `held_by: str = ""`. (TC-529 appends two retention fields to this dataclass.) `PublishPolicy()` IS the production policy; the legacy behaviour is
+  `policy=None`. Add no new exception type: the single existing `PublishSafetyError` is raised for every refusal.
 - >-
   `publish(store, scope, expected_active, generation, lease, policy: PublishPolicy | None = None)`. With `policy=None` the function is byte for byte
   today's behaviour (validate_manifest, `assert_publish_is_safe` against the active document count, write_and_validate, cas_activate) and writes no
@@ -110,43 +105,12 @@ inputs:
   never be waived. `policy.accept_regressions` without `policy.reason` raises `PublishSafetyError`. (6) Every percent refusal message ends with the
   exact flags that would accept it, for example `to accept deliberately: --accept-regression symbols:100->46 --reason TEXT`; floor/identity/
   duplicate/empty messages carry no such hint. (7) After `cas_activate` succeeds append `{"ts", "event": "published", "scope", "generation_id",
-  "previous_active": expected_active, "held_by", "stats", "baseline", "overrides": ["symbols:100->46", ...], "reason", "floors": {"symbols", "docs"}}`
-  and, if `policy.prune`, call `store.prune(scope, protect=(expected_active,), generation_min_age_seconds=policy.generation_min_age_seconds)`.
+  "previous_active": expected_active, "held_by", "stats", "baseline", "overrides": ["symbols:100->46", ...], "reason", "floors": {"symbols", "docs"}}`.
 - >-
-  STORE METHODS on `GenerationManifestStore`: `append_publish_log(scope, entry)` (one json line, key-sorted, then flush and fsync; creates the scope
-  directory), `read_publish_log(scope) -> list[dict]` (a missing file is `[]`, a malformed line is skipped), `list_generations(scope) -> list[str]`
-  (generation ids found as `generation__*.json` in the scope directory, newest version first by descending version string, ids read from the files'
-  own `generation_id`), `previous_generation(scope) -> str | None` (the `previous_active` of the newest `published` or `rollback` log entry if that
-  generation still exists; else the second entry of `list_generations`; else None), `prune(scope, *, keep_last=RETENTION_KEEP_LAST,
-  tmp_max_age_seconds=3600.0, generation_min_age_seconds=3600.0, protect=(), now=None) -> list[str]` (keeps the active generation, every id in
-  `protect`, the log-derived previous generation, and the `keep_last` newest by version; deletes every other `generation__*.json` older than
-  `generation_min_age_seconds` and every `.tmp-*` file older than `tmp_max_age_seconds` (by mtime); NEVER deletes an active or protected file even if
-  old; appends one `{"event": "pruned", "removed": [...]}` log line when it removed anything; returns the removed file names), and
-  `_fsync_directory(path)` (staticmethod; on `os.name == "posix"` open the directory read-only and `os.fsync` it, swallowing OSError; a no-op
-  elsewhere). All of these use the contained scope directory from `_scope_dir`; none may follow a path outside the store root.
-- >-
-  DURABILITY AND READS. `_atomic_write_json`: `fh.flush()` then `os.fsync(fh.fileno())` before `os.replace`, and `_fsync_directory(path.parent)`
-  after it. `_read_json(path, max_bytes=None)`: open in binary, if `max_bytes` is given read `max_bytes + 1` bytes and raise
-  `GenerationManifestError("... exceeds 64 KiB")` when longer, decode with `utf-8-sig` (so a BOM written by PowerShell is tolerated; generation
-  files too), then `json.loads`; a missing file still returns None. `read_active`, `current_fencing_token` (lease_state) pass `max_bytes=POINTER_MAX_BYTES`.
-  A pointer with a BOM now reads; an oversized pointer raises `GenerationManifestError` (the serving layer's handling of that is TC-5xx, not here).
-- >-
-  EXCLUSIVE LOCK. Add `GenerationManifestStore.scope_lock(scope)` (a context manager) and constructor keywords `lock_timeout: float = 60.0` and
-  `lock_stale_seconds: float = 30.0`. The lock is an `os.open(..., O_CREAT | O_EXCL | O_WRONLY)` file `.publish.lock` in the scope directory holding
-  the pid and a timestamp, removed in `finally`. A lock whose mtime is older than `lock_stale_seconds` is removed and taken (a crashed holder); a
-  caller that cannot get it within `lock_timeout` raises `GenerationManifestError`; retry on FileExistsError and PermissionError with a short sleep.
-  Wrap in it the whole read-increment-write of `acquire_lease` and the whole token-check / compare / write of `cas_activate`. Nothing else holds it
-  (generation writes, log appends and prune take no lock, so the lock is held for milliseconds). Because it is removed on exit, the scope directory
-  listing after `publish` is unchanged.
-- >-
-  ROLLBACK. `rollback(store, scope, expected_active, target_generation_id, lease, *, validate: bool = False)`: in all cases, after the existing
-  `generation_exists` check (keep its order and its `UnknownGenerationError`), refuse a target whose id is not of the form `<scope>::<version>` (the id
-  minus its last `::` component must equal `scope`) with `UnknownGenerationError` (GRR-08). With `validate=True` also read the generation and
-  require `check_generation_shape(manifest) == []`, else raise `ManifestValidationError` listing the problems. Define `check_generation_shape(manifest)
-  -> list[str]`: `lexical_index.documents` is a non-empty dict; each document has a str `chunk_id`, a list `tokens` and a non-empty str `text`;
-  `lexical_index.doc_freq` is a dict; the manifest's inside `generation_id` equals the requested one. Append a `{"event": "rollback", "scope",
-  "generation_id", "previous_active": expected_active}` log line after every successful rollback (with or without `validate`).
-  Existing tests call `rollback(...)` with `_lexical_index` documents whose text is empty: with `validate=False` they must pass unchanged.
+  STORE METHODS on `GenerationManifestStore` (the only ones this card adds): `append_publish_log(scope, entry)` (one json line, key-sorted, then flush
+  and `os.fsync`; creates the scope directory; uses the contained scope directory from `_scope_dir`) and `read_publish_log(scope) -> list[dict]` (a
+  missing file is `[]`, a malformed line is skipped). Nothing in this card reads or writes any other file than publish_log.jsonl beyond what `publish`
+  does today.
 - >-
   src/foss_mcp/indexing/publisher.py: `publish_generation(..., policy: PublishPolicy | None = None)`. When `policy` is given, after building the
   payload add `payload["stats"] = build_generation_stats(chunks, chunk_ids)` where `build_generation_stats` (module-level, in publisher.py) returns
@@ -156,41 +120,35 @@ inputs:
   `AttributeError` out of `tokenize`) must be counted as empty text and must not raise: with a policy, FIRST compute the duplicate and empty-text
   counts from the chunks, and when either is above zero append a `refused` line via `store.append_publish_log` and raise `PublishSafetyError`
   BEFORE building any index (share one small helper in generation_manifest.py with `publish` so the refusal and its log line are written in one
-  place). With `policy=None` nothing changes. `rollback_generation(..., validate=False)`
-  passes the new keyword through.
+  place). With `policy=None` nothing changes.
 - >-
   infra/ingest.py: import `PublishPolicy`, `PRODUCTION_MIN_SYMBOLS`, `PRODUCTION_MIN_DOCS`. New options: `--min-symbols` (int, default
   PRODUCTION_MIN_SYMBOLS), `--min-docs` (int, default PRODUCTION_MIN_DOCS) with help text saying they exist for tiny test fixtures and must not be
   lowered for a pilot; `--accept-regression KIND:OLD->NEW` (repeatable, action append; parse with a function raising `argparse.ArgumentTypeError`
   for anything but `symbols|docs|examples|total`, a non-negative integer old and new, the exact `->` separator) and `--reason TEXT`. After parsing:
-  if any `--accept-regression` is given without a non-blank `--reason`, call `parser.error(...)` (exit 2). Build `PublishPolicy(min_symbols=...,
-  min_docs=..., accept_regressions=tuple(...), reason=args.reason, held_by=args.held_by)` and pass `policy=policy` to `publish_generation`. Do not catch
-  `PublishSafetyError`. Do not add a floor or override to docker-compose.yml or the chart (they take the production defaults; a test below asserts it).
-- >-
-  infra/rollback.py: make `--target-generation` optional and add `--list` and `--previous` in one required mutually exclusive group with it (none of
-  them given, or two given, is an argparse error, exit 2). `--list` prints, for the scope, one line per generation newest first: the generation id, the
-  word `ACTIVE` next to the active one, and `symbols=N docs=N examples=N total=N` taken from `payload.stats` or else `payload_stats(payload)`; it
-  takes no lease and writes nothing. `--previous` resolves `store.previous_generation(scope)` (raising `UnknownGenerationError` when None) and rolls
-  back to it. `--target-generation` keeps its behaviour. All rollbacks call `rollback_generation(..., validate=True)`. Keep the printed line
-  `rolled back to <id>`.
+  when `--accept-regression` is not given, read its values from the environment variable `FOSS_MCP_ACCEPT_REGRESSION` (items separated by `;`,
+  each parsed by the same function) and when `--reason` is not given read `FOSS_MCP_ACCEPT_REGRESSION_REASON` (this is how a Kubernetes ingestion Job,
+  whose command line the chart owns, receives an override: TC-512 renders the two variables from chart values; the chart and docker-compose.yml never
+  pass the flags); if any accepted regression (from the flag or the environment) lacks a non-blank reason, call `parser.error(...)` (exit 2). Build
+  `PublishPolicy(min_symbols=..., min_docs=..., accept_regressions=tuple(...), reason=args.reason, held_by=args.held_by)` and pass `policy=policy` to
+  `publish_generation`. Do not catch `PublishSafetyError`. Do not add a floor or override to docker-compose.yml or the chart (they take the
+  production defaults; a test below asserts it).
 - >-
   docs/DEPLOYMENT.md: insert, immediately BEFORE the `## Troubleshooting` heading (tests/deploy/test_runbook.py slices the text between
-  `## Troubleshooting` and `## Known limits`, so the new sections must not be inside that slice), two sections. `## Rolling back a generation`:
-  the ingestion image already contains `infra/rollback.py`; the manifests claim is `foss-mcp-<family>-<platform>-manifests` mounted read-only by
-  serving, `ReadWriteOnce`, so the rollback Job must run on the same node (add a `nodeName`); show one complete Job manifest (kind Job, image =
-  the chart's ingestion image and tag, runAsUser 10001, fsGroup 10001, volume from that claim at /data/manifests, `command: ["python",
-  "/app/infra/rollback.py", ...]`) and the three argument forms `--list`, `--previous`, `--target-generation <id>`, with the exact flags
-  `--family pdf --platform go --source-kind self_extracted --manifest-store /data/manifests`; say the target is validated, that `/readyz` flips on
-  the next probe with no restart, and what to read in `publish_log.jsonl`. `## Accepting an intentional shrink`: when and why a publish is refused
-  (floors, per-kind limits against the maximum of the last three generations, duplicates, empty text, repository change); the exact command
-  shape `python /app/infra/ingest.py ... --accept-regression symbols:100->46 --accept-regression total:153->58 --reason "upstream removed the vendored
-  directory"` (the numbers come from the refusal message); that the override must match the observed numbers, is recorded in `publish_log.jsonl`
-  with the reason, never waives the floors or the identity check, and that renaming `active_pointer.json` is no longer needed and must not be done.
-  Do not put the word `install_pilots.py` on any line of these sections (test_runbook checks the flags on every such line).
+  `## Troubleshooting` and `## Known limits`, so the new section must not be inside that slice), the section `## Accepting an intentional shrink`:
+  when and why a publish is refused (floors, per-kind limits against the maximum of the last three generations, duplicates, empty text, repository
+  change - which needs a new store, never an override); the exact command shape `python /app/infra/ingest.py ... --accept-regression symbols:100->46
+  --accept-regression total:153->58 --reason "upstream removed the vendored directory"` (the numbers come from the refusal message); that the override
+  must match the observed numbers, is recorded in `publish_log.jsonl` with the reason, never waives the floors or the identity check, and that
+  renaming `active_pointer.json` is no longer needed and must not be done. Also document the environment form
+  (`FOSS_MCP_ACCEPT_REGRESSION="symbols:100->46;total:153->58"` and `FOSS_MCP_ACCEPT_REGRESSION_REASON`), which is what the chart sets from its
+  `ingestion.acceptRegression` values (added by TC-512; say "the chart value ingestion.acceptRegression" and that it applies to one pilot release and
+  must be removed again after the publish). Do not put the word `install_pilots.py` on any line of this section (test_runbook checks the flags on every
+  such line). The rollback section is TC-529's.
 - >-
   TESTS (all offline and deterministic: tmp_path stores, in-process `ingest.main()` via monkeypatched `sys.argv`, no sockets, no sleeps in assertions,
-  no skipped or xfailed test). tests/indexing/test_publish_safety.py: `test_classify_chunk_text_kinds`; `test_payload_stats_counts_each_kind`;
-  `test_policy_none_adds_no_stats_log_or_lock_and_keeps_the_legacy_guard` (published payload keys are exactly vector_index and lexical_index, scope
+  no skipped or xfailed test). tests/indexing/test_publish_safety.py: `test_classify_chunk_text_kinds`; `test_classification_agrees_with_relevance_chunk_kind_on_every_baked_document`; `test_payload_stats_counts_each_kind`;
+  `test_policy_none_adds_no_stats_or_log_and_keeps_the_legacy_guard` (published payload keys are exactly vector_index and lexical_index, scope
   directory listing is exactly active_pointer.json, generation file, lease_state.json); `test_policy_publish_persists_stats_and_appends_log_line`;
   `test_production_constants_are_the_reviewed_values` (3, 1, 3, 5); parametrised `test_refusals` over: empty first publish, a single trivial chunk,
   two symbols, zero docs, all symbols lost (40/50/10 -> 0/50/10), all docs lost, all examples lost (10 -> 0), symbols 40 -> 31 (more than 20 percent),
@@ -203,29 +161,18 @@ inputs:
   (the jmap_go shape: 100/40/13 -> 46/10/2 with four matching overrides and a reason); `test_accept_regression_with_wrong_numbers_is_refused`;
   `test_accept_regression_without_reason_is_refused`; parametrised `test_override_never_waives` (floor, duplicates, empty text, repository change,
   empty generation); `test_an_accepted_shrink_resets_history_so_the_next_publish_at_the_new_size_passes`; `test_refusal_message_carries_the_exact_accept_flags`;
+  `test_the_publish_log_round_trips_and_skips_a_malformed_line`;
   `test_the_40_baked_generations_satisfy_the_production_floors` (reads infra/demo-manifests, asserts at least 40 scopes and symbols >= 3, docs >= 1
-  for each; this proves no false positive on the shipped fleet). tests/indexing/test_store_durability.py: `test_concurrent_lease_acquirers_get_unique_tokens`
-  (8 threads released together by a threading.Barrier, repeated 10 times on fresh scopes, tokens are exactly 1..8); `test_acquire_lease_waits_while_the_scope_lock_is_held`;
-  `test_cas_activate_waits_while_the_scope_lock_is_held`; `test_lock_timeout_raises_a_manifest_error`; `test_a_stale_lock_is_taken_over`
-  (os.utime the lock file back); `test_no_lock_file_remains_after_publish_or_failure`; `test_atomic_write_fsyncs_the_file` (monkeypatch os.fsync to a
-  recorder); `test_atomic_write_fsyncs_the_directory` (monkeypatch `_fsync_directory`); `test_real_fsync_directory_never_raises`; `test_pointer_with_bom_is_read`;
-  `test_generation_file_with_bom_is_read`; `test_oversized_pointer_is_rejected_without_parsing_it` (65 KiB + 1 of valid-looking json);
-  `test_pointer_at_the_limit_is_read`; `test_prune_keeps_active_previous_and_the_last_three` (8 generations); `test_prune_never_removes_active_or_previous_even_when_old`;
-  `test_prune_removes_stale_tmp_files_only_after_an_hour` (os.utime); `test_prune_skips_young_generation_files`; `test_publish_with_policy_prunes_and_logs`;
-  `test_rollback_refuses_a_foreign_prefix_id_even_if_the_version_exists`; parametrised `test_rollback_validate_rejects_malformed_payloads` (no documents,
-  document without tokens, empty text, no doc_freq); `test_rollback_validate_accepts_a_real_generation`; `test_rollback_without_validate_keeps_the_legacy_contract`;
-  `test_rollback_appends_a_log_line`; `test_list_generations_and_previous_generation`. tests/infra/test_ingest_publish_safety.py:
+  for each; this proves no false positive on the shipped fleet). tests/infra/test_ingest_publish_safety.py:
   `test_cli_refuses_a_two_symbol_generation_by_default`; `test_cli_floors_can_be_lowered_only_by_the_explicit_flags`; `test_cli_accept_regression_publishes_a_153_to_58_shrink`
-  (jmap_go shape) `_and_logs_it`; `test_cli_accept_regression_requires_a_reason` (SystemExit 2); parametrised `test_cli_rejects_malformed_accept_regression`
+  (jmap_go shape) `_and_logs_it`; `test_cli_accept_regression_requires_a_reason` (SystemExit 2); `test_cli_accept_regression_can_come_from_the_environment` (both variables, publishes
+  and logs the reason); `test_cli_environment_override_without_a_reason_is_refused`; `test_cli_flag_wins_over_the_environment`; parametrised `test_cli_rejects_malformed_accept_regression`
   (`symbols:1-2`, `colour:1->2`, `symbols:a->2`, `symbols:1->`, `symbols:-1->2`; SystemExit 2); `test_cli_override_does_not_waive_the_floor`;
   `test_cli_passes_a_policy_to_publish_generation` (a source assertion on infra/ingest.py: contains `policy=policy` and `PublishPolicy(`) AND a behavioural one
   with 2 symbol chunks refused, because a green unit test of the policy proves nothing if the entrypoint never passes it); `test_chart_and_compose_do_not_pass_floor_flags`
   (neither infra/helm/foss-mcp/templates/ingestion-job.yaml nor docker-compose.yml contains `--min-symbols`, `--min-docs` or `--accept-regression`);
-  `test_cli_still_refuses_empty_and_halving_generations`. tests/infra/test_rollback_cli.py: `test_list_marks_the_active_generation_and_shows_counts`;
-  `test_list_writes_nothing`; `test_previous_rolls_back_one_step`; `test_previous_without_history_raises`; `test_target_generation_still_works`;
-  `test_exactly_one_mode_is_required` (SystemExit 2 for none and for two); `test_foreign_prefix_target_is_refused_and_the_pointer_is_unchanged`;
-  `test_malformed_target_is_refused_and_the_pointer_is_unchanged`; `test_deployment_md_documents_rollback_and_the_shrink_override` (both headings present
-  before `## Troubleshooting`, and the strings `--list`, `--previous`, `--target-generation`, `--accept-regression`, `--reason`, `publish_log.jsonl` appear).
+  `test_cli_still_refuses_empty_and_halving_generations`; `test_deployment_md_documents_the_shrink_override` (the heading `## Accepting an intentional
+  shrink` appears before `## Troubleshooting`, and the strings `--accept-regression`, `--reason`, `FOSS_MCP_ACCEPT_REGRESSION`, `publish_log.jsonl` appear).
 - >-
   EXISTING TESTS: tests/infra/test_ingest.py, test_ingest_furnished_survival.py, test_ingest_symbol_survival.py, test_ingest_vector_scope.py and
   tests/deploy/test_verified_example_vectors.py build an ingest argv with 2 to 6 synthetic chunks and would now meet the production floors. In each, add
@@ -233,32 +180,29 @@ inputs:
   not a fixture. Run them first and confirm they fail only for that reason. Do not edit tests/indexing/test_generation_manifest.py, test_publisher.py,
   test_generation_manifest_containment.py, tests/infra/test_rollback.py (they pass unchanged because the new behaviour is opt-in).
 - >-
-  Run `{python} -m pytest tests/indexing/test_publish_safety.py tests/indexing/test_store_durability.py tests/infra/test_ingest_publish_safety.py
-  tests/infra/test_rollback_cli.py -q -rfE`, then the second check command below. Write commit messages as UTF-8 without a byte-order mark. Preserve
-  each file's line endings and encoding. Keep ruff, ruff format and mypy clean (the local pre-push gate). Never run an ingestion, a cluster or a docker
-  command.
+  Run `{python} -m pytest tests/indexing/test_publish_safety.py tests/infra/test_ingest_publish_safety.py -q -rfE`, then the second check command below.
+  Write commit messages as UTF-8 without a byte-order mark. Preserve each file's line endings and encoding. Keep ruff, ruff format and mypy clean (the
+  local pre-push gate). Never run an ingestion, a cluster or a docker command.
 actions:
 - >-
   Add PublishPolicy, per-kind stats, the floors, the per-kind regression limits against the last three generations, the duplicate/empty/identity
-  refusals and the logged override to publish(); make infra/ingest.py pass the production policy.
+  refusals, the logged exactly-matching override and the publish log to publish(); make infra/ingest.py pass the production policy.
 - >-
-  Add the exclusive scope lock, fsync, retention, the bounded BOM-tolerant pointer read, the validated rollback and the --list/--previous modes.
-- >-
-  Document the rollback and shrink procedures in docs/DEPLOYMENT.md and pin everything with offline tests, including an entrypoint call-site assertion.
+  Document the shrink-override procedure in docs/DEPLOYMENT.md and pin everything with offline tests, including an entrypoint call-site assertion.
 checks:
-- command: '{python} -m pytest tests/indexing/test_publish_safety.py tests/indexing/test_store_durability.py tests/infra/test_ingest_publish_safety.py tests/infra/test_rollback_cli.py -q -rfE'
+- command: '{python} -m pytest tests/indexing/test_publish_safety.py tests/infra/test_ingest_publish_safety.py -q -rfE'
   expect: exit 0
   timeout_seconds: 1200
   junitxml: true
   proves:
   - REQ-G3-008
-- command: '{python} -m pytest tests/indexing/test_publish_safety.py tests/indexing/test_store_durability.py tests/infra/test_ingest_publish_safety.py tests/infra/test_rollback_cli.py tests/indexing/test_generation_manifest.py tests/indexing/test_generation_manifest_containment.py tests/indexing/test_generation_read_cache.py tests/indexing/test_publisher.py tests/indexing/test_vector_scope.py tests/infra/test_ingest.py tests/infra/test_ingest_furnished_survival.py tests/infra/test_ingest_symbol_survival.py tests/infra/test_ingest_vector_scope.py tests/infra/test_rollback.py tests/deploy/test_verified_example_vectors.py tests/deploy/test_compact_demo_manifests.py tests/deploy/test_runbook.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+- command: '{python} -m pytest tests/indexing/test_publish_safety.py tests/infra/test_ingest_publish_safety.py tests/indexing/test_generation_manifest.py tests/indexing/test_generation_manifest_containment.py tests/indexing/test_generation_read_cache.py tests/indexing/test_publisher.py tests/indexing/test_vector_scope.py tests/infra/test_ingest.py tests/infra/test_ingest_furnished_survival.py tests/infra/test_ingest_symbol_survival.py tests/infra/test_ingest_vector_scope.py tests/infra/test_rollback.py tests/deploy/test_verified_example_vectors.py tests/deploy/test_compact_demo_manifests.py tests/deploy/test_runbook.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
   expect: exit 0
   timeout_seconds: 1800
   junitxml: true
   proves:
   - REQ-G3-008
-min_tests: 60
+min_tests: 40
 network: true
 requires:
 - python
@@ -274,8 +218,8 @@ evidence:
 closeout:
 - >-
   A production publish refuses generations that lose a whole kind, fall under 3 symbols or 1 doc, erode by repeated cuts, duplicate or blank chunks,
-  or change repository; an intentional shrink is accepted only with an exactly matching, logged `--accept-regression ... --reason`; rollback has
-  --list and --previous and validates its target; lease and CAS are serialised; writes are fsynced; old generations are pruned. Supervisor, after
-  integration: rebuild the ingestion image and run one real re-ingest of one pilot on the kind cluster to confirm the floors do not refuse a real
-  generation (the 40 baked ones were checked offline); the DEPLOYMENT.md rollback Job manifest has never been applied on the cluster.
+  or change repository; an intentional shrink is accepted only with an exactly matching, logged `--accept-regression ... --reason` (or the two
+  environment variables). Supervisor, after integration: rebuild the ingestion image and run one real re-ingest of one pilot on the kind cluster to
+  confirm the floors do not refuse a real generation (the 40 baked ones were checked offline). TC-529 follows (lock, fsync, retention, pointer cap,
+  validated rollback).
 recovery: Re-run from a clean tree.

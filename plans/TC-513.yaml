@@ -1,0 +1,204 @@
+id: TC-513
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-008 (independent pre-production review, findings FK8S-03, FK8S-12, FK8S-07 (its test), FK8S-06 and the proof-suite blind spots). PROOF
+  SUITE AND FLEET CONSISTENCY. The fleet proof (scripts/deploy/prove_pilots.py -> scripts/poc/pilot_workflow_proof.py -> the `_McpSession` client of
+  tests/e2e/test_cells_rust_live_content.py) scored 25 of 40 on the live cluster: 14 find_examples ReadTimeouts at the client's fixed 15 s limit
+  (root cause FK8S-02, fixed server-side by TC-508) and one transport artefact. Two client defects made that run harder to read: (1) `_McpSession.call_tool`
+  defaults `request_id` to 1 for every call (L323) and `LiveMcpClient._rpc` sends `"id": 1`, so a late answer to a timed-out call is indistinguishable
+  from the answer to the next one (the reviewer could not reproduce a poisoned answer in 300 same-id calls, because each call is its own HTTP exchange,
+  but nothing in the client would notice one: two flaky checks, 3d_python check 7 and jmap_net check 7, were attributed to it), and (2) the 15 s limit is
+  hard-coded, so a proof run behind a slow embedding gateway cannot be given more time without editing the file. FK8S-12: the tool docstrings still say
+  "fourteen pilots" (scripts/deploy/prove_pilots.py, scripts/deploy/pilots.py) while the chart has 40. The proof is also fixture-circular: it takes
+  the symbol, commit and title from the very fixtures the generation was built from, so a pilot whose data is mixed (pdf/typescript: 300 symbol chunks
+  at c672b39 and 27 documentation/example chunks at 155bfc7, with the chart pin at 155bfc7), one that serves 3 symbols, or one that carries 38
+  unresolved symbols (email/python; tex/python 13 with an upstream that does not parse) passes 11 of 11. Measured on the committed tree (a one-off
+  script over tests/fixtures, infra/demo-manifests and values.yaml): for 39 of 40 pilots the fixture `source_commit`, the chart pin
+  (`ingestion.pilots[].library.commit`) and EVERY `Source-Commit:` line of the baked generation are identical; the exception is pdf_typescript. All 40
+  pilots have `product_reference_*.json` with the pilot's own platform, `source_repository` and `source_ref` equal to the pin, release URLs inside the
+  pilot's own repository, and a package-registry ecosystem that matches the platform (cpp has none). All 40 symbol-chunk sets carry
+  `API-Coverage: N of M types` with N the number of symbol chunks and M the fixture `type_count` (13 pilots are truncated: pdf_net 300 of 901, ...). All
+  40 meet symbols >= 3 and documentation >= 1 (imaging/net 3 and 4, tex/python 4 and 20). Fixture `unresolved` counts are 13 (tex_python), 38
+  (email_python), 10 (words_python), 4 (pdf_python), 1 (html_python) and 0 elsewhere. This card (a) gives the proof client monotonically increasing
+  JSON-RPC ids and rejects any response whose id is not the request's, with a per-call timeout and a per-tool timeout (find_examples) that default to
+  today's 15 s and change ONLY through parameters and two new command-line flags; (b) adds an opt-in `--min-content` check 12 to the workflow proof
+  (served `indexed_types` at least 3, served `total_types` equal to the fixture's `type_count`, documentation reachable where a furnished page exists) and
+  an always-on, never-failing `warnings` list in the proof report (unresolved symbols in the fixture); (c) fixes the stale counts in the two docstrings;
+  and (d) adds tests/deploy/test_fleet_consistency.py, an offline test over fixtures + chart + the baked generations asserting, for every pilot, the
+  three-way commit agreement, scope identity, sidecar identity, API-Coverage honesty, the composition floor and an unresolved-count table, with
+  documented exceptions that FAIL when they no longer apply (as TC-440 does for tex_python). It adds no new live check by default: the default proof
+  is still eleven checks with the same argv. What does NOT change: serving, the chart, any fixture or generation, relevance, the existing eleven
+  checks, and the pdf/typescript data itself (its re-pin is another card, which must delete the exception below in the same commit).
+depends_on:
+- TC-440
+- TC-503
+- TC-504
+- TC-381
+- TC-345
+- TC-238
+- TC-214
+- TC-236
+- TC-223
+write_paths:
+- tests/e2e/test_cells_rust_live_content.py
+- scripts/poc/pilot_workflow_proof.py
+- scripts/deploy/prove_pilots.py
+- scripts/deploy/pilots.py
+- tests/deploy/test_fleet_consistency.py
+- tests/poc/test_proof_client_ids.py
+- tests/poc/test_pilot_workflow_proof_content.py
+- tests/deploy/test_prove_pilots_content.py
+satisfies:
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read, in full: tests/e2e/test_cells_rust_live_content.py L218-345 (`_initialize_body`, `_sse_json`, `_McpSession`), scripts/poc/pilot_workflow_proof.py
+  (the module docstring, `Pilot`, `load_pilot`, `_Run`, `check_8`, `CHECKS`, `run_checks`, `unrunnable_checks`, `LiveMcpClient`, `open_live_client`,
+  `parse_args`, `build_report`, `main`), scripts/deploy/prove_pilots.py, the docstring of scripts/deploy/pilots.py, scripts/release/image_workflow_gate.py
+  L540-560 and L860-870 (it imports `load_pilot`, `run_checks`, `open_live_client`, `unrunnable_checks` and calls `open_live_client(url)`,
+  `run_checks(client, pilot)`, `unrunnable_checks(reason)` with exactly those signatures: they must keep working unchanged), the existing tests
+  tests/poc/test_pilot_workflow_proof.py (it passes `client_factory=lambda url: FakeClient(...)`, asserts check ids `1..11` and `Pilot` is built with
+  keywords or `dataclasses.replace`), tests/deploy/test_prove_pilots.py (it fakes `subprocess.run`/`Popen`, the proof report it writes holds only
+  `summary` and `all_applicable_passed`, and one test asserts the exact start of the proof argv), tests/deploy/test_image_workflow_gate.py (expects 11
+  proof checks) and tests/deploy/test_verified_examples_coverage.py (the exception-table pattern to copy). Never print or log any environment value.
+- >-
+  tests/e2e/test_cells_rust_live_content.py, `_McpSession` (this file is imported by the proof tools, the live docker tests themselves are not run by this
+  card): add `import itertools`; a module constant `DEFAULT_CALL_TIMEOUT_SECONDS = 15.0`; `__init__(self, *, call_timeout: float =
+  DEFAULT_CALL_TIMEOUT_SECONDS, tool_timeouts: Mapping[str, float] | None = None)` keeping the existing handshake exactly; an id source
+  `self._request_ids = itertools.count(1)` and a method `next_request_id(self) -> int`; `call_tool(self, name, arguments, *, request_id: int | None =
+  None, timeout: float | None = None)` which uses `request_id` when given and `self.next_request_id()` otherwise (so ids increase by one per call
+  within a session, across tools), resolves the timeout as the explicit `timeout`, else `tool_timeouts[name]`, else `call_timeout`, and after parsing
+  the SSE body raises `AssertionError(f"JSON-RPC response id {got!r} does not answer request id {sent!r} ...")` when `body.get("id") != sent` (a late
+  answer to a timed-out call, or any foreign answer, can never be taken for the current call). A `ReadTimeout` still propagates unchanged. The 15 s
+  default stays; no timeout constant for find_examples is hard-coded anywhere. Do not change any other function in the file and no live test.
+- >-
+  scripts/poc/pilot_workflow_proof.py: (1) `LiveMcpClient.__init__(self, e2e, url, *, call_timeout=15.0, tool_timeouts=None)` builds
+  `e2e._McpSession(call_timeout=call_timeout, tool_timeouts=tool_timeouts)`; `_rpc` takes its id from `self._session.next_request_id()`, uses
+  `self._call_timeout`, and applies the same response-id check (raise `RuntimeError` naming method, sent id and received id). (2)
+  `open_live_client(url, *, call_timeout=15.0, tool_timeouts=None)` passes them through (the one-argument call keeps working). (3) New flags
+  `--call-timeout SECONDS` (default 15), `--find-examples-timeout SECONDS` (default: the call timeout) and `--min-content` (store_true, default off);
+  `main` builds the default factory as `functools.partial(open_live_client, call_timeout=..., tool_timeouts={"find_examples": ...} if given)` and
+  still calls an injected `client_factory` with the URL only. (4) `Pilot` gains two trailing fields with defaults, `type_count: int | None = None`
+  and `unresolved_count: int = 0`, loaded in `load_pilot` from the fixture's `type_count` (an int) and the length of its `unresolved` list. (5)
+  `pilot_warnings(pilot) -> list[str]`: one string per fact that passes the eleven checks but is not a clean fixture, today `"<name>: the extraction left
+  N unresolved symbol(s) (see the fixture's unresolved list)"` when `unresolved_count > 0`; `build_report` adds `"warnings": pilot_warnings(pilot)` (an
+  empty list when `pilot` is None) and `main` prints each as a line starting `WARNING `. Warnings never change the exit code. (6) `check_12(run)`,
+  registered ONLY when `--min-content` is given (`CHECKS` and the eleven checks are unchanged; add `CHECKS_MIN_CONTENT = ((12, check_12),)`, `CHECK_TITLES[12]
+  = "minimum content: at least 3 indexed types, served coverage equals the fixture, documentation reachable"`, and `run_checks(client, pilot, *,
+  min_content=False)`, `unrunnable_checks(reason, *, min_content=False)`): it calls `report_index_freshness` the way check 8 does, fails unless the
+  answer's `indexed_types` is an int of at least 3 (`MIN_INDEXED_TYPES = 3`), fails when the fixture has a `type_count` and the answer's `total_types`
+  differs, and - only for a pilot with a furnished page - fails when `search_docs` for the furnished title returns an empty list; for a pilot without
+  one it records in its evidence that the documentation floor is enforced offline by tests/deploy/test_fleet_consistency.py (a note, not a failure).
+  (7) Update the module docstring ("eleven checks", plus a sentence for `--min-content` and the new flags).
+- >-
+  scripts/deploy/prove_pilots.py: add `--call-timeout`, `--find-examples-timeout` (both float, default None) and `--min-content` (store_true); when a
+  value is given (or the flag set) `run_proof(..., *, extra_args=())` appends exactly `--call-timeout X`, `--find-examples-timeout X`, `--min-content` to the
+  proof argv, and when none is given the argv is byte for byte today's. After the table and the existing error lines print `WARNING <release>: <text>`
+  for every entry of the proof report's `warnings` list (read from the report file, tolerating its absence). Replace "fourteen" in the module docstring
+  and the argparse description by "foss-mcp" pilot wording that is true for any chart size, e.g. "Prove the pilot releases of the foss-mcp chart (40
+  today)"; the "eleven-check" docstring becomes "the workflow proof (eleven checks, twelve with --min-content)". Do the same "fourteen" correction in the
+  docstring of scripts/deploy/pilots.py (a docstring-only edit there). `ProofRow`, the table and every exit code stay as they are.
+- >-
+  tests/deploy/test_fleet_consistency.py (NEW, offline, deterministic, no network, no wall-clock, no skipped or xfailed test; reads tests/fixtures/<key>/api_surface.json,
+  infra/helm/foss-mcp/values.yaml and infra/demo-manifests only; parse each baked generation once through a module-level cache). Module constants:
+  `EXPECTED_PILOTS = 40`, `SYMBOL_FLOOR = 3`, `DOC_FLOOR = 1` (the same floors TC-510 and TC-506 enforce), `ECOSYSTEM_BY_PLATFORM = {"net": "nuget", "python":
+  "pypi", "typescript": "npm", "nodejs": "npm", "go": "go", "java": "maven", "rust": "cargo"}` (cpp has no registry sidecar), and three documented tables,
+  each entry carrying a reason string: `COMMIT_EXCEPTIONS = {"pdf_typescript": "mixed commits: fixture and 300 symbol chunks at c672b39, chart pin, 23 doc and 4
+  example chunks and sidecar at 155bfc7 (FK8S-07 / ISOPROV-03); the card that re-pins the pilot must delete this entry"}`, `UNRESOLVED_EXCEPTIONS =
+  {"tex_python": 13, "email_python": 38, "words_python": 10, "pdf_python": 4, "html_python": 1}` (the allowed MAXIMUM of the fixture's `unresolved` list,
+  with a comment naming the cause of each: tex/python upstream does not parse (ISOPROV-01), the others unresolved references) and
+  `COMPOSITION_EXCEPTIONS = {}`. Pure helper functions returning lists of problem strings (so they can be tested with synthetic inputs):
+  `commit_problems(fixture_commit, pin, source_commits)`; `scope_problems(pilot, pointer, generation)` (pointer id and generation id both start with
+  `family::platform::source_kind::`, the generation's `family`, `platform`, `source_kind` equal the pilot's, its lexical index `generation_id` equals
+  its own id, and every document key starts with `<generation_id>::doc::`); `sidecar_problems(pilot, product_reference, releases, registry)`
+  (platform equals the pilot's platform; `source_repository` equals the chart's `library.repository` case-insensitively and `source_ref` equals the pin;
+  a `family` key, when present, equals the pilot's family; every release `url` contains `github.com/<repository>/` case-insensitively; the registry
+  sidecar is absent exactly for platform cpp and otherwise has `ecosystem == ECOSYSTEM_BY_PLATFORM[platform]`);
+  `coverage_problems(fixture, symbol_texts)` (every symbol chunk has exactly one `API-Coverage: N of M types` line, N equals the number of symbol chunks, M
+  equals the fixture's `type_count`, and N < M exactly when the fixture is truncated); `composition_problems(symbols, docs)`; `unresolved_problems(key,
+  actual)`. Chunk kinds use the rule of `relevance.chunk_kind` (first line matching `^FQN:\s*(.+)$` with MULTILINE; none -> documentation; `Example: ` ->
+  example; `Doc: ` -> documentation; else symbol), reimplemented in the test so it does not import serving code. Tests, exact names:
+  `test_the_chart_names_forty_pilots`; parametrised over the 40 pilot keys `test_fixture_commit_equals_the_pin_equals_every_source_commit_line` (a pilot in
+  COMMIT_EXCEPTIONS is skipped by THIS test, not by pytest skip: it asserts the problems are non-empty instead), `test_every_chunk_carries_a_source_commit_line`,
+  `test_scope_has_one_generation_a_matching_pointer_and_its_own_identity`, `test_sidecars_identify_this_pilot`, `test_api_coverage_lines_are_present_and_honest`,
+  `test_the_composition_floor_holds`, `test_unresolved_symbols_stay_within_the_documented_table`; the table tests `test_every_exception_names_a_pilot_of_the_chart`,
+  `test_every_commit_exception_still_applies` (fails with the text "delete the exception" when a listed pilot is now consistent),
+  `test_every_unresolved_exception_still_applies` (fails when the actual count is 0), `test_the_composition_exception_table_is_empty`,
+  `test_every_exception_carries_a_reason` (non-empty string for the commit table; a comment-backed int for the unresolved table is checked by
+  `test_unresolved_table_values_are_positive_ints`); and synthetic tests with hand-built inputs proving each helper fails when it should:
+  `test_commit_problems_flags_mixed_commits`, `test_commit_problems_flags_a_fixture_pin_mismatch`, `test_commit_problems_flags_a_generation_without_commit_lines`,
+  `test_scope_problems_flag_a_foreign_family_prefix_and_foreign_document_ids`, `test_sidecar_problems_flag_a_wrong_platform_repository_pin_family_ecosystem_and_release_url`,
+  `test_a_cpp_pilot_with_a_registry_sidecar_is_flagged`, `test_coverage_problems_flag_a_missing_line_a_wrong_count_and_a_wrong_total`,
+  `test_composition_problems_flag_two_symbols_and_zero_docs`, `test_unresolved_problems_flag_growth_over_the_table_and_any_unlisted_pilot`.
+- >-
+  tests/poc/test_proof_client_ids.py (NEW, offline: import the e2e module the way scripts/poc/pilot_workflow_proof.py does and replace `e2e.httpx.post` with a
+  scripted fake that records the JSON body, headers and `timeout` of every call and returns an SSE-style response object with `.status_code`, `.text` and
+  `.headers`): `test_call_tool_ids_increase_monotonically_across_calls_and_tools`; `test_an_explicit_request_id_is_still_honoured`;
+  `test_a_timed_out_call_cannot_poison_the_next_one` (the first call raises the fake's ReadTimeout; the second call uses the next id; a fake that
+  answers the second call with the FIRST call's id makes the client raise AssertionError, and a correctly numbered answer to a third call succeeds);
+  `test_a_response_id_mismatch_is_rejected`; `test_the_default_timeout_is_fifteen_seconds_for_every_tool_including_find_examples`;
+  `test_a_tool_timeout_applies_only_to_that_tool`; `test_an_explicit_timeout_beats_the_tool_timeout`; `test_live_client_rpc_uses_fresh_ids_and_checks_the_answer`;
+  `test_live_client_passes_the_timeouts_to_the_session`; `test_parse_args_defaults_leave_every_timeout_at_fifteen_and_min_content_off`;
+  `test_main_builds_the_default_client_with_the_flag_values` (monkeypatch `open_live_client` with a recorder; fixtures written under tmp_path as
+  tests/poc/test_pilot_workflow_proof.py does); `test_an_injected_client_factory_is_still_called_with_the_url_only`.
+- >-
+  tests/poc/test_pilot_workflow_proof_content.py (NEW, offline; reuse the loading pattern and a fake client like tests/poc/test_pilot_workflow_proof.py):
+  `test_the_default_run_has_eleven_checks_and_no_check_12`; `test_min_content_adds_check_12`; `test_check_12_passes_with_enough_indexed_types_and_matching_totals`;
+  `test_check_12_fails_with_two_indexed_types`; `test_check_12_fails_when_total_types_differs_from_the_fixture`;
+  `test_check_12_fails_when_search_docs_for_the_furnished_title_is_empty`; `test_check_12_notes_that_documentation_is_enforced_offline_without_a_furnished_page`;
+  `test_unresolved_symbols_are_a_warning_not_a_failure` (fixture with an `unresolved` list: report `warnings` has one entry, exit code unchanged, a `WARNING ` line is printed);
+  `test_a_clean_fixture_has_an_empty_warnings_list`; `test_unrunnable_checks_with_min_content_has_twelve_entries`; `test_load_pilot_reads_type_count_and_unresolved_count`.
+  tests/deploy/test_prove_pilots_content.py (NEW, offline, the `FakePopen`/fake `subprocess.run` pattern of tests/deploy/test_prove_pilots.py):
+  `test_default_proof_argv_is_unchanged_and_has_no_new_flags`; `test_timeout_and_min_content_flags_are_forwarded_to_the_proof`;
+  `test_warnings_in_the_proof_report_are_printed_after_the_table`; `test_a_report_without_warnings_prints_none`; `test_no_stale_fourteen_in_the_deploy_tool_docstrings`
+  (scripts/deploy/prove_pilots.py and scripts/deploy/pilots.py do not contain the word `fourteen`, case-insensitive).
+- >-
+  Run `{python} -m pytest tests/deploy/test_fleet_consistency.py tests/poc/test_proof_client_ids.py tests/poc/test_pilot_workflow_proof_content.py
+  tests/deploy/test_prove_pilots_content.py -q -rfE` first, then the second check command below. Do NOT run the live e2e tests, docker, kubectl or
+  prove_pilots.py against a cluster. Write commit messages as UTF-8 without a byte-order mark. Preserve each file's line endings and encoding. Keep
+  ruff, ruff format and mypy clean.
+actions:
+- >-
+  Give the proof client unique, checked JSON-RPC ids and parameter-only per-call and per-tool timeouts; add the opt-in minimum-content check and the
+  unresolved-symbol warning; fix the stale pilot counts.
+- >-
+  Add the offline fleet-consistency test with self-expiring documented exceptions and synthetic tests proving every helper can fail.
+checks:
+- command: '{python} -m pytest tests/deploy/test_fleet_consistency.py tests/poc/test_proof_client_ids.py tests/poc/test_pilot_workflow_proof_content.py tests/deploy/test_prove_pilots_content.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+- command: '{python} -m pytest tests/deploy/test_fleet_consistency.py tests/poc tests/deploy/test_prove_pilots.py tests/deploy/test_prove_pilots_content.py tests/deploy/test_image_workflow_gate.py tests/deploy/test_pilots.py tests/deploy/test_verified_examples_coverage.py tests/deploy/test_demo_manifests_sidecars.py tests/deploy/test_compact_demo_manifests.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+min_tests: 100
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/e2e/test_cells_rust_live_content.py');s=p.read_text(encoding='utf-8');old='self._request_ids = itertools.count(1)';assert s.count(old)==1;p.write_text(s.replace(old,'self._request_ids = itertools.repeat(1)'),encoding='utf-8')"
+  rationale: >-
+    Makes the id source return 1 for every call again (the reviewed defect), so the monotonic-id test, the timed-out-call regression test and the
+    live-client id test fail. A real break of the card's client claim; the fleet test's own claim is proven by its synthetic tests.
+evidence:
+- evidence/build/G3/TC-513/receipt.json
+closeout:
+- >-
+  The proof client numbers its requests, rejects an answer that is not for the request, and takes its time limits from parameters; the proof can be run
+  with `--min-content` and always reports unresolved symbols as warnings; tests/deploy/test_fleet_consistency.py pins commit, identity, coverage,
+  composition and unresolved counts on the shipped data. SUPERVISOR: (1) the card that re-pins pdf/typescript to one commit must delete the pdf_typescript
+  entry of COMMIT_EXCEPTIONS in tests/deploy/test_fleet_consistency.py in the same commit (the test fails otherwise, by design), so give that card
+  write access to the file and a dependency on this one; (2) the next cluster proof should run `python scripts/deploy/prove_pilots.py --namespace
+  foss-mcp --min-content` after TC-508 is deployed and be repeated a second time (FK8S-01 asks for 40 of 40 twice in a row).
+recovery: Re-run from a clean tree.

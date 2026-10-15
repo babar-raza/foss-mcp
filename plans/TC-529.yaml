@@ -1,0 +1,169 @@
+id: TC-529
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-008 (independent pre-production review, findings GRR-06 rollback part, GRR-07, GRR-08, GRR-09, GRR-14 pointer cap). PUBLISH SAFETY, second
+  half: STORE HARDENING AND ROLLBACK TOOLING (the publish policy, stats, floors and shrink override are TC-510, which this card builds on). Measured by
+  the reviewer against the real store: (GRR-07) the lease and CAS pair is unlocked, and in 3 of 30 concurrent two-process trials both publishers
+  held fencing token 2; (GRR-09) no write is fsynced (0 occurrences of fsync in generation_manifest.py), nothing deletes orphans (.tmp-* files,
+  unactivated generation files) or old generations (the PVCs retain 3 to 5 generations each); (GRR-14) the pointer is read whole on every probe (a 20 MB
+  pointer file was read per call); (GRR-08) infra/rollback.py accepts a foreign-prefix generation id that happens to have an existing version suffix
+  (`jmap::go::self_extracted::v2` under `pdf::go::self_extracted`) and leaves the pointer on content of another product, and it validates nothing else
+  about its target; (GRR-06) nothing lists the retained generations and rollback needs the full generation id typed by hand. Verified GOOD and
+  preserved: rollback works and travels the identical authority path as publish; a stale lease has no effect; the pointer flip is atomic; BOM
+  tolerance is already TC-506's one-line change to `_read_json`, which this card keeps. This card adds: an exclusive lock (O_EXCL lock file with
+  stale-holder takeover) around lease acquisition and CAS; fsync of files and directories on every atomic write; retention (active + previous + the
+  last 3 generations kept, stale .tmp-* older than one hour removed, never the active or previous generation), applied by `publish` when a
+  `PublishPolicy` is given; a 64 KiB cap on the pointer and lease reads; rollback that refuses a target not of this scope and, from the CLI, validates
+  the generation's shape; and `infra/rollback.py --list` / `--previous`; plus the Rolling back runbook section. What does NOT change: serving, the
+  chart, docker-compose.yml, `publish`/`rollback` called without the new arguments (the existing guard, containment, read-cache and rollback tests
+  pass unchanged), the publish policy semantics of TC-510.
+depends_on:
+- TC-510
+- TC-506
+- TC-389
+- TC-139
+- TC-345
+- TC-347
+write_paths:
+- src/foss_mcp/indexing/generation_manifest.py
+- src/foss_mcp/indexing/publisher.py
+- infra/rollback.py
+- docs/DEPLOYMENT.md
+- tests/indexing/test_store_durability.py
+- tests/infra/test_rollback_cli.py
+satisfies:
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read, in full, src/foss_mcp/indexing/generation_manifest.py AS LEFT BY TC-510 (`GenerationManifestStore._read_json` / `_atomic_write_json` /
+  `acquire_lease` / `cas_activate` / `read_active` / `current_fencing_token` / `generation_exists`, `append_publish_log`, `read_publish_log`,
+  `PublishPolicy`, `publish`, `rollback`), src/foss_mcp/indexing/publisher.py (`rollback_generation`), infra/rollback.py and the section headings of
+  docs/DEPLOYMENT.md. Existing tests that pin what must stay true: tests/indexing/test_generation_manifest.py (`rollback(...)` is called with
+  `_lexical_index` documents whose text is EMPTY, so validation must be opt-in), tests/indexing/test_generation_manifest_containment.py (L196-214 pins
+  the exact scope-directory listing `active_pointer.json, generation__v1.json, lease_state.json` after a plain `publish(...)`: a lock file must be
+  removed after use and no other file may appear without a policy), tests/indexing/test_generation_read_cache.py, tests/infra/test_rollback.py. The
+  reviewer's prototype for the race is scenario P9 (two processes released together, each `acquire_lease` then `publish_generation`) and for rollback
+  P12; rebuild the helpers inside the new test files, with threads rather than processes. Never print or log any environment value.
+- >-
+  DURABILITY AND READS in generation_manifest.py. New one-line constant `POINTER_MAX_BYTES = 64 * 1024` (the negative control edits it).
+  `_atomic_write_json`: `fh.flush()` then `os.fsync(fh.fileno())` before `os.replace`, and `_fsync_directory(path.parent)` after it;
+  `_fsync_directory(path)` is a staticmethod that on `os.name == "posix"` opens the directory read-only and `os.fsync`s it, swallowing OSError, and is a
+  no-op elsewhere. `_read_json(path, max_bytes=None)`: open in binary, if `max_bytes` is given read `max_bytes + 1` bytes and raise
+  `GenerationManifestError("... exceeds 64 KiB")` when longer, decode with `utf-8-sig` (TC-506 already switched `_read_json` to `utf-8-sig` so a BOM
+  written by PowerShell parses: keep that behaviour when you rewrite the function), then `json.loads`; a missing file still returns None.
+  `read_active` and `current_fencing_token` (lease_state) pass `max_bytes=POINTER_MAX_BYTES`; generation files are not capped. A pointer with a BOM
+  reads; an oversized pointer raises `GenerationManifestError` (readiness turns any such error into a 503, TC-506).
+- >-
+  EXCLUSIVE LOCK. Add `GenerationManifestStore.scope_lock(scope)` (a context manager) and constructor keywords `lock_timeout: float = 60.0` and
+  `lock_stale_seconds: float = 30.0`. The lock is an `os.open(..., O_CREAT | O_EXCL | O_WRONLY)` file `.publish.lock` in the scope directory holding
+  the pid and a timestamp, removed in `finally`. A lock whose mtime is older than `lock_stale_seconds` is removed and taken (a crashed holder); a
+  caller that cannot get it within `lock_timeout` raises `GenerationManifestError`; retry on FileExistsError and PermissionError with a short sleep.
+  Wrap in it the whole read-increment-write of `acquire_lease` and the whole token-check / compare / write of `cas_activate`. Nothing else holds it
+  (generation writes, log appends and prune take no lock, so the lock is held for milliseconds). Because it is removed on exit, the scope directory
+  listing after `publish` is unchanged.
+- >-
+  RETENTION AND LISTING, new methods on `GenerationManifestStore`: `list_generations(scope) -> list[str]` (generation ids found as
+  `generation__*.json` in the scope directory, newest version first by descending version string, ids read from the files' own `generation_id`);
+  `previous_generation(scope) -> str | None` (the `previous_active` of the newest `published` or `rollback` entry of `read_publish_log` if that
+  generation still exists; else the second entry of `list_generations`; else None); `prune(scope, *, keep_last=RETENTION_KEEP_LAST,
+  tmp_max_age_seconds=3600.0, generation_min_age_seconds=3600.0, protect=(), now=None) -> list[str]` (keeps the active generation, every id in
+  `protect`, the log-derived previous generation, and the `keep_last` newest by version; deletes every other `generation__*.json` older than
+  `generation_min_age_seconds` and every `.tmp-*` file older than `tmp_max_age_seconds` (by mtime); NEVER deletes an active or protected file even if
+  old; appends one `{"event": "pruned", "removed": [...]}` line via `append_publish_log` when it removed anything; returns the removed file names).
+  All use the contained scope directory from `_scope_dir`; none may follow a path outside the store root. `PublishPolicy` (TC-510) gains two fields
+  at the end: `prune: bool = True` and `generation_min_age_seconds: float = 3600.0`; `publish`, after a successful `cas_activate` and the `published`
+  log line, calls `store.prune(scope, protect=(expected_active,), generation_min_age_seconds=policy.generation_min_age_seconds)` when `policy.prune`.
+  `publish` without a policy never prunes.
+- >-
+  ROLLBACK. `rollback(store, scope, expected_active, target_generation_id, lease, *, validate: bool = False)`: in all cases, after the existing
+  `generation_exists` check (keep its order and its `UnknownGenerationError`), refuse a target whose id is not of the form `<scope>::<version>` (the id
+  minus its last `::` component must equal `scope`) with `UnknownGenerationError` (GRR-08). With `validate=True` also read the generation and
+  require `check_generation_shape(manifest) == []`, else raise `ManifestValidationError` listing the problems. Define `check_generation_shape(manifest)
+  -> list[str]`: `lexical_index.documents` is a non-empty dict; each document has a str `chunk_id`, a list `tokens` and a non-empty str `text`;
+  `lexical_index.doc_freq` is a dict; the manifest's inside `generation_id` equals the requested one. Append a `{"event": "rollback", "scope",
+  "generation_id", "previous_active": expected_active}` line via `append_publish_log` after every successful rollback (with or without `validate`).
+  `publisher.rollback_generation(..., validate=False)` passes the new keyword through.
+- >-
+  infra/rollback.py: make `--target-generation` optional and add `--list` and `--previous` in one required mutually exclusive group with it (none of
+  them given, or two given, is an argparse error, exit 2). `--list` prints, for the scope, one line per generation newest first: the generation id, the
+  word `ACTIVE` next to the active one, and `symbols=N docs=N examples=N total=N` taken from `payload.stats` or else `payload_stats(payload)`; it
+  takes no lease and writes nothing. `--previous` resolves `store.previous_generation(scope)` (raising `UnknownGenerationError` when None) and rolls
+  back to it. `--target-generation` keeps its behaviour. All rollbacks call `rollback_generation(..., validate=True)`. Keep the printed line
+  `rolled back to <id>`.
+- >-
+  docs/DEPLOYMENT.md (also edited by TC-510, which this card depends on; keep its section `## Accepting an intentional shrink` intact): insert the
+  section `## Rolling back a generation` immediately BEFORE `## Accepting an intentional shrink` (so it is also before `## Troubleshooting`;
+  tests/deploy/test_runbook.py slices the text between `## Troubleshooting` and `## Known limits`). Content: the ingestion image already contains
+  `infra/rollback.py`; the manifests claim is `foss-mcp-<family>-<platform>-manifests` mounted read-only by serving, `ReadWriteOnce`, so the rollback
+  Job must run on the same node (add a `nodeName`); show one complete Job manifest (kind Job, image = the chart's ingestion image and tag, runAsUser
+  10001, fsGroup 10001, volume from that claim at /data/manifests, `command: ["python", "/app/infra/rollback.py", ...]`) and the three argument forms
+  `--list`, `--previous`, `--target-generation <id>`, with the exact flags `--family pdf --platform go --source-kind self_extracted --manifest-store
+  /data/manifests`; say the target is validated, that `/readyz` flips on the next probe with no restart, that retention keeps the active, the previous
+  and the last three generations, and what to read in `publish_log.jsonl`. Do not put the word `install_pilots.py` on any line of the section.
+- >-
+  TESTS (all offline and deterministic: tmp_path stores, in-process `rollback.main()` via monkeypatched `sys.argv`, no sockets, no sleeps in
+  assertions, no skipped or xfailed test). tests/indexing/test_store_durability.py: `test_concurrent_lease_acquirers_get_unique_tokens` (8 threads
+  released together by a threading.Barrier, repeated 10 times on fresh scopes, tokens are exactly 1..8); `test_acquire_lease_waits_while_the_scope_lock_is_held`;
+  `test_cas_activate_waits_while_the_scope_lock_is_held`; `test_lock_timeout_raises_a_manifest_error`; `test_a_stale_lock_is_taken_over` (os.utime the lock
+  file back); `test_no_lock_file_remains_after_publish_or_failure` (scope directory listing after a plain publish is exactly the three files);
+  `test_atomic_write_fsyncs_the_file` (monkeypatch os.fsync to a recorder); `test_atomic_write_fsyncs_the_directory` (monkeypatch `_fsync_directory`);
+  `test_real_fsync_directory_never_raises`; `test_pointer_with_bom_is_read`; `test_generation_file_with_bom_is_read`;
+  `test_oversized_pointer_is_rejected_without_parsing_it` (65 KiB + 1 of valid-looking json); `test_pointer_at_the_limit_is_read`;
+  `test_a_large_generation_file_is_still_read`; `test_prune_keeps_active_previous_and_the_last_three` (8 generations);
+  `test_prune_never_removes_active_or_previous_even_when_old`; `test_prune_removes_stale_tmp_files_only_after_an_hour` (os.utime);
+  `test_prune_skips_young_generation_files`; `test_publish_with_policy_prunes_and_logs`; `test_publish_without_a_policy_never_prunes`;
+  `test_rollback_refuses_a_foreign_prefix_id_even_if_the_version_exists`; parametrised `test_rollback_validate_rejects_malformed_payloads` (no documents,
+  document without tokens, empty text, no doc_freq); `test_rollback_validate_accepts_a_real_generation`; `test_rollback_without_validate_keeps_the_legacy_contract`;
+  `test_rollback_appends_a_log_line`; `test_list_generations_and_previous_generation`. tests/infra/test_rollback_cli.py:
+  `test_list_marks_the_active_generation_and_shows_counts`; `test_list_writes_nothing`; `test_previous_rolls_back_one_step`; `test_previous_without_history_raises`;
+  `test_target_generation_still_works`; `test_exactly_one_mode_is_required` (SystemExit 2 for none and for two);
+  `test_foreign_prefix_target_is_refused_and_the_pointer_is_unchanged`; `test_malformed_target_is_refused_and_the_pointer_is_unchanged`;
+  `test_deployment_md_documents_rollback` (heading `## Rolling back a generation` before `## Accepting an intentional shrink` and before `## Troubleshooting`,
+  and the strings `--list`, `--previous`, `--target-generation`, `publish_log.jsonl` appear).
+- >-
+  Run `{python} -m pytest tests/indexing/test_store_durability.py tests/infra/test_rollback_cli.py -q -rfE`, then the second check command below. Write
+  commit messages as UTF-8 without a byte-order mark. Preserve each file's line endings and encoding. Keep ruff, ruff format and mypy clean (the local
+  pre-push gate). Never run an ingestion, a cluster or a docker command.
+actions:
+- >-
+  Serialise lease and CAS with an exclusive scope lock, fsync every atomic write, cap the pointer read, and add retention that never removes the
+  active or previous generation.
+- >-
+  Make rollback refuse a foreign-scope target and validate the generation shape, add `--list` and `--previous` to infra/rollback.py, document the
+  procedure, and pin it with offline tests.
+checks:
+- command: '{python} -m pytest tests/indexing/test_store_durability.py tests/infra/test_rollback_cli.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-008
+- command: '{python} -m pytest tests/indexing/test_store_durability.py tests/infra/test_rollback_cli.py tests/indexing/test_publish_safety.py tests/indexing/test_generation_manifest.py tests/indexing/test_generation_manifest_containment.py tests/indexing/test_generation_read_cache.py tests/indexing/test_publisher.py tests/infra/test_rollback.py tests/infra/test_ingest.py tests/deploy/test_runbook.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+min_tests: 30
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/generation_manifest.py');s=p.read_text(encoding='utf-8');old='POINTER_MAX_BYTES = 64 * 1024';assert s.count(old)==1;p.write_text(s.replace(old,'POINTER_MAX_BYTES = 64 * 1024 * 1024'),encoding='utf-8')"
+  rationale: >-
+    Raises the pointer cap a thousandfold, so a 65 KiB pointer is parsed instead of rejected: the oversized-pointer test fails. A real break of the
+    bounded-read claim (a huge pointer file must never be read whole on every probe).
+evidence:
+- evidence/build/G3/TC-529/receipt.json
+closeout:
+- >-
+  Lease and CAS are serialised, writes are fsynced, old generations and stale temp files are pruned (never the active or previous), the pointer read is
+  capped, rollback refuses a foreign-scope or malformed target, and `infra/rollback.py` has `--list` and `--previous`. The DEPLOYMENT.md rollback Job
+  manifest has never been applied on the cluster: the supervisor should run `--list` once through it on a scratch release.
+recovery: Re-run from a clean tree.

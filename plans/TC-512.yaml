@@ -38,7 +38,7 @@ depends_on:
 - TC-177
 - TC-251
 - TC-499
-- TC-510
+- TC-529
 write_paths:
 - infra/helm/foss-mcp/values.yaml
 - infra/helm/foss-mcp/templates/deployment.yaml
@@ -73,7 +73,8 @@ inputs:
   memory: 64Mi}}}` with a comment giving the reasoning above; `probes.startup: {periodSeconds: 5, timeoutSeconds: 3, failureThreshold: 30}`;
   `pod: {automountServiceAccountToken: false, enableServiceLinks: false}`; extend the EXISTING `podSecurityContext` with `runAsGroup: 10001` and
   `seccompProfile: {type: RuntimeDefault}` (the existing keys and values stay); `ingestion.activeDeadlineSeconds: 3600` and
-  `ingestion.ttlSecondsAfterFinished: 86400`; `manifests.keepOnUninstall: true`; and on the pdf/cpp pilot (the entry with `family: pdf` and
+  `ingestion.ttlSecondsAfterFinished: 86400`; `ingestion.acceptRegression: []` and `ingestion.acceptRegressionReason: ""` (with a comment: an
+  intentional shrink of one pilot's generation, see docs/DEPLOYMENT.md; entries look like `symbols:100->46`; remove them again after the publish); `manifests.keepOnUninstall: true`; and on the pdf/cpp pilot (the entry with `family: pdf` and
   `platform: cpp`) `ingestionMemoryLimit: 10Gi` as a pilot-level key (never inside `library`). 10Gi is the value TC-457 measured for slides/cpp, the same
   C++ toolchain class; the exact minimum for pdf/cpp is NOT measured (the card cannot run a Job), and the supervisor confirms it on the next cluster
   re-ingest. Do not touch any other pilot entry.
@@ -94,7 +95,10 @@ inputs:
   emitted only when the value is a positive integer (a value of 0 or an empty string omits the field, so an operator can turn either off); the pod
   spec gains the same two `pod.*` fields as deployment.yaml. demo-deployment.yaml: the demo pod spec gains the same two `pod.*` fields (its
   `podSecurityContext` already comes from values). pvc.yaml: when `manifests.keepOnUninstall` is true add `metadata.annotations: {helm.sh/resource-policy:
-  keep}`; false omits the annotation. Do not change the Job's args, command, env, volumes or the `$res` memory block.
+  keep}`; false omits the annotation. The Job's container gains env `FOSS_MCP_ACCEPT_REGRESSION` (the entries joined with `;`) and
+  `FOSS_MCP_ACCEPT_REGRESSION_REASON`, emitted ONLY when `ingestion.acceptRegression` is non-empty, in which case a blank reason makes the render
+  fail with a clear message (`fail`); with the default empty list neither variable appears. infra/ingest.py (TC-510) reads these variables; the Job's
+  args and command, the volumes and the `$res` memory block are unchanged, so docker-compose.yml parity is untouched.
 - >-
   scripts/deploy/install_pilots.py: add `--wait-for-jobs` (store_true, default off, so the default helm argv and every existing test stay unchanged;
   document it as the recommended flag for any install that must not report a stale pilot as installed). When given: `helm_install_command(...,
@@ -110,14 +114,18 @@ inputs:
   `unknown` and `running` print `installed (ingestion unverified)` and do not fail. With the flag absent no kubectl call is added and nothing about
   the output changes. `--dry-run` prints the `--wait-for-jobs` argv when the flag is given. The module docstring documents the flag.
 - >-
-  docs/DEPLOYMENT.md (also edited by TC-510, which this card depends on: edit only the sections named here and keep TC-510's two new sections intact):
+  docs/DEPLOYMENT.md (also edited by TC-510 and TC-529, the latter of which this card depends on: edit only the sections named here and keep their new sections intact):
   rewrite `## What the init container does, and why a pod waits at Init` to describe the bounded gate (timeout and interval values, the non-empty
   test, that a timeout starts the pod degraded without its sidecars and what that looks like to an agent, and that the cure is a retry of the pilot); in
   the install section describe `--wait-for-jobs` and what `INGESTION FAILED` means; in `## Uninstalling` replace the sentence saying Helm removes the
   manifests claim with the new rule (the claim is annotated `helm.sh/resource-policy: keep` and survives `helm uninstall`; delete it deliberately with
-  `kubectl delete pvc -n <namespace> <release-fullname>-manifests` or set `manifests.keepOnUninstall=false`). Keep every phrase tests/deploy/test_runbook.py
+  `kubectl delete pvc -n <namespace> <release-fullname>-manifests` or set `manifests.keepOnUninstall=false`). Also correct the stale pilot count: the chart has 40
+  pilots, but docs/DEPLOYMENT.md still says "fourteen" in its title (line 1), line 9, the headings of sections 3 and 4 and the uninstall sentence; say
+  "forty" (or "all 40") in each, and make the same change in the module docstring and the argparse description of scripts/deploy/install_pilots.py
+  ("Install the fourteen pilot releases", "Install the fourteen foss-mcp pilot releases"). Keep every phrase tests/deploy/test_runbook.py
   requires (`Init:0/1`, `never removes` or `never delete`, `uninstall`, the pilot names, `1 Gi`) and put no `install_pilots.py` command line with a flag
-  that install_pilots.py does not define.
+  that install_pilots.py does not define. Add one short paragraph to TC-510's "Accepting an intentional shrink" section naming the chart value
+  `ingestion.acceptRegression` / `ingestion.acceptRegressionReason` with an example `--set-json` for one pilot release.
 - >-
   EXISTING TESTS: tests/infra/test_helm_ingestion_memory.py: add `("pdf", "cpp"): "10Gi"` to `EXPECTED_MEMORY_LIMITS` and update the one comment that
   says four pilots; no other change (the test "exactly the four pilots carry the key" keeps its name and compares the dict). tests/infra/test_helm_chart.py
@@ -141,10 +149,12 @@ inputs:
   runAsNonRoot still true; `automountServiceAccountToken is False`; `enableServiceLinks is False`); `test_pod_hardening_can_be_relaxed_by_values`
   (`--set pod.enableServiceLinks=true` renders true); `test_no_code_reads_kubernetes_service_environment_variables` (grep infra/*.py and src/**/*.py
   for `KUBERNETES_`, `_SERVICE_HOST`, `_SERVICE_PORT`: none, which is the evidence that disabling service links is safe);
-  `test_pdf_cpp_job_renders_10gi_and_the_other_default_jobs_stay_4gi`; `test_gateway_egress_policy_exists_only_when_a_gateway_secret_is_configured`
+  `test_pdf_cpp_job_renders_10gi_and_the_other_default_jobs_stay_4gi`; `test_accept_regression_env_is_rendered_only_when_values_set_it` (default render: neither variable in any Job; `--set-json 'ingestion.acceptRegression=["symbols:100->46","total:153->58"]' --set ingestion.acceptRegressionReason=why` renders `symbols:100->46;total:153->58` and `why`; the list without a reason makes `helm template` fail; Job args are identical with and without it);
+  `test_gateway_egress_policy_exists_only_when_a_gateway_secret_is_configured`
   (default render has no `-gateway-egress` NetworkPolicy and no policy giving a serving pod TCP 443 to 0.0.0.0/0; with
   `--set embeddingGateway.existingSecret=gw` the policy appears and selects only serving and demo-serving pods); `test_deployment_md_describes_the_bounded_gate_keep_and_wait_for_jobs`
-  (strings `initGate`, `startupProbe` or `startup probe`, `helm.sh/resource-policy`, `--wait-for-jobs`, `INGESTION FAILED`). tests/deploy/test_install_wait_for_jobs.py
+  (strings `initGate`, `startupProbe` or `startup probe`, `helm.sh/resource-policy`, `--wait-for-jobs`, `INGESTION FAILED`);
+  `test_deployment_md_and_install_pilots_no_longer_say_fourteen` (neither file contains the word `fourteen`, case-insensitive; both contain `forty` or `40`). tests/deploy/test_install_wait_for_jobs.py
   (the existing tests' `FakeRun` pattern, subprocess monkeypatched): `test_default_helm_argv_has_no_wait_for_jobs`; `test_flag_inserts_wait_for_jobs_right_after_wait`;
   `test_dry_run_with_the_flag_shows_it`; `test_job_status_command_is_the_exact_scoped_get`; parametrised `test_classify_job_status` over succeeded, failed by
   condition, failed by count, running, missing, two Jobs one failed, garbage text, empty text; `test_helm_ok_but_failed_ingestion_is_reported_as_not_installed`
