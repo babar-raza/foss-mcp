@@ -1,0 +1,131 @@
+id: TC-519
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-008 (independent pre-production review; findings AGT-04, D-05, D-06, D-13 and AGT-11). RELEASE/INDEX SKEW AND FRESHNESS. Measured by the reviewers and re-checked offline by the drafter on the baked sidecars and generations: the
+  release notes `list_recent_changes` serves and the API the index describes are different versions with nothing marking which is which. cells/python: the index is built at commit 4f6768a whose pyproject says 26.7.0, the served newest
+  release is V26.10.0 (PDF export), and a blind coding task that used the release note's `save_as_pdf` raised AttributeError at the indexed commit; pdf/net: manifest 26.9.0, newest release v26.10.0; pdf/go serves release v0.11.0 (a security
+  fix) twenty commits ahead of the indexed commit. `report_index_freshness` always answers `stale: true` when the caller does not pass a commit - "unknown" and "stale" are one boolean - and has no generation age, source repository,
+  latest release, or warning for an abbreviated SHA (a 7 to 39 character prefix silently prefix-matches and reports `stale: false`). The sidecar writer keeps only 10 releases (infra/fetch_recent_releases.py `_DEFAULT_LIMIT = 10`,
+  applied at the `fetch_releases(...)[: args.limit]` slice): pdf/go has 12, so 2 are dropped; 3 of the 15 repositories with no GitHub releases have tags (page/python 2, email/python 1) and note/python has 17 tags next to 2 releases, but
+  the tool ignores tags and answers an empty list. This card (a) marks every served release `in_index` - true when the indexed API includes it, false when it is newer than the index, null (unknown) otherwise - by one deterministic rule with a
+  stated basis: the tag's commit equals an indexed source commit (needs the 40-hex `target_commit` that card TC-511 records, available for tag entries below), else the release's version compared with the version the package manifest
+  declares when both have the same major number (so 26.10.0 is newer than 26.7.0, 26.7.0 is not, and the jmap pilots' calendar-style 26.09 against a 0.1.0 manifest is NOT compared), else unknown; (b) makes the freshness verdict tri-state while
+  keeping the boolean for compatibility, adds the indexed time (read from the UTC stamp in the generation id), the source repository, the latest release tag and whether it is in the index, a warning for an abbreviated commit, and a documented default
+  for an omitted commit; (c) raises the sidecar release cap from 10 to 20 and, when a repository has no GitHub releases, falls back to its tags (a tag entry has no notes: richness none, source "tag", and the tags API gives the commit sha with no extra
+  call). Measured on the baked data with the rule: cells/python V26.10.0 false, V26.7.0 and V26.3.1 true; pdf/net v26.10.0 false, v26.9.0 and v26.8.0 true; cells/net V26.9.0 true (manifest 26.9.0.0); pdf/cpp v1.0.1 true; the eight jmap pilots,
+  pdf/go and every pilot whose manifest states no version stay null. Decisions recorded here. The bare list of `list_recent_changes` stays a bare list (card TC-507 pins that decision) - the new fields are additive keys of each entry. `stale` stays
+  `true` for an unknown verdict (today's behaviour) and `freshness_state` carries the distinction; the pinned legacy `reason` sentence is kept word for word whenever nothing but the legacy information is available. Fetching tags or releases at
+  serving time is NOT added (no network at serving). What does NOT change: tool names and input schemas, the number of releases returned by default (limit 10), the richness verdicts, the index.
+depends_on:
+- TC-383
+- TC-388
+- TC-444
+- TC-251
+- TC-507
+- TC-511
+- TC-514
+- TC-515
+- TC-518
+- TC-520
+write_paths:
+- src/foss_mcp/mcp/tools/release_alignment.py
+- src/foss_mcp/mcp/tools/list_recent_changes.py
+- src/foss_mcp/mcp/tools/report_index_freshness.py
+- src/foss_mcp/mcp/server.py
+- src/foss_mcp/extraction/github_release_reader.py
+- infra/fetch_recent_releases.py
+- tests/mcp/tools/test_release_alignment.py
+- tests/mcp/tools/test_freshness_tristate.py
+- tests/mcp/tools/test_release_index_baked.py
+- tests/extraction/test_github_release_tags.py
+- tests/infra/test_fetch_recent_releases_tags.py
+- tests/mcp/tools/test_freshness_provenance.py
+- tests/infra/test_fetch_recent_releases.py
+satisfies:
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read: src/foss_mcp/mcp/tools/list_recent_changes.py (as left by TC-507: `state` parameter and `SidecarFetchFailedError`), src/foss_mcp/mcp/tools/report_index_freshness.py (`FreshnessReport`, `_read_provenance`, `_indexed_source_commit`, `_commit_matches`,
+  `report_index_freshness` and its `build` helper, `_mixed_reason`), src/foss_mcp/extraction/github_release_reader.py (`Release` as extended by TC-511: `target_commitish`, `created_at` and the read-only property `target_commit`, which is the 40-hex lowercase sha or None;
+  `fetch_releases`, `_get_json`), infra/fetch_recent_releases.py (`_DEFAULT_LIMIT`, `_serialize_release`, `_deserialize_release`, `main` and the TC-511 meta/etag code), src/foss_mcp/extraction/manifest_reader.py (`read_dotnet_manifest`, `read_python_manifest`,
+  `read_java_manifest`, `read_js_manifest`, `read_rust_manifest`, `read_cpp_manifest` all expose `.version`; go has none), src/foss_mcp/mcp/tools/get_product_reference.py (`ProductReferenceInputs.manifest_text`, `.platform`, `.source_repository`), src/foss_mcp/mcp/server.py
+  (`_wrap_list_recent_changes`, `_wrap_report_index_freshness`, `_build_tool_registry`, the two TOOL_DESCRIPTIONS entries), tests/mcp/tools/test_freshness_provenance.py (pins `reason` sentences and `stale`; L154 pins "current source commit is unknown; staleness cannot be
+  ruled out"), tests/mcp/tools/test_example_search_mode.py (builds `FreshnessReport(...)` positionally with seven arguments), tests/infra/test_fetch_recent_releases.py and tests/infra/test_fetch_recent_releases_failure.py (fakes of `fetch_releases` have the shape
+  `(repository, **kwargs)`). Never print or log any environment value.
+- >-
+  src/foss_mcp/mcp/tools/release_alignment.py (NEW, pure). `parse_release_version(tag: str) -> tuple[int, ...] | None`: the first dotted run of at least two integers in the tag (`V26.10.0` -> (26, 10, 0); `v26.09` -> (26, 9); `release-1.2` -> (1, 2); `26.8.0` -> (26, 8, 0)), else None.
+  `package_version(inputs: ProductReferenceInputs | None) -> tuple[int, ...] | None`: the platform's reader `.version` parsed the same way (.NET `26.9.0.0` -> (26, 9, 0, 0)); None for go, for no manifest, for an unparseable or empty value. `release_in_index(release, *, indexed_commits: Sequence[str], indexed_version) ->
+  tuple[bool | None, str]` with basis strings "commit_equal", "version_not_newer", "version_newer", "unknown": (1) if `release.target_commit` is not None and some indexed commit equals it (`report_index_freshness._commit_matches` semantics, full strings) -> (True, "commit_equal"); (2) pad both versions with zeros to
+  the same length; when both exist and `release_version[0] == indexed_version[0]`: the comparison must be written as the exact line `if release_version > indexed_version:` returning (False, "version_newer"), else (True, "version_not_newer"); (3) otherwise (None, "unknown"). A tag entry (`source == "tag"`) follows the same rules.
+  `align_releases(releases, *, indexed_commits, indexed_version) -> dict[str, tuple[bool | None, str]]` keyed by tag name (first occurrence wins). `generation_indexed_at(generation_id: str | None) -> str | None`: the `YYYYMMDDTHHMMSS` part (followed by optional fraction digits and `Z`) of the generation id as `YYYY-MM-DDTHH:MM:SSZ`, else None.
+  Every public name needs a production caller (server.py or the tools).
+- >-
+  list_recent_changes.py: `ChangeEntry` gains, last and defaulted, `in_index: bool | None = None`, `in_index_basis: str = "unknown"` and `source: str = "release"`; `list_recent_changes(releases, *, limit=10, state=<TC-507 default>, alignment=None)` fills them from `alignment` (a mapping tag -> (value, basis)) and `release.source`; with `alignment=None` the entries
+  carry the defaults, so every existing call and test is unchanged; the result is still a plain list in the same order. report_index_freshness.py: add public `read_indexed_commits(store, scope, source_kind="self_extracted") -> tuple[str, ...]` (the distinct source commits of the active generation, same as `_read_provenance`; empty when none) and the
+  following LAST, defaulted fields to `FreshnessReport`: `freshness_state: str = "unknown"`, `freshness_basis: str = "none"` (one of `caller_commit`, `latest_release_tag_commit`, `latest_release_version`, `none`), `indexed_at: str | None = None`, `source_repository: str | None = None`, `latest_release_tag: str | None = None`,
+  `latest_release_in_index: bool | None = None`, `warnings: tuple[str, ...] = ()`, `compared_against_commit: str | None = None`. `report_index_freshness(store, scope, source_kind, current_source_commit, *, pinned_library_commit=None, product_reference=None, releases=())` computes: caller commit given -> `freshness_basis` caller_commit,
+  state fresh/stale exactly as the existing logic decides, `stale = (state != "fresh")`; commit omitted: (i) the newest release (first entry) has a `target_commit` -> compare it to every indexed commit with the existing mixed/commit logic, basis latest_release_tag_commit, `compared_against_commit` set, documented in the `reason` ("compared against the latest release tag <tag> (<12 chars>) because no
+  current_source_commit was given"); (ii) else the newest release's `release_in_index` is False -> state stale, basis latest_release_version, reason "latest release <tag> is newer than the indexed package version <v>; no current_source_commit was given"; (iii) else state unknown, basis none, and `reason` stays EXACTLY the legacy sentence "current source commit is unknown; staleness cannot be ruled out" (the fact that the latest release is in the index is carried only by `latest_release_in_index`). `indexed_at` comes from `generation_indexed_at(indexed_generation_id)`, `source_repository` from `product_reference.source_repository`, `latest_release_tag`/`latest_release_in_index` from the first release and `align_releases`.
+  A caller commit shorter than 40 characters (and not 64) adds the warning "current_source_commit is abbreviated (<n> characters): it is matched as a prefix of the indexed commit; pass the full commit for an exact comparison." A report for a scope that was never published keeps today's values plus state unknown. The legacy fields and sentences are not changed.
+- >-
+  github_release_reader.py: `Release` gains a LAST field `source: str = "release"`. New `fetch_tags(repository: str, *, per_page: int = 100) -> list[Release]`: one page of `GET /repos/<repository>/tags?per_page=<per_page>` through the same `_get_json` helper; each entry `{name, commit: {sha}}` becomes
+  `Release(tag_name=name, body="", richness="none", published_at=None, url=f"https://github.com/{repository}/releases/tag/{name}", target_commitish=<commit.sha>, source="tag")`; an entry without a name is skipped; the tags API returns newest tag first. infra/fetch_recent_releases.py: `_DEFAULT_LIMIT = 20` (the `--limit` argument and its meaning are unchanged);
+  `_serialize_release` writes `"source": "tag"` only for a tag entry and `_deserialize_release` reads `data.get("source", "release")`; in `main`, when `fetch_releases` returned an empty list, call `fetch_tags` and use its first `--limit` entries; an exception from `fetch_tags` is handled by the existing failure path (marker, placeholder or keep) exactly like a failed releases fetch; when releases exist,
+  tags are NOT fetched (assert it). Keep the TC-511 etag/meta behaviour for the releases call.
+- >-
+  server.py: `_wrap_list_recent_changes(releases, state, store, scope, inputs)` computes `alignment = align_releases(releases, indexed_commits=read_indexed_commits(store, scope), indexed_version=package_version(inputs))` per call and passes it; `_wrap_report_index_freshness(store, scope, inputs, releases)` passes `product_reference=inputs` and `releases=releases`; `_build_tool_registry` already
+  has all of these. Append ONE sentence to each of the two descriptions (keep every existing sentence, keep them distinct and over 80 characters, no capitalised or dotted quoted token): list_recent_changes - each release states in_index (true when the indexed API includes it, false when it is newer than the index, null when unknown) and source ('release' or 'tag'); report_index_freshness - the report gives freshness_state
+  (fresh, stale or unknown) with its basis, and when no commit is supplied it compares against the latest release when it can.
+- >-
+  Tests, offline, deterministic, no skip/xfail/sleep/network. tests/mcp/tools/test_release_alignment.py (NEW): parametrised `test_parse_release_version` (V26.10.0, v26.09, release-1.2, 26.8.0, latest, v1), `test_package_version_per_platform` (one synthetic manifest each for net, python, java, typescript, rust, cpp; go and an empty manifest give None),
+  `test_equal_and_lower_versions_are_in_the_index`, `test_a_higher_minor_is_newer_and_not_in_the_index`, `test_padding_26_9_0_0_equals_26_9_0`, `test_different_majors_are_not_compared` (v26.09 against 0.1.0 -> None, 26.x against 1.0.1 -> None), `test_commit_equality_wins_over_version`, `test_a_branch_name_is_not_a_commit`, `test_tag_entries_follow_the_same_rules`,
+  `test_generation_indexed_at_parses_the_utc_stamp` (the id `pdf::net::self_extracted::20261014T131352217893Z-c8c1dcd9` -> `2026-10-14T13:13:52Z`; garbage -> None), `test_list_recent_changes_without_alignment_keeps_the_defaults_and_the_list_shape`, `test_list_recent_changes_fills_in_index_basis_and_source`.
+  tests/mcp/tools/test_freshness_tristate.py (NEW, in-memory generations as tests/mcp/tools/test_freshness_provenance.py builds them): `test_caller_commit_match_is_fresh_with_basis_caller_commit`, `test_caller_commit_mismatch_is_stale`, `test_omitted_commit_without_release_data_keeps_the_legacy_reason_and_is_unknown_and_stale_true`, `test_omitted_commit_uses_the_latest_tag_commit_when_known`,
+  `test_omitted_commit_with_a_newer_release_is_stale_by_version`, `test_omitted_commit_with_the_release_in_the_index_stays_unknown`, `test_the_boolean_stale_is_true_unless_fresh`, `test_abbreviated_commit_adds_a_warning_and_a_full_one_does_not`, `test_indexed_at_source_repository_and_latest_release_are_reported`, `test_never_published_has_state_unknown`, `test_existing_fields_are_unchanged`.
+  tests/mcp/tools/test_release_index_baked.py (NEW, data-driven over infra/demo-manifests: copy the scope directory; load the sidecars with `load_manifest_sidecar` (infra/ on sys.path as tests/infra/test_serve_http.py does) and the releases as `Release(tag_name, body, richness, published_at, url)` from the JSON list): `test_cells_python_release_26_10_0_is_not_in_the_index_and_26_7_0_is`, `test_pdf_net_release_26_10_0_is_not_in_the_index`, `test_cells_net_and_pdf_cpp_latest_releases_are_in_the_index`, `test_jmap_pilots_and_pdf_go_are_unknown`,
+  `test_every_baked_pilot_aligns_without_raising` (parametrised over all pilot directories, at least 40), `test_freshness_of_cells_python_and_pdf_net_without_a_commit_is_stale_by_version`, `test_freshness_of_cells_net_without_a_commit_is_unknown`. tests/extraction/test_github_release_tags.py (NEW): `fetch_tags` parses names and shas through a fake opener, skips a nameless entry, builds the tag URL, and makes exactly one request.
+  tests/infra/test_fetch_recent_releases_tags.py (NEW): `test_the_default_limit_is_20`, `test_more_than_10_releases_are_kept_up_to_20`, `test_zero_releases_fall_back_to_tags_and_mark_them`, `test_releases_present_means_tags_are_not_fetched`, `test_a_failing_tags_fetch_follows_the_failure_path`, `test_a_tag_entry_round_trips_through_the_sidecar_and_an_old_entry_loads_as_a_release`. At least 40 tests with the parametrised cases.
+- >-
+  Existing tests: run `{python} -m pytest tests/mcp tests/infra/test_fetch_recent_releases.py tests/infra/test_fetch_recent_releases_failure.py tests/extraction/test_repo_native.py -q -rfE -p no:cacheprovider` FIRST. Change ONLY an assertion that pins the old default limit of 10 or the exact field list of a report, each with a comment saying why; the legacy `reason` sentences and `stale` values must pass untouched. Never delete, skip or weaken a test. Every
+  new public function or class must have a production caller (tests/test_unwired_modules.py is in the second check). Preserve line endings and encoding; commit messages are UTF-8 without a byte-order mark.
+- >-
+  SEQUENCING NOTE (supervisor, added at install): TC-520 is ACCEPTED BEFORE this card and already edited src/foss_mcp/mcp/tools/report_index_freshness.py (coverage note, parse-failure clause, extractor_version). TC-511 records the release tag commit as 40-hex `target_commit` on each Release (the TC-511 card text may say target_commitish: read the merged code on main and use whatever field TC-511 actually wrote). Read the merged files on main before editing.
+actions:
+- >-
+  Mark every served release as in the index, newer than the index, or unknown, by a stated rule, and add tag-only repositories and 20 releases to the sidecar.
+- >-
+  Give report_index_freshness a tri-state verdict with a basis, the indexed time, the source repository, the latest release and a documented default for an omitted commit, and warn on an abbreviated commit.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_release_alignment.py tests/mcp/tools/test_freshness_tristate.py tests/mcp/tools/test_release_index_baked.py tests/extraction/test_github_release_tags.py tests/infra/test_fetch_recent_releases_tags.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+- command: '{python} -m pytest tests/mcp tests/infra/test_fetch_recent_releases.py tests/infra/test_fetch_recent_releases_failure.py tests/extraction/test_repo_native.py tests/infra/test_serve_http.py tests/infra/test_serve_stdio_parity.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-008
+min_tests: 40
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/release_alignment.py');s=p.read_text(encoding='utf-8');old='if release_version > indexed_version:';assert s.count(old)==1;p.write_text(s.replace(old,'if release_version < indexed_version:'),encoding='utf-8')"
+  rationale: >-
+    Inverts the version comparison, so a release newer than the indexed package version is reported as in the index and an older one as not: the baked-data tests (cells/python 26.10.0 false, pdf/net 26.10.0 false) and the unit tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-519/receipt.json
+closeout:
+- >-
+  Every served release says whether the index includes it, the freshness report distinguishes unknown from stale and says how it decided, and the sidecars can hold 20 releases or the tags of a repository without releases. The baked sidecars hold at most 10 releases and no tag entries until the pilots are re-ingested (a supervisor step); until then `in_index` is computed from the version rule
+  alone, which already marks cells/python 26.10.0 and pdf/net 26.10.0 as newer than the index. The image must be rebuilt for this to reach a pilot.
+recovery: Re-run from a clean tree.

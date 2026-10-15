@@ -1,0 +1,220 @@
+id: TC-514
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-008 (independent pre-production review; findings PS-01, PS-06, PS-07, ISOPROV-04, and the unusable-argument-error part of PS-10). HANDSHAKE
+  IDENTITY AND TRUTHFUL TOOL METADATA. Measured by the reviewers on the shipped image: `initialize` and `tools/list` are byte-identical for all pilots
+  tested (pdf/go, cells/rust, slides/java, email/python, imaging/net, words/net, jmap/cpp): serverInfo is "foss-mcp" with no title, the
+  instructions (src/foss_mcp/mcp/server.py SERVER_INSTRUCTIONS, L75-82) say "one open-source product" without naming it, and the tool descriptions
+  and field descriptions (TOOL_DESCRIPTIONS L196-307, _TOOL_FIELD_DESCRIPTIONS L571-637) hard-code "Aspose.Pdf.Document (a pdf/net example)" and the
+  task examples "add a watermark to a PDF" / "add a digital signature to a PDF" / "save fails with a font error" even on pdf/go, cells/rust and
+  words/net. The last of those examples answers NoExampleFound on 40 of 40 pilots, so the description's own example misleads. The find_examples
+  description says "lexical/semantic" while `example_search` is "lexical-only" in the standalone image (no gateway). The report_index_freshness
+  `source_kind` enum offers three values (furnished, repo_native_manifest, repo_native_release_notes) that always answer "never published", and the
+  get_product_reference description (corrected by card TC-507, not here) said formats and limitations are NotAvailable for every product and to
+  "treat NotAvailable as authoritative absence". Only get_product_reference marks upstream text as untrusted (untrusted_upstream_content); search_docs, lookup,
+  find_examples, search_symbols, get_symbol and list_recent_changes (verbatim release bodies) return third-party README and release text unmarked. Three
+  payloads carry no scope at all: get_product_reference (0 of 320 sampled), list_recent_changes (0 of 40) and the found case of list_members (a bare
+  string list; 434 of 17,218). A client that sends an unknown argument gets "unexpected argument" without the name or the valid names (the name is
+  deliberately not echoed today because it is client-chosen). This card changes ONLY what the server says about itself and how every response is
+  wrapped: (1) a new pure module src/foss_mcp/mcp/identity.py renders serverInfo.title, the instructions and every advertised description from the
+  deployment's scope plus facts read from its own active generation (a real indexed symbol, a real verified-example title, and
+  `example_search_mode`), with a documented neutral wording when no generation is readable; (2) a new pure module
+  src/foss_mcp/mcp/response_envelope.py adds, to every successful tool response, a sibling `scope` object in structuredContent, an in-band `scope`
+  key on dict results that lack one, and the `untrusted_upstream_content` marker (plus a `content_origin` string) on every result that carries repository
+  text; (3) the unknown-argument message names the argument (sanitised, at most 40 characters) and lists the valid ones. Decisions recorded here. (a) The
+  envelope is ADDITIVE: result payload shapes do not change (a bare list stays a bare list; list_members still returns a list of names; no key is
+  removed or renamed), so the e2e and proof clients that read structuredContent.result keep working; for bare lists the scope lives only in the sibling
+  structuredContent.scope, and the text channel (content[0].text, which stays equal to structuredContent.result) carries the marker on each dict item.
+  (b) The dead source_kind values are DOCUMENTED, not removed: the enum is derived from SourceKind, and an existing test pins that equality. (c) The JSON-RPC
+  error -32602 "Invalid request parameters" with data "" is raised inside the MCP SDK (site-packages mcp/server/runner.py L213 and
+  mcp/shared/jsonrpc_dispatcher.py L101), not by this repository; it cannot be changed here and this card does not touch it. What does NOT change: tool
+  names, input schemas (types, bounds, enums), the ToolErrorCode set, the result dataclasses, tool behaviour, the response size (card TC-515), any
+  ranking, the stdio and HTTP transports.
+depends_on:
+- TC-386
+- TC-389
+- TC-391
+- TC-505
+- TC-506
+- TC-507
+- TC-508
+- TC-509
+write_paths:
+- src/foss_mcp/mcp/server.py
+- src/foss_mcp/mcp/identity.py
+- src/foss_mcp/mcp/response_envelope.py
+- tests/mcp/test_handshake_identity.py
+- tests/mcp/test_response_envelope.py
+- tests/mcp/test_server_identity.py
+- tests/mcp/test_dispatch_offload.py
+- tests/mcp/test_tool_surface_truthful.py
+- tests/mcp/test_server_wiring.py
+satisfies:
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read, in this order (line numbers are at main 3155a7b4; cards TC-506, TC-507 and TC-509 land first and shift them): src/foss_mcp/mcp/server.py (SERVER_INSTRUCTIONS L75-82; TOOL_DESCRIPTIONS L196-307; `tool_description` L310;
+  `_FIELD_DESCRIPTIONS` L320-356; `_TOOL_FIELD_DESCRIPTIONS` L571-637; `_advertised_property` L661; `tool_input_schema` L691; `render_result_text` L733;
+  `public_validation_error_message` L819 and `_error_location` L835; `create_server` L967, its `_list_tools` L1001 and `_call_tool` L1014 whose success
+  path ends at L1191-1195; the `Server(...)` call at L1197-1203), src/foss_mcp/mcp/tools/example_search_mode.py (`example_search_mode(payload)` returns
+  `(mode, reason)` with mode `lexical+vector(gateway)` or `lexical-only`), src/foss_mcp/mcp/tools/get_symbol.py (`extract_fqn`), src/foss_mcp/mcp/routing.py
+  (`Scope`), and the SDK constructor `mcp.server.lowlevel.Server.__init__` which already accepts `title` and `description`
+  (`.venv/Lib/site-packages/mcp/server/lowlevel/server.py` L136-138 and L419-421; `InitializationOptions` carries `title`). Read the existing
+  tests that pin what you will touch: tests/mcp/test_server_identity.py (`test_initialize_reports_the_stamped_version_and_instructions` asserts
+  `result["instructions"] == SERVER_INSTRUCTIONS` for pdf/net with an EMPTY store; `test_instructions_name_the_starting_tools_and_stay_short` asserts
+  `len(SERVER_INSTRUCTIONS) <= 800`), tests/mcp/test_tool_surface_truthful.py (`_all_descriptions`, `test_every_quoted_identifier_in_a_description_is_a_pdf_net_type`,
+  `test_tools_list_advertises_the_built_schemas_and_read_only_annotations`, which compares `tool.input_schema == tool_input_schema(name)` for an in-memory pdf/net
+  store), tests/mcp/test_server_wiring.py (`test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content` asserts the parsed text equals
+  `structuredContent["result"]`) and tests/mcp/test_dispatch_offload.py (L181 and L308 assert `structured_content == {"result": ...}` exactly). Never print or log
+  any environment value.
+- >-
+  src/foss_mcp/mcp/identity.py (NEW, pure: no I/O of its own, no clock, no randomness, no network; it may call `example_search_mode`). Define: (1)
+  `FAMILY_DISPLAY` mapping every family in infra/helm/foss-mcp/values.yaml `ingestion.pilots` (3d, barcode, cells, email, html, imaging, jmap, note, page, pdf,
+  slides, tex, words) to a display name (for example pdf -> "PDF", 3d -> "3D", jmap -> "JMAP", tex -> "TeX", html -> "HTML") and `PLATFORM_PROFILE` mapping
+  every platform there (cpp, go, java, net, nodejs, python, rust, typescript) to `(language label, ecosystem label, fqn_style sentence)`; the fqn_style
+  sentences must be true of the indexed FQNs: .NET and Java "Namespace.Type / package.Type", Python "dotted module path then the class, for example
+  package.module.Class (a class can appear under more than one path)", TypeScript "file stem then the type (document.Document)", Go and Rust "the bare type name",
+  C++ "Namespace::Type", Node.js "module path then the class". An unknown family or platform falls back to the raw lowercase id, never raises. (2) a frozen
+  dataclass `DeploymentFacts(example_fqn: str | None, example_short: str | None, task_example: str | None, example_search: str)` and
+  `read_deployment_facts(store, scope) -> DeploymentFacts`: read the ACTIVE generation through `store.read_active(key)` and `store.read_generation(key, id)` with
+  the key `"::".join((scope.family, scope.platform, "self_extracted"))`, wrapped in `except Exception` so any failure yields the neutral facts (all None,
+  `example_search` "lexical-only"). `example_fqn` is the indexed symbol (chunk whose FQN line does not start with `Example: ` or `Doc: `) with the MOST
+  member lines (bullets under `Methods:` and `Properties:`), ties broken by the lexicographically smaller FQN (deterministic; document that "top" means
+  most members, not importance); `example_short` is its last segment (split on `.` and `::`); `task_example` is the lowercased title of the
+  lexicographically first verified example (a chunk whose FQN line starts with `Example: `), or None; `example_search` is the first item of
+  `example_search_mode(manifest.payload)`. (3) `deployment_title(scope) -> str` such as "Aspose PDF FOSS for .NET - API and documentation context" (family
+  display, platform language label; at most 80 characters) and `deployment_instructions(base: str, scope, facts) -> str` = the unchanged generic `base`
+  (the existing SERVER_INSTRUCTIONS text) followed by ONE extra paragraph of at most 400 characters naming the family display, the language and ecosystem, the
+  FQN style, and - only when `facts.example_fqn` is not None - "for example <fqn>"; the whole result is at most 1,100 characters and contains no newline.
+  (4) `render_description(template: str, facts: DeploymentFacts | None) -> str` replacing the placeholders `{example_fqn}`, `{example_short}`, `{task_example}`
+  and `{example_search_clause}`; with `facts=None` it renders the LEGACY pdf/net values (`Aspose.Pdf.Document`, `Document`, `add a watermark to a PDF`,
+  the wording "lexical/semantic") so every static caller and every existing test keeps today's text; with neutral facts (all None) it renders wording with
+  no example value ("the FQN that search_symbols returned", "a short description of the task", "a lexical (word-overlap) search"); with real facts it
+  renders them. `example_search_clause` is "a lexical (word-overlap) search; this deployment has no semantic search" for mode `lexical-only`, "a lexical search
+  with a semantic (vector) fallback through the embedding gateway" for mode `lexical+vector(gateway)`, and the same vector wording plus "; the gateway is
+  currently degraded, so expect lexical results only" for the mode string TC-508 adds (`lexical+vector(gateway) degraded`); decide by `mode.startswith("lexical+vector")`
+  and `"degraded" in mode`, never by equality with one literal. Substitute placeholders with plain `str.replace` (never `str.format`: descriptions may hold braces).
+- >-
+  src/foss_mcp/mcp/server.py. (a) Keep `SERVER_INSTRUCTIONS` exactly as the generic base (it must stay at most 800 characters; do not edit its words). (b)
+  Turn the pdf/net-specific literals in `TOOL_DESCRIPTIONS`, `_TOOL_FIELD_DESCRIPTIONS` and `_FIELD_DESCRIPTIONS["fqn"]` into placeholder templates:
+  `Aspose.Pdf.Document (a pdf/net example)` -> `{example_fqn}` with the parenthetical dropped, `'Document' (a pdf/net example)` and `'Document' in the pdf/net index`
+  -> `{example_short}`, the task examples ("add a watermark to a PDF", "add a digital signature to a PDF") -> `{task_example}`, the search_docs example
+  ("save fails with a font error", "why does saving fail with a font error") -> the honest generic query 'known issues', and "a lexical/semantic search"
+  -> `{example_search_clause}`. (c) Change the public helpers to `tool_description(name, facts=None)` and `tool_input_schema(tool_name, facts=None)`; `facts=None`
+  means "render the legacy pdf/net values" (so every existing caller and test is unchanged) and neutral facts are `DeploymentFacts(None, None, None, "lexical-only")`; both
+  call `identity.render_description`. `schema_for` and `_assert_schema_matches_wrapper` are untouched. (d) In `create_server`, add a local `def _facts() ->
+  DeploymentFacts: return read_deployment_facts(store, scope)`; `_list_tools` renders `description=tool_description(name, _facts())` and
+  `input_schema=tool_input_schema(name, _facts())` (read once per call, not per tool); the `Server(...)` call passes `title=deployment_title(scope)` and
+  `instructions=deployment_instructions(SERVER_INSTRUCTIONS, scope, _facts())`; the literal text `title=deployment_title(scope)` must appear exactly once in
+  the file (the negative control depends on it). (e) Reword, in the templates, ONLY: the report_index_freshness description and its `source_kind` field description (say that only
+  'self_extracted' holds an index in this product and the other three values always answer "never published"), and the find_examples description (use
+  `{example_search_clause}`; keep the sentences "It takes only query and top_k." and the exact-title rule). The get_product_reference and list_recent_changes
+  descriptions are corrected by card TC-507 (it removes "Treat NotAvailable as authoritative absence" and explains the fetch-failed state); do NOT edit them here, and
+  keep every sentence TC-507 left in them. Keep every other sentence, the cross-references between sibling tools (search_symbols/get_symbol/lookup), and the two
+  once-only caveats ("hold only part of a library", "is not an import path") exactly once. Any quoted token you add to a STATIC template must be lower-case and
+  dot-free (tests/mcp/test_tool_surface_truthful.py checks quoted identifier-shaped tokens against the pdf/net type names); the placeholders are the only place an
+  identifier appears, and with `facts=None` they render pdf/net names. (f) Replace the unknown-argument branch: `_error_location` / `public_validation_error_message` become
+  `public_validation_error_message(exc, valid_arguments=None)`; for an `extra_forbidden` error the message is `unexpected argument '<name>'; valid arguments:
+  <comma-separated names>` where `<name>` is `str(error["loc"][0])` with every character outside `[A-Za-z0-9_.-]` replaced by `?` and cut to 40 characters,
+  and the valid names are the keys of `_INPUT_MODELS[params.name].model_fields` in declaration order; `_call_tool` passes them. The message stays well under 300
+  characters. Other validation errors are unchanged. (g) Success path: replace the L1191-1195 return with `payload = annotate_result(params.name, _to_jsonable(result),
+  scope)` then `CallToolResult(content=[TextContent(type="text", text=json.dumps(payload, default=str))], structured_content={"result": payload, "scope":
+  scope_object(scope), "content_origin": origin_of(params.name)}, is_error=False)`; keep `render_result_text` as a public function (existing tests call it) and
+  have it still return `json.dumps(_to_jsonable(result), default=str)`; the text must equal `json.dumps(structuredContent["result"], default=str)`. The usage
+  event (`_build_usage_event`) keeps receiving the raw `result`.
+- >-
+  src/foss_mcp/mcp/response_envelope.py (NEW, pure). `scope_object(scope) -> dict` is `{"family": ..., "platform": ..., "source_kind": ...}`. `UPSTREAM_TEXT_TOOLS` is the
+  closed set `{search_docs, lookup, search_symbols, get_symbol, find_examples, list_recent_changes}` (get_product_reference keeps its own per-section marker;
+  list_members returns identifiers only; report_index_freshness is index metadata). `origin_of(tool)` returns "upstream_repository" for those six and
+  "get_product_reference" -> "mixed" (some sections quote the repository, some come from the manifest), everything else "index_metadata". `annotate_result(tool,
+  payload, scope)` returns a new object without mutating the input: a dict result that has no `scope` key gains `scope = scope_object(scope)` (this covers
+  get_product_reference results and any future dict); a dict or each dict item of a list result of an UPSTREAM_TEXT_TOOLS tool that carries any of the keys
+  `text`, `snippet`, `raw_text`, `body`, `doc_matches` or `example` gains `untrusted_upstream_content: true` (a value that is already there is kept); a dict result of
+  those tools also gains `content_origin: "upstream_repository"`; an empty list, a list of strings (list_members) and miss dicts (no such key) are returned
+  unchanged. Never add a key to a dict item that is not a dict; never reorder existing keys (new keys go last).
+- >-
+  Tests, all offline, deterministic, no skip/xfail/sleep, no network, no wall-clock assertions. Build stores by COPYING the committed scope directories
+  (`shutil.copytree(infra/demo-manifests/<family>__<platform>__self_extracted, tmp/...)`) as tests/mcp/tools/test_lookup_miss_reason.py does, and drive the server
+  through `create_server(DeploymentConfig(...), store)` and the SDK handlers the way tests/mcp/test_dispatch_offload.py (`server.get_request_handler("tools/call")`)
+  and tests/mcp/test_tool_surface_truthful.py (`_advertised`, `_call` over `create_client_server_memory_streams`) do. tests/mcp/test_handshake_identity.py (NEW):
+  `test_every_shipped_pilot_family_and_platform_has_a_display_entry` (reads infra/helm/foss-mcp/values.yaml pilots; 40 pilots; every family in FAMILY_DISPLAY and
+  every platform in PLATFORM_PROFILE), `test_unknown_family_and_platform_fall_back_without_raising`, `test_initialize_options_differ_and_name_their_own_family_and_platform`
+  (pdf/net vs cells/rust vs jmap/nodejs: `server.create_initialization_options()` titles pairwise different, each title and each instructions text contains its own
+  family display and language label, none contains another pilot's family display), `test_instructions_are_at_most_1100_characters_single_line_and_keep_the_base_guidance`,
+  `test_the_example_symbol_is_a_real_indexed_fqn` (parametrised over pdf/net, pdf/go, cells/rust, jmap/nodejs, tex/python: the chosen FQN is the FQN line of a
+  symbol chunk of that pilot's baked generation), `test_the_example_symbol_pick_is_most_members_then_smallest_fqn` (synthetic documents), `test_neutral_facts_when_no_generation_is_readable`
+  (a store whose `read_active` returns None and a store that raises), `test_tools_list_never_contains_a_legacy_example` (parametrised over pdf/net, pdf/go, cells/rust,
+  words/net, jmap/nodejs: no advertised tool or field description contains any of `Aspose.Pdf.Document`, `a pdf/net example`, `in the pdf/net index`, `add a watermark to a PDF`,
+  `add a digital signature to a PDF`, `font error`, `lexical/semantic`), `test_tools_list_descriptions_use_the_pilots_own_example` (the pilot's example FQN appears in
+  the get_symbol description and field description), `test_find_examples_description_says_lexical_only_without_a_gateway_and_vector_with_one` (monkeypatch
+  `example_search_mode` as imported by identity.py to return each of the three mode strings, the degraded one included), `test_report_index_freshness_texts_say_only_self_extracted_is_populated`,
+  `test_get_product_reference_description_does_not_claim_authoritative_absence` (a regression guard on text TC-507 corrected; it must pass without this card editing that description), `test_static_helpers_still_render_the_legacy_text` (`tool_description("get_symbol")`
+  still contains `Aspose.Pdf.Document`), and `test_list_tools_and_server_call_the_identity_renderers` (a source assertion on the committed src/foss_mcp/mcp/server.py:
+  it contains `title=deployment_title(scope)`, `deployment_instructions(`, `read_deployment_facts(` and `from foss_mcp.mcp.identity import`). tests/mcp/test_response_envelope.py
+  (NEW): `test_every_tool_response_carries_a_sibling_scope` (parametrised over the nine tools on pdf/net with valid arguments: `structuredContent["scope"]` equals
+  the deployment, and `structuredContent["result"]` keeps its previous type), `test_dict_results_without_scope_gain_one_in_band` (get_product_reference),
+  `test_bare_lists_stay_bare_lists` (list_members found case and list_recent_changes with two synthetic releases keep `type(result) is list`),
+  `test_upstream_text_results_are_marked_untrusted` (search_symbols, search_docs, lookup task answer, find_examples, get_symbol, list_recent_changes), `test_index_metadata_results_are_not_marked`
+  (report_index_freshness, list_members, a Miss), `test_text_channel_equals_structured_result`, `test_annotate_result_does_not_mutate_its_input`,
+  `test_an_unknown_argument_error_names_the_argument_and_lists_the_valid_ones` (query "x" plus `bogus`: message contains `unexpected argument 'bogus'` and `query, top_k`),
+  `test_a_hostile_argument_name_is_sanitised_and_cut` (a 5,000 character name with control characters and a newline: message at most 300 characters, no control character, no newline),
+  and `test_other_validation_messages_are_unchanged` (empty query still reads `query: Value error, query must not be empty`). Counting parametrised cases there are at least 40 tests.
+- >-
+  Existing tests: run `{python} -m pytest tests/mcp -q -rfE -p no:cacheprovider` FIRST. Change ONLY these assertions if (and only if) they fail, each with a one-line
+  comment saying why: tests/mcp/test_server_identity.py `result["instructions"] == SERVER_INSTRUCTIONS` -> `result["instructions"].startswith(SERVER_INSTRUCTIONS)` (the
+  instructions now append the deployment paragraph); tests/mcp/test_dispatch_offload.py L181 -> `structured_content["result"] == {"blocked": True}` and L308 ->
+  `structured_content["result"] == _to_jsonable(direct)` or, for a dict result, the same comparison after removing the added `scope` / `content_origin` / `untrusted_upstream_content`
+  keys (a small helper in that test file); tests/mcp/test_tool_surface_truthful.py and tests/mcp/test_server_wiring.py only if a run shows a pinned old text. Never delete, skip or
+  weaken any other assertion. Run the whole of tests/mcp, tests/infra/test_serve_http.py and tests/infra/test_serve_stdio_parity.py at the end. Preserve each file's line endings and
+  encoding; commit messages are UTF-8 without a byte-order mark.
+- >-
+  Every new PUBLIC top-level function or class in src/foss_mcp must have a production caller: tests/test_unwired_modules.py walks the import graph from the real entrypoints (infra/serve_http.py, infra/build_chunks.py, src/foss_mcp/mcp/server.py ...) and is part of the second check. Keep a helper that only tests call private (leading underscore). Run that test before finishing.
+actions:
+- >-
+  Render serverInfo.title, the instructions and every advertised description from the deployment's scope and its own active generation (real example symbol,
+  real example title, real example-search mode), with neutral wording when nothing is readable.
+- >-
+  Correct the descriptions this card owns that overclaim or mislead: lexical-only versus semantic (including TC-508's degraded mode), dead source_kind values.
+- >-
+  Wrap every successful response additively: sibling scope, in-band scope for dict results, untrusted_upstream_content on every result that carries repository text.
+- >-
+  Name the offending argument and list the valid ones in the unknown-argument error.
+checks:
+- command: '{python} -m pytest tests/mcp/test_handshake_identity.py tests/mcp/test_response_envelope.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+- command: '{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_stdio_parity.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+min_tests: 30
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/server.py');s=p.read_text(encoding='utf-8');old='title=deployment_title(scope)';assert s.count(old)==1;p.write_text(s.replace(old,'title=None'),encoding='utf-8')"
+  rationale: >-
+    Drops the deployment title from the Server constructor, so serverInfo carries no title again and the test that requires two pilots' initialize results to
+    differ and to name their own family and platform fails. A real break of the card's central claim (the handshake must identify the deployment).
+evidence:
+- evidence/build/G3/TC-514/receipt.json
+closeout:
+- >-
+  serverInfo.title, the instructions and the advertised tool and field descriptions now name the deployment's own family, platform, language, FQN style and a real
+  indexed example; every response carries scope (sibling in structuredContent, in-band for dict results) and repository text is marked untrusted. Nothing in the
+  result shapes changed. The image must be rebuilt for this to reach a pilot; the cluster rollout is the supervisor's separate step.
+- >-
+  Open question for the supervisor: the -32602 "Invalid request parameters" data "" is raised inside the MCP SDK (runner.py L213, jsonrpc_dispatcher.py L101); fixing it
+  needs either an SDK upgrade or a transport-level rewrite in infra/serve_http.py (owned by the transport cards), and is intentionally not part of this card.
+recovery: Re-run from a clean tree.

@@ -1,0 +1,184 @@
+id: TC-516
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-008 (independent pre-production review; findings RST-02, RST-14, D-08, PS-08). LOOKUP AND SEARCH FORGIVENESS. Measured by the reviewers on the shipped
+  image and re-measured offline by the drafter on the baked demo manifests at main 3155a7b4: of 390 phrased queries that name a type that exists, `lookup` returned that
+  type's symbol 0 times (on the drafter's data-driven set of 375 "how do I use X" questions over all 40 pilots the symbol is returned in the top 3 for 0 of 375, 0 percent);
+  cells/net `lookup("how do I use Workbook")` and `lookup("Workbook methods")` are misses although `lookup("Workbook")` returns the symbol; `lookup("convert pdf to docx")` misses but
+  "docx conversion" answers (the stemmer does not map convert to conversion); "colour" misses against "color"; the tokenizer splits "PDFs" into the junk terms "pd" and "fs".
+  On 78 verified-absent-feature probes (14 distinct questions such as "create a pivot table" or "send via SMTP" asked on every pilot of the six families that have them) the
+  baked data gives 57 honest misses (73 percent), 11 relevant answers and 10 irrelevant answers (12.8 percent; reviewers measured 27 percent on their 37), for example
+  cells/cpp "create a pivot table" answers with the quick-start text, jmap/nodejs "send via SMTP" answers with the OAuth example. 267 task questions for features that exist
+  found only a README table 13.5 percent of the time as the sole evidence. `search_symbols("SetPassword")` on pdf/go ranks the type that actually declares the useful
+  method (Document) 8th of 8, behind six field types that merely INHERIT `SetPassword(v: bool)` from TextBoxField (the register's wording "take it as a parameter" is
+  wrong; the drafter read the chunks). find_examples accepts identifier queries on unrelated examples: pdf/python "DataSource example" returns three unrelated examples at 0.75
+  (terms data, datasource, example, source: "example" and the sub-words match everything), pdf/go "Example: Nonexistent title" returns "Create Hierarchical Bookmarks" at
+  0.67, and the bare query "Example:" returns five arbitrary examples at 1.0. Concise 3 to 5 word example queries reach the target example in the top 3 for 23 of 26 (drafter
+  re-run: 23/26, 3 misses, 0 wrong examples); verbose queries 14/26 (10 misses, 2 wrong examples). This card makes the query side more forgiving where it is provably safe and
+  stricter where it is provably lax, without touching the 0.6 threshold, document tokenisation or the index: (a) lookup includes the symbol(s) a query names; (b) search_symbols
+  gets a gated per-token fallback and ranks declaring types before inheriting ones; (c) a small synonym map and a plural-acronym fix on the QUERY side only; (d) a documentation
+  answer whose only evidence is a table chunk needs at least two distinctive query terms; (e) example and documentation relevance become IDF-weighted, with identifier-like
+  query terms required, and "example", "sample", "use" and "how" join the generic words. Decisions recorded here. The "simple prefix tier" asked for in the findings is NOT added:
+  tests/mcp/test_search_symbols_honest_miss.py pins "AFRelation" and "Watermar" as honest misses, and did-you-mean suggestions already rescue 63 percent of prefixes. The per-token
+  fallback is gated (the query must contain whitespace, so a dotted or scoped name such as "PdfDocument.Rotate" stays a miss, as that test also pins) and only type-name tokens
+  are admitted by lookup, so verified-absent probes keep their honest misses. What does NOT change: RELEVANCE_THRESHOLD (0.6), `tokenize` and every stored token, the index, any
+  tool input schema, the miss `reason` texts, the response caps (card TC-515).
+depends_on:
+- TC-199
+- TC-399
+- TC-381
+- TC-465
+- TC-493
+- TC-505
+- TC-508
+- TC-514
+- TC-515
+write_paths:
+- src/foss_mcp/mcp/tools/relevance.py
+- src/foss_mcp/mcp/tools/lookup.py
+- src/foss_mcp/mcp/tools/search_symbols.py
+- src/foss_mcp/mcp/tools/search_docs.py
+- src/foss_mcp/mcp/tools/find_examples.py
+- tests/mcp/tools/test_relevance_idf_synonyms.py
+- tests/mcp/tools/test_lookup_forgiveness.py
+- tests/mcp/tools/test_search_symbols_forgiveness.py
+- tests/mcp/tools/test_forgiveness_acceptance.py
+- tests/mcp/tools/test_relevance_floor.py
+- tests/mcp/tools/test_relevance_query_terms.py
+- tests/mcp/tools/test_retrieval_tools.py
+- tests/mcp/tools/test_nonsense_queries_miss.py
+- tests/mcp/tools/test_find_examples_verified_only.py
+- tests/mcp/tools/test_lookup_miss_reason.py
+- tests/indexing/test_lookup_doc_fallback_query_safety.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-001
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read: src/foss_mcp/mcp/tools/relevance.py (`query_terms`, `coverage`, `RELEVANCE_THRESHOLD = 0.6`, `_GENERIC_WORDS`, `stem_token`), lookup.py (`lookup`, `_compose_from_docs`, `TaskAnswer`,
+  `_looks_like_a_task_question`, `_lookup_miss`), search_symbols.py (`_match_tier`, `_matches_a_rendered_member`, `search_symbols` - its admitted-candidate sort key is `(tier, -bm25)`),
+  search_docs.py (`search_docs`), find_examples.py (`find_examples` lexical stage: `terms = query_terms(...)`, `coverage(terms, tokens)`, `RELEVANCE_THRESHOLD`), the lexical payload shape
+  (`payload["lexical_index"]` has `documents` {doc_id: {chunk_id, text, tokens}} and `doc_freq` {raw token: document count}; src/foss_mcp/indexing/lexical_index_writer.py `build_lexical_index`, `tokenize`),
+  and the pins: tests/mcp/tools/test_relevance_floor.py, test_relevance_query_terms.py (TC-505), test_retrieval_tools.py, test_nonsense_queries_miss.py, test_find_examples_verified_only.py,
+  test_lookup_miss_reason.py (TC-515), tests/mcp/test_search_symbols_honest_miss.py (must pass UNCHANGED), tests/indexing/test_lookup_doc_fallback_query_safety.py. Never print or log any environment value.
+- >-
+  relevance.py. (1) Add to `_GENERIC_WORDS`: "example", "examples", "sample", "samples", "use", "how" (idempotent where the tokenizer already drops one). (2) Query-side acronym plurals: before
+  tokenising, rewrite each whole word of two or more capitals followed by a lowercase "s" (regex `\b([A-Z]{2,})s\b`) to the capitals alone, so "PDFs" gives "PDF"; document tokens are not touched. (3)
+  `SYNONYM_GROUPS`: a tuple of frozensets of STEMS (apply `stem_token` when you build them): {convert, conversion}, {colour, color}, {tab, sheet, worksheet}, {export, save}. `coverage(terms,
+  document_tokens, *, weights=None)` counts a term as present when the stemmed document tokens contain the term OR any member of its group; the document side is not altered. (4)
+  `term_weights(terms, lexical_payload) -> dict[str, float]`: weight = clip(ln(1 + N / (1 + df)), 0.5, 2.0), N = number of documents, df = sum of `doc_freq` over the raw tokens whose stem equals the term
+  (0 when none), so a term absent from the whole generation weighs most; `coverage` with `weights` returns sum(weight of present terms) / sum(weight of all terms). Without `weights` it is today's plain
+  fraction, so every existing caller and test is unchanged. (5) `distinctive_terms(query, family) -> frozenset[str]`: the stemmed terms minus the family word and the generic words, WITHOUT the
+  "fall back to the full set when nothing remains" rule of `query_terms` (so "Example:" and "pdf examples" have none). (6) Identifier-like query terms: a run of the ORIGINAL query that contains a lower-case letter immediately followed by a capital (DataSource, getValue), or an underscore, or a lower-case letter together with a digit (Pdf2Image, set_password); an ALL-CAPS acronym such as PDF, XLSX, EML or 3MF is NOT identifier-like contributes its whole-run lowercase token as a MUST-MATCH term: a chunk lacking that token
+  has coverage 0 for the query. Expose it as `required_terms(query) -> frozenset[str]` and apply it in `coverage_ok(terms, tokens, required, weights)` or an equivalent single function that all
+  three callers use. Keep every public name that exists today.
+- >-
+  find_examples.py and search_docs.py. In the lexical stage use the weighted coverage with the same `RELEVANCE_THRESHOLD`, and treat a query with no `distinctive_terms` as a miss
+  ("no verified example matches this query" for find_examples; the existing per-category miss for search_docs) - except that search_docs keeps today's behaviour for a bare query that IS only the family
+  word (`query_terms` fallback) because tests pin it. The exact-title branch of find_examples ("Example: <title>") is untouched. The vector fallback is untouched (card TC-508 owns its deadline).
+- >-
+  lookup.py. (a) `TaskAnswer` gains a LAST field `symbols: tuple[SymbolMatch, ...] = ()`. A helper finds the symbols a query names: take `distinctive_terms` plus the noise words ("method",
+  "methods", "class", "classes", "property", "properties", "api", "using", "what", "does"); require at least 3 characters per token; a token names a type when its casefolded (and plural-stripped) form equals
+  the casefolded final segment (split on "." and "::") of an indexed symbol FQN; admit the symbols when ONE distinctive token remains and it names a type, or when at least 60 percent of the distinctive
+  tokens (and at least two) each name a type; at most three symbols, in query-token order. Lowercase generic words ("table", "image") therefore only count when they are (nearly) the whole question, so
+  "create a pivot table" adds nothing. When `_compose_from_docs` finds docs or an example, the TaskAnswer carries `symbols=`; when it finds neither and symbols were found, `lookup` returns that
+  `list[SymbolMatch]` (the same type a symbol hit returns) instead of falling through to the symbol miss. (b) TABLE-ONLY EVIDENCE: a documentation chunk is table-dominated when at least half of its non-empty body
+  lines (after the FQN line) start with `|` or `- ` followed by a backticked identifier and a dash or colon, or when it is longer than 8,000 characters. A TaskAnswer whose only doc evidence is
+  table-dominated chunks is returned only if some such chunk contains at least two distinctive query terms; otherwise those chunks are dropped (and the answer becomes the example, the symbols or a miss).
+  (c) The Miss text and everything else in `lookup` is unchanged.
+- >-
+  search_symbols.py. (a) Within the member-name tier (overall tier 2), rank members DECLARED by the type (the rendered item has no ` (inherited from `) before members it inherits, then the existing BM25
+  order; the tier numbers and `_match_tier` are unchanged. (b) A FALLBACK stage that runs only when the existing stages admitted nothing AND the query contains whitespace: split into distinctive tokens
+  (same noise words as lookup, 3 or more characters each); a chunk is admitted when at least 60 percent of the tokens (and at least one) match the chunk's own FQN final segment (casefolded, plural
+  stripped), or a member the type DECLARES; rank by number of matched tokens, then declared-before-inherited, then BM25. This makes "Workbook methods", "workbooks" and "send email" find their type while
+  "PdfDocument.Rotate" (no whitespace) and the partial words "Watermar" and "AFRelation" stay honest misses. No prefix tier. The Miss, its `reason`, `suggestions` and `coverage_note` are unchanged.
+- >-
+  Regression tables to embed in the tests as constants (offline, over a COPY of infra/demo-manifests as tests/mcp/tools/test_lookup_miss_reason.py does it; the embedding gateway replaced by a stub whose `embed`
+  raises). (1) SYMBOL PHRASES: for every one of the baked pilot directories, `names` = the symbol final segments (split on "." and "::") that match `^[A-Z][A-Za-z0-9]{4,}$` AND occur as a whole word in at least one
+  documentation or example chunk of the same pilot, sorted, first 10 per pilot (375 names over 40 pilots at the time of writing; assert at least 300). For each name ask `lookup(store, scope, "how do I use " + name)`
+  and `lookup(store, scope, name + " methods")`: the name is found when it is the final segment of one of the first three entries of the returned symbol list or of `TaskAnswer.symbols`. Required: at least 90 percent
+  found for each template (0 percent today). (2) VERIFIED-ABSENT PROBES (question | regex on the lowercased answer text with underscores removed | families it runs on, all pilots of those families): cells - "create a pivot table"
+  `pivot`, "export workbook to docx" `docx`, "connect to a SQL database" `sql|database`, "run a VBA macro" `vba|macro`; pdf - "OCR a scanned pdf" `ocr`, "convert pdf to docx" `docx`, "convert pdf to powerpoint" `pptx|powerpoint`;
+  jmap - "connect over IMAP" `imap`, "send via SMTP" `smtp`, "parse an EML file" `eml`; tex - "use BibTeX bibliography" `bibtex`, "run TikZ drawing" `tikz`; 3d - "render image of a 3d scene" `render`; words - "convert to epub" `epub`.
+  Classification: Miss -> honest miss; otherwise the answer text is the concatenation of doc texts, example fqn and snippet and symbol texts, relevant if the regex matches else irrelevant. Baked data today: 78 probes, 57
+  honest, 11 relevant, 10 irrelevant. Required: honest misses at least 54 (68 percent) AND irrelevant answers at most 7 (9 percent). (3) EXAMPLE QUERIES (pilot | target example title | concise query | verbose query; a hit means a
+  returned example's fqn contains the title, lowercased, within the top 3 of `find_examples(..., top_k=3)`): pdf/net | Add a Watermark Annotation | add watermark to a pdf page | I need to stamp a CONFIDENTIAL watermark on every
+  page of an existing PDF file using C#, how do I do that?; pdf/net | Extract Text Fragments | extract text from a pdf page | How can I read all the text on the first page of a PDF and print each fragment?; pdf/python | Merge PDF Files |
+  merge pdf files | combine several PDFs into a single document in python; pdf/python | Extract Text From a PDF | extract text from pdf | get the plain text out of every page of a PDF in python; pdf/python | Render a Page to an
+  Image | render pdf page to png image | convert the first page of a PDF into a PNG with a given DPI; pdf/python | Build a Table | add a table to a pdf | draw a table with header row and totals on a PDF page; pdf/go | Split and Merge |
+  split pdf into pages | how do I split a PDF into separate one-page files and then merge two PDFs in Go; pdf/go | Encrypt with Permissions | encrypt pdf with password | protect a PDF with user and owner passwords and restrict
+  printing; pdf/go | Fill AcroForm | fill pdf form fields | set the value of a text box and tick a checkbox in an existing PDF form; pdf/java | Inspect Document Page | get page size of pdf | how do I read the width and height of a page
+  in a PDF in Java; pdf/java | Widget Annotation | add a button to a pdf | create a PDF with a form button widget annotation; cells/net | Build a Table With Totals | create excel table with totals | how to create a table over a range
+  of cells and add a totals row with sum; cells/net | Convert XLSX to PDF | convert xlsx to pdf | export an Excel workbook to PDF in .NET; cells/net | Add Hyperlinks | add hyperlink to cell | put a hyperlink in a cell and define a named
+  range; cells/python | Export to CSV | export worksheet to csv | save my spreadsheet as a CSV file using python; cells/python | Password-Protect | password protect excel file | how can I encrypt an xlsx file with a password; slides/java |
+  Clone a Slide | duplicate a slide | copy a slide inside a presentation and append it; slides/java | Speaker Notes | add speaker notes | write presenter notes for slide 1; note/python | Extract Hyperlinks | extract hyperlinks from
+  onenote | list all the links in a OneNote document; note/python | Save Embedded Images | save images from onenote | extract embedded pictures from a .one file and write them to disk; pdf/typescript | Create a New PDF | create a new
+  pdf | generate a brand new PDF document with text in typescript; pdf/typescript | Password-Protect | encrypt pdf | set a password on a PDF in node; email/net | Convert EML to MSG | convert eml to msg | how do I turn an .eml email file
+  into an Outlook .msg; 3d/python | Cube and Export It to 3MF | export cube to 3mf | create a box mesh and save it as 3MF; words/net | Merge Two Documents | merge two word documents | append one docx to another in C#; cells/rust | Format
+  numbers | format number as percentage | apply percentage number format to a cell. Required: concise hits at least 23 of 26 with zero wrong examples (today 23/26, 0 wrong); verbose hits at least 14 of 26 with at most 2 wrong
+  examples (today 14/26, 2 wrong). If both cannot be met, STOP and report which term-weight clip you tried; do not lower either number. (4) Fixed negatives: find_examples returns NoExampleFound for "DataSource example" on pdf/python, pdf/net and
+  cells/net, for "Example: Nonexistent title" on pdf/go and cells/net, and for "Example:" on pdf/net, pdf/go and cells/net.
+- >-
+  Tests (offline, deterministic, no skip/xfail/sleep/network/wall-clock; at least 30 tests with the parametrised cases). tests/mcp/tools/test_relevance_idf_synonyms.py (NEW): `test_the_threshold_is_unchanged_at_0_6`,
+  `test_pdfs_does_not_split_into_pd_and_fs`, `test_example_sample_use_how_are_generic`, `test_distinctive_terms_are_empty_for_example_colon_and_family_only_queries`, one test per synonym group
+  (`test_convert_matches_conversion_both_ways`, `test_colour_matches_color`, `test_tab_sheet_worksheet_are_one_group`, `test_export_matches_save`), `test_synonyms_never_change_document_tokens`,
+  `test_weights_are_clipped_to_0_5_and_2_0_and_deterministic`, `test_an_absent_term_weighs_more_than_a_common_one`, `test_weighted_coverage_without_weights_is_the_plain_fraction`,
+  `test_an_identifier_like_query_term_must_be_present` (DataSource), `test_plain_words_and_all_caps_acronyms_are_not_required_terms`. tests/mcp/tools/test_lookup_forgiveness.py (NEW):
+  `test_how_do_i_use_workbook_returns_the_workbook_symbol_on_cells_net`, `test_workbook_methods_returns_the_workbook_symbol`, `test_a_generic_lowercase_word_alone_adds_no_symbol` (create a pivot table), `test_taskanswer_symbols_default_is_empty_and_additive`,
+  `test_symbols_without_docs_are_returned_as_a_symbol_list`, `test_a_table_only_answer_needs_two_distinctive_terms` and `test_a_table_chunk_with_two_distinctive_terms_is_kept` (synthetic in-memory generations built as in
+  tests/mcp/test_tool_surface_truthful.py), `test_a_long_chunk_over_8000_characters_counts_as_table_dominated`. tests/mcp/tools/test_search_symbols_forgiveness.py (NEW):
+  `test_set_password_ranks_the_declaring_types_before_the_inheriting_ones_on_pdf_go` (Document within the first two results and the six inheriting field types after both declaring types; the card does NOT claim Document is
+  first), `test_plural_workbooks_finds_workbook`, `test_workbook_methods_finds_workbook_by_token`, `test_dotted_unknown_member_stays_a_miss`, `test_partial_words_stay_misses`, `test_the_fallback_only_runs_for_queries_with_whitespace`.
+  tests/mcp/tools/test_forgiveness_acceptance.py (NEW): `test_symbol_phrase_found_in_the_top_three_at_least_90_percent` (both templates, parametrised), `test_verified_absent_probes_keep_honest_misses_and_cap_irrelevant_answers` (reports all three
+  counts in the assertion message), `test_concise_example_queries_still_hit_23_of_26`, `test_verbose_example_queries_do_not_regress`, `test_fixed_negative_example_queries_are_misses` (parametrised over the 8 pairs).
+- >-
+  Existing tests: run `{python} -m pytest tests/mcp tests/indexing/test_lookup_doc_fallback_query_safety.py -q -rfE -p no:cacheprovider` FIRST. Change ONLY an assertion that pins the old plain-fraction coverage value or an
+  old one-letter/generic-word behaviour, each with a comment saying why; never delete, skip or xfail a test and never lower a threshold. tests/mcp/test_search_symbols_honest_miss.py is deliberately NOT in write_paths and must pass
+  unchanged. Preserve line endings and encoding; commit messages are UTF-8 without a byte-order mark.
+- >-
+  Every new PUBLIC top-level function or class in src/foss_mcp must have a production caller: tests/test_unwired_modules.py walks the import graph from the real entrypoints (infra/serve_http.py, infra/build_chunks.py, src/foss_mcp/mcp/server.py ...) and is part of the second check. Keep a helper that only tests call private (leading underscore). Run that test before finishing.
+actions:
+- >-
+  Make lookup answer with the symbol a query names, make search_symbols rank declaring types first and add a gated per-token fallback, and add a plural-acronym fix and four synonym groups on the query side.
+- >-
+  Make example and documentation relevance IDF-weighted with required identifier terms and a distinctive-term floor, and stop table-only evidence from standing as an answer.
+- >-
+  Pin the gains and the guards with the reviewers' regression tables, offline, over the baked manifests.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_forgiveness_acceptance.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+- command: '{python} -m pytest tests/mcp tests/indexing/test_lookup_doc_fallback_query_safety.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+min_tests: 30
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/relevance.py');s=p.read_text(encoding='utf-8');old='RELEVANCE_THRESHOLD = 0.6';assert s.count(old)==1;p.write_text(s.replace(old,'RELEVANCE_THRESHOLD = 0.3'),encoding='utf-8')"
+  rationale: >-
+    Lowers the relevance threshold to 0.3, so unrelated examples and documentation clear the floor again: the threshold-pin test, the fixed-negative example queries and the verified-absent-probe ceiling on irrelevant answers fail.
+    A real break of the card's central claim (forgiveness must not buy irrelevant answers).
+evidence:
+- evidence/build/G3/TC-516/receipt.json
+closeout:
+- >-
+  lookup answers "how do I use X" with X's symbol (at least 90 percent in the top 3 on the baked fleet, 0 percent before), search_symbols no longer ranks inheriting types ahead of declaring ones, and example and documentation
+  relevance reject identifier queries whose identifier is absent. Verified-absent probes keep at least 68 percent honest misses and at most 9 percent irrelevant answers; concise example hits stay at least 23 of 26. The image must be
+  rebuilt for this to reach a pilot.
+recovery: Re-run from a clean tree.

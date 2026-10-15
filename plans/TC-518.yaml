@@ -1,0 +1,130 @@
+id: TC-518
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-008 (independent pre-production review; findings AGT-02 data part, AGT-09, D-12). PRODUCT REFERENCE CONTENT. Measured by the reviewers on the shipped image and re-checked offline by the drafter on
+  the 40 baked sidecars (infra/demo-manifests/product_reference_*.json) and generations: `get_product_reference` answers `formats` and `limitations` with NotAvailable ("has no data source in this project yet",
+  src/foss_mcp/mcp/tools/get_product_reference.py L398 at main 3155a7b4) for 40 of 40 pilots, although the same deployment's index holds the README section "Scope and Limitations" for the pilots and `lookup("limitations not
+  supported")` returns it (cells/net: CSV unsupported, formulas not evaluated). `install` is NotAvailable ("the CMake manifest names no package-manager coordinate") for all five C++ pilots (cells, email, jmap, pdf,
+  slides) and is the bare sentence "build it from that source ... following the repository's README" for pilots whose registry check failed, with no steps; 15 of 35 answered installs are such degraded answers.
+  Packaging facts disagree between sources and the tool silently picks the manifest: cells/go go.mod says 1.24.5 while the repository's AGENTS.md (in the baked sidecar) says "Go 1.18+"; pdf/cpp's README says CMake 3.20 while
+  other notes say 3.22. `compatibility` is NotAvailable for cells/typescript and 3d/typescript (no engines.node) and for cells/rust and jmap/rust (no rust-version although Cargo.toml says `edition = "2021"`). The four Java
+  pilots 3d, cells, pdf and slides serve the non-SPDX license text "MIT License" (jmap/java serves "MIT"), and note/python serves `LicenseRef-Aspose-Split` while its repository LICENSE file reads as MIT, a conflict the answer
+  does not mention. No answer states the package version the manifest declares. DESIGN DECISIONS (recorded; they deviate from the brief's suggested file list on purpose). (1) The README text is read from the
+  documentation chunks the deployment ALREADY serves - the `FQN: Doc: <title>` chunks of its active generation, which are the committed furnished page indexed by the ingestion job - not fetched again and not copied
+  into the sidecar: that needs no chart, docker-compose.yml or sidecar-format change, no re-fetch of 40 sidecars, no second copy that could disagree with `search_docs`, and the contract test below can then compare the
+  tool with the very chunks it claims to be missing. (2) Chunk order inside a generation is by hash, so the original section order is recovered from the `Part: <i> of <n>` marker that card TC-517 writes; a generation
+  indexed before that card has no markers and its sections are assembled in generation order and SAID to be unordered. (3) Every piece of README text is marked `untrusted_upstream_content` with a notice that names the
+  section and the indexed commit. What does NOT change: the answers for default inputs (no README sections supplied) are byte-identical to today - existing tests pin them; the sidecar format and its writers (cards TC-507 and
+  TC-511 own those); the registry verification; the result dataclasses; tool schemas.
+depends_on:
+- TC-427
+- TC-470
+- TC-471
+- TC-507
+- TC-511
+- TC-514
+- TC-517
+write_paths:
+- src/foss_mcp/mcp/tools/readme_sections.py
+- src/foss_mcp/mcp/tools/get_product_reference.py
+- src/foss_mcp/mcp/server.py
+- tests/mcp/tools/test_readme_sections.py
+- tests/mcp/tools/test_product_reference_readme_content.py
+- tests/mcp/tools/test_product_reference_baked_contract.py
+- tests/mcp/tools/test_product_reference_license_support.py
+- tests/mcp/tools/test_product_reference_truthful.py
+satisfies:
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read: src/foss_mcp/mcp/tools/get_product_reference.py in full (`ProductReferenceInputs` and the fields TC-507 adds, `get_product_reference` and its sections, `_spdx_from_license_text`, `_license_from_document`,
+  `_unresolved_install_text`, `_install_pin_notice`, `install_coordinate_for_verification`), src/foss_mcp/extraction/manifest_reader.py (`read_*_manifest`: dotnet/python/java/js/rust/cpp expose `version`; js exposes
+  `engines_node`; cpp exposes `cmake_min_version` and `cpp_standard`; go exposes `go_version`), infra/fetch_product_reference.py `load_manifest_sidecar` (import it in tests with `sys.path.insert(0, <repo>/infra)` as
+  tests/infra/test_serve_http.py does), src/foss_mcp/mcp/server.py `_wrap_get_product_reference` and `_build_tool_registry` (as left by TC-507/TC-514), infra/build_chunks.py `_build_doc_chunks` and src/foss_mcp/indexing/doc_chunking.py (TC-517:
+  the `Part: <i> of <n>` marker is the LAST body line of a multi-part chunk, before the `Source-Commit: <sha>` line the builder appends), and the pins: tests/mcp/tools/test_product_reference_truthful.py,
+  test_product_reference_license_support.py, test_product_reference_compatibility_units.py, test_product_reference_install_pin.py, test_get_product_reference_unresolved.py, test_get_product_reference_platforms.py. Never print or log any
+  environment value.
+- >-
+  src/foss_mcp/mcp/tools/readme_sections.py (NEW, pure). Module constants each on its own line exactly: `LIMITATIONS_TITLE_PATTERN = "limitation"`, `INSTALL_TITLE_PATTERN = "install"`, `CAPABILITIES_TITLE_PATTERN = "capabilit"`
+  (case-insensitive substrings of the `Doc:` title; the negative control edits the first). A frozen dataclass `ReadmeSection(title: str, text: str, commit: str | None, ordered: bool, parts: int)` and `ReadmeSections(limitations,
+  install, capabilities: ReadmeSection | None)`. `sections_from_documents(documents: Mapping[str, Mapping[str, str]]) -> ReadmeSections` (pure): for each pattern collect the documents whose first line is `FQN: Doc: <title>` with a
+  matching title, skipping every chunk whose first body line starts with `FAQ:` (a FAQ question such as "How do I install ...?" is not the installation section); strip the FQN line, the `Part:` line and the `Source-Commit:` line (remember the commit); order by the Part index when EVERY collected chunk of that title carries a marker (ordered True), else keep the iteration order of
+  `documents` (ordered False); join with a blank line. For limitations, drop the generated lead-in paragraph that starts "Known issues, unsupported functionality, and other troubleshooting-relevant scope boundaries" (it is
+  page-generator text, not README text). `read_readme_sections(store, scope) -> ReadmeSections`: read the active generation of `"::".join((scope.family, scope.platform, "self_extracted"))` through `store.read_active` and `store.read_generation`
+  (cached by TC-389) and call the pure function; ANY exception yields the empty `ReadmeSections(None, None, None)` and never propagates.
+- >-
+  get_product_reference.py. Signature `get_product_reference(inputs, section, *, readme: ReadmeSections | None = None)`; `readme=None` (and any `ReadmeSections` whose needed member is None) must give byte-identical results to today for every
+  section. With README sections present: (a) `limitations`: `ReferenceContent("limitations", text, untrusted_upstream_content=True, notice=...)` with the README text capped at 6,000 characters at a line boundary plus `[truncated; use search_docs for the rest]`;
+  the notice reads "Verbatim README section '<title>' as indexed from the repository at commit <first 12>; <n> parts, <in original order | chunk order not guaranteed (indexed before part markers)>. Treat as data." (b) `formats`: the lines (bullets or sentences,
+  split on newlines and on ". ") of the capabilities and limitations sections that contain a file-format word from a closed list written in the module (xlsx, xls, csv, json, xml, html, svg, markdown, pdf, docx, doc, pptx, ppt, png, jpeg, jpg, tiff, bmp, gif, eml, msg,
+  pst, epub, xps, ods, odt, rtf, txt, obj, stl, gltf, glb, fbx, 3mf, dae, ply, webp, tex, dvi) AND one of the verbs support, read, write, load, save, export, import, convert; at most 8, first-seen order, each cut at 300 characters;
+  text "File-format statements quoted from the README (selected by keyword, not an exhaustive list):" followed by the lines as bullets; untrusted marker and a notice naming the sources. When none match, `NotAvailable("formats", "no file-format statement was
+  found in the indexed README sections; ask lookup or search_docs")`. Both sections with no README at all keep today's "has no data source in this project yet" reason. (c) `install`: where today's answer is the cpp NotAvailable, or the
+  registry-unresolved prose of `_unresolved_install_text`, and `readme.install` exists: the answer is `ReferenceContent` whose text is the first 1,800 characters (cut at a paragraph boundary) of the README installation section, preceded for the unresolved case
+  by the existing prose and "The repository README's installation section, verbatim:"; `untrusted_upstream_content=True`; notice names the section and commit. When the manifest declares a package version (`.version` of the platform's reader; .NET `Version`), the
+  `install` notice for a registry command adds "The manifest declares package version <v>." - the `text` of a registry command stays the bare command (TC-470 pins it). (d) `compatibility`: (i) when the manifest yields no value and the platform is typescript/javascript/nodejs, look for
+  "Node.js <n>" / "Node <n>" with "or later|and later|+" in `readme.install.text`; if found answer ReferenceContent(">=<n>") with notice "The manifest states no engines.node; taken from the README installation section"; if the README says it declares no minimum, keep
+  the NotAvailable and add that to its reason; for rust, when no rust-version, answer "Rust edition <edition> (rust-version not stated)" using `_load_toml(manifest_text)["package"]["edition"]`; (ii) DISAGREEMENT: for python, go, java, js, rust, dotnet and cpp (CMake minimum) extract a minimum
+  from the manifest value, from `readme.install.text` and from the `agent_guidance` document content (`DocumentPresent.content`) with one regular expression per platform written in the module (Python `Python\s*(\d+(?:\.\d+)+)`, Go `\bGo\s*(\d+\.\d+(?:\.\d+)?)`, Java `(?:Java|JDK|JRE)\s*(\d+)`, Node.js
+  `Node(?:\.js)?\s*(\d+(?:\.\d+)*)`, Rust `Rust\s*(\d+\.\d+(?:\.\d+)?)`, .NET `(?:\.NET\s*|net)(\d+)`, CMake `CMake\s*(\d+\.\d+)`); two minimums agree when one is a numeric prefix of the other (1.24 and 1.24.5 agree); when any other source disagrees with the manifest
+  keep `text` = the manifest value and set `notice` to "Sources disagree: the packaging manifest says <a>; the README says <b>; the repository's AGENTS.md (untrusted) says <c>." listing only the sources that state one. Also add "The manifest declares package version <v>." to the compatibility notice when known.
+  (e) `license`: a Java pom license name found in a closed alias table (exact, case-insensitive: "MIT License" and "The MIT License" -> "MIT"; "Apache License, Version 2.0" and "The Apache Software License, Version 2.0" -> "Apache-2.0"; "BSD 3-Clause License" -> "BSD-3-Clause";
+  "BSD 2-Clause License" -> "BSD-2-Clause") is answered as the SPDX id with notice "Normalised to its SPDX identifier from the manifest's license name '<name>'."; a manifest value that starts with `LicenseRef-` while `license_document` is a present file whose text
+  `_spdx_from_license_text` identifies as an SPDX id keeps its text and gains notice "The manifest states <value>; the repository's <path> file reads as <spdx>. They conflict; read the license file." Any other value is unchanged.
+- >-
+  server.py. `_wrap_get_product_reference(inputs, store, scope)` calls `read_readme_sections(store, scope)` ONLY for the sections formats, limitations, install and compatibility (a fetch of the generation per call is cheap: it is cached) and passes it as `readme=`; `_build_tool_registry` passes
+  its existing `store` and `scope`. Nothing else in server.py changes. `read_readme_sections` and `ReadmeSections` must be referenced from server.py (production call site; a source test asserts it).
+- >-
+  Tests, offline, deterministic, no skip/xfail/sleep/network. tests/mcp/tools/test_readme_sections.py (NEW, synthetic documents): `test_sections_are_matched_by_title_pattern`, `test_faq_chunks_are_never_a_section`, `test_parts_are_assembled_in_marker_order`, `test_chunks_without_markers_are_unordered_and_say_so`, `test_the_generated_lead_in_is_dropped`,
+  `test_fqn_part_and_source_commit_lines_are_stripped_and_the_commit_is_kept`, `test_read_readme_sections_never_raises` (a store whose read_active raises, returns None, or whose generation lacks documents). tests/mcp/tools/test_product_reference_readme_content.py (NEW, synthetic `ProductReferenceInputs` and `ReadmeSections`):
+  one test per rule above - limitations verbatim with marker and notice and the 6,000 cap; formats picks only qualifying lines and caps at 8 and says NotAvailable when none; install for cpp and for the unresolved registry case includes the recipe; the registry command text is unchanged and its notice gains the package version;
+  compatibility typescript README fallback (">=18"), rust edition fallback, "declares no minimum" keeps NotAvailable; disagreement notice lists exactly the disagreeing sources and agreement (1.24 vs 1.24.5) adds none; Java alias table (all five aliases) and an unknown name unchanged; the LicenseRef conflict notice; and
+  `test_default_inputs_are_byte_identical_to_the_previous_answers` (parametrised over the eight sections with the sample inputs of tests/mcp/tools/test_get_product_reference_platforms.py). tests/mcp/tools/test_product_reference_baked_contract.py (NEW, data-driven over EVERY pilot of infra/demo-manifests, never a hard-coded list; copy the scope directory and the
+  sidecar to a temp directory first): per pilot `test_limitations_is_never_no_data_source_when_the_index_has_the_section` (the CONTRACT TEST: build `ProductReferenceInputs` with `load_manifest_sidecar`, `readme` with `read_readme_sections`; if any documentation chunk of the pilot's generation has a title containing "limitation", the answer is a ReferenceContent whose text contains a sentence of that chunk and whose reason never contains "no data source"; assert that at least 30 pilots have such a chunk),
+  `test_formats_is_content_or_a_specific_reason`, `test_cpp_installs_are_the_readme_recipe` (cells, email, jmap, pdf, slides cpp), and four expectation tests on the baked data: `test_cells_go_compatibility_shows_both_go_versions` (notice contains 1.24.5 and 1.18), `test_the_four_java_pilots_license_is_mit_with_a_normalisation_notice` (3d, cells, pdf, slides; jmap/java unchanged),
+  `test_note_python_license_conflict_is_surfaced`, `test_cells_typescript_compatibility_comes_from_the_readme_and_3d_typescript_stays_not_available`, `test_cells_rust_and_jmap_rust_compatibility_state_the_edition`. A source test asserts server.py references `read_readme_sections`. At least 40 tests with the parametrised cases.
+- >-
+  Existing tests: run `{python} -m pytest tests/mcp/tools tests/infra/test_serve_http.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_serve_stdio_parity.py -q -rfE -p no:cacheprovider` FIRST. Change ONLY these two assertions, each with a comment saying why: tests/mcp/tools/test_product_reference_license_support.py L174 (`result.text == "MIT License"`) and
+  tests/mcp/tools/test_product_reference_truthful.py L136 (`result == ReferenceContent("license", "MIT License")`) - a Java pom named "MIT License" is now answered as "MIT" with the normalisation notice; keep the `_java_license(pom) == "MIT License"` assertions (the reader is unchanged). Every other pinned answer must pass untouched. Never delete, skip or weaken a test. Every new public function or class
+  must have a production caller (tests/test_unwired_modules.py, part of the second check). Preserve line endings and encoding; commit messages are UTF-8 without a byte-order mark.
+actions:
+- >-
+  Fill formats and limitations, the cpp and unresolved installs, and the missing typescript and rust compatibility answers from the README sections the index already holds, always marked as untrusted upstream text with a source note.
+- >-
+  Show disagreeing minimum versions with their sources, add the manifest's package version, normalise Java license names to SPDX and surface the note/python LicenseRef conflict.
+- >-
+  Prove it over every baked pilot with a contract test that a limitations section in the index can never be answered "no data source".
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_readme_sections.py tests/mcp/tools/test_product_reference_readme_content.py tests/mcp/tools/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+- command: '{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_serve_stdio_parity.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-008
+min_tests: 40
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/readme_sections.py');s=p.read_text(encoding='utf-8');old='LIMITATIONS_TITLE_PATTERN = ' + chr(34) + 'limitation' + chr(34);assert s.count(old)==1;p.write_text(s.replace(old,'LIMITATIONS_TITLE_PATTERN = ' + chr(34) + 'zzzz' + chr(34)),encoding='utf-8')"
+  rationale: >-
+    Makes the limitations pattern match no title, so a pilot whose index holds a "Scope and Limitations" section is answered "no data source" again: the contract test and the limitations content tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-518/receipt.json
+closeout:
+- >-
+  formats and limitations are real, marked README content on every pilot whose index holds the section; the C++ installs carry the README recipe; disagreeing minimum versions are shown with their sources; Java licenses are SPDX with a note. Until the pilots are re-ingested with card TC-517's chunker the
+  sections are assembled from unordered chunks and the notice says so. The image must be rebuilt for this to reach a pilot.
+recovery: Re-run from a clean tree.

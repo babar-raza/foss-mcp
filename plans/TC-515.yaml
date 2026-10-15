@@ -1,0 +1,163 @@
+id: TC-515
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-008 (independent pre-production review; findings RST-01 miss-text part, PS-02, RST-12, AGT-08, RST-09 category hint). COVERAGE CAVEAT ON EVERY
+  MISS AND RESPONSE CAPS. Two measured problems. (1) A miss reads as a verdict about the library when it is only a verdict about a partial index. 12
+  pilots index at most 300 types (pdf/net 300 of 901, pdf/java 300 of 1239, pdf/typescript 300 of 5342, words/net 300 of 618, pdf/python 300 of 867, pdf/cpp
+  300 of 361, cells/cpp 300 of 346). `get_symbol` and `list_members` misses already carry `coverage_note` (get_symbol.py `_coverage_note`, TC-386), but a
+  `search_symbols` miss (class `Miss` in src/foss_mcp/mcp/tools/search_symbols.py) and a `lookup` miss (`NOTHING_MATCHED_REASON` in
+  src/foss_mcp/mcp/tools/lookup.py: "nothing in the documentation, verified examples or symbols of this pilot matches ...", which is false at repository
+  level) carry none: search_symbols('PdfFileEditor') on pdf/net answers "no symbol matches" with suggestions [] although the type exists upstream.
+  `search_docs` misses are strict per category (getting_started / developer_guide / troubleshooting / faq) and never say another category may hold the
+  answer. (2) Responses are unbounded. Measured on the baked data with the production serialiser: pdf/net `lookup` "render a page to png image" is 60,171 bytes,
+  words/net `lookup` "Document" with top_k=100 is 185,907 bytes (the reviewers saw 375,698 bytes on the wire because the same JSON is sent twice), pdf/go
+  `list_recent_changes` default is 77,050 bytes (verbatim release bodies; 155,091 bytes on the wire), a `search_docs` answer 98 KB, and one README class table
+  chunk is up to 23.7 KB. The same payload is sent in content[0].text and in structuredContent.result (src/foss_mcp/mcp/server.py `_call_tool`). Decisions
+  recorded here. (a) DUPLICATION STAYS: tests/mcp/test_server_wiring.py `test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_content` pins
+  that the text parses to exactly structuredContent.result, the MCP specification (2025-06-18, tools) recommends that a tool returning structured content also
+  returns the serialised JSON in a text block, and the review ledger (scripts/release/build_review_ledger.py L-099) accepted it; so both channels keep carrying
+  the same object and the saving comes from the caps, which are applied to that object BEFORE serialisation. (b) The caps never lose a type signature or a code
+  example: get_symbol arrays (bases, methods, properties, members), list_members names and find_examples snippets are never truncated or dropped; only prose
+  (documentation chunk text, symbol-chunk text in search results, release bodies, get_symbol raw_text when the response is over the total cap) is excerpted,
+  with an explicit marker, and lower-ranked list items are dropped last with an explicit count. This card adds a coverage sentence to every partial-index miss,
+  tells a search_docs miss which other content types do hold matches, caps each prose field and the whole response, and removes identical duplicate items. What
+  does NOT change: any ranking or relevance rule (card TC-516), the chunk text in the index, the shapes of hits, the miss `reason` texts of search_symbols and
+  search_docs, the input schemas.
+depends_on:
+- TC-199
+- TC-381
+- TC-386
+- TC-493
+- TC-505
+- TC-514
+- TC-520
+write_paths:
+- src/foss_mcp/mcp/response_budget.py
+- src/foss_mcp/mcp/server.py
+- src/foss_mcp/mcp/tools/search_symbols.py
+- src/foss_mcp/mcp/tools/get_symbol.py
+- src/foss_mcp/mcp/tools/lookup.py
+- src/foss_mcp/mcp/tools/search_docs.py
+- tests/mcp/test_response_budget.py
+- tests/mcp/tools/test_miss_coverage_note.py
+- tests/mcp/tools/test_lookup_miss_reason.py
+- tests/mcp/test_response_envelope.py
+satisfies:
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read: src/foss_mcp/mcp/tools/search_symbols.py (`Miss`, `search_symbols`, its miss branch near the end that builds `known_fqns` and calls `suggest_similar_fqns`),
+  src/foss_mcp/mcp/tools/get_symbol.py (`_API_COVERAGE_LINE`, `_coverage_note`, `NotFound.coverage_note`, and the loop in `get_symbol` that finds the first symbol
+  chunk carrying the line), src/foss_mcp/mcp/tools/lookup.py (`NOTHING_MATCHED_REASON`, `_lookup_miss`, `lookup`), src/foss_mcp/mcp/tools/search_docs.py (`Miss`,
+  `search_docs`, `classify_content_type`), src/foss_mcp/mcp/tools/relevance.py (`chunk_kind`, `query_terms`, `stem_token`), src/foss_mcp/mcp/server.py as left by TC-514
+  (`annotate_result`, `scope_object`, `origin_of`, the success path of `_call_tool`), tests/mcp/tools/test_lookup_miss_reason.py (`_expected_reason`, which pins the exact lookup
+  miss text for all 40 pilots) and tests/mcp/tools/test_search_symbols_honest_miss.py (pins the exact `reason` of search_symbols misses, which must not change).
+  Never print or log any environment value.
+- >-
+  Coverage caveat. (1) get_symbol.py: add `generation_coverage_note(documents: Mapping[str, Mapping[str, str]]) -> str | None`, the loop `get_symbol` already
+  runs inline (iterate documents in dict order; skip chunks with no FQN or a `Doc: `/`Example: ` FQN; return `_coverage_note(text)` of the first chunk whose
+  note is not None) and make `get_symbol` call it for its NotFound so behaviour is identical. (2) search_symbols.py: add `coverage_note: str | None = None`
+  as the LAST field of `Miss`; every Miss returned from a generation that exists (the "no symbol matches" miss and the "published generation has no symbol
+  index" miss) sets it from `generation_coverage_note(documents)` imported lazily inside the function (get_symbol imports search_symbols at module level, so a
+  top-level import would be circular - copy the existing lazy-import pattern of `extract_fqn`). The `reason` text is NOT changed. (3) lookup.py: `_lookup_miss` keeps
+  the coverage_note (it already `replace`s only `reason`); change `NOTHING_MATCHED_REASON` to "nothing in the indexed documentation, verified examples or symbols of
+  this pilot matches {query!r}" (it no longer claims to speak for the repository) and re-word the module docstring sentence that quotes it. (4) The note text stays
+  the existing sentence "the API index holds {indexed} of {total} types; a type missing from it may still exist upstream" and is None when the generation states no
+  coverage line or indexed >= total. (5) list_members returns the get_symbol NotFound unchanged, so it needs no edit.
+- >-
+  search_docs misses. In search_docs.py add two last fields to its `Miss`: `other_content_types: tuple[str, ...] = ()` and `hint: str | None = None`. For a miss
+  from a readable generation (both the "no documents classified" and the "no ... documents match" cases), compute, in CONTENT_TYPES order, which OTHER content types
+  have at least one documentation chunk that clears the same relevance rule the search uses (coverage of `query_terms` at or above `RELEVANCE_THRESHOLD`; factor the
+  existing selection into a private helper rather than duplicating it); when there are any, set `hint` to "documentation for this query exists under content_type:
+  <comma-separated names>; call again with one of them, or use lookup, which tries all four" . The `reason` text is unchanged. A hit is unchanged.
+- >-
+  src/foss_mcp/mcp/response_budget.py (NEW, pure, deterministic, stdlib plus foss_mcp.mcp.tools.relevance only). Module constants written as exactly these lines
+  (the negative control depends on the second): `ITEM_TEXT_CAP = 1536`, `TOTAL_CAP_BYTES = 24576`, `RELEASE_BODY_CAP = 2048`, `RAW_TEXT_CAP = 2048`. Function
+  `apply_budget(tool: str, payload: object, *, query: str | None, family: str) -> tuple[object, dict]` takes the annotated jsonable payload and returns a new payload
+  (never mutating the input) and a notes dict `{"truncated_fields": int, "deduplicated_items": int, "omitted_items": int, "original_bytes": int, "returned_bytes":
+  int, "total_cap_bytes": 24576}` (bytes = `len(json.dumps(x, default=str).encode("utf-8"))`). Rules, applied in this order. Wherever a rule says "list" it means a list result OR the list under the key `doc_matches` or `symbols` of a dict result (a task answer; `symbols` is added by a later card, so
+  treat it generically: items follow the rules of their kind, symbol chunks get the head cap). (1) DEDUPE: within one list (a list
+  result, or `doc_matches` of a task answer) an item whose `text` (or `snippet`) equals, after strip, an earlier item's is dropped. (2) PER-FIELD CAP: a `text` field longer
+  than ITEM_TEXT_CAP characters is replaced by an excerpt of at most ITEM_TEXT_CAP characters plus a marker line. A documentation chunk (first line `FQN: Doc: ...`) gets a
+  QUERY-AWARE excerpt: keep the first line, then the window of consecutive lines that contains the most distinct `query_terms(query, family)` stems (ties: the earliest
+  window), cut at line boundaries, with the marker `[truncated: showing {shown} of {total} characters; narrow the query or call search_docs for the passages not shown]`. A symbol chunk
+  (first line `FQN: <fqn>`, not Doc/Example) gets the HEAD of the text with the marker `[truncated: showing {shown} of {total} characters; call get_symbol with fqn='<fqn>' for the full
+  signature]`. Release `body` fields (list_recent_changes items) are cut to RELEASE_BODY_CAP at a line boundary with `[truncated: showing {shown} of {total} characters; full notes: {url}]`
+  (just `...full notes at the release page` when the item has no url). `snippet` (find_examples, task answer example) is NEVER truncated. (3) TOTAL CAP: if the serialised payload is
+  still over TOTAL_CAP_BYTES: for a get_symbol dict, `raw_text` is cut to RAW_TEXT_CAP with `[truncated: ... the bases, methods, properties and members arrays are complete]` and
+  the arrays are untouched; for a list of dict items (search_symbols, search_docs, lookup lists, find_examples, list_recent_changes) trailing items are dropped until it fits; for a task
+  answer the `doc_matches` list is trimmed the same way; list_members' list of names and get_symbol's arrays are never dropped. When items were dropped, the last kept dict item
+  gains `"omitted_items": <n>` and `"response_note": "response size cap of 24576 bytes reached; narrow the query or lower top_k"`. (4) When any rule fired, a task answer or other dict
+  result gains `"response_notes": [<short sentences>]`; an untouched payload is returned byte-identical (assert it).
+- >-
+  src/foss_mcp/mcp/server.py (as left by TC-514). In the success path, after `annotate_result(...)` and before serialising, call `apply_budget(params.name, payload,
+  query=validated_arguments.model_dump().get("query"), family=scope.family)`; serialise and store the BUDGETED payload in BOTH channels (text and structuredContent.result stay
+  equal); add `"response_budget": notes` to the sibling keys of structuredContent. Keep `render_result_text` public and unchanged. The usage event keeps receiving the raw result.
+- >-
+  Tests, offline, deterministic, no skip/xfail/sleep/network/wall-clock. tests/mcp/test_response_budget.py (NEW): synthetic payloads of the measured sizes -
+  `test_a_375_kilobyte_symbol_list_is_cut_to_the_total_cap_with_a_count` (100 symbol dicts of 3.8 KB each), `test_ten_15_kilobyte_release_bodies_are_cut_to_2048_with_the_release_url`,
+  `test_a_60_kilobyte_documentation_chunk_keeps_the_window_with_the_query_terms`, `test_a_symbol_chunk_is_cut_at_the_head_and_points_at_get_symbol`, `test_identical_chunks_in_one_response_are_removed_once`,
+  `test_snippets_are_never_truncated`, `test_get_symbol_arrays_and_list_members_names_are_never_dropped` (a 3,000-member type stays complete; only raw_text is cut),
+  `test_an_untouched_payload_is_byte_identical_and_notes_are_zero`, `test_apply_budget_does_not_mutate_its_input`, `test_the_excerpt_is_deterministic`, `test_task_answer_doc_matches_and_symbols_lists_are_budgeted_like_lists`; and three runs against the REAL baked
+  data through `create_server` and the SDK `tools/call` handler (copy the scope directories from infra/demo-manifests to a temp directory first): `test_pdf_net_lookup_render_a_page_to_png_image_fits_the_cap`
+  (60,171 bytes before; after: `len(json.dumps(structuredContent["result"]).encode()) <= 24576`, the answer is not a Miss, text equals structuredContent.result), `test_words_net_lookup_document_top_100_fits_the_cap`
+  (185,907 bytes before), `test_pdf_go_list_recent_changes_fits_the_cap` (use a `Release` list built from infra/demo-manifests/recent_releases_pdf_go.json: `Release(tag_name=..., body=..., richness=..., published_at=...,
+  url=...)`; 77,050 bytes before; the newest tag is still first and every body ends with the marker or is complete). tests/mcp/tools/test_miss_coverage_note.py (NEW): `test_every_baked_pilot_is_discovered` (at least 40),
+  `test_search_symbols_miss_carries_the_coverage_note_when_the_index_is_partial[pilot]`, `test_lookup_miss_carries_the_coverage_note_when_the_index_is_partial[pilot]`,
+  `test_get_symbol_and_list_members_misses_carry_the_same_note[pilot]` (each parametrised over every directory of infra/demo-manifests; the expected note is computed IN THE TEST by regex from the first
+  symbol chunk's `API-Coverage: N of M types` line - never from the code under test - and the assertion is that the note contains `f"{N} of {M}"` when N < M and is None when N >= M or the line is absent; the
+  queries are a nonsense token such as `Tc515NoSuchSymbolProbe` and the nonsense sentence `send a fax via modem`), `test_the_lookup_miss_no_longer_speaks_for_the_repository` (reason starts with
+  "nothing in the indexed documentation"), `test_search_docs_miss_names_the_content_types_that_hold_matches` (a small in-memory generation built as in tests/mcp/test_tool_surface_truthful.py: query matching only a
+  getting_started chunk, asked under developer_guide: `other_content_types == ("getting_started",)` and the hint names it; a query matching nothing anywhere: no hint), and
+  `test_the_miss_reason_texts_of_search_symbols_and_search_docs_are_unchanged`.
+- >-
+  Existing tests: run `{python} -m pytest tests/mcp -q -rfE -p no:cacheprovider` FIRST. Change ONLY these assertions if they fail, each with a one-line comment: tests/mcp/tools/test_lookup_miss_reason.py - the helper
+  `_expected_reason` returns the new text ("nothing in the indexed documentation, verified examples or symbols of this pilot matches " + repr(query)) and the module docstring line quoting the old text; tests/mcp/test_response_envelope.py
+  (added by TC-514) only if an assertion there pins a payload this card now budgets. Never delete, skip or weaken any other assertion; tests/mcp/test_search_symbols_honest_miss.py must pass unchanged. Preserve line endings and
+  encoding; commit messages are UTF-8 without a byte-order mark.
+- >-
+  Every new PUBLIC top-level function or class in src/foss_mcp must have a production caller: tests/test_unwired_modules.py walks the import graph from the real entrypoints (infra/serve_http.py, infra/build_chunks.py, src/foss_mcp/mcp/server.py ...) and is part of the second check. Keep a helper that only tests call private (leading underscore). Run that test before finishing.
+- >-
+  SEQUENCING NOTE (supervisor, added at install): TC-520 is ACCEPTED BEFORE this card and already created src/foss_mcp/mcp/tools/coverage_note.py and changed get_symbol.py's coverage notes. Reuse that module: make `get_symbol.generation_coverage_note()` a thin wrapper over the coverage_note helper (keep the name this card specifies) and add `Miss.coverage_note` on top; never create a second, divergent implementation of the coverage sentence. Read the merged code on main before editing.
+actions:
+- >-
+  Add the coverage sentence to every search_symbols and lookup miss on a partial index and stop lookup's miss from speaking for the whole repository.
+- >-
+  Make a search_docs miss name the other content types that do hold matches.
+- >-
+  Cap each prose field and the whole response before serialisation, excerpt query-aware, dedupe identical items, and never truncate signatures, member lists or code examples.
+checks:
+- command: '{python} -m pytest tests/mcp/test_response_budget.py tests/mcp/tools/test_miss_coverage_note.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+- command: '{python} -m pytest tests/mcp tests/infra/test_serve_stdio_parity.py tests/infra/test_serve_http.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+min_tests: 30
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/response_budget.py');s=p.read_text(encoding='utf-8');old='TOTAL_CAP_BYTES = 24576';assert s.count(old)==1;p.write_text(s.replace(old,'TOTAL_CAP_BYTES = 10**9'),encoding='utf-8')"
+  rationale: >-
+    Raises the total response cap to a billion bytes, so the 60 KB, 186 KB and 77 KB real answers are no longer cut and the byte-cap tests on the worst queries fail. A real break of the card's central
+    claim (no answer may exceed the cap).
+evidence:
+- evidence/build/G3/TC-515/receipt.json
+closeout:
+- >-
+  Every miss from search_symbols, lookup, get_symbol and list_members on a partial index carries the API-coverage sentence; a search_docs miss points at the content types that hold matches; no response exceeds
+  24,576 bytes of JSON in either channel (the same object is still sent in both). The image must be rebuilt for this to reach a pilot.
+recovery: Re-run from a clean tree.

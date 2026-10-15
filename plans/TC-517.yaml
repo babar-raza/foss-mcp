@@ -1,0 +1,154 @@
+id: TC-517
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-008 (independent pre-production review; finding RST-09, with RST-12 for the chunk size). DOCUMENTATION CHUNKING AND CATEGORIES. Measured by the reviewers on the shipped
+  image and re-measured offline by the drafter on the 40 committed furnished pages (tests/fixtures/furnished/*/pages/_index.md) through the real code path (`extract_doc_sections` ->
+  `chunk_document` -> the `FQN: Doc: <title>` prefix of infra/build_chunks.py `_build_doc_chunks`): 753 documentation chunks, of which 123 are shorter than 200 characters, 20 are longer than
+  8,000 and 5 are longer than 24,000 (pdf/java 87,160, pdf/net 71,643, words/net 30,922, slides/python 30,365, 3d/python 27,816). The 24,000 cap of `_sanitize_chunk_text` (infra/build_chunks.py
+  L337-385, TC-385) then silently cuts the README class tables: pdf/net's chunk ends "Truncated: 47835 characters omitted", so every class after the cut (PdfFileEditor among them) is in neither the
+  symbol index (300 of 901) nor the documentation. The cause of the stubs is `chunk_document` (src/foss_mcp/normalization/chunker.py): a body without markdown headings is split at EVERY blank
+  line, so (a) the generated lead-in sentence of the "Scope and Limitations" block ("Known issues, unsupported functionality, and other troubleshooting-relevant scope boundaries for X, straight
+  from its own sealed, reviewed documentation candidate:", 272-276 characters) becomes a chunk of its own, apart from the list it introduces; because `search_docs.classify_content_type`
+  (src/foss_mcp/mcp/tools/search_docs.py) assigns a category by keyword hints found in the chunk TEXT, only that stub lands in "troubleshooting" (16 of 19 reviewed pilots have a single troubleshooting chunk, the
+  stub) and the real list lands in "developer_guide"; (b) a FAQ candidate `FAQ: <question>\n\n<answer>` becomes TWO chunks - the question (154 characters) classified faq and the answer classified by whatever words it
+  happens to contain; only cells/cpp and pdf/typescript have a FAQ at all; (c) a heading-free table is one paragraph and one chunk. This card changes how documentation candidates are chunked and
+  how a documentation chunk is categorised, and nothing else. (1) A new pure module src/foss_mcp/indexing/doc_chunking.py splits one candidate: it takes the sections `chunk_document` already yields,
+  keeps a FAQ question and its answer in ONE chunk, joins a section that ends with ":" to the one after it, merges neighbouring sections shorter than 400 characters until a chunk reaches about 3,000
+  characters (never inside a fenced code block), and splits anything longer than 7,600 characters at table-row boundaries (repeating the table header and separator rows in every part) or, failing that, at
+  line boundaries, finally at the character limit; every chunk of a candidate that has more than one carries the line `Part: <i> of <n>` as its last body line, so the original order is recoverable (the
+  product-reference card TC-518 reads it). A measured prototype on the 40 pages gives 368 chunks, none over 8,000 characters (with the FQN, Part and Source-Commit lines), no line of any candidate body lost
+  (headings aside, which `chunk_document` already drops), none ending in a colon, and only 10 chunks under 200 characters, all of them complete FAQ question-and-answer pairs. (2) `classify_content_type` decides
+  by the SECTION TITLE in the `FQN: Doc: <title>` line when there is one: a first body line starting "FAQ:" is faq; otherwise a title containing troubleshoot, known issue, limitation, unsupported, error or problem is
+  troubleshooting; install, quick start, getting started, prerequisite, setup, dependenc or requirement is getting_started; everything else is developer_guide; a chunk with no `Doc:` title keeps the
+  old keyword rule (hand-written chunks and every test that builds one are unchanged). With the 40 pages this moves every "Scope and Limitations" chunk to troubleshooting (that is what the page generator
+  intended, infra/generate_furnished_page.py L277-285) and every "Installation, Dependencies, and Quick Start" chunk to getting_started. Decisions recorded here. The classification change takes effect on the BAKED data
+  at once (the category is computed at serving time from the stored text); the chunking change needs a re-ingest of the pilots, which is a later supervisor step, NOT part of this card - the baked demo manifests are
+  not edited. Six live e2e files pin the category of real chunks (they build the real chunks through docker compose and cannot run here): the worker must replay each one OFFLINE (committed furnished page ->
+  `_build_doc_chunks` -> an in-memory generation -> `search_docs`) and edit only a pin whose replay shows a different category; the supervisor runs the e2e files at the next image build.
+  What does NOT change: the chunker module, symbol and example chunks, the `Doc:` prefix, the 24,000-character guard in `_sanitize_chunk_text` (it stays as a last resort for non-documentation chunks), any
+  ranking.
+depends_on:
+- TC-513
+- TC-112
+- TC-381
+- TC-385
+- TC-460
+- TC-504
+- TC-515
+- TC-516
+- TC-520
+write_paths:
+- src/foss_mcp/indexing/doc_chunking.py
+- infra/build_chunks.py
+- src/foss_mcp/mcp/tools/search_docs.py
+- tests/indexing/test_doc_chunking.py
+- tests/infra/test_furnished_chunk_quality.py
+- tests/mcp/tools/test_doc_classification_by_title.py
+- tests/indexing/test_lookup_doc_fallback_query_safety.py
+- tests/e2e/test_pdf_net_live_content.py
+- tests/e2e/test_pdf_typescript_live_content.py
+- tests/e2e/test_pdf_go_live_content.py
+- tests/e2e/test_pdf_java_live_content.py
+- tests/e2e/test_cells_rust_live_content.py
+- tests/e2e/test_slides_python_live_content.py
+satisfies:
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read: infra/build_chunks.py (`_build_doc_chunks` L1108-1168, `_sanitize_chunk_text` L356-385 and `MAX_CHUNK_TEXT_CHARS`, `_with_source_commit_line`, the end of `main` that sanitises then appends the Source-Commit
+  line), src/foss_mcp/indexing/doc_candidates.py (`extract_doc_sections`, `DocCandidate.origin` is "overview", "content" or "faq"; a FAQ body is exactly `FAQ: <question>\n\n<answer>`),
+  src/foss_mcp/normalization/chunker.py (`chunk_document`, `_heading_sections`, `_paragraph_sections`), src/foss_mcp/mcp/tools/search_docs.py (`classify_content_type`, `_CONTENT_TYPE_HINTS`, how `search_docs`
+  uses it), src/foss_mcp/mcp/tools/relevance.py (`chunk_kind`), infra/generate_furnished_page.py L277-285 and L320-360 (the generated "Scope and Limitations" lead-in), tests/infra/test_build_chunks.py,
+  tests/infra/test_build_chunks_sanitize.py, tests/infra/test_build_chunks_extraction_notice.py, tests/indexing/test_lookup_doc_fallback_query_safety.py (its offline replica builds its own doc chunks and calls
+  `classify_content_type`; `test_every_offline_safe_query_token_is_unique_to_the_troubleshooting_chunk` asserts exactly ONE troubleshooting chunk and fails under the new rule - measured by running the suite
+  with the rule applied: it is the only failure in tests/mcp, tests/infra/test_build_chunks.py, tests/infra/test_ingest_furnished_survival.py and tests/deploy/test_image_workflow_gate.py), and the six
+  e2e files named in write_paths (their REAL_DOC_QUERY / REAL_DOC_CONTENT_TYPE / REAL_DOC_FRAGMENT pins). Never print or log any environment value.
+- >-
+  src/foss_mcp/indexing/doc_chunking.py (NEW, pure, stdlib plus foss_mcp.normalization). Constants written as exactly these lines: `MIN_DOC_CHUNK_CHARS = 400`, `TARGET_DOC_CHUNK_CHARS = 3000`, `MAX_DOC_CHUNK_CHARS = 7600`
+  (the negative control edits the third). `chunk_doc_candidate(candidate: DocCandidate) -> list[Chunk]` builds the document with `make_document` exactly as `_build_doc_chunks` does today (same source_kind,
+  content_type "doc", provenance and evidence arguments - pass them in as parameters so the module stays pure), obtains the sections through `chunk_document`, then: (1) FAQ origin: the sections are joined back into ONE
+  text (question, blank line, answer); (2) otherwise merge: a buffer takes the next section while it is shorter than MIN_DOC_CHUNK_CHARS, or its last non-empty line ends with ":", or adding the next keeps it
+  at or under TARGET_DOC_CHUNK_CHARS; never flush in the middle of a fenced code block (an odd number of ``` lines so far); a final buffer shorter than MIN joins the previous chunk unless that would
+  open a fence; (3) split any chunk longer than MAX_DOC_CHUNK_CHARS: a chunk in which at least half of the non-empty lines start with `|` splits at row boundaries and every part after the first starts with the first
+  two `|` lines (header and separator) of the original table; any other chunk splits at the last line boundary below the limit; a single line longer than the limit is cut at the limit; (4) when the candidate
+  yields more than one chunk, append `\nPart: <i> of <n>` (1-based) to each chunk's text; a single chunk gets no marker. Never drop, reorder or rewrite a line (the only added lines are the Part marker and the
+  repeated table header). Deterministic: the same candidate always gives byte-identical chunks.
+- >-
+  infra/build_chunks.py `_build_doc_chunks`: replace the `for chunk in chunk_document(doc)` loop by `chunk_doc_candidate(...)` and keep the prefix `FQN: Doc: {candidate.title}\n` on every chunk, the printed
+  summary line and the return type. The production call site must be this function (a source test asserts `from foss_mcp.indexing.doc_chunking import` and `chunk_doc_candidate(` appear in infra/build_chunks.py).
+  `_sanitize_chunk_text` is not changed.
+- >-
+  src/foss_mcp/mcp/tools/search_docs.py `classify_content_type(text)`: if the first line starts with `FQN: Doc: `, take the title (the rest of that line) and the first body line (the next line, skipping nothing); rules in
+  this order: first body line starts with `FAQ:` -> "faq"; title matches (case-insensitive) `troubleshoot|known issue|limitation|unsupported|error|problem` -> "troubleshooting"; title matches `install|quick ?start|getting started|prerequisite|setup|dependenc|requirement`
+  -> "getting_started"; else "developer_guide". A text whose first line is not a `Doc:` FQN line goes through the unchanged keyword rule. Update the module docstring of
+  src/foss_mcp/indexing/doc_candidates.py ONLY if it is in write_paths - it is not, so leave it (its FAQ-prefix convention stays true and required).
+- >-
+  Tests, offline, deterministic, no skip/xfail/sleep/network. tests/indexing/test_doc_chunking.py (NEW, synthetic candidates): `test_a_faq_question_and_answer_are_one_chunk`, `test_a_lead_in_ending_with_a_colon_joins_the_list_after_it`,
+  `test_small_sections_merge_up_to_about_3000_characters`, `test_a_code_fence_is_never_split_by_a_merge`, `test_a_long_pipe_table_splits_at_row_boundaries_and_repeats_its_header`, `test_a_long_bullet_list_splits_at_line_boundaries`,
+  `test_a_single_line_over_the_limit_is_cut_at_the_limit`, `test_part_markers_number_the_chunks_in_order_and_a_single_chunk_has_none`, `test_no_line_is_lost_or_reordered`, `test_chunking_is_deterministic`,
+  `test_every_chunk_is_at_most_max_chars`. tests/mcp/tools/test_doc_classification_by_title.py (NEW): one parametrised test over (title, first body line, expected) rows - "Scope and Limitations" -> troubleshooting, "Installation,
+  Dependencies, and Quick Start" -> getting_started, "Key Capabilities and API Reference" -> developer_guide, a FAQ question title with a `FAQ:` first body line -> faq even when the title says install, the product title ->
+  developer_guide - plus `test_a_text_without_a_doc_title_keeps_the_keyword_rule` (the pre-existing hint behaviour, three cases), `test_the_part_marker_does_not_change_the_category`, `test_search_docs_troubleshooting_now_returns_the_scope_and_limitations_list`
+  (an in-memory generation built from one real furnished page as the replica in tests/indexing/test_lookup_doc_fallback_query_safety.py does, but through the NEW chunker: query "known issues" under troubleshooting returns a chunk that
+  contains the list, not just the lead-in). tests/infra/test_furnished_chunk_quality.py (NEW, data-driven over EVERY directory of tests/fixtures/furnished except sealed_current, at least 40, through
+  `build_chunks._build_doc_chunks` with an `argparse.Namespace(library_repository="o/r", library_commit="0"*40, furnished_page=<path>)`, then `_sanitize_chunk_text` and `_with_source_commit_line` exactly as `main` does; import
+  `build_chunks` the way tests/infra/test_build_chunks_sanitize.py does): `test_every_shipped_pilot_has_a_furnished_page`, then per pilot (parametrised) `test_no_doc_chunk_is_over_8000_characters_or_truncated`, `test_no_candidate_line_is_lost`
+  (every non-empty, non-heading line of every candidate body appears, stripped, in some chunk of that candidate), `test_troubleshooting_chunks_have_a_real_body` (the text between the FQN line and the Part/Source-Commit lines has at
+  least 200 characters for every chunk whose category is troubleshooting), `test_faq_chunks_keep_question_and_answer_together` (a faq chunk has the `FAQ: <question>` line AND a non-empty answer of at least 10 characters; the number of faq
+  chunks equals the number of FAQ candidates in the page), `test_categories_derive_from_titles` (the test restates the title rules in its own table and compares), `test_no_chunk_ends_with_a_dangling_colon`, plus
+  `test_the_class_table_of_the_longest_pages_is_split_not_cut` for pdf_java, pdf_net, words_net, slides_python and 3d_python (no chunk contains "Truncated:" and the concatenated chunks contain the last row of the original table) and
+  `test_build_chunks_calls_the_new_chunker` (the source assertion). At least 35 tests with the parametrised cases.
+- >-
+  Existing tests. Run `{python} -m pytest tests/indexing/test_lookup_doc_fallback_query_safety.py tests/indexing/test_doc_candidates.py tests/indexing/test_authored_examples.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_sanitize.py
+  tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_ingest_furnished_survival.py tests/mcp -q -rfE -p no:cacheprovider` FIRST. In tests/indexing/test_lookup_doc_fallback_query_safety.py change ONLY the assertion in
+  `test_every_offline_safe_query_token_is_unique_to_the_troubleshooting_chunk` that expects exactly one troubleshooting chunk: assert instead that the single document whose tokens carry the query's tokens (document frequency 1) is
+  among the troubleshooting-classified documents and contains REAL_DOC_FRAGMENT (keep every other line of that test), with a comment saying why. For each of the six e2e files, replay the pin OFFLINE and edit only a changed constant
+  (and the comment that explains it): the drafter expects `tests/e2e/test_pdf_net_live_content.py` REAL_DOC_CONTENT_TYPE "developer_guide" -> "troubleshooting" (the "Scope and Limitations" chunks), `tests/e2e/test_pdf_typescript_live_content.py`
+  REAL_DOC_CONTENT_TYPE "getting_started" -> "faq" (the FAQ answer "no other runtime dependencies" now sits in the faq chunk with its question); pdf_go, pdf_java, cells_rust and slides_python are expected to stay, but replay them.
+  A replay that shows the pin still holds changes nothing. Never delete, skip or weaken a test. Preserve each file's line endings and encoding; commit messages are UTF-8 without a byte-order mark.
+- >-
+  Every new PUBLIC top-level function or class in src/foss_mcp must have a production caller: tests/test_unwired_modules.py walks the import graph from the real entrypoints (infra/serve_http.py, infra/build_chunks.py, src/foss_mcp/mcp/server.py ...) and is part of the second check. Keep a helper that only tests call private (leading underscore). Run that test before finishing.
+- >-
+  SEQUENCING NOTE (supervisor, added at install): TC-520 is ACCEPTED BEFORE this card and already edited infra/build_chunks.py (extraction notice and coverage clauses). Read the merged file on main and keep those changes intact.
+actions:
+- >-
+  Chunk documentation candidates so a FAQ answer stays with its question, a lead-in stays with its list, tiny neighbours merge, and anything over 7,600 characters is split at row or line boundaries with a Part marker instead of being cut.
+- >-
+  Classify documentation chunks by the section title, so the real "Scope and Limitations" content is troubleshooting and the installation content is getting_started.
+- >-
+  Prove it over every committed furnished page and re-pin only the tests whose old pin the new rule changes.
+checks:
+- command: '{python} -m pytest tests/indexing/test_doc_chunking.py tests/infra/test_furnished_chunk_quality.py tests/mcp/tools/test_doc_classification_by_title.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+- command: '{python} -m pytest tests/indexing/test_doc_chunking.py tests/indexing/test_lookup_doc_fallback_query_safety.py tests/indexing/test_doc_candidates.py tests/indexing/test_authored_examples.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_sanitize.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_ingest_furnished_survival.py tests/infra/test_furnished_chunk_quality.py tests/mcp tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-008
+min_tests: 35
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/doc_chunking.py');s=p.read_text(encoding='utf-8');old='MAX_DOC_CHUNK_CHARS = 7600';assert s.count(old)==1;p.write_text(s.replace(old,'MAX_DOC_CHUNK_CHARS = 10**9'),encoding='utf-8')"
+  rationale: >-
+    Removes the 7,600-character split limit, so the README class tables of pdf/java, pdf/net, words/net, slides/python and 3d/python are again one oversized chunk that the 24,000-character guard truncates: the size and
+    "no row is cut" tests over the committed furnished pages fail. A real break of the card's central claim (a long table is split, never silently cut).
+evidence:
+- evidence/build/G3/TC-517/receipt.json
+closeout:
+- >-
+  Documentation candidates are chunked without stubs or cut tables and categorised by section title. SUPERVISOR FOLLOW-UP (not done here): the chunking change reaches a pilot only after a re-ingest and a new demo-manifest snapshot
+  (the classification change already applies to the baked data); run the six e2e live-content files at the next image build, since they cannot run in the offline review. TC-518 reads the `Part: i of n` markers this card writes.
+recovery: Re-run from a clean tree.
