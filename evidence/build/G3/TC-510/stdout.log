@@ -1,0 +1,502 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_publish_safety.py tests/infra/test_ingest_publish_safety.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d2oaj0b_\.junit-0.xml"
+--- stdout ---
+......................................................................   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_publish_safety.py tests/infra/test_ingest_publish_safety.py tests/indexing/test_generation_manifest.py tests/indexing/test_generation_manifest_containment.py tests/indexing/test_generation_read_cache.py tests/indexing/test_publisher.py tests/indexing/test_vector_scope.py tests/infra/test_ingest.py tests/infra/test_ingest_furnished_survival.py tests/infra/test_ingest_symbol_survival.py tests/infra/test_ingest_vector_scope.py tests/infra/test_rollback.py tests/deploy/test_verified_example_vectors.py tests/deploy/test_compact_demo_manifests.py tests/deploy/test_runbook.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d2oaj0b_\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 13%]
+........................................................................ [ 26%]
+........................................................................ [ 40%]
+........................................................................ [ 53%]
+........................................................................ [ 67%]
+........................................................................ [ 80%]
+........................................................................ [ 93%]
+.................................                                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_publish_safety.py tests/infra/test_ingest_publish_safety.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d2oaj0b_\.junit-0.xml"
+--- stdout ---
+......................................................................   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_publish_safety.py tests/infra/test_ingest_publish_safety.py tests/indexing/test_generation_manifest.py tests/indexing/test_generation_manifest_containment.py tests/indexing/test_generation_read_cache.py tests/indexing/test_publisher.py tests/indexing/test_vector_scope.py tests/infra/test_ingest.py tests/infra/test_ingest_furnished_survival.py tests/infra/test_ingest_symbol_survival.py tests/infra/test_ingest_vector_scope.py tests/infra/test_rollback.py tests/deploy/test_verified_example_vectors.py tests/deploy/test_compact_demo_manifests.py tests/deploy/test_runbook.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d2oaj0b_\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 13%]
+........................................................................ [ 26%]
+........................................................................ [ 40%]
+........................................................................ [ 53%]
+........................................................................ [ 67%]
+........................................................................ [ 80%]
+........................................................................ [ 93%]
+.................................                                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/generation_manifest.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_publish_safety.py tests/infra/test_ingest_publish_safety.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d2oaj0b_\.junit-0.xml"
+--- stdout ---
+............F.F.FF...........F...........F......F..F............FF....   [100%]
+================================== FAILURES ===================================
+______________ test_production_constants_are_the_reviewed_values ______________
+
+    def test_production_constants_are_the_reviewed_values() -> None:
+>       assert PRODUCTION_MIN_SYMBOLS == 3
+E       assert 0 == 3
+
+tests\indexing\test_publish_safety.py:180: AssertionError
+___________ test_policy_publish_persists_stats_and_appends_log_line ___________
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000002055013A850>
+
+    def test_policy_publish_persists_stats_and_appends_log_line(store: GenerationManifestStore) -> None:
+        generation_id = publish(store, counts(5, 3, 2), PublishPolicy(held_by="job-1"))
+        payload = store.read_generation(SCOPE, generation_id).payload
+        assert payload["stats"] == {
+            "symbols": 5,
+            "docs": 3,
+            "examples": 2,
+            "total": 10,
+            "duplicate_chunk_ids": 0,
+            "empty_text_chunks": 0,
+            "repositories": ["org/repo-a"],
+        }
+        log = store.read_publish_log(SCOPE)
+        assert len(log) == 1
+        entry = log[0]
+        assert entry["event"] == "published"
+        assert entry["scope"] == SCOPE
+        assert entry["generation_id"] == generation_id
+        assert entry["previous_active"] is None
+        assert entry["held_by"] == "job-1"
+        assert entry["stats"] == payload["stats"]
+        assert entry["baseline"] == {"symbols": 0, "docs": 0, "examples": 0, "total": 0}
+        assert entry["overrides"] == []
+>       assert entry["floors"] == {"symbols": 3, "docs": 1}
+E       AssertionError: assert {'docs': 1, 'symbols': 0} == {'symbols': 3, 'docs': 1}
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Differing items:
+E         {'symbols': 0} != {'symbols': 3}
+E         Use -v to get more diff
+
+tests\indexing\test_publish_safety.py:238: AssertionError
+_____________________ test_refusals[single_trivial_chunk] _____________________
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000002055014B6F0>
+name = 'single_trivial_chunk', prior = None
+build = <function <lambda> at 0x0000020550146FC0>
+
+    @pytest.mark.parametrize(("name", "prior", "build"), REFUSAL_CASES, ids=[case[0] for case in REFUSAL_CASES])
+    def test_refusals(
+        store: GenerationManifestStore,
+        name: str,
+        prior: tuple[int, int, int] | None,
+        build: Callable[[], list[Chunk]],
+    ) -> None:
+        policy = PublishPolicy()
+        active = publish(store, counts(*prior), policy) if prior is not None else None
+        files_before = _generation_files(store)
+        log_before = len(store.read_publish_log(SCOPE))
+    
+>       with pytest.raises(PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\indexing\test_publish_safety.py:302: Failed
+_________________________ test_refusals[two_symbols] __________________________
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000002055014AB10>
+name = 'two_symbols', prior = None
+build = <function <lambda> at 0x0000020550147060>
+
+    @pytest.mark.parametrize(("name", "prior", "build"), REFUSAL_CASES, ids=[case[0] for case in REFUSAL_CASES])
+    def test_refusals(
+        store: GenerationManifestStore,
+        name: str,
+        prior: tuple[int, int, int] | None,
+        build: Callable[[], list[Chunk]],
+    ) -> None:
+        policy = PublishPolicy()
+        active = publish(store, counts(*prior), policy) if prior is not None else None
+        files_before = _generation_files(store)
+        log_before = len(store.read_publish_log(SCOPE))
+    
+>       with pytest.raises(PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\indexing\test_publish_safety.py:302: Failed
+_____________ test_refusals[fifty_prose_chunks_with_no_fqn_line] ______________
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000002055031B7D0>
+name = 'fifty_prose_chunks_with_no_fqn_line', prior = None
+build = <function _prose_50 at 0x0000020550146E80>
+
+    @pytest.mark.parametrize(("name", "prior", "build"), REFUSAL_CASES, ids=[case[0] for case in REFUSAL_CASES])
+    def test_refusals(
+        store: GenerationManifestStore,
+        name: str,
+        prior: tuple[int, int, int] | None,
+        build: Callable[[], list[Chunk]],
+    ) -> None:
+        policy = PublishPolicy()
+        active = publish(store, counts(*prior), policy) if prior is not None else None
+        files_before = _generation_files(store)
+        log_before = len(store.read_publish_log(SCOPE))
+    
+>       with pytest.raises(PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\indexing\test_publish_safety.py:302: Failed
+______________________ test_override_never_waives[floor] ______________________
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000205505FDC70>
+name = 'floor', prior = (40, 50, 10)
+build = <function <lambda> at 0x0000020550147BA0>
+overrides = (('symbols', 40, 2), ('total', 100, 62))
+
+    @pytest.mark.parametrize(
+        ("name", "prior", "build", "overrides"), OVERRIDE_CASES, ids=[case[0] for case in OVERRIDE_CASES]
+    )
+    def test_override_never_waives(
+        store: GenerationManifestStore,
+        name: str,
+        prior: tuple[int, int, int],
+        build: Callable[[], list[Chunk]],
+        overrides: tuple[tuple[str, int, int], ...],
+    ) -> None:
+        active = publish(store, counts(*prior), PublishPolicy())
+        files_before = _generation_files(store)
+>       with pytest.raises(PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\indexing\test_publish_safety.py:484: Failed
+_____________ test_refusal_message_carries_the_exact_accept_flags _____________
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000205505352B0>
+
+    def test_refusal_message_carries_the_exact_accept_flags(store: GenerationManifestStore) -> None:
+        publish(store, counts(*_BASE), PublishPolicy())
+        with pytest.raises(PublishSafetyError) as one:
+            publish(store, counts(31, 50, 10), PublishPolicy())
+        assert str(one.value).endswith("to accept deliberately: --accept-regression symbols:40->31 --reason TEXT")
+        with pytest.raises(PublishSafetyError) as many:
+            publish(store, counts(24, 20, 2), PublishPolicy())
+        assert str(many.value).endswith(
+            "to accept deliberately: --accept-regression symbols:40->24 --accept-regression docs:50->20 "
+            "--accept-regression examples:10->2 --accept-regression total:100->46 --reason TEXT"
+        )
+        for hard in (counts(2, 50, 10), counts(40, 0, 10), [*counts(40, 50, 10), mk("symbol", 0)], []):
+            with pytest.raises(PublishSafetyError) as hard_error:
+                publish(store, hard, PublishPolicy())
+>           assert "--accept-regression" not in str(hard_error.value)
+E           AssertionError: assert '--accept-regression' not in 'refusing to...-reason TEXT'
+E             
+E             '--accept-regression' is contained here:
+E               berately: --accept-regression symbols:40->2 --reason TEXT
+E             ?           +++++++++++++++++++
+
+tests\indexing\test_publish_safety.py:520: AssertionError
+_____________ test_cli_refuses_a_two_symbol_generation_by_default _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000205507ADF60>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8665/test_cli_refuses_a_two_symbol_0')
+
+    def test_cli_refuses_a_two_symbol_generation_by_default(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+>       with pytest.raises(PublishSafetyError, match="symbol"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\infra\test_ingest_publish_safety.py:96: Failed
+---------------------------- Captured stdout call -----------------------------
+published pdf::net::self_extracted::20261015T143609284314Z-5042ec0c
+_________________ test_cli_override_does_not_waive_the_floor __________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000020550519B00>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8665/test_cli_override_does_not_wai0')
+
+    def test_cli_override_does_not_waive_the_floor(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+>       with pytest.raises(PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\infra\test_ingest_publish_safety.py:239: Failed
+---------------------------- Captured stdout call -----------------------------
+published pdf::net::self_extracted::20261015T143610367307Z-97bc3e67
+_______________ test_cli_passes_a_policy_to_publish_generation ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000205504BE4A0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8665/test_cli_passes_a_policy_to_pu0')
+
+    def test_cli_passes_a_policy_to_publish_generation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        source = (REPO_ROOT / "infra" / "ingest.py").read_text(encoding="utf-8")
+        assert "policy=policy" in source
+        assert "PublishPolicy(" in source
+        # and the behaviour that call site buys: the production floor refuses a two-symbol generation
+>       with pytest.raises(PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\infra\test_ingest_publish_safety.py:257: Failed
+---------------------------- Captured stdout call -----------------------------
+published pdf::net::self_extracted::20261015T143610441688Z-b213e09f
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_publish_safety.py::test_production_constants_are_the_reviewed_values
+FAILED tests/indexing/test_publish_safety.py::test_policy_publish_persists_stats_and_appends_log_line
+FAILED tests/indexing/test_publish_safety.py::test_refusals[single_trivial_chunk]
+FAILED tests/indexing/test_publish_safety.py::test_refusals[two_symbols] - Fa...
+FAILED tests/indexing/test_publish_safety.py::test_refusals[fifty_prose_chunks_with_no_fqn_line]
+FAILED tests/indexing/test_publish_safety.py::test_override_never_waives[floor]
+FAILED tests/indexing/test_publish_safety.py::test_refusal_message_carries_the_exact_accept_flags
+FAILED tests/infra/test_ingest_publish_safety.py::test_cli_refuses_a_two_symbol_generation_by_default
+FAILED tests/infra/test_ingest_publish_safety.py::test_cli_override_does_not_waive_the_floor
+FAILED tests/infra/test_ingest_publish_safety.py::test_cli_passes_a_policy_to_publish_generation
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_publish_safety.py tests/infra/test_ingest_publish_safety.py tests/indexing/test_generation_manifest.py tests/indexing/test_generation_manifest_containment.py tests/indexing/test_generation_read_cache.py tests/indexing/test_publisher.py tests/indexing/test_vector_scope.py tests/infra/test_ingest.py tests/infra/test_ingest_furnished_survival.py tests/infra/test_ingest_symbol_survival.py tests/infra/test_ingest_vector_scope.py tests/infra/test_rollback.py tests/deploy/test_verified_example_vectors.py tests/deploy/test_compact_demo_manifests.py tests/deploy/test_runbook.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d2oaj0b_\.junit-1.xml"
+--- stdout ---
+............F.F.FF...........F...........F......F..F............FF...... [ 13%]
+........................................................................ [ 26%]
+........................................................................ [ 40%]
+........................................................................ [ 53%]
+........................................................................ [ 67%]
+........................................................................ [ 80%]
+........................................................................ [ 93%]
+.................................                                        [100%]
+================================== FAILURES ===================================
+______________ test_production_constants_are_the_reviewed_values ______________
+
+    def test_production_constants_are_the_reviewed_values() -> None:
+>       assert PRODUCTION_MIN_SYMBOLS == 3
+E       assert 0 == 3
+
+tests\indexing\test_publish_safety.py:180: AssertionError
+___________ test_policy_publish_persists_stats_and_appends_log_line ___________
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000016E5C923390>
+
+    def test_policy_publish_persists_stats_and_appends_log_line(store: GenerationManifestStore) -> None:
+        generation_id = publish(store, counts(5, 3, 2), PublishPolicy(held_by="job-1"))
+        payload = store.read_generation(SCOPE, generation_id).payload
+        assert payload["stats"] == {
+            "symbols": 5,
+            "docs": 3,
+            "examples": 2,
+            "total": 10,
+            "duplicate_chunk_ids": 0,
+            "empty_text_chunks": 0,
+            "repositories": ["org/repo-a"],
+        }
+        log = store.read_publish_log(SCOPE)
+        assert len(log) == 1
+        entry = log[0]
+        assert entry["event"] == "published"
+        assert entry["scope"] == SCOPE
+        assert entry["generation_id"] == generation_id
+        assert entry["previous_active"] is None
+        assert entry["held_by"] == "job-1"
+        assert entry["stats"] == payload["stats"]
+        assert entry["baseline"] == {"symbols": 0, "docs": 0, "examples": 0, "total": 0}
+        assert entry["overrides"] == []
+>       assert entry["floors"] == {"symbols": 3, "docs": 1}
+E       AssertionError: assert {'docs': 1, 'symbols': 0} == {'symbols': 3, 'docs': 1}
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Differing items:
+E         {'symbols': 0} != {'symbols': 3}
+E         Use -v to get more diff
+
+tests\indexing\test_publish_safety.py:238: AssertionError
+_____________________ test_refusals[single_trivial_chunk] _____________________
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000016E59DBBE10>
+name = 'single_trivial_chunk', prior = None
+build = <function <lambda> at 0x0000016E2833D3A0>
+
+    @pytest.mark.parametrize(("name", "prior", "build"), REFUSAL_CASES, ids=[case[0] for case in REFUSAL_CASES])
+    def test_refusals(
+        store: GenerationManifestStore,
+        name: str,
+        prior: tuple[int, int, int] | None,
+        build: Callable[[], list[Chunk]],
+    ) -> None:
+        policy = PublishPolicy()
+        active = publish(store, counts(*prior), policy) if prior is not None else None
+        files_before = _generation_files(store)
+        log_before = len(store.read_publish_log(SCOPE))
+    
+>       with pytest.raises(PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\indexing\test_publish_safety.py:302: Failed
+_________________________ test_refusals[two_symbols] __________________________
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000016E617302B0>
+name = 'two_symbols', prior = None
+build = <function <lambda> at 0x0000016E2833D440>
+
+    @pytest.mark.parametrize(("name", "prior", "build"), REFUSAL_CASES, ids=[case[0] for case in REFUSAL_CASES])
+    def test_refusals(
+        store: GenerationManifestStore,
+        name: str,
+        prior: tuple[int, int, int] | None,
+        build: Callable[[], list[Chunk]],
+    ) -> None:
+        policy = PublishPolicy()
+        active = publish(store, counts(*prior), policy) if prior is not None else None
+        files_before = _generation_files(store)
+        log_before = len(store.read_publish_log(SCOPE))
+    
+>       with pytest.raises(PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\indexing\test_publish_safety.py:302: Failed
+_____________ test_refusals[fifty_prose_chunks_with_no_fqn_line] ______________
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000016E61701550>
+name = 'fifty_prose_chunks_with_no_fqn_line', prior = None
+build = <function _prose_50 at 0x0000016E2833D260>
+
+    @pytest.mark.parametrize(("name", "prior", "build"), REFUSAL_CASES, ids=[case[0] for case in REFUSAL_CASES])
+    def test_refusals(
+        store: GenerationManifestStore,
+        name: str,
+        prior: tuple[int, int, int] | None,
+        build: Callable[[], list[Chunk]],
+    ) -> None:
+        policy = PublishPolicy()
+        active = publish(store, counts(*prior), policy) if prior is not None else None
+        files_before = _generation_files(store)
+        log_before = len(store.read_publish_log(SCOPE))
+    
+>       with pytest.raises(PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\indexing\test_publish_safety.py:302: Failed
+______________________ test_override_never_waives[floor] ______________________
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000016E61BE56D0>
+name = 'floor', prior = (40, 50, 10)
+build = <function <lambda> at 0x0000016E2833DF80>
+overrides = (('symbols', 40, 2), ('total', 100, 62))
+
+    @pytest.mark.parametrize(
+        ("name", "prior", "build", "overrides"), OVERRIDE_CASES, ids=[case[0] for case in OVERRIDE_CASES]
+    )
+    def test_override_never_waives(
+        store: GenerationManifestStore,
+        name: str,
+        prior: tuple[int, int, int],
+        build: Callable[[], list[Chunk]],
+        overrides: tuple[tuple[str, int, int], ...],
+    ) -> None:
+        active = publish(store, counts(*prior), PublishPolicy())
+        files_before = _generation_files(store)
+>       with pytest.raises(PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\indexing\test_publish_safety.py:484: Failed
+_____________ test_refusal_message_carries_the_exact_accept_flags _____________
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000016E617175F0>
+
+    def test_refusal_message_carries_the_exact_accept_flags(store: GenerationManifestStore) -> None:
+        publish(store, counts(*_BASE), PublishPolicy())
+        with pytest.raises(PublishSafetyError) as one:
+            publish(store, counts(31, 50, 10), PublishPolicy())
+        assert str(one.value).endswith("to accept deliberately: --accept-regression symbols:40->31 --reason TEXT")
+        with pytest.raises(PublishSafetyError) as many:
+            publish(store, counts(24, 20, 2), PublishPolicy())
+        assert str(many.value).endswith(
+            "to accept deliberately: --accept-regression symbols:40->24 --accept-regression docs:50->20 "
+            "--accept-regression examples:10->2 --accept-regression total:100->46 --reason TEXT"
+        )
+        for hard in (counts(2, 50, 10), counts(40, 0, 10), [*counts(40, 50, 10), mk("symbol", 0)], []):
+            with pytest.raises(PublishSafetyError) as hard_error:
+                publish(store, hard, PublishPolicy())
+>           assert "--accept-regression" not in str(hard_error.value)
+E           AssertionError: assert '--accept-regression' not in 'refusing to...-reason TEXT'
+E             
+E             '--accept-regression' is contained here:
+E               berately: --accept-regression symbols:40->2 --reason TEXT
+E             ?           +++++++++++++++++++
+
+tests\indexing\test_publish_safety.py:520: AssertionError
+_____________ test_cli_refuses_a_two_symbol_generation_by_default _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000016E61989FD0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8666/test_cli_refuses_a_two_symbol_0')
+
+    def test_cli_refuses_a_two_symbol_generation_by_default(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+>       with pytest.raises(PublishSafetyError, match="symbol"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\infra\test_ingest_publish_safety.py:96: Failed
+---------------------------- Captured stdout call -----------------------------
+published pdf::net::self_extracted::20261015T143618096034Z-0d62ef56
+_________________ test_cli_override_does_not_waive_the_floor __________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000016E2659AAC0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8666/test_cli_override_does_not_wai0')
+
+    def test_cli_override_does_not_waive_the_floor(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+>       with pytest.raises(PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\infra\test_ingest_publish_safety.py:239: Failed
+---------------------------- Captured stdout call -----------------------------
+published pdf::net::self_extracted::20261015T143619040808Z-f105169d
+_______________ test_cli_passes_a_policy_to_publish_generation ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000016E2659A4A0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8666/test_cli_passes_a_policy_to_pu0')
+
+    def test_cli_passes_a_policy_to_publish_generation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        source = (REPO_ROOT / "infra" / "ingest.py").read_text(encoding="utf-8")
+        assert "policy=policy" in source
+        assert "PublishPolicy(" in source
+        # and the behaviour that call site buys: the production floor refuses a two-symbol generation
+>       with pytest.raises(PublishSafetyError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE PublishSafetyError
+
+tests\infra\test_ingest_publish_safety.py:257: Failed
+---------------------------- Captured stdout call -----------------------------
+published pdf::net::self_extracted::20261015T143619088537Z-b40f0962
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_publish_safety.py::test_production_constants_are_the_reviewed_values
+FAILED tests/indexing/test_publish_safety.py::test_policy_publish_persists_stats_and_appends_log_line
+FAILED tests/indexing/test_publish_safety.py::test_refusals[single_trivial_chunk]
+FAILED tests/indexing/test_publish_safety.py::test_refusals[two_symbols] - Fa...
+FAILED tests/indexing/test_publish_safety.py::test_refusals[fifty_prose_chunks_with_no_fqn_line]
+FAILED tests/indexing/test_publish_safety.py::test_override_never_waives[floor]
+FAILED tests/indexing/test_publish_safety.py::test_refusal_message_carries_the_exact_accept_flags
+FAILED tests/infra/test_ingest_publish_safety.py::test_cli_refuses_a_two_symbol_generation_by_default
+FAILED tests/infra/test_ingest_publish_safety.py::test_cli_override_does_not_waive_the_floor
+FAILED tests/infra/test_ingest_publish_safety.py::test_cli_passes_a_policy_to_publish_generation
+
+--- stderr ---
+
