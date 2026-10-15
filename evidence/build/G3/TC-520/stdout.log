@@ -1,0 +1,541 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/test_run_extraction_coverage_policy.py tests/extraction/test_run_extraction_parse_failures.py tests/indexing/test_chunk_builder_coverage_line.py tests/mcp/tools/test_coverage_note.py tests/infra/test_build_chunks_parse_failures_notice.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v_4ugrgv\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 65%]
+......................................                                   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_sanitize.py tests/infra/test_helm_pilots_match_compose.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/test_tool_surface_truthful.py tests/test_unwired_modules.py tests/test_layout.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v_4ugrgv\.junit-1.xml"
+--- stdout ---
+........................................................................ [  6%]
+........................................................................ [ 12%]
+........................................................................ [ 18%]
+........................................................................ [ 24%]
+........................................................................ [ 30%]
+........................................................................ [ 36%]
+........................................................................ [ 42%]
+........................................................................ [ 48%]
+........................................................................ [ 54%]
+........................................................................ [ 61%]
+........................................................................ [ 67%]
+........................................................................ [ 73%]
+........................................................................ [ 79%]
+........................................................................ [ 85%]
+........................................................................ [ 91%]
+........................................................................ [ 97%]
+...........................                                              [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/test_run_extraction_coverage_policy.py tests/extraction/test_run_extraction_parse_failures.py tests/indexing/test_chunk_builder_coverage_line.py tests/mcp/tools/test_coverage_note.py tests/infra/test_build_chunks_parse_failures_notice.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v_4ugrgv\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 65%]
+......................................                                   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_sanitize.py tests/infra/test_helm_pilots_match_compose.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/test_tool_surface_truthful.py tests/test_unwired_modules.py tests/test_layout.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v_4ugrgv\.junit-1.xml"
+--- stdout ---
+........................................................................ [  6%]
+........................................................................ [ 12%]
+........................................................................ [ 18%]
+........................................................................ [ 24%]
+........................................................................ [ 30%]
+........................................................................ [ 36%]
+........................................................................ [ 42%]
+........................................................................ [ 48%]
+........................................................................ [ 54%]
+........................................................................ [ 61%]
+........................................................................ [ 67%]
+........................................................................ [ 73%]
+........................................................................ [ 79%]
+........................................................................ [ 85%]
+........................................................................ [ 91%]
+........................................................................ [ 97%]
+...........................                                              [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/run_extraction.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/test_run_extraction_coverage_policy.py tests/extraction/test_run_extraction_parse_failures.py tests/indexing/test_chunk_builder_coverage_line.py tests/mcp/tools/test_coverage_note.py tests/infra/test_build_chunks_parse_failures_notice.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v_4ugrgv\.junit-0.xml"
+--- stdout ---
+.....FFF..FFFFFFF......................F.....F.......................... [ 65%]
+......................................                                   [100%]
+================================== FAILURES ===================================
+________________ test_readme_names_are_kept_before_centrality _________________
+
+    def test_readme_names_are_kept_before_centrality() -> None:
+        artifact = _artifact(_ring() + _lonely(["PdfFileEditor", "TextBuilder"]))
+        assert "PdfFileEditor" not in _names(run_extraction.reduce_fixture(artifact, max_types=300))
+        kept = run_extraction.reduce_fixture(
+            artifact, max_types=300, readme_names={"PdfFileEditor": 3, "TextBuilder": 1}
+        )
+>       assert {"PdfFileEditor", "TextBuilder"} <= set(_names(kept))
+E       AssertionError: assert {'PdfFileEdit...'TextBuilder'} <= {'Type0000', ...ype0005', ...}
+E         
+E         Extra items in the left set:
+E         'TextBuilder'
+E         'PdfFileEditor'
+
+tests\extraction\test_run_extraction_coverage_policy.py:196: AssertionError
+________________ test_readme_names_are_capped_by_the_fraction _________________
+
+    def test_readme_names_are_capped_by_the_fraction() -> None:
+>       assert run_extraction.README_KEEP_FRACTION == 0.7
+E       assert 0.0 == 0.7
+E        +  where 0.0 = run_extraction.README_KEEP_FRACTION
+
+tests\extraction\test_run_extraction_coverage_policy.py:202: AssertionError
+___________________ test_readme_names_rank_by_mention_count ___________________
+
+    def test_readme_names_rank_by_mention_count() -> None:
+        named = [f"Named{index:02d}" for index in range(10)]
+        artifact = _artifact(_ring(200) + _lonely(named))
+        counts = {name: index + 1 for index, name in enumerate(named)}  # Named09 is the most mentioned
+        kept = run_extraction.reduce_fixture(artifact, max_types=10, readme_names=counts)
+        kept_named = {name for name in _names(kept) if name.startswith("Named")}
+>       assert kept_named == {f"Named{index:02d}" for index in range(3, 10)}  # the seven most mentioned
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert set() == {'Named03', '...Named08', ...}
+E         
+E         Extra items in the right set:
+E         'Named06'
+E         'Named03'
+E         'Named08'
+E         'Named09'
+E         'Named07'...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show
+
+tests\extraction\test_run_extraction_coverage_policy.py:217: AssertionError
+________ test_readme_recall_on_committed_untruncated_fixtures[3d_java] ________
+
+pilot = '3d_java'
+
+    @pytest.mark.parametrize("pilot", UNTRUNCATED)
+    def test_readme_recall_on_committed_untruncated_fixtures(pilot: str) -> None:
+        fixture, page, readme, strong = _strong_names(pilot)
+        assert strong, f"{pilot}: the page names no type the fixture defines"
+        kept = run_extraction.reduce_fixture(
+            fixture,
+            max_types=2 * len(strong),
+            must_keep=run_extraction.names_used_in_examples(page),
+            readme_names=readme,
+        )
+>       assert _recall(kept, strong) >= 0.9
+E       AssertionError: assert 0.5476190476190477 >= 0.9
+E        +  where 0.5476190476190477 = _recall({'language': 'java', 'reduced_type_count': 84, 'source_commit': '3d2ed6be91f5abdd1c52ecbcfa192719883cb1b3', 'source_repository': 'aspose-3d-foss/Aspose.3D-FOSS-for-Java', ...}, ['A3DObject', 'BoundingBox', 'Box', 'CircleShape', 'Cylinder', 'Dish', ...])
+
+tests\extraction\test_run_extraction_coverage_policy.py:278: AssertionError
+______ test_readme_recall_on_committed_untruncated_fixtures[slides_net] _______
+
+pilot = 'slides_net'
+
+    @pytest.mark.parametrize("pilot", UNTRUNCATED)
+    def test_readme_recall_on_committed_untruncated_fixtures(pilot: str) -> None:
+        fixture, page, readme, strong = _strong_names(pilot)
+        assert strong, f"{pilot}: the page names no type the fixture defines"
+        kept = run_extraction.reduce_fixture(
+            fixture,
+            max_types=2 * len(strong),
+            must_keep=run_extraction.names_used_in_examples(page),
+            readme_names=readme,
+        )
+>       assert _recall(kept, strong) >= 0.9
+E       AssertionError: assert 0.7857142857142857 >= 0.9
+E        +  where 0.7857142857142857 = _recall({'language': 'csharp', 'reduced_type_count': 56, 'source_commit': '86c441b5d81e707f2ea9e01b197dbb6ff7a3859b', 'source_repository': 'aspose-slides-foss/Aspose.Slides-FOSS-for-.NET', ...}, ['Color', 'EffectFormat', 'FillFormat', 'FillType', 'FontData', 'IAutoShape', ...])
+
+tests\extraction\test_run_extraction_coverage_policy.py:278: AssertionError
+______ test_readme_recall_on_committed_untruncated_fixtures[cells_java] _______
+
+pilot = 'cells_java'
+
+    @pytest.mark.parametrize("pilot", UNTRUNCATED)
+    def test_readme_recall_on_committed_untruncated_fixtures(pilot: str) -> None:
+        fixture, page, readme, strong = _strong_names(pilot)
+        assert strong, f"{pilot}: the page names no type the fixture defines"
+        kept = run_extraction.reduce_fixture(
+            fixture,
+            max_types=2 * len(strong),
+            must_keep=run_extraction.names_used_in_examples(page),
+            readme_names=readme,
+        )
+>       assert _recall(kept, strong) >= 0.9
+E       AssertionError: assert 0.5641025641025641 >= 0.9
+E        +  where 0.5641025641025641 = _recall({'language': 'java', 'reduced_type_count': 78, 'source_commit': 'c65329e7257b1311abb9686d7e4957a8cc002955', 'source_repository': 'aspose-cells-foss/Aspose.Cells-FOSS-for-Java', ...}, ['AutoFilter', 'AutoShapeType', 'CalculationProperties', 'Cell', 'CellArea', 'Cells', ...])
+
+tests\extraction\test_run_extraction_coverage_policy.py:278: AssertionError
+______ test_readme_recall_on_committed_untruncated_fixtures[cells_rust] _______
+
+pilot = 'cells_rust'
+
+    @pytest.mark.parametrize("pilot", UNTRUNCATED)
+    def test_readme_recall_on_committed_untruncated_fixtures(pilot: str) -> None:
+        fixture, page, readme, strong = _strong_names(pilot)
+        assert strong, f"{pilot}: the page names no type the fixture defines"
+        kept = run_extraction.reduce_fixture(
+            fixture,
+            max_types=2 * len(strong),
+            must_keep=run_extraction.names_used_in_examples(page),
+            readme_names=readme,
+        )
+>       assert _recall(kept, strong) >= 0.9
+E       AssertionError: assert 0.5151515151515151 >= 0.9
+E        +  where 0.5151515151515151 = _recall({'language': 'rust', 'reduced_type_count': 66, 'source_commit': '1a6004af47b1ef15385f9d36d381a8172428cc7e', 'source_repository': 'aspose-cells-foss/Aspose.Cells-FOSS-for-Rust', ...}, ['AutoShapeType', 'Border', 'Cell', 'CellMut', 'CellStyle', 'CellValue', ...])
+
+tests\extraction\test_run_extraction_coverage_policy.py:278: AssertionError
+______ test_readme_recall_on_committed_untruncated_fixtures[page_python] ______
+
+pilot = 'page_python'
+
+    @pytest.mark.parametrize("pilot", UNTRUNCATED)
+    def test_readme_recall_on_committed_untruncated_fixtures(pilot: str) -> None:
+        fixture, page, readme, strong = _strong_names(pilot)
+        assert strong, f"{pilot}: the page names no type the fixture defines"
+        kept = run_extraction.reduce_fixture(
+            fixture,
+            max_types=2 * len(strong),
+            must_keep=run_extraction.names_used_in_examples(page),
+            readme_names=readme,
+        )
+>       assert _recall(kept, strong) >= 0.9
+E       AssertionError: assert 0.5652173913043478 >= 0.9
+E        +  where 0.5652173913043478 = _recall({'language': 'python', 'reduced_type_count': 99, 'source_commit': '43cef367cd0b2cf00cc03064ca9d29d1ff507967', 'source_repository': 'aspose-page-foss/Aspose.Page-FOSS-for-Python', ...}, ['Clipper', 'ClipperBase', 'DefaultRasterWriter', 'DscMetadata', 'FontCache', 'FontResolver', ...])
+
+tests\extraction\test_run_extraction_coverage_policy.py:278: AssertionError
+_____ test_readme_recall_on_committed_untruncated_fixtures[words_python] ______
+
+pilot = 'words_python'
+
+    @pytest.mark.parametrize("pilot", UNTRUNCATED)
+    def test_readme_recall_on_committed_untruncated_fixtures(pilot: str) -> None:
+        fixture, page, readme, strong = _strong_names(pilot)
+        assert strong, f"{pilot}: the page names no type the fixture defines"
+        kept = run_extraction.reduce_fixture(
+            fixture,
+            max_types=2 * len(strong),
+            must_keep=run_extraction.names_used_in_examples(page),
+            readme_names=readme,
+        )
+>       assert _recall(kept, strong) >= 0.9
+E       AssertionError: assert 0.5490196078431373 >= 0.9
+E        +  where 0.5490196078431373 = _recall({'language': 'python', 'reduced_type_count': 133, 'source_commit': '2d2efee2787cb9e56d071d17f8d7b740dce8b784', 'source_repository': 'aspose-words-foss/Aspose.Words-FOSS-for-Python', ...}, ['BookmarkStart', 'Cell', 'CellMerge', 'CellVerticalAlignment', 'CompressionLevel', 'DocFileReader', ...])
+
+tests\extraction\test_run_extraction_coverage_policy.py:278: AssertionError
+_____ test_readme_recall_on_committed_untruncated_fixtures[cells_python] ______
+
+pilot = 'cells_python'
+
+    @pytest.mark.parametrize("pilot", UNTRUNCATED)
+    def test_readme_recall_on_committed_untruncated_fixtures(pilot: str) -> None:
+        fixture, page, readme, strong = _strong_names(pilot)
+        assert strong, f"{pilot}: the page names no type the fixture defines"
+        kept = run_extraction.reduce_fixture(
+            fixture,
+            max_types=2 * len(strong),
+            must_keep=run_extraction.names_used_in_examples(page),
+            readme_names=readme,
+        )
+>       assert _recall(kept, strong) >= 0.9
+E       AssertionError: assert 0.42857142857142855 >= 0.9
+E        +  where 0.42857142857142855 = _recall({'language': 'python', 'reduced_type_count': 85, 'source_commit': '4f6768a7b349a1309644f456eb43bc35f70c16d7', 'source_repository': 'aspose-cells-foss/Aspose.Cells-FOSS-for-Python', ...}, ['AutoFilter', 'CFBReader', 'CFBWriter', 'Cell', 'Cells', 'ChartCollection', ...])
+
+tests\extraction\test_run_extraction_coverage_policy.py:278: AssertionError
+___________________ test_named_internal_group_is_still_kept ___________________
+
+    def test_named_internal_group_is_still_kept() -> None:
+        internal = _entry("Secret", file="pkg/engine/s.py", class_import="pkg.engine.Secret", refs=("int",))
+        artifact = _artifact(_ring(50) + [internal])
+        assert "Secret" not in _names(run_extraction.reduce_fixture(artifact, max_types=5))
+        assert "Secret" in _names(run_extraction.reduce_fixture(artifact, max_types=5, must_keep={"Secret"}))
+>       assert "Secret" in _names(
+            run_extraction.reduce_fixture(artifact, max_types=5, readme_names={"Secret": 2})
+        )
+E       AssertionError: assert 'Secret' in ['Type0000', 'Type0001', 'Type0002', 'Type0003', 'Type0004']
+E        +  where ['Type0000', 'Type0001', 'Type0002', 'Type0003', 'Type0004'] = _names({'source_repository': 'acme/widgets', 'source_commit': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'language': 'python', 'type_count': 51, ...})
+E        +    where {'source_repository': 'acme/widgets', 'source_commit': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'language': 'python', 'type_count': 51, ...} = <function reduce_fixture at 0x000001DC8D82F7E0>({'source_repository': 'acme/widgets', 'source_commit': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'language': 'python', 'type_count': 51, ...}, max_types=5, readme_names={'Secret': 2})
+E        +      where <function reduce_fixture at 0x000001DC8D82F7E0> = run_extraction.reduce_fixture
+
+tests\extraction\test_run_extraction_coverage_policy.py:369: AssertionError
+________________________ test_extractor_version_is_two ________________________
+
+    def test_extractor_version_is_two() -> None:
+        assert run_extraction.EXTRACTOR_VERSION == 2
+        text = (REPO_ROOT / "src" / "foss_mcp" / "extraction" / "run_extraction.py").read_text(encoding="utf-8")
+        assert re.search(r"^EXTRACTOR_VERSION = 2$", text, re.MULTILINE)
+>       assert re.search(r"^README_KEEP_FRACTION = 0\.7$", text, re.MULTILINE)
+E       assert None
+E        +  where None = <function search at 0x000001DC8BD57560>('^README_KEEP_FRACTION = 0\\.7$', '"""Clone a pinned product repository, run the tree-sitter engine, emit a reproducible fixture.\n\nNot itself exercise...unt\']} types; "\n        f"commit {artifact[\'source_commit\']}"\n    )\n\n\nif __name__ == "__main__":\n    main()\n', re.MULTILINE)
+E        +    where <function search at 0x000001DC8BD57560> = re.search
+E        +    and   re.MULTILINE = re.MULTILINE
+
+tests\extraction\test_run_extraction_coverage_policy.py:432: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_names_are_kept_before_centrality
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_names_are_capped_by_the_fraction
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_names_rank_by_mention_count
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_recall_on_committed_untruncated_fixtures[3d_java]
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_recall_on_committed_untruncated_fixtures[slides_net]
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_recall_on_committed_untruncated_fixtures[cells_java]
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_recall_on_committed_untruncated_fixtures[cells_rust]
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_recall_on_committed_untruncated_fixtures[page_python]
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_recall_on_committed_untruncated_fixtures[words_python]
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_recall_on_committed_untruncated_fixtures[cells_python]
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_named_internal_group_is_still_kept
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_extractor_version_is_two
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_sanitize.py tests/infra/test_helm_pilots_match_compose.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/test_tool_surface_truthful.py tests/test_unwired_modules.py tests/test_layout.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v_4ugrgv\.junit-1.xml"
+--- stdout ---
+........................................................................ [  6%]
+........................................................................ [ 12%]
+........................................................................ [ 18%]
+........................................................................ [ 24%]
+........................................................................ [ 30%]
+........................................................................ [ 36%]
+..........................FFF..FFFFFFF......................F.....F..... [ 42%]
+........................................................................ [ 48%]
+........................................................................ [ 54%]
+........................................................................ [ 61%]
+........................................................................ [ 67%]
+........................................................................ [ 73%]
+........................................................................ [ 79%]
+........................................................................ [ 85%]
+........................................................................ [ 91%]
+........................................................................ [ 97%]
+...........................                                              [100%]
+================================== FAILURES ===================================
+________________ test_readme_names_are_kept_before_centrality _________________
+
+    def test_readme_names_are_kept_before_centrality() -> None:
+        artifact = _artifact(_ring() + _lonely(["PdfFileEditor", "TextBuilder"]))
+        assert "PdfFileEditor" not in _names(run_extraction.reduce_fixture(artifact, max_types=300))
+        kept = run_extraction.reduce_fixture(
+            artifact, max_types=300, readme_names={"PdfFileEditor": 3, "TextBuilder": 1}
+        )
+>       assert {"PdfFileEditor", "TextBuilder"} <= set(_names(kept))
+E       AssertionError: assert {'PdfFileEdit...'TextBuilder'} <= {'Type0000', ...ype0005', ...}
+E         
+E         Extra items in the left set:
+E         'TextBuilder'
+E         'PdfFileEditor'
+
+tests\extraction\test_run_extraction_coverage_policy.py:196: AssertionError
+________________ test_readme_names_are_capped_by_the_fraction _________________
+
+    def test_readme_names_are_capped_by_the_fraction() -> None:
+>       assert run_extraction.README_KEEP_FRACTION == 0.7
+E       assert 0.0 == 0.7
+E        +  where 0.0 = run_extraction.README_KEEP_FRACTION
+
+tests\extraction\test_run_extraction_coverage_policy.py:202: AssertionError
+___________________ test_readme_names_rank_by_mention_count ___________________
+
+    def test_readme_names_rank_by_mention_count() -> None:
+        named = [f"Named{index:02d}" for index in range(10)]
+        artifact = _artifact(_ring(200) + _lonely(named))
+        counts = {name: index + 1 for index, name in enumerate(named)}  # Named09 is the most mentioned
+        kept = run_extraction.reduce_fixture(artifact, max_types=10, readme_names=counts)
+        kept_named = {name for name in _names(kept) if name.startswith("Named")}
+>       assert kept_named == {f"Named{index:02d}" for index in range(3, 10)}  # the seven most mentioned
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert set() == {'Named03', '...Named08', ...}
+E         
+E         Extra items in the right set:
+E         'Named06'
+E         'Named03'
+E         'Named08'
+E         'Named09'
+E         'Named07'...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show
+
+tests\extraction\test_run_extraction_coverage_policy.py:217: AssertionError
+________ test_readme_recall_on_committed_untruncated_fixtures[3d_java] ________
+
+pilot = '3d_java'
+
+    @pytest.mark.parametrize("pilot", UNTRUNCATED)
+    def test_readme_recall_on_committed_untruncated_fixtures(pilot: str) -> None:
+        fixture, page, readme, strong = _strong_names(pilot)
+        assert strong, f"{pilot}: the page names no type the fixture defines"
+        kept = run_extraction.reduce_fixture(
+            fixture,
+            max_types=2 * len(strong),
+            must_keep=run_extraction.names_used_in_examples(page),
+            readme_names=readme,
+        )
+>       assert _recall(kept, strong) >= 0.9
+E       AssertionError: assert 0.5476190476190477 >= 0.9
+E        +  where 0.5476190476190477 = _recall({'language': 'java', 'reduced_type_count': 84, 'source_commit': '3d2ed6be91f5abdd1c52ecbcfa192719883cb1b3', 'source_repository': 'aspose-3d-foss/Aspose.3D-FOSS-for-Java', ...}, ['A3DObject', 'BoundingBox', 'Box', 'CircleShape', 'Cylinder', 'Dish', ...])
+
+tests\extraction\test_run_extraction_coverage_policy.py:278: AssertionError
+______ test_readme_recall_on_committed_untruncated_fixtures[slides_net] _______
+
+pilot = 'slides_net'
+
+    @pytest.mark.parametrize("pilot", UNTRUNCATED)
+    def test_readme_recall_on_committed_untruncated_fixtures(pilot: str) -> None:
+        fixture, page, readme, strong = _strong_names(pilot)
+        assert strong, f"{pilot}: the page names no type the fixture defines"
+        kept = run_extraction.reduce_fixture(
+            fixture,
+            max_types=2 * len(strong),
+            must_keep=run_extraction.names_used_in_examples(page),
+            readme_names=readme,
+        )
+>       assert _recall(kept, strong) >= 0.9
+E       AssertionError: assert 0.7857142857142857 >= 0.9
+E        +  where 0.7857142857142857 = _recall({'language': 'csharp', 'reduced_type_count': 56, 'source_commit': '86c441b5d81e707f2ea9e01b197dbb6ff7a3859b', 'source_repository': 'aspose-slides-foss/Aspose.Slides-FOSS-for-.NET', ...}, ['Color', 'EffectFormat', 'FillFormat', 'FillType', 'FontData', 'IAutoShape', ...])
+
+tests\extraction\test_run_extraction_coverage_policy.py:278: AssertionError
+______ test_readme_recall_on_committed_untruncated_fixtures[cells_java] _______
+
+pilot = 'cells_java'
+
+    @pytest.mark.parametrize("pilot", UNTRUNCATED)
+    def test_readme_recall_on_committed_untruncated_fixtures(pilot: str) -> None:
+        fixture, page, readme, strong = _strong_names(pilot)
+        assert strong, f"{pilot}: the page names no type the fixture defines"
+        kept = run_extraction.reduce_fixture(
+            fixture,
+            max_types=2 * len(strong),
+            must_keep=run_extraction.names_used_in_examples(page),
+            readme_names=readme,
+        )
+>       assert _recall(kept, strong) >= 0.9
+E       AssertionError: assert 0.5641025641025641 >= 0.9
+E        +  where 0.5641025641025641 = _recall({'language': 'java', 'reduced_type_count': 78, 'source_commit': 'c65329e7257b1311abb9686d7e4957a8cc002955', 'source_repository': 'aspose-cells-foss/Aspose.Cells-FOSS-for-Java', ...}, ['AutoFilter', 'AutoShapeType', 'CalculationProperties', 'Cell', 'CellArea', 'Cells', ...])
+
+tests\extraction\test_run_extraction_coverage_policy.py:278: AssertionError
+______ test_readme_recall_on_committed_untruncated_fixtures[cells_rust] _______
+
+pilot = 'cells_rust'
+
+    @pytest.mark.parametrize("pilot", UNTRUNCATED)
+    def test_readme_recall_on_committed_untruncated_fixtures(pilot: str) -> None:
+        fixture, page, readme, strong = _strong_names(pilot)
+        assert strong, f"{pilot}: the page names no type the fixture defines"
+        kept = run_extraction.reduce_fixture(
+            fixture,
+            max_types=2 * len(strong),
+            must_keep=run_extraction.names_used_in_examples(page),
+            readme_names=readme,
+        )
+>       assert _recall(kept, strong) >= 0.9
+E       AssertionError: assert 0.5151515151515151 >= 0.9
+E        +  where 0.5151515151515151 = _recall({'language': 'rust', 'reduced_type_count': 66, 'source_commit': '1a6004af47b1ef15385f9d36d381a8172428cc7e', 'source_repository': 'aspose-cells-foss/Aspose.Cells-FOSS-for-Rust', ...}, ['AutoShapeType', 'Border', 'Cell', 'CellMut', 'CellStyle', 'CellValue', ...])
+
+tests\extraction\test_run_extraction_coverage_policy.py:278: AssertionError
+______ test_readme_recall_on_committed_untruncated_fixtures[page_python] ______
+
+pilot = 'page_python'
+
+    @pytest.mark.parametrize("pilot", UNTRUNCATED)
+    def test_readme_recall_on_committed_untruncated_fixtures(pilot: str) -> None:
+        fixture, page, readme, strong = _strong_names(pilot)
+        assert strong, f"{pilot}: the page names no type the fixture defines"
+        kept = run_extraction.reduce_fixture(
+            fixture,
+            max_types=2 * len(strong),
+            must_keep=run_extraction.names_used_in_examples(page),
+            readme_names=readme,
+        )
+>       assert _recall(kept, strong) >= 0.9
+E       AssertionError: assert 0.5652173913043478 >= 0.9
+E        +  where 0.5652173913043478 = _recall({'language': 'python', 'reduced_type_count': 99, 'source_commit': '43cef367cd0b2cf00cc03064ca9d29d1ff507967', 'source_repository': 'aspose-page-foss/Aspose.Page-FOSS-for-Python', ...}, ['Clipper', 'ClipperBase', 'DefaultRasterWriter', 'DscMetadata', 'FontCache', 'FontResolver', ...])
+
+tests\extraction\test_run_extraction_coverage_policy.py:278: AssertionError
+_____ test_readme_recall_on_committed_untruncated_fixtures[words_python] ______
+
+pilot = 'words_python'
+
+    @pytest.mark.parametrize("pilot", UNTRUNCATED)
+    def test_readme_recall_on_committed_untruncated_fixtures(pilot: str) -> None:
+        fixture, page, readme, strong = _strong_names(pilot)
+        assert strong, f"{pilot}: the page names no type the fixture defines"
+        kept = run_extraction.reduce_fixture(
+            fixture,
+            max_types=2 * len(strong),
+            must_keep=run_extraction.names_used_in_examples(page),
+            readme_names=readme,
+        )
+>       assert _recall(kept, strong) >= 0.9
+E       AssertionError: assert 0.5490196078431373 >= 0.9
+E        +  where 0.5490196078431373 = _recall({'language': 'python', 'reduced_type_count': 133, 'source_commit': '2d2efee2787cb9e56d071d17f8d7b740dce8b784', 'source_repository': 'aspose-words-foss/Aspose.Words-FOSS-for-Python', ...}, ['BookmarkStart', 'Cell', 'CellMerge', 'CellVerticalAlignment', 'CompressionLevel', 'DocFileReader', ...])
+
+tests\extraction\test_run_extraction_coverage_policy.py:278: AssertionError
+_____ test_readme_recall_on_committed_untruncated_fixtures[cells_python] ______
+
+pilot = 'cells_python'
+
+    @pytest.mark.parametrize("pilot", UNTRUNCATED)
+    def test_readme_recall_on_committed_untruncated_fixtures(pilot: str) -> None:
+        fixture, page, readme, strong = _strong_names(pilot)
+        assert strong, f"{pilot}: the page names no type the fixture defines"
+        kept = run_extraction.reduce_fixture(
+            fixture,
+            max_types=2 * len(strong),
+            must_keep=run_extraction.names_used_in_examples(page),
+            readme_names=readme,
+        )
+>       assert _recall(kept, strong) >= 0.9
+E       AssertionError: assert 0.42857142857142855 >= 0.9
+E        +  where 0.42857142857142855 = _recall({'language': 'python', 'reduced_type_count': 85, 'source_commit': '4f6768a7b349a1309644f456eb43bc35f70c16d7', 'source_repository': 'aspose-cells-foss/Aspose.Cells-FOSS-for-Python', ...}, ['AutoFilter', 'CFBReader', 'CFBWriter', 'Cell', 'Cells', 'ChartCollection', ...])
+
+tests\extraction\test_run_extraction_coverage_policy.py:278: AssertionError
+___________________ test_named_internal_group_is_still_kept ___________________
+
+    def test_named_internal_group_is_still_kept() -> None:
+        internal = _entry("Secret", file="pkg/engine/s.py", class_import="pkg.engine.Secret", refs=("int",))
+        artifact = _artifact(_ring(50) + [internal])
+        assert "Secret" not in _names(run_extraction.reduce_fixture(artifact, max_types=5))
+        assert "Secret" in _names(run_extraction.reduce_fixture(artifact, max_types=5, must_keep={"Secret"}))
+>       assert "Secret" in _names(
+            run_extraction.reduce_fixture(artifact, max_types=5, readme_names={"Secret": 2})
+        )
+E       AssertionError: assert 'Secret' in ['Type0000', 'Type0001', 'Type0002', 'Type0003', 'Type0004']
+E        +  where ['Type0000', 'Type0001', 'Type0002', 'Type0003', 'Type0004'] = _names({'source_repository': 'acme/widgets', 'source_commit': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'language': 'python', 'type_count': 51, ...})
+E        +    where {'source_repository': 'acme/widgets', 'source_commit': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'language': 'python', 'type_count': 51, ...} = <function reduce_fixture at 0x000001DEDF4822A0>({'source_repository': 'acme/widgets', 'source_commit': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'language': 'python', 'type_count': 51, ...}, max_types=5, readme_names={'Secret': 2})
+E        +      where <function reduce_fixture at 0x000001DEDF4822A0> = run_extraction.reduce_fixture
+
+tests\extraction\test_run_extraction_coverage_policy.py:369: AssertionError
+________________________ test_extractor_version_is_two ________________________
+
+    def test_extractor_version_is_two() -> None:
+        assert run_extraction.EXTRACTOR_VERSION == 2
+        text = (REPO_ROOT / "src" / "foss_mcp" / "extraction" / "run_extraction.py").read_text(encoding="utf-8")
+        assert re.search(r"^EXTRACTOR_VERSION = 2$", text, re.MULTILINE)
+>       assert re.search(r"^README_KEEP_FRACTION = 0\.7$", text, re.MULTILINE)
+E       assert None
+E        +  where None = <function search at 0x000001DEDBE57600>('^README_KEEP_FRACTION = 0\\.7$', '"""Clone a pinned product repository, run the tree-sitter engine, emit a reproducible fixture.\n\nNot itself exercise...unt\']} types; "\n        f"commit {artifact[\'source_commit\']}"\n    )\n\n\nif __name__ == "__main__":\n    main()\n', re.MULTILINE)
+E        +    where <function search at 0x000001DEDBE57600> = re.search
+E        +    and   re.MULTILINE = re.MULTILINE
+
+tests\extraction\test_run_extraction_coverage_policy.py:432: AssertionError
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_names_are_kept_before_centrality
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_names_are_capped_by_the_fraction
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_names_rank_by_mention_count
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_recall_on_committed_untruncated_fixtures[3d_java]
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_recall_on_committed_untruncated_fixtures[slides_net]
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_recall_on_committed_untruncated_fixtures[cells_java]
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_recall_on_committed_untruncated_fixtures[cells_rust]
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_recall_on_committed_untruncated_fixtures[page_python]
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_recall_on_committed_untruncated_fixtures[words_python]
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_readme_recall_on_committed_untruncated_fixtures[cells_python]
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_named_internal_group_is_still_kept
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_extractor_version_is_two
+
+--- stderr ---
+
