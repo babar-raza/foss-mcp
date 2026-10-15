@@ -1,0 +1,212 @@
+id: TC-536
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-008 and REQ-G3-001 (independent pre-production review: the data-budget, e2e-pin and self-expiring-exception tail of the extraction
+  remediation). DATA BUDGETS, CHART CAPS, E2E PINS, EXPIRED EXCEPTIONS. The re-extraction cards TC-530 to TC-535 raise 13 per-pilot caps, add member
+  documentation and rewrite 40 fixtures; none of them can measure the baked tree, because the ingestion is a supervisor step. The supervisor
+  re-ingests all 40 pilots and commits the refreshed, compacted infra/demo-manifests AFTER TC-535, and only then dispatches this card (the dispatch
+  instruction names that commit and the image revision). Facts to keep in view: tests/deploy/test_compact_demo_manifests.py pins the tree at
+  29,500,000 bytes (TREE_BYTES_BUDGET), the largest generation file at 2,950,000 and the median at 640,000, and
+  tests/deploy/test_demo_manifests_sidecars.py pins the tree at 29,500,000; the measured tree was 28,069,555 bytes, largest 2,944,920, median 577,817
+  on 2026-10-14 (TC-503). TC-527's estimate for the finished data is a tree of about 35,000,000, a largest file of about 3,300,000 and a median of
+  about 760,000 (member documentation is capped at 300 characters per member, 4,000 per type, 48,000 per pilot; a generation file holds each chunk's
+  text and its token list). The review's measured file sizes: the fixtures alone grow (pdf_net 2.1 to about 6 MB, pdf_java 3.3 to about 12 MB) but the
+  baked generations hold only chunk text. This card (1) measures the committed tree and re-pins the three budgets of the two tests to the measured
+  values plus 5 percent headroom, with comments, exactly as TC-503 did, changing constants and comments only; (2) adds an offline all-40-pilots test
+  that the chart's maxTypes, docker-compose's --max-types and the extractor's recommended cap are one number per pilot and that the ingestion slice
+  drops nothing; (3) removes every temporary exception the chain created or the review listed that the refreshed data no longer needs
+  (STALE_BAKED_PILOTS, COMMIT_EXCEPTIONS['pdf_typescript'], COVERAGE_EXCEPTIONS['jmap_go'], stale UNRESOLVED entries) and brings the API-Coverage
+  check of tests/deploy/test_fleet_consistency.py to the grammar the merged chunk builder writes; and (4) adds an offline test that the literal pins
+  of the seven docker end-to-end files (symbol, enum member, method fragment, source commits, example symbol, documentation fragment) still hold in
+  the shipped baked data, and repins those that do not. It does NOT change src/, fixtures, the baked manifests, the chart, docker-compose or any
+  furnished page.
+depends_on:
+- TC-064
+- TC-069
+- TC-079
+- TC-089
+- TC-098
+- TC-099
+- TC-100
+- TC-101
+- TC-102
+- TC-106
+- TC-107
+- TC-113
+- TC-114
+- TC-115
+- TC-116
+- TC-117
+- TC-118
+- TC-123
+- TC-172
+- TC-194
+- TC-196
+- TC-248
+- TC-255
+- TC-256
+- TC-262
+- TC-264
+- TC-273
+- TC-277
+- TC-280
+- TC-285
+- TC-317
+- TC-346
+- TC-354
+- TC-381
+- TC-503
+- TC-504
+- TC-513
+- TC-517
+- TC-535
+write_paths:
+- tests/deploy/test_compact_demo_manifests.py
+- tests/deploy/test_demo_manifests_sidecars.py
+- tests/deploy/test_fleet_consistency.py
+- tests/deploy/test_chart_max_types.py
+- tests/deploy/test_e2e_pins_match_shipped_data.py
+- tests/e2e/test_cells_rust_live_content.py
+- tests/e2e/test_pdf_cpp_live_content.py
+- tests/e2e/test_pdf_go_live_content.py
+- tests/e2e/test_pdf_java_live_content.py
+- tests/e2e/test_pdf_net_live_content.py
+- tests/e2e/test_pdf_typescript_live_content.py
+- tests/e2e/test_slides_python_live_content.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-001
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  PRECONDITIONS AND THE STOP RULE. This card is the last of the chain TC-530 .. TC-536 and runs only after (a) TC-530 to TC-535 are accepted and (b)
+  the supervisor has re-ingested the 40 pilots at the final data and committed infra/demo-manifests (the dispatch instruction names the commit and the
+  image revision). Verify (b) first: run `python -m pytest tests/deploy/test_fleet_consistency.py -q -rfE -p no:cacheprovider`. The table tests of
+  that file (`test_every_stale_baked_pilot_still_applies`, `test_every_commit_exception_still_applies`, `test_every_coverage_exception_still_applies`)
+  PASS while the baked data is still the OLD data (their message is 'delete the pilot' when it is new). If
+  `test_every_stale_baked_pilot_still_applies` passes for any listed pilot, the snapshot is not final: record `gatectl status-append` BLOCKED_EXTERNAL
+  with the resume predicate 'infra/demo-manifests re-snapshotted from a cluster ingested with the TC-535 chart and committed by the supervisor' and
+  stop. Never print or log any environment value.
+- >-
+  MEASURE, THEN PIN THE BUDGETS (tests/deploy/test_compact_demo_manifests.py and tests/deploy/test_demo_manifests_sidecars.py). Read both budget tests
+  and use THEIR definitions: in test_compact_demo_manifests.py `total` is the sum of every file under infra/demo-manifests, `sizes` are the sizes of
+  each scope's single generation file (`real_generation_file`), the largest is `max(sizes)` and the median `statistics.median(sizes)`; in
+  test_demo_manifests_sidecars.py `total` is its own measure at the line that asserts `TREE_BYTES_BUDGET`. Measure all four numbers first with a
+  one-off command and put them in your report (the TC-503 precedent: total, 40 generation files, largest, median, smallest). New value of each
+  constant = the measured value times 1.05, rounded UP to the next multiple of 10,000 (TREE_BYTES_BUDGET and the sidecars test's TREE_BYTES_BUDGET
+  from the tree total, LARGEST_FILE_BYTES_BUDGET from the largest, MEDIAN_FILE_BYTES_BUDGET from the median). Put a comment next to each changed
+  constant stating the measured value, the date, the image revision named in the dispatch instruction and why the tree grew (member documentation,
+  raised caps, README-named types). Change ONLY these constants and their comments; do not edit any other assertion. SIZE-REGRESSION STOP: if the
+  measured tree is above 45,000,000 bytes, or the largest file above 4,500,000, or the median above 1,000,000, do not pin: record FAILED_INTERNAL with
+  the four numbers (the TC-527 caps were meant to hold the tree near 35,000,000) and stop; the standalone image must stay lean.
+- >-
+  ALL-40-PILOTS CAP TEST (NEW tests/deploy/test_chart_max_types.py, offline, no skips; import the helper tests/extraction/reextraction_checks.py
+  created by TC-530 and read it first). Tests: `test_chart_names_forty_pilots`, parametrised over the 40 pilot keys derived from values.yaml (never
+  retyped): `test_chart_compose_and_recommended_cap_are_one_number[pilot]` (`chart_max_types(key) == compose_max_types(key) == recommended_cap(key)`),
+  `test_ingestion_slice_keeps_every_extracted_entry[pilot]` (`ingestion_slice_problems(key)` is empty),
+  `test_a_fixture_never_exceeds_its_cap_except_by_a_python_pair[pilot]` (for a non-Python pilot `len(types) <= chart_max_types(key)`; for a Python
+  pilot the number of build units the chunk builder would keep is not cut: reuse the slice test and assert nothing else), plus
+  `test_every_recommended_cap_key_is_a_pilot_of_the_chart` (every key of `RECOMMENDED_MAX_TYPES` is `<family>/<platform>` of a chart pilot) and
+  `test_every_pilot_with_a_recommended_cap_has_it_in_the_chart` (all 13 proposals of TC-520 are applied in values.yaml). At least 83 tests.
+- >-
+  FLEET CONSISTENCY CLEAN-UP (tests/deploy/test_fleet_consistency.py, owned by TC-513, chain TC-530 to TC-535 added STALE_BAKED_PILOTS). After the
+  re-ingest the baked generation is the new data, so: (1) DELETE the `STALE_BAKED_PILOTS` table, its branch in
+  `test_api_coverage_lines_are_present_and_honest` and its three table tests (they test a mechanism that has expired, which is their purpose; say so
+  in a comment-free commit message and your report); (2) delete `COMMIT_EXCEPTIONS['pdf_typescript']` when `problems_commit('pdf_typescript')` is
+  empty (it will be: fixture, pin, documentation and sidecar are 155bfc7 and every baked Source-Commit line is 155bfc7) - the table test
+  `test_every_commit_exception_still_applies` fails with 'delete the exception' otherwise, and then also delete the reason string; if the table
+  becomes empty keep it as an empty dict with its comment; (3) delete `COVERAGE_EXCEPTIONS['jmap_go']` when the coverage problems for jmap_go are now
+  empty, otherwise update its reason to the real remaining cause and say why in the report; (4) for every pilot in `UNRESOLVED_EXCEPTIONS` the listed
+  maximum must equal the fixture's `unresolved` count (set it, or delete the entry at 0); (5) bring the API-Coverage check to the grammar the MERGED
+  chunk builder writes (read src/foss_mcp/indexing/chunk_builder.py: TC-520 wrote the line `API-Coverage: N of M types` and, for fixtures that carry
+  `symbol_counts` or `parse_failures`, optional clauses `; K of F functions` and `; X of Y source files could not be parsed` or `; at least K source
+  files could not be parsed`): change `_COVERAGE_VALUE` and `coverage_problems` so a symbol chunk may carry the clauses and every old guarantee is
+  kept in the form the grammar allows (exactly one line per symbol chunk; the types clause's N and M match the number of non-function symbol chunks
+  and the fixture's `symbol_counts.types` (or `type_count` when the key is absent); the functions clause, when present, matches the function chunks
+  and `symbol_counts.functions`; `N < M` exactly when the fixture is truncated; tex_python's lines state `35 of 45 source files could not be parsed`).
+  Read how the merged builder counts a function entry before you write the rule, and keep the rule strict: never accept a line the old test would have
+  rejected for a reason that still applies. New synthetic tests (at least 8): `test_coverage_grammar_accepts_the_types_only_line`,
+  `test_coverage_grammar_accepts_a_functions_clause`, `test_coverage_grammar_accepts_a_parse_failure_clause`,
+  `test_coverage_grammar_rejects_a_functions_clause_that_disagrees_with_the_fixture`, `test_coverage_grammar_rejects_a_wrong_types_count`,
+  `test_coverage_grammar_rejects_two_lines`, `test_coverage_grammar_rejects_a_missing_line`, `test_truncated_reading_is_unchanged`.
+- >-
+  E2E PIN TEST (NEW tests/deploy/test_e2e_pins_match_shipped_data.py, offline, no skips, no docker). The seven docker end-to-end files pin facts of
+  the data they serve as module-level string constants: tests/e2e/test_cells_rust_live_content.py (pilot cells_rust),
+  tests/e2e/test_pdf_cpp_live_content.py (pilot pdf_cpp), tests/e2e/test_pdf_go_live_content.py (pilot pdf_go),
+  tests/e2e/test_pdf_java_live_content.py (pilot pdf_java), tests/e2e/test_pdf_net_live_content.py (pilot pdf_net),
+  tests/e2e/test_pdf_typescript_live_content.py (pilot pdf_typescript), tests/e2e/test_slides_python_live_content.py (pilot slides_python). The test
+  reads each file with `ast` (top-level `Assign` of a single Name to a string Constant; no import of the e2e module, so no docker is touched) and
+  checks every constant it finds among these names against the shipped baked generation of that pilot (infra/demo-manifests: active_pointer.json ->
+  generation file -> `payload.lexical_index.documents[*].text`, loaded the way tests/deploy/test_fleet_consistency.py does, with a small loader of
+  your own) and the chart: REAL_SOURCE_COMMIT and REAL_EXAMPLE_SOURCE_COMMIT equal the pilot's `library.commit` in values.yaml and occur in at least
+  one `Source-Commit:` line; REAL_SYMBOL is the name or the last dot- or double-colon segment of the `FQN:` line of some symbol chunk; REAL_SYMBOL_FQN
+  and REAL_ENUM_FQN equal an `FQN:` line exactly; REAL_ENUM_MEMBER is a line `  - <member>` (optionally followed by ` =`) in the chunk of
+  REAL_ENUM_FQN; REAL_METHOD_FRAGMENT and REAL_BASE_FRAGMENT are substrings of the text of a symbol chunk selected by REAL_SYMBOL; REAL_EXAMPLE_SYMBOL
+  is a substring of some chunk that contains the line `Kind: verified_example`; REAL_DOC_FRAGMENT is a substring of some chunk that is neither a
+  symbol nor an example chunk (chunk kinds by the rule `Example: ` / `Doc: ` / other of tests/deploy/test_fleet_consistency.py `chunk_kind`). Cases
+  are discovered at collection from the files, one test id per (file, constant), so a file that computes a constant at run time (pdf_cpp's
+  REAL_SYMBOL) contributes only its literal ones. Tests: `test_e2e_constant_still_holds_in_the_shipped_data[file-constant]` (one per literal constant,
+  about 40), `test_every_e2e_file_maps_to_a_chart_pilot`, `test_the_checker_flags_a_missing_symbol_and_a_wrong_commit` and
+  `test_the_checker_flags_a_missing_fragment` (synthetic). Run it BEFORE editing any e2e file; for every constant it rejects, edit that constant in
+  the e2e file to a real value of the shipped data (a symbol or enum member that exists in the same chunk family, a method fragment copied from the
+  current chunk text, the pin) with a comment `repinned by TC-536: <old> no longer in the shipped data because <reason>`, and keep the assertions of
+  the e2e tests themselves untouched. Known candidates: tests/e2e/test_pdf_typescript_live_content.py pins REAL_SOURCE_COMMIT c672b39 and
+  REAL_EXAMPLE_SOURCE_COMMIT 155bfc7 (both must become the pin 155bfc7a33f0ba23fb4252b6ba201828b02a5b9d), and
+  tests/e2e/test_slides_python_live_content.py pins `Methods:\n  - __init__()` (TC-522 and the Python constructor handling may have changed the
+  rendering), tests/e2e/test_pdf_go_live_content.py pins `SetSymbology(s: BarcodeSymbology) -> error`, tests/e2e/test_pdf_typescript_live_content.py
+  pins `  - RemoveAnnotation(a: Annotation | PdfDict) -> void`. What this test cannot check - REAL_TASK_QUERY and REAL_DOC_QUERY (what the live server
+  answers) and the in-test numeric expectations - is verified only by the docker run of the review harness; say so in your report and list the e2e
+  tests the supervisor must run live.
+- >-
+  WHAT TO RUN. First check: the five new and changed deploy test files plus the stale-checked tables. Second check: the broad offline suite. Commit
+  once with the subject `test(deploy): re-pin the demo-manifest budgets, the e2e pins and the all-pilot caps to the re-ingested data, remove expired
+  review exceptions (G3/TC-536)` ending with the Co-Authored-By trailer for the model that did the work; UTF-8 without a byte-order mark; preserve
+  line endings. Report: the four measured numbers and the four new constants, each exception deleted and why, each e2e constant repinned (old and
+  new), and the tests the supervisor must run live. Do NOT edit src/, any fixture, infra/demo-manifests, values.yaml or docker-compose.yml; if a cap
+  test fails, the defect is in an earlier card: report the pilot and stop.
+actions:
+- >-
+  Measure the re-ingested demo-manifest tree and re-pin the three size budgets of the two tests to the measured values plus 5 percent, with the
+  numbers recorded beside them.
+- >-
+  Add the all-pilot cap test and the offline e2e pin test, repin the e2e constants the shipped data no longer holds, bring the fleet API-Coverage
+  check to the merged grammar and delete the temporary exceptions the refreshed data has outgrown.
+checks:
+- command: '{python} -m pytest tests/deploy/test_chart_max_types.py tests/deploy/test_e2e_pins_match_shipped_data.py tests/deploy/test_fleet_consistency.py tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_manifests_sidecars.py tests/deploy/test_verified_examples_coverage.py tests/extraction/test_docs_identifiers_resolve.py tests/extraction/test_python_fixture_gaps.py tests/extraction/test_ts_fixture_gaps.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+- command: '{python} -m pytest tests/extraction tests/mcp tests/normalization tests/extraction/test_central_classes_dotnet.py tests/extraction/test_central_classes_indexed.py tests/extraction/test_central_classes_python.py tests/extraction/test_nested_class_fqn.py tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_cpp.py tests/indexing/test_authored_examples_cells_rust.py tests/indexing/test_authored_examples_imaging_net.py tests/indexing/test_authored_examples_jmap_net.py tests/indexing/test_authored_examples_jmap_python.py tests/indexing/test_build_chunks_env_failure.py tests/indexing/test_build_chunks_verification_report.py tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_dotnet_lfs_pull.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_index_writers.py tests/indexing/test_java_verifier_pilots.py tests/indexing/test_lookup_doc_fallback_query_safety.py tests/indexing/test_nodejs_verifier.py tests/indexing/test_publisher.py tests/infra/test_authored_examples_fixtures.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_candidate_chains.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_sanitize.py tests/infra/test_build_chunks_verification_cache.py tests/infra/test_compose_pdf_cpp.py tests/infra/test_ingest_furnished_survival.py tests/infra/test_ingest_symbol_survival.py tests/mcp/test_health.py tests/mcp/test_tool_surface_truthful.py tests/mcp/tools/test_consumer_tools.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_symbol_tools.py tests/normalization/test_citation.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py tests/deploy/test_fleet_consistency.py tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_manifests_sidecars.py tests/deploy/test_verified_examples_coverage.py tests/test_unwired_modules.py tests/test_layout.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native"'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+min_tests: 500
+network: true
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib,re;p=pathlib.Path('tests/deploy/test_compact_demo_manifests.py');s=p.read_text(encoding='utf-8');t,n=re.subn('TREE_BYTES_BUDGET = [0-9_]+','TREE_BYTES_BUDGET = 1_000',s,count=1);assert n==1;p.write_text(t,encoding='utf-8')"
+  rationale: >-
+    Sets the compact-tree budget to 1,000 bytes, which the re-ingested tree exceeds: the lean-budget test fails. A real break of the card's central
+    claim (the budget must be pinned to the measured re-ingested tree, with headroom, not above it and not below it).
+evidence:
+- evidence/build/G3/TC-536/receipt.json
+closeout:
+- >-
+  The demo-manifest size budgets are pinned to the measured re-ingested tree plus 5 percent, every pilot's chart cap, compose cap and recommended cap
+  are one number, the e2e files' literal pins hold in the shipped data, and the temporary exceptions of the remediation (stale baked pilots, the
+  pdf_typescript commit exception, the jmap_go coverage exception, stale unresolved maxima) are gone. The supervisor must still run the docker
+  end-to-end files listed in the report, the live-content smoke on the rebuilt image and the 40-pilot proof twice in a row.
+recovery: Re-run from a clean tree.

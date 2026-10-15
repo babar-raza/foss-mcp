@@ -1,0 +1,439 @@
+id: TC-530
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-008 and REQ-G3-005 (independent pre-production review: RST-01, AGT-03, AGT-05, RST-13, RST-15 .NET part). RE-EXTRACT THE EIGHT .NET FIXTURES.
+  The extractor cards TC-520 to TC-528 change nothing a peer sees until the committed fixtures are regenerated. Measured on the committed tree on
+  2026-10-15: pdf_net keeps 300 of 901 types and words_net 300 of 618, because the old cap is spent by centrality, which scores leaf entry points
+  zero; the README of pdf/net names PdfFileEditor, PngDevice, TextBuilder, PdfFileSignature, PageCollection and TableAbsorber and none of them is
+  indexed, the README of words/net names FindReplaceOptions, JoinRunsOptions, PaperSize and Orientation and none of them is indexed; with the
+  definition of the TC-521 helper (single-backtick, API-shaped identifiers of the furnished page) 553 of 935 pdf_net identifiers and 215 of 637
+  words_net identifiers do not resolve (recall 41 and 66 percent). A prototype extraction on 2026-10-15 with the UNMERGED extractor at the pin and no
+  cap kept 901 of 901 pdf_net types and left 12 of 935 identifiers unresolved (98.7 percent) and 618 of 618 words_net types with 9 of 637 unresolved
+  (98.6 percent), so the 90 percent target below is reachable; it also confirmed that Aspose.Pdf.Facades.PdfFileEditor, Aspose.Pdf.Devices.PngDevice,
+  Aspose.Pdf.Text.TextBuilder, Aspose.Pdf.Facades.PdfFileSignature, Aspose.Pdf.PageCollection, Aspose.Pdf.Text.TableAbsorber,
+  Aspose.Pdf.Document.MergeOptions, Aspose.Words.Replacing.FindReplaceOptions, Aspose.Words.JoinRunsOptions, Aspose.Words.PaperSize and
+  Aspose.Words.Orientation exist at the pins. Today a member keeps only the first sentence of its comment (3,887 of the 4,887 members in pdf_net's
+  first 300 types have one) and no parameter, return or exception text. This card regenerates pdf_net, words_net, cells_net, email_net, imaging_net,
+  jmap_net, 3d_net and slides_net at their pinned commits with the merged extractor (README-mention selection of TC-520, member documentation of
+  TC-527), raises the extraction cap and the ingestion maxTypes in step for pdf_net (901) and words_net (618), regenerates the README-identifier
+  allowlist, updates the existing tests that pinned the old fixtures, creates the shared fixture-test helper of the whole chain and creates the
+  fleet-consistency transition mechanism. What it does NOT change: src/ (the extractor), any furnished page, infra/demo-manifests (the supervisor
+  re-ingests after TC-535), any sidecar, memory limits.
+depends_on:
+- TC-011
+- TC-015
+- TC-017a
+- TC-017b
+- TC-017c
+- TC-018
+- TC-019
+- TC-019a
+- TC-023
+- TC-029
+- TC-035
+- TC-041
+- TC-047
+- TC-054
+- TC-062
+- TC-064
+- TC-065
+- TC-068
+- TC-069
+- TC-070
+- TC-071
+- TC-072
+- TC-074
+- TC-075
+- TC-076
+- TC-077
+- TC-078
+- TC-079
+- TC-091
+- TC-098
+- TC-099
+- TC-100
+- TC-101
+- TC-102
+- TC-105
+- TC-108
+- TC-109
+- TC-111
+- TC-112
+- TC-120
+- TC-121
+- TC-123
+- TC-140
+- TC-143
+- TC-144
+- TC-146
+- TC-158
+- TC-159
+- TC-163
+- TC-166
+- TC-169
+- TC-172
+- TC-177
+- TC-184
+- TC-188
+- TC-191
+- TC-193
+- TC-194
+- TC-195
+- TC-199
+- TC-201
+- TC-202
+- TC-203
+- TC-205
+- TC-206
+- TC-207
+- TC-208
+- TC-218
+- TC-221
+- TC-227
+- TC-231
+- TC-232
+- TC-234
+- TC-235
+- TC-236
+- TC-237
+- TC-238
+- TC-244
+- TC-247
+- TC-255
+- TC-256
+- TC-261
+- TC-262
+- TC-263
+- TC-268
+- TC-269
+- TC-272
+- TC-273
+- TC-278
+- TC-279
+- TC-284
+- TC-299
+- TC-305
+- TC-307
+- TC-310
+- TC-314
+- TC-325
+- TC-327
+- TC-328
+- TC-331
+- TC-332
+- TC-334
+- TC-336
+- TC-338
+- TC-341
+- TC-342
+- TC-360
+- TC-362
+- TC-363
+- TC-364
+- TC-371
+- TC-375
+- TC-379
+- TC-381
+- TC-382
+- TC-385
+- TC-386
+- TC-395
+- TC-400
+- TC-425
+- TC-441
+- TC-442
+- TC-450
+- TC-455
+- TC-456
+- TC-457
+- TC-458
+- TC-460
+- TC-461
+- TC-463
+- TC-465
+- TC-498
+- TC-499
+- TC-500
+- TC-502
+- TC-506
+- TC-510
+- TC-512
+- TC-513
+- TC-514
+- TC-516
+- TC-520
+- TC-521
+- TC-522
+- TC-523
+- TC-524
+- TC-525
+- TC-526
+- TC-527
+- TC-528
+write_paths:
+- tests/fixtures/pdf_net/api_surface.json
+- tests/fixtures/words_net/api_surface.json
+- tests/fixtures/cells_net/api_surface.json
+- tests/fixtures/email_net/api_surface.json
+- tests/fixtures/imaging_net/api_surface.json
+- tests/fixtures/jmap_net/api_surface.json
+- tests/fixtures/3d_net/api_surface.json
+- tests/fixtures/slides_net/api_surface.json
+- infra/helm/foss-mcp/values.yaml
+- docker-compose.yml
+- tests/fixtures/readme_identifier_allowlist.json
+- tests/deploy/test_fleet_consistency.py
+- tests/extraction/reextraction_checks.py
+- tests/extraction/test_reextracted_dotnet.py
+- tests/extraction/test_pdf_net_extraction.py
+- tests/extraction/test_words_net_extraction.py
+- tests/extraction/test_cells_net_extraction.py
+- tests/extraction/test_email_net_extraction.py
+- tests/extraction/test_imaging_net_extraction.py
+- tests/extraction/test_jmap_net_extraction.py
+- tests/extraction/test_3d_net_extraction.py
+- tests/extraction/test_slides_net_extraction.py
+- tests/extraction/test_central_classes_dotnet.py
+- tests/extraction/test_central_classes_indexed.py
+- tests/indexing/test_authored_examples.py
+- tests/indexing/test_authored_examples_imaging_net.py
+- tests/indexing/test_authored_examples_jmap_net.py
+- tests/indexing/test_build_chunks_env_failure.py
+- tests/indexing/test_build_chunks_verification_report.py
+- tests/indexing/test_chunk_builder.py
+- tests/indexing/test_chunk_builder_honesty.py
+- tests/indexing/test_dotnet_lfs_pull.py
+- tests/indexing/test_dotnet_verifier_assembly.py
+- tests/indexing/test_index_writers.py
+- tests/indexing/test_java_verifier_pilots.py
+- tests/indexing/test_nodejs_verifier.py
+- tests/indexing/test_publisher.py
+- tests/infra/test_authored_examples_fixtures.py
+- tests/infra/test_build_chunks.py
+- tests/infra/test_build_chunks_candidate_chains.py
+- tests/infra/test_build_chunks_degradation.py
+- tests/infra/test_build_chunks_platforms.py
+- tests/infra/test_build_chunks_sanitize.py
+- tests/infra/test_build_chunks_verification_cache.py
+- tests/infra/test_ingest_furnished_survival.py
+- tests/mcp/test_health.py
+- tests/mcp/test_tool_surface_truthful.py
+- tests/mcp/tools/test_consumer_tools.py
+- tests/mcp/tools/test_retrieval_tools.py
+- tests/mcp/tools/test_symbol_tools.py
+- tests/normalization/test_citation.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  ORDER AND FRESHNESS. TC-530 belongs to the strict chain TC-530 -> TC-531 -> TC-532 -> TC-533 -> TC-534 -> TC-535 -> TC-536 (dispatch in id order;
+  the cards share infra/helm/foss-mcp/values.yaml, docker-compose.yml, tests/deploy/test_fleet_consistency.py,
+  tests/fixtures/readme_identifier_allowlist.json, tests/indexing/test_chunk_builder_honesty.py and tests/extraction/reextraction_checks.py). It runs
+  only after the extractor cards TC-520 to TC-528 are merged on main. Everything named below (command-line flags, module constants, fixture keys,
+  helper functions, test names of other cards) was written from the specifications of those cards BEFORE they were implemented, and you must verify
+  each name against the MERGED code before you rely on it: if a merged name differs, use the merged name and list the difference in your report; if a
+  feature a step needs is simply not in the merged code, stop and report it as FAILED_INTERNAL, because src/ is not in your write_paths and you must
+  not patch the extractor. Start from a clean tree at the commit the supervisor issues. Never print or log any environment value: the extraction
+  clones with git over https and needs no token, and GITHUB_TOKEN is not read by it.
+- >-
+  READ FIRST (merged code, read only): src/foss_mcp/extraction/run_extraction.py (`main` and its flags `--commit`, `--keep-names-from`, `--max-types`;
+  the constants `EXTRACTOR_VERSION`, `RECOMMENDED_MAX_TYPES`, `README_KEEP_FRACTION`; `reduce_fixture`; the keys the artifact carries:
+  `extractor_version`, `symbol_counts`, `parse_failures` (TC-520), `counts` (TC-525), and on members `doc`, `params[].doc`, `return_doc`, `throws_doc`
+  (TC-527, TC-528)); tests/extraction/docs_identifiers.py (TC-521: `docs_identifiers(pilot)`, `unresolved(pilot)`, `compare(pilot)`,
+  `load_allowlist()` and the command `python -m tests.extraction.docs_identifiers --write`); src/foss_mcp/indexing/chunk_builder.py
+  (`build_chunks_from_api_surface(fixture, title=..., max_types=...)`, the slot rule of TC-522 and the `API-Coverage:` line of TC-520);
+  tests/deploy/test_fleet_consistency.py (TC-513); infra/helm/foss-mcp/values.yaml (`ingestion.pilots[]`: `family`, `platform`, `maxTypes`,
+  `library.repository`, `library.commit`); docker-compose.yml (the `ingest-<family>-<platform>` services and their `--max-types` value);
+  tests/infra/test_helm_pilots_match_compose.py (the parity rule).
+- >-
+  RE-EXTRACTION, one pilot at a time. Derive family, platform, pinned commit and cap from the chart and the merged constant, never retype them: the
+  pilot key is `<family>_<platform>` (the directory name under tests/fixtures); the commit is `ingestion.pilots[].library.commit` of
+  infra/helm/foss-mcp/values.yaml for that pilot; the cap is `RECOMMENDED_MAX_TYPES.get('<family>/<platform>', 300)` read from
+  src/foss_mcp/extraction/run_extraction.py. The caps that differ from the default 300 for this card are (TC-520 `RECOMMENDED_MAX_TYPES`, key
+  `<family>/<platform>`): pdf_net 901, words_net 618. Read the real values from the merged constant rather than trusting this list. With the toolchain
+  activated in the SAME shell command (`scripts/toolchain/activate.ps1`) and `PYTHONPATH=src` set, from the repository root run, for each pilot,
+  exactly: `python -X utf8 -m foss_mcp.extraction.run_extraction config/products/<family>/<platform>.yaml tests/fixtures/<pilot>/api_surface.json
+  --commit <pin> --keep-names-from tests/fixtures/furnished/<pilot>/pages/_index.md --max-types <cap>` (the command of the earlier re-extraction cards
+  TC-400 and TC-401 plus the explicit cap; confirm the flags with `--help` first). Never regenerate or edit a furnished page. The command prints
+  `wrote <path> (<bytes> bytes); <kept>/<total> types; commit <sha>`: the commit must equal the pin, and `<kept>` must be the smaller of the cap and
+  `<total>` (a Python pilot may keep more than the cap because a re-export and its definition travel together). Runtime measured on 2026-10-15 with
+  the pre-merge extractor: 4 to 60 seconds per pilot after the clone; words/net alone needed about 8 minutes for the clone and checkout; the merged
+  extractor also parses doc comments, so allow twice that. Run each pilot as its own command, start slow ones in the background and poll with bounded
+  waits (never a tail -F monitor on process output), and continue with the next pilot after a failure. If a clone or fetch fails (network, rate limit,
+  an unreachable commit) do not retry in a loop: record `gatectl status-append` with BLOCKED_EXTERNAL and the exact resume predicate `git fetch of
+  <repo>@<sha> succeeds`, keep every fixture you already regenerated, and stop. The CLI writes with the platform line ending and .gitattributes
+  normalises to LF on commit: confirm `git diff --stat` shows each fixture as a content change and not as a whole-file line-ending rewrite. Order of
+  work: pdf_net and words_net first (the two capped pilots), then the other six. Expected on pdf_net: `901/901 types`; on words_net: `618/618 types`.
+- >-
+  CHART AND COMPOSE. For every pilot of this card whose cap differs from the `maxTypes` now in infra/helm/foss-mcp/values.yaml (300 everywhere today),
+  set that pilot's `maxTypes` to the cap AND the `--max-types` value of its `ingest-<family>-<platform>` service in docker-compose.yml to the same
+  number, with targeted single-line replacements inside that pilot's block or service only (tests/infra/test_helm_pilots_match_compose.py and the
+  `two_step_chain` test of tests/infra/test_helm_chart.py compare the rendered chart command with the compose command and fail on any difference).
+  Why: infra/build_chunks.py slices the fixture again with `--max-types`, so a 300 there would silently cut what the extraction kept. For this card
+  that means pdf_net (901), words_net (618). Every other byte of both files stays as it is, and you do not touch memory limits (the supervisor
+  measures ingestion memory at the re-ingest). Pilots at the default cap are left untouched.
+- >-
+  README IDENTIFIER ALLOWLIST. tests/extraction/test_docs_identifiers_resolve.py (TC-521) fails for a pilot whose committed fixture resolves a
+  different set of README-named identifiers than tests/fixtures/readme_identifier_allowlist.json lists, in both directions (a new gap, and a listed
+  gap that is fixed). After re-extracting, regenerate the file with the helper only: `python -X utf8 -m tests.extraction.docs_identifiers --write`
+  (never by hand), then read `git diff` of that file: only keys of pilots of this card may change. A key of a pilot you did not touch changing means
+  the allowlist was already stale at your start commit: stop and report it. For every pilot of this card read the identifiers that remain listed and
+  put in your report each one that looks like an API symbol of the library (each is an extraction defect to report, not something to leave allowlisted
+  silently); the legitimate remainder is non-API text such as a build tool or a file name.
+- >-
+  THE SHARED HELPER (YOU CREATE IT): tests/extraction/reextraction_checks.py, a plain module (not collected as tests) that TC-531 to TC-535 import.
+  Keep it small, typed, and free of any import from tests/deploy. It defines: `REPO_ROOT`; `FIXTURES_DIR`; `pilot_key(family, platform)`;
+  `chart_pilot(key) -> dict` (the `ingestion.pilots[]` entry whose family_platform is `key`, read from infra/helm/foss-mcp/values.yaml);
+  `pinned_commit(key) -> str`; `recommended_cap(key) -> int` (`run_extraction.RECOMMENDED_MAX_TYPES.get('<family>/<platform>', 300)`);
+  `chart_max_types(key) -> int`; `compose_max_types(key) -> int` (yaml.safe_load docker-compose.yml, take
+  `services['ingest-<family>-<platform>']['command']`, shlex.split the joined text and read the value after `--max-types`); `load_fixture(key) ->
+  dict` (functools.cache; parse tests/fixtures/<key>/api_surface.json); `fixture_text(key) -> str`; `type_names(fixture) -> set[str]` (every entry
+  `name` and the last segment of every `class_import`, splitting on `.`, `::` and `/`); `fqns(fixture) -> set[str]` (every non-empty `class_import`);
+  `members(fixture)` yielding `(entry, member)` for every dict in an entry's `methods` and `properties`; `member_doc_stats(fixture) -> dict` with the
+  integer keys `members`, `members_with_doc` (non-empty `doc`), `params`, `params_with_doc` (a parameter dict with a non-empty `doc`),
+  `methods_with_return_doc`, `methods_with_throws_doc`; `abbreviation_cut_docs(fixture) -> list[str]` (every `doc`, parameter doc, `return_doc` or
+  throws text whose stripped value ends in `e.g.`, `i.e.`, `e.g` or `i.e`); `test_file_entries(fixture) -> list[str]` (the `class_import` or `name` of
+  every entry for which `foss_mcp.extraction.run_extraction._is_test_entry` is true); `ingestion_slice_problems(key) -> list[str]` (build the chunks
+  twice with `build_chunks_from_api_surface(fixture, title=key, max_types=chart_max_types(key))` and with `max_types=10**6`; a problem string if the
+  counts differ - the ingestion slice must drop nothing the extraction kept); `cap_problems(key) -> list[str]` (the chart's maxTypes, the compose
+  value and `recommended_cap(key)` are one number; `reduced_type_count == len(types)`; `truncated == (reduced_type_count < type_count)`; `type_count
+  <= cap` implies `truncated` is false); `readme_recall(key) -> float` (`1 - len(unresolved(key)) / len(docs_identifiers(key))` from
+  tests.extraction.docs_identifiers, 1.0 when the page names no identifier); `REQUIRED_EXTRACTOR_VERSION: int` set to the value
+  `run_extraction.EXTRACTOR_VERSION` has in the merged code you start from (5 if only TC-520 to TC-523 bumped it; use the merged value). Every
+  function returning problems returns an empty list when all is well. The helper gets its own synthetic tests in
+  tests/extraction/test_reextracted_dotnet.py (see below).
+- >-
+  GENERIC TESTS of tests/extraction/test_reextracted_dotnet.py (NEW, offline, deterministic, no skips; import the helper; parametrised over the module
+  list `PILOTS = ['pdf_net', 'words_net', 'cells_net', 'email_net', 'imaging_net', 'jmap_net', '3d_net', 'slides_net']`; every test id carries the
+  pilot): `test_fixture_is_extracted_at_the_chart_pin` (source_commit equals `pinned_commit(key)` and is 40 hex characters),
+  `test_fixture_carries_the_current_extractor_keys` (`extractor_version >= REQUIRED_EXTRACTOR_VERSION`; `symbol_counts` is a dict with integer `types`
+  and `functions`; when `parse_failures` exists its `engine` is `ast` or `tree-sitter` and `failed`, `total` are integers with failed <= total),
+  `test_fixture_is_canonical_json` (the file text equals `json.dumps(data, indent=2, sort_keys=True) + chr(10)`, which is how the CLI writes it),
+  `test_fixture_has_no_test_file_entries` (`test_file_entries` is empty), `test_cap_is_one_number_in_extractor_chart_and_compose` (`cap_problems` is
+  empty), `test_ingestion_slice_keeps_every_extracted_entry` (`ingestion_slice_problems` is empty), `test_member_docs_reach_the_fixture` (against the
+  module dicts `MEMBER_DOC_RATIO_FLOOR[key]` and `PARAM_DOC_FLOOR[key]`, literals YOU measure on the regenerated fixture and print in your report: the
+  ratio `members_with_doc / members` rounded DOWN to two decimals and the integer `params_with_doc`; they are ratchets - a later extraction may raise
+  them, never lower them), `test_no_description_is_cut_at_an_abbreviation` (`abbreviation_cut_docs` is empty), `test_readme_recall_has_a_floor`
+  (against `RECALL_FLOOR[key]`: 0.90 for every pilot whose measured recall reaches it; a pilot that measures below 0.90 gets a floor equal to its
+  measured recall rounded DOWN to two decimals AND a non-empty string in `RECALL_EXCEPTION_REASON[key]` that names the identifiers still unresolved
+  and why none of them is an API symbol of the library (a build tool such as FetchContent, a file extension) or why the upstream cannot be parsed; if
+  any remaining unresolved identifier looks like an API symbol, do not use an exception: report the pilot, its recall and the identifiers, and stop as
+  FAILED_INTERNAL), and `test_recall_exceptions_are_real` (a pilot in RECALL_EXCEPTION_REASON really measures below 0.90, so an exception cannot
+  outlive its cause).
+- >-
+  DOTNET-SPECIFIC TESTS of tests/extraction/test_reextracted_dotnet.py (same file): `test_pdf_net_is_the_complete_surface` (type_count 901,
+  reduced_type_count 901, len(types) 901, truncated false), `test_words_net_is_the_complete_surface` (618 in the same four places),
+  `test_pdf_net_indexes_the_types_the_readme_names` (the fixture's `fqns` contain Aspose.Pdf.Facades.PdfFileEditor, Aspose.Pdf.Devices.PngDevice,
+  Aspose.Pdf.Text.TextBuilder, Aspose.Pdf.Facades.PdfFileSignature, Aspose.Pdf.PageCollection, Aspose.Pdf.Text.TableAbsorber,
+  Aspose.Pdf.Document.MergeOptions), `test_words_net_indexes_the_types_the_readme_names` (Aspose.Words.Replacing.FindReplaceOptions,
+  Aspose.Words.JoinRunsOptions, Aspose.Words.PaperSize, Aspose.Words.Orientation; if one of these is absent from the regenerated fixture, check the
+  upstream clone at the pin before you drop it and say so), `test_pdf_net_and_words_net_readme_recall_is_at_least_90_percent` (readme_recall >= 0.90
+  for exactly these two pilots, no exception allowed), `test_static_methods_are_marked_in_pdf_net` (at least one method has `static` in its
+  `modifiers`), `test_cells_net_worksheet_methods_carry_return_docs` (the `Worksheet` entry has at least one method with a non-empty `return_doc`; the
+  XML `<returns>` element must exist upstream for it - read Worksheet.cs in a temporary clone at the pin if the first candidate has none),
+  `test_dotnet_parameter_text_comes_from_param_elements` (params_with_doc > 0 for cells_net, pdf_net and words_net),
+  `test_imaging_net_keeps_its_three_types` (type_count 3, symbol_counts.types 3), `test_no_dotnet_fixture_is_truncated_except_by_design` (truncated is
+  false for all eight). HELPER TESTS (synthetic, same file, at least 8): `test_member_doc_stats_counts_documented_members_and_params`,
+  `test_member_doc_stats_counts_return_and_throws_docs`, `test_abbreviation_cut_docs_flags_eg_and_ie`,
+  `test_abbreviation_cut_docs_ignores_a_complete_sentence`, `test_type_names_uses_the_last_segment_of_class_import`,
+  `test_cap_problems_flags_a_chart_compose_mismatch` (monkeypatch the two readers),
+  `test_cap_problems_flags_a_truncated_flag_that_disagrees_with_the_counts`, `test_readme_recall_is_one_when_nothing_is_unresolved` (monkeypatch
+  docs_identifiers and unresolved). The generic tests give 9 x 8 = 72 cases, the rest at least 20: the file has at least 90 tests.
+- >-
+  FLEET CONSISTENCY TRANSITION (tests/deploy/test_fleet_consistency.py, owned by TC-513). The baked generations in infra/demo-manifests are produced
+  by the supervisor's re-ingest AFTER the last re-extraction card, so between this card and TC-536 a re-extracted fixture and its old baked generation
+  disagree on the API-Coverage line (the fixture's `type_count` and `truncated` change: pdf_net becomes 901 of 901 and not truncated while its baked
+  chunks still say `300 of 901 types`), and `test_api_coverage_lines_are_present_and_honest` would fail for a reason that is not a defect. YOU CREATE
+  THE MECHANISM. Add a module table `STALE_BAKED_PILOTS: dict[str, str] = {}` (pilot key -> reason; a comment states: fixture re-extracted by a TC-53x
+  card, the baked generation still reflects the previous fixture until the supervisor's re-ingest and snapshot, TC-536 deletes this table) and list in
+  it EXACTLY the pilots of this card for which `coverage_problems(load_fixture(key), symbols)` is non-empty after your regeneration (run the test
+  first; never list a pilot that is still consistent). Behaviour: (1) in `test_api_coverage_lines_are_present_and_honest` a pilot in the table is
+  checked against its OWN baked lines instead of the fixture: build a view dict `{'type_count': <the M every baked line states>, 'truncated': <N <
+  M>}` from the baked chunks and require `coverage_problems(view, symbols) == []` (every symbol chunk has exactly one API-Coverage line, N equals the
+  number of symbol chunks, all lines agree), so the baked data stays honest about itself; (2) new test `test_every_stale_baked_pilot_still_applies`, a
+  loop like the other table tests: for each listed pilot `coverage_problems(load_fixture(key), symbols)` is non-empty, failing with the text `the
+  baked generation matches the fixture again; delete the pilot from STALE_BAKED_PILOTS`; (3) new test
+  `test_stale_baked_pilots_are_disjoint_from_the_coverage_exceptions` (a pilot is in at most one of STALE_BAKED_PILOTS and COVERAGE_EXCEPTIONS); (4)
+  new synthetic test `test_baked_self_view_flags_an_inconsistent_generation` proving the self-check can fail (lines that disagree on M, and an N that
+  is not the symbol-chunk count). The commit test, the sidecar test, the composition floor and the other tables are not relaxed for any pilot.
+  UNRESOLVED table: after regenerating, for every pilot of this card that is listed in `UNRESOLVED_EXCEPTIONS` set the listed maximum to the new count
+  of the fixture's `unresolved` list (never higher than the old maximum), and delete the entry when the count is 0 (the table test
+  `test_every_unresolved_exception_still_applies` fails otherwise); the `unresolved` count of a pilot that is not listed must be 0.
+- >-
+  EXISTING TESTS THAT PIN A FACT OF THE OLD FIXTURES. Before you edit any test, run the second check command and keep the list of failures. For each
+  failing test that reads a fixture of this card (the per-pilot tests tests/extraction/test_<pilot>_extraction.py and the reader files named in
+  write_paths), change ONLY the assertion that pins an old fact the regeneration legitimately changed - the old source commit, an exact old type
+  count, first type or member list, a count that was capped at 300, the string `300 of 901 types`, a slice index into the old ordering, or a defect
+  the extractor cards fixed (for example an assertion that a test-file entry or a std trait function is present because the old fixture had it) - to
+  the re-extracted fact, with a one-line comment `re-extracted by <this card>: <old> -> <new>`. List every changed assertion with its reason in your
+  report. Never delete, skip or xfail a test, never loosen a check that guards a defect (a `>=` floor may be raised, never lowered), and never edit a
+  test outside write_paths: if one fails and is not in write_paths, stop and report its name and the pinned fact.
+  tests/indexing/test_chunk_builder_honesty.py builds its chunks with `max_types=10_000`, so after a cap is raised its real-fixture tests see the
+  whole fixture: re-derive each expected number from the new fixture rather than from memory.
+- >-
+  KNOWN READERS of the .NET fixtures (they are in write_paths so a pinned fact can be fixed, see the rule above):
+  tests/indexing/test_chunk_builder_honesty.py (`test_real_pdf_net_has_no_invented_void_and_keeps_the_genuine_ones` pins 1034 void methods and
+  `test_real_pdf_net_chunks_state_the_coverage` pins 300 chunks and `API-Coverage: 300 of 901 types`: after the regeneration the chunks are 901 and
+  the line is the one the merged chunk builder writes for a complete fixture), tests/mcp/tools/test_retrieval_tools.py, test_symbol_tools.py and
+  test_consumer_tools.py, tests/mcp/test_health.py, tests/mcp/test_tool_surface_truthful.py, tests/indexing/test_publisher.py and
+  test_index_writers.py (some slice the first N entries of the fixture: the order of entries changes with the new selection), and the end-to-end
+  build_chunks tests of tests/infra and tests/indexing that take tests/fixtures/pdf_net/api_surface.json as input. The per-pilot tests
+  tests/extraction/test_<pilot>_extraction.py pin exact type counts and member lists (cells_net and the others did not change cap, so their counts may
+  be unchanged: only touch what fails).
+- >-
+  Run the first check command, then the second (twice-identical results are required by the gate; the broad suite is slow under load - start it in the
+  background and poll with bounded waits). Commit once with the subject `fix(extraction): re-extract the .NET fixtures at their pinned commits with
+  the corrected extractor and raised caps (G3/TC-530)` ending with the Co-Authored-By trailer for the model that did the work; UTF-8 without a
+  byte-order mark; preserve each file's line endings (LF in git). In your report list: the fixture sizes before and after, the measured floors you
+  pinned, every changed assertion of an existing test with its reason, the identifiers still on the allowlist that look like API, and the pilots you
+  added to STALE_BAKED_PILOTS. Do NOT edit any src/ file, any furnished page, plans/, project/, ops/, evidence/ or schemas/, and do not run an
+  ingestion, docker or a cluster command.
+actions:
+- >-
+  Regenerate the eight .NET fixtures at their pinned commits with the merged extractor, raise pdf_net to 901 and words_net to 618 in the extractor
+  call, the chart and docker-compose together, and regenerate the README-identifier allowlist.
+- >-
+  Create the shared re-extraction test helper and the fleet-consistency transition table, pin the regenerated facts (README types present, README
+  recall at least 90 percent, complete surfaces, member documentation floors) and update the existing tests that pinned the old fixtures.
+checks:
+- command: '{python} -m pytest tests/extraction/test_reextracted_dotnet.py tests/deploy/test_fleet_consistency.py tests/extraction/test_docs_identifiers_resolve.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_chart.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction tests/mcp tests/normalization tests/extraction/test_central_classes_dotnet.py tests/extraction/test_central_classes_indexed.py tests/extraction/test_central_classes_python.py tests/extraction/test_nested_class_fqn.py tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_cpp.py tests/indexing/test_authored_examples_cells_rust.py tests/indexing/test_authored_examples_imaging_net.py tests/indexing/test_authored_examples_jmap_net.py tests/indexing/test_authored_examples_jmap_python.py tests/indexing/test_build_chunks_env_failure.py tests/indexing/test_build_chunks_verification_report.py tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_dotnet_lfs_pull.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_index_writers.py tests/indexing/test_java_verifier_pilots.py tests/indexing/test_lookup_doc_fallback_query_safety.py tests/indexing/test_nodejs_verifier.py tests/indexing/test_publisher.py tests/infra/test_authored_examples_fixtures.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_candidate_chains.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_sanitize.py tests/infra/test_build_chunks_verification_cache.py tests/infra/test_compose_pdf_cpp.py tests/infra/test_ingest_furnished_survival.py tests/infra/test_ingest_symbol_survival.py tests/mcp/test_health.py tests/mcp/test_tool_surface_truthful.py tests/mcp/tools/test_consumer_tools.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_symbol_tools.py tests/normalization/test_citation.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py tests/deploy/test_fleet_consistency.py tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_manifests_sidecars.py tests/deploy/test_verified_examples_coverage.py tests/test_unwired_modules.py tests/test_layout.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native"'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+min_tests: 420
+network: true
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "import json,pathlib;p=pathlib.Path('tests/fixtures/pdf_net/api_surface.json');d=json.loads(p.read_text(encoding='utf-8'));d['types']=[t for t in d['types'] if t.get('name')!='PdfFileEditor'];p.write_text(json.dumps(d,indent=2,sort_keys=True)+chr(10),encoding='utf-8')"
+  rationale: >-
+    Removes the PdfFileEditor entry from the regenerated pdf_net fixture: the README-types test, the complete-surface test (901 entries, one fewer
+    now) and the README recall test fail. A real break of the card's central claim (the types a library's README names are in the fixture, and the cap
+    no longer cuts the surface).
+evidence:
+- evidence/build/G3/TC-530/receipt.json
+closeout:
+- >-
+  The eight .NET fixtures are extracted at their pins with the merged extractor, pdf_net and words_net hold their whole surface (901 and 618), the
+  types their READMEs name are indexed and README identifier recall is at least 90 percent for both, and the chart and docker-compose cap them at the
+  same numbers. Nothing a peer sees changes until the supervisor re-ingests after TC-535: pdf_net and words_net need Job memory re-measured at their
+  larger caps. The shared helper tests/extraction/reextraction_checks.py and STALE_BAKED_PILOTS exist for TC-531 to TC-536.
+recovery: Re-run from a clean tree.

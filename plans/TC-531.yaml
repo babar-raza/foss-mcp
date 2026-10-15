@@ -1,0 +1,297 @@
+id: TC-531
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-008 and REQ-G3-005 (independent pre-production review: RST-10, RST-01 pdf/java part, AGT-05, AGT-07 Java part). RE-EXTRACT THE FIVE JAVA
+  FIXTURES. Measured by the reviewers on the shipped index: varargs are dropped in 6 of 6 cases (`setPages(int... pages)` is served `setPages()`);
+  generic bounds and `throws` clauses are never rendered; public fields are not exposed (Quaternion.x, y, z, w and Vector3.x, y, z are public doubles:
+  34 properties missing in 3d/java) while getter-derived pseudo-properties (`identity`, `zero`, `length`) read like fields; `static` is marked on none
+  of the 71, 76 and 159 static methods counted, so a static `multiply(a, b)` and an instance `multiply(q)` are indistinguishable; pdf/java indexes 300
+  of 1239 types and 193 of those 300 are engine internals (org.aspose.pdf.engine.xfa.*, engine.script.js.interp.*) while its README names types that
+  are not indexed (README recall top-3 was 33 percent). A prototype extraction on 2026-10-15 with the unmerged extractor at the pin and no cap kept
+  1239 of 1239 pdf/java types (640 of them under an `engine` segment, 11.6 MB of JSON) and left 4 of 914 README identifiers unresolved (99.6 percent).
+  This card regenerates 3d_java, cells_java, jmap_java, pdf_java and slides_java at their pinned commits with the merged extractor (TC-520 selection,
+  TC-526 Java fidelity, TC-527 Javadoc member documentation), raises pdf_java to its whole surface (cap 1239 in the extractor call, the chart and
+  docker-compose), regenerates the allowlist, and pins the Java facts at fixture level. What it does NOT change: src/, any furnished page,
+  infra/demo-manifests, sidecars, memory limits (the supervisor re-measures the pdf/java Job at 1239 types).
+depends_on:
+- TC-015
+- TC-018
+- TC-019a
+- TC-023
+- TC-029
+- TC-035
+- TC-041
+- TC-044
+- TC-047
+- TC-054
+- TC-062
+- TC-064
+- TC-069
+- TC-091
+- TC-098
+- TC-099
+- TC-100
+- TC-101
+- TC-102
+- TC-146
+- TC-167
+- TC-172
+- TC-177
+- TC-195
+- TC-201
+- TC-203
+- TC-205
+- TC-206
+- TC-207
+- TC-208
+- TC-221
+- TC-227
+- TC-231
+- TC-232
+- TC-234
+- TC-235
+- TC-236
+- TC-237
+- TC-238
+- TC-241
+- TC-244
+- TC-248
+- TC-249
+- TC-256
+- TC-257
+- TC-262
+- TC-268
+- TC-272
+- TC-278
+- TC-286
+- TC-287
+- TC-298
+- TC-304
+- TC-309
+- TC-325
+- TC-327
+- TC-328
+- TC-332
+- TC-334
+- TC-338
+- TC-341
+- TC-363
+- TC-364
+- TC-371
+- TC-375
+- TC-382
+- TC-395
+- TC-400
+- TC-425
+- TC-442
+- TC-455
+- TC-457
+- TC-498
+- TC-499
+- TC-510
+- TC-512
+- TC-513
+- TC-516
+- TC-517
+- TC-521
+- TC-530
+write_paths:
+- tests/fixtures/3d_java/api_surface.json
+- tests/fixtures/cells_java/api_surface.json
+- tests/fixtures/jmap_java/api_surface.json
+- tests/fixtures/pdf_java/api_surface.json
+- tests/fixtures/slides_java/api_surface.json
+- infra/helm/foss-mcp/values.yaml
+- docker-compose.yml
+- tests/fixtures/readme_identifier_allowlist.json
+- tests/deploy/test_fleet_consistency.py
+- tests/extraction/reextraction_checks.py
+- tests/extraction/test_reextracted_java.py
+- tests/extraction/test_3d_java_extraction.py
+- tests/extraction/test_cells_java_extraction.py
+- tests/extraction/test_jmap_java_extraction.py
+- tests/extraction/test_pdf_java_extraction.py
+- tests/extraction/test_slides_java_extraction.py
+- tests/extraction/test_nested_class_fqn.py
+- tests/indexing/test_chunk_builder_honesty.py
+- tests/indexing/test_lookup_doc_fallback_query_safety.py
+- tests/indexing/test_publisher.py
+- tests/infra/test_ingest_furnished_survival.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  ORDER AND FRESHNESS. TC-531 belongs to the strict chain TC-530 -> TC-531 -> TC-532 -> TC-533 -> TC-534 -> TC-535 -> TC-536 (dispatch in id order;
+  the cards share infra/helm/foss-mcp/values.yaml, docker-compose.yml, tests/deploy/test_fleet_consistency.py,
+  tests/fixtures/readme_identifier_allowlist.json, tests/indexing/test_chunk_builder_honesty.py and tests/extraction/reextraction_checks.py). It runs
+  only after the extractor cards TC-520 to TC-528 are merged on main. Everything named below (command-line flags, module constants, fixture keys,
+  helper functions, test names of other cards) was written from the specifications of those cards BEFORE they were implemented, and you must verify
+  each name against the MERGED code before you rely on it: if a merged name differs, use the merged name and list the difference in your report; if a
+  feature a step needs is simply not in the merged code, stop and report it as FAILED_INTERNAL, because src/ is not in your write_paths and you must
+  not patch the extractor. Start from a clean tree at the commit the supervisor issues. Never print or log any environment value: the extraction
+  clones with git over https and needs no token, and GITHUB_TOKEN is not read by it.
+- >-
+  READ FIRST (merged code, read only): src/foss_mcp/extraction/run_extraction.py (`main` and its flags `--commit`, `--keep-names-from`, `--max-types`;
+  the constants `EXTRACTOR_VERSION`, `RECOMMENDED_MAX_TYPES`, `README_KEEP_FRACTION`; `reduce_fixture`; the keys the artifact carries:
+  `extractor_version`, `symbol_counts`, `parse_failures` (TC-520), `counts` (TC-525), and on members `doc`, `params[].doc`, `return_doc`, `throws_doc`
+  (TC-527, TC-528)); tests/extraction/docs_identifiers.py (TC-521: `docs_identifiers(pilot)`, `unresolved(pilot)`, `compare(pilot)`,
+  `load_allowlist()` and the command `python -m tests.extraction.docs_identifiers --write`); src/foss_mcp/indexing/chunk_builder.py
+  (`build_chunks_from_api_surface(fixture, title=..., max_types=...)`, the slot rule of TC-522 and the `API-Coverage:` line of TC-520);
+  tests/deploy/test_fleet_consistency.py (TC-513); infra/helm/foss-mcp/values.yaml (`ingestion.pilots[]`: `family`, `platform`, `maxTypes`,
+  `library.repository`, `library.commit`); docker-compose.yml (the `ingest-<family>-<platform>` services and their `--max-types` value);
+  tests/infra/test_helm_pilots_match_compose.py (the parity rule).
+- >-
+  RE-EXTRACTION, one pilot at a time. Derive family, platform, pinned commit and cap from the chart and the merged constant, never retype them: the
+  pilot key is `<family>_<platform>` (the directory name under tests/fixtures); the commit is `ingestion.pilots[].library.commit` of
+  infra/helm/foss-mcp/values.yaml for that pilot; the cap is `RECOMMENDED_MAX_TYPES.get('<family>/<platform>', 300)` read from
+  src/foss_mcp/extraction/run_extraction.py. The caps that differ from the default 300 for this card are (TC-520 `RECOMMENDED_MAX_TYPES`, key
+  `<family>/<platform>`): pdf_java 1239. Read the real values from the merged constant rather than trusting this list. With the toolchain activated in
+  the SAME shell command (`scripts/toolchain/activate.ps1`) and `PYTHONPATH=src` set, from the repository root run, for each pilot, exactly: `python
+  -X utf8 -m foss_mcp.extraction.run_extraction config/products/<family>/<platform>.yaml tests/fixtures/<pilot>/api_surface.json --commit <pin>
+  --keep-names-from tests/fixtures/furnished/<pilot>/pages/_index.md --max-types <cap>` (the command of the earlier re-extraction cards TC-400 and
+  TC-401 plus the explicit cap; confirm the flags with `--help` first). Never regenerate or edit a furnished page. The command prints `wrote <path>
+  (<bytes> bytes); <kept>/<total> types; commit <sha>`: the commit must equal the pin, and `<kept>` must be the smaller of the cap and `<total>` (a
+  Python pilot may keep more than the cap because a re-export and its definition travel together). Runtime measured on 2026-10-15 with the pre-merge
+  extractor: 4 to 60 seconds per pilot after the clone; words/net alone needed about 8 minutes for the clone and checkout; the merged extractor also
+  parses doc comments, so allow twice that. Run each pilot as its own command, start slow ones in the background and poll with bounded waits (never a
+  tail -F monitor on process output), and continue with the next pilot after a failure. If a clone or fetch fails (network, rate limit, an unreachable
+  commit) do not retry in a loop: record `gatectl status-append` with BLOCKED_EXTERNAL and the exact resume predicate `git fetch of <repo>@<sha>
+  succeeds`, keep every fixture you already regenerated, and stop. The CLI writes with the platform line ending and .gitattributes normalises to LF on
+  commit: confirm `git diff --stat` shows each fixture as a content change and not as a whole-file line-ending rewrite. Before you overwrite
+  tests/fixtures/3d_java/api_surface.json, run `git show HEAD:tests/fixtures/3d_java/api_surface.json` through a one-line counter and write down the
+  total number of entries in `properties` over all types: that integer becomes the module constant `OLD_3D_JAVA_PROPERTY_COUNT` below. Expected on
+  pdf_java: `1239/1239 types`.
+- >-
+  CHART AND COMPOSE. For every pilot of this card whose cap differs from the `maxTypes` now in infra/helm/foss-mcp/values.yaml (300 everywhere today),
+  set that pilot's `maxTypes` to the cap AND the `--max-types` value of its `ingest-<family>-<platform>` service in docker-compose.yml to the same
+  number, with targeted single-line replacements inside that pilot's block or service only (tests/infra/test_helm_pilots_match_compose.py and the
+  `two_step_chain` test of tests/infra/test_helm_chart.py compare the rendered chart command with the compose command and fail on any difference).
+  Why: infra/build_chunks.py slices the fixture again with `--max-types`, so a 300 there would silently cut what the extraction kept. For this card
+  that means pdf_java (1239). Every other byte of both files stays as it is, and you do not touch memory limits (the supervisor measures ingestion
+  memory at the re-ingest). Pilots at the default cap are left untouched.
+- >-
+  README IDENTIFIER ALLOWLIST. tests/extraction/test_docs_identifiers_resolve.py (TC-521) fails for a pilot whose committed fixture resolves a
+  different set of README-named identifiers than tests/fixtures/readme_identifier_allowlist.json lists, in both directions (a new gap, and a listed
+  gap that is fixed). After re-extracting, regenerate the file with the helper only: `python -X utf8 -m tests.extraction.docs_identifiers --write`
+  (never by hand), then read `git diff` of that file: only keys of pilots of this card may change. A key of a pilot you did not touch changing means
+  the allowlist was already stale at your start commit: stop and report it. For every pilot of this card read the identifiers that remain listed and
+  put in your report each one that looks like an API symbol of the library (each is an extraction defect to report, not something to leave allowlisted
+  silently); the legitimate remainder is non-API text such as a build tool or a file name.
+- >-
+  GENERIC TESTS of tests/extraction/test_reextracted_java.py (NEW, offline, deterministic, no skips; import the helper; parametrised over the module
+  list `PILOTS = ['3d_java', 'cells_java', 'jmap_java', 'pdf_java', 'slides_java']`; every test id carries the pilot):
+  `test_fixture_is_extracted_at_the_chart_pin` (source_commit equals `pinned_commit(key)` and is 40 hex characters),
+  `test_fixture_carries_the_current_extractor_keys` (`extractor_version >= REQUIRED_EXTRACTOR_VERSION`; `symbol_counts` is a dict with integer `types`
+  and `functions`; when `parse_failures` exists its `engine` is `ast` or `tree-sitter` and `failed`, `total` are integers with failed <= total),
+  `test_fixture_is_canonical_json` (the file text equals `json.dumps(data, indent=2, sort_keys=True) + chr(10)`, which is how the CLI writes it),
+  `test_fixture_has_no_test_file_entries` (`test_file_entries` is empty), `test_cap_is_one_number_in_extractor_chart_and_compose` (`cap_problems` is
+  empty), `test_ingestion_slice_keeps_every_extracted_entry` (`ingestion_slice_problems` is empty), `test_member_docs_reach_the_fixture` (against the
+  module dicts `MEMBER_DOC_RATIO_FLOOR[key]` and `PARAM_DOC_FLOOR[key]`, literals YOU measure on the regenerated fixture and print in your report: the
+  ratio `members_with_doc / members` rounded DOWN to two decimals and the integer `params_with_doc`; they are ratchets - a later extraction may raise
+  them, never lower them), `test_no_description_is_cut_at_an_abbreviation` (`abbreviation_cut_docs` is empty), `test_readme_recall_has_a_floor`
+  (against `RECALL_FLOOR[key]`: 0.90 for every pilot whose measured recall reaches it; a pilot that measures below 0.90 gets a floor equal to its
+  measured recall rounded DOWN to two decimals AND a non-empty string in `RECALL_EXCEPTION_REASON[key]` that names the identifiers still unresolved
+  and why none of them is an API symbol of the library (a build tool such as FetchContent, a file extension) or why the upstream cannot be parsed; if
+  any remaining unresolved identifier looks like an API symbol, do not use an exception: report the pilot, its recall and the identifiers, and stop as
+  FAILED_INTERNAL), and `test_recall_exceptions_are_real` (a pilot in RECALL_EXCEPTION_REASON really measures below 0.90, so an exception cannot
+  outlive its cause). The helper tests/extraction/reextraction_checks.py already exists (created by TC-530): import it, read it first, and extend it
+  only additively if a function you need is missing.
+- >-
+  JAVA-SPECIFIC TESTS of tests/extraction/test_reextracted_java.py (same file): `test_pdf_java_is_the_complete_surface` (type_count,
+  reduced_type_count and len(types) are all 1239, truncated false), `test_3d_java_exposes_the_public_component_fields` (the Quaternion entry has
+  properties x, y, z, w and the Vector3 entry has x, y, z; each has `writable` true and no `modifiers` string starting with `accessor`),
+  `test_3d_java_gains_at_least_34_properties` (total property entries >= `OLD_3D_JAVA_PROPERTY_COUNT + 34`, the constant measured before the overwrite
+  and printed in your report), `test_getter_derived_properties_carry_an_accessor_mark` (in 3d_java the Quaternion property `identity` and the Vector3
+  property `length` each have a `modifiers` item starting with `accessor `), `test_every_varargs_parameter_keeps_its_ellipsis` (at least 6 parameters
+  over pdf_java and 3d_java have a `type` ending in `...`: 4 and 2 as the reviewer counted, and at least 2 of them are in 3d_java),
+  `test_static_methods_are_marked` (each of the five fixtures with at least one static method upstream has `static` in the `modifiers` of at least one
+  method; at least one class of 3d_java has a method name that occurs twice, once with `static` and once without),
+  `test_throws_and_type_parameters_are_recorded` (at least one method over the five fixtures has a non-empty `throws` list and at least one method or
+  class has a non-empty `type_parameters`), `test_javadoc_parameter_text_reaches_the_fixture` (cells_java: the `Worksheet` entry has a method
+  `freezePanes` whose params `row` and `column` each carry a non-empty `doc` - TC-527 names this example; if the upstream Javadoc of freezePanes has
+  no @param, pick the first Worksheet method that has one in a temporary clone at the pin and say so),
+  `test_pdf_java_readme_recall_is_at_least_90_percent` (no exception allowed). Generic 9 x 5 = 45 cases plus at least 8: the file has at least 53
+  tests.
+- >-
+  FLEET CONSISTENCY TRANSITION (tests/deploy/test_fleet_consistency.py, owned by TC-513). The baked generations in infra/demo-manifests are produced
+  by the supervisor's re-ingest AFTER the last re-extraction card, so between this card and TC-536 a re-extracted fixture and its old baked generation
+  disagree on the API-Coverage line (the fixture's `type_count` and `truncated` change: pdf_net becomes 901 of 901 and not truncated while its baked
+  chunks still say `300 of 901 types`), and `test_api_coverage_lines_are_present_and_honest` would fail for a reason that is not a defect. The
+  mechanism exists (created by TC-530): `STALE_BAKED_PILOTS` and its three table tests. Add to the table EXACTLY the pilots of this card for which
+  `coverage_problems(load_fixture(key), symbols)` is non-empty after your regeneration (run the test first; never list a pilot that is still
+  consistent), with a reason string naming this card. UNRESOLVED table: after regenerating, for every pilot of this card that is listed in
+  `UNRESOLVED_EXCEPTIONS` set the listed maximum to the new count of the fixture's `unresolved` list (never higher than the old maximum), and delete
+  the entry when the count is 0 (the table test `test_every_unresolved_exception_still_applies` fails otherwise); the `unresolved` count of a pilot
+  that is not listed must be 0.
+- >-
+  EXISTING TESTS THAT PIN A FACT OF THE OLD FIXTURES. Before you edit any test, run the second check command and keep the list of failures. For each
+  failing test that reads a fixture of this card (the per-pilot tests tests/extraction/test_<pilot>_extraction.py and the reader files named in
+  write_paths), change ONLY the assertion that pins an old fact the regeneration legitimately changed - the old source commit, an exact old type
+  count, first type or member list, a count that was capped at 300, the string `300 of 901 types`, a slice index into the old ordering, or a defect
+  the extractor cards fixed (for example an assertion that a test-file entry or a std trait function is present because the old fixture had it) - to
+  the re-extracted fact, with a one-line comment `re-extracted by <this card>: <old> -> <new>`. List every changed assertion with its reason in your
+  report. Never delete, skip or xfail a test, never loosen a check that guards a defect (a `>=` floor may be raised, never lowered), and never edit a
+  test outside write_paths: if one fails and is not in write_paths, stop and report its name and the pinned fact.
+  tests/indexing/test_chunk_builder_honesty.py builds its chunks with `max_types=10_000`, so after a cap is raised its real-fixture tests see the
+  whole fixture: re-derive each expected number from the new fixture rather than from memory.
+- >-
+  KNOWN READERS of the Java fixtures: tests/indexing/test_chunk_builder_honesty.py (`test_real_pdf_java_deprecated_method_is_marked`),
+  tests/indexing/test_lookup_doc_fallback_query_safety.py (builds chunks from pdf_java with the old default cap and pins how many of the 300 chunks
+  are matched: re-derive from the new fixture), tests/indexing/test_publisher.py, tests/infra/test_ingest_furnished_survival.py,
+  tests/extraction/test_nested_class_fqn.py (jmap_java). The per-pilot tests tests/extraction/test_3d_java_extraction.py (pins 266 types, properties)
+  and test_pdf_java_extraction.py pin exact numbers.
+- >-
+  Run the first check command, then the second (twice-identical results are required by the gate; the broad suite is slow under load - start it in the
+  background and poll with bounded waits). Commit once with the subject `fix(extraction): re-extract the Java fixtures at their pinned commits with
+  the corrected extractor and raised caps (G3/TC-531)` ending with the Co-Authored-By trailer for the model that did the work; UTF-8 without a
+  byte-order mark; preserve each file's line endings (LF in git). In your report list: the fixture sizes before and after, the measured floors you
+  pinned, every changed assertion of an existing test with its reason, the identifiers still on the allowlist that look like API, and the pilots you
+  added to STALE_BAKED_PILOTS. Do NOT edit any src/ file, any furnished page, plans/, project/, ops/, evidence/ or schemas/, and do not run an
+  ingestion, docker or a cluster command.
+actions:
+- >-
+  Regenerate the five Java fixtures at their pinned commits with the merged extractor, give pdf_java its whole surface (1239) in the extractor call,
+  the chart and docker-compose, regenerate the README-identifier allowlist and add the changed pilots to STALE_BAKED_PILOTS.
+- >-
+  Pin the Java facts at fixture level (varargs, public fields, accessor marks, static marks, throws and type parameters, Javadoc parameter text) and
+  update the existing tests that pinned the old fixtures.
+checks:
+- command: '{python} -m pytest tests/extraction/test_reextracted_java.py tests/deploy/test_fleet_consistency.py tests/extraction/test_docs_identifiers_resolve.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_chart.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction tests/mcp tests/normalization tests/extraction/test_central_classes_dotnet.py tests/extraction/test_central_classes_indexed.py tests/extraction/test_central_classes_python.py tests/extraction/test_nested_class_fqn.py tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_cpp.py tests/indexing/test_authored_examples_cells_rust.py tests/indexing/test_authored_examples_imaging_net.py tests/indexing/test_authored_examples_jmap_net.py tests/indexing/test_authored_examples_jmap_python.py tests/indexing/test_build_chunks_env_failure.py tests/indexing/test_build_chunks_verification_report.py tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_dotnet_lfs_pull.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_index_writers.py tests/indexing/test_java_verifier_pilots.py tests/indexing/test_lookup_doc_fallback_query_safety.py tests/indexing/test_nodejs_verifier.py tests/indexing/test_publisher.py tests/infra/test_authored_examples_fixtures.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_candidate_chains.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_sanitize.py tests/infra/test_build_chunks_verification_cache.py tests/infra/test_compose_pdf_cpp.py tests/infra/test_ingest_furnished_survival.py tests/infra/test_ingest_symbol_survival.py tests/mcp/test_health.py tests/mcp/test_tool_surface_truthful.py tests/mcp/tools/test_consumer_tools.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_symbol_tools.py tests/normalization/test_citation.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py tests/deploy/test_fleet_consistency.py tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_manifests_sidecars.py tests/deploy/test_verified_examples_coverage.py tests/test_unwired_modules.py tests/test_layout.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native"'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+min_tests: 420
+network: true
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "import json,pathlib;p=pathlib.Path('tests/fixtures/3d_java/api_surface.json');d=json.loads(p.read_text(encoding='utf-8'));[t.__setitem__('properties',[q for q in t.get('properties',[]) if q.get('name')!='x']) for t in d['types'] if t.get('name')=='Quaternion'];p.write_text(json.dumps(d,indent=2,sort_keys=True)+chr(10),encoding='utf-8')"
+  rationale: >-
+    Removes the public field Quaternion.x from the regenerated 3d_java fixture: the public-component-fields test and the at-least-34-gained-properties
+    test fail. A real break of the card's central claim (public Java fields are exposed as properties again).
+evidence:
+- evidence/build/G3/TC-531/receipt.json
+closeout:
+- >-
+  The five Java fixtures are extracted at their pins with the merged extractor: varargs, generic bounds, throws, static marks, public fields and
+  accessor marks are present, Javadoc parameter text reaches the fixture, and pdf_java holds its whole 1239-type surface with chart and docker-compose
+  capped at the same number. Nothing a peer sees changes until the supervisor re-ingests after TC-535.
+recovery: Re-run from a clean tree.
