@@ -50,13 +50,18 @@ inputs:
   Run check 1 (the seven readyz e2e tests; they start docker compose stacks of the serving image, run them one file at a time with the repo venv python and the
   toolchain activated, docker is available) and check 2 (the offline contract test), each twice. Write commit messages as UTF-8 without a byte-order mark.
   Preserve each file's line endings and encoding (UTF-8, LF, no BOM).
+- >-
+  SUPERVISOR AMENDMENT (after the first review): tests/e2e/test_pdf_cpp_live_content.py has an existing module-level skipif that skips the whole file unless
+  FOSS_MCP_LIVE_E2E=1, and the review's structural gate rejects any check with a skipped test ("skips are not evidence"). The file therefore stays in write_paths and
+  its one assertion is changed like the other six (the worker proved it live with FOSS_MCP_LIVE_E2E=1 set for that run only), but it is NOT part of check 1 any more:
+  check 1 now runs the other six files, and the offline contract test (check 2) covers all seven files, including pdf_cpp. Do not touch the skipif.
 actions:
 - >-
   Update the seven stale plain-text `/readyz` assertions to the JSON contract of TC-506.
 - >-
   Pin the contract for all e2e files with an offline test.
 checks:
-- command: '{python} -m pytest tests/e2e/test_pdf_go_live_content.py tests/e2e/test_pdf_typescript_live_content.py tests/e2e/test_pdf_net_live_content.py tests/e2e/test_pdf_java_live_content.py tests/e2e/test_pdf_cpp_live_content.py tests/e2e/test_cells_rust_live_content.py tests/e2e/test_slides_python_live_content.py -k readyz -q -rfE -p no:cacheprovider'
+- command: '{python} -m pytest tests/e2e/test_pdf_go_live_content.py tests/e2e/test_pdf_typescript_live_content.py tests/e2e/test_pdf_net_live_content.py tests/e2e/test_pdf_java_live_content.py tests/e2e/test_cells_rust_live_content.py tests/e2e/test_slides_python_live_content.py -k readyz -q -rfE -p no:cacheprovider'
   expect: exit 0
   timeout_seconds: 3000
   junitxml: true
@@ -68,7 +73,7 @@ checks:
   junitxml: true
   proves:
   - REQ-G3-008
-min_tests: 7
+min_tests: 6
 network: true
 requires:
 - python
