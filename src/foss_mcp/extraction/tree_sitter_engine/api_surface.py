@@ -484,7 +484,11 @@ def _js_function_jsdoc(node) -> str:
     ``pair`` it is the block that precedes the pair."""
     anchor = node
     parent = node.parent
-    if node.type in ("arrow_function", "function_expression") and parent is not None and parent.type == "pair":
+    if (
+        node.type in ("arrow_function", "function_expression")
+        and parent is not None
+        and parent.type == "pair"
+    ):
         anchor = parent
     return _ts_raw_jsdoc_comment(anchor)
 
@@ -564,7 +568,11 @@ def _js_destructured_param_name(tags: list[dict[str, Any]]) -> str:
     """The name of the object parameter: the first JSDoc ``@param {object} <name>``, else ``options``."""
     for tag in tags:
         name = str(tag["name"])
-        if str(tag["type"]).lower() == "object" and "." not in name and re.fullmatch(r"[A-Za-z_$][\w$]*", name):
+        if (
+            str(tag["type"]).lower() == "object"
+            and "." not in name
+            and re.fullmatch(r"[A-Za-z_$][\w$]*", name)
+        ):
             return name
     return _JS_DEFAULT_PARAM_NAME
 
@@ -3600,7 +3608,9 @@ def _js_import_target(
     removed, ``/`` replaced by ``.`` and a trailing ``index`` dropped.
     """
     base = Path(os.path.normpath(importing.parent / spec))
-    target = next((cand for cand in (base, base.with_name(base.name + ".js"), base / "index.js") if cand in files), None)
+    target = next(
+        (cand for cand in (base, base.with_name(base.name + ".js"), base / "index.js") if cand in files), None
+    )
     if target is None:
         return "", ""
     try:
@@ -3732,7 +3742,9 @@ def _attach_js_mixins(
         methods = target.setdefault("methods", [])
         known = {method.get("name") for method in methods}
         for item in application["items"]:
-            entries = item["inline"] if "inline" in item else _js_resolve_mixin(item["name"], application, mixins)
+            entries = (
+                item["inline"] if "inline" in item else _js_resolve_mixin(item["name"], application, mixins)
+            )
             for entry in entries:
                 if entry["name"] in known:
                     continue
@@ -3743,7 +3755,9 @@ def _attach_js_mixins(
     return attached
 
 
-def _resolve_js_alias_bases(classes: list[dict], imports_by_file: dict[str, dict[str, dict[str, Any]]]) -> None:
+def _resolve_js_alias_bases(
+    classes: list[dict], imports_by_file: dict[str, dict[str, dict[str, Any]]]
+) -> None:
     """Resolve an aliased import base to the class it names (in place).
 
     ``import { JmapClient as CoreClient } from "./client-core.js"`` followed by
@@ -4312,7 +4326,9 @@ def extract_api_surface(
 
                 if language == "javascript" and is_ctor:
                     for ctor_param in params:
-                        ctor_keys.extend((key, mnode.start_point[0] + 1) for key in ctor_param.get("destructured", []))
+                        ctor_keys.extend(
+                            (key, mnode.start_point[0] + 1) for key in ctor_param.get("destructured", [])
+                        )
 
                 methods.append(method_entry)
                 claims.append(
@@ -4336,7 +4352,11 @@ def extract_api_surface(
                 )
                 claims.append(
                     _make_claim(
-                        family, "api_method", f"{cname}.{key['name']} property of type {key['type']}", rel, key_line
+                        family,
+                        "api_method",
+                        f"{cname}.{key['name']} property of type {key['type']}",
+                        rel,
+                        key_line,
                     )
                 )
 
