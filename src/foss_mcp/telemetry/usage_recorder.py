@@ -123,16 +123,28 @@ def build_event(
 class UsageRecorder:
     """A bounded, in-memory delivery queue for ``UsageEvent`` records.
 
-    ``record()`` never blocks and never grows the queue past ``max_queued``: once full, the
-    NEW event is dropped and counted (the queue's existing contents are never evicted), so a
-    burst cannot silently overwrite events a consumer has not drained yet, and the serving
-    path calling ``record()`` never pays for however slow or stalled delivery is.
+    ``record()`` never blocks and never grows the queue past ``max_queued``, and the serving
+    path calling it never pays for however slow or stalled delivery is. What happens once the
+    queue is full is the ``overflow`` mode:
+
+    * ``"drop_new"`` (the default, and what every existing caller gets): the NEW event is
+      dropped and counted; the queue's existing contents are never evicted, so a burst cannot
+      silently overwrite events a consumer has not drained yet.
+    * ``"drop_oldest"`` (a ring buffer): the OLDEST event is evicted and counted and the new one
+      is kept, so the queue always holds the latest events. The production serving recorder
+      uses this mode: nothing drains it today, and under ``"drop_new"`` it sat pinned at its cap
+      with the first 1,000 events forever, which says nothing about what is happening now.
     """
 
-    def __init__(self, max_queued: int = 1000) -> None:
+    _OVERFLOW_MODES = ("drop_new", "drop_oldest")
+
+    def __init__(self, max_queued: int = 1000, *, overflow: str = "drop_new") -> None:
         if max_queued < 1:
             raise ValueError("max_queued must be at least 1")
+        if overflow not in self._OVERFLOW_MODES:
+            raise ValueError("overflow must be 'drop_new' or 'drop_oldest'")
         self._max_queued = max_queued
+        self._overflow = overflow
         self._queue: deque[UsageEvent] = deque()
         self._dropped_count = 0
 
@@ -144,12 +156,16 @@ class UsageRecorder:
         return len(self._queue)
 
     def record(self, event: UsageEvent) -> bool:
-        """Enqueue *event*. Returns ``False`` (and increments ``dropped_count``) if the queue
-        is already at capacity; never raises, never blocks.
+        """Enqueue *event*. When the queue is already at capacity, ``dropped_count`` is
+        incremented and: in ``drop_new`` mode the event is refused and ``False`` is returned; in
+        ``drop_oldest`` mode the oldest queued event is evicted, *event* is kept and ``True`` is
+        returned. Never raises, never blocks.
         """
         if len(self._queue) >= self._max_queued:
             self._dropped_count += 1
-            return False
+            if self._overflow == "drop_new":
+                return False
+            self._queue.popleft()
         self._queue.append(event)
         return True
 

@@ -29,6 +29,10 @@ another product). Its answer is a JSON body with the reasons and the composition
 reasons are logged at WARNING on state transitions only (G3/TC-506). ``build_app`` also calls
 ``round_trip_check`` once at startup (``_log_startup_readiness``) and logs the reasons when the
 deployment would not be ready.
+
+``/metrics`` answers the Prometheus text exposition (``foss_mcp.telemetry.metrics``) to a scraper that
+asks for it and the original two-field JSON otherwise; a new session refused at the session cap is
+answered with ``Retry-After``, counted and logged with the pilot (G3/TC-509).
 """
 
 from __future__ import annotations
@@ -39,16 +43,18 @@ import logging
 import os
 import re
 import sys
-from collections.abc import MutableMapping, Sequence
+import time
+from collections.abc import Callable, MutableMapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, NoReturn
 
+import anyio.to_thread
 from fetch_product_reference import load_manifest_sidecar, sidecar_name
 from fetch_recent_releases import load_recent_releases_sidecar, recent_releases_sidecar_name
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
-from starlette.responses import JSONResponse, PlainTextResponse
+from starlette.responses import JSONResponse, PlainTextResponse, Response
 from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Send
 from starlette.types import Scope as ASGIScope
@@ -65,7 +71,7 @@ from foss_mcp.mcp.health import (
     round_trip_check,
 )
 from foss_mcp.mcp.routing import DeploymentConfig, resolve_scope
-from foss_mcp.mcp.server import create_server
+from foss_mcp.mcp.server import create_server, server_version
 from foss_mcp.mcp.sidecar_state import (
     SIDECAR_FETCH_FAILED,
     SIDECAR_NOT_PRESENT,
@@ -73,7 +79,10 @@ from foss_mcp.mcp.sidecar_state import (
 )
 from foss_mcp.mcp.tools.example_search_mode import EXAMPLE_SEARCH_LEXICAL_ONLY, example_search_mode
 from foss_mcp.mcp.tools.get_product_reference import ProductReferenceInputs
+from foss_mcp.mcp.tools.report_index_freshness import report_index_freshness
 from foss_mcp.mcp.transport_security import reject_request
+from foss_mcp.telemetry.metrics import CONTENT_TYPE as PROMETHEUS_CONTENT_TYPE
+from foss_mcp.telemetry.metrics import MetricsRegistry
 from foss_mcp.telemetry.usage_recorder import UsageRecorder
 
 DEFAULT_PORT = 8080
@@ -111,6 +120,12 @@ SESSION_IDLE_TIMEOUT_SECONDS = 300
 MAX_SESSIONS = 200
 SESSION_IDLE_ENV = "FOSS_MCP_SESSION_IDLE_SECONDS"
 MAX_SESSIONS_ENV = "FOSS_MCP_MAX_SESSIONS"
+# A refused session (HTTP 503 at the cap) tells the client when to retry, and is counted and logged
+# once per window with the pilot (G3/TC-509). ``_monotonic`` is a module-level name so a test can
+# replace the clock.
+SESSION_CAP_RETRY_AFTER_SECONDS = 5
+_REJECT_LOG_INTERVAL_SECONDS = 10.0
+_monotonic = time.monotonic
 
 # Attributes every LogRecord carries. Anything else on a record came from ``extra=`` and is
 # emitted as a top-level JSON field.
@@ -319,6 +334,45 @@ class ErrorSanitisingMiddleware:
         await self.app(scope, receive, sanitising_send)
 
 
+class SessionCapObserverMiddleware:
+    """Wraps the Streamable HTTP app (inside ``ErrorSanitisingMiddleware``). The SDK refuses a new
+    session at the cap with a bare HTTP 503 ("Too many open sessions") that has no ``Retry-After``
+    and is counted nowhere. For every HTTP response with status 503 on a path that is not a probe
+    path, this adds ``Retry-After: SESSION_CAP_RETRY_AFTER_SECONDS`` and calls ``on_reject()`` once.
+    The probe paths are exempt: a 503 from ``/readyz`` is a readiness answer, not a session refusal.
+    Nothing else about the response changes, and a failure in ``on_reject`` never reaches the client.
+    """
+
+    def __init__(
+        self,
+        app: ASGIApp,
+        on_reject: Callable[[], None],
+        exempt_paths: frozenset[str] = frozenset({HEALTHZ_PATH, READYZ_PATH, METRICS_PATH}),
+    ) -> None:
+        self.app = app
+        self.on_reject = on_reject
+        self.exempt_paths = exempt_paths
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope.get("path") in self.exempt_paths:
+            await self.app(scope, receive, send)
+            return
+
+        async def observing_send(message: MutableMapping[str, Any]) -> None:
+            if message["type"] == "http.response.start" and message["status"] == 503:
+                headers = list(message.get("headers", []))
+                if not any(key.lower() == b"retry-after" for key, _ in headers):
+                    headers.append((b"retry-after", str(SESSION_CAP_RETRY_AFTER_SECONDS).encode("ascii")))
+                message = {**message, "headers": headers}
+                try:
+                    self.on_reject()
+                except Exception:  # noqa: BLE001 - observing a refusal must never break the response.
+                    pass
+            await send(message)
+
+        await self.app(scope, receive, observing_send)
+
+
 def _healthz_route() -> Route:
     """The ``/healthz`` route: unconditional liveness (``foss_mcp.mcp.health.is_alive``),
     always 200 - matching ``is_alive``'s own documented contract that it never depends on
@@ -470,16 +524,113 @@ def _log_example_search_mode(
     )
 
 
-def _metrics_route(usage_recorder: UsageRecorder) -> Route:
-    """The ``/metrics`` route: real, live counters read from the SAME ``UsageRecorder``
-    instance ``create_server``'s own ``_call_tool`` records every tool call into (TC-142) -
-    never a separate or mocked one. A metrics scrape is not an MCP request, so this is exempted
-    from ``RejectionMiddleware`` for the identical reason ``/healthz``/``/readyz`` are (see
-    module docstring).
+_SAFE_GENERATION_LABEL = re.compile(r"[A-Za-z0-9._:\-]{1,200}")
+_UNKNOWN_LABEL = "unknown"
+
+
+class _MetricsScrape:
+    """The scrape-time values behind ``/metrics``: open sessions, readiness and the active
+    generation. Each accessor is shielded - any failure gives ``None`` and that gauge is omitted
+    from the exposition, so a scrape never fails because one value could not be read."""
+
+    def __init__(
+        self, server: Any, generation_store: DeploymentGenerationStore, deployment_config: DeploymentConfig
+    ) -> None:
+        self._server = server
+        self._generation_store = generation_store
+        self._deployment_config = deployment_config
+        self._commit_by_generation: tuple[str, str] | None = None
+
+    def open_sessions(self) -> int | None:
+        """MCP sessions the SDK's session manager holds right now. ``_server_instances`` is a private
+        SDK attribute: it is read through ``getattr`` so an SDK change gives ``None``, and a test pins
+        the real value against the real SDK, which is the drift guard."""
+        try:
+            instances = getattr(self._server.session_manager, "_server_instances", None)
+            return len(instances) if instances is not None else None
+        except Exception:  # noqa: BLE001 - a scrape must answer.
+            return None
+
+    def ready(self) -> bool | None:
+        try:
+            return readiness_report(self._generation_store).ready
+        except Exception:  # noqa: BLE001 - a scrape must answer.
+            return None
+
+    def generation_info(self) -> dict[str, str] | None:
+        """``generation_id``, ``source_commit`` and ``build_revision`` of the active generation, or
+        None when no generation is active."""
+        try:
+            generation_id = self._generation_store.active_generation_id()
+            if generation_id is None:
+                return None
+            if not isinstance(generation_id, str) or not _SAFE_GENERATION_LABEL.fullmatch(generation_id):
+                generation_id = _UNKNOWN_LABEL
+            return {
+                "generation_id": generation_id,
+                "source_commit": self._source_commit(generation_id),
+                "build_revision": server_version().partition("+")[2] or _UNKNOWN_LABEL,
+            }
+        except Exception:  # noqa: BLE001 - a scrape must answer.
+            return None
+
+    def _source_commit(self, generation_id: str) -> str:
+        cached = self._commit_by_generation
+        if cached is not None and cached[0] == generation_id:
+            return cached[1]
+        try:
+            scope = resolve_scope(self._deployment_config, request=None)
+            report = report_index_freshness(
+                self._generation_store.manifest_store, scope, self._deployment_config.source_kind, None
+            )
+            commit = report.indexed_source_commit
+        except Exception:  # noqa: BLE001 - an unreadable commit is "unknown", not a failed scrape.
+            commit = None
+        value = (
+            commit if isinstance(commit, str) and _SAFE_GENERATION_LABEL.fullmatch(commit) else _UNKNOWN_LABEL
+        )
+        if value != _UNKNOWN_LABEL:
+            self._commit_by_generation = (generation_id, value)
+        return value
+
+
+def _wants_prometheus(request: Request) -> bool:
+    """``?format=prometheus`` always, ``?format=<anything else>`` never; with no ``format`` parameter
+    an Accept header naming ``text/plain`` or ``application/openmetrics-text``. A client sending
+    ``*/*`` (curl, the TestClient) keeps the JSON body."""
+    requested = request.query_params.get("format")
+    if requested is not None:
+        return requested == "prometheus"
+    accept = request.headers.get("accept", "").lower()
+    return "text/plain" in accept or "application/openmetrics-text" in accept
+
+
+def _metrics_route(usage_recorder: UsageRecorder, registry: MetricsRegistry, scrape: _MetricsScrape) -> Route:
+    """The ``/metrics`` route: real, live counters read from the SAME ``UsageRecorder`` instance
+    ``create_server``'s own ``_call_tool`` records every tool call into (TC-142) and the SAME
+    ``MetricsRegistry`` it observes every call into (TC-509) - never a separate or mocked one. A metrics
+    scrape is not an MCP request, so this is exempted from ``RejectionMiddleware`` for the identical
+    reason ``/healthz``/``/readyz`` are (see module docstring).
+
+    Two representations: the Prometheus text exposition (``foss_mcp.telemetry.metrics``) when the
+    scraper asks for it (see ``_wants_prometheus``), and otherwise the EXISTING two-field JSON body
+    (``usage_events_queued``, ``usage_events_dropped``), which tests pin exactly.
     """
 
-    async def metrics(request: Request) -> JSONResponse:
-        del request  # the response depends only on the shared recorder's own live state.
+    def render() -> str:
+        return registry.render_prometheus(
+            open_sessions=scrape.open_sessions(),
+            ready=scrape.ready(),
+            generation_info=scrape.generation_info(),
+            usage_queued=len(usage_recorder),
+            usage_dropped=usage_recorder.dropped_count,
+        )
+
+    async def metrics(request: Request) -> Response:
+        if _wants_prometheus(request):
+            # Readiness reads the generation from disk, so the scrape runs off the event loop.
+            text = await anyio.to_thread.run_sync(render)
+            return Response(text, media_type=PROMETHEUS_CONTENT_TYPE)
         return JSONResponse(
             {
                 "usage_events_queued": len(usage_recorder),
@@ -856,6 +1007,43 @@ def _serving_recent_releases(
     return _ServedReleases(releases, state)
 
 
+def _session_cap_rejection_handler(
+    registry: MetricsRegistry,
+    deployment_config: DeploymentConfig,
+    scrape: _MetricsScrape,
+    *,
+    max_sessions: int,
+) -> Callable[[], None]:
+    """The ``on_reject`` callback for ``SessionCapObserverMiddleware``: count every refused session,
+    and log ONE WARNING "session cap reached, new session refused" per
+    ``_REJECT_LOG_INTERVAL_SECONDS`` window, carrying the pilot, the cap, the open sessions and how
+    many refusals were counted but not logged since the previous record."""
+    last_logged: float | None = None
+    suppressed = 0
+
+    def on_reject() -> None:
+        nonlocal last_logged, suppressed
+        registry.count_session_rejection()
+        now = _monotonic()
+        if last_logged is not None and now - last_logged < _REJECT_LOG_INTERVAL_SECONDS:
+            suppressed += 1
+            return
+        previously_suppressed, suppressed = suppressed, 0
+        last_logged = now
+        LOG.warning(
+            "session cap reached, new session refused",
+            extra={
+                "family": deployment_config.family,
+                "platform": deployment_config.platform,
+                "max_sessions": max_sessions,
+                "open_sessions": scrape.open_sessions(),
+                "suppressed": previously_suppressed,
+            },
+        )
+
+    return on_reject
+
+
 def build_app(
     deployment_config: DeploymentConfig,
     manifest_store: GenerationManifestStore | None = None,
@@ -864,6 +1052,7 @@ def build_app(
     manifests_dir: Path | None = None,
     session_idle_timeout: int | None = None,
     max_session_count: int | None = None,
+    metrics: MetricsRegistry | None = None,
 ) -> ASGIApp:
     """The ASGI app this container serves: the same ``create_server`` dispatch core as
     stdio, wrapped in Origin/protocol-version rejection, plus real ``/healthz``, ``/readyz``,
@@ -889,6 +1078,13 @@ def build_app(
     ``session_idle_timeout`` and ``max_session_count`` bound the MCP sessions the transport keeps
     (G3/TC-421); each defaults to its environment variable, else ``SESSION_IDLE_TIMEOUT_SECONDS``
     / ``MAX_SESSIONS``, and is always passed to the SDK explicitly, never left to its defaults.
+
+    ``metrics`` (G3/TC-509) is resolved ONCE like ``usage_recorder`` and handed to both
+    ``create_server`` (which observes every tool call into it) and the ``/metrics`` route. A session
+    refused at the cap is answered with ``Retry-After``, counted in it and logged once per window with
+    the pilot (``SessionCapObserverMiddleware``). When ``usage_recorder`` is not given the production
+    one is a ring buffer (``overflow="drop_oldest"``): nothing drains it, so it must hold the latest
+    events rather than sit pinned at its cap with the first ones.
     """
     resolved_idle_timeout = (
         session_idle_timeout if session_idle_timeout is not None else session_idle_timeout_seconds()
@@ -903,7 +1099,14 @@ def build_app(
     resolved_store = (
         manifest_store if manifest_store is not None else GenerationManifestStore(resolved_manifests_dir)
     )
-    resolved_usage_recorder = usage_recorder if usage_recorder is not None else UsageRecorder()
+    resolved_usage_recorder = (
+        usage_recorder if usage_recorder is not None else UsageRecorder(overflow="drop_oldest")
+    )
+    resolved_metrics = (
+        metrics
+        if metrics is not None
+        else MetricsRegistry(family=deployment_config.family, platform=deployment_config.platform)
+    )
     readyz_route = _readyz_route(deployment_config, resolved_store)
     startup_generation_store = DeploymentGenerationStore.for_scope(
         resolved_store, resolve_scope(deployment_config, request=None), deployment_config.source_kind
@@ -924,6 +1127,11 @@ def build_app(
         recent_releases=recent_releases,
         usage_recorder=resolved_usage_recorder,
         recent_releases_state=recent_releases_state,
+        metrics=resolved_metrics,
+    )
+    scrape = _MetricsScrape(server, startup_generation_store, deployment_config)
+    on_reject = _session_cap_rejection_handler(
+        resolved_metrics, deployment_config, scrape, max_sessions=resolved_max_sessions
     )
     allowed_origins = allowed_origins_from_env() if allowed_origins is None else allowed_origins
     inner = server.streamable_http_app(
@@ -933,11 +1141,11 @@ def build_app(
         custom_starlette_routes=[
             _healthz_route(),
             readyz_route,
-            _metrics_route(resolved_usage_recorder),
+            _metrics_route(resolved_usage_recorder, resolved_metrics, scrape),
         ],
     )
     return RejectionMiddleware(
-        ErrorSanitisingMiddleware(inner),
+        ErrorSanitisingMiddleware(SessionCapObserverMiddleware(inner, on_reject)),
         allowed_origins,
         exempt_paths=frozenset({HEALTHZ_PATH, READYZ_PATH, METRICS_PATH}),
     )

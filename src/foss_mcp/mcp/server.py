@@ -64,6 +64,7 @@ from foss_mcp.mcp.tools.report_index_freshness import report_index_freshness
 from foss_mcp.mcp.tools.search_docs import CONTENT_TYPES, search_docs
 from foss_mcp.mcp.tools.search_symbols import SOURCE_KIND, scope_key, search_symbols
 from foss_mcp.normalization.document_schema import SourceKind
+from foss_mcp.telemetry.metrics import MetricsRegistry
 from foss_mcp.telemetry.usage_recorder import (
     UsageEvent,
     UsageRecorder,
@@ -904,19 +905,63 @@ def _run_tool_handler(
 # ---------------------------------------------------------------------
 
 
+# The logged and echoed tool name is client-chosen when it is not a registered tool: it is capped.
+_LOGGED_TOOL_NAME_MAX = 64
+# The metrics ``tool`` label for a name that is not a registered tool (G3/TC-509).
+_UNKNOWN_TOOL_LABEL = "unknown"
+
+# The tools whose "nothing matched" answer is a miss worth counting (G3/TC-509).
+_RETRIEVAL_TOOLS = frozenset(
+    {"lookup", "search_docs", "search_symbols", "get_symbol", "list_members", "find_examples"}
+)
+_MISS_RESULT_TYPES = frozenset({"Miss", "NotFound", "NoExampleFound"})
+
+
+def _result_hit(tool_name: str, result: Any) -> bool | None:
+    """Whether a successful retrieval-tool call found something: ``False`` for an honest miss
+    (a ``Miss``, ``NotFound`` or ``NoExampleFound`` result, or any result whose ``found`` is
+    ``False``), ``True`` otherwise. ``None`` for every other tool and for every error, because
+    an empty ``list_recent_changes`` or a freshness report is not a miss."""
+    if tool_name not in _RETRIEVAL_TOOLS:
+        return None
+    if type(result).__name__ in _MISS_RESULT_TYPES or getattr(result, "found", True) is False:
+        return False
+    return True
+
+
 def _log_tool_call(
-    logger: logging.Logger, *, tool_name: str, correlation_id: str, outcome: str, latency_ms: float
+    logger: logging.Logger,
+    *,
+    tool_name: str,
+    correlation_id: str,
+    outcome: str,
+    latency_ms: float,
+    family: str | None = None,
+    platform: str | None = None,
+    code: str | None = None,
+    hit: bool | None = None,
 ) -> None:
-    """Emit exactly one structured log record for a single tool call."""
+    """Emit exactly one structured log record for a single tool call.
+
+    Besides the tool name, correlation id, outcome and latency, the record carries the pilot
+    (``family``, ``platform``), the error ``code`` (``ok`` on success) and ``hit`` (``True`` or
+    ``False`` for a retrieval tool, ``None`` otherwise), so an operator can see which pilot
+    misses. The logged ``tool`` is capped at 64 characters: an unknown name is client-chosen.
+    """
+    logged_tool = tool_name[:_LOGGED_TOOL_NAME_MAX]
     logger.info(
         "tool call: %s (%s)",
-        tool_name,
+        logged_tool,
         outcome,
         extra={
-            "tool": tool_name,
+            "tool": logged_tool,
             "correlation_id": correlation_id,
             "outcome": outcome,
             "latency_ms": latency_ms,
+            "family": family,
+            "platform": platform,
+            "code": code,
+            "hit": hit,
         },
     )
 
@@ -1019,8 +1064,14 @@ def create_server(
     recent_releases: Sequence[Release] = (),
     usage_recorder: UsageRecorder | None = None,
     recent_releases_state: str = SIDECAR_PRESENT,
+    metrics: MetricsRegistry | None = None,
 ) -> Server:
     """Bootstrap the MCP server for one deployment, with all nine tools registered.
+
+    ``metrics`` (G3/TC-509) is the registry every finished tool call is observed into; it is
+    resolved the same way as ``usage_recorder`` (a caller that renders it, ``build_app``'s
+    ``/metrics`` route, passes the SAME instance in). A fresh registry labelled with this
+    deployment's family and platform is built when none is given.
 
     ``recent_releases_state`` (G3/TC-507) is ``fetch_failed`` when the releases sidecar was
     unusable: ``list_recent_changes`` then answers an ``unavailable`` error instead of an empty
@@ -1045,6 +1096,9 @@ def create_server(
     # discard it for a brand-new instance - breaking the whole point of sharing one real
     # recorder between create_server and build_app's own /metrics route.
     usage_recorder = usage_recorder if usage_recorder is not None else UsageRecorder()
+    metrics = (
+        metrics if metrics is not None else MetricsRegistry(family=scope.family, platform=scope.platform)
+    )
     deployment_id = f"{scope.family}::{scope.platform}"
     generation_scope_key = scope_key(scope, SOURCE_KIND)
     registry = _build_tool_registry(store, scope, inputs, recent_releases, recent_releases_state)
@@ -1065,6 +1119,56 @@ def create_server(
             ]
         )
 
+    def _finish(
+        tool_name: str,
+        correlation_id: str,
+        started_at: float,
+        outcome: str,
+        code: ToolErrorCode | None,
+        result: Any,
+        arguments: dict,
+    ) -> None:
+        """The ONE place a finished tool call is accounted for: the log line, the usage event and
+        the metrics observation, in that order. Each is shielded, so a failure in one neither skips
+        the others nor prevents the ``CallToolResult`` being returned."""
+        latency_ms = (time.monotonic() - started_at) * 1000
+        code_value = "ok" if code is None else code.value
+        hit = _result_hit(tool_name, result) if code is None else None
+        try:
+            _log_tool_call(
+                logger,
+                tool_name=tool_name,
+                correlation_id=correlation_id,
+                outcome=outcome,
+                latency_ms=latency_ms,
+                family=scope.family,
+                platform=scope.platform,
+                code=code_value,
+                hit=hit,
+            )
+        except Exception:  # noqa: BLE001 - accounting must never change a tool result.
+            pass
+        _record_usage_safely(
+            usage_recorder,
+            correlation_id=correlation_id,
+            deployment_id=deployment_id,
+            tool_name=tool_name,
+            outcome=outcome,
+            latency_ms=latency_ms,
+            result=result,
+            arguments=arguments,
+        )
+        try:
+            metrics.observe_tool_call(
+                tool=tool_name if tool_name in registry else _UNKNOWN_TOOL_LABEL,
+                outcome=outcome,
+                code=code_value,
+                latency_seconds=latency_ms / 1000,
+                miss=hit is False,
+            )
+        except Exception as metrics_exc:  # noqa: BLE001 - accounting must never change a tool result.
+            logger.warning("failed to record tool metrics: %s", type(metrics_exc).__name__)
+
     async def _call_tool(context: Any, params: CallToolRequestParams) -> CallToolResult:
         # One correlation id per call, minted here and never regenerated for the rest of this
         # dispatch - the same value goes into the server-side log line below AND into any error
@@ -1075,23 +1179,14 @@ def create_server(
         started_at = time.monotonic()
         handler = registry.get(params.name)
         if handler is None:
-            latency_ms = (time.monotonic() - started_at) * 1000
-            _log_tool_call(
-                logger,
-                tool_name=params.name,
-                correlation_id=correlation_id,
-                outcome="error",
-                latency_ms=latency_ms,
-            )
-            _record_usage_safely(
-                usage_recorder,
-                correlation_id=correlation_id,
-                deployment_id=deployment_id,
-                tool_name=params.name,
-                outcome="error",
-                latency_ms=latency_ms,
-                result=None,
-                arguments=params.arguments or {},
+            _finish(
+                params.name,
+                correlation_id,
+                started_at,
+                "error",
+                ToolErrorCode.NOT_FOUND,
+                None,
+                params.arguments or {},
             )
             return CallToolResult(
                 content=[
@@ -1130,23 +1225,14 @@ def create_server(
             # 'query: Value error, query must not be empty' never needs to go through the
             # generic sanitizer at all, let alone be swallowed by it on totally safe content.
             text = public_validation_error_message(exc)
-            latency_ms = (time.monotonic() - started_at) * 1000
-            _log_tool_call(
-                logger,
-                tool_name=params.name,
-                correlation_id=correlation_id,
-                outcome="error",
-                latency_ms=latency_ms,
-            )
-            _record_usage_safely(
-                usage_recorder,
-                correlation_id=correlation_id,
-                deployment_id=deployment_id,
-                tool_name=params.name,
-                outcome="error",
-                latency_ms=latency_ms,
-                result=None,
-                arguments=params.arguments or {},
+            _finish(
+                params.name,
+                correlation_id,
+                started_at,
+                "error",
+                ToolErrorCode.INVALID_ARGUMENT,
+                None,
+                params.arguments or {},
             )
             return CallToolResult(
                 content=[TextContent(type="text", text=text)],
@@ -1164,23 +1250,14 @@ def create_server(
             # fix. Built the same shape as the ValidationError branch above, reusing the
             # existing sanitizer rather than inventing a new one.
             text = public_error_message(exc, fallback=_GENERIC_ERROR_FALLBACK, correlation_id=correlation_id)
-            latency_ms = (time.monotonic() - started_at) * 1000
-            _log_tool_call(
-                logger,
-                tool_name=params.name,
-                correlation_id=correlation_id,
-                outcome="error",
-                latency_ms=latency_ms,
-            )
-            _record_usage_safely(
-                usage_recorder,
-                correlation_id=correlation_id,
-                deployment_id=deployment_id,
-                tool_name=params.name,
-                outcome="error",
-                latency_ms=latency_ms,
-                result=None,
-                arguments=params.arguments or {},
+            _finish(
+                params.name,
+                correlation_id,
+                started_at,
+                "error",
+                ToolErrorCode.INVALID_ARGUMENT,
+                None,
+                params.arguments or {},
             )
             return CallToolResult(
                 content=[TextContent(type="text", text=text)],
@@ -1202,23 +1279,14 @@ def create_server(
                 exc.reason,
                 correlation_id,
             )
-            latency_ms = (time.monotonic() - started_at) * 1000
-            _log_tool_call(
-                logger,
-                tool_name=params.name,
-                correlation_id=correlation_id,
-                outcome="error",
-                latency_ms=latency_ms,
-            )
-            _record_usage_safely(
-                usage_recorder,
-                correlation_id=correlation_id,
-                deployment_id=deployment_id,
-                tool_name=params.name,
-                outcome="error",
-                latency_ms=latency_ms,
-                result=None,
-                arguments=params.arguments or {},
+            _finish(
+                params.name,
+                correlation_id,
+                started_at,
+                "error",
+                ToolErrorCode.UNAVAILABLE,
+                None,
+                params.arguments or {},
             )
             return CallToolResult(
                 content=[TextContent(type="text", text=GENERATION_UNAVAILABLE_MESSAGE)],
@@ -1239,23 +1307,14 @@ def create_server(
                 params.name,
                 correlation_id,
             )
-            latency_ms = (time.monotonic() - started_at) * 1000
-            _log_tool_call(
-                logger,
-                tool_name=params.name,
-                correlation_id=correlation_id,
-                outcome="error",
-                latency_ms=latency_ms,
-            )
-            _record_usage_safely(
-                usage_recorder,
-                correlation_id=correlation_id,
-                deployment_id=deployment_id,
-                tool_name=params.name,
-                outcome="error",
-                latency_ms=latency_ms,
-                result=None,
-                arguments=params.arguments or {},
+            _finish(
+                params.name,
+                correlation_id,
+                started_at,
+                "error",
+                ToolErrorCode.UNAVAILABLE,
+                None,
+                params.arguments or {},
             )
             return CallToolResult(
                 content=[TextContent(type="text", text=RELEASES_FETCH_FAILED_MESSAGE)],
@@ -1279,23 +1338,14 @@ def create_server(
                 correlation_id,
             )
             text = public_error_message(exc, fallback=_GENERIC_ERROR_FALLBACK, correlation_id=correlation_id)
-            latency_ms = (time.monotonic() - started_at) * 1000
-            _log_tool_call(
-                logger,
-                tool_name=params.name,
-                correlation_id=correlation_id,
-                outcome="error",
-                latency_ms=latency_ms,
-            )
-            _record_usage_safely(
-                usage_recorder,
-                correlation_id=correlation_id,
-                deployment_id=deployment_id,
-                tool_name=params.name,
-                outcome="error",
-                latency_ms=latency_ms,
-                result=None,
-                arguments=params.arguments or {},
+            _finish(
+                params.name,
+                correlation_id,
+                started_at,
+                "error",
+                ToolErrorCode.INTERNAL,
+                None,
+                params.arguments or {},
             )
             return CallToolResult(
                 content=[TextContent(type="text", text=text)],
@@ -1306,23 +1356,14 @@ def create_server(
                 },
                 is_error=True,
             )
-        success_latency_ms = (time.monotonic() - started_at) * 1000
-        _log_tool_call(
-            logger,
-            tool_name=params.name,
-            correlation_id=correlation_id,
-            outcome="success",
-            latency_ms=success_latency_ms,
-        )
-        _record_usage_safely(
-            usage_recorder,
-            correlation_id=correlation_id,
-            deployment_id=deployment_id,
-            tool_name=params.name,
-            outcome="success",
-            latency_ms=success_latency_ms,
-            result=result,
-            arguments=validated_arguments.model_dump(),
+        _finish(
+            params.name,
+            correlation_id,
+            started_at,
+            "success",
+            None,
+            result,
+            validated_arguments.model_dump(),
         )
         return CallToolResult(
             content=[TextContent(type="text", text=render_result_text(result))],
