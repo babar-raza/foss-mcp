@@ -31,9 +31,10 @@ from foss_mcp.indexing.vector_index_writer import build_vector_index
 from foss_mcp.mcp.routing import DeploymentConfig
 from foss_mcp.mcp.tools.get_product_reference import NotAvailable, ReferenceContent, get_product_reference
 from foss_mcp.normalization.chunker import Chunk
-from foss_mcp.normalization.document_schema import NOT_CHECKED, Provenance
+from foss_mcp.normalization.document_schema import Provenance
 from foss_mcp.telemetry.usage_recorder import UsageRecorder
 from tests.indexing.test_index_writers import DeterministicEmbeddingProvider
+from tests.infra.readiness_support import ready_chunks
 
 # infra/ is not a package (no __init__.py, matching scripts/ convention) - import its module
 # directly from the path, the same way tests/mcp/test_server_wiring.py and infra's own
@@ -55,18 +56,7 @@ def _client(store: GenerationManifestStore) -> TestClient:
 
 
 def _chunks() -> list[Chunk]:
-    return [
-        Chunk(
-            "Document",
-            "The Document class opens and saves PDF files.",
-            "self_extracted",
-            "api_surface",
-            PROVENANCE,
-            "highest",
-            (),
-            NOT_CHECKED,
-        )
-    ]
+    return ready_chunks(PROVENANCE)
 
 
 def _publish(

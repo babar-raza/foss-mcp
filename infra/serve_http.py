@@ -20,11 +20,15 @@ malformed MCP request - those MUSTs govern the MCP transport itself, not these p
 
 ``/healthz`` calls ``foss_mcp.mcp.health.is_alive`` - unconditional liveness, by that
 function's own design, so a container orchestrator always has a liveness check distinct from
-readiness. ``/readyz`` calls ``foss_mcp.mcp.health.round_trip_check`` against the SAME
+readiness. ``/readyz`` calls ``foss_mcp.mcp.health.readiness_report`` against the SAME
 ``GenerationManifestStore`` instance ``create_server`` was built with: not merely that the
-deployment's own active-generation pointer exists, but that the generation it names actually
-carries queryable content (the real reference-system defect this replaces: a readiness probe
-that reported healthy while serving nothing).
+deployment's own active-generation pointer exists, but that the generation it names belongs to
+THIS deployment, is well formed and carries symbols and documentation (the real reference-system
+defect this replaces: a readiness probe that reported healthy while serving nothing, or serving
+another product). Its answer is a JSON body with the reasons and the composition, 200 or 503; the
+reasons are logged at WARNING on state transitions only (G3/TC-506). ``build_app`` also calls
+``round_trip_check`` once at startup (``_log_startup_readiness``) and logs the reasons when the
+deployment would not be ready.
 """
 
 from __future__ import annotations
@@ -51,7 +55,13 @@ from verify_package_registry import load_package_registry_sidecar, verify_packag
 
 from foss_mcp.extraction.github_release_reader import Release
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
-from foss_mcp.mcp.health import DeploymentGenerationStore, is_alive, round_trip_check
+from foss_mcp.mcp.health import (
+    DeploymentGenerationStore,
+    ReadinessReport,
+    is_alive,
+    readiness_report,
+    round_trip_check,
+)
 from foss_mcp.mcp.routing import DeploymentConfig, resolve_scope
 from foss_mcp.mcp.server import create_server
 from foss_mcp.mcp.tools.example_search_mode import EXAMPLE_SEARCH_LEXICAL_ONLY, example_search_mode
@@ -319,9 +329,16 @@ def _healthz_route() -> Route:
 
 
 def _readyz_route(deployment_config: DeploymentConfig, manifest_store: GenerationManifestStore) -> Route:
-    """The ``/readyz`` route: 200 only when the deployment's own scope names a real active
-    generation that actually carries queryable content (``foss_mcp.mcp.health.round_trip_check``),
-    503 otherwise - never process reachability, and never merely "a generation pointer exists".
+    """The ``/readyz`` route: 200 only when ``foss_mcp.mcp.health.readiness_report`` says this
+    deployment's own scope names a real active generation that belongs to it, is well formed and
+    carries symbols and documentation; 503 otherwise - never process reachability, and never
+    merely "a generation pointer exists".
+
+    The body is always JSON (``ready``, ``reasons``, ``composition``, ``generation_id``,
+    ``warnings``) and the ``X-Example-Search`` header is attached to both statuses. A corrupt
+    pointer is a clean 503, never a traceback: no exception can escape the handler. The failure
+    reasons are logged at WARNING on a state transition only (the first probe, or whenever the
+    ``(ready, reasons)`` pair changes), so a probe loop does not flood the log.
 
     Binds to *manifest_store* directly (the SAME instance ``create_server`` was built with, per
     ``build_app`` below) and to the scope this deployment - never a request - resolves to
@@ -332,17 +349,82 @@ def _readyz_route(deployment_config: DeploymentConfig, manifest_store: Generatio
     generation_store = DeploymentGenerationStore.for_scope(
         manifest_store, scope, deployment_config.source_kind
     )
+    last: tuple[bool, tuple[str, ...]] | None = None
 
-    async def readyz(request: Request) -> PlainTextResponse:
+    async def readyz(request: Request) -> JSONResponse:
         del request  # nothing about the request influences readiness - see module docstring.
-        # The mode is read at request time, from the generation active now. It never decides the
-        # status: a failure computing it is already folded into ``lexical-only`` by the helper.
-        headers = {EXAMPLE_SEARCH_HEADER: _active_example_search_mode(generation_store)[0]}
-        if round_trip_check(generation_store):
-            return PlainTextResponse("ready", status_code=200, headers=headers)
-        return PlainTextResponse("not ready", status_code=503, headers=headers)
+        nonlocal last
+        try:
+            report = readiness_report(generation_store)
+            current = (report.ready, report.reasons)
+            if current != last:
+                _log_readiness_transition(report, previous=last, deployment_config=deployment_config)
+                last = current
+            # The mode is read at request time, from the generation active now. It never decides
+            # the status: a failure computing it is already folded into ``lexical-only``.
+            headers = {EXAMPLE_SEARCH_HEADER: _active_example_search_mode(generation_store)[0]}
+            return JSONResponse(report.to_dict(), status_code=200 if report.ready else 503, headers=headers)
+        except Exception:  # noqa: BLE001 - a probe must answer, never raise.
+            return JSONResponse(
+                {
+                    "ready": False,
+                    "reasons": ["readiness check failed"],
+                    "composition": {"symbol": 0, "doc": 0, "example": 0},
+                    "generation_id": None,
+                    "warnings": [],
+                },
+                status_code=503,
+                headers={EXAMPLE_SEARCH_HEADER: EXAMPLE_SEARCH_LEXICAL_ONLY},
+            )
 
     return Route(READYZ_PATH, readyz, methods=["GET"])
+
+
+def _log_readiness_transition(
+    report: ReadinessReport,
+    *,
+    previous: tuple[bool, tuple[str, ...]] | None,
+    deployment_config: DeploymentConfig,
+) -> None:
+    """ONE record per readiness state change: WARNING "readiness failed" when not ready, INFO
+    "readiness restored" when ready after a failure, INFO "readiness ok" for a first ready probe.
+    The reasons are fixed phrases and exception class names, never a path or an exception message.
+    """
+    extra = {
+        "ready": report.ready,
+        "reasons": list(report.reasons),
+        "generation_id": report.generation_id,
+        "family": deployment_config.family,
+        "platform": deployment_config.platform,
+    }
+    if not report.ready:
+        LOG.warning("readiness failed", extra=extra)
+    elif previous is not None and not previous[0]:
+        LOG.info("readiness restored", extra=extra)
+    else:
+        LOG.info("readiness ok", extra=extra)
+
+
+def _log_startup_readiness(
+    generation_store: DeploymentGenerationStore, deployment_config: DeploymentConfig
+) -> None:
+    """One WARNING "readiness failed at startup" (with the reasons) when this deployment would
+    not pass ``/readyz`` right now; nothing when it would. Never raises. The container still
+    starts: ``/healthz`` stays 200 and ``/readyz`` keeps answering 503 with the reasons.
+    """
+    if round_trip_check(generation_store):
+        return
+    report = readiness_report(generation_store)
+    LOG.warning(
+        "readiness failed at startup",
+        extra={
+            "ready": report.ready,
+            "reasons": list(report.reasons),
+            "generation_id": report.generation_id,
+            "family": deployment_config.family,
+            "platform": deployment_config.platform,
+        },
+    )
 
 
 def _active_example_search_mode(generation_store: DeploymentGenerationStore) -> tuple[str, str]:
@@ -520,12 +602,11 @@ def build_app(
     )
     resolved_usage_recorder = usage_recorder if usage_recorder is not None else UsageRecorder()
     readyz_route = _readyz_route(deployment_config, resolved_store)
-    _log_example_search_mode(
-        DeploymentGenerationStore.for_scope(
-            resolved_store, resolve_scope(deployment_config, request=None), deployment_config.source_kind
-        ),
-        deployment_config,
+    startup_generation_store = DeploymentGenerationStore.for_scope(
+        resolved_store, resolve_scope(deployment_config, request=None), deployment_config.source_kind
     )
+    _log_example_search_mode(startup_generation_store, deployment_config)
+    _log_startup_readiness(startup_generation_store, deployment_config)
     server = create_server(
         deployment_config,
         resolved_store,

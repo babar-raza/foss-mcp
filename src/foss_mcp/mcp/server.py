@@ -47,6 +47,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from foss_mcp.extraction.github_release_reader import Release
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
+from foss_mcp.mcp.health import GENERATION_UNAVAILABLE_MESSAGE, generation_unavailable_reason
 from foss_mcp.mcp.routing import DeploymentConfig, Scope, resolve_scope
 from foss_mcp.mcp.tools.find_examples import find_examples
 from foss_mcp.mcp.tools.get_product_reference import SECTIONS, ProductReferenceInputs, get_product_reference
@@ -56,7 +57,7 @@ from foss_mcp.mcp.tools.list_recent_changes import list_recent_changes
 from foss_mcp.mcp.tools.lookup import lookup
 from foss_mcp.mcp.tools.report_index_freshness import report_index_freshness
 from foss_mcp.mcp.tools.search_docs import CONTENT_TYPES, search_docs
-from foss_mcp.mcp.tools.search_symbols import search_symbols
+from foss_mcp.mcp.tools.search_symbols import SOURCE_KIND, scope_key, search_symbols
 from foss_mcp.normalization.document_schema import SourceKind
 from foss_mcp.telemetry.usage_recorder import (
     UsageEvent,
@@ -763,6 +764,7 @@ class ToolErrorCode(str, Enum):
     NOT_FOUND = "not_found"
     INVALID_ARGUMENT = "invalid_argument"
     INTERNAL = "internal"
+    UNAVAILABLE = "unavailable"
 
 
 # A Windows path: a drive letter followed by two or more backslash-separated segments.
@@ -845,6 +847,39 @@ def _error_location(error: Any) -> str:
 _UNKNOWN_TOOL_ECHO_MAX = 64
 
 _GENERIC_ERROR_FALLBACK = "An internal error occurred while handling this tool call."
+
+# The tools that answer from the deployment's published generation. With no usable generation
+# they answer ``unavailable`` (an error), never an honest-looking "not found".
+# ``report_index_freshness`` is deliberately absent (it honestly reports "never published"), as
+# are ``get_product_reference`` and ``list_recent_changes`` (they read sidecars, not the generation).
+_GENERATION_TOOLS = frozenset(
+    {"lookup", "search_docs", "search_symbols", "get_symbol", "list_members", "find_examples"}
+)
+
+
+class _GenerationUnavailableError(RuntimeError):
+    """No usable generation exists for this deployment; carries the short, path-free reason."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+def _run_tool_handler(
+    handler: Callable[..., Any],
+    tool_name: str,
+    arguments: dict[str, Any],
+    store: GenerationManifestStore,
+    generation_scope_key: str,
+) -> Any:
+    """Run *handler* in the worker thread, after the cheap generation check for the six
+    generation-backed tools (G3/TC-506). Raises ``_GenerationUnavailableError`` when there is
+    nothing usable to search."""
+    if tool_name in _GENERATION_TOOLS:
+        reason = generation_unavailable_reason(store, generation_scope_key)
+        if reason is not None:
+            raise _GenerationUnavailableError(reason)
+    return handler(**arguments)
 
 
 # ---------------------------------------------------------------------
@@ -993,6 +1028,7 @@ def create_server(
     # recorder between create_server and build_app's own /metrics route.
     usage_recorder = usage_recorder if usage_recorder is not None else UsageRecorder()
     deployment_id = f"{scope.family}::{scope.platform}"
+    generation_scope_key = scope_key(scope, SOURCE_KIND)
     registry = _build_tool_registry(store, scope, inputs, recent_releases)
     schemas = {name: tool_input_schema(name) for name in registry}
     for name, handler in registry.items():
@@ -1061,7 +1097,14 @@ def create_server(
             # (and /healthz, /readyz, other sessions) stays responsive while it works. Anything it
             # raises propagates out of run_sync into the same except-branches below.
             result = await anyio.to_thread.run_sync(
-                functools.partial(handler, **validated_arguments.model_dump())
+                functools.partial(
+                    _run_tool_handler,
+                    handler,
+                    params.name,
+                    validated_arguments.model_dump(),
+                    store,
+                    generation_scope_key,
+                )
             )
         except ValidationError as exc:
             # TC-125's own validation-error path: a malformed argument, always INVALID_ARGUMENT.
@@ -1126,6 +1169,44 @@ def create_server(
                 structured_content={
                     "code": ToolErrorCode.INVALID_ARGUMENT.value,
                     "message": text,
+                    "correlation_id": correlation_id,
+                },
+                is_error=True,
+            )
+        except _GenerationUnavailableError as exc:
+            # No usable generation to search (G3/TC-506): an error with one fixed, sanitised
+            # message and the code ``unavailable`` - never "found: false" (which an agent reads as
+            # "this API does not exist") and never raw exception text. The reason is a fixed phrase
+            # or an exception class name, never an exception message or a path.
+            logger.warning(
+                "tool '%s' has no usable generation: %s correlation_id=%s",
+                params.name,
+                exc.reason,
+                correlation_id,
+            )
+            latency_ms = (time.monotonic() - started_at) * 1000
+            _log_tool_call(
+                logger,
+                tool_name=params.name,
+                correlation_id=correlation_id,
+                outcome="error",
+                latency_ms=latency_ms,
+            )
+            _record_usage_safely(
+                usage_recorder,
+                correlation_id=correlation_id,
+                deployment_id=deployment_id,
+                tool_name=params.name,
+                outcome="error",
+                latency_ms=latency_ms,
+                result=None,
+                arguments=params.arguments or {},
+            )
+            return CallToolResult(
+                content=[TextContent(type="text", text=GENERATION_UNAVAILABLE_MESSAGE)],
+                structured_content={
+                    "code": ToolErrorCode.UNAVAILABLE.value,
+                    "message": GENERATION_UNAVAILABLE_MESSAGE,
                     "correlation_id": correlation_id,
                 },
                 is_error=True,

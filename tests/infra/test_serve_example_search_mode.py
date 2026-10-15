@@ -30,6 +30,7 @@ from foss_mcp.mcp.tools.report_index_freshness import report_index_freshness
 from foss_mcp.normalization.chunker import chunk_document
 from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
 from tests.indexing.test_index_writers import DeterministicEmbeddingProvider
+from tests.infra.readiness_support import FLOOR_FILLER_TEXTS
 
 # infra/ is not a package; import the module from its path, as tests/infra/test_serve_http.py does.
 sys.path.insert(0, str(Path(__file__).parents[2] / "infra"))
@@ -79,7 +80,9 @@ def _configure_gateway(monkeypatch: pytest.MonkeyPatch, dimension: str = STORED_
 
 
 def _publish(store: GenerationManifestStore, texts: list[str]) -> None:
-    """Publish one generation whose chunks have exactly *texts*."""
+    """Publish one generation whose chunks are *texts* plus the floor fillers (two extra symbol
+    chunks and one documentation chunk, none an example), so readiness's floors are met."""
+    texts = [*texts, *FLOOR_FILLER_TEXTS]
     body = "\n\n".join(f"## section {index}\n\n{text}" for index, text in enumerate(texts))
     doc = make_document(
         source_kind=SourceKind.SELF_EXTRACTED,
@@ -135,7 +138,7 @@ def test_readyz_says_lexical_only_with_the_gateway_variables_unset(tmp_path: Pat
     with _client(_store(tmp_path, [SYMBOL_CHUNK, EXAMPLE_CHUNK])) as client:
         response = client.get("/readyz")
     assert response.status_code == 200
-    assert response.text == "ready"
+    assert response.json()["ready"] is True
     assert response.headers["X-Example-Search"] == EXAMPLE_SEARCH_LEXICAL_ONLY == "lexical-only"
 
 
@@ -147,7 +150,7 @@ def test_readyz_says_gateway_with_the_variables_set_on_a_generation_with_an_exam
     with _client(store) as client:
         response = client.get("/readyz")
     assert response.status_code == 200
-    assert response.text == "ready"
+    assert response.json()["ready"] is True
     assert response.headers["X-Example-Search"] == EXAMPLE_SEARCH_GATEWAY == "lexical+vector(gateway)"
 
 
@@ -159,7 +162,7 @@ def test_readyz_says_lexical_only_on_a_generation_without_an_example_even_with_t
     with _client(store) as client:
         response = client.get("/readyz")
     assert response.status_code == 200
-    assert response.text == "ready"
+    assert response.json()["ready"] is True
     assert _header(response) == EXAMPLE_SEARCH_LEXICAL_ONLY
 
 
@@ -167,7 +170,7 @@ def test_readyz_503_for_an_empty_store_keeps_its_body_and_carries_the_header(tmp
     with _client(_store(tmp_path, None)) as client:
         response = client.get("/readyz")
     assert response.status_code == 503
-    assert response.text == "not ready"
+    assert response.json()["ready"] is False
     assert _header(response) == EXAMPLE_SEARCH_LEXICAL_ONLY
 
 
@@ -178,7 +181,8 @@ def test_readyz_503_with_the_gateway_set_still_says_lexical_only(
     _configure_gateway(monkeypatch)
     with _client(_store(tmp_path, None)) as client:
         response = client.get("/readyz")
-    assert (response.status_code, response.text) == (503, "not ready")
+    assert response.status_code == 503
+    assert response.json()["ready"] is False
     assert _header(response) == EXAMPLE_SEARCH_LEXICAL_ONLY
 
 
@@ -221,7 +225,8 @@ def test_a_failure_computing_the_mode_never_changes_readiness(
     monkeypatch.setattr(serve_http, "example_search_mode", explode)
     with _client(store) as client:
         response = client.get("/readyz")
-    assert (response.status_code, response.text) == (200, "ready")
+    assert response.status_code == 200
+    assert response.json()["ready"] is True
     assert _header(response) == EXAMPLE_SEARCH_LEXICAL_ONLY
     assert CANARY not in json.dumps(dict(response.headers))
 

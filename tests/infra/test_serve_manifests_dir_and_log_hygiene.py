@@ -22,9 +22,9 @@ from mcp import Client
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.publisher import publish_generation
 from foss_mcp.mcp.routing import DeploymentConfig
-from foss_mcp.normalization.chunker import Chunk
-from foss_mcp.normalization.document_schema import NOT_CHECKED, Provenance
+from foss_mcp.normalization.document_schema import Provenance
 from tests.indexing.test_index_writers import DeterministicEmbeddingProvider
+from tests.infra.readiness_support import ready_chunks
 
 INFRA_DIR = Path(__file__).parents[2] / "infra"
 sys.path.insert(0, str(INFRA_DIR))
@@ -36,16 +36,6 @@ PROVENANCE = Provenance(repository="aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET", c
 
 
 def _publish(store: GenerationManifestStore) -> None:
-    chunk = Chunk(
-        "Document",
-        "The Document class opens and saves PDF files.",
-        "self_extracted",
-        "api_surface",
-        PROVENANCE,
-        "highest",
-        (),
-        NOT_CHECKED,
-    )
     lease = store.acquire_lease("pdf::net::self_extracted", held_by="test-worker", generation_id="pending")
     publish_generation(
         store,
@@ -53,7 +43,7 @@ def _publish(store: GenerationManifestStore) -> None:
         platform="net",
         source_kind="self_extracted",
         expected_active=None,
-        chunks=[chunk],
+        chunks=ready_chunks(PROVENANCE),
         embedding_provider=DeterministicEmbeddingProvider(),
         lease=lease,
     )

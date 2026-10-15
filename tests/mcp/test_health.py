@@ -13,9 +13,9 @@ from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.publisher import publish_generation
 from foss_mcp.mcp.health import DeploymentGenerationStore, is_alive, round_trip_check
 from foss_mcp.mcp.routing import Scope
-from foss_mcp.normalization.chunker import chunk_document
-from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
+from foss_mcp.normalization.document_schema import Provenance
 from tests.indexing.test_index_writers import DeterministicEmbeddingProvider
+from tests.infra.readiness_support import ready_chunks
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "pdf_net" / "api_surface.json"
 PDF_NET_SCOPE = Scope(family="pdf", platform="net")
@@ -27,15 +27,7 @@ def _store(tmp_path: Path) -> GenerationManifestStore:
 
 def _publish_real_generation(store: GenerationManifestStore) -> str:
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
-    sections = [f"## {t['name']}\n\n{t['name']} is a {t.get('kind', '')}." for t in fixture["types"][:5]]
-    doc = make_document(
-        source_kind=SourceKind.SELF_EXTRACTED,
-        content_type="api_surface",
-        provenance=Provenance(repository=fixture["source_repository"], commit=fixture["source_commit"]),
-        evidence_refs=(),
-        title="pdf/net API surface",
-        body="\n\n".join(sections),
-    )
+    provenance = Provenance(repository=fixture["source_repository"], commit=fixture["source_commit"])
     lease = store.acquire_lease("pdf::net::self_extracted", "worker-1", "pending")
     return publish_generation(
         store,
@@ -43,7 +35,7 @@ def _publish_real_generation(store: GenerationManifestStore) -> str:
         platform="net",
         source_kind="self_extracted",
         expected_active=None,
-        chunks=chunk_document(doc),
+        chunks=ready_chunks(provenance),
         embedding_provider=DeterministicEmbeddingProvider(),
         lease=lease,
     )

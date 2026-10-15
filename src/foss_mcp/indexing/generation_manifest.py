@@ -341,7 +341,7 @@ class GenerationManifestStore:
     def _read_json(path: Path) -> dict[str, Any] | None:
         if not path.exists():
             return None
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8-sig"))
 
     @staticmethod
     def _atomic_write_json(path: Path, doc: dict[str, Any]) -> None:

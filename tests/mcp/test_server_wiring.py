@@ -18,6 +18,7 @@ from pydantic import ValidationError
 from starlette.testclient import TestClient
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
+from foss_mcp.indexing.publisher import publish_generation
 from foss_mcp.mcp.routing import DeploymentConfig
 from foss_mcp.mcp.server import (
     SearchSymbolsInput,
@@ -31,7 +32,10 @@ from foss_mcp.mcp.server import (
     tool_description,
 )
 from foss_mcp.mcp.transport_security import reject_request
+from foss_mcp.normalization.document_schema import Provenance
 from foss_mcp.telemetry.usage_recorder import UsageRecorder
+from tests.indexing.test_index_writers import DeterministicEmbeddingProvider
+from tests.infra.readiness_support import ready_chunks
 
 # infra/ is not a package (no __init__.py, matching scripts/ convention) - import its module
 # directly from the path, the same way its own entrypoints are invoked.
@@ -51,7 +55,7 @@ EXPECTED_TOOLS = {
 }
 
 # One valid, minimal argument set per tool - enough to prove each is callable without
-# erroring, over an intentionally empty store (an honest Miss/NotFound is still a successful,
+# erroring, over a tiny ready store (an honest Miss/NotFound is still a successful,
 # non-error tool result; TC-017a/b/c already prove real content against real data).
 VALID_ARGUMENTS = {
     "lookup": {"query": "Widget"},
@@ -75,7 +79,25 @@ ALLOWED_ORIGINS = ["https://example.com"]
 
 
 def _store(tmp_path: Path) -> GenerationManifestStore:
-    return GenerationManifestStore(tmp_path / "manifests")
+    """A store holding ONE ready generation for pdf/net (a tiny real index), so the tools that
+    answer from the generation have something to search; a miss over it is still an honest miss.
+    The empty-store behaviour (``unavailable``) is pinned in test_generation_unavailable_tool_error.py.
+    """
+    store = GenerationManifestStore(tmp_path / "manifests")
+    lease = store.acquire_lease("pdf::net::self_extracted", "worker-1", "pending")
+    publish_generation(
+        store,
+        family="pdf",
+        platform="net",
+        source_kind="self_extracted",
+        expected_active=None,
+        chunks=ready_chunks(
+            Provenance(repository="aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET", commit="b717287" * 5)
+        ),
+        embedding_provider=DeterministicEmbeddingProvider(),
+        lease=lease,
+    )
+    return store
 
 
 class _McpSession:
@@ -439,7 +461,12 @@ def test_a_valid_request_still_passes(tmp_path: Path) -> None:
 
 
 def test_tool_error_code_is_a_small_closed_set() -> None:
-    assert {member.value for member in ToolErrorCode} == {"not_found", "invalid_argument", "internal"}
+    assert {member.value for member in ToolErrorCode} == {
+        "not_found",
+        "invalid_argument",
+        "internal",
+        "unavailable",
+    }
 
 
 def test_public_error_message_passes_a_normal_safe_message_through_unchanged() -> None:
