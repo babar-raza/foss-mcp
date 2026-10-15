@@ -28,6 +28,7 @@ import ast
 import copy
 import hashlib
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -354,9 +355,9 @@ def _stabilize_scout_claim_ids(claims: list, family: str) -> list:
 # ---------------------------------------------------------------------------
 
 
-def _extract_method_params(node, language: str) -> list[dict[str, str]]:
+def _extract_method_params(node, language: str) -> list[dict[str, Any]]:
     """Extract parameters from a method/function node."""
-    params: list[dict[str, str]] = []
+    params: list[dict[str, Any]] = []
     param_list = (
         child_by_field(node, "parameters")
         or find_child_by_type(node, "formal_parameters")
@@ -369,7 +370,21 @@ def _extract_method_params(node, language: str) -> list[dict[str, str]]:
     if language == "csharp":
         return _extract_csharp_params(param_list)
 
+    js_jsdoc: str | None = None
+    js_destructured = 0
     for ch in param_list.children:
+        if language == "javascript" and ch.type in _JS_PATTERN_PARAM_TYPES:
+            # TC-521: defaulted, rest and destructured JavaScript parameters.
+            if js_jsdoc is None:
+                js_jsdoc = _js_function_jsdoc(node)
+            js_param = _js_pattern_param(ch, js_jsdoc)
+            if js_param is not None:
+                if "destructured" in js_param:
+                    if js_destructured:
+                        js_param["name"] = f"{js_param['name']}{js_destructured + 1}"
+                    js_destructured += 1
+                params.append(js_param)
+            continue
         if ch.type in (
             "formal_parameter",
             "parameter",
@@ -446,6 +461,208 @@ def _extract_method_params(node, language: str) -> list[dict[str, str]]:
             for pname in pnames:
                 params.append({"name": pname, "type": ptype})
     return params
+
+
+# ---------------------------------------------------------------------------
+# TC-521: JavaScript defaulted, rest and destructured parameters
+# ---------------------------------------------------------------------------
+
+# Parameter node types the JavaScript grammar uses that the positional list above does not know.
+_JS_PATTERN_PARAM_TYPES = ("assignment_pattern", "rest_pattern", "object_pattern")
+_JS_DEFAULT_LIMIT = 120
+_JS_TYPE_LIMIT = 300
+_JS_DEFAULT_PARAM_NAME = "options"
+
+
+def _js_clip(text: str, limit: int) -> str:
+    """*text* with its whitespace collapsed and at most *limit* characters kept."""
+    return " ".join(text.split())[:limit]
+
+
+def _js_function_jsdoc(node) -> str:
+    """The raw JSDoc block of a function node; for a function value of an object-literal
+    ``pair`` it is the block that precedes the pair."""
+    anchor = node
+    parent = node.parent
+    if node.type in ("arrow_function", "function_expression") and parent is not None and parent.type == "pair":
+        anchor = parent
+    return _ts_raw_jsdoc_comment(anchor)
+
+
+def _js_balanced(text: str, opening: str, closing: str) -> int:
+    """The index of the bracket closing the *opening* that starts *text*, or -1 when unbalanced."""
+    depth = 0
+    for index, char in enumerate(text):
+        if char == opening:
+            depth += 1
+        elif char == closing:
+            depth -= 1
+            if depth == 0:
+                return index
+    return -1
+
+
+def _js_parse_param_tag(chunk: str) -> dict[str, Any] | None:
+    """One ``@param {T} [name=default] - text`` tag as ``{type, name, default, optional, doc}``.
+
+    The type braces and the optional-name brackets are matched brace-balanced, so a type such as
+    ``{Object.<string, {a: number}>}`` is read whole. ``None`` when the tag is malformed.
+    """
+    rest = chunk[len("@param") :].lstrip()
+    type_text = ""
+    optional = False
+    if rest.startswith("{"):
+        end = _js_balanced(rest, "{", "}")
+        if end < 0:
+            return None
+        type_text = " ".join(rest[1:end].split())
+        rest = rest[end + 1 :].lstrip()
+    default = ""
+    if rest.startswith("["):
+        end = _js_balanced(rest, "[", "]")
+        if end < 0:
+            return None
+        name, _, default = rest[1:end].partition("=")
+        name, default = name.strip(), default.strip()
+        rest = rest[end + 1 :]
+        optional = True
+    else:
+        match = re.match(r"\S+", rest)
+        if match is None:
+            return None
+        name = match.group(0)
+        rest = rest[match.end() :]
+    if not name:
+        return None
+    if type_text.endswith("="):
+        type_text = type_text[:-1].strip()
+        optional = True
+    type_text = re.sub(r"\s*\|\s*", " | ", type_text)
+    doc = " ".join(rest.split()).lstrip("-").strip()
+    return {"type": type_text or "any", "name": name, "default": default, "optional": optional, "doc": doc}
+
+
+def _js_jsdoc_params(raw: str) -> list[dict[str, Any]]:
+    """Every ``@param`` tag of a raw JSDoc block (``/** ... */``), in source order."""
+    if not raw.startswith("/**"):
+        return []
+    body = raw[3:]
+    if body.endswith("*/"):
+        body = body[:-2]
+    text = "\n".join(re.sub(r"^\s*\*\s?", "", line) for line in body.splitlines())
+    tags: list[dict[str, Any]] = []
+    for chunk in re.split(r"(?m)^\s*(?=@\w)", text):
+        chunk = chunk.strip()
+        if chunk.startswith("@param") and chunk[len("@param") : len("@param") + 1].isspace():
+            tag = _js_parse_param_tag(chunk)
+            if tag is not None:
+                tags.append(tag)
+    return tags
+
+
+def _js_destructured_param_name(tags: list[dict[str, Any]]) -> str:
+    """The name of the object parameter: the first JSDoc ``@param {object} <name>``, else ``options``."""
+    for tag in tags:
+        name = str(tag["name"])
+        if str(tag["type"]).lower() == "object" and "." not in name and re.fullmatch(r"[A-Za-z_$][\w$]*", name):
+            return name
+    return _JS_DEFAULT_PARAM_NAME
+
+
+def _js_pattern_keys(pattern) -> list[tuple[str, str]]:
+    """The ``(key, default text)`` of every key of an ``object_pattern``, in source order.
+
+    Handles ``{ a }``, ``{ a = 1 }``, ``{ a: b }`` and ``{ a: b = 1 }``; a rest element or a
+    computed key is not a key. The default is ``""`` when the key has none.
+    """
+    keys: list[tuple[str, str]] = []
+    for ch in pattern.children:
+        name = ""
+        default = ""
+        if ch.type == "shorthand_property_identifier_pattern":
+            name = node_text(ch)
+        elif ch.type == "object_assignment_pattern":
+            left, right = child_by_field(ch, "left"), child_by_field(ch, "right")
+            if left is not None:
+                name = node_text(left)
+            if right is not None:
+                default = _js_clip(node_text(right), _JS_DEFAULT_LIMIT)
+        elif ch.type == "pair_pattern":
+            key, value = child_by_field(ch, "key"), child_by_field(ch, "value")
+            if key is not None and key.type in ("property_identifier", "identifier"):
+                name = node_text(key)
+            if value is not None and value.type == "assignment_pattern":
+                right = child_by_field(value, "right")
+                if right is not None:
+                    default = _js_clip(node_text(right), _JS_DEFAULT_LIMIT)
+        if name and all(name != known for known, _ in keys):
+            keys.append((name, default))
+    return keys
+
+
+def _js_object_type(items: list[dict[str, Any]]) -> str:
+    """The synthesised object type ``{ id?: string; name: string }`` of the destructured keys."""
+    if not items:
+        return "{}"
+    fields = "; ".join(f"{item['name']}{'?' if item['optional'] else ''}: {item['type']}" for item in items)
+    text = "{ " + fields + " }"
+    return text if len(text) <= _JS_TYPE_LIMIT else text[:_JS_TYPE_LIMIT] + "..."
+
+
+def _destructured_param(pattern_node, default_node, jsdoc_raw: str) -> dict[str, Any]:
+    """One object-typed parameter built from a destructuring *pattern_node* (TC-521).
+
+    Language neutral on purpose: the ``object_pattern`` / ``= {}`` shapes are the same in the
+    TypeScript grammar. The name is the first JSDoc ``@param {object} <name>``, else ``options``;
+    each key takes its type, default, optionality and description from the pattern and from the
+    JSDoc ``@param {T} [name.key=default] - text`` lines (type ``any`` when undocumented). The
+    result is the usual ``{"name", "type"}`` plus ``"default"`` when the pattern had a default
+    (``{}`` for ``= {}``) and the additive ``"destructured"`` list of
+    ``{"name", "type", "default", "optional", "doc"}``.
+    """
+    tags = _js_jsdoc_params(jsdoc_raw)
+    name = _js_destructured_param_name(tags)
+    documented: dict[str, dict[str, Any]] = {}
+    for tag in tags:
+        prefix, dot, key = str(tag["name"]).partition(".")
+        if dot and prefix == name and key and "." not in key:
+            documented.setdefault(key, tag)
+    items: list[dict[str, Any]] = []
+    for key, pattern_default in _js_pattern_keys(pattern_node):
+        tag = documented.get(key)
+        items.append(
+            {
+                "name": key,
+                "type": tag["type"] if tag else "any",
+                "default": pattern_default or (tag["default"] if tag else ""),
+                "optional": bool(pattern_default) or bool(tag and tag["optional"]),
+                "doc": tag["doc"] if tag else "",
+            }
+        )
+    param: dict[str, Any] = {"name": name, "type": _js_object_type(items)}
+    if default_node is not None:
+        default_text = _js_clip(node_text(default_node), _JS_DEFAULT_LIMIT)
+        param["default"] = "{}" if re.fullmatch(r"\{\s*\}", default_text) else default_text
+    param["destructured"] = items
+    return param
+
+
+def _js_pattern_param(ch, jsdoc_raw: str) -> dict[str, Any] | None:
+    """The parameter dict of a JavaScript ``assignment_pattern`` / ``rest_pattern`` /
+    ``object_pattern`` formal parameter, or ``None`` for a shape that is not modelled."""
+    if ch.type == "rest_pattern":
+        ident = find_child_by_type(ch, "identifier")
+        return {"name": "..." + node_text(ident), "type": ""} if ident is not None else None
+    if ch.type == "object_pattern":
+        return _destructured_param(ch, None, jsdoc_raw)
+    left, right = child_by_field(ch, "left"), child_by_field(ch, "right")
+    if left is None or right is None:
+        return None
+    if left.type == "object_pattern":
+        return _destructured_param(left, right, jsdoc_raw)
+    if left.type == "identifier":
+        return {"name": node_text(left), "type": "", "default": _js_clip(node_text(right), _JS_DEFAULT_LIMIT)}
+    return None
 
 
 # C# parameter modifiers kept as a prefix of the parameter's type (TC-396).
@@ -767,7 +984,10 @@ def _extract_doc_comment(node, language: str) -> str:
     case, SFX-2; every other language's doc_anchor is the identity
     function, so this redirection is a no-op for them).
     """
-    lang_mod = lang.get(language)
+    # TC-521: ``lang.LANGUAGES`` has no "javascript" key (only "typescript"), so an ``export class``
+    # in a JavaScript tree never reached the redirect to its ``export_statement`` and lost its
+    # description. JavaScript uses the TypeScript adapter (the grammars wrap exports the same way).
+    lang_mod = lang.get("typescript" if language == "javascript" else language)
     if lang_mod is not None:
         node = lang_mod.doc_anchor(node)
     style = _DOC_COMMENT_STYLES.get(language, "javadoc")
@@ -2694,11 +2914,13 @@ def _flatten_inheritance(classes: list[dict]) -> None:
             return
         visiting.add(cls_name)
         cls = by_name[cls_name]
+        # TC-521: an aliased JavaScript import base is followed to the class it names.
+        base_names = _effective_bases(cls)
         # Resolve parents first so their inherited members are populated
-        for base_name in cls.get("bases", []):
+        for base_name in base_names:
             _resolve(base_name, visiting)
         # Copy from each parent (now includes grandparent members)
-        for base_name in cls.get("bases", []):
+        for base_name in base_names:
             parent = by_name.get(base_name)
             if parent is None:
                 continue
@@ -3259,6 +3481,301 @@ def _resolve_python_shim_collisions(classes: list[dict], source_files: list[Path
     return [c for i, c in enumerate(classes) if i not in discard]
 
 
+# ---------------------------------------------------------------------------
+# TC-521: JavaScript object-literal mixins and aliased bases
+# ---------------------------------------------------------------------------
+#
+# A JavaScript library may compose a class from object-literal "mixins":
+#
+#     export const MailClientMixin = { async listMailboxes(accountId) { ... } };
+#     class JmapClient extends CoreClient {}
+#     Object.assign(JmapClient.prototype, MailClientMixin);
+#
+# The class model above only sees ``class`` declarations, and an object-literal method fails
+# ``is_public`` (its parent is an ``object``, not a ``class_body``), so the 13 public methods of
+# the real jmap/nodejs client were invisible. Per file the extractor now records the mixin
+# constants, the ``Object.assign(<Class>.prototype, ...)`` applications and the relative named
+# imports; after the file loop ``_attach_js_mixins`` gives each applying class the methods.
+
+_JS_MIXIN_ASSIGN_CALLEE = "Object.assign"
+_JS_INLINE_MIXIN = "<inline>"
+
+
+def _js_member_name(member) -> str:
+    """The plain name of an object-literal member (``""`` for a computed, private or numeric key)."""
+    key = child_by_field(member, "key" if member.type == "pair" else "name")
+    if key is None:
+        return ""
+    if key.type == "property_identifier":
+        return node_text(key)
+    if key.type == "string":
+        text = node_text(key).strip("\"'`")
+        return text if re.fullmatch(r"[A-Za-z_$][\w$]*", text) else ""
+    return ""
+
+
+def _js_member_params(fn) -> list[dict[str, Any]]:
+    """Parameters of an object-literal function, including a bare ``x => ...`` arrow parameter."""
+    params = _extract_method_params(fn, "javascript")
+    if not params:
+        single = child_by_field(fn, "parameter")
+        if single is not None and single.type == "identifier":
+            params = [{"name": node_text(single), "type": ""}]
+    return params
+
+
+def _js_object_literal_members(obj, mixin: str, rel: str) -> list[dict[str, Any]]:
+    """The public methods of an object literal as method entries tagged with *mixin*.
+
+    A member is a ``method_definition`` (``async`` and generators included) or a ``pair`` whose
+    value is an arrow function or function expression. Names starting with ``_`` or ``#``,
+    getters, setters and ``constructor`` are skipped. An entry has the keys of an ordinary method
+    entry plus ``"mixin"`` and, for an ``async`` member, ``"modifiers": ["async"]``.
+    """
+    members: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for member in obj.children:
+        if member.type == "method_definition":
+            fn = member
+            if any(ch.type in ("get", "set") for ch in member.children if not ch.is_named):
+                continue
+        elif member.type == "pair":
+            fn = child_by_field(member, "value")
+            if fn is None or fn.type not in ("arrow_function", "function_expression"):
+                continue
+        else:
+            continue
+        name = _js_member_name(member)
+        if not name or name[0] in "_#" or name == "constructor" or name in seen:
+            continue
+        seen.add(name)
+        deprecated, deprecated_reason = deprecated_marker(member, "javascript")
+        entry: dict[str, Any] = {
+            "name": name,
+            "params": _js_member_params(fn),
+            "return_type": _extract_return_type(fn, "javascript"),
+            "doc": _extract_doc_comment(member, "javascript"),
+            "line": member.start_point[0] + 1,
+            "file": rel,
+            "is_constructor": False,
+            "deprecated": deprecated,
+            "deprecated_reason": deprecated_reason,
+            "mixin": mixin,
+        }
+        if any(ch.type == "async" for ch in fn.children):
+            entry["modifiers"] = ["async"]
+        if _is_typescript_stub(fn):
+            entry["stub"] = True
+        _apply_ts_tsdoc_enrichment(entry, member)
+        members.append(entry)
+    return members
+
+
+def _js_collect_mixin_consts(root, rel: str) -> dict[str, list[dict[str, Any]]]:
+    """``{const name: member entries}`` of the object-literal constants declared at the top level
+    of a file (``const`` / ``let`` / ``var``, with or without ``export``)."""
+    found: dict[str, list[dict[str, Any]]] = {}
+    for stmt in root.children:
+        decl = child_by_field(stmt, "declaration") if stmt.type == "export_statement" else stmt
+        if decl is None or decl.type not in ("lexical_declaration", "variable_declaration"):
+            continue
+        for declarator in find_children_by_type(decl, "variable_declarator"):
+            name_node = child_by_field(declarator, "name")
+            value = child_by_field(declarator, "value")
+            if name_node is None or value is None:
+                continue
+            if name_node.type == "identifier" and value.type == "object":
+                const_name = node_text(name_node)
+                found[const_name] = _js_object_literal_members(value, const_name, rel)
+    return found
+
+
+def _js_import_target(
+    importing: Path, spec: str, files: set[Path], repo: Path, pkg_root: Path
+) -> tuple[str, str]:
+    """``(repo-relative file, dotted module path)`` of a relative import specifier, or ``("", "")``
+    when it names no scanned file.
+
+    The dotted path is derived exactly like ``class_import``: relative to the package root, ``.js``
+    removed, ``/`` replaced by ``.`` and a trailing ``index`` dropped.
+    """
+    base = Path(os.path.normpath(importing.parent / spec))
+    target = next((cand for cand in (base, base.with_name(base.name + ".js"), base / "index.js") if cand in files), None)
+    if target is None:
+        return "", ""
+    try:
+        rel = target.relative_to(repo).as_posix()
+    except ValueError:
+        return "", ""
+    try:
+        parts = list(target.relative_to(pkg_root).parts)
+    except ValueError:
+        return rel, ""
+    if parts and parts[-1].endswith(".js"):
+        parts[-1] = parts[-1][:-3]
+    if parts and parts[-1] == "index":
+        parts = parts[:-1]
+    return rel, ".".join(parts)
+
+
+def _js_collect_imports(
+    root, fpath: Path, files: set[Path], repo: Path, pkg_root: Path
+) -> dict[str, dict[str, Any]]:
+    """The relative named imports of a file as ``{local name: {name, alias, file, module}}``.
+
+    ``import { A as B } from "./x.js"`` gives ``B -> {name: A, alias: True, ...}``; a package
+    (non-relative) specifier cannot be resolved and is not recorded.
+    """
+    found: dict[str, dict[str, Any]] = {}
+    for stmt in root.children:
+        if stmt.type != "import_statement":
+            continue
+        source = child_by_field(stmt, "source")
+        clause = find_child_by_type(stmt, "import_clause")
+        named = find_child_by_type(clause, "named_imports") if clause is not None else None
+        spec = node_text(source).strip("\"'`") if source is not None else ""
+        if named is None or not spec.startswith("."):
+            continue
+        target_file, module = _js_import_target(fpath, spec, files, repo, pkg_root)
+        for specifier in find_children_by_type(named, "import_specifier"):
+            name_node = child_by_field(specifier, "name")
+            alias_node = child_by_field(specifier, "alias")
+            if name_node is None:
+                continue
+            original = node_text(name_node)
+            local = node_text(alias_node) if alias_node is not None else original
+            found[local] = {
+                "name": original,
+                "alias": alias_node is not None,
+                "file": target_file,
+                "module": module,
+            }
+    return found
+
+
+def _js_collect_mixin_applications(
+    root, rel: str, callee: str, imports: dict[str, dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Every ``<callee>(<Class>.prototype, <Mixin>, { inline() {} }, ...)`` call of a file.
+
+    An application is ``{file, class, items, imports}``; each item is ``{"name": <mixin name>}``
+    or ``{"inline": <member entries>}``. Other argument shapes are ignored.
+    """
+    applications: list[dict[str, Any]] = []
+    for call in collect_nodes(root, {"call_expression"}):
+        function = child_by_field(call, "function")
+        arguments = child_by_field(call, "arguments")
+        if function is None or arguments is None or node_text(function).strip() != callee:
+            continue
+        args = [arg for arg in arguments.children if arg.is_named and arg.type != "comment"]
+        if len(args) < 2 or args[0].type != "member_expression":
+            continue
+        owner = child_by_field(args[0], "object")
+        prop = child_by_field(args[0], "property")
+        if owner is None or prop is None or owner.type != "identifier" or node_text(prop) != "prototype":
+            continue
+        items: list[dict[str, Any]] = []
+        for arg in args[1:]:
+            if arg.type == "identifier":
+                items.append({"name": node_text(arg)})
+            elif arg.type == "object":
+                items.append({"inline": _js_object_literal_members(arg, _JS_INLINE_MIXIN, rel)})
+        if items:
+            applications.append({"file": rel, "class": node_text(owner), "items": items, "imports": imports})
+    return applications
+
+
+def _js_resolve_mixin(
+    name: str, application: dict[str, Any], mixins: dict[str, dict[str, list[dict[str, Any]]]]
+) -> list[dict[str, Any]]:
+    """The member entries of the mixin *name* as an application refers to it: the definition in the
+    module its import names, else one in the applying file, else the unique definition of that
+    name in the package, else nothing."""
+    imported = application.get("imports", {}).get(name)
+    if imported is not None and imported["name"] in mixins.get(imported["file"], {}):
+        return mixins[imported["file"]][imported["name"]]
+    own = mixins.get(application["file"], {})
+    if name in own:
+        return own[name]
+    matches = [definitions[name] for definitions in mixins.values() if name in definitions]
+    return matches[0] if len(matches) == 1 else []
+
+
+def _js_application_target(classes: list[dict], application: dict[str, Any]) -> dict | None:
+    """The class an application extends: the class record of that name declared in the applying
+    file, else the unique class record of that name, else ``None``."""
+    named = [c for c in classes if c.get("name") == application["class"] and c.get("kind") != "function"]
+    in_file = [c for c in named if c.get("file") == application["file"]]
+    if in_file:
+        return in_file[0]
+    return named[0] if len(named) == 1 else None
+
+
+def _attach_js_mixins(
+    classes: list[dict],
+    mixins: dict[str, dict[str, list[dict[str, Any]]]],
+    applications: list[dict[str, Any]],
+) -> list[tuple[dict, dict]]:
+    """Append the methods of the applied mixins to the classes that receive them (TC-521).
+
+    For each ``Object.assign(<Class>.prototype, ...)`` application: find the class (see
+    ``_js_application_target``), resolve each mixin name (see ``_js_resolve_mixin``; an unresolvable
+    one is skipped silently) and append deep copies of its methods, an existing member name never
+    replaced, in mixin-argument order and then declaration order. A mixin member keeps the ``file``
+    and ``line`` of its own definition. Returns ``(class, appended entry)`` pairs.
+    """
+    attached: list[tuple[dict, dict]] = []
+    for application in applications:
+        target = _js_application_target(classes, application)
+        if target is None:
+            continue
+        methods = target.setdefault("methods", [])
+        known = {method.get("name") for method in methods}
+        for item in application["items"]:
+            entries = item["inline"] if "inline" in item else _js_resolve_mixin(item["name"], application, mixins)
+            for entry in entries:
+                if entry["name"] in known:
+                    continue
+                copied = copy.deepcopy(entry)
+                methods.append(copied)
+                known.add(entry["name"])
+                attached.append((target, copied))
+    return attached
+
+
+def _resolve_js_alias_bases(classes: list[dict], imports_by_file: dict[str, dict[str, dict[str, Any]]]) -> None:
+    """Resolve an aliased import base to the class it names (in place).
+
+    ``import { JmapClient as CoreClient } from "./client-core.js"`` followed by
+    ``class JmapClient extends CoreClient {}`` leaves the base ``CoreClient``, which no class
+    carries. When the import's module path plus its original name equals the ``class_import`` of a
+    known class (``client-core.JmapClient``) the class gains the additive
+    ``"base_imports": {"CoreClient": "client-core.JmapClient"}``, which ``_flatten_inheritance``
+    follows so the wrapper inherits the core class's members. ``bases`` keeps the name as written
+    (TC-315 pins ``["CoreClient"]``); a base that does not resolve gets no ``base_imports`` entry.
+    """
+    known = {c["class_import"] for c in classes if c.get("class_import")}
+    for cls in classes:
+        imports = imports_by_file.get(cls.get("file", ""), {})
+        resolved: dict[str, str] = {}
+        for base in cls.get("bases", []):
+            imported = imports.get(base)
+            if imported is None or not imported["alias"] or not imported["module"]:
+                continue
+            candidate = f"{imported['module']}.{imported['name']}"
+            if candidate in known:
+                resolved[base] = candidate
+        if resolved:
+            cls["base_imports"] = resolved
+
+
+def _effective_bases(cls: dict) -> list[str]:
+    """The bases of *cls* with each aliased import base replaced by the ``class_import`` it names
+    (the ``base_imports`` recorded by ``_resolve_js_alias_bases``; absent for every other class)."""
+    base_imports = cls.get("base_imports") or {}
+    return [base_imports.get(base, base) for base in cls.get("bases", [])]
+
+
 def extract_api_surface(
     parser,
     language: str,
@@ -3402,6 +3919,13 @@ def extract_api_surface(
     class_types = _CLASS_TYPES.get(language, set())
     func_types = _FUNC_TYPES.get(language, set())
 
+    # TC-521: per-file facts a JavaScript post-pass needs (object-literal mixins, the
+    # ``Object.assign(<Class>.prototype, ...)`` applications and the relative named imports).
+    js_file_set: set[Path] = set(files) if language == "javascript" else set()
+    js_imports: dict[str, dict[str, dict[str, Any]]] = {}
+    js_mixin_defs: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    js_mixin_applications: list[dict[str, Any]] = []
+
     for fpath in files:
         rel = str(fpath.relative_to(repo)).replace("\\", "/")
         files_attempted += 1
@@ -3419,6 +3943,13 @@ def extract_api_surface(
             parse_errors.append(rel)
             LOG.debug("tree-sitter parse error in %s â€” extraction may be incomplete", rel)
         scanned_files.append(rel)
+
+        if language == "javascript":
+            js_imports[rel] = _js_collect_imports(root, fpath, js_file_set, repo, pkg_root)
+            js_mixin_defs[rel] = _js_collect_mixin_consts(root, rel)
+            js_mixin_applications.extend(
+                _js_collect_mixin_applications(root, rel, _JS_MIXIN_ASSIGN_CALLEE, js_imports[rel])
+            )
 
         # Track packages/namespaces
         module_types = _MODULE_TYPES.get(language, set())
@@ -3541,6 +4072,8 @@ def extract_api_surface(
 
             methods: list[dict[str, Any]] = []
             properties: list[dict[str, Any]] = []
+            # TC-521: the keys a JavaScript constructor destructures are the fields the class takes.
+            ctor_keys: list[tuple[dict[str, Any], int]] = []
 
             method_nodes = collect_nodes(cnode, func_types)
             for mnode in method_nodes:
@@ -3777,6 +4310,10 @@ def extract_api_surface(
                 if language in ("typescript", "javascript"):
                     _apply_ts_tsdoc_enrichment(method_entry, mnode)
 
+                if language == "javascript" and is_ctor:
+                    for ctor_param in params:
+                        ctor_keys.extend((key, mnode.start_point[0] + 1) for key in ctor_param.get("destructured", []))
+
                 methods.append(method_entry)
                 claims.append(
                     _make_claim(
@@ -3785,6 +4322,21 @@ def extract_api_surface(
                         f"{cname}.{mname}({', '.join(p['name'] for p in params)}) -> {ret}",
                         rel,
                         mnode.start_point[0] + 1,
+                    )
+                )
+
+            # TC-521: every destructured constructor key not already a property becomes one.
+            property_names = {prop["name"] for prop in properties}
+            for key, key_line in ctor_keys:
+                if key["name"] in property_names:
+                    continue
+                property_names.add(key["name"])
+                properties.append(
+                    {"name": key["name"], "type": key["type"], "writable": True, "doc": key["doc"]}
+                )
+                claims.append(
+                    _make_claim(
+                        family, "api_method", f"{cname}.{key['name']} property of type {key['type']}", rel, key_line
                     )
                 )
 
@@ -4401,6 +4953,23 @@ def extract_api_surface(
     # consolidation logic runs (see _resolve_python_shim_collisions).
     if language == "python":
         classes = _resolve_python_shim_collisions(classes, files, repo)
+
+    # TC-521: JavaScript composes classes from object-literal mixins and aliased imports. Resolve
+    # the aliased bases and attach the mixin methods BEFORE consolidate_classes and
+    # _flatten_inheritance, which must see the wrapper class with its real bases and members.
+    if language == "javascript":
+        _resolve_js_alias_bases(classes, js_imports)
+        for mixin_class, mixin_entry in _attach_js_mixins(classes, js_mixin_defs, js_mixin_applications):
+            mixin_params = ", ".join(p["name"] for p in mixin_entry["params"])
+            claims.append(
+                _make_claim(
+                    family,
+                    "api_method",
+                    f"{mixin_class['name']}.{mixin_entry['name']}({mixin_params}) -> {mixin_entry['return_type']}",
+                    mixin_entry["file"],
+                    mixin_entry["line"],
+                )
+            )
 
     # Consolidate partial classes, deduplicate enums, disambiguate same-name
     # types in different namespaces.  Must run BEFORE _flatten_inheritance so

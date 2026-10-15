@@ -134,13 +134,28 @@ def _modifiers_suffix(entry: Mapping[str, object]) -> str:
     return f" [{', '.join(modifiers)}]" if modifiers else ""
 
 
+def _mixin_suffix(entry: Mapping[str, object]) -> str:
+    """TC-521: ``  (mixin <Name>, <file>)`` for a method a JavaScript object-literal mixin supplies
+    (``<Name>`` is the mixin constant, ``<inline>`` for an object literal applied in place, ``<file>`` the
+    file that defines the method). Empty when the entry has no ``mixin`` key, so every other member renders
+    exactly as before. Placed after the modifiers and before the inherited/deprecated suffixes, so the
+    member name still ends at the first ``(`` or ``:``.
+    """
+    mixin = entry.get("mixin")
+    if not mixin:
+        return ""
+    file = str(entry.get("file") or "").replace("\\", "/")
+    return f"  (mixin {mixin}, {file})" if file else f"  (mixin {mixin})"
+
+
 def _method_line(method: Mapping[str, object]) -> str:
     params = ", ".join(_param_text(param) for param in _items(method.get("params")))
     return_type = _clean_type(method.get("return_type"))
     arrow = f" -> {return_type}" if return_type else ""
     return (
         f"  - {method.get('name', '')}({params}){arrow}"
-        f"{_modifiers_suffix(method)}{_inherited_from_suffix(method)}{_deprecated_suffix(method)}"
+        f"{_modifiers_suffix(method)}{_mixin_suffix(method)}"
+        f"{_inherited_from_suffix(method)}{_deprecated_suffix(method)}"
     )
 
 
