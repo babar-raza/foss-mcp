@@ -41,6 +41,7 @@ write_paths:
 - tests/indexing/test_chunk_builder_mixin_suffix.py
 - tests/fixtures/readme_identifier_allowlist.json
 - tests/fixtures/js_mixin_sample/**
+- tests/extraction/test_run_extraction_coverage_policy.py
 satisfies:
 - REQ-G3-008
 - REQ-G3-005
@@ -173,6 +174,14 @@ inputs:
   Run the first check command, then the second (the TC-315 test file, the whole extraction suite and the chunk-builder suites must stay green).
   tests/test_unwired_modules.py: new public names in api_surface.py are private (underscore) or called. Do NOT regenerate any committed fixture and do
   NOT edit the allowlist by hand. Write commit messages as UTF-8 without a byte-order mark; the sample files are LF.
+- >-
+  SUPERVISOR AMENDMENT (after the worker's first report): tests/extraction/test_run_extraction_coverage_policy.py (TC-520) pins EXTRACTOR_VERSION to exactly 2
+  in `test_extractor_version_is_two` (`assert EXTRACTOR_VERSION == 2` and the regex `^EXTRACTOR_VERSION = 2$`) and in `test_extract_pinned_repository_writes_the_new_keys`
+  (`artifact['extractor_version'] == 2`). The version is meant to RISE with every extractor change (this card makes it 3; TC-522, TC-523 and later cards make it 4, 5, ...), so an
+  exact pin is a defect of that test. The file is now in your write_paths: change ONLY those assertions so they check the contract instead of the number: the constant is an int
+  >= 2 defined on its own line, and the artifact's extractor_version equals the module's EXTRACTOR_VERSION. Rename `test_extractor_version_is_two` to
+  `test_extractor_version_is_a_defined_integer_of_at_least_two` and say so in the commit message. Keep every other assertion in that file. Also, the base-import decision stays as you
+  made it: `bases` keeps the written alias and the additive `base_imports` key carries the resolution (TC-315 pins `bases`).
 actions:
 - >-
   Attach object-literal mixins applied with Object.assign to the class that receives them, resolve aliased bases, render destructured parameters and
