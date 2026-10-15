@@ -37,6 +37,7 @@ import dataclasses
 import json
 import logging
 import os
+import re
 import sys
 from collections.abc import MutableMapping, Sequence
 from datetime import UTC, datetime
@@ -54,6 +55,7 @@ from starlette.types import Scope as ASGIScope
 from verify_package_registry import load_package_registry_sidecar, verify_package_registry_sidecar_name
 
 from foss_mcp.extraction.github_release_reader import Release
+from foss_mcp.extraction.repo_native_reader import DocumentNotPresent, DocumentPresent
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.health import (
     DeploymentGenerationStore,
@@ -64,6 +66,11 @@ from foss_mcp.mcp.health import (
 )
 from foss_mcp.mcp.routing import DeploymentConfig, resolve_scope
 from foss_mcp.mcp.server import create_server
+from foss_mcp.mcp.sidecar_state import (
+    SIDECAR_FETCH_FAILED,
+    SIDECAR_NOT_PRESENT,
+    SIDECAR_PRESENT,
+)
 from foss_mcp.mcp.tools.example_search_mode import EXAMPLE_SEARCH_LEXICAL_ONLY, example_search_mode
 from foss_mcp.mcp.tools.get_product_reference import ProductReferenceInputs
 from foss_mcp.mcp.transport_security import reject_request
@@ -490,41 +497,210 @@ def _required_env(name: str) -> str:
     return value
 
 
-def _serving_product_reference_inputs(
-    manifests_dir: Path, deployment_config: DeploymentConfig
-) -> ProductReferenceInputs | None:
-    """The product's own packaging manifest, from the sidecar for this deployment's identity in
-    *manifests_dir*, or None when that sidecar does not exist yet (create_server then answers the
-    explicit NotAvailable for every manifest-derived section).
+# ---------------------------------------------------------------------
+# Optional sidecars (G3/TC-507). Every sidecar problem degrades that ONE sidecar to the state
+# ``fetch_failed``, logged once at WARNING; the container still starts and everything else is
+# served. Nothing below raises for any sidecar content. The loaders in ``infra/fetch_*.py`` and
+# ``infra/verify_package_registry.py`` still raise by design; this module catches them.
+# ---------------------------------------------------------------------
 
-    The identity is the deployment's family and platform, which ``main`` reads from the required
-    ``FOSS_MCP_FAMILY`` and ``FOSS_MCP_PLATFORM``. Only the file ``sidecar_name`` gives for that
-    identity is read; there is no fallback to another file. A sidecar whose platform differs from
-    the deployment's raises rather than being rewritten.
+# The largest baked sidecar is about 80 KB; a file over this is not a sidecar.
+_SIDECAR_MAX_BYTES = 8 * 1024 * 1024
+_FAILURE_MARKER_SUFFIX = ".failed"
+_FAILURE_MARKER_MAX_BYTES = 4096
+_ISO_TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}T[0-9:.]+(?:Z|[+-]\d{2}:?\d{2})?")
+_GITHUB_REPOSITORY_URL = re.compile(r"github\.com/([^/\s]+)/([^/\s]+)", re.IGNORECASE)
+_RELEASE_RICHNESS = frozenset({"detailed", "templated", "none"})
 
-    G2/TC-275 (C2 part 2): ALSO attempts to load this identity's own registry-verification
-    sidecar (``package_registry_<family>_<platform>.json``, written by
-    ``infra/verify_product_reference_install.py`` via ``infra/verify_package_registry.py``'s own
-    sidecar shape) and, when present, merges its ``verified``/``coordinate``/``checked_at`` fields
-    into the returned ``ProductReferenceInputs`` via ``dataclasses.replace``. Mirrors
-    ``_serving_recent_releases``'s exact "sidecar absent -> default, never raise" tolerance: the
-    registry-verification sidecar's presence is never a hard requirement here, so a pilot whose
-    verification step has not run yet (or never will, e.g. cpp) still serves everything else this
-    sidecar carries exactly as before this card.
-    """
+_PROBLEM_OVERSIZED = "file is larger than 8 MiB"
+_PROBLEM_NOT_UTF8 = "file is not UTF-8 text"
+_PROBLEM_NOT_JSON = "file is not valid JSON"
+_PROBLEM_NOT_OBJECT = "JSON is not an object"
+_PROBLEM_NOT_LIST = "JSON is not a list"
+_PROBLEM_MARKER_ONLY = "failure marker without a sidecar"
+_PROBLEM_WRITER_FAILED = "the writer recorded a failed fetch"
+_PROBLEM_WRONG_TYPES = "a field has the wrong type"
+_PROBLEM_PLATFORM = "sidecar platform differs from the deployment"
+_PROBLEM_FAMILY = "sidecar family differs from the deployment"
+_PROBLEM_REPOSITORY = "source repository does not belong to the deployment family"
+_PROBLEM_RELEASES_REPOSITORY = "release url does not belong to the deployment family"
+_PROBLEM_RELEASES_OTHER_REPOSITORY = "release url differs from the product reference repository"
+_PROBLEM_RELEASE_SHAPE = "a release entry has the wrong shape"
+_PROBLEM_MISSING_KEYS = "a required key is missing"
+
+_KIND_PRODUCT_REFERENCE = "product_reference"
+_KIND_RECENT_RELEASES = "recent_releases"
+_KIND_PACKAGE_REGISTRY = "package_registry"
+
+
+class _ServedReleases(tuple[Release, ...]):
+    """The releases ``_serving_recent_releases`` returns: an ordinary tuple of ``Release`` that also
+    records the sidecar state they were resolved with, so a caller that takes the tuple (stdio) still
+    learns whether an empty one means "no releases" or "could not be fetched"."""
+
+    state: str
+
+    def __new__(cls, releases: Sequence[Release], state: str) -> _ServedReleases:
+        served = super().__new__(cls, releases)
+        served.state = state
+        return served
+
+
+def _failure_marker(path: Path) -> tuple[bool, str | None]:
+    """``(exists, stamp)`` for the ``<name>.failed`` marker beside *path*: *stamp* is the marker's last
+    whitespace-separated token when it looks like an ISO timestamp, else None. Never raises."""
+    marker = path.with_name(path.name + _FAILURE_MARKER_SUFFIX)
+    try:
+        if not marker.is_file():
+            return False, None
+        with marker.open("rb") as handle:
+            text = handle.read(_FAILURE_MARKER_MAX_BYTES).decode("utf-8", errors="replace")
+    except OSError:
+        return True, None
+    tokens = text.split()
+    if tokens and _ISO_TIMESTAMP.fullmatch(tokens[-1]):
+        return True, tokens[-1]
+    return True, None
+
+
+def _read_sidecar_json(path: Path) -> tuple[str, Any]:
+    """``(state, payload)`` for the JSON file *path*; never raises. An absent file is
+    ``(SIDECAR_NOT_PRESENT, None)``. A file over ``_SIDECAR_MAX_BYTES``, non-UTF-8 bytes, invalid JSON or
+    an OS error is ``(SIDECAR_FETCH_FAILED, problem)`` where *problem* is a fixed phrase or an exception
+    class name, never file content. Otherwise ``(SIDECAR_PRESENT, parsed_json)``."""
+    try:
+        with path.open("rb") as handle:
+            raw = handle.read(_SIDECAR_MAX_BYTES + 1)
+    except FileNotFoundError:
+        return SIDECAR_NOT_PRESENT, None
+    except OSError as exc:
+        return SIDECAR_FETCH_FAILED, type(exc).__name__
+    if len(raw) > _SIDECAR_MAX_BYTES:
+        return SIDECAR_FETCH_FAILED, _PROBLEM_OVERSIZED
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return SIDECAR_FETCH_FAILED, _PROBLEM_NOT_UTF8
+    try:
+        return SIDECAR_PRESENT, json.loads(text)
+    except (ValueError, RecursionError):
+        return SIDECAR_FETCH_FAILED, _PROBLEM_NOT_JSON
+
+
+def _normalised_slug(repository: str) -> str:
+    """The lowercase ``owner/name`` of *repository* (a slug or a full URL), without a trailing ``.git``."""
+    value = repository.strip()
+    if "://" in value:
+        value = value.split("://", 1)[1].partition("/")[2]
+    value = value.strip("/").lower()
+    return value.removesuffix(".git")
+
+
+def _family_in_repository(family: str, repository: str) -> bool:
+    """True when the lowercased *family* appears in the repository slug with every character outside
+    a-z and 0-9 removed (the family word is part of the upstream repository name for every baked pilot)."""
+    slug = re.sub(r"[^a-z0-9]", "", _normalised_slug(repository))
+    return bool(family) and family.lower() in slug
+
+
+def _log_sidecar_unusable(kind: str, problem: str, path: Path, deployment_config: DeploymentConfig) -> None:
+    """The ONE WARNING a degraded sidecar logs. *problem* is a fixed phrase or an exception class name;
+    the file is named by its file name only. Neither file content nor an exception message is logged."""
+    LOG.warning(
+        "sidecar unusable, degraded to fetch_failed",
+        extra={
+            "sidecar": kind,
+            "problem": problem,
+            "file": path.name,
+            "family": deployment_config.family,
+            "platform": deployment_config.platform,
+        },
+    )
+
+
+def _log_refresh_failed(kind: str, path: Path, deployment_config: DeploymentConfig) -> None:
+    LOG.warning(
+        "refresh failed, serving the last good sidecar",
+        extra={
+            "sidecar": kind,
+            "file": path.name,
+            "family": deployment_config.family,
+            "platform": deployment_config.platform,
+        },
+    )
+
+
+def _product_reference_fetch_failed(
+    path: Path, problem: str, deployment_config: DeploymentConfig, fetched_at: str | None
+) -> ProductReferenceInputs:
+    _log_sidecar_unusable(_KIND_PRODUCT_REFERENCE, problem, path, deployment_config)
+    return ProductReferenceInputs(
+        platform=deployment_config.platform,
+        sidecar_state=SIDECAR_FETCH_FAILED,
+        sidecar_fetched_at=fetched_at,
+    )
+
+
+def _document_is_well_typed(document: object) -> bool:
+    if isinstance(document, DocumentPresent):
+        return all(isinstance(value, str) for value in (document.path, document.sha, document.content))
+    return document is None or isinstance(document, DocumentNotPresent)
+
+
+def _inputs_are_well_typed(inputs: ProductReferenceInputs) -> bool:
+    """The loader trusts the JSON it reads; the fields a tool later parses must be what it expects."""
+    return (
+        (inputs.manifest_text is None or isinstance(inputs.manifest_text, str))
+        and isinstance(inputs.platform, str)
+        and _document_is_well_typed(inputs.contributing)
+        and _document_is_well_typed(inputs.agent_guidance)
+        and _document_is_well_typed(inputs.license_document)
+    )
+
+
+def _merge_registry_verification(
+    sidecar: ProductReferenceInputs, manifests_dir: Path, deployment_config: DeploymentConfig
+) -> ProductReferenceInputs:
+    """Merge the identity's registry-verification sidecar into *sidecar*. A missing file is as before; a
+    corrupt or wrong-shaped file (or ``verified`` that is not a bool, or ``coordinate`` / ``checked_at``
+    that are not strings) is ignored with ONE WARNING and the answers stay as if never verified. It never
+    changes the product-reference state."""
     family = deployment_config.family
     platform = deployment_config.platform
-    sidecar = load_manifest_sidecar(manifests_dir / sidecar_name(family, platform))
-    if sidecar is None:
-        return None
-    if sidecar.platform != platform:
-        raise RuntimeError(
-            f"sidecar platform {sidecar.platform!r} does not match {PLATFORM_ENV}={platform!r}"
+    path = manifests_dir / verify_package_registry_sidecar_name(family, platform)
+    state, payload = _read_sidecar_json(path)
+    if state == SIDECAR_NOT_PRESENT:
+        return sidecar
+    problem: str | None = None
+    registry_verification: dict[str, Any] = {}
+    if state == SIDECAR_FETCH_FAILED:
+        problem = str(payload)
+    else:
+        try:
+            loaded = load_package_registry_sidecar(path)
+        except Exception as exc:  # noqa: BLE001 - any loader failure is one ignored sidecar.
+            problem = type(exc).__name__
+        else:
+            if (
+                not isinstance(loaded, dict)
+                or not isinstance(loaded.get("verified"), bool)
+                or not isinstance(loaded.get("coordinate"), str)
+                or not isinstance(loaded.get("checked_at"), str)
+            ):
+                problem = _PROBLEM_WRONG_TYPES
+            else:
+                registry_verification = loaded
+    if problem is not None:
+        LOG.warning(
+            "sidecar unusable, ignored",
+            extra={
+                "sidecar": _KIND_PACKAGE_REGISTRY,
+                "problem": problem,
+                "file": path.name,
+                "family": family,
+                "platform": platform,
+            },
         )
-    registry_verification = load_package_registry_sidecar(
-        manifests_dir / verify_package_registry_sidecar_name(family, platform)
-    )
-    if registry_verification is None:
         return sidecar
     return dataclasses.replace(
         sidecar,
@@ -534,24 +710,150 @@ def _serving_product_reference_inputs(
     )
 
 
-def _serving_recent_releases(manifests_dir: Path, deployment_config: DeploymentConfig) -> Sequence[Release]:
-    """The product's own recent GitHub releases, from the sidecar for this deployment's identity
-    in *manifests_dir*, or an empty tuple when that sidecar does not exist yet (create_server then
-    answers list_recent_changes with its own honest empty list for every deployment whose
-    ingestion has not run yet, or whose releases step failed - never a raise that would block
-    serving starting).
+def _serving_product_reference_inputs(
+    manifests_dir: Path, deployment_config: DeploymentConfig
+) -> ProductReferenceInputs | None:
+    """The product's own packaging manifest, from the sidecar for this deployment's identity in
+    *manifests_dir*, or None when that sidecar does not exist (and no failure marker is left in its
+    place): create_server then answers the explicit NotAvailable for every manifest-derived section.
 
-    Mirrors ``_serving_product_reference_inputs``'s exact shape: the identity is the deployment's
-    family and platform, which ``main`` reads from the required ``FOSS_MCP_FAMILY`` and
-    ``FOSS_MCP_PLATFORM``. Only the file ``recent_releases_sidecar_name`` gives for that identity is
-    read; there is no fallback to another file.
+    The identity is the deployment's family and platform, which ``main`` reads from the required
+    ``FOSS_MCP_FAMILY`` and ``FOSS_MCP_PLATFORM``. Only the file ``sidecar_name`` gives for that
+    identity is read; there is no fallback to another file.
+
+    G3/TC-507: this never raises for sidecar content. Every problem (unreadable, corrupt, truncated, over
+    8 MiB, wrong shape, wrong type, a failure placeholder, a failure marker with no data, a platform, a
+    family or a source repository that is not this deployment's) is logged once at WARNING and degrades
+    the sidecar to a ``ProductReferenceInputs`` whose ``sidecar_state`` is ``fetch_failed``, which
+    ``get_product_reference`` answers as "could not be fetched", never as an absence. A failure marker
+    beside a good sidecar does not degrade it: the writer keeps good data on a failed refresh.
+
+    G2/TC-275 (C2 part 2): ALSO attempts to load this identity's own registry-verification
+    sidecar (``package_registry_<family>_<platform>.json``) and, when it is usable, merges its
+    ``verified``/``coordinate``/``checked_at`` fields into the returned ``ProductReferenceInputs``. An
+    absent or unusable registry sidecar is never a hard requirement: the answers stay as if never
+    verified.
     """
     family = deployment_config.family
     platform = deployment_config.platform
-    releases = load_recent_releases_sidecar(manifests_dir / recent_releases_sidecar_name(family, platform))
+    path = manifests_dir / sidecar_name(family, platform)
+    marker_exists, marker_stamp = _failure_marker(path)
+    state, payload = _read_sidecar_json(path)
+    if state == SIDECAR_NOT_PRESENT:
+        if not marker_exists:
+            return None
+        return _product_reference_fetch_failed(path, _PROBLEM_MARKER_ONLY, deployment_config, marker_stamp)
+    if state == SIDECAR_FETCH_FAILED:
+        return _product_reference_fetch_failed(path, str(payload), deployment_config, marker_stamp)
+    if not isinstance(payload, dict):
+        return _product_reference_fetch_failed(path, _PROBLEM_NOT_OBJECT, deployment_config, marker_stamp)
+    recorded_at = payload.get("fetched_at")
+    fetched_at = recorded_at if isinstance(recorded_at, str) else marker_stamp
+    if payload.get("state") == SIDECAR_FETCH_FAILED:
+        return _product_reference_fetch_failed(path, _PROBLEM_WRITER_FAILED, deployment_config, fetched_at)
+    if "family" in payload and payload["family"] != family:
+        return _product_reference_fetch_failed(path, _PROBLEM_FAMILY, deployment_config, fetched_at)
+    try:
+        sidecar = load_manifest_sidecar(path)
+    except Exception as exc:  # noqa: BLE001 - the loader raises by design; any failure is one sidecar.
+        return _product_reference_fetch_failed(path, type(exc).__name__, deployment_config, fetched_at)
+    if sidecar is None:
+        return _product_reference_fetch_failed(path, _PROBLEM_MARKER_ONLY, deployment_config, fetched_at)
+    if not _inputs_are_well_typed(sidecar):
+        return _product_reference_fetch_failed(path, _PROBLEM_WRONG_TYPES, deployment_config, fetched_at)
+    if sidecar.platform != platform:
+        return _product_reference_fetch_failed(path, _PROBLEM_PLATFORM, deployment_config, fetched_at)
+    if sidecar.source_repository is not None and not _family_in_repository(family, sidecar.source_repository):
+        return _product_reference_fetch_failed(path, _PROBLEM_REPOSITORY, deployment_config, fetched_at)
+    if marker_exists:
+        _log_refresh_failed(_KIND_PRODUCT_REFERENCE, path, deployment_config)
+    if isinstance(recorded_at, str):
+        sidecar = dataclasses.replace(sidecar, sidecar_fetched_at=recorded_at)
+    return _merge_registry_verification(sidecar, manifests_dir, deployment_config)
+
+
+def _releases_problem(entries: list[Any], family: str, source_repository: str | None) -> str | None:
+    """The fixed problem phrase for the first thing wrong with the decoded release *entries*, or None."""
+    expected = _normalised_slug(source_repository) if source_repository else None
+    for entry in entries:
+        if not isinstance(entry, dict):
+            return _PROBLEM_RELEASE_SHAPE
+        if not isinstance(entry.get("tag_name"), str) or not isinstance(entry.get("body"), str):
+            return _PROBLEM_RELEASE_SHAPE
+        if entry.get("richness") not in _RELEASE_RICHNESS:
+            return _PROBLEM_RELEASE_SHAPE
+        for key in ("url", "published_at"):
+            if entry.get(key) is not None and not isinstance(entry[key], str):
+                return _PROBLEM_RELEASE_SHAPE
+        url = entry.get("url")
+        if url is None:
+            continue
+        match = _GITHUB_REPOSITORY_URL.search(url)
+        if match is None:
+            return _PROBLEM_RELEASES_REPOSITORY
+        release_slug = f"{match.group(1)}/{match.group(2)}".lower().removesuffix(".git")
+        if not _family_in_repository(family, release_slug):
+            return _PROBLEM_RELEASES_REPOSITORY
+        if expected is not None and release_slug != expected:
+            return _PROBLEM_RELEASES_OTHER_REPOSITORY
+    return None
+
+
+def _resolve_recent_releases(
+    manifests_dir: Path, deployment_config: DeploymentConfig, *, source_repository: str | None = None
+) -> tuple[tuple[Release, ...], str]:
+    """``(releases, state)`` for this deployment's recent-releases sidecar; never raises.
+
+    An absent sidecar with no failure marker is ``((), not_present)``. An unusable sidecar (unreadable,
+    corrupt, over 8 MiB, not a list, an entry of the wrong shape, a loader failure, a release url that is
+    not this family's or, when *source_repository* is given, not that repository's) and an EMPTY list with a
+    failure marker (the placeholder the releases writer leaves) are ``((), fetch_failed)``, logged once at
+    WARNING. A non-empty list with a failure marker is kept (``present``) with one "refresh failed" WARNING.
+    """
+    family = deployment_config.family
+    platform = deployment_config.platform
+    path = manifests_dir / recent_releases_sidecar_name(family, platform)
+    marker_exists, _ = _failure_marker(path)
+
+    def failed(problem: str) -> tuple[tuple[Release, ...], str]:
+        _log_sidecar_unusable(_KIND_RECENT_RELEASES, problem, path, deployment_config)
+        return (), SIDECAR_FETCH_FAILED
+
+    state, payload = _read_sidecar_json(path)
+    if state == SIDECAR_NOT_PRESENT:
+        return failed(_PROBLEM_MARKER_ONLY) if marker_exists else ((), SIDECAR_NOT_PRESENT)
+    if state == SIDECAR_FETCH_FAILED:
+        return failed(str(payload))
+    if not isinstance(payload, list):
+        return failed(_PROBLEM_NOT_LIST)
+    problem = _releases_problem(payload, family, source_repository)
+    if problem is not None:
+        return failed(problem)
+    try:
+        releases = load_recent_releases_sidecar(path)
+    except Exception as exc:  # noqa: BLE001 - the loader raises by design; any failure is one sidecar.
+        return failed(type(exc).__name__)
     if releases is None:
-        return ()
-    return releases
+        return failed(_PROBLEM_MARKER_ONLY)
+    if marker_exists:
+        if not releases:
+            return failed(_PROBLEM_MARKER_ONLY)
+        _log_refresh_failed(_KIND_RECENT_RELEASES, path, deployment_config)
+    return releases, SIDECAR_PRESENT
+
+
+def _serving_recent_releases(
+    manifests_dir: Path, deployment_config: DeploymentConfig, *, source_repository: str | None = None
+) -> _ServedReleases:
+    """The product's own recent GitHub releases: the first element of ``_resolve_recent_releases``, an
+    empty tuple when the sidecar is absent or unusable. The result also carries the resolved sidecar
+    state as a ``state`` attribute, so a caller that takes the tuple (stdio) does not lose the difference
+    between "no releases" and "could not be fetched". Never raises for sidecar content (G3/TC-507).
+    """
+    releases, state = _resolve_recent_releases(
+        manifests_dir, deployment_config, source_repository=source_repository
+    )
+    return _ServedReleases(releases, state)
 
 
 def build_app(
@@ -577,7 +879,8 @@ def build_app(
     present, is passed to ``create_server`` as ``product_reference_inputs``, and the recent-releases
     sidecar in it, when present, is passed as ``recent_releases`` (G2/TC-244) - the one line that
     was previously missing, which left every deployment's ``list_recent_changes`` answering ``[]``
-    regardless of real tagged upstream releases. ``manifest_store`` and
+    regardless of real tagged upstream releases. No sidecar content can stop the app being built: an
+    unusable one degrades to ``fetch_failed`` and is logged (G3/TC-507). ``manifest_store`` and
     ``usage_recorder`` are each resolved ONCE, here, and handed to both ``create_server`` and
     their own route (``/readyz``, ``/metrics``) - never two separate instances for one running
     deployment, so ``/metrics`` always reports the exact counters ``_call_tool`` is live
@@ -607,12 +910,20 @@ def build_app(
     )
     _log_example_search_mode(startup_generation_store, deployment_config)
     _log_startup_readiness(startup_generation_store, deployment_config)
+    # Neither sidecar can stop the server starting (G3/TC-507): a bad one degrades to fetch_failed.
+    product_reference_inputs = _serving_product_reference_inputs(resolved_manifests_dir, deployment_config)
+    recent_releases, recent_releases_state = _resolve_recent_releases(
+        resolved_manifests_dir,
+        deployment_config,
+        source_repository=product_reference_inputs.source_repository if product_reference_inputs else None,
+    )
     server = create_server(
         deployment_config,
         resolved_store,
-        product_reference_inputs=_serving_product_reference_inputs(resolved_manifests_dir, deployment_config),
-        recent_releases=_serving_recent_releases(resolved_manifests_dir, deployment_config),
+        product_reference_inputs=product_reference_inputs,
+        recent_releases=recent_releases,
         usage_recorder=resolved_usage_recorder,
+        recent_releases_state=recent_releases_state,
     )
     allowed_origins = allowed_origins_from_env() if allowed_origins is None else allowed_origins
     inner = server.streamable_http_app(

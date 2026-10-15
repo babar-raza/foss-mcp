@@ -49,6 +49,11 @@ from foss_mcp.extraction.github_release_reader import Release
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.health import GENERATION_UNAVAILABLE_MESSAGE, generation_unavailable_reason
 from foss_mcp.mcp.routing import DeploymentConfig, Scope, resolve_scope
+from foss_mcp.mcp.sidecar_state import (
+    RELEASES_FETCH_FAILED_MESSAGE,
+    SIDECAR_PRESENT,
+    SidecarFetchFailedError,
+)
 from foss_mcp.mcp.tools.find_examples import find_examples
 from foss_mcp.mcp.tools.get_product_reference import SECTIONS, ProductReferenceInputs, get_product_reference
 from foss_mcp.mcp.tools.get_symbol import get_symbol
@@ -163,9 +168,11 @@ def _wrap_get_product_reference(inputs: ProductReferenceInputs) -> Callable[...,
     return get_product_reference_tool
 
 
-def _wrap_list_recent_changes(releases: Sequence[Release]) -> Callable[..., Any]:
+def _wrap_list_recent_changes(
+    releases: Sequence[Release], state: str = SIDECAR_PRESENT
+) -> Callable[..., Any]:
     def list_recent_changes_tool(*, limit: int = 10) -> Any:
-        return list_recent_changes(releases, limit=limit)
+        return list_recent_changes(releases, limit=limit, state=state)
 
     return list_recent_changes_tool
 
@@ -279,11 +286,14 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "resolves), 'formats', 'limitations', 'compatibility' (the real value from the repo's "
         "own packaging manifest, e.g. an exact .NET TargetFramework string - never a flattened "
         "generic claim), 'license', 'support', 'contributing', or 'agent_guidance'. Each "
-        "section returns either its real content or an explicit NotAvailable with a reason - "
-        "'formats' and 'limitations' are currently NotAvailable for every product, and "
-        "'contributing'/'agent_guidance' are NotAvailable whenever the source repository "
-        "genuinely lacks that file. Treat NotAvailable as authoritative absence, never a "
-        "transient failure - do not retry expecting different content."
+        "section returns either its real content or an explicit NotAvailable with a reason. "
+        "Formats and limitations have no structured source in this index for any product, so "
+        "use lookup or search_docs (for example query='limitations') to read them from the "
+        "product documentation. Contributing and agent_guidance are NotAvailable with a reason "
+        "ending in 'is not present in this repository' only when the source repository "
+        "genuinely lacks that file. A NotAvailable whose reason says the data could not be "
+        "fetched is transient: retry later, and do not read it as evidence that the repository "
+        "lacks the file."
     ),
     "list_recent_changes": (
         "Return the most recent releases (newest first) for this deployment's product, each "
@@ -291,7 +301,9 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "raw body text - a templated release note that only fills in a version number is "
         "labeled as such, never reported the same way as a real migration note. Use this for "
         "'what changed recently' questions; it takes no query, only limit (default 10) - it is "
-        "not a search tool, so do not pass a query string here."
+        "not a search tool, so do not pass a query string here. An empty list means the "
+        "product has no GitHub releases. When the release data could not be fetched, the call "
+        "returns an error saying so (retry later), never an empty list."
     ),
     "report_index_freshness": (
         "Compare the indexed generation's recorded source commit against a "
@@ -985,6 +997,7 @@ def _build_tool_registry(
     scope: Scope,
     product_reference_inputs: ProductReferenceInputs,
     recent_releases: Sequence[Release],
+    recent_releases_state: str = SIDECAR_PRESENT,
 ) -> dict[str, Callable[..., Any]]:
     return {
         "lookup": _wrap_lookup(store, scope),
@@ -994,7 +1007,7 @@ def _build_tool_registry(
         "list_members": _wrap_list_members(store, scope),
         "find_examples": _wrap_find_examples(store, scope),
         "get_product_reference": _wrap_get_product_reference(product_reference_inputs),
-        "list_recent_changes": _wrap_list_recent_changes(recent_releases),
+        "list_recent_changes": _wrap_list_recent_changes(recent_releases, recent_releases_state),
         "report_index_freshness": _wrap_report_index_freshness(store, scope, product_reference_inputs),
     }
 
@@ -1005,8 +1018,13 @@ def create_server(
     product_reference_inputs: ProductReferenceInputs | None = None,
     recent_releases: Sequence[Release] = (),
     usage_recorder: UsageRecorder | None = None,
+    recent_releases_state: str = SIDECAR_PRESENT,
 ) -> Server:
     """Bootstrap the MCP server for one deployment, with all nine tools registered.
+
+    ``recent_releases_state`` (G3/TC-507) is ``fetch_failed`` when the releases sidecar was
+    unusable: ``list_recent_changes`` then answers an ``unavailable`` error instead of an empty
+    list. ``product_reference_inputs`` carries its own ``sidecar_state``.
 
     ``resolve_scope`` fixes the scope once, here, from ``deployment_config`` alone; every
     tool wrapper closes over that one ``Scope`` for the lifetime of this server - no tool
@@ -1029,7 +1047,7 @@ def create_server(
     usage_recorder = usage_recorder if usage_recorder is not None else UsageRecorder()
     deployment_id = f"{scope.family}::{scope.platform}"
     generation_scope_key = scope_key(scope, SOURCE_KIND)
-    registry = _build_tool_registry(store, scope, inputs, recent_releases)
+    registry = _build_tool_registry(store, scope, inputs, recent_releases, recent_releases_state)
     schemas = {name: tool_input_schema(name) for name in registry}
     for name, handler in registry.items():
         _assert_schema_matches_wrapper(name, schemas[name], schema_for(handler))
@@ -1207,6 +1225,43 @@ def create_server(
                 structured_content={
                     "code": ToolErrorCode.UNAVAILABLE.value,
                     "message": GENERATION_UNAVAILABLE_MESSAGE,
+                    "correlation_id": correlation_id,
+                },
+                is_error=True,
+            )
+        except SidecarFetchFailedError:
+            # The data this tool reads could not be fetched during ingestion (G3/TC-507): an error
+            # with one fixed message and the code ``unavailable`` - never an empty list, which an
+            # agent reads as "this product has no releases".
+            logger.warning(
+                "tool '%s' has no usable release data: the releases sidecar is fetch_failed "
+                "correlation_id=%s",
+                params.name,
+                correlation_id,
+            )
+            latency_ms = (time.monotonic() - started_at) * 1000
+            _log_tool_call(
+                logger,
+                tool_name=params.name,
+                correlation_id=correlation_id,
+                outcome="error",
+                latency_ms=latency_ms,
+            )
+            _record_usage_safely(
+                usage_recorder,
+                correlation_id=correlation_id,
+                deployment_id=deployment_id,
+                tool_name=params.name,
+                outcome="error",
+                latency_ms=latency_ms,
+                result=None,
+                arguments=params.arguments or {},
+            )
+            return CallToolResult(
+                content=[TextContent(type="text", text=RELEASES_FETCH_FAILED_MESSAGE)],
+                structured_content={
+                    "code": ToolErrorCode.UNAVAILABLE.value,
+                    "message": RELEASES_FETCH_FAILED_MESSAGE,
                     "correlation_id": correlation_id,
                 },
                 is_error=True,

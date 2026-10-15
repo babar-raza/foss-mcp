@@ -14,7 +14,8 @@ identity" rather than two copies that can drift.
 The server is built exactly as the HTTP path builds it: with the product-reference inputs and the recent
 releases read from the sidecars for this identity in the manifests directory
 (``serve_http._serving_product_reference_inputs`` / ``_serving_recent_releases``), so a tool answers the
-same over stdio as over HTTP. Only the transport differs.
+same over stdio as over HTTP. Only the transport differs. A bad sidecar degrades to ``fetch_failed``
+identically over both (G3/TC-507); ``_serving_recent_releases`` carries the releases sidecar state.
 """
 
 from __future__ import annotations
@@ -58,11 +59,19 @@ def build_stdio_server(
         if manifests_dir is not None
         else Path(os.environ.get(MANIFESTS_DIR_ENV, DEFAULT_MANIFESTS_DIR))
     )
+    # The same resolution as serve_http.build_app, so stdio and HTTP degrade identically (G3/TC-507).
+    product_reference_inputs = _serving_product_reference_inputs(resolved_dir, deployment_config)
+    recent_releases = _serving_recent_releases(
+        resolved_dir,
+        deployment_config,
+        source_repository=product_reference_inputs.source_repository if product_reference_inputs else None,
+    )
     return create_server(
         deployment_config,
         manifest_store if manifest_store is not None else GenerationManifestStore(resolved_dir),
-        product_reference_inputs=_serving_product_reference_inputs(resolved_dir, deployment_config),
-        recent_releases=_serving_recent_releases(resolved_dir, deployment_config),
+        product_reference_inputs=product_reference_inputs,
+        recent_releases=recent_releases,
+        recent_releases_state=recent_releases.state,
     )
 
 

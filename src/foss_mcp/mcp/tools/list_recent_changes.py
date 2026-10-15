@@ -12,6 +12,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from foss_mcp.extraction.github_release_reader import Release, RichnessVerdict
+from foss_mcp.mcp.sidecar_state import (
+    RELEASES_FETCH_FAILED_MESSAGE,
+    SIDECAR_FETCH_FAILED,
+    SIDECAR_PRESENT,
+    SidecarFetchFailedError,
+)
 
 
 @dataclass(frozen=True)
@@ -23,11 +29,20 @@ class ChangeEntry:
     url: str | None = None
 
 
-def list_recent_changes(releases: Sequence[Release], *, limit: int = 10) -> list[ChangeEntry]:
+def list_recent_changes(
+    releases: Sequence[Release], *, limit: int = 10, state: str = SIDECAR_PRESENT
+) -> list[ChangeEntry]:
     """The most recent *limit* releases (assumed already ordered newest-first, as
     ``github_release_reader.fetch_releases`` returns them), each carrying the SAME richness
     verdict ``classify_richness`` gave it - never dropped, never upgraded, never guessed at.
+
+    G3/TC-507: when the releases data could not be fetched (*state* is ``fetch_failed``) this
+    raises ``SidecarFetchFailedError`` rather than returning an empty list, which a caller would
+    read as "this product has no releases". A good list and a truthfully empty list keep the
+    bare-list shape.
     """
+    if state == SIDECAR_FETCH_FAILED:
+        raise SidecarFetchFailedError(RELEASES_FETCH_FAILED_MESSAGE)
     return [
         ChangeEntry(
             tag_name=release.tag_name,
