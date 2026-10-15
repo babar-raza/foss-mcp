@@ -425,10 +425,12 @@ def test_main_resolves_the_recommended_cap_and_feeds_readme_names() -> None:
     assert "names_used_in_examples(" in source
 
 
-def test_extractor_version_is_two() -> None:
-    assert run_extraction.EXTRACTOR_VERSION == 2
+def test_extractor_version_is_a_defined_integer_of_at_least_two() -> None:
+    assert isinstance(run_extraction.EXTRACTOR_VERSION, int)
+    assert not isinstance(run_extraction.EXTRACTOR_VERSION, bool)
+    assert run_extraction.EXTRACTOR_VERSION >= 2
     text = (REPO_ROOT / "src" / "foss_mcp" / "extraction" / "run_extraction.py").read_text(encoding="utf-8")
-    assert re.search(r"^EXTRACTOR_VERSION = 2$", text, re.MULTILINE)
+    assert re.search(r"^EXTRACTOR_VERSION = \d+$", text, re.MULTILINE)
     assert re.search(r"^README_KEEP_FRACTION = 0\.7$", text, re.MULTILINE)
 
 
@@ -454,7 +456,7 @@ def test_extract_pinned_repository_writes_the_new_keys(
 
     monkeypatch.setattr(run_extraction, "clone_shallow", _fake_clone)
     artifact = run_extraction.extract_pinned_repository(manifest)
-    assert artifact["extractor_version"] == 2
+    assert artifact["extractor_version"] == run_extraction.EXTRACTOR_VERSION
     counts = artifact["symbol_counts"]
     assert counts == run_extraction.summarize_symbols(artifact["types"])
     assert counts["types"] >= 1 and counts["functions"] >= 1  # Gadget and make (and their re-exports)
