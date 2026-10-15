@@ -1,0 +1,219 @@
+id: TC-521
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-008 (independent pre-production review, findings RST-04 = ISOPROV-02 = AGT-01). JS MIXINS AND DESTRUCTURED CONSTRUCTORS. The jmap/nodejs
+  pilot is genuine JavaScript (aspose-email-foss/Aspose.JMAP-FOSS-for-Node.js at 93f22fb, 44 .js, no .ts) but its client API is invisible. Measured
+  by the reviewers and re-measured here by running `run_extraction.extract_from_clone` on the pinned clone: src/client-mail.js and
+  src/client-submission.js define `export const MailClientMixin = { async listMailboxes(...) {...}, ... }` and src/index.js applies them with
+  `Object.assign(JmapClient.prototype, MailClientMixin)` onto `class JmapClient extends CoreClient {}`, where CoreClient is the import alias of
+  `JmapClient` from client-core.js. The extractor models only `class` declarations and object-literal methods fail `is_public` (their parent is an
+  `object`, not a class_body), so 13 of 20 public client methods (listMailboxes, getMailbox, createMailbox, deleteMailbox, listMessages, fetchMessage,
+  moveMessage, setMessageKeyword, deleteMessage, listIdentities, send, cancelSend, listSubmissions) are absent, the fixture's wrapper
+  `JmapClient` (file src/index.js) has `bases ["CoreClient"]` and NO methods, and `list_members JmapClient` returns an empty list although every
+  chunk claims `API-Coverage: 31 of 31 types`. The served README example itself calls `client.listMailboxes()`. Two smaller defects of the same
+  adapter sit on the same pilot: `constructor({ id, name, parentId = null, ... } = {})` (models/Mailbox.js:21, and every other model) renders
+  `constructor()` with no parameter because `_extract_method_params` (api_surface.py L357) ignores `object_pattern` and `assignment_pattern`
+  parameters, so an agent cannot learn which fields a model accepts; and the class description of every `export class` is dropped (jmap/nodejs
+  class descriptions 3 percent): `_extract_doc_comment` (L759) asks `lang.get(language)` for the doc anchor, but `lang.LANGUAGES` has no
+  "javascript" key (only "typescript"), so the redirect from the declaration to its `export_statement` that makes TypeScript work never happens for
+  the language the nodejs pilots extract under. The review also found no permanent test that the identifiers a pilot's README names resolve to
+  something the index holds (the 65-task blind run found 3 of 5 jmap/nodejs tasks undiscoverable for exactly this reason). This card: (1) teaches
+  the JavaScript extraction object-literal mixins applied with `Object.assign(<Class>.prototype, <Mixin>, ...)` (also inline object literals),
+  attaching the mixin's methods to the class in the file that applies them, marked with their mixin and defining file; (2) resolves an
+  `extends <import alias>` base to the aliased class so the wrapper inherits the core client's members; (3) renders a destructured parameter as one
+  object-typed parameter built from the pattern and the JSDoc `@param {T} [params.key=default]` lines, and adds the destructured keys of a
+  constructor as properties; (4) fixes the JavaScript doc anchor; (5) adds the permanent, data-driven "identifiers the docs name must resolve"
+  helper and test over all 40 committed fixtures with an allowlist derived from the CURRENT fixtures (stale-allowlist rule, like TC-440's
+  tex_python exception). What does NOT change: the committed jmap_nodejs fixture (a later re-extraction card regenerates it and must then shrink the
+  allowlist), TypeScript behaviour (TC-523), signature rendering of any other language, the selection policy (TC-520).
+depends_on:
+- TC-520
+- TC-315
+- TC-396
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- src/foss_mcp/extraction/run_extraction.py
+- src/foss_mcp/indexing/chunk_builder.py
+- tests/extraction/tree_sitter_engine/test_js_mixins.py
+- tests/extraction/docs_identifiers.py
+- tests/extraction/test_docs_identifiers_resolve.py
+- tests/indexing/test_chunk_builder_mixin_suffix.py
+- tests/fixtures/readme_identifier_allowlist.json
+- tests/fixtures/js_mixin_sample/**
+satisfies:
+- REQ-G3-008
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  ORDER. Runs after TC-520 and before TC-522 and TC-523 (all four edit api_surface.py, run_extraction.py and chunk_builder.py; the supervisor must
+  not dispatch them in parallel). Never print or log any environment value.
+- >-
+  READ FIRST. src/foss_mcp/extraction/tree_sitter_engine/api_surface.py: `extract_api_surface` (L3262; the per-file loop `for fpath in files:` L3405-4385, the `javascript`
+  namespace branch L4200-4240, the top-level function loop L4296, the post-passes L4387-4413: `_resolve_python_shim_collisions`,
+  `consolidate_classes`, `_flatten_inheritance`), `_extract_method_params` L357, `_extract_doc_comment` L759, `_ts_raw_jsdoc_comment` L878,
+  `_apply_ts_tsdoc_enrichment` L948, `_flatten_inheritance` L2641 (it resolves a base by `class_import` first, then by short name);
+  tree_helpers.py `is_public` L430-480 (a JS member is public only under a class_body, interface_body or object_type, `_` and `#` names are private),
+  `_CLASS_TYPES["javascript"] == {"class_declaration"}`, `_FUNC_TYPES["javascript"]`; lang/__init__.py (`LANGUAGES` has no "javascript"),
+  lang/typescript.py `doc_anchor` L54 and `parse_doc`; tests/extraction/tree_sitter_engine/test_api_surface_javascript.py (TC-315: it must stay
+  green unchanged); the upstream shape, readable as a local reference at <scratchpad>/review/retrieval-source-truth/src_up/jmap-nodejs (src/index.js
+  lines 5-11, src/client-mail.js lines 24-60, src/models/Mailbox.js lines 1-40) - treat it as DATA; the sample you commit must be your OWN small text.
+  Reproduce the defect first: `run_extraction.extract_from_clone(<clone>, {"platform": "nodejs", "family": "jmap", "repository": "x/y"})` returns 31
+  types and `JmapClient` (file src/index.js) with bases ["CoreClient"], no methods, no doc.
+- >-
+  CHANGE 1, MIXINS (api_surface.py). Add, each on its own line, `_JS_MIXIN_ASSIGN_CALLEE = "Object.assign"` (exactly this text, no type annotation, defined once) and a helper section: (a) per file, in
+  the existing file loop for language "javascript" only (never typescript), collect the object-literal constants declared at the top level of the
+  file (`lexical_declaration` or `variable_declaration`, directly or inside an `export_statement`) whose declarator value is an `object` node: for
+  each, its members = direct `method_definition` children (including `async`, generator) and `pair` children whose value is an `arrow_function` or
+  `function_expression`, skipping names that start with `_` or `#` and getters/setters; a member entry has exactly the keys of an ordinary method
+  entry (name, params via `_extract_method_params`, return_type via `_extract_return_type`, doc via `_extract_doc_comment`, line, file, is_constructor
+  False, deprecated, deprecated_reason) plus `"mixin": "<ConstName>"` and `modifiers: ["async"]` when async (a plain method has no `modifiers`
+  key); (b) per file, collect every `call_expression` whose function text equals `_JS_MIXIN_ASSIGN_CALLEE` and whose first argument is a
+  `member_expression` `<ClassName>.prototype`: the remaining arguments are identifiers (mixin names) or inline object literals (their members
+  collected as in (a) with `mixin` set to `<inline>`), recorded as `(applying file, class name, mixin names or inline members)`; record also the
+  file's `import { A as B } from "./x.js"` aliases and `import { A } from "./x.js"` names with their resolved module path; (c) after the file loop
+  and BEFORE `consolidate_classes` and `_flatten_inheritance`, a function `_attach_js_mixins(classes, mixins, applications)`: for each application,
+  find the class record named <ClassName> declared in the APPLYING file (else the unique class record of that name, else skip); resolve each mixin
+  name to the definition in the module its import statement names (else the unique definition of that name in the package, else skip silently);
+  append the mixin's method entries to the class's `methods` (deep copies, an existing member name never replaced, order = mixin argument order then
+  declaration order). A mixin const itself is NOT emitted as a type. Object-literal methods must not additionally appear as top-level function
+  entries (assert it in a test). A mixin member keeps `file` and `line` of the MIXIN file, which is how `Defined-In` is reported.
+- >-
+  CHANGE 2, ALIAS BASES (api_surface.py). In the same post-pass, for a JavaScript class whose `bases` entry equals the local alias of an
+  `import { Orig as Alias } from "./mod.js"` of its own file, and where the module path of that import (relative to the package root, `.js` removed,
+  `/` replaced by `.`, a trailing `index` dropped - exactly the derivation of `class_import` in the javascript namespace branch) plus `.Orig`
+  equals the `class_import` of a known class, replace the base by that `class_import` (here `client-core.JmapClient`). A base that does not resolve
+  stays as written. `_flatten_inheritance` then copies the core client's methods into the wrapper with `inherited_from`.
+- >-
+  CHANGE 3, DESTRUCTURED, DEFAULTED AND REST PARAMETERS (api_surface.py `_extract_method_params`, language "javascript" only; keep the destructuring code in a language-neutral helper `_destructured_param(pattern_node, default_node, jsdoc_raw)` because TC-523 reuses it for TypeScript). When a formal parameter is an
+  `object_pattern`, or an `assignment_pattern` whose left side is an `object_pattern` (its right side `{}` makes the parameter optional), emit ONE
+  param dict: `name` = the base name of the first JSDoc `@param {object} <name>` of the function (here `params`), else `options`; `type` = the
+  synthesised object type `{ id?: string; name: string; parentId?: string | null; ... }` (a key with a default or a JSDoc `[key]` in brackets is
+  optional and gets `?`; the type comes from the JSDoc `@param {T} [name.key=default] - text` line, brace-balanced, else `any`; truncated at 300
+  characters with an ellipsis); `default` = `{}` when the pattern had an `= {}`; and an additive `destructured` list of
+  `{"name", "type", "default", "optional", "doc"}` per key. Measured on a scratch class `async f(a, b = null, ...rest)`: the JavaScript grammar wraps a defaulted parameter in an
+  `assignment_pattern` and a rest parameter in a `rest_pattern`, neither is in the node list of `_extract_method_params`, so today only `a` survives
+  (the TypeScript grammar keeps `b` as a `required_parameter`). For language "javascript" ONLY: an `assignment_pattern` whose left side is an
+  identifier becomes `{"name", "type": "", "default": <source text of the right side, at most 120 characters>}` and a `rest_pattern` becomes
+  `{"name": "...rest", "type": ""}`; without this the mixin methods' `ids = null` and `...args` are lost. TypeScript parameters (defaults, `?`, rest, destructured
+  patterns) are TC-523's job; do not change any TypeScript branch here (the new tests must show TypeScript output byte-identical). Plain positional parameters are untouched (existing tests). In
+  addition, for a `constructor` method of a class, every destructured key not already a property is added to the class `properties` as
+  `{"name", "type", "writable": True, "doc"}`. Keep the code in small helpers with docstrings.
+- >-
+  CHANGE 4, DOC ANCHOR (api_surface.py `_extract_doc_comment`): obtain the adapter with `lang.get("typescript" if language == "javascript" else
+  language)` so an exported JavaScript declaration finds the JSDoc block that precedes its `export_statement`; the first sentence rule is unchanged.
+  Run test_api_surface_javascript.py and the other JS tests first; change an existing assertion only if it pinned an empty description, with a comment.
+- >-
+  CHANGE 5, RENDERING (chunk_builder.py). A method entry with a `mixin` key renders the suffix `  (mixin <Name>, <file>)` after its modifiers
+  and before the inherited/deprecated suffixes (for example `  - listMailboxes(accountId: ..., ids = null) [async]  (mixin MailClientMixin,
+  src/client-mail.js)`); the member name still ends at the first `(` or `:` (search_symbols `_member_name` parses it that way), so nothing before the
+  name changes. A destructured parameter renders through the existing `_param_text` as `params: { id?: string; ... } = {}`. Entries without the key
+  render exactly as before. run_extraction.py: set `EXTRACTOR_VERSION = 3` (the line TC-520 created) - the fixtures committed today stay
+  version 1 until a re-extraction card runs.
+- >-
+  SAMPLE TREE (NEW, committed, your own small original text, LF): tests/fixtures/js_mixin_sample/package.json (`{"name": "jmap-sample", "type":
+  "module"}`), src/client-core.js (class JmapClient with constructor(options), connect, close, sendRequest, a private `_x`), src/client-mail.js
+  (`export const MailClientMixin = {` with async listMailboxes(accountId, ids = null, properties = null), async getMailbox, async createMailbox,
+  async deleteMailbox, a `_private` member and an arrow-function `pair` member, each with a JSDoc block), src/client-submission.js
+  (`SubmissionClientMixin` with async send and cancelSend), src/index.js (the wrapper `class JmapClient extends CoreClient {}` via `import {
+  JmapClient as CoreClient } from "./client-core.js"`, two `Object.assign(JmapClient.prototype, ...)` calls, `export { JmapClient }`), src/models/
+  Mailbox.js (`/** Represents a named set of Emails. @class Mailbox */ export class Mailbox` with a destructured constructor and JSDoc
+  `@param {object} params` / `@param {string} params.name - ...` / `@param {string|null} [params.parentId=null]` lines) and src/multi.js (a second class
+  `Hub` with `Object.assign(Hub.prototype, AMixin, BMixin)` and one inline `Object.assign(Hub.prototype, { ping() {} })`, the mixins declared in
+  src/hub-mixins.js). Do not copy upstream text.
+- >-
+  tests/extraction/tree_sitter_engine/test_js_mixins.py (NEW, offline, deterministic, no skipped tests; runs `run_extraction.extract_from_clone` on a
+  COPY of the sample tree in tmp_path with manifest `{"platform": "nodejs", "family": "jmap", "repository": "x/y"}`; at least 20 tests):
+  `test_wrapper_class_gets_the_mixin_methods` (listMailboxes, getMailbox, createMailbox, deleteMailbox, send, cancelSend on the entry whose file is
+  src/index.js), `test_mixin_method_keeps_the_mixin_file_and_name`, `test_mixin_async_is_a_modifier`, `test_mixin_defaults_and_params_are_extracted` (`ids = null` has default null, `...rest` is kept), `test_js_rest_and_default_params_outside_mixins`,
+  `test_private_and_unapplied_mixin_members_are_not_published`, `test_mixin_const_is_not_a_type`, `test_object_literal_methods_are_not_top_level_
+  functions`, `test_multi_argument_object_assign`, `test_inline_object_literal_assign`, `test_unresolvable_mixin_is_skipped_silently`,
+  `test_application_in_another_file_than_the_mixin`, `test_alias_base_is_resolved_to_the_core_class`, `test_wrapper_inherits_core_methods_with_
+  inherited_from`, `test_unresolved_alias_base_stays_as_written`, `test_destructured_constructor_is_one_object_param`, `test_destructured_keys_
+  carry_jsdoc_types_and_defaults`, `test_destructured_constructor_adds_properties`, `test_positional_params_are_unchanged`,
+  `test_exported_js_class_keeps_its_first_sentence`, `test_extraction_is_deterministic` (two runs, equal JSON), `test_typescript_language_is_
+  unaffected` (a tmp typescript tree with a mixin-looking object literal produces no extra members), `test_extractor_version_is_at_least_three`,
+  `test_mixin_assign_callee_is_wired` (the committed api_surface.py contains `_JS_MIXIN_ASSIGN_CALLEE` at its definition and at least once inside
+  `extract_api_surface` or `_attach_js_mixins`, and `_attach_js_mixins(` is called from `extract_api_surface`; AGENTS.md integration rule).
+  ACCEPTANCE (permanent, data-driven, offline): `test_list_members_of_the_owner_is_not_empty` builds chunks with `build_chunks_from_api_surface` from
+  the extracted sample artifact (fixture dict: source_repository, source_commit, type_count, types), publishes nothing, parses the `Methods:` block of
+  the wrapper's chunk and asserts it holds `listMailboxes`, `createMailbox`, `connect` (inherited) and has more than 6 lines, i.e. the exact failure
+  of the committed jmap_nodejs fixture is gone for the sample. tests/indexing/test_chunk_builder_mixin_suffix.py (NEW, at least 4 tests): the suffix
+  text and position, a member without the key renders as before, `_member_name`-style parsing of the rendered line returns the bare method name, a
+  destructured param renders as `params: {...} = {}`.
+- >-
+  THE REUSABLE "DOCS-REFERENCED IDENTIFIERS RESOLVE" HELPER. tests/extraction/docs_identifiers.py (NEW, a helper module, not collected as tests;
+  later re-extraction cards import it as `from tests.extraction.docs_identifiers import ...`): `PILOTS` = sorted directory names under
+  tests/fixtures that hold an api_surface.json; `docs_identifiers(pilot) -> set[str]`: read tests/fixtures/furnished/<pilot>/pages/_index.md with
+  `run_extraction._page_texts`, drop fenced blocks (`run_extraction._FENCE_RE`), take every single-backtick span of at most 80 characters on one line
+  that matches `^[A-Za-z_]\w*(?:(?:\.|::)[A-Za-z_]\w*)*(?:\(\))?$`, keep it only when it is API-shaped (ends with `()`, or contains `.` or `::`, or its
+  last segment has a lower-to-upper transition or an underscore, or matches `[A-Z][a-z]+[A-Z]`), and return the LAST segment of each; `known_names(
+  pilot) -> set[str]`: every `name`, the last `.`/`::`/`/` segment of every `class_import`, and every method, property and enum member `name` of the
+  committed fixture; `unresolved(pilot) -> set[str]` = the difference; `load_allowlist() -> dict[str, list[str]]` from
+  tests/fixtures/readme_identifier_allowlist.json; `compare(pilot) -> tuple[set, set]` returning (new gaps not on the allowlist, stale entries that now
+  resolve or are no longer named); `assert_docs_identifiers_resolve(pilots=None)` raising AssertionError that names every pilot with a
+  difference and says what to do (add the new gap to the allowlist with a reason, or REMOVE the stale entry); and a `main()` (`python -m
+  tests.extraction.docs_identifiers --write`) that regenerates the allowlist file deterministically (sorted keys, sorted lists, `indent=2`, LF, trailing
+  newline, only pilots with a non-empty set). Measured with the prototype on the committed fixtures: 2295 identifiers are unresolved in total
+  (pdf_java 765, pdf_net 553, words_net 215, slides_python 202, pdf_python 129, 3d_python 62, html_python 44, pdf_go 41, slides_net 29, jmap_nodejs 20,
+  jmap_java 17 ...; most are the 300-type cap, a few are not API at all such as toml or cmake_minimum_required, and jmap_nodejs lists
+  createMailbox, deleteMailbox, cancelSend, listMessages). Generate the file with the helper's `--write`; do not hand-edit it.
+  tests/extraction/test_docs_identifiers_resolve.py (NEW, at least 46 tests, offline): `test_allowlist_matches_the_current_gaps` parametrized over every
+  pilot in PILOTS (40 cases; each asserts compare(pilot) == (set(), set()) with the actionable message), `test_every_allowlist_pilot_is_a_real_pilot`,
+  `test_allowlist_file_is_canonical` (rewriting it with the helper into tmp_path gives the identical bytes), `test_a_new_gap_is_reported` and
+  `test_a_fixed_gap_left_on_the_allowlist_is_reported` (synthetic fixture/allowlist dicts passed to the pure comparison, so the stale-allowlist
+  rule is itself pinned), `test_api_shape_rules` (table of tokens: `Document.Save()` yes, `pip` no, `listMailboxes` yes, `toml` no, `snake_case` yes),
+  `test_jmap_nodejs_mixin_methods_are_a_listed_gap` (documents today's gap: listMailboxes, createMailbox and cancelSend are in the allowlist AND are
+  unresolved in the committed fixture, so the test fails the day the re-extraction card regenerates jmap_nodejs without shrinking the list).
+- >-
+  Run the first check command, then the second (the TC-315 test file, the whole extraction suite and the chunk-builder suites must stay green).
+  tests/test_unwired_modules.py: new public names in api_surface.py are private (underscore) or called. Do NOT regenerate any committed fixture and do
+  NOT edit the allowlist by hand. Write commit messages as UTF-8 without a byte-order mark; the sample files are LF.
+actions:
+- >-
+  Attach object-literal mixins applied with Object.assign to the class that receives them, resolve aliased bases, render destructured parameters and
+  their keys, and fix the JavaScript class description anchor.
+- >-
+  Add the permanent docs-identifiers-resolve test and helper with an exact, stale-checked allowlist derived from the current fixtures.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_js_mixins.py tests/extraction/test_docs_identifiers_resolve.py tests/indexing/test_chunk_builder_mixin_suffix.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/test_unwired_modules.py tests/test_layout.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+min_tests: 66
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='_JS_MIXIN_ASSIGN_CALLEE = ';assert s.count(old)==1;p.write_text(s.replace(old,'_JS_MIXIN_ASSIGN_CALLEE = chr(120) + ',1),encoding='utf-8')"
+  rationale: >-
+    Turns the recognised callee into "xObject.assign", so the extractor stops recognising Object.assign(Class.prototype, Mixin): no mixin is ever
+    attached, the wrapper class has no listMailboxes, and the acceptance test (the owner's Methods block must hold the mixin methods) and every mixin
+    test fail, as does the alias-inheritance test that counts the wrapper's members. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-521/receipt.json
+closeout:
+- >-
+  A JavaScript library that composes its client from object-literal mixins publishes those methods on the class they are applied to, a destructured
+  constructor shows the keys it accepts, and exported classes keep their description. A permanent test now fails whenever a pilot's README names an
+  identifier the committed fixture does not hold unless it sits on the exact allowlist, and fails again when a listed gap is fixed without removing
+  it. Takes effect for jmap_nodejs when a re-extraction card regenerates tests/fixtures/jmap_nodejs/api_surface.json (it must then regenerate the
+  allowlist with `python -m tests.extraction.docs_identifiers --write` and show the jmap_nodejs entry shrinking: listMailboxes, getMailbox,
+  createMailbox, deleteMailbox, listMessages, fetchMessage, moveMessage, setMessageKeyword, deleteMessage, listIdentities, send, cancelSend,
+  listSubmissions must leave it) and the image is rebuilt.
+recovery: Re-run from a clean tree.

@@ -1,0 +1,263 @@
+id: TC-520
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-008 (independent pre-production review, findings RST-01 selection part, RST-03 = ISOPROV-01, AGT-03, ISOPROV-06; RST-17 is NOT
+  addressed). COVERAGE POLICY AND PARSE-FAILURE HONESTY. Measured by the reviewer on the shipped image: (1) 12 pilots index a capped slice of
+  their API and the cap is blind to what the library's own README names: pdf/net 300 of 901, pdf/java 300 of 1239, words/net 300 of 618, pdf/python
+  300 of 867, pdf/cpp 300 of 361; search_symbols PdfFileEditor, PdfFileSignature, PageCollection, TextBuilder, PngDevice, TableAbsorber (pdf/net),
+  PdfFileEditor (pdf/python), FindReplaceOptions, JoinRunsOptions (words/net) are honest misses although the README names them; README recall top-3
+  is 33 percent on pdf/net and pdf/java. Root: `reduce_fixture` in src/foss_mcp/extraction/run_extraction.py (L499-548) ranks groups by how many
+  OTHER types reference them (`_group_centrality_scores`), so leaf entry points score zero, and `must_keep` is fed only with the types used inside
+  the furnished page's code fences (`names_used_in_examples`, L652). (2) The cap is spent on engine internals: 193 of pdf/java's 300
+  (org.aspose.pdf.engine.xfa.*), 50 of pdf/cpp's 300 under include/internal/, 22 of slides/net under .Internal., 13 of pdf/python from
+  aspose_pdf/generated/, cells/typescript carries the vendored xmldom.d.ts. Measured on the committed fixtures with reduce_fixture at a cap of 100:
+  pdf/java keeps 83 engine types of 100, pdf/cpp keeps 5 include/internal types of 150. (3) The coverage line counts anything extracted as a
+  "type": pdf/go says `API-Coverage: 300 of 2313 types` although the 300 kept entries of the committed fixture are 216 type_spec plus 84
+  function entries and about 259 exported types exist upstream (functions and methods whose receiver is not indexed are counted as types). (4) tex/python: 35 of the
+  45 .py files of the package src/aspose_tex (102 of 119 repo-wide) do not parse at the pinned commit 181015d (IndentationError), so the pilot
+  indexes 4 exception classes, yet `report_index_freshness` says indexed_types 4 and total_types 4 with coverage_note null (reads as 100 percent),
+  `get_symbol aspose_tex.TeXJob` answers found false with no suggestions and no coverage_note, and the committed fixture records the problem only as
+  two `:syntax-error:` strings inside `unresolved`, because python_surface skips modules with a leading underscore before it parses them
+  (aspose_tex/_input/reader.py is reached only through the re-export origin check). This card changes selection and honesty and nothing about
+  signatures: (a) a README/furnished-page mention tier in `reduce_fixture`: identifiers inside the page's code fences and inline code spans,
+  ranked by mention count, are kept after the example-used types and before centrality, up to a fraction of the cap; (b) a demotion of
+  internal/engine/generated/vendored groups so they only fill slots nothing else wants; (c) the coverage line of every symbol chunk separates types
+  from functions and states unparsed source files; (d) the extraction records per-file parse failures in the fixture; (e) one shared
+  `coverage_note` helper used by get_symbol and report_index_freshness so a miss and the freshness report state the failure; (f) the proposed
+  per-pilot caps as a constant wired into the extraction CLI. What does NOT change: the committed fixtures (a later re-extraction card regenerates
+  them), values.yaml and docker-compose.yml (maxTypes is already per pilot; raising it is a data card), any signature rendering (TC-521, TC-522,
+  TC-523 and the C++/Go/Java/Rust cards), the search_symbols and lookup miss text (sibling serving cards import the new helper), the wording of
+  an existing note for a fixture that has none of the new keys.
+depends_on:
+- TC-473
+- TC-394
+- TC-426
+- TC-396
+- TC-382
+- TC-460
+- TC-386
+- TC-444
+- TC-383
+write_paths:
+- src/foss_mcp/extraction/run_extraction.py
+- src/foss_mcp/indexing/chunk_builder.py
+- infra/build_chunks.py
+- src/foss_mcp/mcp/tools/coverage_note.py
+- src/foss_mcp/mcp/tools/get_symbol.py
+- src/foss_mcp/mcp/tools/report_index_freshness.py
+- tests/extraction/test_run_extraction_coverage_policy.py
+- tests/extraction/test_run_extraction_parse_failures.py
+- tests/indexing/test_chunk_builder_coverage_line.py
+- tests/mcp/tools/test_coverage_note.py
+- tests/infra/test_build_chunks_parse_failures_notice.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  ORDER. TC-520, TC-521, TC-522 and TC-523 all edit src/foss_mcp/extraction/tree_sitter_engine/api_surface.py and run_extraction.py and
+  chunk_builder.py in turn; they run strictly in id order (520 -> 521 -> 522 -> 523), and the sibling extraction cards TC-524 and later
+  run after TC-523. This card touches run_extraction.py, chunk_builder.py and infra/build_chunks.py but NOT api_surface.py. Never print or
+  log any environment value.
+- >-
+  READ FIRST. src/foss_mcp/extraction/run_extraction.py (`extract_from_clone` L249, `_extract_python_surface` L230, `extract_pinned_repository`
+  L332-365, `_centrality_scores`, `_alias_groups` L434, `_group_centrality_scores` L477, `reduce_fixture` L499-548, `_FENCE_RE`, `_STRING_RE`,
+  `_COMMENT_RE`, `_page_texts` L607, `names_used_in_examples` L652, `main` L674); src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+  `extract_api_surface` (it already RETURNS `scout_report` with `parse_errors`, `files_attempted` and `parse_error_rate` as the fifth tuple
+  element, and run_extraction discards it with `types, *_rest =`); python_surface.py (`_EXCLUDED_PARTS`, `_module_symbols` L194-205 which returns
+  a `syntax-error` string and skips any module whose name has a leading-underscore segment BEFORE parsing); src/foss_mcp/indexing/chunk_builder.py
+  (`build_chunks_from_api_surface` L378-422 and the `coverage` string at L392-397); infra/build_chunks.py `_extraction_notice_chunks` L1171-1225;
+  src/foss_mcp/mcp/tools/get_symbol.py (`_API_COVERAGE_LINE` L31, `_coverage_note` L112, the NotFound at L152) and report_index_freshness.py
+  (`_API_COVERAGE_LINE` L30, `_read_provenance` L105-135, the `coverage_note` build at L252-262); tests/extraction/test_run_extraction_selection.py
+  (its `test_selection_without_extras_is_byte_identical_to_the_previous_algorithm`, `test_a_shell_never_outranks_the_real_class_it_re_exports`
+  and the must_keep tests stay green UNCHANGED), tests/indexing/test_chunk_builder_honesty.py (it pins `API-Coverage: 2 of 3 types`, `2 of 50 types`
+  and, for the committed pdf/net fixture, `300 of 901 types` as the LAST line of a symbol chunk, so a fixture WITHOUT the new keys must render
+  byte for byte as today), tests/infra/test_build_chunks_extraction_notice.py, tests/mcp/tools/test_freshness_provenance.py L350-385 and
+  tests/mcp/test_tool_surface_truthful.py L380-392 (they pin the exact legacy coverage_note sentence).
+- >-
+  DATA CONTRACT (all additive keys of the fixture/artifact dict; reduce_fixture already copies every non-`types` key). (1) `extractor_version`:
+  integer, module constant `EXTRACTOR_VERSION = 2` in run_extraction.py written on its own line exactly like that; a fixture without the key is
+  version 1. Later extraction cards bump it. (2) `symbol_counts`: `{"types": N, "functions": M}` over the NON-test entries of the full artifact
+  (`_is_test_entry`), where `functions` counts entries whose `kind` is "function" and `types` every other entry. (3) `parse_failures`:
+  `{"engine": "ast" | "tree-sitter", "failed": int, "total": int, "examples": [up to 5 strings "path:line: message" sorted]}`; `engine` "ast" for
+  python, "tree-sitter" for every other platform; the key is ABSENT when the engine could not count. (4) Nothing else in the fixture changes.
+- >-
+  run_extraction.py, EXTRACTION HEALTH. Add `python_parse_health(clone_root: Path) -> dict[str, Any]`: for every directory returned by
+  `_python_package_dirs(clone_root)` walk `sorted(package_path.rglob("*.py"))` with the SAME exclusion python_surface uses (import
+  `python_surface._EXCLUDED_PARTS`, apply it to `path.relative_to(package_path.parent).parts`), try `ast.parse(path.read_text(encoding="utf-8-sig",
+  errors="replace"))` on EVERY remaining file INCLUDING modules with a leading underscore and `__init__.py`, count `total` and `failed`, and keep the
+  first 5 `relative-path:lineno: msg` examples in sorted path order; return `{"engine": "ast", "failed": F, "total": T, "examples": [...]}`
+  (`total` 0 when there is no package dir). Add `tree_sitter_parse_health(scout_report: dict) -> dict[str, Any]` returning the same shape with
+  engine "tree-sitter" from `scout_report["parse_errors"]` (failed, examples) and `scout_report["files_attempted"]` (total). Add
+  `extract_with_health(clone_root, manifest) -> tuple[list, list[str], dict | None]` that does exactly what `extract_from_clone` does but also
+  returns the health dict (python: `python_parse_health`; other platforms: stop discarding the fifth element of `extract_api_surface` and pass it to
+  `tree_sitter_parse_health`); keep `extract_from_clone` with its exact signature and return value as a thin wrapper over `extract_with_health`
+  (nine call sites in two existing test files use it). `extract_pinned_repository` calls `extract_with_health` and writes into the artifact `extractor_version`,
+  `symbol_counts` (helper `summarize_symbols(types) -> dict`) and, when the health dict is not None, `parse_failures`. run_extraction.py only WRITES the data; the
+  threshold lives in chunk_builder.py (below), so extraction never imports indexing. The 35 of 45 figure for tex/python is what the re-extraction
+  card must see (it is package-scoped; the repo-wide 102 of 119 includes tests and tools).
+- >-
+  run_extraction.py, SELECTION. (a) `readme_keep_names(page_path) -> dict[str, int]`: read the furnished page with `_page_texts`; count, per
+  identifier `[A-Za-z_][A-Za-z0-9_]{1,}`, how many fenced code blocks of a code language (the `_NON_CODE_FENCE_LANGUAGES` rule of
+  `names_used_in_examples`, comments and string literals blanked first) contain it plus how many inline code spans (a single-backtick span of at most
+  120 characters on one line, outside fences) contain it; keep only identifiers that occur in at least one code fence or in at least two spans/fences;
+  prose words are never counted; the result is deterministic. (b) module constant on its own line exactly `README_KEEP_FRACTION = 0.7`. (c)
+  `reduce_fixture(artifact, *, max_types=300, must_keep=frozenset(), readme_names=None)`: the order is (1) groups whose type name is in `must_keep`
+  (unchanged), (2) groups whose type name is in `readme_names` and not yet chosen, ordered by (-mention count, the existing rank), added until the
+  chosen count reaches `min(max_types, ceil(max_types * README_KEEP_FRACTION))`, (3) the remaining slots by the existing rank. With `readme_names`
+  None or empty the output must be byte-identical to today's. (d) DEMOTION: `_is_internal_entry(entry)` is True when any of these hold,
+  case-insensitively, on the entry's `file` path segments (split on / and \) or its `class_import` / `canonical_namespace` segments (split on `.`,
+  `::` and `/`): a segment equal to internal, internals, _internal, impl, engine, generated, vendor, vendored, third_party, 3rdparty, node_modules or
+  detail, or the file name ends with `.d.ts`. `_is_internal_group` is True only when EVERY entry of the group is internal (a python definition whose
+  public re-export shell sits in the package `__init__.py` is public; `test_a_shell_never_outranks_the_real_class_it_re_exports` has a `generated`
+  shell next to a public definition and must stay green). The ranking key of `reduce_fixture` becomes (internal flag, -score, class_import): internal
+  groups sort after every public group, so they fill only slots nothing else wants; step (1) and (2) still keep a named group even when internal
+  (documentation beats the heuristic). Names without a marker keep exactly today's order, which is what keeps the byte-identical test green. (e)
+  `main()`: `--keep-names-from` feeds BOTH `names_used_in_examples` (must_keep) and `readme_keep_names` (readme_names); `--max-types` defaults to None
+  and then resolves to `RECOMMENDED_MAX_TYPES.get(f"{family}/{platform}", 300)` from the manifest; an explicit value wins.
+- >-
+  run_extraction.py, PROPOSED CAPS. Add `RECOMMENDED_MAX_TYPES: dict[str, int]` (documented as a PROPOSAL consumed by the extraction CLI; values.yaml
+  `maxTypes` and docker-compose.yml are changed by a later data card, never here) with exactly: "pdf/net": 901, "pdf/java": 1239, "words/net": 618,
+  "pdf/python": 867, "pdf/cpp": 361, "cells/cpp": 346, "slides/cpp": 323, "html/python": 323, "3d/python": 697, "slides/python": 1023,
+  "words/python": 391, "pdf/go": 450, "pdf/typescript": 1250. The extraction cap and the ingestion `--max-types` must be equal, otherwise the second
+  slice in build_chunks cuts what the first one kept; say so in the docstring. Raising a cap raises ingestion memory (pdf/cpp already needed more than
+  4 Gi), so the follow-up data card must re-measure Job memory and image size.
+- >-
+  chunk_builder.py, COVERAGE LINE. Define here, each on its own line, `PARSE_FAILURE_NOTE_THRESHOLD = {"ast": 0.10, "tree-sitter": 0.25}`
+  (tree-sitter is error tolerant and flags files whose symbols are still extracted, so its threshold is higher) and a public function
+  `parse_failures_over_threshold(parse_failures: object) -> bool` (true only for a dict with integer failed and total, total > 0 and
+  failed/total strictly greater than the engine's threshold; anything malformed or of an unknown engine is False); infra/build_chunks.py imports
+  it from here. Keep the legacy rendering EXACTLY when the fixture has none of `symbol_counts`, `parse_failures` and a
+  `:syntax-error:` entry in `unresolved`: `API-Coverage: {len(entries)} of {type_count} types`. Otherwise build the same single line, in this order,
+  joined by "; ": (1) when `symbol_counts` is a dict with integer `types`: `{kept non-function entries} of {symbol_counts.types} types`, else the
+  legacy `{len(entries)} of {type_count} types`; (2) when `symbol_counts.functions` is a positive integer: `{kept function entries} of
+  {symbol_counts.functions} functions`; (3) when `parse_failures_over_threshold(fixture.get("parse_failures"))` holds: `{failed} of {total} source files could not be parsed`; (4) when
+  there is no `parse_failures` key but `unresolved` holds K >= 1 distinct `:syntax-error:` files (the file is the text between the marker and the
+  next colon): `at least {K} source files could not be parsed`. Because the clause is built per fixture, EVERY symbol chunk carries it, not only the
+  first. The line must still match `^API-Coverage:\s*(\d+)\s+of\s+(\d+)\s+types\b` (the types clause stays first) and must stay the last line of the
+  chunk text before the Source-Commit line other code appends. The committed tex_python fixture therefore renders `API-Coverage: 4 of 4 types; at
+  least 2 source files could not be parsed` as soon as chunks are rebuilt, before any re-extraction.
+- >-
+  src/foss_mcp/mcp/tools/coverage_note.py (NEW, pure, no I/O). `@dataclass(frozen=True) class ApiCoverage` with `indexed: int`, `total: int`,
+  `functions: tuple[int, int] | None`, `unparsed: str | None`; `parse_api_coverage(text: str) -> ApiCoverage | None` reading the FIRST
+  `API-Coverage:` line of a chunk text (regex `^API-Coverage:\s*(\d+)\s+of\s+(\d+)\s+types\b(.*)$` with MULTILINE, then the optional
+  `; N of M functions` and `; ... could not be parsed` clauses); `coverage_note_from_text(text: str) -> str | None` returning, joined by "; ", the
+  LEGACY sentence unchanged (`the API index holds P of T types; a type missing from it may still exist upstream`) when P < T, a sentence such as
+  `the API index holds 216 of 259 types and 45 of 2054 functions` when only the functions are partial (without the legacy tail), and when the line
+  states unparsed files: `N of M source files could not be parsed, so the API index is incomplete and a type missing from it may still exist
+  upstream (the Extraction notice documentation chunk lists the files)` (or `at least K source files ...`); None when nothing is partial and
+  nothing unparsed. Both tool modules import this ONE helper (the AGENTS.md integration rule: a test greps the committed source of get_symbol.py and
+  report_index_freshness.py for `coverage_note_from_text`). get_symbol.py: replace the body of `_coverage_note` with a call to the helper (the
+  NotFound shape is unchanged). report_index_freshness.py: keep `indexed_types` and `total_types` as parsed today, and set `coverage_note` from the
+  helper applied to the first symbol chunk (store its text or the parsed object in `_Provenance`; the legacy sentence must come out byte-identical
+  for the legacy line). The helper is also the thing the sibling serving cards import to put a coverage note on search_symbols and lookup misses; do
+  not edit those tools here.
+- >-
+  infra/build_chunks.py `_extraction_notice_chunks`: also emit the notice when `parse_failures_over_threshold(fixture.get("parse_failures"))` holds
+  even if `unresolved` has no `:syntax-error:` entry, and put one headline line first: `{failed} of {total} source files could not be parsed
+  (examples: {up to 5 examples joined by ", "}).` (no backtick, no blank line, so the chunker keeps ONE chunk and the existing assertions of
+  tests/infra/test_build_chunks_extraction_notice.py hold). The existing syntax-error listing, the "Public names that could not be extracted" line
+  and the chunk title stay as they are. Fixtures without the key behave exactly as today.
+- >-
+  TESTS (all offline, deterministic, no skipped tests, no xfail, no wall-clock assertions; synthetic trees in tmp_path; the committed fixtures are
+  only READ). tests/extraction/test_run_extraction_coverage_policy.py (NEW, at least 22 tests): `test_readme_keep_names_counts_fenced_and_inline`,
+  `test_readme_keep_names_ignores_prose_and_shell_fences`, `test_readme_keep_names_needs_a_fence_or_two_mentions`,
+  `test_reduce_fixture_unchanged_without_readme_names` (equal to the call with `readme_names=None`, and byte-identical to the previous algorithm on a
+  synthetic ring like the existing selection test), `test_readme_names_are_kept_before_centrality`, `test_readme_names_are_capped_by_the_fraction`,
+  `test_readme_names_rank_by_mention_count`, `test_examples_keep_precedence_over_readme_names`, `test_unknown_readme_names_change_nothing`,
+  `test_readme_recall_on_committed_untruncated_fixtures` (parametrized over 3d_java, slides_net, cells_java, cells_rust, page_python, words_python,
+  cells_python: the committed fixture is the FULL surface there (`truncated` false); cap = 2 * the number of strong README names that exist in the
+  fixture; page = tests/fixtures/furnished/<pilot>/pages/_index.md; assert at least 90 percent of the strong names survive; measured with the
+  prototype: 100 percent for all seven), `test_example_only_selection_misses_the_readme_names` (the same seven pilots with only the examples'
+  must_keep keep 43 to 79 percent: assert it is below 90 percent for at least five of them, which is the defect), the demotion tests `test_internal_
+  markers` (parametrized over at least 14 synthetic file/class_import values: org.aspose.pdf.engine.xfa.X, include/internal/a.hpp,
+  Aspose.Slides.Foss.Internal.Opc.P, pkg/generated/m.py, src/vendor/x.ts, src/xmldom.d.ts, pkg/_internal/m.py, a.detail.b, plus public negatives such as
+  pkg/engine_room_notes.py, Aspose.Pdf.Document, pkg/core.py), `test_internal_groups_fill_only_leftover_slots`, `test_group_with_a_public_shell_is_not_
+  internal`, `test_named_internal_group_is_still_kept`, `test_pdf_java_fixture_cap_100_keeps_no_engine_type` (committed pdf_java fixture, reduce at 100:
+  zero entries whose class_import has an `engine` segment, where today it keeps 83; assert zero engine entries because 108 public types exist), `test_
+  pdf_cpp_fixture_cap_150_keeps_no_include_internal_type` (today 5), `test_symbol_counts_separate_types_from_functions` (synthetic go-like artifact:
+  3 type_spec, 2 function with receiver_type, 1 test-file entry ignored), `test_recommended_max_types_are_valid` (every key is a pilot of
+  infra/helm/foss-mcp/values.yaml, every value is between 300 and 1250 and not above that pilot's committed fixture `type_count`),
+  `test_main_resolves_the_recommended_cap_and_feeds_readme_names` (a source assertion on the committed run_extraction.py: `RECOMMENDED_MAX_TYPES.get(`,
+  `readme_keep_names(` and `readme_names=` appear inside `main`; AGENTS.md: a function nobody calls is not a fix), `test_extractor_version_is_two` and
+  `test_extract_pinned_repository_writes_the_new_keys` (git is not needed: call the artifact-building step with a fake clone through the same local
+  `file://` technique tests/extraction/test_run_extraction_selection.py uses, or monkeypatch `clone_shallow`).
+  tests/extraction/test_run_extraction_parse_failures.py (NEW, at least 8 tests): `test_python_health_counts_broken_files` (a tmp package of 5
+  files, 3 with IndentationError: failed 3, total 5, examples sorted and in `path:line: message` form), `test_python_health_counts_private_modules`,
+  `test_python_health_excludes_tests_and_docs_dirs`, `test_clean_package_has_no_failures`, `test_extract_with_health_reports_python_failures`,
+  `test_extract_from_clone_keeps_its_pair_contract`, `test_tree_sitter_health_from_a_broken_js_tree` (a tmp nodejs tree with one syntactically broken
+  .js file: engine tree-sitter, failed at least 1), `test_parse_failures_survive_reduce_fixture`.
+  tests/indexing/test_chunk_builder_coverage_line.py (NEW, at least 16 tests): `test_threshold_rules` (parametrized: ast 0.11 True, ast 0.10 False,
+  tree-sitter 0.20 False, tree-sitter 0.30 True, total 0 False, malformed dict False, unknown engine False); legacy line unchanged for fixtures without the keys (2 of 3 types);
+  the committed pdf_net fixture still renders `300 of 901 types`; types and functions clause on a go-like fixture; functions clause omitted when
+  `functions` is 0; the parse-failure clause `35 of 45 source files could not be parsed`; no clause at or below the threshold; the unresolved-only
+  fallback `at least 2`; the committed tex_python fixture's every symbol chunk ends with `API-Coverage: 4 of 4 types; at least 2 source files could
+  not be parsed`; the line matches the legacy regex; every symbol chunk of the fixture carries the clause.
+  tests/mcp/tools/test_coverage_note.py (NEW, at least 11 tests): the helper returns the exact legacy sentence for a partial line, None for a complete
+  one, None for no line; functions-only partial; failure clause; both joined; `at least K`; an in-memory store in the style of
+  tests/mcp/test_tool_surface_truthful.py holding tex-like symbol chunks makes `get_symbol` of a missing FQN and `list_members` of it return a NotFound
+  whose coverage_note contains `could not be parsed` and `Extraction notice`; `report_index_freshness` for the same store has indexed_types 4,
+  total_types 4 and that note; a complete store with no failure has coverage_note None; the source of get_symbol.py and report_index_freshness.py
+  contains `coverage_note_from_text`. tests/infra/test_build_chunks_parse_failures_notice.py (NEW, at least 5 tests): notice emitted for an over-
+  threshold fixture with no syntax-error entry, headline first, one chunk, no backtick, no blank line; none below the threshold; tex still one
+  chunk; `main` on the committed tex fixture writes symbol chunks whose last line before Source-Commit is the new coverage line.
+- >-
+  tests/test_unwired_modules.py walks the import graph from the production entrypoints and fails on a public top-level name that nothing on the
+  production path references: run it. coverage_note.py is imported by get_symbol.py and report_index_freshness.py (production path); the new
+  chunk_builder names are used inside chunk_builder.py and infra/build_chunks.py; the new run_extraction names are a development tool (not on the
+  production path) but main() calls them. If the walk flags a new name, make it private (leading underscore) or call it, never add it to the known
+  set. tests/test_layout.py wants tests/ to mirror src/ (every new test file here does).
+- >-
+  Run the first check command, then the second. Before finishing list in your report every existing test that pins a count or a line you touched
+  (expected none changed). Never change an existing assertion; if one must change, change ONLY that assertion with a comment and say so. Do NOT
+  regenerate any committed fixture, do NOT edit values.yaml or docker-compose.yml, do NOT touch schemas/. Write commit messages as UTF-8 without a
+  byte-order mark; preserve each file's line endings.
+actions:
+- >-
+  Keep the types a library's own README names, rank engine/internal/generated/vendored groups last, and propose per-pilot caps wired into the
+  extraction CLI.
+- >-
+  Count types and functions separately and record per-file parse failures in the fixture; state them in the coverage line of every symbol chunk, in
+  get_symbol and report_index_freshness through one shared helper, and in the Extraction notice.
+checks:
+- command: '{python} -m pytest tests/extraction/test_run_extraction_coverage_policy.py tests/extraction/test_run_extraction_parse_failures.py tests/indexing/test_chunk_builder_coverage_line.py tests/mcp/tools/test_coverage_note.py tests/infra/test_build_chunks_parse_failures_notice.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_sanitize.py tests/infra/test_helm_pilots_match_compose.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/test_tool_surface_truthful.py tests/test_unwired_modules.py tests/test_layout.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+min_tests: 55
+network: true
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/run_extraction.py');s=p.read_text(encoding='utf-8');old='README_KEEP_FRACTION = 0.7';assert s.count(old)==1;p.write_text(s.replace(old,'README_KEEP_FRACTION = 0.0',1),encoding='utf-8')"
+  rationale: >-
+    Gives the README-name tier a zero budget, so reduce_fixture keeps only example-used and centrality types again: the README recall tests on the seven
+    committed untruncated fixtures drop to the 43 to 79 percent the reviewer measured, and the budget, ranking and precedence tests fail. A real break
+    of the central claim (the cap must not drop the types the library's own README names).
+evidence:
+- evidence/build/G3/TC-520/receipt.json
+closeout:
+- >-
+  A re-extraction of a capped pilot keeps the types its README names and ranks engine/internal/generated/vendored groups last; every symbol chunk
+  states types and functions separately and, when source files did not parse, how many; get_symbol misses and report_index_freshness say so through
+  one helper; the Extraction notice carries the same headline. No committed fixture changed, so nothing observable changes until the re-extraction
+  card (see the hand-back: it must regenerate the 13 capped pilots plus tex/python with --max-types from RECOMMENDED_MAX_TYPES and --keep-names-from,
+  verify fixtures carry extractor_version 2, symbol_counts and parse_failures, and that tex/python reports 35 of 45) and a rebuilt image.
+recovery: Re-run from a clean tree.

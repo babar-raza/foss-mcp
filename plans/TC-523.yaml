@@ -1,0 +1,181 @@
+id: TC-523
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-008 (independent pre-production review, finding RST-07; also AGT-07 TypeScript part and ISOPROV-06 @internal members). TYPESCRIPT EXTRACTION
+  FIDELITY. The reviewer compared the served TypeScript pilots with the upstream sources: cells/typescript labels 649 of 657 interface properties
+  `(read-only)` although upstream types.ts has 0 `readonly` and 132 of 211 optional; pdf/typescript 944 of 948 read-only (upstream 262 readonly in
+  total); `get_symbol aspose_cells.types.Style` shows `font: Font (read-only)` where upstream says `interface Style { font?: Font; ... }`; 25 (cells) and
+  84 (pdf) `type_alias_declaration` chunks carry no right-hand side so `ArrowShapeType = 'arrow' | 'rightArrow' | ...` is unknowable; `Document.Open`,
+  `New`, `OpenFile` are static upstream and served as instance methods (`static Open(buf, opts: OpenOptions = {})` is served `Open(buf: Uint8Array,
+  opts: OpenOptions)`); no static or async mark anywhere; `constructor(createDefault: boolean = true)` is served with a required parameter; optional
+  parameters are shown required; `@internal` members of pdf/typescript Document (allocObject, replaceObject, markModified, installXmpText) are served
+  as public API. Re-measured on the committed fixtures: ALL interface properties are `writable` false (cells 733, pdf 996, 3d 95 and jmap 12 properties, 0 writable in each) and no TypeScript method has a `modifiers` key. Root, verified by a scratch parse: in api_surface.py L3675-3735 the `writable` flag is computed
+  from the C# accessor list and only the `public_field_definition` branch of `typescript` reads `static`/`readonly` tokens, so every
+  `property_signature` (an interface or object-type member) keeps `writable` False and its `?` token and `readonly` token are never read; the class
+  loop has no branch that stores a `type_alias_declaration`'s `value` field; `_extract_method_params` (L357-449) keeps no default (the tree-sitter
+  TypeScript grammar gives `required_parameter` a `value` field and `optional_parameter` a `?` child), drops a rest parameter whose pattern is a
+  `rest_pattern`, and ignores a destructured `object_pattern` parameter; method `static` and `async` are child tokens of `method_definition` that are
+  never read. This card: (1) one small helper reads `readonly`, `?`, `static`, `async` from a member's tokens; (2) interface and object-type members
+  are `writable` unless `readonly`, optional members and optional methods are marked, static and async methods and fields are marked, in `modifiers`;
+  (3) a type alias keeps its right-hand side (whitespace collapsed to one line, at most 300 characters) and the renderer prints it; (4) parameters keep
+  `default`, `optional`, rest and destructured patterns (reusing TC-521's helper) and render as `opts: OpenOptions = {}` and `x?: T`; (5) members
+  whose JSDoc carries `@internal`, `@hidden` or `@ignore` are not published; (6) a stale-checked documented-gap test over the committed TypeScript
+  and JavaScript fixtures keyed on `extractor_version`. A deliberate deviation from the finding's proposed text: an optional member renders as `x: T
+  [optional]`, not `x?: T`, because search_symbols `_member_name` (src/foss_mcp/mcp/tools/search_symbols.py L198-210) takes the member name as the
+  text before the first `(` or `:` and `x?` would make every optional member unfindable by its name; optional PARAMETERS render as `x?: T`
+  (parameters are never parsed for names). What does NOT change: the committed fixtures (a later re-extraction card regenerates them), selection
+  (TC-520), JavaScript mixins and destructuring (TC-521, whose helper this card reuses), the other languages, non-exported module-local helpers that
+  surface as types (fits@afcall.ts in pdf/typescript: a separate visibility rule, listed in the hand-back as not covered).
+depends_on:
+- TC-522
+- TC-521
+- TC-520
+- TC-396
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- src/foss_mcp/extraction/run_extraction.py
+- src/foss_mcp/indexing/chunk_builder.py
+- tests/extraction/tree_sitter_engine/test_ts_fidelity.py
+- tests/extraction/test_ts_fixture_gaps.py
+- tests/indexing/test_chunk_builder_typescript_marks.py
+- tests/fixtures/ts_sample/**
+satisfies:
+- REQ-G3-008
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  ORDER. Last of the four shared-file cards: it runs after TC-522, which runs after TC-521, which runs after TC-520; the sibling C++, Go, Java/Rust and
+  member-documentation cards (TC-524 and later) run after this one because they edit the same api_surface.py and chunk_builder.py. Never print or log
+  any environment value.
+- >-
+  READ FIRST. src/foss_mcp/extraction/tree_sitter_engine/api_surface.py: `_extract_method_params` L357-449 (and TC-521's JavaScript additions and its
+  `_destructured_param` helper), the class loop `for cnode in class_nodes:` L3485-3990 (the TypeScript accessor branch L3588-3672, the property branch L3675-3735 with its
+  `language == "typescript" and mnode.type == "public_field_definition"` block that reads `static` and `readonly`, the method branch L3737-3800 that
+  builds `method_entry`), `_is_real_typescript_property_signature` L896, `_ts_raw_jsdoc_comment` L878, `_apply_ts_tsdoc_enrichment` L948 (it matches a
+  param by name after stripping `...`), the class record construction for `type_alias_declaration` (find where `cls_record` is built, near L4040);
+  tree_helpers.py `_CLASS_TYPES["typescript"]` and `_FUNC_TYPES["typescript"]`; chunk_builder.py `_param_text`, `_modifiers_suffix`, `_property_line`,
+  `_format_type_text`, and TC-522's `_method_line` marker logic; tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py, test_jsdoc*,
+  test_tree_helpers.py and tests/extraction/test_*_typescript_extraction.py (stay green UNCHANGED unless an assertion pinned the wrong read-only
+  claim: then change ONLY that assertion, with a comment). Parse facts verified with tree-sitter-typescript: `property_signature` children are
+  `readonly`?, `property_identifier`, `?`?, `type_annotation`; `method_signature` has `?` after the name; `method_definition` has `static` and `async`
+  token children before the name; `formal_parameters` holds `required_parameter` (fields `pattern`, `type`, `value`), `optional_parameter` (a `?` child)
+  and a rest parameter as a `required_parameter` whose `pattern` is a `rest_pattern`; `type_alias_declaration` has the field `value`.
+- >-
+  CHANGE 1 (api_surface.py). Add, on its own line, `_TS_ALIAS_TEXT_LIMIT = 300`. Add `_ts_member_flags(mnode) -> tuple[bool, bool, bool, bool]` returning
+  `(readonly, optional, is_static, is_async)` from the node's direct child tokens (`readonly`, `?`, `static`, `async`), written so its LAST line is
+  exactly `return readonly, optional, is_static, is_async`. Property branch for language typescript and javascript: for `property_signature` set
+  `writable` to `not readonly` (today it stays False), for `public_field_definition` keep the existing `not readonly` rule, and for both set
+  `modifiers` (in this order, only the ones that apply): `static`, `optional`. Keep the existing `is_static` and constant handling untouched. Method
+  branch (`method_definition`, `method_signature`, `abstract_method_signature`) for typescript and javascript: `modifiers` = `static`, `async`,
+  `optional` in that order, only those that apply, set only when non-empty (a plain method has no `modifiers` key). Getter and setter handling is
+  unchanged.
+- >-
+  CHANGE 2, TYPE ALIASES (api_surface.py). For a `type_alias_declaration` record the source text of its `value` field as `alias_of`: whitespace runs
+  collapsed to one space, no newline, cut at `_TS_ALIAS_TEXT_LIMIT` characters with a trailing `...` when cut; an alias with an object-type value keeps
+  its already-extracted `properties` AND gets `alias_of`. Other kinds get no key. chunk_builder.py `_format_type_text`: when the entry has a non-empty
+  `alias_of`, print one line `Alias-Of: <text>` directly after the `Kind:` (and `Deprecated:` / `Defined-In:` / `Exported-As:`) lines and before the
+  description; entries without the key render as before. `get_symbol` ignores unknown lines (assert that with a parse test).
+- >-
+  CHANGE 3, PARAMETERS (api_surface.py `_extract_method_params`, TypeScript branch only; the JavaScript branch is TC-521's and must not change).
+  `required_parameter`: `default` = source text of its `value` field (at most 120 characters, a trailing `...` when cut), the name from `pattern`;
+  a `pattern` of kind `rest_pattern` gives the name `...name` (keep the type annotation) so `_apply_ts_tsdoc_enrichment`'s existing strip works; a
+  `pattern` of kind `object_pattern` or `array_pattern` goes through `_destructured_param` (TC-521) with the parameter's type annotation as the
+  object type text when present (`{ a: number; b?: string }` annotation wins over the synthesised type); `optional_parameter`: `optional` True. The
+  param dict keeps `name` and `type` exactly as today and gains `default` only when non-empty and `optional` only when True. chunk_builder.py
+  `_param_text`: a param with `optional` True and no default renders `name?: type` (or `name?` with no type); with a default it renders
+  `name: type = default`; params without the keys render as before.
+- >-
+  CHANGE 4, @internal (api_surface.py). In the TypeScript and JavaScript class loop, skip a class member, an interface member and a top-level type
+  whose preceding JSDoc block (use `_ts_raw_jsdoc_comment` on the same anchor the doc extraction uses) contains the tag `@internal`, `@hidden` or
+  `@ignore` as a whole tag (regex `@(internal|hidden|ignore)\b`); a tag word inside prose (`not @internalized`) does not count. The skipped member
+  is dropped from `methods` / `properties` (a skipped class is not emitted at all). The `claims` list needs no entry for it.
+- >-
+  CHANGE 5 (run_extraction.py): `EXTRACTOR_VERSION = 5`. Nothing else in run_extraction.py.
+- >-
+  SAMPLE TREE (NEW, committed, original text, LF): tests/fixtures/ts_sample/package.json (`{"name": "ts-sample", "version": "1.0.0", "main":
+  "src/index.ts"}`), src/index.ts exporting: `interface A { x?: number; readonly y: string; z: boolean; m?(a: number): void }`; `type T = 'a' | 'b'`;
+  a union alias longer than 300 characters; `type Opts = { depth: number; name?: string }`; `interface OpenOptions { password?: string }`;
+  `class Document` with `static async open(buf: Uint8Array, opts: OpenOptions = {}): Promise<Document>`, `save(path?: string, flag = true,
+  ...rest: string[]): void`, `constructor(createDefault: boolean = true)`, `configure({ a, b = 2 }: Opts = { depth: 1 }): void`, `static readonly
+  VERSION = "1"`, a field `title?: string`, a member preceded by `/** @internal */` (allocObject), one by `/** Not @internalized prose. */`
+  (kept), and a `/** @hidden */ export interface HiddenThing { q: number }`; plus src/plain.js is NOT part of this tree (the JavaScript static/async
+  marks are tested with a tmp tree inside the test).
+- >-
+  TESTS (offline, deterministic, no skipped tests, no xfail). tests/extraction/tree_sitter_engine/test_ts_fidelity.py (NEW, at least 30 tests;
+  `run_extraction.extract_from_clone` on a COPY of the sample in tmp_path with manifest `{"platform": "typescript", "family": "x", "repository":
+  "x/y"}`): the three required acceptance cases - `test_interface_optional_and_readonly` (`interface A { x?: number; readonly y: string }`: x is
+  writable True with modifiers ["optional"], y is writable False, z writable True), `test_type_alias_value_is_captured` (`type T = 'a' | 'b'` has
+  `alias_of` equal to `'a' | 'b'`) and `test_static_async_method_with_default_param` (`static async open(buf: Uint8Array, opts: OpenOptions = {})`:
+  modifiers ["static", "async"], params buf then opts with default `{}`); and `test_object_alias_keeps_properties_and_alias_of`,
+  `test_long_alias_is_cut_at_the_limit_with_an_ellipsis`, `test_alias_text_is_one_line`, `test_interface_method_optional_is_a_modifier`,
+  `test_class_field_optional_and_static_modifiers`, `test_readonly_class_field_is_not_writable`, `test_plain_method_has_no_modifiers_key`,
+  `test_constructor_default_is_captured`, `test_optional_param_is_marked_not_defaulted`, `test_param_default_text_is_cut_at_120`,
+  `test_rest_param_keeps_the_ellipsis_name`, `test_destructured_ts_param_uses_the_shared_helper`, `test_annotation_wins_over_synthesised_object_type`,
+  `test_param_without_default_has_no_default_key`, `test_getter_setter_properties_are_unchanged`, `test_internal_member_is_not_published`,
+  `test_hidden_interface_is_not_published`, `test_tag_word_inside_prose_does_not_hide_a_member`, `test_javascript_class_static_and_async_are_marked`
+  (tmp nodejs tree), `test_javascript_param_branch_is_unchanged_by_this_card` (the TC-521 JavaScript output is byte-identical), `test_non_typescript_
+  languages_are_unaffected` (a tmp python tree gives the same artifact as before), `test_extraction_is_deterministic`, `test_extractor_version_is_
+  at_least_five`, `test_member_flags_helper_is_wired` (the committed api_surface.py calls `_ts_member_flags(` in the property and the method branches).
+  tests/indexing/test_chunk_builder_typescript_marks.py (NEW, at least 9 tests, synthetic fixture dicts): `x: number [optional] (writable)` for an
+  optional property, `y: string (read-only)`, `[static, async]` suffix on a method, `opts: OpenOptions = {}`, `x?: number` for an optional param, a
+  param without keys renders as before, the `Alias-Of:` line position and absence, a rendered optional member's name still parses to `x` with the
+  `_MEMBER_NAME_END` rule of search_symbols (import `_member_name`), and get_symbol-style block parsing ignores the `Alias-Of:` line.
+  tests/extraction/test_ts_fixture_gaps.py (NEW, at least 7 tests, reads the committed cells_typescript, pdf_typescript, 3d_typescript,
+  jmap_typescript and jmap_nodejs fixtures): `REQUIRED_VERSION = 5` and `KNOWN_GAP` (those five names with a one-line reason each). One parametrized
+  test per pilot: below the required version the pilot MUST be in KNOWN_GAP and the documented gap must still be real (every `interface_declaration`
+  property is `writable` False and no method has `modifiers`; for jmap_nodejs only the modifiers rule); at or above it the pilot must NOT be in
+  KNOWN_GAP, at least one interface property is writable, no `type_alias_declaration` lacks `alias_of`, and no member's doc carries `@internal`.
+  Plus `test_known_gap_is_exactly_the_old_fixtures`. The re-extraction card deletes the matching entries.
+- >-
+  Run the first check command, then the second; list every existing test you had to touch (expected none). Do NOT regenerate any committed fixture,
+  do NOT edit docs-identifiers allowlist (TC-521 owns it; the re-extraction card regenerates it), do NOT touch schemas/. Write commit messages as UTF-8
+  without a byte-order mark.
+actions:
+- >-
+  Read readonly, optional, static and async from TypeScript member tokens; keep type alias values; keep parameter defaults, optional markers, rest and
+  destructured patterns; drop members tagged @internal, @hidden or @ignore.
+- >-
+  Render the marks without breaking member-name lookup, and pin the behaviour with a sample tree and a stale-checked gap test over the committed
+  TypeScript and JavaScript fixtures.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_ts_fidelity.py tests/extraction/test_ts_fixture_gaps.py tests/indexing/test_chunk_builder_typescript_marks.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_symbol_tools.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+min_tests: 45
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='return readonly, optional, is_static, is_async';assert s.count(old)==1;p.write_text(s.replace(old,'return False, False, False, False',1),encoding='utf-8')"
+  rationale: >-
+    Makes the token helper report no readonly, optional, static or async member: interface members stay writable-by-default wrongly or lose their
+    optional mark, `static async open` loses both marks, and the acceptance cases (`x?: number; readonly y: string`, `static async open(...)`) and the
+    rendering tests fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-523/receipt.json
+closeout:
+- >-
+  TypeScript and JavaScript chunks no longer call every interface member read-only, show optional members and parameters, type alias values, static
+  and async marks and parameter defaults, and no longer publish @internal members. The committed TypeScript fixtures are still version 1 and listed
+  in KNOWN_GAP; the re-extraction card must regenerate cells_typescript, pdf_typescript, 3d_typescript, jmap_typescript and jmap_nodejs (it must also
+  pin pdf_typescript to ONE commit for the symbols and the documentation, which is another card), verify `extractor_version` 5 or higher, that
+  `Style.font` is writable and `[optional]`, that ArrowShapeType carries its union, that Document.Open is `[static]`, delete the KNOWN_GAP entries and
+  refresh the docs-identifiers allowlist, then the image is rebuilt.
+recovery: Re-run from a clean tree.

@@ -1,0 +1,193 @@
+id: TC-522
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-008 (independent pre-production review, finding RST-05; also ISOPROV-06 re-export shells and RST-15 shells). PYTHON EXTRACTION FIDELITY. The
+  reviewer ran an ast ground truth (retrieval-source-truth/py_audit.py) over the upstream sources at the indexed commits and compared it with the
+  served signatures: upstream parameters with a default cells/python 420, pdf/python 1235, jmap/python 8 - rendered 0 in all three; pdf/python: of 757
+  served methods 338 (45 percent) have defaults and 251 (33 percent) are keyword-only, the `*` marker is dropped so positional calls would raise
+  TypeError (`add_radio_group(self, name, page, options, *, value=None, ...)` and `Document.save(destination, save_format, overwrite, incremental)`
+  are served with every parameter required; cells/python `Workbook.__init__(file_path, password)` serves both required although password defaults to
+  None); `@staticmethod` and `@classmethod` are never marked (0 of 51 in cells/python, 0 of 45 in jmap/python, 0 of 45 in pdf/python) although the .NET
+  renderer already prints `[static]`. A second defect hides ~37 own methods in 8 facade classes of pdf/python: `get_symbol aspose_pdf.PdfFileSecurity`
+  lists only `bind_pdf, close, dispose, save ...` inherited from the private base `_BoundFacade`, while `encrypt_file`, `decrypt_file` and
+  `change_password` (upstream facades.py L912-990) are absent, the same for PdfBookmarkEditor, PdfAnnotationEditor, PdfPageEditor, PdfFileInfo,
+  PdfFileStamp, PdfXmpMetadata and PdfConverter. Root cause, re-diagnosed here with a minimal package (`__init__.py` re-exporting `from .facades import
+  X`, `facades.py` defining `class X(_BoundFacade)`): python_surface's `_inherited_private_base_methods` (TC-429) gives the re-export symbol
+  `pkg.X` the methods of its PRIVATE base, so the shell is no longer member-less; run_extraction `_alias_groups` and chunk_builder `_reexport_pairs`
+  both recognise a shell only by being member-less, so the shell and its definition `pkg.facades.X` (own methods plus the same inherited ones) become
+  two unrelated entries, the definition scores 0 and is cut by the cap (it is absent from the committed pdf_python fixture: index 281 is the shell,
+  `facades.PdfFileEditor` is present but `facades.PdfFileSecurity` is not), and the shell is rendered from its own inherited-only list. Defaults,
+  keyword-only and decorators are lost in run_extraction `_python_types_from_surface` (L144-227) because python_surface keeps only `(name,
+  annotation)` per parameter (`_declared_params` L101-123). This card: (1) python_surface records, per parameter, its kind and default source text,
+  and per function its modifiers (static, classmethod, async); (2) the extraction artifact carries `params[].default`, `params[].kind`,
+  `modifiers`, and `reexport_of` on every class/enum re-export; (3) the renderer prints `name: T = default`, the `*` and `/` markers and
+  `[static]` / `[classmethod]` / `[async]`; (4) grouping and pairing of a re-export with its definition uses `reexport_of`, so a shell with inherited
+  members still travels with its definition, and the second slice in build_chunks counts a shell and its definition as ONE slot and never separates
+  them; (5) a data-driven test over the 12 committed python fixtures with an explicit, stale-checked documented-gap mechanism keyed on the fixture's
+  `extractor_version`. What does NOT change: the committed fixtures (a later re-extraction card regenerates them), the tree-sitter languages, how a
+  property is detected (the `writable` flag of a getter with a `@x.setter` sibling already works and is only pinned here), selection (TC-520), the
+  C#, Java, C++, Go, Rust and TypeScript renderers' output for entries that do not carry the new keys.
+depends_on:
+- TC-521
+- TC-520
+- TC-473
+- TC-429
+- TC-396
+- TC-382
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+- src/foss_mcp/extraction/run_extraction.py
+- src/foss_mcp/indexing/chunk_builder.py
+- tests/extraction/test_python_fidelity.py
+- tests/extraction/test_python_fixture_gaps.py
+- tests/indexing/test_chunk_builder_python_signatures.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  ORDER. Runs after TC-521 (and TC-520); the chain 520 -> 521 -> 522 -> 523 exists because the four cards edit run_extraction.py and chunk_builder.py
+  (and 521/523 api_surface.py); dispatch strictly in id order. This card does NOT edit api_surface.py: Python is never routed through it
+  (`run_extraction.extract_from_clone` sends platform python to python_surface.py; lang/python.py is a parity oracle only - do not touch it). Never
+  print or log any environment value.
+- >-
+  READ FIRST. src/foss_mcp/extraction/tree_sitter_engine/python_surface.py: `PublicSymbol` (L39-60), `_declared_params` L101-123, `_methods` L292-335,
+  `_OriginDefinition` L416, `_origin_definition`, `_reexported_methods`, `_inherited_private_base_methods` L673-750 (TC-429), `inspect_public_surface`
+  L751-855 (the `replace(symbol, ..., params=...)` of a resolved re-export); run_extraction.py `_python_types_from_surface` L144-227,
+  `_alias_groups` L434-474, `reduce_fixture`; chunk_builder.py `_param_text` L117, `_modifiers_suffix` L127, `_method_line` L137, `_reexport_pairs`
+  L350-375, `build_chunks_from_api_surface` L378-422 (the `[:max_types]` slice at L384-386); the existing tests that pin this behaviour and must stay
+  green UNCHANGED: tests/extraction/tree_sitter_engine/test_python_surface.py (it compares whole PublicSymbol objects for methods with no
+  parameters, so a new field must default to an empty tuple and stay empty for them), test_python_surface_members.py (`.params ==` tuples: do not
+  change the shape of `params`), test_python_surface_mixins.py, tests/extraction/test_run_extraction_python.py, tests/extraction/
+  test_run_extraction_selection.py (shell tests), tests/indexing/test_chunk_builder_honesty.py (TC-382 rule 8 stub pairing). Reproduce first with a
+  scratch package: pkg/__init__.py `from .facades import PdfFileSecurity`; pkg/facades.py `class _BoundFacade: def bind_pdf(self, path)...; def
+  save(self, path=None, *, overwrite=False)` and `class PdfFileSecurity(_BoundFacade)` with `encrypt_file(self, user, owner, *, permissions=0,
+  keysize=128)`, a `@staticmethod make(a, /, b=1, *args, c, d=None, **kw)`, a `@classmethod from_path`, an `async def run`: today the shell has only
+  bind_pdf and save, the definition is a separate entry, and `save` prints `path, overwrite` with no default.
+- >-
+  CHANGE 1 (python_surface.py, which is excluded from ruff and not typed-checked). Add, on its own line, `_DEFAULT_TEXT_LIMIT = 120`. Add
+  `PublicSymbol.param_details: tuple[tuple[str, str, str], ...] = ()` and `PublicSymbol.modifiers: tuple[str, ...] = ()` as the LAST two fields (every
+  existing constructor call and equality keeps working). `param_details` holds one `(name, kind, default)` per entry of `params`, same order and same
+  names (`*args` and `**kw` keep their stars), `kind` one of positional, positional_only, var_positional, keyword_only, var_keyword, `default` the
+  source text `ast.unparse(default_node)` truncated to `_DEFAULT_TEXT_LIMIT` characters with a trailing `...` when cut, empty when none. Add
+  `_declared_param_details(node)` next to `_declared_params`, written with exactly these two lines so the card's negative control can find them:
+  `positional = [*args.posonlyargs, *args.args]` (after dropping a leading self or cls from the NAMES, defaults stay aligned with the original list, so
+  compute the defaults against the list BEFORE the drop) and `defaults = [None] * (len(positional) - len(args.defaults)) + list(args.defaults)`; keyword-only
+  defaults come from `args.kw_defaults` (an entry None means required). `modifiers`: for a function or method, `static` when decorated `staticmethod`
+  (also `builtins.staticmethod`), `classmethod` when decorated `classmethod`, `async` for `AsyncFunctionDef`, in that order, found by name even when
+  other decorators are stacked; a property getter has none. Fill both fields in `_module_symbols` (module functions), `_methods` (methods) and
+  `_OriginDefinition` + `_origin_definition` + the `replace(symbol, ...)` of `inspect_public_surface` (a re-exported function keeps its defaults and
+  modifiers); `_reexported_methods` and `_inherited_private_base_methods` use `replace` and already keep them.
+- >-
+  CHANGE 2 (run_extraction.py `_python_types_from_surface`). Method and function param dicts become `{"name", "type"}` plus `"default"` ONLY when
+  non-empty and `"kind"` ONLY when it is positional_only or keyword_only (var_positional and var_keyword are already visible from the star prefix);
+  an entry whose symbol has modifiers gets `"modifiers": [...]` (methods and module functions; constructors keep none). A class/enum symbol whose
+  `public_by` is "reexport" and whose `reexported_from` is set gets `"reexport_of": <reexported_from>` (functions do not: they already carry the
+  origin's params). `_alias_groups`: first pair every entry with `reexport_of` to the entry whose `class_import` equals it, following a chain of such
+  entries up to 5 hops without looping; a pair joins the definition's group as a shell EVEN WHEN the shell has members of its own (the methods
+  TC-429 gave it from a private base) and such a shell is not offered as a "definition" for the member-less heuristic; entries without the key
+  use today's heuristic unchanged. Set `EXTRACTOR_VERSION = 4` (the line created by TC-520 and bumped by TC-521).
+- >-
+  CHANGE 3 (chunk_builder.py). (a) `_method_line` renders the parameter list from the dicts: for a method whose params carry `kind`, insert `*`
+  before the first `keyword_only` parameter unless an earlier parameter is a `*name` (var_positional), and `/` right after the last `positional_only`
+  parameter; the marker is a plain token in the comma list, never a parameter (`save(path: str = None, *, overwrite = False)`); defaults and types
+  already render through `_param_text` (`name: T = d`, `name = d`). Entries without `kind`/`default` render byte for byte as before. `[static]`,
+  `[classmethod]` and `[async]` come from the existing `_modifiers_suffix`. (b) `_reexport_pairs`: an entry with `reexport_of` whose target is another
+  entry (same chain rule, 5 hops) pairs with it first, whatever members the shell has; the existing member-less `__init__.py` heuristic is the
+  fallback for entries without the key. A paired shell is rendered from its definition (`members_from`, already the behaviour). (c)
+  `build_chunks_from_api_surface`: compute the pairs over ALL non-test entries BEFORE slicing; a unit is a definition together with its paired shells
+  (or one unpaired entry), positioned at the earliest member's place in the fixture order; the first `max_types` units are kept, every member of a kept
+  unit is kept, the output keeps fixture order. `max_types` therefore counts slots, a shell and its definition cost one, and the cap never separates
+  them (document this in the docstring; the coverage line still counts entries, so `API-Coverage` can show more entries than `max_types`). For a
+  fixture with no python shells the result is identical to today's.
+- >-
+  TESTS (offline, deterministic, no skipped tests, no xfail; the sample package is written from string constants inside the test module into
+  tmp_path, NOT committed under tests/fixtures, because ruff lints and formats every .py file there). tests/extraction/test_python_fidelity.py (NEW,
+  at least 24 tests): the sample defines `Account.__init__(self, id, password=None, *, retries=3)`, `Account.open(cls, path, /, mode="r", *args,
+  strict, quiet=False, **extra)` as a classmethod, a `@staticmethod make(a, /, b=1)`, an `async def sync(self, *, force=False)`, a property `size`
+  with and without a setter, a module function `load(path, *, encoding="utf-8")`, a decorated static (`@staticmethod` stacked with another
+  decorator), a default of `{"k": [1, 2]}` and one longer than 120 characters, a private base class with `def bind(self, path=None, *,
+  overwrite=False)` and a public `class Facade(_Base)` in `facades.py` re-exported from `__init__.py`, a second re-exported function with defaults.
+  Tests: `test_defaults_are_captured_as_source_text`, `test_long_default_is_cut_at_the_limit_with_an_ellipsis`, `test_keyword_only_params_carry_a_
+  kind`, `test_positional_only_params_carry_a_kind`, `test_star_args_keep_their_stars_and_no_kind`, `test_staticmethod_is_a_modifier`,
+  `test_classmethod_is_a_modifier`, `test_async_is_a_modifier_on_methods_and_functions`, `test_stacked_decorators_keep_the_static_modifier`,
+  `test_property_with_setter_is_writable_and_getter_only_is_read_only`, `test_constructor_defaults_are_captured`, `test_module_function_defaults_
+  and_kwonly`, `test_reexported_function_keeps_defaults_and_modifiers`, `test_inherited_private_base_methods_keep_their_defaults`,
+  `test_reexport_shell_is_flagged_with_its_origin`, `test_unannotated_param_still_has_an_empty_type`, `test_shell_with_inherited_members_stays_
+  grouped_with_its_definition` (reduce_fixture with a cap that keeps only the definition's group: both entries kept), `test_the_definition_is_
+  pulled_in_when_the_shell_ranks_first`, `test_extraction_is_deterministic`, `test_extractor_version_is_at_least_four`, and the ORACLE test
+  `test_rendered_signatures_match_the_ast_oracle`: parametrized over every public method and function of the sample (at least 12 cases), builds the
+  chunk text with `build_chunks_from_api_surface`, parses the `Methods:` lines, and compares each rendered parameter list with an expected list
+  computed independently in the test from `ast.parse` of the same source (`ast.unparse(node.args)` split at top-level commas, the leading self/cls
+  removed, `x=1` normalised to the rendered `x = 1`), including the `*` and `/` markers and the modifier suffix - the py_audit.py idea made
+  permanent; assert zero mismatches, at least one default, one `*` marker, one `/` marker, one `[static]`, one `[classmethod]` and one `[async]` were
+  seen, so an oracle that checks nothing cannot pass. tests/indexing/test_chunk_builder_python_signatures.py (NEW, at least 14 tests, synthetic
+  fixture dicts): marker insertion and its absence after `*args`, `/` placement, both together, entries without `kind` unchanged, default and
+  modifier rendering, `test_shell_and_definition_cost_one_slot`, `test_the_cap_never_splits_a_pair` (units A, B, C each with a shell, max_types 2 keeps
+  four entries), `test_a_shell_ranking_first_pulls_its_definition`, `test_unpaired_shell_is_an_ordinary_slot`, `test_explicit_pairing_wins_for_a_
+  shell_with_members`, `test_legacy_heuristic_pairing_still_works`, `test_rendered_shell_shows_the_definitions_own_methods` (the shell's chunk
+  contains `encrypt_file(` and `Defined-In:`), `test_non_python_fixture_is_unchanged` (the committed pdf_net fixture still renders `300 of 901 types`
+  and 300 symbol chunks), `test_chunk_builder_does_not_import_run_extraction`. tests/extraction/test_python_fixture_gaps.py (NEW, at least 15 tests,
+  reads the 12 committed python fixtures 3d_python, barcode_python, cells_python, email_python, html_python, jmap_python, note_python, page_python,
+  pdf_python, slides_python, tex_python, words_python): `REQUIRED_VERSION = 4` and `KNOWN_GAP` (a dict of exactly those 12 names, each with a one-line
+  reason; pdf/python, cells/python, jmap/python cite the reviewer counts above). One parametrized test per pilot: when the fixture's `extractor_version`
+  (absent means 1) is below REQUIRED_VERSION the pilot MUST be in KNOWN_GAP and, for pdf_python, cells_python and jmap_python, the documented gap must
+  still be real (no method parameter in the fixture has a `default`, no method has the `static`/`classmethod` modifier); when it is at or above
+  REQUIRED_VERSION the pilot must NOT be in KNOWN_GAP and, for those three, the fixture must have at least one parameter default, at least one
+  `modifiers` containing static or classmethod, and every entry with `reexport_of` must resolve to an entry of the fixture or to a private origin.
+  Plus `test_known_gap_is_exactly_the_old_fixtures` (KNOWN_GAP equals the set of python fixtures below the required version, so a regenerated
+  fixture that is not removed from KNOWN_GAP fails) and `test_pdf_python_facade_gap_is_documented` (aspose_pdf.facades.PdfFileSecurity is absent from
+  the committed fixture today; the test states it and goes red the day the fixture is regenerated without updating it). The re-extraction card
+  deletes the matching KNOWN_GAP entries; that is the point of the mechanism, not a skipped test.
+- >-
+  Run the first check command, then the second. Before finishing list every existing test whose assertion a changed `PublicSymbol` field could touch
+  (expected none changed). Do NOT regenerate any committed fixture and do NOT touch schemas/: the fixture format gains additive keys only (`default`,
+  `kind` on params, `modifiers`, `reexport_of`) and no schema in schemas/ describes the api_surface fixture; if the worker finds one that does,
+  stop and say so in the report. Write commit messages as UTF-8 without a byte-order mark.
+actions:
+- >-
+  Capture Python parameter defaults, keyword-only and positional-only markers and the static/classmethod/async decorators, and render them.
+- >-
+  Pair a re-export with its definition by explicit origin so a facade keeps its own methods, and make the symbol cap count a pair as one slot.
+- >-
+  Pin the behaviour with an ast oracle and a stale-checked documented-gap test over the committed python fixtures.
+checks:
+- command: '{python} -m pytest tests/extraction/test_python_fidelity.py tests/extraction/test_python_fixture_gaps.py tests/indexing/test_chunk_builder_python_signatures.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_extraction_notice.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+min_tests: 45
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/python_surface.py');s=p.read_text(encoding='utf-8');old='defaults = [None] * (len(positional) - len(args.defaults)) + list(args.defaults)';assert s.count(old)==1;p.write_text(s.replace(old,'defaults = [None] * len(positional)',1),encoding='utf-8')"
+  rationale: >-
+    Makes the extractor see no default for any positional parameter, the exact failure the reviewer measured (every defaulted parameter rendered as
+    required): the default-capture tests, the ast oracle test and the rendering tests that expect `= None` fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-522/receipt.json
+closeout:
+- >-
+  Python signatures keep defaults, the `*` and `/` markers and static/classmethod/async marks; a facade exported from a package `__init__` carries its
+  own methods; the symbol cap cannot separate a re-export from its definition. The 12 committed python fixtures are still version 1 and listed in
+  KNOWN_GAP; the re-extraction card must regenerate at least pdf_python, cells_python, jmap_python and slides_python (and ideally all 12), verify
+  `extractor_version` 4 or higher, that aspose_pdf.facades.PdfFileSecurity and PdfFileEditor are present with encrypt_file and merge methods, that
+  defaults and modifiers are non-zero, and delete the matching KNOWN_GAP entries and refresh the docs-identifiers allowlist, then the image is rebuilt.
+recovery: Re-run from a clean tree.
